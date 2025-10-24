@@ -245,11 +245,189 @@ async fn extract_comments_from_youtube(url: &str) -> Result<Vec<String>> {
     Ok(comments)
 }
 
+#[tauri::command]
+async fn extract_instagram_comments(url: String) -> Result<Vec<String>, String> {
+    extract_comments_from_instagram(&url)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Extrae comentarios de Instagram detectando el elemento scrolleable dentro de <main>
+async fn extract_comments_from_instagram(url: &str) -> Result<Vec<String>> {
+    let chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    
+    let config = BrowserConfig::builder()
+        .chrome_executable(chrome_path)
+        .disable_default_args()
+        .args(vec![
+            "--disable-blink-features=AutomationControlled",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-web-security",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--window-size=1920,1080",
+            "--start-maximized",
+        ])
+        .build()
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    let (mut browser, mut handler) = Browser::launch(config).await?;
+
+    let handle = tokio::spawn(async move {
+        while let Some(h) = handler.next().await {
+            if h.is_err() {
+                break;
+            }
+        }
+    });
+
+    let page = browser.new_page("about:blank").await?;
+
+    let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    
+    page.execute(chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
+        user_agent: user_agent.to_string(),
+        accept_language: Some("es-ES,es;q=0.9,en;q=0.8".to_string()),
+        platform: Some("MacIntel".to_string()),
+        user_agent_metadata: None,
+    })
+    .await?;
+
+    // Anti-detección
+    page.evaluate(
+        r#"
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+        window.chrome = { runtime: {} };
+        "#,
+    )
+    .await?;
+
+    // Navegar al post
+    page.goto(url).await?;
+    page.wait_for_navigation().await?;
+    
+    // Esperar a que carguen los comentarios iniciales
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+    // Detectar el elemento scrolleable dentro de <main> y hacer scroll
+    for page_num in 0..20 {
+        println!("Cargando página {} de comentarios de Instagram...", page_num + 1);
+        
+        // Script para detectar el elemento scrolleable y hacer scroll hasta que no haya cambios
+        page.evaluate(
+            r#"
+            (async () => {
+                const main = document.querySelector('main');
+                if (!main) {
+                    console.log('No se encontró elemento <main>');
+                }
+                
+                // Buscar el elemento scrolleable
+                let scrollableElement = null;
+                const elements = main.querySelectorAll('*');
+                
+                for (let el of elements) {
+                    const computedStyle = window.getComputedStyle(el);
+                    const overflowY = computedStyle.overflowY;
+
+                    if ((overflowY === 'auto' || overflowY === 'scroll')) {
+                        scrollableElement = el;
+                        console.log('Elemento scrolleable encontrado:', el);
+                        break;
+                    }
+                }
+                
+                if (!scrollableElement) {
+                    for (let el of elements) {
+                        if (el.scrollHeight > el.clientHeight && el.clientHeight > 0) {
+                            scrollableElement = el;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!scrollableElement) {
+                    console.log('No se encontró elemento scrolleable');
+                }
+                
+                window.__scrollableElement = scrollableElement;
+                
+                // Scroll inteligente: detectar cuándo no hay más cambios en el DOM
+                let previousHeight = scrollableElement.scrollHeight;
+                let noChangeCount = 0;
+                const maxNoChangeIterations = 3; // Si no cambia 3 veces seguidas, parar
+                const maxAttempts = 15;
+                
+                for (let i = 0; i < maxAttempts; i++) {
+                    const beforeHeight = scrollableElement.scrollHeight;
+                    
+                    // Hacer scroll
+                    scrollableElement.scrollTop = scrollableElement.scrollHeight;
+                    console.log('Scroll realizado. Altura antes:', beforeHeight);
+                    
+                    // Esperar a que cargue contenido
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const afterHeight = scrollableElement.scrollHeight;
+                    
+                    // Si la altura no cambió, incrementar contador
+                    if (afterHeight === beforeHeight) {
+                        noChangeCount++;
+                        console.log('Sin cambios detectados:', noChangeCount);
+                        
+                        if (noChangeCount >= maxNoChangeIterations) {
+                            console.log('No hay más contenido para cargar');
+                            break;
+                        }
+                    } else {
+                        noChangeCount = 0; // Reset si hay cambios
+                        console.log('Contenido nuevo detectado. Altura anterior:', beforeHeight, 'Nueva altura:', afterHeight);
+                    }
+                }
+            })();
+            "#,
+        )
+        .await?;
+        
+        // Pequeña pausa entre iteraciones
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    }
+
+    // Extraer todos los comentarios del scrollableElement guardado
+    let comments: Vec<String> = page.evaluate(
+        r#"
+        (() => {
+            const scrollableElement = window.__scrollableElement;
+            if (!scrollableElement) {
+                console.log('No hay elemento scrolleable guardado');
+                return [];
+            }
+            
+            return Array.from(scrollableElement.querySelectorAll('span'))
+                .map(el => el.textContent.trim())
+                .filter(text => text.length > 10)
+                .filter((text, index, arr) => arr.indexOf(text) === index)
+                .slice(0, 200)
+        })();
+        "#,
+    )
+    .await?
+    .into_value()?;
+
+    browser.close().await?;
+    handle.await?;
+
+    Ok(comments)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, extract_url_to_markdown, extract_youtube_comments])
+        .invoke_handler(tauri::generate_handler![greet, extract_url_to_markdown, extract_youtube_comments, extract_instagram_comments])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

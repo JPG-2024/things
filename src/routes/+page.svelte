@@ -38,6 +38,22 @@
       loading = false;
     }
   }
+
+  async function extractInstagramComments(event: Event) {
+    event.preventDefault();
+    loading = true;
+    error = "";
+    markdown = "";
+    comments = [];
+
+    try {
+      comments = await invoke("extract_instagram_comments", { url });
+    } catch (err) {
+      error = String(err);
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <main class="container">
@@ -65,6 +81,14 @@
     >
       {loading ? "Extracting..." : "Extract Comments"}
     </button>
+    <button 
+      type="button"
+      onclick={extractInstagramComments}
+      disabled={loading}
+      style="margin-left: 5px; background-color: #e1306c;"
+    >
+      {loading ? "Extracting..." : "Extract Instagram"}
+    </button>
   </form>
 
   {#if error}
@@ -85,7 +109,7 @@
 
   {#if comments.length > 0}
     <div class="comments-container">
-      <h3>YouTube Comments ({comments.length})</h3>
+      <h3>Comments ({comments.length})</h3>
       <div class="comments-list">
         {#each comments as comment, index}
           <div class="comment-item">
