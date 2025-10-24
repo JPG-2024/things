@@ -200,26 +200,40 @@ async fn extract_comments_from_youtube(url: &str) -> Result<Vec<String>> {
     // Esperar a que carguen los comentarios iniciales
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-    // Scroll para cargar más comentarios
-    for _ in 0..5 {
+    // Scroll para cargar más comentarios - MEJORADO
+    let pages_to_load = 5; // Número de "páginas" a cargar
+    
+    for page_num in 0..pages_to_load {
+        println!("Cargando página {} de comentarios...", page_num + 1);
+        
+        // Script para hacer scroll al final y cargar más comentarios
         page.evaluate(
             r#"
-            document.querySelector('#comments')?.scrollIntoView();
-            window.scrollBy(0, window.innerHeight);
+            (async () => {
+                const scrollDelay = 1000;
+                const scrollAttempts = 10;
+                
+                for (let i = 0; i < scrollAttempts; i++) {
+                    // Scroll al final del documento
+                    window.scrollTo(0, document.documentElement.scrollHeight);
+                    await new Promise(resolve => setTimeout(resolve, scrollDelay));
+                }
+            })();
             "#,
         )
         .await?;
         
-        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        // Esperar a que carguen nuevos comentarios
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 
-    // Extraer comentarios
+    // Extraer todos los comentarios cargados
     let comments: Vec<String> = page.evaluate(
         r#"
-        Array.from(document.querySelectorAll('#content'))
-            .slice(0, 50)  // Limitar a 50 comentarios
+        Array.from(document.querySelectorAll('#content-text'))
             .map(el => el.textContent.trim())
-            .filter(text => text.length > 0)
+            .filter(text => text.length > 10)  // Filtrar textos muy cortos
+            .slice(0, 200)  // Limitar a 200 comentarios
         "#,
     )
     .await?
