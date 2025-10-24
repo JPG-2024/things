@@ -1,56 +1,116 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
 
-  let name = $state("");
-  let greetMsg = $state("");
+  let url = $state("");
+  let markdown = $state("");
+  let comments = $state<string[]>([]);
+  let loading = $state(false);
+  let error = $state("");
 
-  async function greet(event: Event) {
+  async function extractUrlToMarkdown(event: Event) {
     event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+    loading = true;
+    error = "";
+    markdown = "";
+    comments = [];
+
+    try {
+      markdown = await invoke("extract_url_to_markdown", { url });
+    } catch (err) {
+      error = String(err);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function extractYoutubeComments(event: Event) {
+    event.preventDefault();
+    loading = true;
+    error = "";
+    markdown = "";
+    comments = [];
+
+    try {
+      comments = await invoke("extract_youtube_comments", { url });
+    } catch (err) {
+      error = String(err);
+    } finally {
+      loading = false;
+    }
   }
 </script>
 
 <main class="container">
-  <h1>Welcome to Tauri + Svelte</h1>
-
-  <div class="row">
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    </a>
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-    </a>
-  </div>
-  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
-
-  <form class="row" onsubmit={greet}>
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button type="submit">Greet</button>
+  <h2>Extract Content</h2>
+  <form class="row">
+    <input 
+      id="url-input" 
+      type="url"
+      placeholder="Enter URL (e.g., https://youtube.com/watch?v=... or any website)..." 
+      bind:value={url}
+      required
+    />
+    <button 
+      type="button"
+      onclick={extractUrlToMarkdown}
+      disabled={loading}
+    >
+      {loading ? "Extracting..." : "Extract Markdown"}
+    </button>
+    <button 
+      type="button"
+      onclick={extractYoutubeComments}
+      disabled={loading}
+      style="margin-left: 5px; background-color: #ff0000;"
+    >
+      {loading ? "Extracting..." : "Extract Comments"}
+    </button>
   </form>
-  <p>{greetMsg}</p>
+
+  {#if error}
+    <div class="error">
+      <strong>Error:</strong> {error}
+    </div>
+  {/if}
+
+  {#if markdown}
+    <div class="markdown-container">
+      <h3>Extracted Markdown:</h3>
+      <pre><code>{markdown}</code></pre>
+      <button onclick={() => navigator.clipboard.writeText(markdown)}>
+        Copy to Clipboard
+      </button>
+    </div>
+  {/if}
+
+  {#if comments.length > 0}
+    <div class="comments-container">
+      <h3>YouTube Comments ({comments.length})</h3>
+      <div class="comments-list">
+        {#each comments as comment, index}
+          <div class="comment-item">
+            <span class="comment-number">#{index + 1}</span>
+            <p>{comment}</p>
+          </div>
+        {/each}
+      </div>
+      <button onclick={() => navigator.clipboard.writeText(comments.join('\n\n'))}>
+        Copy All Comments
+      </button>
+    </div>
+  {/if}
 </main>
 
 <style>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.svelte-kit:hover {
-  filter: drop-shadow(0 0 2em #ff3e00);
-}
 
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  background-color: #f6f6f6;
 
   color: #0f0f0f;
-  background-color: #f6f6f6;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 24px;
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -60,19 +120,19 @@
 }
 
 .container {
-  margin: 0;
-  padding-top: 10vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  margin: 0;
+  padding-top: 10vh;
   text-align: center;
 }
 
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
   transition: 0.75s;
+  will-change: filter;
+  padding: 1.5em;
+  height: 6em;
 }
 
 .logo.tauri:hover {
@@ -85,8 +145,8 @@
 }
 
 a {
-  font-weight: 500;
   color: #646cff;
+  font-weight: 500;
   text-decoration: inherit;
 }
 
@@ -100,16 +160,16 @@ h1 {
 
 input,
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
   transition: border-color 0.25s;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: #ffffff;
+  padding: 0.6em 1.2em;
+  color: #0f0f0f;
+  font-weight: 500;
+  font-size: 1em;
+  font-family: inherit;
 }
 
 button {
@@ -133,10 +193,114 @@ button {
   margin-right: 5px;
 }
 
+#url-input {
+  flex: 1;
+  margin-right: 5px;
+  min-width: 300px;
+}
+
+.error {
+  margin-top: 10px;
+  border: 1px solid #d32f2f;
+  border-radius: 8px;
+  background-color: #ffebee;
+  padding: 10px;
+  color: #d32f2f;
+}
+
+.markdown-container {
+  margin-top: 20px;
+  max-width: 100%;
+  text-align: left;
+}
+
+.markdown-container pre {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  padding: 15px;
+  max-height: 400px;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.markdown-container code {
+  color: #333;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: "Courier New", monospace;
+}
+
+.markdown-container button {
+  margin-top: 10px;
+  border: none;
+  background-color: #4caf50;
+  color: white;
+}
+
+.markdown-container button:hover {
+  border-color: #45a049;
+  background-color: #45a049;
+}
+
+.comments-container {
+  margin-top: 20px;
+  max-width: 100%;
+  text-align: left;
+  padding: 0 20px;
+}
+
+.comments-list {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  padding: 15px;
+  max-height: 500px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.comment-item {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-left: 3px solid #396cd8;
+  background-color: #ffffff;
+  border-radius: 4px;
+}
+
+.comment-number {
+  display: inline-block;
+  background-color: #396cd8;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.comment-item p {
+  margin: 5px 0 0 0;
+  color: #333;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.comments-container button {
+  margin-top: 10px;
+  border: none;
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.comments-container button:hover {
+  background-color: #ff5252;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    color: #f6f6f6;
     background-color: #2f2f2f;
+    color: #f6f6f6;
   }
 
   a:hover {
@@ -145,8 +309,8 @@ button {
 
   input,
   button {
-    color: #ffffff;
     background-color: #0f0f0f98;
+    color: #ffffff;
   }
   button:active {
     background-color: #0f0f0f69;
