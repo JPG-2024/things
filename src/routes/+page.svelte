@@ -71,6 +71,18 @@
       loading = false;
     }
   }
+
+  async function waitForBrowser() {
+    while (!(await invoke('is_browser_ready'))) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    console.log('Browser listo!');
+  }
+
+  $effect.pre(() => {
+    waitForBrowser();
+  });
+
 </script>
 
 <main class="container">
@@ -110,7 +122,7 @@
   {/if}
 
   {#if imagesSources.length}
-      <div class="images-container">
+      <div class="image-container">
       {#each imagesSources as image}
         <img class="image" src="{image}" alt="description">
       {/each}        
@@ -194,6 +206,14 @@ button:active {
   flex: 1;
   margin-right: 5px;
   min-width: 300px;
+}
+
+.image-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .image {

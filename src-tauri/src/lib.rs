@@ -36,7 +36,7 @@ async fn init_browser() -> Result<()> {
             "--exclude-switches=enable-automation",
             "--disable-extensions",
             "--profile-directory=Default",
-            "--incognito=false",
+            "--incognito",
         ])
         .build()
         .map_err(|e| anyhow::anyhow!(e))?;
@@ -53,6 +53,13 @@ async fn init_browser() -> Result<()> {
 
     *browser_lock = Some(browser);
     Ok(())
+}
+
+/// Verifica si el navegador está listo
+#[tauri::command]
+async fn is_browser_ready() -> bool {
+    let browser_lock = BROWSER.lock().await;
+    browser_lock.is_some()
 }
 
 /// Extrae el contenido de una URL
@@ -118,8 +125,15 @@ async fn extract_content_to_markdown(url: &str) -> Result<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = init_browser().await;
+            });
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![extract_url_to_markdown])
+        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, is_browser_ready])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
