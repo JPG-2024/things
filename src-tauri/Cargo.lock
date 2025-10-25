@@ -2255,6 +2255,7 @@ dependencies = [
  "chromiumoxide",
  "futures",
  "html2md",
+ "lazy_static",
  "serde",
  "serde_json",
  "tauri",
