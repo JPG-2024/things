@@ -3,9 +3,12 @@
 
   let url = $state("");
   let markdown = $state("");
+  let imagesSources = $state<string[]>([]);
   let comments = $state<string[]>([]);
   let loading = $state(false);
+  let loadingImages = $state(false);
   let error = $state("");
+  let errorImages = $state("");
 
   async function extractUrlToMarkdown(event: Event) {
     event.preventDefault();
@@ -16,12 +19,26 @@
 
     try {
       markdown = await invoke("extract_url_to_markdown", { url });
+
+      const regex = /<img[^>]+src=["']([^"']+)["']/g;
+      const sources = [];
+
+      let match;
+      while ((match = regex.exec(markdown)) !== null) {
+        sources.push(match[1]);
+      }
+
+      imagesSources = sources;
+      console.log("Extracted image sources:", imagesSources);
+
     } catch (err) {
       error = String(err);
     } finally {
       loading = false;
     }
   }
+
+
 
   async function extractYoutubeComments(event: Event) {
     event.preventDefault();
@@ -62,32 +79,17 @@
     <input 
       id="url-input" 
       type="url"
-      placeholder="Enter URL (e.g., https://youtube.com/watch?v=... or any website)..." 
+      placeholder="Enter URL (e.g., https://youtube.com/watch?v=...)..." 
       bind:value={url}
       required
     />
     <button 
       type="button"
+      class="button"
       onclick={extractUrlToMarkdown}
       disabled={loading}
     >
       {loading ? "Extracting..." : "Extract Markdown"}
-    </button>
-    <button 
-      type="button"
-      onclick={extractYoutubeComments}
-      disabled={loading}
-      style="margin-left: 5px; background-color: #ff0000;"
-    >
-      {loading ? "Extracting..." : "Extract Comments"}
-    </button>
-    <button 
-      type="button"
-      onclick={extractInstagramComments}
-      disabled={loading}
-      style="margin-left: 5px; background-color: #e1306c;"
-    >
-      {loading ? "Extracting..." : "Extract Instagram"}
     </button>
   </form>
 
@@ -107,30 +109,31 @@
     </div>
   {/if}
 
-  {#if comments.length > 0}
-    <div class="comments-container">
-      <h3>Comments ({comments.length})</h3>
-      <div class="comments-list">
-        {#each comments as comment, index}
-          <div class="comment-item">
-            <span class="comment-number">#{index + 1}</span>
-            <p>{comment}</p>
-          </div>
-        {/each}
+  {#if imagesSources.length}
+      <div class="images-container">
+      {#each imagesSources as image}
+        <img class="image" src="{image}" alt="description">
+      {/each}        
       </div>
-      <button onclick={() => navigator.clipboard.writeText(comments.join('\n\n'))}>
-        Copy All Comments
-      </button>
-    </div>
   {/if}
+
+
 </main>
 
 <style>
 
 :root {
-  background-color: #f6f6f6;
-
-  color: #0f0f0f;
+  border: 8px solid #e0e0e040;
+  background:
+  
+  radial-gradient(
+    circle at top right,
+    transparent 0,
+     rgba(0, 0, 0, 1) 60px,
+    rgba(28, 28, 28, 1) 50%,
+    rgb(86, 9, 76) 100%
+  );
+  color: #ffffff;
   font-weight: 400;
   font-size: 16px;
   line-height: 24px;
@@ -148,56 +151,33 @@
   flex-direction: column;
   justify-content: center;
   margin: 0;
-  padding-top: 10vh;
+  height: 100vh;
   text-align: center;
 }
 
-.logo {
-  transition: 0.75s;
-  will-change: filter;
-  padding: 1.5em;
-  height: 6em;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  color: #646cff;
-  font-weight: 500;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
+input {
+  &:active {
+    border-color: #ff32fc;
+  }
+  &:focus {
+    
+    box-shadow: 0 0 0 5px rgba(255, 186, 237, 0.3);
+    
+  }
 }
 
 input,
 button {
   transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-  border: 1px solid transparent;
+  box-shadow: none;
+  border: 8px solid #e0e0e040;
   border-radius: 8px;
-  background-color: #ffffff;
+  background-color: transparent;
   padding: 0.6em 1.2em;
   color: #0f0f0f;
   font-weight: 500;
   font-size: 1em;
   font-family: inherit;
-}
-
-button {
-  cursor: pointer;
 }
 
 button:hover {
@@ -208,14 +188,7 @@ button:active {
   background-color: #e8e8e8;
 }
 
-input,
-button {
-  outline: none;
-}
 
-#greet-input {
-  margin-right: 5px;
-}
 
 #url-input {
   flex: 1;
@@ -223,37 +196,53 @@ button {
   min-width: 300px;
 }
 
-.error {
-  margin-top: 10px;
-  border: 1px solid #d32f2f;
+.image {
+  margin: 10px;
+  border: 2px solid #ddd;
   border-radius: 8px;
-  background-color: #ffebee;
-  padding: 10px;
-  color: #d32f2f;
+  max-width: 200px;
+  max-height: 200px;
 }
+
+
 
 .markdown-container {
   margin-top: 20px;
   max-width: 100%;
+  color: #fafafa;
   text-align: left;
 }
 
 .markdown-container pre {
-  border: 1px solid #ddd;
+  border: 2px solid #ddd;
   border-radius: 8px;
-  background-color: #f5f5f5;
+  background-color: transparent;
   padding: 15px;
   max-height: 400px;
   overflow-x: auto;
   overflow-y: auto;
+  color: #fafafa;
 }
 
 .markdown-container code {
   color: #333;
+  color: #fafafa;
   font-size: 14px;
+  font-size: 1.2rem;
   line-height: 1.5;
-  font-family: "Courier New", monospace;
+  font-family: "Menlo", monospace;
 }
+
+pre, code {
+  margin: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+}
+
+pre {border: 0; background-color: transparent;}
 
 .markdown-container button {
   margin-top: 10px;
@@ -267,59 +256,7 @@ button {
   background-color: #45a049;
 }
 
-.comments-container {
-  margin-top: 20px;
-  max-width: 100%;
-  text-align: left;
-  padding: 0 20px;
-}
 
-.comments-list {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #f5f5f5;
-  padding: 15px;
-  max-height: 500px;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-
-.comment-item {
-  padding: 10px;
-  margin-bottom: 10px;
-  border-left: 3px solid #396cd8;
-  background-color: #ffffff;
-  border-radius: 4px;
-}
-
-.comment-number {
-  display: inline-block;
-  background-color: #396cd8;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  margin-right: 8px;
-}
-
-.comment-item p {
-  margin: 5px 0 0 0;
-  color: #333;
-  line-height: 1.5;
-  word-wrap: break-word;
-}
-
-.comments-container button {
-  margin-top: 10px;
-  border: none;
-  background-color: #ff6b6b;
-  color: white;
-}
-
-.comments-container button:hover {
-  background-color: #ff5252;
-}
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -327,13 +264,10 @@ button {
     color: #f6f6f6;
   }
 
-  a:hover {
-    color: #24c8db;
-  }
-
   input,
   button {
-    background-color: #0f0f0f98;
+    border: 2px solid #999;
+    background-color: transparent;
     color: #ffffff;
   }
   button:active {
