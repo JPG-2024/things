@@ -132,17 +132,8 @@ async fn fetch_default(url: &str) -> Result<String> {
     extract_content_with_selectors(url, vec!["article", "main"]).await
 }
 
-/// Función genérica que extrae contenido con selectores personalizados
-async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Result<String> {
-    init_browser().await?;
-
-    let browser_lock = BROWSER.lock().await;
-    let browser = browser_lock.as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Browser not initialized"))?;
-
-    let page = browser.new_page("about:blank").await?;
-    drop(browser_lock);
-
+/// Configura una página con anti-detección y user agent
+async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
     let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     
     page.execute(chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
@@ -168,6 +159,29 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
         "#,
     )
     .await?;
+
+    Ok(())
+}
+
+/// Obtiene una página configurada y lista para usar
+async fn get_ready_page() -> Result<chromiumoxide::Page> {
+    init_browser().await?;
+
+    let browser_lock = BROWSER.lock().await;
+    let browser = browser_lock.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Browser not initialized"))?;
+
+    let page = browser.new_page("about:blank").await?;
+    drop(browser_lock);
+
+    configure_page(&page).await?;
+    
+    Ok(page)
+}
+
+/// Función genérica que extrae contenido con selectores personalizados
+async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Result<String> {
+    let page = get_ready_page().await?;
 
     page.goto(url).await?;
     page.wait_for_navigation().await?;
