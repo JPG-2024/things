@@ -266,7 +266,7 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
 /// Extrae información de las imágenes (URL, width, height)
 fn extract_image_srcs(html: &str, base_url: &str) -> Vec<ImageInfo> {
     let document = Html::parse_document(html);
-    let img_selector = match Selector::parse("img") {
+    let img_selector = match Selector::parse("article img") {
         Ok(sel) => sel,
         Err(_) => return Vec::new(),
     };
