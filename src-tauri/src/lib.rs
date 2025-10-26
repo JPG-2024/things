@@ -10,8 +10,17 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::future::Future;
 use std::pin::Pin;
+use serde::{Deserialize};
 
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
+
+#[derive(Deserialize)]
+struct AntiDetectConfig {
+    user_agent: String,
+    accept_language: String,
+    platform: String,
+    script: String,
+}
 
 lazy_static! {
     static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
@@ -20,6 +29,25 @@ lazy_static! {
 static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
 static GITLAB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"gitlab\.com").unwrap());
 static MEDIUM_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"medium\.com").unwrap());
+
+/// Carga la configuración de anti-detección desde el archivo JSON
+fn load_antidetect_config() -> Result<AntiDetectConfig> {
+    let config_str = include_str!("../antidetect.json");
+    serde_json::from_str(config_str).map_err(|e| anyhow::anyhow!("Error cargando config: {}", e))
+}
+
+/// Carga la configuración del navegador desde el archivo JSON
+fn load_browser_config() -> Result<Vec<String>> {
+    let config_str = include_str!("../browser_config.json");
+    let config: serde_json::Value = serde_json::from_str(config_str)?;
+    let args = config["chrome_args"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("No chrome_args found in browser_config.json"))?
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect();
+    Ok(args)
+}
 
 /// Inicializa el navegador una sola vez
 async fn init_browser() -> Result<()> {
@@ -37,25 +65,11 @@ async fn init_browser() -> Result<()> {
     std::fs::create_dir_all(&runner_tmp).map_err(|e| anyhow::anyhow!(e))?;
     std::env::set_var("TMPDIR", runner_tmp.as_os_str());
 
+    let chrome_args = load_browser_config()?;
     let config = BrowserConfig::builder()
         .chrome_executable(chrome_path)
         .disable_default_args()
-        .args(vec![
-            "--disable-blink-features=AutomationControlled",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-web-security",
-            "--disable-features=IsolateOrigins,site-per-process",
-            "--disable-infobars",
-            "--window-size=1920,1080",
-            "--start-maximized",
-            "--exclude-switches=enable-automation",
-            "--disable-extensions",
-            "--profile-directory=Default",
-            "--incognito",
-        ])
+        .args(chrome_args)
         .build()
         .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -134,31 +148,18 @@ async fn fetch_default(url: &str) -> Result<String> {
 
 /// Configura una página con anti-detección y user agent
 async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
-    let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    let config = load_antidetect_config()?;
     
     page.execute(chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
-        user_agent: user_agent.to_string(),
-        accept_language: Some("es-ES,es;q=0.9,en;q=0.8".to_string()),
-        platform: Some("MacIntel".to_string()),
+        user_agent: config.user_agent,
+        accept_language: Some(config.accept_language),
+        platform: Some(config.platform),
         user_agent_metadata: None,
     })
     .await?;
 
-    page.evaluate(
-        r#"
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-        Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es', 'en'] });
-        window.chrome = { runtime: {} };
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => (
-            parameters.name === 'notifications' ?
-                Promise.resolve({ state: Notification.permission }) :
-                originalQuery(parameters) 
-        );
-        "#,
-    )
-    .await?;
+    page.evaluate(config.script.as_str())
+        .await?;
 
     Ok(())
 }
