@@ -16,6 +16,35 @@ use reqwest::Client;
 
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
 
+/// Estructura para almacenar información de las imágenes
+#[derive(Clone, Debug)]
+struct ImageInfo {
+    url: String,
+    width: Option<u32>,
+    height: Option<u32>,
+    size_bytes: Option<u64>,
+}
+
+impl ImageInfo {
+    /// Calcula el área basada en dimensiones (width * height)
+    fn area(&self) -> u64 {
+        match (self.width, self.height) {
+            (Some(w), Some(h)) => (w as u64) * (h as u64),
+            _ => 0,
+        }
+    }
+
+    /// Retorna la puntuación: prioriza área, luego tamaño en bytes
+    fn score(&self) -> u64 {
+        let area = self.area();
+        if area > 0 {
+            area
+        } else {
+            self.size_bytes.unwrap_or(0)
+        }
+    }
+}
+
 #[derive(Deserialize)]
 struct AntiDetectConfig {
     user_agent: String,
@@ -234,8 +263,8 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
     Ok(markdown)
 }
 
-/// Extrae los src de las imágenes sin mantener el Html en el Future
-fn extract_image_srcs(html: &str, base_url: &str) -> Vec<String> {
+/// Extrae información de las imágenes (URL, width, height)
+fn extract_image_srcs(html: &str, base_url: &str) -> Vec<ImageInfo> {
     let document = Html::parse_document(html);
     let img_selector = match Selector::parse("img") {
         Ok(sel) => sel,
@@ -243,30 +272,55 @@ fn extract_image_srcs(html: &str, base_url: &str) -> Vec<String> {
     };
 
     document.select(&img_selector)
-        .filter_map(|img| img.value().attr("src"))
-        .map(|src| {
-            if src.starts_with("http") {
-                src.to_string()
-            } else if src.starts_with("/") {
-                match url::Url::parse(base_url) {
-                    Ok(parsed_url) => {
-                        let base = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""));
-                        format!("{}{}", base, src)
-                    },
-                    Err(_) => src.to_string(),
+        .filter_map(|img| {
+            img.value().attr("src").map(|src| {
+                let full_url = if src.starts_with("http") {
+                    src.to_string()
+                } else if src.starts_with("/") {
+                    match url::Url::parse(base_url) {
+                        Ok(parsed_url) => {
+                            let base = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""));
+                            format!("{}{}", base, src)
+                        },
+                        Err(_) => src.to_string(),
+                    }
+                } else {
+                    match url::Url::parse(base_url) {
+                        Ok(parsed_url) => {
+                            let base_path = parsed_url.path().trim_end_matches('/');
+                            let base = format!("{}://{}{}/", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""), base_path);
+                            format!("{}{}", base, src)
+                        },
+                        Err(_) => src.to_string(),
+                    }
+                };
+
+                // Extraer width y height del elemento img
+                let width = img.value().attr("width").and_then(|w| w.parse::<u32>().ok());
+                let height = img.value().attr("height").and_then(|h| h.parse::<u32>().ok());
+
+                ImageInfo {
+                    url: full_url,
+                    width,
+                    height,
+                    size_bytes: None, // Se rellenará después con HEAD request
                 }
-            } else {
-                match url::Url::parse(base_url) {
-                    Ok(parsed_url) => {
-                        let base_path = parsed_url.path().trim_end_matches('/');
-                        let base = format!("{}://{}{}/", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""), base_path);
-                        format!("{}{}", base, src)
-                    },
-                    Err(_) => src.to_string(),
-                }
-            }
+            })
         })
         .collect()
+}
+
+/// Obtiene el tamaño de la imagen en bytes usando HEAD request
+async fn get_image_size(client: &Client, url: &str) -> Option<u64> {
+    match client.head(url).send().await {
+        Ok(response) => {
+            response.headers()
+                .get("content-length")
+                .and_then(|h| h.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok())
+        },
+        Err(_) => None,
+    }
 }
 
 /// Descarga todas las imágenes de una URL y las guarda en el disco
@@ -280,51 +334,69 @@ async fn download_images(url: String, output_dir: String) -> Result<Vec<String>,
 
     let html: String = page.content().await.map_err(|e| e.to_string())?;
     
-    // Procesar HTML inmediatamente y extraer solo los URLs
-    let img_urls = extract_image_srcs(&html, &url);
+    // Procesar HTML inmediatamente y extraer información de imágenes
+    let mut img_infos = extract_image_srcs(&html, &url);
 
     // Crear directorio si no existe
     let dir_path = PathBuf::from(&output_dir);
     std::fs::create_dir_all(&dir_path).map_err(|e| format!("Error creating directory: {}", e))?;
 
     let client = Client::new();
-    let mut downloaded_files = Vec::new();
 
-    for (index, full_url) in img_urls.into_iter().enumerate() {
+    // Obtener tamaños en bytes para las imágenes que no tienen dimensiones
+    for img_info in &mut img_infos {
+        if img_info.width.is_none() || img_info.height.is_none() {
+            if let Some(size) = get_image_size(&client, &img_info.url).await {
+                img_info.size_bytes = Some(size);
+                println!("📊 Tamaño de {}: {} bytes", img_info.url, size);
+            }
+        } else {
+            println!("📐 Dimensiones de {}: {}x{}", img_info.url, img_info.width.unwrap_or(0), img_info.height.unwrap_or(0));
+        }
+    }
+
+    // Encontrar la imagen con mayor puntuación (área o tamaño en bytes)
+    let largest_image = img_infos.iter()
+        .max_by_key(|img| img.score())
+        .cloned();
+
+    if let Some(largest) = largest_image {
+        println!("⭐ Imagen más grande encontrada: {} (score: {})", largest.url, largest.score());
+        
         // Extraer nombre del archivo
-        let filename = full_url.split('/').last().unwrap_or("").to_string();
-        // Remover query string (todo lo que sigue después de ?)
+        let filename = largest.url.split('/').last().unwrap_or("").to_string();
+        // Remover query string
         let filename = filename.split('?').next().unwrap_or("").to_string();
         let filename = if filename.is_empty() {
-            format!("image_{}.jpg", index)
+            "largest_image.jpg".to_string()
         } else {
             filename
         };
         let file_path = dir_path.join(&filename);
 
-        println!("Descargando imagen: {}", full_url);
+        println!("Descargando imagen más grande: {}", largest.url);
 
-        match client.get(&full_url).send().await {
+        match client.get(&largest.url).send().await {
             Ok(response) => {
                 match response.bytes().await {
                     Ok(bytes) => {
                         match std::fs::write(&file_path, bytes) {
                             Ok(_) => {
                                 let relative_path = file_path.to_string_lossy().to_string();
-                                downloaded_files.push(relative_path);
                                 println!("✅ Imagen guardada: {:?}", file_path);
+                                return Ok(vec![relative_path]);
                             },
-                            Err(e) => eprintln!("❌ Error escribiendo archivo: {}", e),
+                            Err(e) => return Err(format!("❌ Error escribiendo archivo: {}", e)),
                         }
                     },
-                    Err(e) => eprintln!("❌ Error leyendo respuesta: {}", e),
+                    Err(e) => return Err(format!("❌ Error leyendo respuesta: {}", e)),
                 }
             },
-            Err(e) => eprintln!("❌ Error descargando imagen {}: {}", full_url, e),
+            Err(e) => return Err(format!("❌ Error descargando imagen: {}", e)),
         }
+    } else {
+        return Err("❌ No se encontraron imágenes".to_string());
     }
-
-    Ok(downloaded_files)
 }
 
 
