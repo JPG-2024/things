@@ -6,10 +6,20 @@ use std::sync::Arc;
 use lazy_static::lazy_static;
 use htmd::HtmlToMarkdown;
 use scraper::{Html, Selector};
+use once_cell::sync::Lazy;
+use regex::Regex;
+use std::future::Future;
+use std::pin::Pin;
+
+type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
 
 lazy_static! {
     static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
 }
+
+static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
+static GITLAB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"gitlab\.com").unwrap());
+static MEDIUM_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"medium\.com").unwrap());
 
 /// Inicializa el navegador una sola vez
 async fn init_browser() -> Result<()> {
@@ -73,24 +83,64 @@ async fn is_browser_ready() -> bool {
 /// Extrae el contenido de una URL
 #[tauri::command]
 async fn extract_url_to_markdown(url: String) -> Result<String, String> {
-    extract_content_to_markdown(&url)
+    dispatch(&url)
         .await
         .map_err(|e| e.to_string())
 }
 
-/// Función que extrae contenido - OPTIMIZADA PARA CONCURRENCIA
-async fn extract_content_to_markdown(url: &str) -> Result<String> {
+/// Dispatcher que redirige según el tipo de URL
+async fn dispatch(url: &str) -> Result<String> {
+    let host = match url::Url::parse(url) {
+        Ok(u) => u.host_str().map(|s| s.to_string()).unwrap_or_default(),
+        Err(_) => return Err(anyhow::anyhow!("URL inválida")),
+    };
+
+    let fut: BoxedFut = if GITHUB_RE.is_match(&host) {
+        Box::pin(fetch_github(url))
+    } else if GITLAB_RE.is_match(&host) {
+        Box::pin(fetch_gitlab(url))
+    } else if MEDIUM_RE.is_match(&host) {
+        Box::pin(fetch_medium(url))
+    } else {
+        Box::pin(async { fetch_default(url).await })
+    };
+
+    fut.await
+}
+
+/// Extrae contenido de GitHub
+async fn fetch_github(url: &str) -> Result<String> {
+    println!("📘 Extrayendo desde GitHub: {}", url);
+    extract_content_with_selectors(url, vec!["article", "main", "[role='main']"]).await
+}
+
+/// Extrae contenido de GitLab
+async fn fetch_gitlab(url: &str) -> Result<String> {
+    println!("🦊 Extrayendo desde GitLab: {}", url);
+    extract_content_with_selectors(url, vec!["main", "article"]).await
+}
+
+/// Extrae contenido de Medium
+async fn fetch_medium(url: &str) -> Result<String> {
+    println!("📰 Extrayendo desde Medium: {}", url);
+    extract_content_with_selectors(url, vec!["article", "[data-post-id]"]).await
+}
+
+/// Extrae contenido por defecto
+async fn fetch_default(url: &str) -> Result<String> {
+    println!("🌐 Extrayendo desde URL genérica: {}", url);
+    extract_content_with_selectors(url, vec!["article", "main"]).await
+}
+
+/// Función genérica que extrae contenido con selectores personalizados
+async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Result<String> {
     init_browser().await?;
 
-    // Obtener el browser
     let browser_lock = BROWSER.lock().await;
     let browser = browser_lock.as_ref()
         .ok_or_else(|| anyhow::anyhow!("Browser not initialized"))?;
 
-    // Crear página (esto NO bloquea otras páginas)
     let page = browser.new_page("about:blank").await?;
-    
-    // LIBERAR EL LOCK aquí para que otras llamadas puedan crear páginas simultáneamente
     drop(browser_lock);
 
     let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -126,48 +176,43 @@ async fn extract_content_to_markdown(url: &str) -> Result<String> {
     let html: String = page.content().await?;
     let document = Html::parse_document(&html);
     
-    // 1️⃣ Selector para todas las meta
+    // Extraer meta tags (og:title)
     let meta_selector = Selector::parse("meta[property=\"og:title\"]").unwrap();
-
-    // 2️⃣ Buscar el meta y extraer el atributo "content"
     if let Some(meta_tag) = document.select(&meta_selector).next() {
         if let Some(content) = meta_tag.value().attr("content") {
-            println!("Content del meta description: {}", content);
-        } else {
-            println!("No tiene atributo content");
+            println!("Title: {}", content);
         }
-    } else {
-        println!("No se encontró el meta con name=description");
     }
 
-
-    // Selectores individuales
-    let article_selector = Selector::parse("article").unwrap();
-    let main_selector = Selector::parse("main").unwrap();
-
-    // Prioridad: article → main → (todo el HTML si no hay ninguno)
-    let main_html = document
-        .select(&article_selector)
-        .next()
-        .or_else(|| document.select(&main_selector).next())
-        .map(|el| el.html())
+    // Buscar contenido principal con los selectores proporcionados
+    // Ahora itera sobre TODOS los elementos que coinciden
+    let main_html = selectors.iter()
+        .find_map(|selector| {
+            Selector::parse(selector)
+                .ok()
+                .and_then(|sel| {
+                    let elements: Vec<String> = document
+                        .select(&sel)
+                        .map(|el| el.html())
+                        .collect();
+                    
+                    if !elements.is_empty() {
+                        // Combinar todos los elementos encontrados
+                        Some(elements.join("\n"))
+                    } else {
+                        None
+                    }
+                })
+        })
         .unwrap_or_else(|| html.to_string());
 
-
-
-    // 3️⃣ Configurar el conversor HTML → Markdown
+    // Convertir HTML a Markdown
     let converter = HtmlToMarkdown::builder()
-        // Ignorar etiquetas que no queremos
         .skip_tags(vec!["nav", "footer", "header", "script", "style", "aside", "img", "video"])
-        // No procesar scripts ni estilos
         .scripting_enabled(false)
         .build();
 
-    // 4️⃣ Convertir solo el contenido principal
     let markdown = converter.convert(&main_html)?;
-
-
-
 
     Ok(markdown)
 }

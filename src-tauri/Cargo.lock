@@ -2360,6 +2360,8 @@ dependencies = [
  "htmd",
  "html2md",
  "lazy_static",
+ "once_cell",
+ "regex",
  "scraper",
  "serde",
  "serde_json",
@@ -2367,6 +2369,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tokio",
+ "url",
 ]
 
 [[package]]
