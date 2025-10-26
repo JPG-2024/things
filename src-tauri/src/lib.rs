@@ -293,6 +293,8 @@ async fn download_images(url: String, output_dir: String) -> Result<Vec<String>,
     for (index, full_url) in img_urls.into_iter().enumerate() {
         // Extraer nombre del archivo
         let filename = full_url.split('/').last().unwrap_or("").to_string();
+        // Remover query string (todo lo que sigue después de ?)
+        let filename = filename.split('?').next().unwrap_or("").to_string();
         let filename = if filename.is_empty() {
             format!("image_{}.jpg", index)
         } else {
