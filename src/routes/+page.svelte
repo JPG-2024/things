@@ -72,6 +72,21 @@
     }
   }
 
+  async function downloadImagesHandler(event: Event) {
+    event.preventDefault();
+    loadingImages = true;
+    errorImages = "";
+
+    try {
+      await invoke("download_images", { url, outputDir: "images" });
+      console.log("Images downloaded successfully!");
+    } catch (err) {
+      errorImages = String(err);
+    } finally {
+      loadingImages = false;
+    }
+  }
+
   async function waitForBrowser() {
     while (!(await invoke('is_browser_ready'))) {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -127,6 +142,20 @@
         <img class="image" src="{image}" alt="description">
       {/each}        
       </div>
+  {/if}
+
+  <button 
+    type="button"
+    class="download-button"
+    onclick={downloadImagesHandler}
+  >
+    {loadingImages ? "Downloading..." : "Download Images"}
+  </button>
+
+  {#if errorImages}
+    <div class="error">
+      <strong>Error downloading images:</strong> {errorImages}
+    </div>
   {/if}
 
 
@@ -276,7 +305,23 @@ pre {border: 0; background-color: transparent;}
   background-color: #45a049;
 }
 
+.download-button {
+  margin-top: 20px;
+  border: none;
+  background-color: #2196F3;
+  padding: 0.8em 1.6em;
+  color: white;
+}
 
+.download-button:hover {
+  border-color: #0b7dda;
+  background-color: #0b7dda;
+}
+
+.download-button:disabled {
+  cursor: not-allowed;
+  background-color: #999;
+}
 
 @media (prefers-color-scheme: dark) {
   :root {

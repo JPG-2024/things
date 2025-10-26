@@ -11,6 +11,8 @@ use regex::Regex;
 use std::future::Future;
 use std::pin::Pin;
 use serde::{Deserialize};
+use std::path::PathBuf;
+use reqwest::Client;
 
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
 
@@ -232,6 +234,97 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
     Ok(markdown)
 }
 
+/// Extrae los src de las imágenes sin mantener el Html en el Future
+fn extract_image_srcs(html: &str, base_url: &str) -> Vec<String> {
+    let document = Html::parse_document(html);
+    let img_selector = match Selector::parse("img") {
+        Ok(sel) => sel,
+        Err(_) => return Vec::new(),
+    };
+
+    document.select(&img_selector)
+        .filter_map(|img| img.value().attr("src"))
+        .map(|src| {
+            if src.starts_with("http") {
+                src.to_string()
+            } else if src.starts_with("/") {
+                match url::Url::parse(base_url) {
+                    Ok(parsed_url) => {
+                        let base = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""));
+                        format!("{}{}", base, src)
+                    },
+                    Err(_) => src.to_string(),
+                }
+            } else {
+                match url::Url::parse(base_url) {
+                    Ok(parsed_url) => {
+                        let base_path = parsed_url.path().trim_end_matches('/');
+                        let base = format!("{}://{}{}/", parsed_url.scheme(), parsed_url.host_str().unwrap_or(""), base_path);
+                        format!("{}{}", base, src)
+                    },
+                    Err(_) => src.to_string(),
+                }
+            }
+        })
+        .collect()
+}
+
+/// Descarga todas las imágenes de una URL y las guarda en el disco
+#[tauri::command]
+async fn download_images(url: String, output_dir: String) -> Result<Vec<String>, String> {
+    let page = get_ready_page().await.map_err(|e| e.to_string())?;
+
+    page.goto(&url).await.map_err(|e| e.to_string())?;
+    page.wait_for_navigation().await.map_err(|e| e.to_string())?;
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    let html: String = page.content().await.map_err(|e| e.to_string())?;
+    
+    // Procesar HTML inmediatamente y extraer solo los URLs
+    let img_urls = extract_image_srcs(&html, &url);
+
+    // Crear directorio si no existe
+    let dir_path = PathBuf::from(&output_dir);
+    std::fs::create_dir_all(&dir_path).map_err(|e| format!("Error creating directory: {}", e))?;
+
+    let client = Client::new();
+    let mut downloaded_files = Vec::new();
+
+    for (index, full_url) in img_urls.into_iter().enumerate() {
+        // Extraer nombre del archivo
+        let filename = full_url.split('/').last().unwrap_or("").to_string();
+        let filename = if filename.is_empty() {
+            format!("image_{}.jpg", index)
+        } else {
+            filename
+        };
+        let file_path = dir_path.join(&filename);
+
+        println!("Descargando imagen: {}", full_url);
+
+        match client.get(&full_url).send().await {
+            Ok(response) => {
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        match std::fs::write(&file_path, bytes) {
+                            Ok(_) => {
+                                let relative_path = file_path.to_string_lossy().to_string();
+                                downloaded_files.push(relative_path);
+                                println!("✅ Imagen guardada: {:?}", file_path);
+                            },
+                            Err(e) => eprintln!("❌ Error escribiendo archivo: {}", e),
+                        }
+                    },
+                    Err(e) => eprintln!("❌ Error leyendo respuesta: {}", e),
+                }
+            },
+            Err(e) => eprintln!("❌ Error descargando imagen {}: {}", full_url, e),
+        }
+    }
+
+    Ok(downloaded_files)
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -244,7 +337,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, is_browser_ready])
+        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, is_browser_ready, download_images])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
