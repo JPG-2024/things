@@ -4,6 +4,8 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use lazy_static::lazy_static;
+use htmd::HtmlToMarkdown;
+use scraper::{Html, Selector};
 
 lazy_static! {
     static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
@@ -18,7 +20,13 @@ async fn init_browser() -> Result<()> {
     }
 
     let chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-    
+    // Ensure chromiumoxide runner uses a unique temp dir for this process to
+    // avoid collisions with stale SingletonLock files from previous runs.
+    // We set TMPDIR to a per-process directory under the system temp dir.
+    let runner_tmp = std::env::temp_dir().join(format!("chromiumoxide-runner-{}", std::process::id()));
+    std::fs::create_dir_all(&runner_tmp).map_err(|e| anyhow::anyhow!(e))?;
+    std::env::set_var("TMPDIR", runner_tmp.as_os_str());
+
     let config = BrowserConfig::builder()
         .chrome_executable(chrome_path)
         .disable_default_args()
@@ -105,7 +113,7 @@ async fn extract_content_to_markdown(url: &str) -> Result<String> {
         window.navigator.permissions.query = (parameters) => (
             parameters.name === 'notifications' ?
                 Promise.resolve({ state: Notification.permission }) :
-                originalQuery(parameters)
+                originalQuery(parameters) 
         );
         "#,
     )
@@ -116,7 +124,50 @@ async fn extract_content_to_markdown(url: &str) -> Result<String> {
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     let html: String = page.content().await?;
-    let markdown = html2md::parse_html(&html);
+    let document = Html::parse_document(&html);
+    
+    // 1️⃣ Selector para todas las meta
+    let meta_selector = Selector::parse("meta[property=\"og:title\"]").unwrap();
+
+    // 2️⃣ Buscar el meta y extraer el atributo "content"
+    if let Some(meta_tag) = document.select(&meta_selector).next() {
+        if let Some(content) = meta_tag.value().attr("content") {
+            println!("Content del meta description: {}", content);
+        } else {
+            println!("No tiene atributo content");
+        }
+    } else {
+        println!("No se encontró el meta con name=description");
+    }
+
+
+    // Selectores individuales
+    let article_selector = Selector::parse("article").unwrap();
+    let main_selector = Selector::parse("main").unwrap();
+
+    // Prioridad: article → main → (todo el HTML si no hay ninguno)
+    let main_html = document
+        .select(&article_selector)
+        .next()
+        .or_else(|| document.select(&main_selector).next())
+        .map(|el| el.html())
+        .unwrap_or_else(|| html.to_string());
+
+
+
+    // 3️⃣ Configurar el conversor HTML → Markdown
+    let converter = HtmlToMarkdown::builder()
+        // Ignorar etiquetas que no queremos
+        .skip_tags(vec!["nav", "footer", "header", "script", "style", "aside", "img", "video"])
+        // No procesar scripts ni estilos
+        .scripting_enabled(false)
+        .build();
+
+    // 4️⃣ Convertir solo el contenido principal
+    let markdown = converter.convert(&main_html)?;
+
+
+
 
     Ok(markdown)
 }

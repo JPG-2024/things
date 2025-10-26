@@ -28,4 +28,6 @@ futures = "0.3"
 anyhow = "1"
 html2md = "0.2"
 lazy_static = "1.4"
+htmd = "0.3"
+scraper = "0.24.0"
 
