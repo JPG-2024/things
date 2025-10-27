@@ -1,10 +1,7 @@
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
 use anyhow::Result;
-use tokio::sync::Mutex;
 use std::sync::Arc;
-use lazy_static::lazy_static;
-
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -15,10 +12,7 @@ struct AntiDetectConfig {
 	script: String,
 }
 
-lazy_static! {
-	pub static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
-	pub static ref PAGE_CONFIGURED: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
-}
+pub static mut BROWSER: Option<Arc<Browser>> = None;
 
 /// Carga la configuración de anti-detección desde el archivo JSON
 fn load_antidetect_config() -> Result<AntiDetectConfig> {
@@ -40,42 +34,63 @@ fn load_browser_config() -> Result<Vec<String>> {
 }
 
 /// Inicializa el browser globalmente si aún no está inicializado
-pub async fn init_browser() -> Result<()> {
-	let mut browser_lock = BROWSER.lock().await;
-	if browser_lock.is_some() {
-		return Ok(());
-	}
-
-	let args = load_browser_config()?;
-
-	let config = BrowserConfig::builder()
-		.disable_default_args()
-		.args(args)
-		.build()
-		.map_err(|e| anyhow::anyhow!(e))?;
-
-	let (mut browser, mut handler) = Browser::launch(config).await?;
-
-	// Spawn handler to keep event loop alive
-	tokio::spawn(async move {
-		while let Some(h) = handler.next().await {
-			if h.is_err() {
-				break;
-			}
-		}
-	});
-
-	// Dejar el browser en el static
-	*browser_lock = Some(browser);
-
-	Ok(())
-}
-
-/// Persistir si el browser está listo (tauri command expuesto)
 #[tauri::command]
-pub async fn is_browser_ready() -> bool {
-	let browser_lock = BROWSER.lock().await;
-	browser_lock.is_some()
+pub async fn init_browser() -> Result<(), String> {
+    // Kill any existing chromium processes first
+    let _ = std::process::Command::new("pkill")
+        .arg("-9")
+        .arg("-f")
+        .arg("chromiumoxide-runner")
+        .output();
+    
+    // Give processes time to die
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    let mut config = BrowserConfig::builder();
+    
+    // Use a unique, clean user data directory
+    let user_data_dir = format!(
+        "/tmp/chromium-profile-{}",
+        std::process::id()
+    );
+    
+    // Clean up old directory if it exists
+    let _ = std::fs::remove_dir_all(&user_data_dir);
+    std::fs::create_dir_all(&user_data_dir)
+        .map_err(|e| format!("Failed to create user data dir: {}", e))?;
+    
+    config = config
+        .arg(format!("--user-data-dir={}", user_data_dir))
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check")
+        .arg("--disable-sync");
+    
+    let config = config
+        .build()
+        .map_err(|e| {
+            let error_msg = e.to_string();
+            eprintln!("❌ Error configurando browser: {}", error_msg);
+            error_msg
+        })?;
+        
+    let (browser, mut handler) = Browser::launch(config)
+        .await
+        .map_err(|e| {
+            let error_msg = e.to_string();
+            eprintln!("❌ Error lanzando browser: {}", error_msg);
+            error_msg
+        })?;
+
+    tokio::spawn(async move {
+        while let Some(_) = handler.next().await {}
+    });
+
+    unsafe {
+        BROWSER = Some(Arc::new(browser));
+    }
+
+    println!("✅ Browser inicializado");
+    Ok(())
 }
 
 /// Configura una página con anti-detección y user agent
@@ -96,22 +111,20 @@ pub async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
 
 /// Obtiene una página configurada y lista para usar
 pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
-	init_browser().await?;
+    // Tomar la instancia del browser inicializado
+    let browser = unsafe {
+        BROWSER
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Browser no inicializado"))?
+            .clone()
+    };
 
-	let browser_lock = BROWSER.lock().await;
-	let browser = browser_lock.as_ref().ok_or_else(|| anyhow::anyhow!("Browser not initialized"))?;
+    // Crear nueva página
+    let page = browser.new_page("about:blank").await?;
 
-	let page = browser.new_page("about:blank").await?;
-	drop(browser_lock);
+    // Configurar la página automáticamente
+    configure_page(&page).await?;
 
-	// Solo configurar la página una sola vez
-	let mut page_configured = PAGE_CONFIGURED.lock().await;
-	if !*page_configured {
-		configure_page(&page).await?;
-		*page_configured = true;
-		println!("✅ Página configurada (primera vez)");
-	}
-
-	Ok(page)
+    Ok(page)
 }
 
