@@ -34,14 +34,9 @@ impl ImageInfo {
         }
     }
 
-    /// Retorna la puntuación: prioriza área, luego tamaño en bytes
+    /// Retorna la puntuación: solo considera el área
     fn score(&self) -> u64 {
-        let area = self.area();
-        if area > 0 {
-            area
-        } else {
-            self.size_bytes.unwrap_or(0)
-        }
+        self.area()
     }
 }
 
@@ -55,6 +50,7 @@ struct AntiDetectConfig {
 
 lazy_static! {
     static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
+    static ref PAGE_CONFIGURED: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 }
 
 static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
@@ -206,8 +202,14 @@ async fn get_ready_page() -> Result<chromiumoxide::Page> {
     let page = browser.new_page("about:blank").await?;
     drop(browser_lock);
 
-    configure_page(&page).await?;
-    
+    // Solo configurar la página una sola vez
+    let mut page_configured = PAGE_CONFIGURED.lock().await;
+    if !*page_configured {
+        configure_page(&page).await?;
+        *page_configured = true;
+        println!("✅ Página configurada (primera vez)");
+    }
+
     Ok(page)
 }
 
@@ -217,10 +219,12 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
 
     page.goto(url).await?;
     page.wait_for_navigation().await?;
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     let html: String = page.content().await?;
     let document = Html::parse_document(&html);
+
+    println!("✅ Página cargada: {}", url);
     
     // Extraer meta tags (og:title)
     let meta_selector = Selector::parse("meta[property=\"og:title\"]").unwrap();
@@ -330,7 +334,7 @@ async fn download_images(url: String, output_dir: String) -> Result<Vec<String>,
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
     page.wait_for_navigation().await.map_err(|e| e.to_string())?;
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    // tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     let html: String = page.content().await.map_err(|e| e.to_string())?;
     
@@ -355,28 +359,50 @@ async fn download_images(url: String, output_dir: String) -> Result<Vec<String>,
         }
     }
 
-    // Encontrar la imagen con mayor puntuación (área o tamaño en bytes)
-    let largest_image = img_infos.iter()
-        .max_by_key(|img| img.score())
-        .cloned();
+    // Filtrar imágenes que superen dimensiones mínimas (excluyendo thumbnails y aside)
+    const MIN_WIDTH: u32 = 300;
+    const MIN_HEIGHT: u32 = 300;
+    const MIN_AREA: u64 = (MIN_WIDTH as u64) * (MIN_HEIGHT as u64);
 
-    if let Some(largest) = largest_image {
-        println!("⭐ Imagen más grande encontrada: {} (score: {})", largest.url, largest.score());
+    let filtered_images: Vec<ImageInfo> = img_infos.into_iter()
+        .filter(|img| {
+            match (img.width, img.height) {
+                (Some(w), Some(h)) => {
+                    let area = (w as u64) * (h as u64);
+                    area >= MIN_AREA
+                },
+                _ => false,
+            }
+        })
+        .collect();
+
+    if filtered_images.is_empty() {
+        return Err("❌ No se encontraron imágenes con dimensiones mínimas requeridas".to_string());
+    }
+
+    // Ordenar por puntuación (área) descendente
+    let mut sorted_images = filtered_images;
+    sorted_images.sort_by(|a, b| b.score().cmp(&a.score()));
+
+    let mut saved_paths = Vec::new();
+
+    for img in sorted_images {
+        println!("⭐ Procesando imagen: {} (score: {})", img.url, img.score());
         
         // Extraer nombre del archivo
-        let filename = largest.url.split('/').last().unwrap_or("").to_string();
+        let filename = img.url.split('/').last().unwrap_or("").to_string();
         // Remover query string
         let filename = filename.split('?').next().unwrap_or("").to_string();
         let filename = if filename.is_empty() {
-            "largest_image.jpg".to_string()
+            format!("image_{}.jpg", saved_paths.len() + 1)
         } else {
             filename
         };
         let file_path = dir_path.join(&filename);
 
-        println!("Descargando imagen más grande: {}", largest.url);
+        println!("Descargando imagen: {}", img.url);
 
-        match client.get(&largest.url).send().await {
+        match client.get(&img.url).send().await {
             Ok(response) => {
                 match response.bytes().await {
                     Ok(bytes) => {
@@ -384,18 +410,22 @@ async fn download_images(url: String, output_dir: String) -> Result<Vec<String>,
                             Ok(_) => {
                                 let relative_path = file_path.to_string_lossy().to_string();
                                 println!("✅ Imagen guardada: {:?}", file_path);
-                                return Ok(vec![relative_path]);
+                                saved_paths.push(relative_path);
                             },
-                            Err(e) => return Err(format!("❌ Error escribiendo archivo: {}", e)),
+                            Err(e) => println!("❌ Error escribiendo archivo: {}", e),
                         }
                     },
-                    Err(e) => return Err(format!("❌ Error leyendo respuesta: {}", e)),
+                    Err(e) => println!("❌ Error leyendo respuesta: {}", e),
                 }
             },
-            Err(e) => return Err(format!("❌ Error descargando imagen: {}", e)),
+            Err(e) => println!("❌ Error descargando imagen: {}", e),
         }
+    }
+
+    if !saved_paths.is_empty() {
+        Ok(saved_paths)
     } else {
-        return Err("❌ No se encontraron imágenes".to_string());
+        Err("❌ No se encontraron imágenes para descargar".to_string())
     }
 }
 
