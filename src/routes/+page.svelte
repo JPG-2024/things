@@ -1,5 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+
 
   let url = $state("");
   let markdown = $state("");
@@ -9,6 +11,19 @@
   let loadingImages = $state(false);
   let error = $state("");
   let errorImages = $state("");
+  let inferenceStreamContent = $state("");
+
+
+  async function callInference() {  
+    try {
+      const response = await invoke("inference", {
+        prompt: "¿Cuál es la capital de Francia?",
+      });
+      console.log("Inference response:", response);
+    } catch (err) {
+      console.error("Inference error:", err);
+    }
+  }
 
   async function extractUrlToMarkdown(event: Event) {
     event.preventDefault();
@@ -16,21 +31,19 @@
     error = "";
     markdown = "";
     comments = [];
+    inferenceStreamContent = "";
+    imagesSources = [];
 
     try {
       markdown = await invoke("extract_url_to_markdown", { url });
 
-      const regex = /<img[^>]+src=["']([^"']+)["']/g;
-      const sources = [];
+      const prompt = `Extract the main content, max length 1 paragraph, mantain source language:\n\n${markdown}`;
 
-      let match;
-      while ((match = regex.exec(markdown)) !== null) {
-        sources.push(match[1]);
-      }
 
-      imagesSources = sources;
-      console.log("Extracted image sources:", imagesSources);
 
+      await invoke("inference", {
+        prompt: prompt,
+      });
     } catch (err) {
       error = String(err);
     } finally {
@@ -78,8 +91,8 @@
     errorImages = "";
 
     try {
-      await invoke("download_images", { url, outputDir: "images" });
-      console.log("Images downloaded successfully!");
+      imagesSources = await invoke("download_images", { url });
+      console.log("Imágenes descargadas:", imagesSources);
     } catch (err) {
       errorImages = String(err);
     } finally {
@@ -96,12 +109,17 @@
 
   $effect.pre(() => {
     waitForBrowser();
+
+    // Escuchar el evento inference-stream
+    listen("inference-stream", (event) => {
+      // event.payload.content contiene el chunk recibido
+      inferenceStreamContent += event.payload.content;
+    });
   });
 
 </script>
 
 <main class="container">
-  <h2>Extract Content</h2>
   <form class="row">
     <input 
       id="url-input" 
@@ -126,13 +144,13 @@
     </div>
   {/if}
 
-  {#if markdown}
+  {#if inferenceStreamContent}
     <div class="markdown-container">
       <h3>Extracted Markdown:</h3>
-      <pre><code>{markdown}</code></pre>
-      <button onclick={() => navigator.clipboard.writeText(markdown)}>
+      <pre><code>{inferenceStreamContent}</code></pre>
+<!--       <button onclick={() => navigator.clipboard.writeText(markdown)}>
         Copy to Clipboard
-      </button>
+      </button> -->
     </div>
   {/if}
 
@@ -157,7 +175,6 @@
       <strong>Error downloading images:</strong> {errorImages}
     </div>
   {/if}
-
 
 </main>
 
@@ -263,21 +280,18 @@ button:active {
 }
 
 .markdown-container pre {
-  border: 2px solid #ddd;
-  border-radius: 8px;
   background-color: transparent;
   padding: 15px;
   max-height: 400px;
-  overflow-x: auto;
   overflow-y: auto;
   color: #fafafa;
+  white-space: pre-wrap;      /* Permite el wrap */
+  word-break: break-word; 
 }
 
 .markdown-container code {
-  color: #333;
   color: #fafafa;
-  font-size: 14px;
-  font-size: 1.2rem;
+  font-size: 1rem;
   line-height: 1.5;
   font-family: "Menlo", monospace;
 }

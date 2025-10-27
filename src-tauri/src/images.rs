@@ -90,7 +90,7 @@ async fn get_image_size(client: &Client, url: &str) -> Option<u64> {
 
 /// Descarga todas las imágenes de una URL y las guarda en el disco
 #[tauri::command]
-pub async fn download_images(url: String, output_dir: String) -> Result<Vec<String>, String> {
+pub async fn download_images(url: String) -> Result<Vec<String>, String> {
     let page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
@@ -102,9 +102,10 @@ pub async fn download_images(url: String, output_dir: String) -> Result<Vec<Stri
     // Procesar HTML inmediatamente y extraer información de imágenes
     let mut img_infos = extract_image_srcs(&html, &url);
 
-    // Crear directorio si no existe
-    let dir_path = PathBuf::from(&output_dir);
-    std::fs::create_dir_all(&dir_path).map_err(|e| format!("Error creating directory: {}", e))?;
+    // Crear directorio en ~/notian/images dentro de la carpeta personal del usuario
+    let home_dir = dirs::home_dir().ok_or("No se pudo obtener la carpeta personal del usuario")?;
+    let dir_path = home_dir.join("notian/images");
+    std::fs::create_dir_all(&dir_path).map_err(|e| format!("Error creando directorio: {}", e))?;
 
     let client = Client::new();
 
