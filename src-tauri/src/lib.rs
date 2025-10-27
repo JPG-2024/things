@@ -12,6 +12,9 @@ pub use crate::images::download_images;
 mod browser;
 pub use crate::browser::init_browser;
 
+mod inference_openrouter;
+pub use crate::inference_openrouter::{inference};
+
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
 
 static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
@@ -62,7 +65,7 @@ async fn fetch_gitlab(url: &str) -> Result<String> {
 /// Extrae contenido de Medium
 async fn fetch_medium(url: &str) -> Result<String> {
     println!("📰 Extrayendo desde Medium: {}", url);
-    extract_content_with_selectors(url, vec!["article", "[data-post-id]"]).await
+    extract_content_with_selectors(url, vec!["meta[property=\"og:title\"]", "article"]).await
 }
 
 /// Extrae contenido por defecto
@@ -85,14 +88,7 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
     let document = Html::parse_document(&html);
 
     println!("✅ Página cargada: {}", url);
-    
-    // Extraer meta tags (og:title)
-    let meta_selector = Selector::parse("meta[property=\"og:title\"]").unwrap();
-    if let Some(meta_tag) = document.select(&meta_selector).next() {
-        if let Some(content) = meta_tag.value().attr("content") {
-            println!("Title: {}", content);
-        }
-    }
+
 
     // Buscar contenido principal con los selectores proporcionados
     // Ahora itera sobre TODOS los elementos que coinciden
@@ -130,6 +126,9 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+
     tauri::Builder::default()
         .setup(|app| {
             let handle = app.handle().clone();
@@ -139,7 +138,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, download_images])
+        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, download_images, inference])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

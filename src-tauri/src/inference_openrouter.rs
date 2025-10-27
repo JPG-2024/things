@@ -1,0 +1,115 @@
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use tauri::{AppHandle, Emitter};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Message {
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RequestPayload {
+    model: String,
+    messages: Vec<Message>,
+    stream: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct StreamChunk {
+    pub content: String,
+}
+
+#[tauri::command]
+pub async fn inference(
+    app: AppHandle,
+    prompt: String,
+    system_prompt: Option<String>,
+) -> Result<(), String> {
+    dotenv::dotenv().ok();
+    
+    let api_key = std::env::var("OPENROUTER_API_KEY")
+        .map_err(|_| "OPENROUTER_API_KEY not found in environment".to_string())?;
+
+    let mut messages = Vec::new();
+
+    // Add system prompt if provided
+    if let Some(sys_prompt) = system_prompt {
+        messages.push(Message {
+            role: "system".to_string(),
+            content: sys_prompt,
+        });
+    }
+
+    // Add user prompt
+    messages.push(Message {
+        role: "user".to_string(),
+        content: prompt,
+    });
+
+    let payload = RequestPayload {
+        model: "google/gemma-3n-e4b-it:free".to_string(),
+        messages,
+        stream: true,
+    };
+
+    let client = Client::new();
+    let response = client
+        .post("https://openrouter.ai/api/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("API error: {}", response.status()));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+
+    use futures::StreamExt;
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        
+        let chunk_str = String::from_utf8_lossy(&chunk);
+        buffer.push_str(&chunk_str);
+
+        // Process complete lines
+        while let Some(line_end) = buffer.find('\n') {
+            let line = buffer[..line_end].trim().to_string();
+            buffer = buffer[line_end + 1..].to_string();
+
+            if line.starts_with("data: ") {
+                let data = &line[6..];
+                
+                if data == "[DONE]" {
+                    app.emit("inference-complete", ())
+                        .map_err(|e| format!("Failed to emit completion event: {}", e))?;
+                    return Ok(());
+                }
+
+                // Try to parse the JSON
+                if let Ok(data_obj) = serde_json::from_str::<Value>(data) {
+                    if let Some(content) = data_obj["choices"][0]["delta"]["content"].as_str() {
+                        let chunk_data = StreamChunk {
+                            content: content.to_string(),
+                        };
+                        
+                        app.emit("inference-stream", chunk_data)
+                            .map_err(|e| format!("Failed to emit stream event: {}", e))?;
+                    }
+                }
+            }
+        }
+    }
+
+    app.emit("inference-complete", ())
+        .map_err(|e| format!("Failed to emit completion event: {}", e))?;
+
+    Ok(())
+}
