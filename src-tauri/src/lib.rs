@@ -1,20 +1,17 @@
-use chromiumoxide::browser::{Browser, BrowserConfig};
-use futures::StreamExt;
 use anyhow::Result;
-use tokio::sync::Mutex;
-use std::sync::Arc;
-use lazy_static::lazy_static;
 use htmd::HtmlToMarkdown;
 use scraper::{Html, Selector};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::future::Future;
 use std::pin::Pin;
-use serde::{Deserialize};
 use std::path::PathBuf;
 use reqwest::Client;
 
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
+
+mod browser;
+pub use crate::browser::is_browser_ready;
 
 /// Estructura para almacenar información de las imágenes
 #[derive(Clone, Debug)]
@@ -40,86 +37,10 @@ impl ImageInfo {
     }
 }
 
-#[derive(Deserialize)]
-struct AntiDetectConfig {
-    user_agent: String,
-    accept_language: String,
-    platform: String,
-    script: String,
-}
-
-lazy_static! {
-    static ref BROWSER: Arc<Mutex<Option<Browser>>> = Arc::new(Mutex::new(None));
-    static ref PAGE_CONFIGURED: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
-}
-
 static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
 static GITLAB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"gitlab\.com").unwrap());
 static MEDIUM_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"medium\.com").unwrap());
 
-/// Carga la configuración de anti-detección desde el archivo JSON
-fn load_antidetect_config() -> Result<AntiDetectConfig> {
-    let config_str = include_str!("../antidetect.json");
-    serde_json::from_str(config_str).map_err(|e| anyhow::anyhow!("Error cargando config: {}", e))
-}
-
-/// Carga la configuración del navegador desde el archivo JSON
-fn load_browser_config() -> Result<Vec<String>> {
-    let config_str = include_str!("../browser_config.json");
-    let config: serde_json::Value = serde_json::from_str(config_str)?;
-    let args = config["chrome_args"]
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("No chrome_args found in browser_config.json"))?
-        .iter()
-        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-        .collect();
-    Ok(args)
-}
-
-/// Inicializa el navegador una sola vez
-async fn init_browser() -> Result<()> {
-    let mut browser_lock = BROWSER.lock().await;
-    
-    if browser_lock.is_some() {
-        return Ok(());
-    }
-
-    let chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-    // Ensure chromiumoxide runner uses a unique temp dir for this process to
-    // avoid collisions with stale SingletonLock files from previous runs.
-    // We set TMPDIR to a per-process directory under the system temp dir.
-    let runner_tmp = std::env::temp_dir().join(format!("chromiumoxide-runner-{}", std::process::id()));
-    std::fs::create_dir_all(&runner_tmp).map_err(|e| anyhow::anyhow!(e))?;
-    std::env::set_var("TMPDIR", runner_tmp.as_os_str());
-
-    let chrome_args = load_browser_config()?;
-    let config = BrowserConfig::builder()
-        .chrome_executable(chrome_path)
-        .disable_default_args()
-        .args(chrome_args)
-        .build()
-        .map_err(|e| anyhow::anyhow!(e))?;
-
-    let (browser, mut handler) = Browser::launch(config).await?;
-
-    tokio::spawn(async move {
-        while let Some(h) = handler.next().await {
-            if h.is_err() {
-                break;
-            }
-        }
-    });
-
-    *browser_lock = Some(browser);
-    Ok(())
-}
-
-/// Verifica si el navegador está listo
-#[tauri::command]
-async fn is_browser_ready() -> bool {
-    let browser_lock = BROWSER.lock().await;
-    browser_lock.is_some()
-}
 
 /// Extrae el contenido de una URL
 #[tauri::command]
@@ -173,49 +94,11 @@ async fn fetch_default(url: &str) -> Result<String> {
     extract_content_with_selectors(url, vec!["article", "main"]).await
 }
 
-/// Configura una página con anti-detección y user agent
-async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
-    let config = load_antidetect_config()?;
-    
-    page.execute(chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
-        user_agent: config.user_agent,
-        accept_language: Some(config.accept_language),
-        platform: Some(config.platform),
-        user_agent_metadata: None,
-    })
-    .await?;
-
-    page.evaluate(config.script.as_str())
-        .await?;
-
-    Ok(())
-}
-
-/// Obtiene una página configurada y lista para usar
-async fn get_ready_page() -> Result<chromiumoxide::Page> {
-    init_browser().await?;
-
-    let browser_lock = BROWSER.lock().await;
-    let browser = browser_lock.as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Browser not initialized"))?;
-
-    let page = browser.new_page("about:blank").await?;
-    drop(browser_lock);
-
-    // Solo configurar la página una sola vez
-    let mut page_configured = PAGE_CONFIGURED.lock().await;
-    if !*page_configured {
-        configure_page(&page).await?;
-        *page_configured = true;
-        println!("✅ Página configurada (primera vez)");
-    }
-
-    Ok(page)
-}
+// `get_ready_page`, `configure_page` and `init_browser` moved to `browser` module.
 
 /// Función genérica que extrae contenido con selectores personalizados
 async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Result<String> {
-    let page = get_ready_page().await?;
+    let page = crate::browser::get_ready_page().await?;
 
     page.goto(url).await?;
     page.wait_for_navigation().await?;
@@ -330,7 +213,7 @@ async fn get_image_size(client: &Client, url: &str) -> Option<u64> {
 /// Descarga todas las imágenes de una URL y las guarda en el disco
 #[tauri::command]
 async fn download_images(url: String, output_dir: String) -> Result<Vec<String>, String> {
-    let page = get_ready_page().await.map_err(|e| e.to_string())?;
+    let page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
     page.wait_for_navigation().await.map_err(|e| e.to_string())?;
@@ -436,7 +319,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let _ = init_browser().await;
+                let _ = crate::browser::init_browser().await;
             });
             Ok(())
         })
