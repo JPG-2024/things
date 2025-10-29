@@ -1,6 +1,14 @@
 use std::path::PathBuf;
 use reqwest::Client;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
+use tauri::Emitter;
+
+/// Estructura para emitir evento de imágenes guardadas
+#[derive(Debug, Serialize, Clone)]
+pub struct ImagesSavedEvent {
+    pub paths: Vec<String>,
+}
 
 /// Estructura para almacenar información de las imágenes
 #[derive(Clone, Debug)]
@@ -90,7 +98,7 @@ async fn get_image_size(client: &Client, url: &str) -> Option<u64> {
 
 /// Descarga todas las imágenes de una URL y las guarda en el disco
 #[tauri::command]
-pub async fn download_images(url: String) -> Result<Vec<String>, String> {
+pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<String>, String> {
     let page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
@@ -185,6 +193,11 @@ pub async fn download_images(url: String) -> Result<Vec<String>, String> {
     }
 
     if !saved_paths.is_empty() {
+        let event = ImagesSavedEvent {
+            paths: saved_paths.clone(),
+        };
+        app.emit("images-saved", event)
+            .map_err(|e| format!("Failed to emit images-saved event: {}", e))?;
         Ok(saved_paths)
     } else {
         Err("❌ No se encontraron imágenes para descargar".to_string())
