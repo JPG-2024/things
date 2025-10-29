@@ -137,7 +137,7 @@ pub fn run() {
             });
             Ok(())
         })
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![extract_url_to_markdown, download_images, inference])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

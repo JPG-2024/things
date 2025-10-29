@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "fs-custom",
+  "description": "Permite leer imágenes desde la carpeta ~/notian",
+  "windows": ["main"],
+  "permissions": [
+    "fs:allow-home-read-recursive"
+  ]
+}
