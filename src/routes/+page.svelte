@@ -2,141 +2,50 @@
   import { invoke } from '@tauri-apps/api/core'
   import { listen } from '@tauri-apps/api/event'
   import { BaseDirectory, readDir } from '@tauri-apps/plugin-fs'
-  import { fetch } from '@tauri-apps/plugin-http'
-
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
+  import { urlRouter } from '../lib/urlRouter'
 
   let url = $state('')
-  let markdown = $state('')
-  let imagesSources = $state<string[]>([])
-  let comments = $state<string[]>([])
   let loading = $state(false)
-  let loadingImages = $state(false)
   let error = $state('')
-  let errorImages = $state('')
   let inferenceStreamContent = $state('')
-
   let images = $state<{ name: string; src: string }[]>([])
 
-  let youtubeLanguages = ['en', 'es']
-
   $effect.pre(() => {
-    // Escuchar el evento inference-stream
     listen('inference-stream', (event) => {
-      // event.payload.content contiene el chunk recibido
-      inferenceStreamContent += event.payload.content
+      const payload = event.payload as { content: string }
+      inferenceStreamContent += payload.content
     })
-
     listen('images-saved', (event) => {
-      const paths: string[] = event.payload.paths
-      console.log('Imágenes guardadas en:', paths)
-      loadImages() // Recargar las imágenes después de guardar nuevas
+      const { paths } = event.payload as { paths: string[] }
+      loadImages()
     })
   })
 
-  export async function getYouTubeTranscript(
-    videoLink: string,
-    languages: string[] = youtubeLanguages
-  ) {
-    try {
-      inferenceStreamContent = ''
-
-      //extract video id from youtube link
-      const url = new URL(videoLink)
-      const videoId = url.searchParams.get('v')
-      if (!videoId) {
-        throw new Error('Invalid YouTube URL')
-      }
-
-      const transcript = await invoke<string>('get_youtube_transcript', {
-        id: videoId,
-        languages,
-      })
-      invoke('inference', {
-        prompt: `Resume next youtube transcript briefly plus bullet point keys. output in spanish language:\n\n${transcript}`,
-      })
-      return transcript
-    } catch (err) {
-      console.error('Error fetching YouTube transcript:', err)
-      return ''
-    }
-  }
-
-  export async function loadImages() {
+  async function loadImages() {
     const appImagesDir = await homeDir().then((home) => join(home, 'notian', 'images'))
-
-    console.log('appImagesDir:', appImagesDir)
-
-    const files = await readDir('notian/images', { baseDir: BaseDirectory.Home }).catch((err) => {
-      console.error('Error reading images directory:', err)
-      return []
-    })
-
-    console.log('Archivos en el directorio de imágenes:', files)
-
+    const files = await readDir('notian/images', { baseDir: BaseDirectory.Home }).catch(() => [])
     const filesObj = files
       .filter((f) => f.name?.match(/\.(png|jpe?g|gif|webp|svg)$/i))
       .map((f) => ({
         name: f.name,
-        src: `${appImagesDir}/${f.name}`, // convierte a una URL segura "asset:"
+        src: `${appImagesDir}/${f.name}`,
       }))
-
     images = filesObj
   }
 
-  async function getYouTubeTranscriptHandler(e: Event) {
-    e.preventDefault()
-    await getYouTubeTranscript(url)
-  }
-
-  async function callInference() {
-    try {
-      const response = await invoke('inference', {
-        prompt: '¿Cuál es la capital de Francia?',
-      })
-      console.log('Inference response:', response)
-    } catch (err) {
-      console.error('Inference error:', err)
-    }
-  }
-
-  async function extractUrlToMarkdown(event: Event) {
+  async function handleUrlAction(event: Event) {
     event.preventDefault()
     loading = true
     error = ''
-    markdown = ''
-    comments = []
     inferenceStreamContent = ''
-    imagesSources = []
-
     try {
-      downloadImages()
-      markdown = await invoke('extract_url_to_markdown', { url })
-
-      const prompt = `Extrae el contenido principal haz un resumen maximo de un parrafo, en español:\n\n${markdown}`
-
-      await invoke('inference', {
-        prompt: prompt,
-      })
+      await urlRouter(url)
     } catch (err) {
       error = String(err)
     } finally {
       loading = false
-    }
-  }
-
-  async function downloadImages() {
-    loadingImages = true
-    errorImages = ''
-
-    try {
-      await invoke('download_images', { url })
-      console.log('Imágenes descargadas:', imagesSources)
-    } catch (err) {
-      errorImages = String(err)
-    } finally {
-      loadingImages = false
     }
   }
 </script>
@@ -150,11 +59,8 @@
       bind:value={url}
       required
     />
-    <button type="button" class="button" onclick={extractUrlToMarkdown} disabled={loading}>
-      {loading ? 'Extracting...' : 'Summarize'}
-    </button>
-    <button type="button" class="button" onclick={getYouTubeTranscriptHandler} disabled={loading}>
-      {loading ? 'Extracting...' : 'Get Transcript'}
+    <button type="button" class="button" onclick={handleUrlAction} disabled={loading}>
+      {loading ? 'Procesando...' : 'Procesar'}
     </button>
   </form>
 
@@ -189,13 +95,6 @@
   >
     {loadingImages ? "Downloading..." : "Download Images"}
   </button> -->
-
-  {#if errorImages}
-    <div class="error">
-      <strong>Error downloading images:</strong>
-      {errorImages}
-    </div>
-  {/if}
 </main>
 
 <style>
