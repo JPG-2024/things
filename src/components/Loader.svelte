@@ -1,0 +1,71 @@
+<script>
+  let { message = 'Esto es un prueba', CHANGE_PERIOD = 40, TIMEOUT_SECONDS = 0.7 } = $props()
+
+  const CHARS = 'abcdefghijklmnopqrstuvwxyz'
+
+  let randomChars = $state([])
+  let revealedCount = $state(0)
+  let isRevealing = $state(false)
+
+  function getRandomChar() {
+    return CHARS[Math.floor(Math.random() * CHARS.length)]
+  }
+
+  function updateChars() {
+    randomChars = randomChars.map((char, index) => (index < revealedCount ? char : getRandomChar()))
+  }
+
+  function startRevealing() {
+    isRevealing = true
+    const revealInterval = setInterval(() => {
+      if (revealedCount < message.length) {
+        randomChars[revealedCount] = message[revealedCount]
+        revealedCount++
+      } else {
+        clearInterval(revealInterval)
+      }
+    }, CHANGE_PERIOD)
+  }
+
+  $effect(() => {
+    // Reinitialize on message change
+    randomChars = Array(message.length).fill('')
+    revealedCount = 0
+    isRevealing = false
+
+    const interval = setInterval(updateChars, CHANGE_PERIOD)
+    const timeout = setTimeout(startRevealing, TIMEOUT_SECONDS * 1000)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  })
+</script>
+
+<span class="loader {isRevealing ? 'revealing' : ''}">
+  {#each randomChars as char, i}
+    <span class="char {i < revealedCount ? 'revealed' : ''}">{char}</span>
+  {/each}
+</span>
+
+<style>
+  .loader {
+    display: inline-flex;
+    font-weight: bold;
+    font-size: 0.9rem;
+    font-family: monospace;
+  }
+
+  .char {
+    display: inline-block;
+    opacity: 0.4;
+    min-width: 1ch;
+
+    text-align: center;
+
+    &.revealed {
+      opacity: 1;
+    }
+  }
+</style>

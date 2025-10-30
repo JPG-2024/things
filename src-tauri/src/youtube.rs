@@ -11,12 +11,13 @@ pub use yt_transcript_rs::YouTubeTranscriptApi;
 #[tauri::command]
 pub async fn get_youtube_transcript(
     id: String,
-    languages: Vec<String>,
+    languages: Option<Vec<String>>,
 ) -> Result<String, String> {
     let api = YouTubeTranscriptApi::new(None, None, None)
         .map_err(|e| e.to_string())?;
     
-    let language_strs: Vec<&str> = languages.iter().map(|s| s.as_str()).collect();
+    let langs = languages.unwrap_or_else(|| vec!["en".to_string(), "es".to_string()]);
+    let language_strs: Vec<&str> = langs.iter().map(|s| s.as_str()).collect();
     
     let transcript = api
         .fetch_transcript(&id, language_strs.as_slice(), false)
@@ -35,7 +36,7 @@ mod tests {
         // This test uses a real YouTube video that has transcripts
         let result = get_youtube_transcript(
             "dQw4w9WgXcQ".to_string(),
-            vec!["en".to_string()],
+            Some(vec!["en".to_string()]),
         )
         .await;
         assert!(result.is_ok());

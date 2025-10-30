@@ -5,6 +5,7 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
   import { urlRouter } from '../lib/urlRouter'
+  import Loader from '../components/Loader.svelte'
 
   let url = $state('')
   let loading = $state(false)
@@ -62,6 +63,9 @@
     <button type="button" class="button" onclick={handleUrlAction} disabled={loading}>
       {loading ? 'Procesando...' : 'Procesar'}
     </button>
+    <button type="button" class="button" onclick={() => (loading = !loading)}>
+      toggle loading
+    </button>
   </form>
 
   {#if error}
@@ -70,6 +74,8 @@
       {error}
     </div>
   {/if}
+
+  <Loader />
 
   {#if images.length}
     <div class="image-container">
