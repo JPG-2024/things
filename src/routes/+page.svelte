@@ -1,8 +1,9 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import { listen } from '@tauri-apps/api/event'
-
   import { BaseDirectory, readDir } from '@tauri-apps/plugin-fs'
+  import { fetch } from '@tauri-apps/plugin-http'
+
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
 
@@ -17,6 +18,50 @@
   let inferenceStreamContent = $state('')
 
   let images = $state<{ name: string; src: string }[]>([])
+
+  let youtubeLanguages = ['en', 'es']
+
+  $effect.pre(() => {
+    // Escuchar el evento inference-stream
+    listen('inference-stream', (event) => {
+      // event.payload.content contiene el chunk recibido
+      inferenceStreamContent += event.payload.content
+    })
+
+    listen('images-saved', (event) => {
+      const paths: string[] = event.payload.paths
+      console.log('Imágenes guardadas en:', paths)
+      loadImages() // Recargar las imágenes después de guardar nuevas
+    })
+  })
+
+  export async function getYouTubeTranscript(
+    videoLink: string,
+    languages: string[] = youtubeLanguages
+  ) {
+    try {
+      inferenceStreamContent = ''
+
+      //extract video id from youtube link
+      const url = new URL(videoLink)
+      const videoId = url.searchParams.get('v')
+      if (!videoId) {
+        throw new Error('Invalid YouTube URL')
+      }
+
+      const transcript = await invoke<string>('get_youtube_transcript', {
+        id: videoId,
+        languages,
+      })
+      invoke('inference', {
+        prompt: `Resume next youtube transcript briefly plus bullet point keys. output in spanish language:\n\n${transcript}`,
+      })
+      return transcript
+    } catch (err) {
+      console.error('Error fetching YouTube transcript:', err)
+      return ''
+    }
+  }
 
   export async function loadImages() {
     const appImagesDir = await homeDir().then((home) => join(home, 'notian', 'images'))
@@ -38,6 +83,11 @@
       }))
 
     images = filesObj
+  }
+
+  async function getYouTubeTranscriptHandler(e: Event) {
+    e.preventDefault()
+    await getYouTubeTranscript(url)
   }
 
   async function callInference() {
@@ -89,24 +139,10 @@
       loadingImages = false
     }
   }
-
-  $effect.pre(() => {
-    // Escuchar el evento inference-stream
-    listen('inference-stream', (event) => {
-      // event.payload.content contiene el chunk recibido
-      inferenceStreamContent += event.payload.content
-    })
-
-    listen('images-saved', (event) => {
-      const paths: string[] = event.payload.paths
-      console.log('Imágenes guardadas en:', paths)
-      loadImages() // Recargar las imágenes después de guardar nuevas
-    })
-  })
 </script>
 
 <main class="container">
-  <form class="row">
+  <form>
     <input
       id="url-input"
       type="url"
@@ -116,6 +152,9 @@
     />
     <button type="button" class="button" onclick={extractUrlToMarkdown} disabled={loading}>
       {loading ? 'Extracting...' : 'Summarize'}
+    </button>
+    <button type="button" class="button" onclick={getYouTubeTranscriptHandler} disabled={loading}>
+      {loading ? 'Extracting...' : 'Get Transcript'}
     </button>
   </form>
 
@@ -161,7 +200,6 @@
 
 <style>
   :root {
-    border: 8px solid #e0e0e040;
     background: radial-gradient(
       circle at top right,
       transparent 0,
@@ -180,6 +218,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
+
+    * {
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE 10+ */
+      &::-webkit-scrollbar {
+        background: transparent; /* Chrome/Safari/Webkit */
+        width: 0px;
+      }
+    }
   }
 
   .container {
@@ -187,7 +234,7 @@
     flex-direction: column;
     justify-content: center;
     margin: 0;
-    height: 100vh;
+    height: 95vh;
     text-align: center;
   }
 
@@ -198,6 +245,10 @@
     &:focus {
       box-shadow: 0 0 0 5px rgba(255, 186, 237, 0.3);
     }
+  }
+
+  form {
+    padding: 1em;
   }
 
   input,
@@ -245,25 +296,36 @@
   }
 
   .markdown-container {
-    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     max-width: 100%;
     color: #fafafa;
     text-align: left;
   }
 
   .markdown-container pre {
-    background-color: transparent;
+    border: 1px solid #555;
+    border-radius: 8px;
+    background-color: rgb(154, 154, 154, 0.2);
+    padding: 4px;
     padding: 15px;
-    max-height: 400px;
+    max-width: 90%;
+    max-height: 74vh;
     overflow-y: auto;
     color: #fafafa;
     white-space: pre-wrap; /* Permite el wrap */
     word-break: break-word;
+
+    ::-webkit-scrollbar {
+      background: transparent;
+      width: 0px;
+    }
   }
 
   .markdown-container code {
     color: #fafafa;
-    font-size: 1rem;
+    font-size: 0.9rem;
     line-height: 1.5;
     font-family: 'Menlo', monospace;
   }
@@ -284,7 +346,6 @@
   }
 
   .markdown-container button {
-    margin-top: 10px;
     border: none;
     background-color: #4caf50;
     color: white;
@@ -296,7 +357,6 @@
   }
 
   .download-button {
-    margin-top: 20px;
     border: none;
     background-color: #2196f3;
     padding: 0.8em 1.6em;

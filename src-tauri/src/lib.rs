@@ -15,6 +15,9 @@ pub use crate::browser::init_browser;
 mod inference_openrouter;
 pub use crate::inference_openrouter::{inference};
 
+mod youtube;
+pub use crate::youtube::{get_youtube_transcript}; 
+
 type BoxedFut<'a> = Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
 
 static GITHUB_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"github\.com").unwrap());
@@ -29,6 +32,15 @@ async fn extract_url_to_markdown(url: String) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+// Expose a proper Tauri command for the frontend (snake_case params)
+/* #[tauri::command]
+async fn get_youtube_transcript_cmd(id: String, languages: Vec<String>) -> Result<String, String> {
+    println!("🎬 Frontend invoked get_youtube_transcript_cmd: video_id={video_id}, languages={languages:?}");
+    crate::youtube::get_youtube_transcript(video_id, languages)
+        .await
+        .map_err(|e| e.to_string())
+} */
 
 /// Dispatcher que redirige según el tipo de URL
 async fn dispatch(url: &str) -> Result<String> {
@@ -82,16 +94,12 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
 
     page.goto(url).await?;
     page.wait_for_navigation().await?;
-    // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     let html: String = page.content().await?;
     let document = Html::parse_document(&html);
 
     println!("✅ Página cargada: {}", url);
 
-
-    // Buscar contenido principal con los selectores proporcionados
-    // Ahora itera sobre TODOS los elementos que coinciden
     let main_html = selectors.iter()
         .find_map(|selector| {
             Selector::parse(selector)
@@ -103,7 +111,6 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
                         .collect();
                     
                     if !elements.is_empty() {
-                        // Combinar todos los elementos encontrados
                         Some(elements.join("\n"))
                     } else {
                         None
@@ -112,7 +119,6 @@ async fn extract_content_with_selectors(url: &str, selectors: Vec<&str>) -> Resu
         })
         .unwrap_or_else(|| html.to_string());
 
-    // Convertir HTML a Markdown
     let converter = HtmlToMarkdown::builder()
         .skip_tags(vec!["nav", "footer", "header", "script", "style", "aside", "img", "video"])
         .scripting_enabled(false)
@@ -130,15 +136,21 @@ pub fn run() {
     dotenv::dotenv().ok();
 
     tauri::Builder::default()
-        .setup(|app| {
-            let handle = app.handle().clone();
+        .setup(|_app| {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
             });
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![extract_url_to_markdown, download_images, inference])
+        .plugin(tauri_plugin_http::init())
+        // Register the command wrapper here
+        .invoke_handler(tauri::generate_handler![
+            extract_url_to_markdown,
+            download_images,
+            inference,
+            get_youtube_transcript
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
