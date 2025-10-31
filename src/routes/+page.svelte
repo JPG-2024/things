@@ -5,10 +5,10 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
   import { urlRouter } from '../lib/urlRouter'
-  import Loader from '../components/Loader.svelte'
+  import Loader from '../components/StringReveal.svelte'
 
   let url = $state('')
-  let loading = $state(false)
+  let loading = $state(true)
   let error = $state('')
   let inferenceStreamContent = $state('')
   let images = $state<{ name: string; src: string }[]>([])

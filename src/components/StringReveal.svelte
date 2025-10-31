@@ -1,5 +1,10 @@
 <script>
-  let { message = 'Esto es un prueba', CHANGE_PERIOD = 40, TIMEOUT_SECONDS = 0.7 } = $props()
+  let {
+    message = 'Esto es un prueba',
+    loading = false,
+    CHANGE_PERIOD = 40,
+    TIMEOUT_SECONDS = 0.7,
+  } = $props()
 
   const CHARS = 'abcdefghijklmnopqrstuvwxyz'
 
@@ -22,7 +27,12 @@
         randomChars[revealedCount] = message[revealedCount]
         revealedCount++
       } else {
-        clearInterval(revealInterval)
+        // When loading is true, loop the animation by resetting the counter.
+        if (loading) {
+          revealedCount = 0
+        } else {
+          clearInterval(revealInterval)
+        }
       }
     }, CHANGE_PERIOD)
   }
