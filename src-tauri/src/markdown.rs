@@ -1,11 +1,14 @@
 use anyhow::Result;
 use htmd::HtmlToMarkdown;
 use scraper::{Html, Selector};
+use tauri::{AppHandle, Emitter};
 
 /// Función genérica que extrae contenido con selectores personalizados
 #[tauri::command]
-pub async fn extract_markdown(url: String, selectors: Vec<String>) -> Result<String, String> {
-    let page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
+pub async fn extract_markdown(app: AppHandle, url: String, selectors: Vec<String>) -> Result<String, String> {
+    app.emit("flow-status", "Loading page...")
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+    let page: chromiumoxide::Page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
     page.wait_for_navigation().await.map_err(|e| e.to_string())?;
@@ -15,6 +18,8 @@ pub async fn extract_markdown(url: String, selectors: Vec<String>) -> Result<Str
 
     println!("✅ Página cargada: {}", url);
 
+    app.emit("flow-status", "Extracting content...")
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
     let selector_strs: Vec<&str> = selectors.iter().map(|s| s.as_str()).collect();
     
     let main_html = selector_strs.iter()
@@ -36,6 +41,7 @@ pub async fn extract_markdown(url: String, selectors: Vec<String>) -> Result<Str
         })
         .unwrap_or_else(|| html.to_string());
 
+    
     let converter = HtmlToMarkdown::builder()
         .skip_tags(vec!["nav", "footer", "header", "script", "style", "aside", "img", "video"])
         .scripting_enabled(false)
