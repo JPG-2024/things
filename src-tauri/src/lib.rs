@@ -11,7 +11,9 @@ mod youtube;
 pub use crate::youtube::{get_youtube_transcript}; 
 
 mod markdown;
-pub use crate::markdown::{extract_markdown};
+pub use crate::markdown::{extract_markdown, extract_metadata, extract_blog};
+
+
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -31,6 +33,8 @@ pub fn run() {
         // Register the command wrapper here
         .invoke_handler(tauri::generate_handler![
             extract_markdown,
+            extract_metadata,
+            extract_blog,
             download_images,
             inference,
             get_youtube_transcript
