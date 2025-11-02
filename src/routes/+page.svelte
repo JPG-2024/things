@@ -1,27 +1,40 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core'
   import { listen } from '@tauri-apps/api/event'
   import { BaseDirectory, readDir } from '@tauri-apps/plugin-fs'
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
   import { urlRouter } from '../lib/urlRouter'
-  import Loader from '../components/StringReveal.svelte'
+  import StringReveal from '../components/StringReveal.svelte'
+  import { fade } from 'svelte/transition'
+  import {
+    markdownStatus,
+    mainImage,
+    title,
+    description,
+    initFlowStatusListeners,
+  } from '../stores/viewStore'
 
   let url = $state('')
-  let loading = $state(true)
+  let loading = $state(false)
   let error = $state('')
   let inferenceStreamContent = $state('')
   let images = $state<{ name: string; src: string }[]>([])
+  let mainImageSrc = $derived($mainImage)
 
   $effect.pre(() => {
+    let stopFlow: undefined | (() => void)
+    initFlowStatusListeners().then((stop) => (stopFlow = stop))
+
+    let unlistenInference: undefined | (() => void)
     listen('inference-stream', (event) => {
       const payload = event.payload as { content: string }
       inferenceStreamContent += payload.content
-    })
-    listen('images-saved', (event) => {
-      const { paths } = event.payload as { paths: string[] }
-      loadImages()
-    })
+    }).then((u) => (unlistenInference = u))
+
+    return () => {
+      stopFlow?.()
+      unlistenInference?.()
+    }
   })
 
   async function loadImages() {
@@ -75,7 +88,11 @@
     </div>
   {/if}
 
-  <Loader />
+  <StringReveal message={$description} />
+
+  {#if mainImageSrc}
+    <img transition:fade={{ duration: 500 }} class="image" src={mainImageSrc} alt="main image" />
+  {/if}
 
   {#if images.length}
     <div class="image-container">

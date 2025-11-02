@@ -3,6 +3,9 @@ use futures::StreamExt;
 use anyhow::Result;
 use std::sync::Arc;
 use serde::Deserialize;
+use tokio::sync::OnceCell;
+use scraper::Html;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Deserialize)]
 struct AntiDetectConfig {
@@ -12,7 +15,7 @@ struct AntiDetectConfig {
 	script: String,
 }
 
-pub static mut BROWSER: Option<Arc<Browser>> = None;
+pub static BROWSER: OnceCell<Arc<Browser>> = OnceCell::const_new();
 
 /// Carga la configuración de anti-detección desde el archivo JSON
 fn load_antidetect_config() -> Result<AntiDetectConfig> {
@@ -21,7 +24,7 @@ fn load_antidetect_config() -> Result<AntiDetectConfig> {
 }
 
 /// Carga la configuración del navegador desde el archivo JSON
-fn load_browser_config() -> Result<Vec<String>> {
+/* fn load_browser_config() -> Result<Vec<String>> {
 	let config_str = include_str!("../browser_config.json");
 	let config: serde_json::Value = serde_json::from_str(config_str)?;
 	let args = config["chrome_args"]
@@ -31,7 +34,7 @@ fn load_browser_config() -> Result<Vec<String>> {
 		.filter_map(|v| v.as_str().map(|s| s.to_string()))
 		.collect();
 	Ok(args)
-}
+} */
 
 /// Inicializa el browser globalmente si aún no está inicializado
 #[tauri::command]
@@ -85,9 +88,8 @@ pub async fn init_browser() -> Result<(), String> {
         while let Some(_) = handler.next().await {}
     });
 
-    unsafe {
-        BROWSER = Some(Arc::new(browser));
-    }
+    BROWSER.set(Arc::new(browser))
+        .map_err(|_| "Browser ya inicializado".to_string())?;
 
     println!("✅ Browser inicializado");
     Ok(())
@@ -112,12 +114,10 @@ pub async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
 /// Obtiene una página configurada y lista para usar
 pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
     // Tomar la instancia del browser inicializado
-    let browser = unsafe {
-        BROWSER
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Browser no inicializado"))?
-            .clone()
-    };
+    let browser = BROWSER
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("Browser no inicializado"))?
+        .clone();
 
     // Crear nueva página
     let page = browser.new_page("about:blank").await?;
@@ -126,5 +126,23 @@ pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
     configure_page(&page).await?;
 
     Ok(page)
+}
+
+/// Navega a una URL y retorna el HTML y documento parseado
+pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
+    app.emit("flow-status", "Loading page...")
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+    
+    let page = get_ready_page().await.map_err(|e| e.to_string())?;
+
+    page.goto(&url).await.map_err(|e| e.to_string())?;
+    page.wait_for_navigation().await.map_err(|e| e.to_string())?;
+
+    let html: String = page.content().await.map_err(|e| e.to_string())?;
+    let document = Html::parse_document(&html);
+
+    println!("✅ Página cargada: {}", url);
+
+    Ok((html, document))
 }
 

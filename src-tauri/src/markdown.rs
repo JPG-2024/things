@@ -4,16 +4,24 @@ use scraper::{Html, Selector};
 use tauri::{AppHandle, Emitter};
 use std::collections::HashMap;
 use serde::Serialize;
+use serde_json::json;
 
 /// Función que extrae metadatos del documento HTML
 #[tauri::command]
 pub async fn extract_metadata(app: AppHandle, url: String) -> Result<HashMap<String, String>, String> {
-    let (_html, document) = crate::browser::get_document(app, url).await?;
-    extract_metadata_from_document(&document)
+    let app_clone = app.clone();
+    let (_html, document) = crate::browser::get_document(app_clone, url).await?;
+    let metadata = extract_metadata_from_document(&app, &document)?;
+
+    Ok(metadata)
 }
 
 /// Función interna que extrae metadatos de un documento HTML parseado
-fn extract_metadata_from_document(document: &Html) -> Result<HashMap<String, String>, String> {
+fn extract_metadata_from_document(app: &AppHandle, document: &Html) -> Result<HashMap<String, String>, String> {
+
+    app.emit("flow-status", json!({"key": "metadata", "status": "extracting", "data": null}))
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
     let mut metadata: HashMap<String, String> = HashMap::new();
 
     // Extraer metadatos de etiquetas <meta>
@@ -41,6 +49,9 @@ fn extract_metadata_from_document(document: &Html) -> Result<HashMap<String, Str
 
     println!("✅ Metadatos extraídos: {} elementos", metadata.len());
 
+    app.emit("flow-status", json!({"key": "metadata", "status": "done", "data": metadata.clone()}))
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
     Ok(metadata)
 }
 
@@ -48,15 +59,18 @@ fn extract_metadata_from_document(document: &Html) -> Result<HashMap<String, Str
 #[tauri::command]
 pub async fn extract_markdown(app: AppHandle, url: String, selectors: Vec<String>) -> Result<String, String> {
     let (html, document) = crate::browser::get_document(app.clone(), url).await?;
-    
-    app.emit("flow-status", "Extracting content...")
-        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-    
-    extract_markdown_from_html(&html, &document, selectors)
+    let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
+
+    Ok(markdown)
 }
 
 /// Función interna que convierte HTML a markdown usando selectores personalizados
-fn extract_markdown_from_html(html: &str, document: &Html, selectors: Vec<String>) -> Result<String, String> {
+fn extract_markdown_from_html(app: &AppHandle, html: &str, document: &Html, selectors: Vec<String>) -> Result<String, String> {
+
+    app.emit("flow-status", json!({"key": "markdown", "status": "extracting", "data": null}))
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+
     let selector_strs: Vec<&str> = selectors.iter().map(|s| s.as_str()).collect();
     
     let main_html = selector_strs.iter()
@@ -86,6 +100,9 @@ fn extract_markdown_from_html(html: &str, document: &Html, selectors: Vec<String
 
     let markdown = converter.convert(&main_html).map_err(|e| e.to_string())?;
 
+    app.emit("flow-status", json!({"key": "markdown", "status": "done", "data": markdown.clone()}))
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
     Ok(markdown)
 }
 
@@ -101,18 +118,20 @@ pub struct BlogContent {
 pub async fn extract_blog(app: AppHandle, url: String, selectors: Vec<String>) -> Result<BlogContent, String> {
     // Obtener documento una sola vez
     let (html, document) = crate::browser::get_document(app.clone(), url).await?;
+
     
     // Extraer metadatos
-    let metadata = extract_metadata_from_document(&document)?;
+    let metadata = extract_metadata_from_document(&app, &document)?;
+
     
     // Emitir evento de progreso
-    app.emit("flow-status", "Extracting content...")
+    app.emit("flow-status", json!({"key": "metadata", "status": "done", "data": metadata.clone()}))
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-    
+
     // Extraer markdown
-    let markdown = extract_markdown_from_html(&html, &document, selectors)?;
+    let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
     
-    println!("✅ Blog extraído completamente");
+    println!("<< ✅ Blog extraído completamente >>");
     
     Ok(BlogContent { metadata, markdown })
 }

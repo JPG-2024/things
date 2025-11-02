@@ -4,16 +4,15 @@
     loading = false,
     CHANGE_PERIOD = 40,
     TIMEOUT_SECONDS = 0.7,
+    text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()
-
-  const CHARS = 'abcdefghijklmnopqrstuvwxyz'
 
   let randomChars = $state([])
   let revealedCount = $state(0)
   let isRevealing = $state(false)
 
   function getRandomChar() {
-    return CHARS[Math.floor(Math.random() * CHARS.length)]
+    return text[Math.floor(Math.random() * text.length)]
   }
 
   function updateChars() {
@@ -38,7 +37,9 @@
   }
 
   $effect(() => {
-    // Reinitialize on message change
+    // Reinitialize on message or text change
+    if (typeof message !== 'string' || message.length === 0) return
+
     randomChars = Array(message.length).fill('')
     revealedCount = 0
     isRevealing = false
