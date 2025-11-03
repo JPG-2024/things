@@ -54,15 +54,17 @@
   })
 </script>
 
-<span class="loader {isRevealing ? 'revealing' : ''}">
+<div class="revealer {isRevealing ? 'revealing' : ''}">
   {#each randomChars as char, i}
     <span class="char {i < revealedCount ? 'revealed' : ''}">{char}</span>
   {/each}
-</span>
+</div>
 
 <style>
-  .loader {
+  .revealer {
     display: inline-flex;
+    flex-wrap: wrap;
+    width: 90%;
     font-weight: bold;
     font-size: 0.9rem;
     font-family: monospace;

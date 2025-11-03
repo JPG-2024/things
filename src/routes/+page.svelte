@@ -109,13 +109,25 @@
 </main>
 
 <style>
+  :global(body) {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
   :root {
-    background: radial-gradient(
+    /*     background: radial-gradient(
       circle at top right,
       transparent 0,
       rgba(0, 0, 0, 1) 60px,
       rgba(28, 28, 28, 1) 50%,
       rgb(86, 9, 76) 100%
+    ); */
+    background: repeating-linear-gradient(
+      transparent,
+      rgb(0, 0, 0) 34.03%,
+      rgb(0, 0, 0) 100%,
+      rgb(28, 28, 28)
     );
     color: #ffffff;
     font-weight: 400;
@@ -143,52 +155,14 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
     margin: 0;
-    height: 95vh;
+    padding: 1rem;
+    height: 100vh;
+    overflow-y: auto;
     text-align: center;
   }
-
-  input {
-    &:active {
-      border-color: #ff32fc;
-    }
-    &:focus {
-      box-shadow: 0 0 0 5px rgba(255, 186, 237, 0.3);
-    }
-  }
-
-  form {
-    padding: 1em;
-  }
-
-  input,
-  button {
-    transition: border-color 0.25s;
-    box-shadow: none;
-    border: 8px solid #e0e0e040;
-    border-radius: 8px;
-    background-color: transparent;
-    padding: 0.6em 1.2em;
-    color: #0f0f0f;
-    font-weight: 500;
-    font-size: 1em;
-    font-family: inherit;
-  }
-
-  button:hover {
-    border-color: #396cd8;
-  }
-  button:active {
-    border-color: #396cd8;
-    background-color: #e8e8e8;
-  }
-
-  #url-input {
-    flex: 1;
-    margin-right: 5px;
-    min-width: 300px;
-  }
-
   .image-container {
     display: flex;
     flex-wrap: wrap;
@@ -198,11 +172,10 @@
   }
 
   .image {
-    margin: 10px;
-    border: 2px solid #ddd;
+    border: 1px solid #ddd;
     border-radius: 8px;
-    max-width: 200px;
-    max-height: 200px;
+    max-height: 150px;
+    object-fit: cover;
   }
 
   .markdown-container {
@@ -217,7 +190,7 @@
   .markdown-container pre {
     border: 1px solid #555;
     border-radius: 8px;
-    background-color: rgb(154, 154, 154, 0.2);
+    background-color: rgb(154, 154, 154, 0.1);
     padding: 4px;
     padding: 15px;
     max-width: 90%;
