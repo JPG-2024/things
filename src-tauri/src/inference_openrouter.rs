@@ -28,7 +28,7 @@ pub async fn inference(
     system_prompt: Option<String>,
 ) -> Result<(), String> {
     dotenv::dotenv().ok();
-    
+
     let api_key = std::env::var("OPENROUTER_API_KEY")
         .map_err(|_| "OPENROUTER_API_KEY not found in environment".to_string())?;
 
@@ -75,7 +75,7 @@ pub async fn inference(
 
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
-        
+
         let chunk_str = String::from_utf8_lossy(&chunk);
         buffer.push_str(&chunk_str);
 
@@ -97,7 +97,7 @@ pub async fn inference(
                         let chunk_data = StreamChunk {
                             content: content.to_string(),
                         };
-                        
+
                         app.emit("inference-stream", chunk_data)
                             .map_err(|e| format!("Failed to emit stream event: {}", e))?;
                     }

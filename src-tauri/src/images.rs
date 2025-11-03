@@ -19,10 +19,12 @@ fn extract_og_image(html: &str) -> Option<String> {
         Err(_) => return None,
     };
 
-    if let Some(url) = document.select(&meta_selector_url)
+    if let Some(url) = document
+        .select(&meta_selector_url)
         .next()
         .and_then(|meta| meta.value().attr("content"))
-        .map(|url| url.to_string()) {
+        .map(|url| url.to_string())
+    {
         return Some(url);
     }
 
@@ -32,7 +34,8 @@ fn extract_og_image(html: &str) -> Option<String> {
         Err(_) => return None,
     };
 
-    document.select(&meta_selector)
+    document
+        .select(&meta_selector)
         .next()
         .and_then(|meta| meta.value().attr("content"))
         .map(|url| url.to_string())
@@ -41,12 +44,11 @@ fn extract_og_image(html: &str) -> Option<String> {
 /// Obtiene el tamaño de la imagen en bytes usando HEAD request
 async fn get_image_size(client: &Client, url: &str) -> Option<u64> {
     match client.head(url).send().await {
-        Ok(response) => {
-            response.headers()
-                .get("content-length")
-                .and_then(|h| h.to_str().ok())
-                .and_then(|s| s.parse::<u64>().ok())
-        },
+        Ok(response) => response
+            .headers()
+            .get("content-length")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.parse::<u64>().ok()),
         Err(_) => None,
     }
 }
@@ -57,19 +59,22 @@ pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<S
     app.emit("flow-status", "images - opening tab...")
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    let page = crate::browser::get_ready_page().await.map_err(|e| e.to_string())?;
+    let page = crate::browser::get_ready_page()
+        .await
+        .map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
-    page.wait_for_navigation().await.map_err(|e| e.to_string())?;
+    page.wait_for_navigation()
+        .await
+        .map_err(|e| e.to_string())?;
 
     app.emit("flow-status", "images - extracting image...")
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
     let html: String = page.content().await.map_err(|e| e.to_string())?;
-    
+
     // Extraer imagen del meta tag og:image:url o og:image
-    let image_url = extract_og_image(&html)
-        .ok_or("❌ No se encontró og:image:url en la página")?;
+    let image_url = extract_og_image(&html).ok_or("❌ No se encontró og:image:url en la página")?;
 
     println!("✅ Imagen encontrada: {}", image_url);
 
@@ -86,33 +91,37 @@ pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<S
     }
 
     // Extraer nombre del archivo
-    let filename = image_url.split('/').next_back().unwrap_or("image.jpg").to_string();
-    let filename = filename.split('?').next().unwrap_or("image.jpg").to_string();
+    let filename = image_url
+        .split('/')
+        .next_back()
+        .unwrap_or("image.jpg")
+        .to_string();
+    let filename = filename
+        .split('?')
+        .next()
+        .unwrap_or("image.jpg")
+        .to_string();
     let file_path = dir_path.join(&filename);
 
     println!("⭐ Descargando imagen: {}", image_url);
 
     match client.get(&image_url).send().await {
-        Ok(response) => {
-            match response.bytes().await {
-                Ok(bytes) => {
-                    match std::fs::write(&file_path, bytes) {
-                        Ok(_) => {
-                            let relative_path = file_path.to_string_lossy().to_string();
-                            println!("✅ Imagen guardada: {:?}", file_path);
-                            
-                            let event = ImagesSavedEvent {
-                                paths: vec![relative_path.clone()],
-                            };
-                            app.emit("images-saved", event)
-                                .map_err(|e| format!("Failed to emit images-saved event: {}", e))?;
-                            Ok(vec![relative_path])
-                        },
-                        Err(e) => Err(format!("❌ Error escribiendo archivo: {}", e)),
-                    }
-                },
-                Err(e) => Err(format!("❌ Error leyendo respuesta: {}", e)),
-            }
+        Ok(response) => match response.bytes().await {
+            Ok(bytes) => match std::fs::write(&file_path, bytes) {
+                Ok(_) => {
+                    let relative_path = file_path.to_string_lossy().to_string();
+                    println!("✅ Imagen guardada: {:?}", file_path);
+
+                    let event = ImagesSavedEvent {
+                        paths: vec![relative_path.clone()],
+                    };
+                    app.emit("images-saved", event)
+                        .map_err(|e| format!("Failed to emit images-saved event: {}", e))?;
+                    Ok(vec![relative_path])
+                }
+                Err(e) => Err(format!("❌ Error escribiendo archivo: {}", e)),
+            },
+            Err(e) => Err(format!("❌ Error leyendo respuesta: {}", e)),
         },
         Err(e) => Err(format!("❌ Error descargando imagen: {}", e)),
     }

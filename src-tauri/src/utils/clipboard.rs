@@ -1,6 +1,6 @@
-use clipboard_master::{ClipboardHandler, CallbackResult};
-use tauri::Emitter; // Tauri v2: Emitter trait provides `.emit`
+use clipboard_master::{CallbackResult, ClipboardHandler};
 use std::io;
+use tauri::Emitter; // Tauri v2: Emitter trait provides `.emit`
 
 // 1. Añade el AppHandle al struct
 pub struct Handler {
@@ -19,7 +19,10 @@ impl ClipboardHandler for Handler {
         // Lee el texto del clipboard
         let mut clipboard = arboard::Clipboard::new().unwrap();
         let text = clipboard.get_text().unwrap_or_else(|_| "".into());
-        print!("Clipboard change happened! Emitting event with text: {}", text);
+        print!(
+            "Clipboard change happened! Emitting event with text: {}",
+            text
+        );
         // Emite evento al frontend con solo el texto
         self.app_handle
             .emit("clipboard-changed", text.clone())

@@ -1,40 +1,40 @@
+use anyhow::Result;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
-use anyhow::Result;
-use std::sync::Arc;
-use serde::Deserialize;
-use tokio::sync::OnceCell;
 use scraper::Html;
+use serde::Deserialize;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
+use tokio::sync::OnceCell;
 
 #[derive(Deserialize)]
 struct AntiDetectConfig {
-	user_agent: String,
-	accept_language: String,
-	platform: String,
-	script: String,
+    user_agent: String,
+    accept_language: String,
+    platform: String,
+    script: String,
 }
 
 pub static BROWSER: OnceCell<Arc<Browser>> = OnceCell::const_new();
 
 /// Carga la configuración de anti-detección desde el archivo JSON
 fn load_antidetect_config() -> Result<AntiDetectConfig> {
-	let config_str = include_str!("../antidetect.json");
-	serde_json::from_str(config_str).map_err(|e| anyhow::anyhow!("Error cargando config: {}", e))
+    let config_str = include_str!("../antidetect.json");
+    serde_json::from_str(config_str).map_err(|e| anyhow::anyhow!("Error cargando config: {}", e))
 }
 
 /// Carga la configuración del navegador desde el archivo JSON
 /*
 fn load_browser_config() -> Result<Vec<String>> {
-	let config_str = include_str!("../browser_config.json");
-	let config: serde_json::Value = serde_json::from_str(config_str)?;
-	let args = config["chrome_args"]
-		.as_array()
-		.ok_or_else(|| anyhow::anyhow!("No chrome_args found in browser_config.json"))?
-		.iter()
-		.filter_map(|v| v.as_str().map(|s| s.to_string()))
-		.collect();
-	Ok(args)
+    let config_str = include_str!("../browser_config.json");
+    let config: serde_json::Value = serde_json::from_str(config_str)?;
+    let args = config["chrome_args"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("No chrome_args found in browser_config.json"))?
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect();
+    Ok(args)
 }
 */
 /// Inicializa el browser globalmente si aún no está inicializado
@@ -46,50 +46,42 @@ pub async fn init_browser() -> Result<(), String> {
         .arg("-f")
         .arg("chromiumoxide-runner")
         .output();
-    
+
     // Give processes time to die
     std::thread::sleep(std::time::Duration::from_millis(500));
-    
+
     let mut config = BrowserConfig::builder();
-    
+
     // Use a unique, clean user data directory
-    let user_data_dir = format!(
-        "/tmp/chromium-profile-{}",
-        std::process::id()
-    );
-    
+    let user_data_dir = format!("/tmp/chromium-profile-{}", std::process::id());
+
     // Clean up old directory if it exists
     let _ = std::fs::remove_dir_all(&user_data_dir);
     std::fs::create_dir_all(&user_data_dir)
         .map_err(|e| format!("Failed to create user data dir: {}", e))?;
-    
+
     config = config
         .arg(format!("--user-data-dir={}", user_data_dir))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--disable-sync");
-    
-    let config = config
-        .build()
-        .map_err(|e| {
-            let error_msg = e.to_string();
-            eprintln!("❌ Error configurando browser: {}", error_msg);
-            error_msg
-        })?;
-        
-    let (browser, mut handler) = Browser::launch(config)
-        .await
-        .map_err(|e| {
-            let error_msg = e.to_string();
-            eprintln!("❌ Error lanzando browser: {}", error_msg);
-            error_msg
-        })?;
 
-    tokio::spawn(async move {
-        while (handler.next().await).is_some() {}
-    });
+    let config = config.build().map_err(|e| {
+        let error_msg = e.to_string();
+        eprintln!("❌ Error configurando browser: {}", error_msg);
+        error_msg
+    })?;
 
-    BROWSER.set(Arc::new(browser))
+    let (browser, mut handler) = Browser::launch(config).await.map_err(|e| {
+        let error_msg = e.to_string();
+        eprintln!("❌ Error lanzando browser: {}", error_msg);
+        error_msg
+    })?;
+
+    tokio::spawn(async move { while (handler.next().await).is_some() {} });
+
+    BROWSER
+        .set(Arc::new(browser))
         .map_err(|_| "Browser ya inicializado".to_string())?;
 
     println!("✅ Browser inicializado");
@@ -98,18 +90,20 @@ pub async fn init_browser() -> Result<(), String> {
 
 /// Configura una página con anti-detección y user agent
 pub async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
-	let config = load_antidetect_config()?;
-	page.execute(chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
-		user_agent: config.user_agent,
-		accept_language: Some(config.accept_language),
-		platform: Some(config.platform),
-		user_agent_metadata: None,
-	})
-	.await?;
+    let config = load_antidetect_config()?;
+    page.execute(
+        chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
+            user_agent: config.user_agent,
+            accept_language: Some(config.accept_language),
+            platform: Some(config.platform),
+            user_agent_metadata: None,
+        },
+    )
+    .await?;
 
-	page.evaluate(config.script.as_str()).await?;
+    page.evaluate(config.script.as_str()).await?;
 
-	Ok(())
+    Ok(())
 }
 
 /// Obtiene una página configurada y lista para usar
@@ -133,11 +127,13 @@ pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
 pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
     app.emit("flow-status", "Loading page...")
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-    
+
     let page = get_ready_page().await.map_err(|e| e.to_string())?;
 
     page.goto(&url).await.map_err(|e| e.to_string())?;
-    page.wait_for_navigation().await.map_err(|e| e.to_string())?;
+    page.wait_for_navigation()
+        .await
+        .map_err(|e| e.to_string())?;
 
     let html: String = page.content().await.map_err(|e| e.to_string())?;
     let document = Html::parse_document(&html);
@@ -146,4 +142,3 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
 
     Ok((html, document))
 }
-

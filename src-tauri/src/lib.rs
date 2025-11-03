@@ -5,22 +5,19 @@ mod browser;
 pub use crate::browser::init_browser;
 
 mod inference_openrouter;
-pub use crate::inference_openrouter::{inference};
+pub use crate::inference_openrouter::inference;
 
 mod youtube;
-pub use crate::youtube::{get_youtube_transcript}; 
+pub use crate::youtube::get_youtube_transcript;
 
 mod markdown;
-pub use crate::markdown::{extract_markdown, extract_metadata, extract_blog};
+pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
-
-use clipboard_master::{Master};
+use clipboard_master::Master;
 mod utils {
     pub mod clipboard;
 }
 pub use crate::utils::clipboard::Handler;
-
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -38,7 +35,7 @@ pub fn run() {
             std::thread::spawn(move || {
                 let _ = Master::new(Handler::new(app_handle)).run();
             });
-            
+
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
