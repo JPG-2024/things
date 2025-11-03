@@ -84,9 +84,7 @@ pub async fn inference(
             let line = buffer[..line_end].trim().to_string();
             buffer = buffer[line_end + 1..].to_string();
 
-            if line.starts_with("data: ") {
-                let data = &line[6..];
-                
+            if let Some(data) = line.strip_prefix("data: ") {
                 if data == "[DONE]" {
                     app.emit("inference-complete", ())
                         .map_err(|e| format!("Failed to emit completion event: {}", e))?;

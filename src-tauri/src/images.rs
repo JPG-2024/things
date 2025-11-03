@@ -86,7 +86,7 @@ pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<S
     }
 
     // Extraer nombre del archivo
-    let filename = image_url.split('/').last().unwrap_or("image.jpg").to_string();
+    let filename = image_url.split('/').next_back().unwrap_or("image.jpg").to_string();
     let filename = filename.split('?').next().unwrap_or("image.jpg").to_string();
     let file_path = dir_path.join(&filename);
 

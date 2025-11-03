@@ -24,7 +24,8 @@ fn load_antidetect_config() -> Result<AntiDetectConfig> {
 }
 
 /// Carga la configuración del navegador desde el archivo JSON
-/* fn load_browser_config() -> Result<Vec<String>> {
+/*
+fn load_browser_config() -> Result<Vec<String>> {
 	let config_str = include_str!("../browser_config.json");
 	let config: serde_json::Value = serde_json::from_str(config_str)?;
 	let args = config["chrome_args"]
@@ -34,8 +35,8 @@ fn load_antidetect_config() -> Result<AntiDetectConfig> {
 		.filter_map(|v| v.as_str().map(|s| s.to_string()))
 		.collect();
 	Ok(args)
-} */
-
+}
+*/
 /// Inicializa el browser globalmente si aún no está inicializado
 #[tauri::command]
 pub async fn init_browser() -> Result<(), String> {
@@ -85,7 +86,7 @@ pub async fn init_browser() -> Result<(), String> {
         })?;
 
     tokio::spawn(async move {
-        while let Some(_) = handler.next().await {}
+        while (handler.next().await).is_some() {}
     });
 
     BROWSER.set(Arc::new(browser))

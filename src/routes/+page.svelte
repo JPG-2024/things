@@ -31,6 +31,11 @@
       inferenceStreamContent += payload.content
     }).then((u) => (unlistenInference = u))
 
+    listen('clipboard-changed', (event) => {
+      console.log(event.payload)
+      handleUrlAction(event.payload as string)
+    })
+
     return () => {
       stopFlow?.()
       unlistenInference?.()
@@ -49,8 +54,7 @@
     images = filesObj
   }
 
-  async function handleUrlAction(event: Event) {
-    event.preventDefault()
+  async function handleUrlAction(url: string) {
     loading = true
     error = ''
     inferenceStreamContent = ''
@@ -65,22 +69,6 @@
 </script>
 
 <main class="container">
-  <form>
-    <input
-      id="url-input"
-      type="url"
-      placeholder="Enter URL (e.g., https://youtube.com/watch?v=...)..."
-      bind:value={url}
-      required
-    />
-    <button type="button" class="button" onclick={handleUrlAction} disabled={loading}>
-      {loading ? 'Procesando...' : 'Procesar'}
-    </button>
-    <button type="button" class="button" onclick={() => (loading = !loading)}>
-      toggle loading
-    </button>
-  </form>
-
   {#if error}
     <div class="error">
       <strong>Error:</strong>

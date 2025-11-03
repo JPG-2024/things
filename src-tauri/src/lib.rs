@@ -14,6 +14,12 @@ mod markdown;
 pub use crate::markdown::{extract_markdown, extract_metadata, extract_blog};
 
 
+use clipboard_master::{Master};
+mod utils {
+    pub mod clipboard;
+}
+pub use crate::utils::clipboard::Handler;
+
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -22,10 +28,17 @@ pub fn run() {
     dotenv::dotenv().ok();
 
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
             });
+
+            // Spawn blocking clipboard watcher with access to the AppHandle
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let _ = Master::new(Handler::new(app_handle)).run();
+            });
+            
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())

@@ -2,8 +2,8 @@
   let {
     message = 'Esto es un prueba',
     loading = false,
-    CHANGE_PERIOD = 40,
-    TIMEOUT_SECONDS = 0.7,
+    CHANGE_PERIOD = 10,
+    TIMEOUT_SECONDS = 0.4,
     text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()
 
