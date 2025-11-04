@@ -15,6 +15,8 @@
     cleanAllState,
   } from '../stores/viewStore'
 
+  import LoadingStack from '../components/LoadingStack.svelte'
+
   let url = $state('')
   let loading = $state(false)
   let error = $state('')
@@ -59,6 +61,7 @@
 
   async function handleUrlAction(url: string) {
     cleanAllState()
+    inferenceStreamContent = ''
 
     try {
       await urlRouter(url)
@@ -71,6 +74,7 @@
 </script>
 
 <main class="container">
+  <LoadingStack />
   {#if error}
     <div class="error">
       <strong>Error:</strong>

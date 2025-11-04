@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::OnceCell;
+use serde_json::json;
 
 #[derive(Deserialize)]
 struct AntiDetectConfig {
@@ -125,8 +126,11 @@ pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
 
 /// Navega a una URL y retorna el HTML y documento parseado
 pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
-    app.emit("flow-status", "Loading page...")
-        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+    app.emit(
+        "flow-status",
+        json!({"key": "page", "status": "Loading Page", "data": null}),
+    );
 
     let page = get_ready_page().await.map_err(|e| e.to_string())?;
 
@@ -139,6 +143,11 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
     let document = Html::parse_document(&html);
 
     println!("✅ Página cargada: {}", url);
+
+    app.emit(
+        "flow-status",
+        json!({"key": "page", "status": "done", "data": null}),
+    );
 
     Ok((html, document))
 }

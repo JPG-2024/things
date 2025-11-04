@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,7 +29,12 @@ pub async fn inference(
 ) -> Result<(), String> {
     dotenv::dotenv().ok();
 
-    println!("🚀 Starting inference");
+    println!("✅ Starting inference...");
+
+    app.emit(
+        "flow-status",
+        json!({"key": "inference", "status": "Processing inference", "data": null}),
+    );
 
     let api_key = std::env::var("HUGGING_FACE_API_KEY")
         .map_err(|_| "HUGGING_FACE_API_KEY not found in environment".to_string())?;
@@ -52,7 +57,7 @@ pub async fn inference(
 
     let payload = RequestPayload {
         messages,
-        model: "Qwen/Qwen3-4B-Instruct-2507:nscale".to_string(),
+        model: "meta-llama/Llama-4-Scout-17B-16E-Instruct:groq".to_string(),
         stream: true,
     };
 
@@ -70,7 +75,10 @@ pub async fn inference(
         return Err(format!("API error: {}", response.status()));
     }
 
-    println!("🚀 inference done");
+    app.emit(
+        "flow-status",
+        json!({"key": "inference", "status": "done", "data": null}),
+    );
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -109,6 +117,8 @@ pub async fn inference(
             }
         }
     }
+
+    println!("✅ Inference complete");
 
     app.emit("inference-complete", ())
         .map_err(|e| format!("Failed to emit completion event: {}", e))?;

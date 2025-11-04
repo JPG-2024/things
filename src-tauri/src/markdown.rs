@@ -26,7 +26,7 @@ fn extract_metadata_from_document(
 ) -> Result<HashMap<String, String>, String> {
     app.emit(
         "flow-status",
-        json!({"key": "metadata", "status": "extracting", "data": null}),
+        json!({"key": "metadata", "status": "Extracting metadata", "data": null}),
     )
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
@@ -90,7 +90,7 @@ fn extract_markdown_from_html(
 ) -> Result<String, String> {
     app.emit(
         "flow-status",
-        json!({"key": "markdown", "status": "extracting", "data": null}),
+        json!({"key": "markdown", "status": "Extracting markdown", "data": null}),
     )
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
