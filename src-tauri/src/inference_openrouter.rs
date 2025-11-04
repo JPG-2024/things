@@ -49,7 +49,7 @@ pub async fn inference(
     });
 
     let payload = RequestPayload {
-        model: "google/gemma-3n-e2b-it:free".to_string(),
+        model: "qwen/qwen3-4b:free".to_string(),
         messages,
         stream: true,
     };

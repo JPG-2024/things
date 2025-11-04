@@ -56,7 +56,7 @@
 
 <div class="revealer {isRevealing ? 'revealing' : ''}">
   {#each randomChars as char, i}
-    <span class="char {i < revealedCount ? 'revealed' : ''}">{char}</span>
+    {char}
   {/each}
 </div>
 

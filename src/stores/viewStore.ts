@@ -22,6 +22,12 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
   return $metadataStatus?.data?.["description"] || "";
 });
 
+// Método para limpiar todo el estado
+export function cleanAllState() {
+  metadataStatus.set(null);
+  markdownStatus.set(null);
+}
+
 // Idempotencia y cleanup
 let initialized = false;
 let unsubs: Array<() => void> = [];

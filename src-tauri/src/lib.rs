@@ -4,8 +4,11 @@ pub use crate::images::download_images;
 mod browser;
 pub use crate::browser::init_browser;
 
-mod inference_openrouter;
-pub use crate::inference_openrouter::inference;
+/* mod inference_openrouter;
+pub use crate::inference_openrouter::inference; */
+
+mod inference_hugging;
+pub use crate::inference_hugging::inference;
 
 mod youtube;
 pub use crate::youtube::get_youtube_transcript;

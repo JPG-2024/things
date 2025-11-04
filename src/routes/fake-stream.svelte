@@ -12,7 +12,6 @@
     title,
     description,
     initFlowStatusListeners,
-    cleanAllState,
   } from '../stores/viewStore'
 
   let url = $state('')
@@ -32,16 +31,14 @@
       inferenceStreamContent += payload.content
     }).then((u) => (unlistenInference = u))
 
-    let unlistenClipboard: undefined | (() => void)
     listen('clipboard-changed', (event) => {
       console.log(event.payload)
       handleUrlAction(event.payload as string)
-    }).then((u) => (unlistenClipboard = u))
+    })
 
     return () => {
       stopFlow?.()
       unlistenInference?.()
-      unlistenClipboard?.()
     }
   })
 
@@ -58,8 +55,9 @@
   }
 
   async function handleUrlAction(url: string) {
-    cleanAllState()
-
+    loading = true
+    error = ''
+    inferenceStreamContent = ''
     try {
       await urlRouter(url)
     } catch (err) {
@@ -78,17 +76,10 @@
     </div>
   {/if}
 
-  {#if $title}
-    <div transition:fade={{ duration: 400 }} class="title">
-      <StringReveal message={$title} />
-    </div>
-  {/if}
+  <StringReveal message={$description} />
 
   {#if mainImageSrc}
-    <div transition:fade={{ duration: 400 }} class="header">
-      <img class="image" src={mainImageSrc} alt="main" />
-      <StringReveal message={$description} />
-    </div>
+    <img transition:fade={{ duration: 500 }} class="image" src={mainImageSrc} alt="main" />
   {/if}
 
   {#if images.length}
@@ -172,29 +163,6 @@
     overflow-y: auto;
     text-align: center;
   }
-
-  .title {
-    width: 100%;
-  }
-  .title :global(.revealer) {
-    width: fit-content;
-    font-size: 1rem;
-  }
-
-  .header {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 15px;
-    width: 90vw;
-  }
-
-  .header :global(.revealer) {
-    width: fit-content;
-    font-size: 0.8rem;
-    text-align: left;
-  }
-
   .image-container {
     display: flex;
     flex-wrap: wrap;
@@ -240,7 +208,7 @@
 
   .markdown-container code {
     color: #fafafa;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     line-height: 1.5;
     font-family: 'Menlo', monospace;
   }
