@@ -3,6 +3,10 @@ import { listenMetadataFlowStatus } from "../lib/listeners/metadataListener";
 import { listenMarkdownFlowStatus } from "../lib/listeners/markdownListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "../lib/types/flowStatus";
 
+
+export const domainUrl = writable<string | null>(null);
+export const ytVideoId = writable<string | null>(null);
+
 // Store para el estado de metadata
 export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(null);
 
@@ -26,6 +30,8 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
 export function cleanAllState() {
   metadataStatus.set(null);
   markdownStatus.set(null);
+  domainUrl.set(null);
+  ytVideoId.set(null);
 }
 
 // Idempotencia y cleanup

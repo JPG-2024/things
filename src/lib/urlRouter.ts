@@ -1,12 +1,16 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
+import { domainUrl, ytVideoId } from '../stores/viewStore'
 
 export async function urlRouter(url: string) {
-
   try {
-    new URL(url)
+    const newUrl = new URL(url)
+    // set urlStore as domain only
+    domainUrl.set(newUrl.hostname)
+    // extract youtube video id or blog content
+    ytVideoId.set(newUrl.searchParams.get('v'))
   } catch {
-    throw new Error('Invalid URL')
+    return null
   }
   
   switch (true) {

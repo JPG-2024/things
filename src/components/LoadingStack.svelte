@@ -24,6 +24,10 @@
     console.log('Updated pills:', pills)
   }
 
+  export function resetStack() {
+    pills = []
+  }
+
   $effect.pre(() => {
     listen<FlowStatusEvent<FlowPayload>>('flow-status', (event) => {
       const payload = event?.payload as FlowPayload
@@ -38,7 +42,6 @@
   {#each pills as pill (pill.key)}
     <span class="pill {pill.status === 'done' ? 'done' : ''}">
       {pill.status === 'done' ? pill.key : pill.status}
-      {pill.status === 'done' ? '✔' : ''}
     </span>
   {/each}
 </div>
@@ -47,16 +50,33 @@
   .stack {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.5rem;
+    padding: 1.2rem;
   }
   .pill {
+    border: 1px solid #555;
     border-radius: 999px;
-    background: var(--pill-bg, #e5e7eb);
+    background-color: rgb(154, 154, 154, 0.1);
     padding: 0.3rem 0.6rem;
-    color: var(--pill-fg, #111827);
     font-size: 0.75rem;
     line-height: 1.2;
   }
+
+  .pill::before {
+    display: inline-block;
+    margin-right: 0.3rem;
+    border-radius: 50%;
+    background-color: var(--pill-indicator, #6b7280);
+    width: 0.5rem;
+    height: 0.5rem;
+    content: '';
+  }
+
+  .pill.done::before {
+    background-color: var(--pill-indicator-done, #57f234);
+  }
+
   .pill.done {
     opacity: 0.5;
   }

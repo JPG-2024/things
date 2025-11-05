@@ -57,7 +57,7 @@ pub async fn inference(
 
     let payload = RequestPayload {
         messages,
-        model: "meta-llama/Llama-4-Scout-17B-16E-Instruct:groq".to_string(),
+        model: "Qwen/Qwen3-VL-8B-Instruct:novita".to_string(),
         stream: true,
     };
 

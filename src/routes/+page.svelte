@@ -7,12 +7,13 @@
   import StringReveal from '../components/StringReveal.svelte'
   import { fade } from 'svelte/transition'
   import {
-    markdownStatus,
     mainImage,
     title,
     description,
     initFlowStatusListeners,
     cleanAllState,
+    domainUrl,
+    ytVideoId,
   } from '../stores/viewStore'
 
   import LoadingStack from '../components/LoadingStack.svelte'
@@ -62,6 +63,7 @@
   async function handleUrlAction(url: string) {
     cleanAllState()
     inferenceStreamContent = ''
+    loading = true
 
     try {
       await urlRouter(url)
@@ -73,8 +75,17 @@
   }
 </script>
 
-<main class="container">
-  <LoadingStack />
+<main class="container {loading ? 'loading' : ''}">
+  <div class="loading-stack-container">
+    {#if $domainUrl}
+      <img
+        class="favicon"
+        src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"
+        alt=""
+      />
+    {/if}
+    <LoadingStack />
+  </div>
   {#if error}
     <div class="error">
       <strong>Error:</strong>
@@ -83,16 +94,29 @@
   {/if}
 
   {#if $title}
-    <div transition:fade={{ duration: 400 }} class="title">
+    <div transition:fade={{ duration: 800 }} class="title">
       <StringReveal message={$title} />
     </div>
   {/if}
 
   {#if mainImageSrc}
-    <div transition:fade={{ duration: 400 }} class="header">
+    <div transition:fade={{ duration: 800 }} class="header">
       <img class="image" src={mainImageSrc} alt="main" />
       <StringReveal message={$description} />
     </div>
+  {/if}
+
+  {#if $ytVideoId}
+    <iframe
+      class="yt-video"
+      width="560"
+      height="315"
+      src={`https://www.youtube.com/embed/${$ytVideoId}`}
+      title="YouTube video player"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen
+    ></iframe>
   {/if}
 
   {#if images.length}
@@ -124,24 +148,19 @@
 <style>
   :global(body) {
     margin: 0;
-    padding: 0;
-    height: 100vh;
-    overflow: hidden;
-  }
-  :root {
-    /*     background: radial-gradient(
-      circle at top right,
-      transparent 0,
-      rgba(0, 0, 0, 1) 60px,
-      rgba(28, 28, 28, 1) 50%,
-      rgb(86, 9, 76) 100%
-    ); */
-    background: repeating-linear-gradient(
+
+    /*     background: repeating-linear-gradient(
       transparent,
       rgb(0, 0, 0) 34.03%,
       rgb(0, 0, 0) 100%,
       rgb(28, 28, 28)
     );
+ */
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  :root {
     color: #ffffff;
     font-weight: 400;
     font-size: 16px;
@@ -170,11 +189,31 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
+    box-sizing: border-box;
     margin: 0;
+    background: linear-gradient(-45deg, #212121, #0a2511, #000000, #0a2511);
+    background-size: 400% 400%;
     padding: 1rem;
+    padding-top: 2rem;
     height: 100vh;
     overflow-y: auto;
     text-align: center;
+  }
+
+  .loading {
+    animation: gradient 4s ease infinite;
+  }
+
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
   }
 
   .title {
@@ -182,7 +221,8 @@
   }
   .title :global(.revealer) {
     width: fit-content;
-    font-size: 1rem;
+    font-size: 1.4rem;
+    font-family: monospace;
   }
 
   .header {
@@ -193,7 +233,23 @@
     width: 90vw;
   }
 
+  .loading-stack-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 90vw;
+  }
+
+  .favicon {
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+  }
+
   .header :global(.revealer) {
+    align-self: flex-start;
     width: fit-content;
     font-size: 0.8rem;
     text-align: left;
@@ -212,6 +268,10 @@
     border-radius: 8px;
     max-height: 150px;
     object-fit: cover;
+  }
+
+  .yt-video {
+    width: 90vw;
   }
 
   .markdown-container {
@@ -264,48 +324,10 @@
     background-color: transparent;
   }
 
-  .markdown-container button {
-    border: none;
-    background-color: #4caf50;
-    color: white;
-  }
-
-  .markdown-container button:hover {
-    border-color: #45a049;
-    background-color: #45a049;
-  }
-
-  .download-button {
-    border: none;
-    background-color: #2196f3;
-    padding: 0.8em 1.6em;
-    color: white;
-  }
-
-  .download-button:hover {
-    border-color: #0b7dda;
-    background-color: #0b7dda;
-  }
-
-  .download-button:disabled {
-    cursor: not-allowed;
-    background-color: #999;
-  }
-
   @media (prefers-color-scheme: dark) {
     :root {
       background-color: #2f2f2f;
       color: #f6f6f6;
-    }
-
-    input,
-    button {
-      border: 2px solid #999;
-      background-color: transparent;
-      color: #ffffff;
-    }
-    button:active {
-      background-color: #0f0f0f69;
     }
   }
 </style>
