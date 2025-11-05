@@ -14,6 +14,7 @@ struct RequestPayload {
     messages: Vec<Message>,
     model: String,
     stream: bool,
+    
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -26,10 +27,11 @@ pub async fn inference(
     app: AppHandle,
     prompt: String,
     system_prompt: Option<String>,
+    model: Option<String>,
 ) -> Result<(), String> {
     dotenv::dotenv().ok();
 
-    println!("✅ Starting inference...");
+    println!("✅ Starting inference with model: {:?}", model);
 
     app.emit(
         "flow-status",
@@ -54,10 +56,11 @@ pub async fn inference(
         role: "user".to_string(),
         content: prompt,
     });
+    
 
     let payload = RequestPayload {
         messages,
-        model: "Qwen/Qwen3-VL-8B-Instruct:novita".to_string(),
+        model: model.unwrap_or_else(|| "Qwen/Qwen3-VL-8B-Instruct:novita".to_string()),
         stream: true,
     };
 

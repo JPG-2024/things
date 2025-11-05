@@ -235,11 +235,16 @@
 
   .loading-stack-container {
     display: flex;
+    position: fixed;
+    top: 0px;
     flex-direction: row;
     justify-content: center;
     align-items: center;
     gap: 10px;
-    width: 90vw;
+    filter: blur(20);
+    border: 1px solid #555;
+    background-color: rgb(154, 154, 154, 0.1);
+    width: 100vw;
   }
 
   .favicon {
@@ -271,6 +276,8 @@
   }
 
   .yt-video {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
     width: 90vw;
   }
 

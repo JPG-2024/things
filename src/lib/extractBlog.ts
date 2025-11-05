@@ -8,7 +8,7 @@ export async function extractBlog(url: string) {
 
     console.log('✅ Blog extraído:', response)
     const prompt = `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion:\n\n${response.markdown}`
-    await invoke('inference', {prompt: prompt})
+    await invoke('inference', {prompt: prompt, model: 'Qwen/Qwen3-VL-8B-Instruct:novita'})
     
     return response
   } catch (err) {
