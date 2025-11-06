@@ -44,7 +44,7 @@
       setTimeout(() => {
         flashy = false
       }, 2000) // Duración de la animación
-    }, 10000)
+    }, 20000)
 
     return () => {
       stopFlow?.()
@@ -174,7 +174,6 @@
 
   :root {
     color: #ffffff;
-    font-weight: 400;
     font-size: 16px;
     line-height: 24px;
     font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
@@ -279,6 +278,9 @@
   .title {
     padding-top: 1px;
     width: 90vw;
+    text-decoration: underline;
+    text-decoration-color: #21cf7591;
+    text-underline-offset: 4px;
   }
   .title :global(.revealer) {
     width: fit-content;
@@ -360,7 +362,8 @@
   }
 
   .markdown-container pre {
-    border: 1px solid #555;
+    /*     border-right: 1px solid #21cf7536;
+    border-left: 1px solid #21cf7536; */
     border-radius: 8px;
     background-color: rgb(154, 154, 154, 0.1);
     padding: 15px;
@@ -380,8 +383,9 @@
 
   .markdown-container code {
     color: #fafafa;
-    font-size: 0.8rem;
-    line-height: 1.5;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.6;
     font-family: 'Menlo', monospace;
   }
 
@@ -392,6 +396,7 @@
     background: none;
     padding: 0;
     color: inherit;
+    line-height: 2;
     font-family: inherit;
   }
 

@@ -8,7 +8,7 @@ export async function extractBlog(url: string) {
 
     const compactedMarkdown = compactMarkdown(response.markdown)
 
-    const prompt = `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion:\n\n${compactedMarkdown}`
+    const prompt = `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion.:\n\n${compactedMarkdown}`
      // await invoke('inference', {prompt: prompt, model: 'Qwen/Qwen3-VL-8B-Instruct:novita'})
     await invoke('inference', {prompt: prompt})
     
