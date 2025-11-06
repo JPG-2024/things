@@ -3,7 +3,7 @@ import { listenMetadataFlowStatus } from "../lib/listeners/metadataListener";
 import { listenMarkdownFlowStatus } from "../lib/listeners/markdownListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "../lib/types/flowStatus";
 
-
+export const loaded = writable(false);
 export const domainUrl = writable<string | null>(null);
 export const ytVideoId = writable<string | null>(null);
 
@@ -44,11 +44,9 @@ export async function initFlowStatusListeners() {
   initialized = true;
 
   const un1 = await listenMetadataFlowStatus((event) => {
-    console.log("[[Metadata]] Status Event:", event);
     metadataStatus.set(event);
   });
   const un2 = await listenMarkdownFlowStatus((event) => {
-    console.log("[[Markdown]] Status Event:", event);
     markdownStatus.set(event);
   });
 

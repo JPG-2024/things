@@ -14,6 +14,7 @@
     cleanAllState,
     domainUrl,
     ytVideoId,
+    loaded,
   } from '../stores/viewStore'
 
   import LoadingStack from '../components/LoadingStack.svelte'
@@ -40,7 +41,6 @@
 
     let unlistenClipboard: undefined | (() => void)
     listen('clipboard-changed', (event) => {
-      console.log(event.payload)
       handleUrlAction(event.payload as string)
     }).then((u) => (unlistenClipboard = u))
 
@@ -88,7 +88,9 @@
   }
 </script>
 
-<main class="container {loading ? 'loading' : ''} {flashy ? 'flashy' : ''}">
+<main
+  class="container {loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
+>
   <div class="loading-stack-container">
     {#if $domainUrl}
       <img
@@ -202,6 +204,7 @@
 
   .container {
     display: flex;
+    position: relative; /* seguro, aunque el overlay es fixed */
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
@@ -211,11 +214,41 @@
     background-size: 400% 400%;
     background-attachment: fixed;
     padding: 1rem;
-    padding-top: 10rem;
+    padding-top: 100px;
     height: 100vh;
     overflow-y: auto;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
+  }
+
+  /* Overlay que barre el viewport cuando .flashy está activo */
+  .container.loaded::after {
+    position: fixed;
+    transform: translateY(-120%);
+    z-index: 9999;
+    /* opcional para efecto “sheen”: */
+    mix-blend-mode: screen;
+    animation: sweep-overlay 1s ease-in-out forwards; /* 5s = tu ventana de flashy */
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0) 10%,
+      rgba(255, 255, 255, 0.6) 50%,
+      rgba(255, 255, 255, 0) 80%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    pointer-events: none; /* que no bloquee clicks */
+    content: '';
+  }
+
+  @keyframes sweep-overlay {
+    from {
+      transform: translateY(-120%);
+    }
+    to {
+      transform: translateY(120%);
+    }
   }
 
   .loading {
@@ -252,7 +285,7 @@
 
   .title {
     padding-top: 1px;
-    width: 100%;
+    width: 90vw;
   }
   .title :global(.revealer) {
     width: fit-content;
@@ -275,12 +308,13 @@
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 10px;
-    filter: blur(0);
-    border: 1px solid #555;
-    background-color: rgb(154, 154, 154, 0.1);
-    padding: 10px;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0);
+    padding: 2px;
     width: 99vw;
+    -webkit-backdrop-filter: blur(5px);
   }
 
   .controls {
@@ -338,10 +372,10 @@
     background-color: rgb(154, 154, 154, 0.1);
     padding: 15px;
     max-width: 90%;
-
     overflow: hidden;
     overflow-y: auto;
     color: #fafafa;
+    text-align: left;
     text-align: center;
     white-space: pre-wrap; /* Permite el wrap */
     word-break: break-word;

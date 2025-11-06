@@ -1,9 +1,11 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { domainUrl, ytVideoId } from '../stores/viewStore'
+import { domainUrl, ytVideoId, loaded } from '../stores/viewStore'
 
 export async function urlRouter(url: string) {
   try {
+    loaded.set(false)
+
     const newUrl = new URL(url)
     // set urlStore as domain only
     domainUrl.set(newUrl.hostname)
@@ -15,8 +17,12 @@ export async function urlRouter(url: string) {
   
   switch (true) {
     case /youtube\.com\/watch\?v=/.test(url):
-      return await getYouTubeTranscript(url)
+      await getYouTubeTranscript(url)
+      loaded.set(true)
+      return  
     default:
-      return await extractBlog(url)
+      const result = await extractBlog(url)
+      loaded.set(true)
+      return result
   }
 }

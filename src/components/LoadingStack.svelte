@@ -21,7 +21,6 @@
     } else {
       pills = pills.map((p, i) => (i === idx ? { ...p, status: payload.status } : p))
     }
-    console.log('Updated pills:', pills)
   }
 
   export function resetStack() {
@@ -31,7 +30,6 @@
   $effect.pre(() => {
     listen<FlowStatusEvent<FlowPayload>>('flow-status', (event) => {
       const payload = event?.payload as FlowPayload
-      debugger
       if (!payload || typeof payload.key !== 'string' || typeof payload.status !== 'string') return
       upsertPill(payload)
     })
@@ -52,13 +50,13 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.5rem;
-    padding: 1.2rem;
+    padding: 1rem;
   }
   .pill {
     border: 1px solid #555;
     border-radius: 999px;
     background-color: rgb(154, 154, 154, 0.1);
-    padding: 0.3rem 0.6rem;
+    padding: 0.1rem 0.4rem;
     font-size: 0.75rem;
     line-height: 1.2;
   }

@@ -32,7 +32,6 @@
     }).then((u) => (unlistenInference = u))
 
     listen('clipboard-changed', (event) => {
-      console.log(event.payload)
       handleUrlAction(event.payload as string)
     })
 

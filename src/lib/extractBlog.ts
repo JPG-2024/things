@@ -6,10 +6,8 @@ export async function extractBlog(url: string) {
     // invoke('download_images', { url })
     const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['article', 'main'] })
 
-
     const compactedMarkdown = compactMarkdown(response.markdown)
 
-    console.log('✅ Blog extraído:', response)
     const prompt = `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion:\n\n${compactedMarkdown}`
      // await invoke('inference', {prompt: prompt, model: 'Qwen/Qwen3-VL-8B-Instruct:novita'})
     await invoke('inference', {prompt: prompt})
