@@ -23,7 +23,6 @@ pub async fn get_youtube_transcript(
         .await
         .map_err(|e| e.to_string())?;
 
-
     print!("Fetched YouTube transcript: {}", transcript.text());
     Ok(transcript.text())
 }

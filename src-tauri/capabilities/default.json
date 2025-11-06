@@ -5,6 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
     {
       "identifier": "http:default",
       "allow": [{ "url": "https://www.youtube.com/*" }]

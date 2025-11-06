@@ -92,9 +92,10 @@ pub async fn inference(
     if !response.status().is_success() {
         let status = response.status();
         let headers = format!("{:?}", response.headers());
-        let error_body = response.text().await.unwrap_or_else(
-            |_| "Unable to read error body".to_string(),
-        );
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unable to read error body".to_string());
 
         let error_msg = format!(
             "API error [{}]\nHeaders: {}\nBody: {}",
@@ -103,8 +104,6 @@ pub async fn inference(
 
         return Err(error_msg);
     }
-
-
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();

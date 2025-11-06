@@ -3,10 +3,10 @@ use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
 use scraper::Html;
 use serde::Deserialize;
+use serde_json::json;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::OnceCell;
-use serde_json::json;
 
 #[derive(Deserialize)]
 struct AntiDetectConfig {
@@ -126,7 +126,6 @@ pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
 
 /// Navega a una URL y retorna el HTML y documento parseado
 pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
-
     app.emit(
         "flow-status",
         json!({"key": "page", "status": "Loading Page", "data": null}),

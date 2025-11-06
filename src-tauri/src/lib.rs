@@ -25,12 +25,52 @@ mod utils {
 }
 pub use crate::utils::clipboard::Handler;
 
+use tauri_plugin_sql::{Builder, Migration, MigrationKind};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
 
+    let migrations = vec![
+        // This is your first migration.
+        Migration {
+            version: 1,
+            description: "create-articles-table",
+            // SQL to create the table. It's safer to use `IF NOT EXISTS`.
+            sql: "CREATE TABLE IF NOT EXISTS articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT,
+                title TEXT,
+                description TEXT,
+                mainImage TEXT,
+                markdownContent TEXT,
+                metadataContent TEXT,
+                domainUrl TEXT,
+                ytVideoId TEXT,
+                ytThumbnailUrl TEXT,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );",
+            kind: MigrationKind::Up,
+        },
+        // This is your second migration.
+        Migration {
+            version: 2,
+            description: "add-url-index",
+            // SQL to create an index on the 'url' field for faster queries.
+            sql: "CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);",
+            kind: MigrationKind::Up,
+        }
+    ];
+
     tauri::Builder::default()
+        .plugin(
+            // Build the SQL plugin
+            tauri_plugin_sql::Builder::default()
+                // Add migrations to the 'notian.db' database
+                .add_migrations("sqlite:notian.db", migrations)
+                .build(),
+        )
         .setup(|app| {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
