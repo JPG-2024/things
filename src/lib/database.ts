@@ -13,6 +13,31 @@ async function getDb() {
   return db;
 }
 
+// Function to get an article by URL from the database.
+export async function getArticleByUrl(url: string) {
+  const db = await getDb();
+
+  try {
+    const result = await db.select<Array<any>>(
+      `SELECT * FROM articles WHERE url = $1 LIMIT 1`,
+      [url]
+    );
+
+    if (result && result.length > 0) {
+      const article = result[0];
+      // Parse metadataContent from JSON string to object
+      return {
+        ...article,
+        metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error querying article from database:", error);
+    return null;
+  }
+}
+
 // Function to save the store data to the database.
 export async function saveViewToDb() {
   const data = getAllViewStoreValues();
@@ -24,8 +49,8 @@ export async function saveViewToDb() {
   try {
     // The parameter syntax is with $1, $2, etc.
     await db.execute(
-      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         data.url,
         data.title,
@@ -36,6 +61,7 @@ export async function saveViewToDb() {
         data.domainUrl,
         data.ytVideoId,
         data.ytThumbnailUrl,
+        data.summary,
       ]
     );
     console.log("Article saved to the database.");

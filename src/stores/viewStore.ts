@@ -1,9 +1,14 @@
 import { writable, derived, get } from "svelte/store";
 import { listenMetadataFlowStatus } from "../lib/listeners/metadataListener";
 import { listenMarkdownFlowStatus } from "../lib/listeners/markdownListener";
+import { listenInferenceStream } from "../lib/listeners/inferenceListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "../lib/types/flowStatus";
 import {getYouTubeThumbnailUrl} from '../lib/utils/youtube';
 
+
+
+export const loading = writable(false);
+export const loaded = writable(false);
 
 export const url = writable<string | null>(null);
 
@@ -12,6 +17,8 @@ export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(
 
 // Store para el estado de markdown
 export const markdownStatus = writable<FlowStatusEvent<MarkdownPayload> | null>(null);
+
+export const summary = writable<string | null>(null);
 
 
 export const markdownContent = derived(markdownStatus, ($markdownStatus) => {
@@ -32,7 +39,7 @@ export const ytThumbnailUrl = derived(ytVideoId, ($ytVideoId) =>
   $ytVideoId ? getYouTubeThumbnailUrl($ytVideoId, 'medium') : ''
 );
 
-export const loaded = writable(false);
+
 
 // Derived store para la imagen principal
 export const mainImage = derived(metadataStatus, ($metadataStatus) => {
@@ -51,6 +58,7 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
 export function cleanAllState() {
   metadataStatus.set(null);
   markdownStatus.set(null);
+  summary.set(null);
 }
 
 // Idempotencia y cleanup
@@ -68,8 +76,11 @@ export async function initFlowStatusListeners() {
   const un2 = await listenMarkdownFlowStatus((event) => {
     markdownStatus.set(event);
   });
+  const un3 = await listenInferenceStream((content) => {
+    summary.update((current) => (current || '') + content);
+  });
 
-  unsubs = [un1, un2];
+  unsubs = [un1, un2, un3];
 
   return () => {
     for (const u of unsubs) {
@@ -91,6 +102,33 @@ export function getAllViewStoreValues() {
     ytThumbnailUrl: get(ytThumbnailUrl),
     mainImage: get(mainImage),
     title: get(title),
-    description: get(description)
+    description: get(description),
+    summary: get(summary)
   };
+}
+
+// Function to restore all store values from a database article object
+export function setAllViewStoreValues(article: any) {
+  if (!article) return;
+
+  url.set(article.url || null);
+  
+  // Restore metadata status with the metadataContent object
+  if (article.metadataContent) {
+    metadataStatus.set({
+      data: article.metadataContent,
+    } as FlowStatusEvent<MetadataPayload>);
+  }
+
+  // Restore markdown status with the markdownContent string
+  if (article.markdownContent) {
+    markdownStatus.set({
+      data: article.markdownContent,
+    } as FlowStatusEvent<MarkdownPayload>);
+  }
+
+  // Restore summary
+  if (article.summary) {
+    summary.set(article.summary);
+  }
 }

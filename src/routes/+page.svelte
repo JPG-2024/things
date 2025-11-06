@@ -2,7 +2,6 @@
   import { listen } from '@tauri-apps/api/event'
   import { BaseDirectory, readDir } from '@tauri-apps/plugin-fs'
   import { convertFileSrc } from '@tauri-apps/api/core'
-  import { homeDir, join } from '@tauri-apps/api/path'
   import { urlRouter } from '../lib/urlRouter'
   import StringReveal from '../components/StringReveal.svelte'
   import { fade } from 'svelte/transition'
@@ -15,17 +14,17 @@
     domainUrl,
     ytVideoId,
     loaded,
+    loading,
+    summary,
   } from '../stores/viewStore'
 
   import LoadingStack from '../components/LoadingStack.svelte'
-  import Toggle from '../components/Toggle.svelte'
+  //import Toggle from '../components/Toggle.svelte'
 
   // States
-  let listeningClipboard = $state(false)
-  let loading = $state(false)
+  let listeningClipboard = $state(true)
   let flashy = $state(false)
   let error = $state('')
-  let inferenceStreamContent = $state('')
   let images = $state<{ name: string; src: string }[]>([])
   let mainImageSrc = $derived($mainImage)
 
@@ -33,27 +32,22 @@
     let stopFlow: undefined | (() => void)
     initFlowStatusListeners().then((stop) => (stopFlow = stop))
 
-    let unlistenInference: undefined | (() => void)
-    listen('inference-stream', (event) => {
-      const payload = event.payload as { content: string }
-      inferenceStreamContent += payload.content
-    }).then((u) => (unlistenInference = u))
-
     let unlistenClipboard: undefined | (() => void)
     listen('clipboard-changed', (event) => {
       handleUrlAction(event.payload as string)
     }).then((u) => (unlistenClipboard = u))
 
     const flashyInterval = setInterval(() => {
+      if ($loading) return
+
       flashy = true
       setTimeout(() => {
         flashy = false
-      }, 5000) // Duración de la animación
-    }, 20000)
+      }, 2000) // Duración de la animación
+    }, 10000)
 
     return () => {
       stopFlow?.()
-      unlistenInference?.()
       unlistenClipboard?.()
       clearInterval(flashyInterval)
     }
@@ -72,24 +66,23 @@
   } */
 
   async function handleUrlAction(url: string) {
-    //if (listeningClipboard === false) return
+    if (listeningClipboard === false) return
 
-    cleanAllState()
-    inferenceStreamContent = ''
-    loading = true
+    loading.set(true)
 
     try {
+      cleanAllState()
       await urlRouter(url)
     } catch (err) {
       error = String(err)
     } finally {
-      loading = false
+      loading.set(false)
     }
   }
 </script>
 
 <main
-  class="container {loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
+  class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
 >
   <div class="loading-stack-container">
     {#if $domainUrl}
@@ -146,9 +139,9 @@
     </div>
   {/if}
 
-  {#if inferenceStreamContent}
+  {#if $summary}
     <div class="markdown-container">
-      <pre><code>{inferenceStreamContent}</code></pre>
+      <pre><code>{$summary}</code></pre>
       <!--       <button onclick={() => navigator.clipboard.writeText(markdown)}>
         Copy to Clipboard
       </button> -->
@@ -210,7 +203,7 @@
     gap: 1.5rem;
     box-sizing: border-box;
     margin: 0;
-    background: linear-gradient(-45deg, #212121, #0a2511, #000000, #0a2511);
+    background: linear-gradient(-45deg, #21cf7545 10%, #21cf7529 35%, #0a864613 60%, #000000af 90%);
     background-size: 400% 400%;
     background-attachment: fixed;
     padding: 1rem;
@@ -252,11 +245,11 @@
   }
 
   .loading {
-    animation: gradient 4s ease infinite;
+    animation: gradient 2s ease infinite;
   }
 
   .flashy {
-    animation: flashy 5s ease-in-out infinite;
+    animation: flashy 2s ease-in-out infinite;
   }
 
   @keyframes gradient {

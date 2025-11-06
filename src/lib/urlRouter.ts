@@ -1,30 +1,39 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { url as urlStore, loaded, getAllViewStoreValues } from '../stores/viewStore'
-import { saveViewToDb } from './database'
+import { url as urlStore, loaded, loading } from '../stores/viewStore'
+import { saveViewToDb, getArticleByUrl } from './database'
 
 import * as viewStore from '../stores/viewStore'
 
 export async function urlRouter(url: string) {
-  try {
-    loaded.set(false)
+  loading.set(true)
+  loaded.set(false)
+  urlStore.set(url)
 
-    urlStore.set(url)
-    
-  } catch {
-    return null
+  // Check if the article already exists in the database
+  const existingArticle = await getArticleByUrl(url)
+  if (existingArticle) {
+    // Restore from database
+    viewStore.setAllViewStoreValues(existingArticle)
+    loaded.set(true)
+    loading.set(false)
+    return
   }
   
   switch (true) {
     case /youtube\.com\/watch\?v=/.test(url):
       await getYouTubeTranscript(url)
-      loaded.set(true)
+      
       await saveViewToDb()
+      loaded.set(true)
+      loading.set(false)
       return  
     default:
       const result = await extractBlog(url)
-      loaded.set(true)
+      
       await saveViewToDb()
+      loaded.set(true)
+      loading.set(false)
       return result
   }
 }

@@ -3,7 +3,7 @@
     message = 'Esto es un prueba',
     loading = false,
     CHANGE_PERIOD = 10,
-    TIMEOUT_SECONDS = 0.4,
+    TIMEOUT_SECONDS = 0.2,
     text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()
 
@@ -62,12 +62,13 @@
 
 <style>
   .revealer {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     width: 90%;
     font-weight: bold;
     font-size: 0.9rem;
     font-family: monospace;
+    text-align: left;
   }
 
   .char {

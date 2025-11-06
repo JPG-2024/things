@@ -60,6 +60,14 @@ pub fn run() {
             // SQL to create an index on the 'url' field for faster queries.
             sql: "CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);",
             kind: MigrationKind::Up,
+        },
+        // This is your third migration.
+        Migration {
+            version: 3,
+            description: "add-summary-column",
+            // SQL to add the summary column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN summary TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 
