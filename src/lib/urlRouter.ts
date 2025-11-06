@@ -1,16 +1,15 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { domainUrl, ytVideoId, loaded } from '../stores/viewStore'
+import { url as urlStore, loaded, getAllViewStoreValues } from '../stores/viewStore'
+
+import * as viewStore from '../stores/viewStore'
 
 export async function urlRouter(url: string) {
   try {
     loaded.set(false)
 
-    const newUrl = new URL(url)
-    // set urlStore as domain only
-    domainUrl.set(newUrl.hostname)
-    // extract youtube video id or blog content
-    ytVideoId.set(newUrl.searchParams.get('v'))
+    urlStore.set(url)
+    
   } catch {
     return null
   }
@@ -23,6 +22,7 @@ export async function urlRouter(url: string) {
     default:
       const result = await extractBlog(url)
       loaded.set(true)
+      console.log(getAllViewStoreValues())
       return result
   }
 }

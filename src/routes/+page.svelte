@@ -376,7 +376,6 @@
     overflow-y: auto;
     color: #fafafa;
     text-align: left;
-    text-align: center;
     white-space: pre-wrap; /* Permite el wrap */
     word-break: break-word;
 
