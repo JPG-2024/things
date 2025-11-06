@@ -2,10 +2,15 @@ import { writable, derived } from "svelte/store";
 import { listenMetadataFlowStatus } from "../lib/listeners/metadataListener";
 import { listenMarkdownFlowStatus } from "../lib/listeners/markdownListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "../lib/types/flowStatus";
+import {getYouTubeThumbnailUrl} from '../lib/utils/youtube';
 
 export const loaded = writable(false);
 export const domainUrl = writable<string | null>(null);
 export const ytVideoId = writable<string | null>(null);
+export const ytThumbnailUrl = derived(ytVideoId, ($ytVideoId) =>
+  $ytVideoId ? getYouTubeThumbnailUrl($ytVideoId, 'medium') : ''
+);
+
 
 // Store para el estado de metadata
 export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(null);
