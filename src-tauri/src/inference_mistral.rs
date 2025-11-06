@@ -1,19 +1,29 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Message {
+struct MessageInput {
     role: String,
     content: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct CompletionArgs {
+    temperature: f32,
+    max_tokens: u32,
+    top_p: f32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct RequestPayload {
     model: String,
-    messages: Vec<Message>,
+    inputs: Vec<MessageInput>,
+    tools: Vec<Value>,
+    completion_args: CompletionArgs,
     stream: bool,
+    instructions: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -26,49 +36,75 @@ pub async fn inference(
     app: AppHandle,
     prompt: String,
     system_prompt: Option<String>,
+    model: Option<String>,
 ) -> Result<(), String> {
     dotenv::dotenv().ok();
 
-    println!("Starting inference with prompt: {}", prompt);
+    println!("✅ Starting inference");
 
-    let api_key = std::env::var("OPENROUTER_API_KEY")
-        .map_err(|_| "OPENROUTER_API_KEY not found in environment".to_string())?;
+    app.emit(
+        "flow-status",
+        json!({"key": "inference", "status": "Processing inference", "data": null}),
+    );
 
-    let mut messages = Vec::new();
+    let api_key = std::env::var("MISTRAL_API_KEY")
+        .map_err(|_| "MISTRAL_API_KEY not found in environment".to_string())?;
+
+    let mut inputs = Vec::new();
 
     // Add system prompt if provided
     if let Some(sys_prompt) = system_prompt {
-        messages.push(Message {
+        inputs.push(MessageInput {
             role: "system".to_string(),
             content: sys_prompt,
         });
     }
 
-    // Add user prompt
-    messages.push(Message {
+    // Add user message
+    inputs.push(MessageInput {
         role: "user".to_string(),
         content: prompt,
     });
 
     let payload = RequestPayload {
-        model: "qwen/qwen3-4b:free".to_string(),
-        messages,
+        model: model.unwrap_or_else(|| "ministral-3b-latest".to_string()),
+        inputs,
+        tools: vec![],
+        completion_args: CompletionArgs {
+            temperature: 0.7,
+            max_tokens: 2048,
+            top_p: 1.0,
+        },
         stream: true,
+        instructions: String::new(),
     };
 
     let client = Client::new();
     let response = client
-        .post("https://openrouter.ai/api/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
+        .post("https://api.mistral.ai/v1/conversations")
         .header("Content-Type", "application/json")
+        .header("X-API-KEY", &api_key)
         .json(&payload)
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("API error: {}", response.status()));
+        let status = response.status();
+        let headers = format!("{:?}", response.headers());
+        let error_body = response.text().await.unwrap_or_else(
+            |_| "Unable to read error body".to_string(),
+        );
+
+        let error_msg = format!(
+            "API error [{}]\nHeaders: {}\nBody: {}",
+            status, headers, error_body
+        );
+
+        return Err(error_msg);
     }
+
+
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -81,10 +117,14 @@ pub async fn inference(
         let chunk_str = String::from_utf8_lossy(&chunk);
         buffer.push_str(&chunk_str);
 
+        println!("Processing chunk: {}", chunk_str);
+
         // Process complete lines
         while let Some(line_end) = buffer.find('\n') {
             let line = buffer[..line_end].trim().to_string();
             buffer = buffer[line_end + 1..].to_string();
+
+            println!("Processing line: {}", line);
 
             if let Some(data) = line.strip_prefix("data: ") {
                 if data == "[DONE]" {
@@ -95,10 +135,12 @@ pub async fn inference(
 
                 // Try to parse the JSON
                 if let Ok(data_obj) = serde_json::from_str::<Value>(data) {
-                    if let Some(content) = data_obj["choices"][0]["delta"]["content"].as_str() {
+                    if let Some(content) = data_obj["content"].as_str() {
                         let chunk_data = StreamChunk {
                             content: content.to_string(),
                         };
+
+                        println!("{}", content);
 
                         app.emit("inference-stream", chunk_data)
                             .map_err(|e| format!("Failed to emit stream event: {}", e))?;
@@ -108,11 +150,15 @@ pub async fn inference(
         }
     }
 
-    println!("Inference stream ended.");
-
+    println!("✅ Inference complete");
 
     app.emit("inference-complete", ())
         .map_err(|e| format!("Failed to emit completion event: {}", e))?;
+
+    app.emit(
+        "flow-status",
+        json!({"key": "inference", "status": "done", "data": null}),
+    );
 
     Ok(())
 }

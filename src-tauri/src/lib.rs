@@ -7,8 +7,11 @@ pub use crate::browser::init_browser;
 /* mod inference_openrouter;
 pub use crate::inference_openrouter::inference; */
 
-mod inference_hugging;
-pub use crate::inference_hugging::inference;
+/* mod inference_hugging;
+pub use crate::inference_hugging::inference; */
+
+mod inference_mistral;
+pub use crate::inference_mistral::inference;
 
 mod youtube;
 pub use crate::youtube::get_youtube_transcript;

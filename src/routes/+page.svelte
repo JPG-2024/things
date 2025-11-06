@@ -17,9 +17,12 @@
   } from '../stores/viewStore'
 
   import LoadingStack from '../components/LoadingStack.svelte'
+  import Toggle from '../components/Toggle.svelte'
 
-  let url = $state('')
+  // States
+  let listeningClipboard = $state(false)
   let loading = $state(false)
+  let flashy = $state(false)
   let error = $state('')
   let inferenceStreamContent = $state('')
   let images = $state<{ name: string; src: string }[]>([])
@@ -41,14 +44,22 @@
       handleUrlAction(event.payload as string)
     }).then((u) => (unlistenClipboard = u))
 
+    const flashyInterval = setInterval(() => {
+      flashy = true
+      setTimeout(() => {
+        flashy = false
+      }, 5000) // Duración de la animación
+    }, 20000)
+
     return () => {
       stopFlow?.()
       unlistenInference?.()
       unlistenClipboard?.()
+      clearInterval(flashyInterval)
     }
   })
 
-  async function loadImages() {
+  /*   async function loadImages() {
     const appImagesDir = await homeDir().then((home) => join(home, 'notian', 'images'))
     const files = await readDir('notian/images', { baseDir: BaseDirectory.Home }).catch(() => [])
     const filesObj = files
@@ -58,9 +69,11 @@
         src: `${appImagesDir}/${f.name}`,
       }))
     images = filesObj
-  }
+  } */
 
   async function handleUrlAction(url: string) {
+    //if (listeningClipboard === false) return
+
     cleanAllState()
     inferenceStreamContent = ''
     loading = true
@@ -75,7 +88,7 @@
   }
 </script>
 
-<main class="container {loading ? 'loading' : ''}">
+<main class="container {loading ? 'loading' : ''} {flashy ? 'flashy' : ''}">
   <div class="loading-stack-container">
     {#if $domainUrl}
       <img
@@ -85,6 +98,10 @@
       />
     {/if}
     <LoadingStack />
+
+    <!--     <div class="controls">
+      <Toggle label="listen" bind:checked={listeningClipboard} />
+    </div> -->
   </div>
   {#if error}
     <div class="error">
@@ -186,22 +203,27 @@
   .container {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     gap: 1.5rem;
     box-sizing: border-box;
     margin: 0;
     background: linear-gradient(-45deg, #212121, #0a2511, #000000, #0a2511);
     background-size: 400% 400%;
+    background-attachment: fixed;
     padding: 1rem;
-    padding-top: 2rem;
+    padding-top: 10rem;
     height: 100vh;
     overflow-y: auto;
-    text-align: center;
+    scroll-behavior: smooth;
+    scroll-padding-top: 2rem;
   }
 
   .loading {
     animation: gradient 4s ease infinite;
+  }
+
+  .flashy {
+    animation: flashy 5s ease-in-out infinite;
   }
 
   @keyframes gradient {
@@ -216,7 +238,20 @@
     }
   }
 
+  @keyframes flashy {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 80% 5%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
+  }
+
   .title {
+    padding-top: 1px;
     width: 100%;
   }
   .title :global(.revealer) {
@@ -241,10 +276,15 @@
     justify-content: center;
     align-items: center;
     gap: 10px;
-    filter: blur(20);
+    filter: blur(0);
     border: 1px solid #555;
     background-color: rgb(154, 154, 154, 0.1);
-    width: 100vw;
+    padding: 10px;
+    width: 99vw;
+  }
+
+  .controls {
+    margin-left: auto;
   }
 
   .favicon {
@@ -277,8 +317,10 @@
 
   .yt-video {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid #555;
     border-radius: 8px;
     width: 90vw;
+    min-height: 350px;
   }
 
   .markdown-container {
@@ -294,12 +336,13 @@
     border: 1px solid #555;
     border-radius: 8px;
     background-color: rgb(154, 154, 154, 0.1);
-    padding: 4px;
     padding: 15px;
     max-width: 90%;
-    max-height: 74vh;
+
+    overflow: hidden;
     overflow-y: auto;
     color: #fafafa;
+    text-align: center;
     white-space: pre-wrap; /* Permite el wrap */
     word-break: break-word;
 

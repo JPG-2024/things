@@ -20,7 +20,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
   try {
     await invoke('inference', {
-      prompt: `Summarize next youtube transcript briefly plus bullet point keys. start with a brief resume title, dont use resume word. output in spanish language:\n\n${transcript}`,
+      prompt: `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion:\n\n${transcript}`
     })
   } catch (inferenceErr) {
     console.error('Error during inference:', inferenceErr)
