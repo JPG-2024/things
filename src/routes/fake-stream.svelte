@@ -4,6 +4,7 @@
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
   import { urlRouter } from '../lib/urlRouter'
+  import { goto } from '$app/navigation'
   import StringReveal from '../components/StringReveal.svelte'
   import { fade } from 'svelte/transition'
   import {
@@ -32,7 +33,9 @@
     }).then((u) => (unlistenInference = u))
 
     listen('clipboard-changed', (event) => {
-      handleUrlAction(event.payload as string)
+      const payload = (event.payload as string)?.trim()
+      if (!payload) return
+      goto(`/article/${encodeURIComponent(payload)}`)
     })
 
     return () => {

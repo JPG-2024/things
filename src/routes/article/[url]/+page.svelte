@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { page } from '$app/state'
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { urlRouter } from '../../../lib/urlRouter'
+  import { getArticleByUrl } from '../../../lib/database'
   import StringReveal from '../../../components/StringReveal.svelte'
   import { fade } from 'svelte/transition'
   import {
@@ -11,7 +14,9 @@
     domainUrl,
     ytVideoId,
     loading,
+    loaded,
     summary,
+    setAllViewStoreValues,
   } from '../../../stores/viewStore'
 
   import LoadingStack from '../../../components/LoadingStack.svelte'
@@ -34,6 +39,31 @@
       loading.set(false)
     }
   }
+
+  // On first render, read route param according to SvelteKit docs and
+  // try DB first; if not present, route the URL to the extractor.
+  onMount(async () => {
+    try {
+      // Access route param; depending on environment, `page` may not be a store, so use direct access
+      const paramUrl = (page as any)?.params?.url as string | undefined
+      if (!paramUrl) return
+      const decodedUrl = decodeURIComponent(paramUrl)
+
+      const existing = await getArticleByUrl(decodedUrl)
+      if (existing) {
+        cleanAllState()
+        setAllViewStoreValues(existing)
+        loaded.set(true)
+        loading.set(false)
+        return
+      }
+
+      // Fallback to full routing pipeline
+      await handleUrlAction(decodedUrl)
+    } catch (err) {
+      error = String(err)
+    }
+  })
 </script>
 
 <div>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { listen } from '@tauri-apps/api/event'
   import { loading, loaded, initFlowStatusListeners } from '../stores/viewStore'
+  // SvelteKit programmatic navigation
+  import { goto } from '$app/navigation'
   let { children } = $props()
 
   let listeningClipboard = $state(true)
@@ -13,7 +15,10 @@
     let unlistenClipboard: undefined | (() => void)
     listen('clipboard-changed', (event) => {
       if (!listeningClipboard) return
-      /* handleUrlAction(event.payload as string) */
+      const payload = (event.payload as string)?.trim()
+      if (!payload) return
+      // Navigate to dynamic article route; encode to keep the URL safe
+      goto(`/article/${encodeURIComponent(payload)}`)
     }).then((u) => (unlistenClipboard = u))
 
     const flashyInterval = setInterval(() => {
