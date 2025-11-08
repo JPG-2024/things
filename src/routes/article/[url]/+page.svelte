@@ -66,9 +66,10 @@
   })
 </script>
 
-<div>
-  <div class="loading-stack-container">
+<article>
+  <div class="top-bar">
     {#if $domainUrl}
+      <a href="/" class="back-navigation">⬅</a>
       <img
         class="favicon"
         src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"
@@ -81,21 +82,21 @@
       <Toggle label="listen" bind:checked={listeningClipboard} />
     </div> -->
   </div>
-  {#if error}
+  <!--   {#if error}
     <div class="error">
       <strong>Error:</strong>
       {error}
     </div>
-  {/if}
+  {/if} -->
 
   {#if $title}
-    <div transition:fade={{ duration: 800 }} class="title">
+    <div class="title">
       <StringReveal message={$title} />
     </div>
   {/if}
 
   {#if mainImageSrc}
-    <div transition:fade={{ duration: 800 }} class="header">
+    <div class="header">
       <img class="image" src={mainImageSrc} alt="main" />
       <StringReveal message={$description} />
     </div>
@@ -114,13 +115,13 @@
     ></iframe>
   {/if}
 
-  {#if images.length}
+  <!--   {#if images.length}
     <div class="image-container">
       {#each images as image}
         <img class="image" src={convertFileSrc(image.src)} alt="description" />
       {/each}
     </div>
-  {/if}
+  {/if} -->
 
   {#if $summary}
     <div class="markdown-container">
@@ -130,9 +131,16 @@
       </button> -->
     </div>
   {/if}
-</div>
+</article>
 
 <style>
+  article {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding-top: 100px;
+  }
   .title {
     padding-top: 1px;
     width: 90vw;
@@ -154,21 +162,32 @@
     width: 90vw;
   }
 
-  .loading-stack-container {
+  .top-bar {
     display: flex;
     position: fixed;
     top: 0px;
     flex-direction: row;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     backdrop-filter: blur(8px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0);
+    background: rgba(244, 201, 201, 0);
+    min-height: 75px;
     -webkit-backdrop-filter: blur(5px);
     right: 0;
     left: 0;
     box-sizing: border-box;
+  }
+
+  .back-navigation {
+    transition: background-color 0.2s ease-in-out;
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-decoration: none;
   }
 
   .favicon {

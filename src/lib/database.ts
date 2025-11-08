@@ -39,6 +39,23 @@ export async function getArticleByUrl(url: string) {
 }
 
 // Function to save the store data to the database.
+// Function to get all articles, limited to 20 results.
+export async function getAllArticles() {
+  const db = await getDb();
+  try {
+    const result = await db.select<Array<any>>(
+      `SELECT * FROM articles ORDER BY rowid DESC LIMIT 20`
+    );
+    // Parse metadataContent for each article
+    return result.map(article => ({
+      ...article,
+      metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+    }));
+  } catch (error) {
+    console.error("Error querying articles from database:", error);
+    return [];
+  }
+}
 export async function saveViewToDb() {
   const data = getAllViewStoreValues();
   const db = await getDb();

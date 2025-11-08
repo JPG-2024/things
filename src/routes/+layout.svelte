@@ -18,6 +18,9 @@
       const payload = (event.payload as string)?.trim()
       if (!payload) return
       // Navigate to dynamic article route; encode to keep the URL safe
+      // check payload is a url string
+      const urlPattern = /^(https?:\/\/[^\s]+)/g
+      if (!urlPattern.test(payload)) return
       goto(`/article/${encodeURIComponent(payload)}`)
     }).then((u) => (unlistenClipboard = u))
 
@@ -48,6 +51,12 @@
   :global(body) {
     margin: 0;
     height: 100vh;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 
   :root {
