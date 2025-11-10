@@ -1,16 +1,9 @@
 <script lang="ts">
-  import { getAllArticles } from '../lib/database'
-  import { goto } from '$app/navigation'
+  import { toVTName, navigate } from '../lib/utils/url'
 
-  let articles = $state<Array<any>>([])
-
-  $effect.pre(() => {
-    // Fetch articles before DOM updates
-    getAllArticles().then((result) => {
-      console.log(result)
-      articles = result
-    })
-  })
+  // Data provided by +page.ts load
+  let { data } = $props()
+  const articles: Array<any> = data.articles ?? []
 </script>
 
 <div class="container">
@@ -19,18 +12,19 @@
       <div class="square">
         <div class="img-flex">
           {#each articles as article}
-            <a href="/article/{encodeURIComponent(article.url)}">
-              <img src={article?.mainImage} alt="Article" class="mini-img" />
-            </a>
-          {/each}
-        </div>
-      </div>
-      <div class="square">
-        <div class="img-flex">
-          {#each articles as article}
-            <a href="/article/{encodeURIComponent(article.url)}">
-              <img src={article?.mainImage} alt="Article" class="mini-img" />
-            </a>
+            <button
+              type="button"
+              class="img-button"
+              onclick={() => navigate(`/article/${encodeURIComponent(article.url)}`)}
+              aria-label="View article"
+            >
+              <img
+                src={article?.mainImage}
+                alt="Article"
+                class="mini-img"
+                style="view-transition-name: {toVTName(article?.mainImage)}"
+              />
+            </button>
           {/each}
         </div>
       </div>

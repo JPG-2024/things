@@ -5,6 +5,7 @@
   import { urlRouter } from '../../../lib/urlRouter'
   import { getArticleByUrl } from '../../../lib/database'
   import StringReveal from '../../../components/StringReveal.svelte'
+  import { toVTName, navigate } from '../../../lib/utils/url'
   import { fade } from 'svelte/transition'
   import {
     mainImage,
@@ -25,7 +26,6 @@
   // States
   let error = $state('')
   let images = $state<{ name: string; src: string }[]>([])
-  let mainImageSrc = $derived($mainImage)
 
   async function handleUrlAction(url: string) {
     loading.set(true)
@@ -69,7 +69,7 @@
 <article>
   <div class="top-bar">
     {#if $domainUrl}
-      <a href="/" class="back-navigation">⬅</a>
+      <button onclick={() => navigate('/')} class="back-navigation">⬅</button>
       <img
         class="favicon"
         src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"
@@ -95,12 +95,15 @@
     </div>
   {/if}
 
-  {#if mainImageSrc}
-    <div class="header">
-      <img class="image" src={mainImageSrc} alt="main" />
-      <StringReveal message={$description} />
-    </div>
-  {/if}
+  <div class="header">
+    <img
+      class="image"
+      src={$mainImage}
+      alt="main"
+      style="view-transition-name: {toVTName($mainImage)}"
+    />
+    <StringReveal message={$description} />
+  </div>
 
   {#if $ytVideoId}
     <iframe
@@ -181,12 +184,12 @@
   }
 
   .back-navigation {
-    transition: background-color 0.2s ease-in-out;
+    all: unset; /* Removes *all* inherited and default styles */
+    cursor: pointer; /* Add back pointer for usability */
     border-radius: 8px;
-    padding: 4px 8px;
-    color: #ffffff;
-    font-weight: bold;
-    font-size: 1.5rem;
+    padding: 0px 10px;
+    padding-top: 5px;
+    font-size: 25px;
     text-decoration: none;
   }
 
@@ -238,8 +241,8 @@
   .markdown-container pre {
     /*     border-right: 1px solid #21cf7536;
     border-left: 1px solid #21cf7536; */
-    border-radius: 8px;
-    background-color: rgb(154, 154, 154, 0.1);
+    /*     border-radius: 8px;
+    background-color: rgb(154, 154, 154, 0.1); */
     padding: 15px;
     max-width: 90%;
     overflow: hidden;
@@ -258,9 +261,11 @@
   .markdown-container code {
     color: #fafafa;
     font-weight: 400;
-    font-size: 1rem;
+    font-weight: bold;
+    font-size: 0.9rem;
     line-height: 1.6;
     font-family: 'Menlo', monospace;
+    text-align: left;
   }
 
   pre,

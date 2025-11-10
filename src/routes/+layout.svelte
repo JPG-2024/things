@@ -1,8 +1,8 @@
 <script lang="ts">
   import { listen } from '@tauri-apps/api/event'
   import { loading, loaded, initFlowStatusListeners } from '../stores/viewStore'
-  // SvelteKit programmatic navigation
-  import { goto } from '$app/navigation'
+  // SvelteKit navigation and transitions
+  import { goto, onNavigate } from '$app/navigation'
   let { children } = $props()
 
   let listeningClipboard = $state(true)
@@ -38,6 +38,21 @@
       unlistenClipboard?.()
       clearInterval(flashyInterval)
     }
+  })
+
+  // Global View Transitions wrapper for all client navigations
+  onNavigate((navigation) => {
+    const anyDoc: any = document
+    if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return
+
+    return new Promise((resolve) => {
+      anyDoc.startViewTransition(async () => {
+        // Allow SvelteKit to proceed with navigation
+        resolve()
+        // Wait until the new route is fully rendered so the "new" snapshot has the elements
+        await navigation.complete
+      })
+    })
   })
 </script>
 
