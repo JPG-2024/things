@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { convertFileSrc } from '@tauri-apps/api/core'
+  import MarkdownIt from 'markdown-it'
   import { urlRouter } from '../../../lib/urlRouter'
   import { getArticleByUrl } from '../../../lib/database'
   import StringReveal from '../../../components/StringReveal.svelte'
@@ -23,6 +24,14 @@
 
   import LoadingStack from '../../../components/LoadingStack.svelte'
   //import Toggle from '../components/Toggle.svelte'
+
+  // Initialize markdown-it
+  const md = new MarkdownIt({
+    html: true,
+    linkify: true,
+    typographer: true,
+    breaks: true,
+  })
 
   // States
   let error = $state('')
@@ -120,10 +129,7 @@
 
   {#if $summary}
     <div class="markdown-container">
-      <pre><code>{$summary}</code></pre>
-      <!--       <button onclick={() => navigator.clipboard.writeText(markdown)}>
-        Copy to Clipboard
-      </button> -->
+      {@html md.render($summary)}
     </div>
   {/if}
 </article>
@@ -225,56 +231,127 @@
   .markdown-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    max-width: 100%;
-    color: #fafafa;
-    text-align: left;
-  }
-
-  .markdown-container pre {
-    /*     border-right: 1px solid #21cf7536;
-    border-left: 1px solid #21cf7536; */
-    /*     border-radius: 8px;
-    background-color: rgb(154, 154, 154, 0.1); */
-    padding: 15px;
+    align-items: flex-start;
     max-width: 90%;
-    overflow: hidden;
-    overflow-y: auto;
     color: #fafafa;
     text-align: left;
-    white-space: pre-wrap; /* Permite el wrap */
-    word-break: break-word;
-
-    ::-webkit-scrollbar {
-      background: transparent;
-      width: 0px;
-    }
-  }
-
-  .markdown-container code {
-    color: #fafafa;
-    font-weight: 400;
-    font-weight: bold;
-    font-size: 0.9rem;
+    word-wrap: break-word;
     line-height: 1.6;
     font-family: 'Menlo', monospace;
+    overflow-wrap: break-word;
+  }
+
+  .markdown-container :global(h1),
+  .markdown-container :global(h2),
+  .markdown-container :global(h3),
+  .markdown-container :global(h4),
+  .markdown-container :global(h5),
+  .markdown-container :global(h6) {
+    margin: 1rem 0 0.5rem 0;
+    color: #21cf75;
+    font-weight: bold;
+  }
+
+  .markdown-container :global(h1) {
+    font-size: 1.8rem;
+  }
+
+  .markdown-container :global(h2) {
+    font-size: 1.5rem;
+  }
+
+  .markdown-container :global(h3) {
+    font-size: 1.3rem;
+  }
+
+  .markdown-container :global(p) {
+    margin: 0.8rem 0;
+    line-height: 1.8;
+  }
+
+  .markdown-container :global(code) {
+    border-radius: 4px;
+    background-color: rgba(154, 154, 154, 0.15);
+    padding: 2px 6px;
+    color: #fafafa;
+    font-size: 0.9rem;
+  }
+
+  .markdown-container :global(pre) {
+    margin: 1rem 0;
+    border: 1px solid #21cf7536;
+    border-radius: 8px;
+    background-color: rgba(154, 154, 154, 0.1);
+    padding: 15px;
+    overflow-x: auto;
+  }
+
+  .markdown-container :global(pre code) {
+    border-radius: 0;
+    background-color: transparent;
+    padding: 0;
+  }
+
+  .markdown-container :global(a) {
+    color: #21cf75;
+    text-decoration: underline;
+    text-decoration-color: #21cf7591;
+  }
+
+  .markdown-container :global(a:hover) {
+    color: #29ff85;
+  }
+
+  .markdown-container :global(ul),
+  .markdown-container :global(ol) {
+    margin: 1rem 0 1rem 2rem;
+    padding: 0;
+  }
+
+  .markdown-container :global(li) {
+    margin: 0.5rem 0;
+  }
+
+  .markdown-container :global(blockquote) {
+    margin: 1rem 0;
+    border-left: 4px solid #21cf75;
+    padding-left: 1rem;
+    color: #d0d0d0;
+    font-style: italic;
+  }
+
+  .markdown-container :global(strong) {
+    color: #fafafa;
+    font-weight: bold;
+  }
+
+  .markdown-container :global(em) {
+    font-style: italic;
+  }
+
+  .markdown-container :global(img) {
+    margin: 1rem 0;
+    border-radius: 8px;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .markdown-container :global(table) {
+    margin: 1rem 0;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .markdown-container :global(th),
+  .markdown-container :global(td) {
+    border: 1px solid #21cf7536;
+    padding: 10px;
     text-align: left;
   }
 
-  pre,
-  code {
-    margin: 0;
-    border: none;
-    background: none;
-    padding: 0;
-    color: inherit;
-    line-height: 2;
-    font-family: inherit;
-  }
-
-  pre {
-    border: 0;
-    background-color: transparent;
+  .markdown-container :global(th) {
+    background-color: rgba(33, 207, 117, 0.1);
+    font-weight: bold;
   }
 
   @media (prefers-color-scheme: dark) {
