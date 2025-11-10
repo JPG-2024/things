@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { toVTName, navigate } from '../lib/utils/url'
+  import { toVTName, navigate, SITES_ROUTES } from '../lib/utils/url'
 
   // Data provided by +page.ts load
   let { data } = $props()
   const articles: Array<any> = data.articles ?? []
+
+  function getRouteForDomain(domainUrl: string): string {
+    return SITES_ROUTES[domainUrl] || 'article'
+  }
 </script>
 
 <div class="container">
@@ -15,14 +19,17 @@
             <button
               type="button"
               class="img-button"
-              onclick={() => navigate(`/article/${encodeURIComponent(article.url)}`)}
+              onclick={() =>
+                navigate(
+                  `/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`
+                )}
               aria-label="View article"
             >
               <img
-                src={article?.mainImage}
+                src={article?.metadataContent?.['og:image']}
                 alt="Article"
                 class="mini-img"
-                style="view-transition-name: {toVTName(article?.mainImage)}"
+                style="view-transition-name: {toVTName(article?.metadataContent?.['og:image'])}"
               />
             </button>
           {/each}

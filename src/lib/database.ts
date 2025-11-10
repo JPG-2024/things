@@ -60,6 +60,11 @@ export async function saveViewToDb() {
   const data = getAllViewStoreValues();
   const db = await getDb();
 
+  data.metadataContent = {
+    ...data.metadataContent,
+    'og:image': data.mainImage || data.ytThumbnailUrl || ''
+  }
+
   // The metadataContent is an object, we save it as a JSON string.
   const metadataJson = JSON.stringify(data.metadataContent);
 

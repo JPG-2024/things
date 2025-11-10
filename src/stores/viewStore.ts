@@ -32,6 +32,12 @@ export const metadataContent = derived(metadataStatus, ($metadataStatus) => {
 export const domainUrl = derived(url, ($url) => 
   $url ? new URL($url).hostname : null
 );
+
+export const isYouTube = derived(url, ($url) => 
+  $url ? new URL($url).hostname.includes('youtube.com') : false
+);
+
+
 export const ytVideoId = derived(url, ($url) => 
   $url ? new URL($url).searchParams.get('v') : null
 );
@@ -112,7 +118,7 @@ export function setAllViewStoreValues(article: any) {
   if (!article) return;
 
   url.set(article.url || null);
-  
+
   // Restore metadata status with the metadataContent object
   if (article.metadataContent) {
     metadataStatus.set({

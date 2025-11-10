@@ -1,10 +1,14 @@
-  // Create a valid CSS ident for view-transition-name from a URL/string
+
+export const SITES_ROUTES: Record<string, string> = {
+  'www.youtube.com': 'youtube'
+}
+
+// Create a valid CSS ident for view-transition-name from a URL/string
   import { goto } from '$app/navigation'
   
   export function toVTName(input: string): string {
     // ensure it starts with letters to be a safe ident
     const base = 'vt-' + input.toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
-    console.log('VT Name:', base)
     return base || 'vt-default'
   }
 

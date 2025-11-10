@@ -78,7 +78,17 @@
       />
     {/if}
     <LoadingStack />
+
+    <!--     <div class="controls">
+      <Toggle label="listen" bind:checked={listeningClipboard} />
+    </div> -->
   </div>
+  <!--   {#if error}
+    <div class="error">
+      <strong>Error:</strong>
+      {error}
+    </div>
+  {/if} -->
 
   {#if $title}
     <div class="title">
@@ -87,17 +97,6 @@
   {/if}
 
   <div class="header">
-    <img
-      class="image"
-      src={$mainImage}
-      alt="main"
-      style="view-transition-name: {toVTName($mainImage)}"
-    />
-
-    <div class="description">{$description}</div>
-  </div>
-
-  {#if $ytVideoId}
     <iframe
       class="yt-video"
       width="560"
@@ -107,16 +106,11 @@
       frameborder="0"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen
+      style="view-transition-name: {toVTName($mainImage)}"
     ></iframe>
-  {/if}
 
-  <!--   {#if images.length}
-    <div class="image-container">
-      {#each images as image}
-        <img class="image" src={convertFileSrc(image.src)} alt="description" />
-      {/each}
-    </div>
-  {/if} -->
+    <StringReveal message={$description} />
+  </div>
 
   {#if $summary}
     <div class="markdown-container">
@@ -197,21 +191,6 @@
     width: fit-content;
     font-size: 0.8rem;
     text-align: left;
-  }
-
-  .description {
-    color: #fafafa;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    font-family: 'Menlo', monospace;
-    text-align: left;
-  }
-
-  .image {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    max-height: 150px;
-    object-fit: cover;
   }
 
   .yt-video {

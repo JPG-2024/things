@@ -3,7 +3,7 @@
     message = 'Esto es un prueba',
     loading = false,
     CHANGE_PERIOD = 10,
-    TIMEOUT_SECONDS = 0.2,
+    TIMEOUT_SECONDS = 0.1,
     text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()
 
@@ -45,7 +45,7 @@
     isRevealing = false
 
     const interval = setInterval(updateChars, CHANGE_PERIOD)
-    const timeout = setTimeout(startRevealing, TIMEOUT_SECONDS * 1000)
+    const timeout = setTimeout(startRevealing, TIMEOUT_SECONDS * 1)
 
     return () => {
       clearInterval(interval)
@@ -77,9 +77,5 @@
     min-width: 1ch;
 
     text-align: center;
-
-    &.revealed {
-      opacity: 1;
-    }
   }
 </style>
