@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toVTName, navigate, SITES_ROUTES } from '../lib/utils/url'
+  import { toVTName, navigate, SITES_ROUTES } from '@/lib/utils/url'
 
   // Data provided by +page.ts load
   let { data } = $props()
@@ -43,7 +43,6 @@
 
 <style>
   .container {
-    padding: 20px;
   }
   .flex-squares {
     display: flex;
@@ -53,13 +52,12 @@
     margin-top: 2rem;
   }
   .square {
-    display: inline-flex;
     position: relative;
-    flex-direction: column;
     align-items: center;
     border-radius: 20%;
     background: rgb(154, 154, 154, 0.1);
     padding: 20px;
+    padding-left: 25px;
     width: 180px;
     height: 180px;
     color: white;
@@ -72,7 +70,6 @@
     justify-content: flex-start;
     align-items: flex-start;
     gap: 10px;
-    padding: 20px;
     width: 100%;
     height: 100%;
   }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { listen } from '@tauri-apps/api/event'
-  import { loading, loaded, initFlowStatusListeners } from '../stores/viewStore'
+  import { loading, loaded, initFlowStatusListeners } from '@/stores/viewStore'
   // SvelteKit navigation and transitions
   import { goto, onNavigate } from '$app/navigation'
   let { children } = $props()
@@ -65,7 +65,8 @@
 <style>
   :global(body) {
     margin: 0;
-    height: 100vh;
+    width: 100vw;
+    font-size: 15px;
   }
 
   *,
@@ -76,7 +77,6 @@
 
   :root {
     color: #ffffff;
-    font-size: 16px;
     line-height: 24px;
     font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
@@ -115,6 +115,7 @@
     background-attachment: fixed;
     background-color: #082b19;
     padding: 1rem;
+    width: 100vw;
     height: 100vh;
     overflow-y: auto;
     scroll-behavior: smooth;

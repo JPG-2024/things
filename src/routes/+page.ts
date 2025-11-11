@@ -1,4 +1,4 @@
-import { getAllArticles } from '../lib/database';
+import { getAllArticles } from '@/lib/database';
 import type { PageLoad } from './$types';
 
 // Use client-side load because the Tauri SQL plugin is only available in the browser.

@@ -1,9 +1,9 @@
 import { writable, derived, get } from "svelte/store";
-import { listenMetadataFlowStatus } from "../lib/listeners/metadataListener";
-import { listenMarkdownFlowStatus } from "../lib/listeners/markdownListener";
-import { listenInferenceStream } from "../lib/listeners/inferenceListener";
-import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "../lib/types/flowStatus";
-import {getYouTubeThumbnailUrl} from '../lib/utils/youtube';
+import { listenMetadataFlowStatus } from "@/lib/listeners/metadataListener";
+import { listenMarkdownFlowStatus } from "@/lib/listeners/markdownListener";
+import { listenInferenceStream } from "@/lib/listeners/inferenceListener";
+import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "@/lib/types/flowStatus";
+import {getYouTubeThumbnailUrl} from '@/lib/utils/youtube';
 
 
 
@@ -11,6 +11,8 @@ export const loading = writable(false);
 export const loaded = writable(false);
 
 export const url = writable<string | null>(null);
+// Article id (sqlite rowid exposed as id)
+export const articleId = writable<number | null>(null);
 
 // Store para el estado de metadata
 export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(null);
@@ -18,7 +20,7 @@ export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(
 // Store para el estado de markdown
 export const markdownStatus = writable<FlowStatusEvent<MarkdownPayload> | null>(null);
 
-export const summary = writable<string | null>(null);
+export const streamText = writable<string | null>(null);
 
 
 export const markdownContent = derived(markdownStatus, ($markdownStatus) => {
@@ -64,7 +66,8 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
 export function cleanAllState() {
   metadataStatus.set(null);
   markdownStatus.set(null);
-  summary.set(null);
+  streamText.set(null);
+  articleId.set(null);
 }
 
 // Idempotencia y cleanup
@@ -83,7 +86,7 @@ export async function initFlowStatusListeners() {
     markdownStatus.set(event);
   });
   const un3 = await listenInferenceStream((content) => {
-    summary.update((current) => (current || '') + content);
+    streamText.update((current) => (current || '') + content);
   });
 
   unsubs = [un1, un2, un3];
@@ -109,7 +112,8 @@ export function getAllViewStoreValues() {
     mainImage: get(mainImage),
     title: get(title),
     description: get(description),
-    summary: get(summary)
+    streamText: get(streamText),
+    articleId: get(articleId)
   };
 }
 
@@ -118,6 +122,12 @@ export function setAllViewStoreValues(article: any) {
   if (!article) return;
 
   url.set(article.url || null);
+
+  if (article.id !== undefined) {
+    articleId.set(article.id);
+  }
+
+  streamText.set(article.summary || null);
 
   // Restore metadata status with the metadataContent object
   if (article.metadataContent) {
@@ -134,7 +144,7 @@ export function setAllViewStoreValues(article: any) {
   }
 
   // Restore summary
-  if (article.summary) {
-    summary.set(article.summary);
+  if (article.streamText) {
+    streamText.set(article.summary);
   }
 }

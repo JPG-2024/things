@@ -3,9 +3,9 @@
   import { BaseDirectory, readDir } from '@tauri-apps/plugin-fs'
   import { convertFileSrc } from '@tauri-apps/api/core'
   import { homeDir, join } from '@tauri-apps/api/path'
-  import { urlRouter } from '../lib/urlRouter'
+  import { urlRouter } from '@/lib/urlRouter'
   import { goto } from '$app/navigation'
-  import StringReveal from '../components/StringReveal.svelte'
+  import StringReveal from '@/components/StringReveal.svelte'
   import { fade } from 'svelte/transition'
   import {
     markdownStatus,
@@ -13,7 +13,7 @@
     title,
     description,
     initFlowStatusListeners,
-  } from '../stores/viewStore'
+  } from '@/stores/viewStore'
 
   let url = $state('')
   let loading = $state(false)
@@ -159,8 +159,6 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    margin: 0;
-    padding: 1rem;
     height: 100vh;
     overflow-y: auto;
     text-align: center;

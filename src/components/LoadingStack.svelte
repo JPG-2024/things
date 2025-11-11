@@ -1,8 +1,6 @@
 <script lang="ts">
-  import type { UnlistenFn } from '@tauri-apps/api/event'
-
   import { listen } from '@tauri-apps/api/event'
-  import type { FlowStatusEvent, MetadataPayload } from '../lib/types/flowStatus'
+  import type { FlowStatusEvent, MetadataPayload } from '@/lib/types/flowStatus'
 
   type FlowPayload = {
     key: string
@@ -28,11 +26,15 @@
   }
 
   $effect.pre(() => {
-    listen<FlowStatusEvent<FlowPayload>>('flow-status', (event) => {
+    const unlisten = listen<FlowStatusEvent<FlowPayload>>('flow-status', (event) => {
       const payload = event?.payload as FlowPayload
       if (!payload || typeof payload.key !== 'string' || typeof payload.status !== 'string') return
       upsertPill(payload)
     })
+
+    return () => {
+      unlisten.then((fn) => fn())
+    }
   })
 </script>
 

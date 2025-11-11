@@ -1,5 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
-import { getAllViewStoreValues } from '../stores/viewStore';
+import { getAllViewStoreValues } from '@/stores/viewStore';
 
 // Variable to hold the database instance.
 let db: Database | null = null;
@@ -19,13 +19,13 @@ export async function getArticleByUrl(url: string) {
 
   try {
     const result = await db.select<Array<any>>(
-      `SELECT * FROM articles WHERE url = $1 LIMIT 1`,
+      // expose the implicit rowid as id for later deletion
+      `SELECT rowid as id, * FROM articles WHERE url = $1 LIMIT 1`,
       [url]
     );
 
     if (result && result.length > 0) {
       const article = result[0];
-      // Parse metadataContent from JSON string to object
       return {
         ...article,
         metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
@@ -83,11 +83,24 @@ export async function saveViewToDb() {
         data.domainUrl,
         data.ytVideoId,
         data.ytThumbnailUrl,
-        data.summary,
+        data.streamText,
       ]
     );
     console.log("Article saved to the database.");
   } catch (error) {
     console.error("Error saving to the database:", error);
+  }
+}
+
+// Delete an article by its rowid (exposed as id in queries)
+export async function deleteArticleById(id: number) {
+  const db = await getDb();
+  try {
+    // returns nothing; we can follow up with a select if needed
+    await db.execute(`DELETE FROM articles WHERE rowid = $1`, [id]);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting article from database:', error);
+    return { success: false, error };
   }
 }

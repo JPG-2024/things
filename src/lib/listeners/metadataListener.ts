@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import type { FlowStatusEvent, MetadataPayload } from "../types/flowStatus";
+import type { FlowStatusEvent, MetadataPayload } from "@/lib/types/flowStatus";
 
 // Listener para metadata
 export async function listenMetadataFlowStatus(

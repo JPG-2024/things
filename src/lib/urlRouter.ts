@@ -1,9 +1,9 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { url as urlStore, loaded, loading } from '../stores/viewStore'
+import { url as urlStore, loaded, loading, setAllViewStoreValues } from '@/stores/viewStore'
 import { saveViewToDb, getArticleByUrl } from './database'
 
-import * as viewStore from '../stores/viewStore'
+
 
 export async function urlRouter(url: string) {
   loading.set(true)
@@ -14,7 +14,7 @@ export async function urlRouter(url: string) {
   const existingArticle = await getArticleByUrl(url)
   if (existingArticle) {
     // Restore from database
-    viewStore.setAllViewStoreValues(existingArticle)
+    setAllViewStoreValues(existingArticle)
     loaded.set(true)
     loading.set(false)
     return

@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import type { FlowStatusEvent, MarkdownPayload } from "../types/flowStatus";
+import type { FlowStatusEvent, MarkdownPayload } from "@/lib/types/flowStatus";
 
 // Listener para markdown
 export async function listenMarkdownFlowStatus(
