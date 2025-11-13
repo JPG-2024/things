@@ -1,5 +1,4 @@
 mod images;
-pub use crate::images::download_images;
 
 mod browser;
 pub use crate::browser::init_browser;
@@ -99,7 +98,6 @@ pub fn run() {
             extract_markdown,
             extract_metadata,
             extract_blog,
-            download_images,
             inference,
             get_youtube_transcript
         ])

@@ -1,7 +1,7 @@
 <script lang="ts">
   import StringReveal from '@/components/StringReveal.svelte'
   import { toVTName } from '@/lib/utils/url'
-  import { mainImage, description, ytVideoId, streamText } from '@/stores/viewStore'
+  import { mainImage, ytVideoId, streamText } from '@/stores/viewStore'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
 
   import PostView from '@/components/PostView.svelte'
@@ -17,7 +17,7 @@
     src={`https://www.youtube.com/embed/${$ytVideoId}`}
     title="YouTube video player"
     frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen
     style="view-transition-name: {toVTName($mainImage)}"
   ></iframe>

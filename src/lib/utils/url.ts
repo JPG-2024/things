@@ -16,3 +16,7 @@ export const SITES_ROUTES: Record<string, string> = {
   export function navigate(route: string) {
     return goto(route)
   }
+
+  export function getRouteForDomain(domainUrl: string): string {
+    return SITES_ROUTES[domainUrl] || 'article'
+  }

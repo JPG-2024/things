@@ -1,13 +1,9 @@
 <script lang="ts">
-  import { toVTName, navigate, SITES_ROUTES } from '@/lib/utils/url'
+  import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
 
   // Data provided by +page.ts load
   let { data } = $props()
   const articles: Array<any> = data.articles ?? []
-
-  function getRouteForDomain(domainUrl: string): string {
-    return SITES_ROUTES[domainUrl] || 'article'
-  }
 </script>
 
 <div class="container">

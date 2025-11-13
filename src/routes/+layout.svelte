@@ -3,6 +3,7 @@
   import { loading, loaded, initFlowStatusListeners } from '@/stores/viewStore'
   // SvelteKit navigation and transitions
   import { goto, onNavigate } from '$app/navigation'
+  import { getRouteForDomain } from '@/lib/utils/url'
   let { children } = $props()
 
   let listeningClipboard = $state(true)
@@ -21,7 +22,7 @@
       // check payload is a url string
       const urlPattern = /^(https?:\/\/[^\s]+)/g
       if (!urlPattern.test(payload)) return
-      goto(`/article/${encodeURIComponent(payload)}`)
+      goto(`/${getRouteForDomain(payload)}/${encodeURIComponent(payload)}`)
     }).then((u) => (unlistenClipboard = u))
 
     const flashyInterval = setInterval(() => {

@@ -59,6 +59,20 @@
     }
   })
 
+  // Add window scroll event listener on mount, remove on unload, using $effect
+  $effect(() => {
+    function handleScroll() {
+      if (window.scrollX == -2 || window.scrollY == -2) {
+        navigate('/')
+      }
+    }
+    window.addEventListener('scroll', handleScroll)
+    // Cleanup on component unload
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  })
+
   async function handleDelete() {
     if (!$articleId || isDeleting) return
     try {
@@ -143,7 +157,7 @@
   .title :global(.revealer) {
     font-weight: bold;
     font-size: 1.5rem;
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'Arial', Times, serif;
   }
 
   .header {
