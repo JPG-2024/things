@@ -67,6 +67,14 @@ pub fn run() {
             // SQL to add the summary column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN summary TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your fourth migration.
+        Migration {
+            version: 4,
+            description: "add-category-and-mainColor-columns",
+            // SQL to add the category and mainColor columns to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN category TEXT; ALTER TABLE articles ADD COLUMN mainColor TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 

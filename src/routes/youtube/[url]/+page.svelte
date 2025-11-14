@@ -1,7 +1,7 @@
 <script lang="ts">
   import StringReveal from '@/components/StringReveal.svelte'
   import { toVTName } from '@/lib/utils/url'
-  import { mainImage, ytVideoId, streamText } from '@/stores/viewStore'
+  import { mainImage, ytVideoId, summary } from '@/stores/viewStore'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
 
   import PostView from '@/components/PostView.svelte'
@@ -24,7 +24,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={$streamText} />
+  <MarkdownRenderer content={$summary} />
 {/snippet}
 
 <style>

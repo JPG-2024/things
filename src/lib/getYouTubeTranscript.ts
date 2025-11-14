@@ -1,4 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
+import { summary } from '@/stores/viewStore';
+
+import {inference} from '@/lib/utils/inference';
+import { youTubeSummaryPrompt } from '@/stores/promptStore';
+import { get } from 'svelte/store';
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']) {
   //extract video id from youtube link
@@ -19,12 +24,11 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
 
   try {
-    await invoke('inference', {
-      prompt: `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion:\n\n${transcript}`
+    await inference(`${get(youTubeSummaryPrompt)}\n\n${transcript}`, (result) => {
+      summary.update(current => current + result)
     })
   } catch (inferenceErr) {
     console.error('Error during inference:', inferenceErr)
-    // Optionally, handle the error or rethrow
   }
   return transcript
   

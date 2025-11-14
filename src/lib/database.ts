@@ -40,7 +40,7 @@ export async function getArticleByUrl(url: string) {
 
 // Function to save the store data to the database.
 // Function to get all articles, limited to 20 results.
-export async function getAllArticles(limit: number = 20) {
+export async function getAllArticles({limit = 100} = {}): Promise<Array<any>> {
   const db = await getDb();
   try {
     const result = await db.select<Array<any>>(
@@ -85,7 +85,7 @@ export async function saveViewToDb() {
         data.domainUrl,
         data.ytVideoId,
         data.ytThumbnailUrl,
-        data.streamText,
+        data.summary,
       ]
     );
     console.log("Article saved to the database.");

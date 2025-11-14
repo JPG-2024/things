@@ -1,6 +1,6 @@
 <script lang="ts">
   import { toVTName } from '@/lib/utils/url'
-  import { mainImage, title, description, ytVideoId, streamText } from '@/stores/viewStore'
+  import { mainImage, title, description, ytVideoId, summary } from '@/stores/viewStore'
 
   import PostView from '@/components/PostView.svelte'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
@@ -32,7 +32,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={$streamText} />
+  <MarkdownRenderer content={$summary} />
 {/snippet}
 
 <style>

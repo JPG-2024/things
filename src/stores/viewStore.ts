@@ -1,7 +1,6 @@
 import { writable, derived, get } from "svelte/store";
 import { listenMetadataFlowStatus } from "@/lib/listeners/metadataListener";
 import { listenMarkdownFlowStatus } from "@/lib/listeners/markdownListener";
-import { listenInferenceStream } from "@/lib/listeners/inferenceListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "@/lib/types/flowStatus";
 import {getYouTubeThumbnailUrl} from '@/lib/utils/youtube';
 
@@ -20,8 +19,6 @@ export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(
 // Store para el estado de markdown
 export const markdownStatus = writable<FlowStatusEvent<MarkdownPayload> | null>(null);
 
-export const streamText = writable<string | null>(null);
-
 
 export const markdownContent = derived(markdownStatus, ($markdownStatus) => {
   return $markdownStatus?.data || "";
@@ -30,6 +27,8 @@ export const markdownContent = derived(markdownStatus, ($markdownStatus) => {
 export const metadataContent = derived(metadataStatus, ($metadataStatus) => {
   return $metadataStatus?.data || {};
 });
+
+export const summary = writable<string | null>(null);
 
 export const domainUrl = derived(url, ($url) => 
   $url ? new URL($url).hostname : null
@@ -66,8 +65,8 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
 export function cleanAllState() {
   metadataStatus.set(null);
   markdownStatus.set(null);
-  streamText.set(null);
   articleId.set(null);
+  summary.set('');
 }
 
 // Idempotencia y cleanup
@@ -85,11 +84,9 @@ export async function initFlowStatusListeners() {
   const un2 = await listenMarkdownFlowStatus((event) => {
     markdownStatus.set(event);
   });
-  const un3 = await listenInferenceStream((content) => {
-    streamText.update((current) => (current || '') + content);
-  });
 
-  unsubs = [un1, un2, un3];
+
+  unsubs = [un1, un2];
 
   return () => {
     for (const u of unsubs) {
@@ -112,8 +109,8 @@ export function getAllViewStoreValues() {
     mainImage: get(mainImage),
     title: get(title),
     description: get(description),
-    streamText: get(streamText),
-    articleId: get(articleId)
+    articleId: get(articleId),
+    summary: get(summary)
   };
 }
 
@@ -126,8 +123,6 @@ export function setAllViewStoreValues(article: any) {
   if (article.id !== undefined) {
     articleId.set(article.id);
   }
-
-  streamText.set(article.summary || null);
 
   // Restore metadata status with the metadataContent object
   if (article.metadataContent) {
@@ -144,7 +139,7 @@ export function setAllViewStoreValues(article: any) {
   }
 
   // Restore summary
-  if (article.streamText) {
-    streamText.set(article.summary);
+  if (article.summary) {
+    summary.set(article.summary);
   }
 }

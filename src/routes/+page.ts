@@ -5,6 +5,6 @@ import type { PageLoad } from './$types';
 export const ssr = false;
 
 export const load: PageLoad = async () => {
-  const articles = await getAllArticles();
+  const articles = await getAllArticles({limit: 9});
   return { articles };
 };
