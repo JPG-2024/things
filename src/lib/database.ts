@@ -40,11 +40,12 @@ export async function getArticleByUrl(url: string) {
 
 // Function to save the store data to the database.
 // Function to get all articles, limited to 20 results.
-export async function getAllArticles() {
+export async function getAllArticles(limit: number = 20) {
   const db = await getDb();
   try {
     const result = await db.select<Array<any>>(
-      `SELECT * FROM articles ORDER BY rowid DESC LIMIT 20`
+      `SELECT * FROM articles ORDER BY rowid DESC LIMIT $1`,
+      [limit]
     );
     // Parse metadataContent for each article
     return result.map(article => ({
@@ -56,6 +57,7 @@ export async function getAllArticles() {
     return [];
   }
 }
+
 export async function saveViewToDb() {
   const data = getAllViewStoreValues();
   const db = await getDb();

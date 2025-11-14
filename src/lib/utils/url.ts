@@ -18,5 +18,11 @@ export const SITES_ROUTES: Record<string, string> = {
   }
 
   export function getRouteForDomain(domainUrl: string): string {
-    return SITES_ROUTES[domainUrl] || 'article'
+    // Ensure the domainUrl has a protocol for URL parsing
+    const urlObj = domainUrl.startsWith('http://') || domainUrl.startsWith('https://')
+      ? new URL(domainUrl)
+      : new URL('https://' + domainUrl);
+    const domain = urlObj.hostname;
+
+    return SITES_ROUTES[domain] || 'article';
   }

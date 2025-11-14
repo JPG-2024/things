@@ -46,6 +46,10 @@
     const anyDoc: any = document
     if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return
 
+    if (document.hidden) {
+      return
+    }
+
     return new Promise((resolve) => {
       anyDoc.startViewTransition(async () => {
         // Allow SvelteKit to proceed with navigation
