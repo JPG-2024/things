@@ -1,4 +1,4 @@
-use clipboard_master::{CallbackResult, ClipboardHandler};
+/* use clipboard_master::{CallbackResult, ClipboardHandler};
 use std::io;
 use tauri::Emitter; // Tauri v2: Emitter trait provides `.emit`
 
@@ -36,3 +36,4 @@ impl ClipboardHandler for Handler {
         CallbackResult::Next
     }
 }
+ */

@@ -18,12 +18,6 @@ pub use crate::youtube::get_youtube_transcript;
 mod markdown;
 pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
-use clipboard_master::Master;
-mod utils {
-    pub mod clipboard;
-}
-pub use crate::utils::clipboard::Handler;
-
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -90,13 +84,6 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
             });
-
-            // Spawn blocking clipboard watcher with access to the AppHandle
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                let _ = Master::new(Handler::new(app_handle)).run();
-            });
-
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())

@@ -4,26 +4,31 @@
   // SvelteKit navigation and transitions
   import { goto, onNavigate } from '$app/navigation'
   import { getRouteForDomain } from '@/lib/utils/url'
+  import { onMount } from 'svelte'
   let { children } = $props()
 
   let listeningClipboard = $state(true)
   let flashy = $state(false)
 
+  // Hover state for the top-left dropzone
+  let isHoveringDropzone = $state(false)
+
+  // Function to call when user pastes while hovering the dropzone
+  function handleDropzonePaste(text: string | null) {
+    if (loading) return
+    if (!text) return
+
+    const urlPattern = /^(https?:\/\/[^\s]+)/g
+    if (!urlPattern.test(text)) {
+      console.warn('Pasted text is not a valid URL:', text)
+      return
+    }
+    goto(`/${getRouteForDomain(text)}/${encodeURIComponent(text)}`)
+  }
+
   $effect.pre(() => {
     let stopFlow: undefined | (() => void)
     initFlowStatusListeners().then((stop) => (stopFlow = stop))
-
-    let unlistenClipboard: undefined | (() => void)
-    listen('clipboard-changed', (event) => {
-      if (!listeningClipboard) return
-      const payload = (event.payload as string)?.trim()
-      if (!payload) return
-      // Navigate to dynamic article route; encode to keep the URL safe
-      // check payload is a url string
-      const urlPattern = /^(https?:\/\/[^\s]+)/g
-      if (!urlPattern.test(payload)) return
-      goto(`/${getRouteForDomain(payload)}/${encodeURIComponent(payload)}`)
-    }).then((u) => (unlistenClipboard = u))
 
     const flashyInterval = setInterval(() => {
       if ($loading) return
@@ -36,8 +41,23 @@
 
     return () => {
       stopFlow?.()
-      unlistenClipboard?.()
       clearInterval(flashyInterval)
+    }
+  })
+
+  // Listen to global paste only while hovering the dropzone
+  onMount(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (!isHoveringDropzone) return
+
+      const text = event.clipboardData?.getData('text') ?? null
+      handleDropzonePaste(text)
+    }
+
+    window.addEventListener('paste', onPaste)
+
+    return () => {
+      window.removeEventListener('paste', onPaste)
     }
   })
 
@@ -64,6 +84,15 @@
 <main
   class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
 >
+  <!-- Invisible hover-only dropzone in the top-left corner -->
+  <div
+    class="dropzone {isHoveringDropzone ? 'dropzone--active' : ''}"
+    onmouseenter={() => (isHoveringDropzone = true)}
+    onmouseleave={() => (isHoveringDropzone = false)}
+  >
+    <!-- purely hover area; we don't need content here -->
+  </div>
+
   {@render children()}
 </main>
 
@@ -125,6 +154,27 @@
     overflow-y: auto;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
+  }
+
+  /* Top-left dropzone (hover to activate, transparent by default) */
+  .dropzone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 10000;
+    transition:
+      box-shadow 0.15s ease,
+      background-color 0.15s ease;
+    background: transparent;
+    width: 96px;
+    height: 96px;
+    pointer-events: auto;
+  }
+
+  .dropzone--active {
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.45);
+    border-bottom-right-radius: 12px;
+    background-color: rgba(0, 0, 0, 0.1);
   }
 
   /* Overlay que barre el viewport cuando .flashy está activo */
