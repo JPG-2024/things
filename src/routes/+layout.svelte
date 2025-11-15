@@ -1,30 +1,15 @@
 <script lang="ts">
-  import { listen } from '@tauri-apps/api/event'
   import { loading, loaded, initFlowStatusListeners } from '@/stores/viewStore'
   // SvelteKit navigation and transitions
-  import { goto, onNavigate } from '$app/navigation'
-  import { getRouteForDomain } from '@/lib/utils/url'
+  import { onNavigate } from '$app/navigation'
+
   import { onMount } from 'svelte'
   let { children } = $props()
 
-  let listeningClipboard = $state(true)
   let flashy = $state(false)
 
   // Hover state for the top-left dropzone
   let isHoveringDropzone = $state(false)
-
-  // Function to call when user pastes while hovering the dropzone
-  function handleDropzonePaste(text: string | null) {
-    if (loading) return
-    if (!text) return
-
-    const urlPattern = /^(https?:\/\/[^\s]+)/g
-    if (!urlPattern.test(text)) {
-      console.warn('Pasted text is not a valid URL:', text)
-      return
-    }
-    goto(`/${getRouteForDomain(text)}/${encodeURIComponent(text)}`)
-  }
 
   $effect.pre(() => {
     let stopFlow: undefined | (() => void)
@@ -42,22 +27,6 @@
     return () => {
       stopFlow?.()
       clearInterval(flashyInterval)
-    }
-  })
-
-  // Listen to global paste only while hovering the dropzone
-  onMount(() => {
-    const onPaste = (event: ClipboardEvent) => {
-      if (!isHoveringDropzone) return
-
-      const text = event.clipboardData?.getData('text') ?? null
-      handleDropzonePaste(text)
-    }
-
-    window.addEventListener('paste', onPaste)
-
-    return () => {
-      window.removeEventListener('paste', onPaste)
     }
   })
 
@@ -84,15 +53,6 @@
 <main
   class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
 >
-  <!-- Invisible hover-only dropzone in the top-left corner -->
-  <div
-    class="dropzone {isHoveringDropzone ? 'dropzone--active' : ''}"
-    onmouseenter={() => (isHoveringDropzone = true)}
-    onmouseleave={() => (isHoveringDropzone = false)}
-  >
-    <!-- purely hover area; we don't need content here -->
-  </div>
-
   {@render children()}
 </main>
 

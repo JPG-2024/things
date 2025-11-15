@@ -3,7 +3,11 @@ import { listenInferenceStream } from '@/lib/listeners/inferenceListener';
 
 let unlistenInference: (() => void) | null = null;
 
-export async function inference(prompt: string, callback: (result: string) => void) {
+interface inferenceParams {
+    prompt: string;
+}
+
+export async function inference({prompt}: inferenceParams, callback: (result: string) => void) {
     // Set up the inference stream listener
     if (!unlistenInference) {
         unlistenInference = await listenInferenceStream((content) => {

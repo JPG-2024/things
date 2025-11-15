@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
+import { inference } from '@/lib/utils/inference'
+import { summary } from '@/stores/viewStore'
+import { BLOG_SUMMARY_PROMPT } from '@/constants'
 
 export async function extractBlog(url: string) {
+
   
   try {
     // invoke('download_images', { url })
@@ -8,9 +12,9 @@ export async function extractBlog(url: string) {
 
     const compactedMarkdown = compactMarkdown(response.markdown)
 
-    const prompt = `Haz un resumen en español corto del contenido, siguiendo por los 5 puntos clave y una conclusion.:\n\n${compactedMarkdown}`
-     // await invoke('inference', {prompt: prompt, model: 'Qwen/Qwen3-VL-8B-Instruct:novita'})
-    await invoke('inference', {prompt: prompt})
+    await inference({prompt: `${BLOG_SUMMARY_PROMPT} \n\n${compactedMarkdown}`}, (result: string) => {      
+      summary.update((current) => current + result)
+    })
     
     return response
   } catch (err) {
