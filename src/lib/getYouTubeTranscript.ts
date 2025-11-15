@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { summary } from '@/stores/viewStore';
+import { summary, ytTranscript } from '@/stores/viewStore';
 
 import {inference} from '@/lib/utils/inference';
 import { youTubeSummaryPrompt } from '@/stores/promptStore';
@@ -18,13 +18,14 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
       id: videoId,
       languages,
     })
+    ytTranscript.set(transcript)
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }
 
 
   try {
-    await inference(`${get(youTubeSummaryPrompt)}\n\n${transcript}`, (result) => {
+    await inference({ prompt: `${get(youTubeSummaryPrompt)}\n\n${transcript}` }, (result) => {
       summary.update(current => current + result)
     })
   } catch (inferenceErr) {

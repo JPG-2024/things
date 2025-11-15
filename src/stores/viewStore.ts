@@ -29,6 +29,7 @@ export const metadataContent = derived(metadataStatus, ($metadataStatus) => {
 });
 
 export const summary = writable<string | null>(null);
+export const ytTranscript = writable<string | null>(null);
 
 export const domainUrl = derived(url, ($url) => 
   $url ? new URL($url).hostname : null
@@ -110,7 +111,8 @@ export function getAllViewStoreValues() {
     title: get(title),
     description: get(description),
     articleId: get(articleId),
-    summary: get(summary)
+    summary: get(summary),
+    ytTranscript: get(ytTranscript)
   };
 }
 

@@ -69,6 +69,14 @@ pub fn run() {
             // SQL to add the category and mainColor columns to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN category TEXT; ALTER TABLE articles ADD COLUMN mainColor TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your fifth migration.
+        Migration {
+            version: 5,
+            description: "add-ytTranscript-column",
+            // SQL to add the ytTranscript column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN ytTranscript TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 
