@@ -1,6 +1,6 @@
 <script lang="ts">
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
-  import PasteInput from '@/components/inputs/PasteInput.component.svelte'
+  import Input from '@/components/inputs/Input.component.svelte'
 
   // Data provided by +page.ts load
   let { data } = $props()
@@ -8,9 +8,7 @@
 </script>
 
 <div class="container">
-  <PasteInput
-    onChange={(url) => navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)}
-  />
+  <Input onChange={(url) => navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)} />
 
   {#if articles.length}
     <div class="flex-squares">

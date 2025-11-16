@@ -1,5 +1,3 @@
-mod images;
-
 mod browser;
 pub use crate::browser::init_browser;
 
@@ -8,9 +6,6 @@ pub use crate::inference_openrouter::inference; */
 
 /* mod inference_hugging;
 pub use crate::inference_hugging::inference; */
-
-mod inference_mistral;
-pub use crate::inference_mistral::inference;
 
 mod youtube;
 pub use crate::youtube::get_youtube_transcript;
@@ -77,6 +72,36 @@ pub fn run() {
             // SQL to add the ytTranscript column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN ytTranscript TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your sixth migration.
+        Migration {
+            version: 6,
+            description: "create-chats-and-messages-tables",
+            // SQL to create chats and messages tables with proper relationships
+            sql: "CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                article_id INTEGER,
+                name TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                sender TEXT,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            );",
+            kind: MigrationKind::Up,
+        },
+        // This is your seventh migration.
+        Migration {
+            version: 7,
+            description: "add-content-column",
+            // SQL to add the content column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN content TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -101,7 +126,6 @@ pub fn run() {
             extract_markdown,
             extract_metadata,
             extract_blog,
-            inference,
             get_youtube_transcript
         ])
         .run(tauri::generate_context!())

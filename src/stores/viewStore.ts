@@ -24,12 +24,25 @@ export const markdownContent = derived(markdownStatus, ($markdownStatus) => {
   return $markdownStatus?.data || "";
 });
 
+export const content = writable<string>("");
+
 export const metadataContent = derived(metadataStatus, ($metadataStatus) => {
   return $metadataStatus?.data || {};
 });
 
 export const summary = writable<string | null>(null);
 export const ytTranscript = writable<string | null>(null);
+
+// Store for chat messages
+export interface Message {
+  id?: number;
+  chatId?: number;
+  sender: string;
+  content: string;
+  createdAt?: string;
+}
+
+export const messages = writable<Message[]>([]);
 
 export const domainUrl = derived(url, ($url) => 
   $url ? new URL($url).hostname : null
@@ -66,6 +79,7 @@ export const description = derived(metadataStatus, ($metadataStatus) => {
 export function cleanAllState() {
   metadataStatus.set(null);
   markdownStatus.set(null);
+  content.set('');
   articleId.set(null);
   summary.set('');
 }
@@ -84,6 +98,9 @@ export async function initFlowStatusListeners() {
   });
   const un2 = await listenMarkdownFlowStatus((event) => {
     markdownStatus.set(event);
+    if(event.status === 'done') {
+      content.set(event.data);
+    }
   });
 
 
@@ -112,7 +129,9 @@ export function getAllViewStoreValues() {
     description: get(description),
     articleId: get(articleId),
     summary: get(summary),
-    ytTranscript: get(ytTranscript)
+    ytTranscript: get(ytTranscript),
+    messages: get(messages),
+    content: get(content)
   };
 }
 
@@ -144,4 +163,7 @@ export function setAllViewStoreValues(article: any) {
   if (article.summary) {
     summary.set(article.summary);
   }
+
+  if (article.content) {
+    content.set(article.content);}
 }

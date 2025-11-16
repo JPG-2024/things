@@ -4,9 +4,10 @@
     placeholder?: string
     disabled?: boolean
     onChange?: (value: string) => void
+    onEnter?: (value: string) => void
   }
 
-  let { value = '', placeholder = '', disabled = false, onChange }: Props = $props()
+  let { value = '', placeholder = '', disabled = false, onChange, onEnter }: Props = $props()
 
   function handleInput(event: Event) {
     const target = event.target as HTMLInputElement
@@ -17,9 +18,24 @@
       onChange(newValue)
     }
   }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && onEnter) {
+      event.preventDefault()
+      onEnter(value)
+    }
+  }
 </script>
 
-<input class="text-input" type="text" bind:value {placeholder} {disabled} oninput={handleInput} />
+<input
+  class="text-input"
+  type="text"
+  bind:value
+  {placeholder}
+  {disabled}
+  oninput={handleInput}
+  onkeydown={handleKeydown}
+/>
 
 <style>
   .text-input {

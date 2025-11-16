@@ -1,4 +1,4 @@
-use reqwest::Client;
+/* use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::Serialize;
 use tauri::Emitter;
@@ -126,3 +126,4 @@ pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<S
         Err(e) => Err(format!("❌ Error descargando imagen: {}", e)),
     }
 }
+ */

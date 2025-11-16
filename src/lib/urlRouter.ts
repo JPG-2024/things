@@ -1,7 +1,7 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
 import { url as urlStore, loaded, loading, setAllViewStoreValues } from '@/stores/viewStore'
-import { saveViewToDb, getArticleByUrl } from './database'
+import { saveViewToDb, getArticleByUrl } from './utils/database/articleDB'
 
 
 

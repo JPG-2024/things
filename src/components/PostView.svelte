@@ -5,7 +5,7 @@
   import { urlRouter } from '@/lib/urlRouter'
   import LoadingStack from './LoadingStack.svelte'
   import StringReveal from './StringReveal.svelte'
-  import { getArticleByUrl, deleteArticleById } from '../lib/database'
+  import { getArticleByUrl, deleteArticleById } from '../lib/utils/database/articleDB'
   import { goto } from '$app/navigation'
   import {
     title,
@@ -92,9 +92,11 @@
     }
   }
 
-  async function handleGoChat() {
-    if (!$domainUrl || !$articleId) return
-    await goto(`/chat?category=${encodeURIComponent($domainUrl)}&articleId=${$articleId}`)
+  async function handleGoChat(chatId?: number) {
+    if (!$domainUrl) return
+    await goto(
+      `/chat?category=${encodeURIComponent($domainUrl)}&chatId=${chatId}&articleId=${$articleId}`
+    )
   }
 </script>
 
@@ -136,7 +138,7 @@
   </div>
 
   <div class="chat-container">
-    <button onclick={handleGoChat}>start chat</button>
+    <button onclick={() => handleGoChat()}>start chat</button>
   </div>
 
   {#if summaryContent}

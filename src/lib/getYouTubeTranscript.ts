@@ -1,9 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
-import { summary, ytTranscript } from '@/stores/viewStore';
-
-import {inference} from '@/lib/utils/inference';
-import { youTubeSummaryPrompt } from '@/stores/promptStore';
-import { get } from 'svelte/store';
+import { summary, content } from '@/stores/viewStore';
+import {callMistralChat} from '@/lib/utils/inference';
+import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']) {
   //extract video id from youtube link
@@ -18,16 +16,20 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
       id: videoId,
       languages,
     })
-    ytTranscript.set(transcript)
+    content.set(transcript)
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }
 
 
   try {
-    await inference({ prompt: `${get(youTubeSummaryPrompt)}\n\n${transcript}` }, (result) => {
-      summary.update(current => current + result)
+    await callMistralChat({
+      systemPrompt: YOUTUBE_SUMMARY_PROMPT(transcript),
+      prompt: 'sigue las intrucciones'},
+      (result) => {
+        summary.update(current => current + result)
     })
+      
   } catch (inferenceErr) {
     console.error('Error during inference:', inferenceErr)
   }

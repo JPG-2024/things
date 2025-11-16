@@ -10,7 +10,7 @@
     "sql:allow-execute",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://www.youtube.com/*" }]
+      "allow": [{ "url": "https://www.youtube.com/*" }, { "url": "https://api.mistral.ai/*" }]
     }
   ]
 }
