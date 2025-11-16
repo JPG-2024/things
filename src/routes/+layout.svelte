@@ -3,7 +3,6 @@
   // SvelteKit navigation and transitions
   import { onNavigate } from '$app/navigation'
 
-  import { onMount } from 'svelte'
   let { children } = $props()
 
   let flashy = $state(false)

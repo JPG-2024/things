@@ -1,4 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
+import type { QueryResult } from '@tauri-apps/plugin-sql';
 import { getAllViewStoreValues } from '@/stores/viewStore';
 
 // Variable to hold the database instance.
@@ -58,7 +59,7 @@ export async function getAllArticles({limit = 100} = {}): Promise<Array<any>> {
   }
 }
 
-export async function saveViewToDb() {
+export async function saveViewToDb(): Promise<QueryResult> {
   const data = getAllViewStoreValues();
   const db = await getDb();
 
@@ -72,7 +73,7 @@ export async function saveViewToDb() {
 
   try {
     // The parameter syntax is with $1, $2, etc.
-    await db.execute(
+    const result = await db.execute(
       `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
@@ -89,9 +90,12 @@ export async function saveViewToDb() {
         data.content
       ]
     );
-    console.log("Article saved to the database.");
+    
+    return result;
+
   } catch (error) {
     console.error("Error saving to the database:", error);
+    throw error;
   }
 }
 

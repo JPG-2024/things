@@ -1,11 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
-import { inference, callMistralChat } from '@/lib/utils/inference'
+import { callMistralChat } from '@/lib/utils/inference'
 import { summary } from '@/stores/viewStore'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 
 export async function extractBlog(url: string) {
-
-  
   try {
     // invoke('download_images', { url })
     const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['article', 'main'] })
