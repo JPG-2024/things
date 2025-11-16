@@ -1,17 +1,9 @@
-import { writable, derived, get } from "svelte/store";
+import { writable } from "svelte/store";
 
-export interface Message {
-  id?: number;
-  chatId?: number;
-  sender: string;
-  content: string;
-  createdAt?: string;
-}
-
-export const messages = writable<Message[]>([]);
+export const messages = writable<ChatMessage[]>([]);
 
 // Helper functions for message management
-export function addMessage(message: Message) {
+export function addMessage(message: ChatMessage) {
   messages.update(msgs => [...msgs, message]);
 }
 
@@ -19,6 +11,6 @@ export function clearMessages() {
   messages.set([]);
 }
 
-export function setMessages(newMessages: Message[]) {
+export function setMessages(newMessages: ChatMessage[]) {
   messages.set(newMessages);
 }

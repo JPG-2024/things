@@ -1,5 +1,6 @@
 import Database from '@tauri-apps/plugin-sql';
 
+
 // Variable to hold the database instance.
 let db: Database | null = null;
 
@@ -51,7 +52,7 @@ export async function saveMessage({chatId, sender, content}: {chatId: number; se
     throw error;
   }
 }// Function to get all messages for a chat
-export async function getMessagesByChat(chatId: number) {
+export async function getMessagesByChat(chatId: number): Promise<Array<ChatMessage>> {
   const db = await getDb();
   try {
     const result = await db.select<Array<any>>(
@@ -74,6 +75,20 @@ export async function deleteMessageById(messageId: number) {
   } catch (error) {
     console.error('Error deleting message from database:', error);
     return { success: false, error };
+  }
+}
+
+export async function getChatsByArticleId(articleId: number): Promise<Chat[]> {
+  const db = await getDb();
+  try {
+    const result = await db.select<Array<Chat>>(
+      `SELECT id, article_id as articleId, name, created_at as createdAt FROM chats WHERE article_id = $1 ORDER BY created_at DESC`,
+      [articleId]
+    );
+    return result || []
+  } catch (error) {
+    console.error('Error retrieving chats from database:', error);
+    return [];
   }
 }
 

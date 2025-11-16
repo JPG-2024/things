@@ -7,6 +7,7 @@
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import { getMessagesByChat, newChat, saveMessage } from '@/lib/utils/database/chatDB'
   import { CHAT_SYSTEM_PROMPT } from '@/constants'
+  import Topbar from '@/components/layout/Topbar.svelte'
 
   let chatId = $state<number | null>(null)
   let stream = $state('')
@@ -74,6 +75,7 @@
 </script>
 
 <div class="container">
+  <Topbar />
   <div class="messages-container">
     {#each $messages as msg}
       <div class="message {msg.sender}">

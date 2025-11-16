@@ -15,7 +15,7 @@ async function getDb() {
 }
 
 // Function to get an article by URL from the database.
-export async function getArticleByUrl(url: string) {
+export async function getArticleByUrl(url: string): Promise<Article | null> {
   const db = await getDb();
 
   try {

@@ -16,6 +16,8 @@
     articleId,
     setAllViewStoreValues,
   } from '@/stores/viewStore'
+  import Topbar from './layout/Topbar.svelte'
+  import ChatsList from './ChatsList.svelte'
 
   interface Props {
     headerContent?: any
@@ -101,29 +103,14 @@
 </script>
 
 <article>
-  <div class="top-bar">
-    <div class="top-left">
-      {#if $domainUrl}
-        <button onclick={() => navigate('/')} class="back-navigation">⬅</button>
-        <img
-          class="favicon"
-          src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"
-          alt=""
-        />
-      {/if}
-    </div>
-    <div class="top-right">
-      <LoadingStack />
-      {#if $articleId && !$loading}
-        <button
-          class="delete-btn"
-          onclick={handleDelete}
-          disabled={isDeleting}
-          title="Delete article">✕</button
-        >
-      {/if}
-    </div>
-  </div>
+  <Topbar>
+    <LoadingStack />
+    {#if $articleId && !$loading}
+      <button class="delete-btn" onclick={handleDelete} disabled={isDeleting} title="Delete article"
+        >✕</button
+      >
+    {/if}
+  </Topbar>
 
   {#if $title}
     <div class="title">
@@ -143,6 +130,10 @@
 
   {#if summaryContent}
     {@render summaryContent()}
+  {/if}
+
+  {#if $articleId}
+    <ChatsList articleId={$articleId}></ChatsList>
   {/if}
 </article>
 
@@ -181,44 +172,6 @@
     width: 100%;
   }
 
-  .top-bar {
-    display: flex;
-    position: fixed;
-    top: 0px;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    backdrop-filter: blur(8px);
-    /* border-bottom: 1px solid rgba(255, 255, 255, 0.4); */
-    /* border-bottom: solid rgba(2, 2, 2, 0.7); */
-    background: rgba(54, 54, 54, 0.6);
-    min-height: 75px;
-    -webkit-backdrop-filter: blur(5px);
-    right: 0;
-    left: 0;
-    z-index: 10;
-    box-sizing: border-box;
-  }
-
-  .top-left,
-  .top-right {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .back-navigation {
-    all: unset;
-    cursor: pointer;
-    border-radius: 8px;
-    padding: 0px 10px;
-    padding-top: 5px;
-    font-size: 25px;
-    text-decoration: none;
-  }
-
   .delete-btn {
     all: unset;
     cursor: pointer;
@@ -232,12 +185,6 @@
   .delete-btn[disabled] {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-
-  .favicon {
-    border-radius: 8px;
-    width: 32px;
-    height: 32px;
   }
 
   @media (prefers-color-scheme: dark) {
