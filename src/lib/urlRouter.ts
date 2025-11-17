@@ -1,13 +1,13 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId } from '@/stores/viewStore'
-import { saveViewToDb, getArticleByUrl } from './utils/database/articleDB'
+import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState } from '@/stores/viewStore'
+import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
+import { primaryColor } from '@/stores/uiStore'
 
 
 
 export async function urlRouter(url: string) {
-  loading.set(true)
-  loaded.set(false)
+
   urlStore.set(url)
   let savedRow = null
 
@@ -18,8 +18,17 @@ export async function urlRouter(url: string) {
     setAllViewStoreValues(existingArticle)
     loaded.set(true)
     loading.set(false)
-    return
+    const mainColor = await getOrCreateMainColor(existingArticle.id);
+    primaryColor.set(mainColor);
+
+    return existingArticle
+  } else {
+    
   }
+
+  loading.set(true)
+  loaded.set(false)
+  cleanAllState()
 
   if (/youtube\.com\/watch\?v=/.test(url)) {
     await getYouTubeTranscript(url)
@@ -27,10 +36,16 @@ export async function urlRouter(url: string) {
     await extractBlog(url)
   }
 
-  savedRow = await saveViewToDb()
+  const article = await saveViewToDb()
+  
+  if (article) {
+    const mainColor = await getOrCreateMainColor(article.id);
+    primaryColor.set(mainColor);
+  }
+
   loaded.set(true)
   loading.set(false)
 
-  articleId.set(savedRow?.lastInsertId || null)
+  articleId.set(article?.id || null)
   return savedRow
 }

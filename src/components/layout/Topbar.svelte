@@ -11,8 +11,8 @@
 </script>
 
 <div class="top-bar">
-  <button onclick={() => navigate('/')} class="back-navigation">⬅</button>
-  {#if domainUrl}
+  <button onclick={() => history.back()} class="back-navigation">⬅</button>
+  {#if $domainUrl}
     <img
       class="favicon"
       src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"

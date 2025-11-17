@@ -1,23 +1,7 @@
-import { invoke } from '@tauri-apps/api/core';
 
-export async function getImageColor(
-  imageUrl: string,
-): Promise<string> {
-  try {
-    // Try using Tauri backend first (bypasses CORS)
-    const result = await invoke<{ color: string }>('get_image_color_from_url', {
-      imageUrl,
-    });
-    return result.color;
-  } catch (error) {
-    console.warn('Failed to get color from Tauri backend, falling back to browser method:', error);
-    // Fallback to browser-based method
-    return getImageColorBrowser(imageUrl);
-  }
-}
 
 // Browser-based fallback method
-async function getImageColorBrowser(
+export async function getImageColor(
   imageUrl: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {

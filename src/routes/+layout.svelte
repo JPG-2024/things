@@ -2,6 +2,7 @@
   import { loading, loaded, initFlowStatusListeners } from '@/stores/viewStore'
   // SvelteKit navigation and transitions
   import { onNavigate } from '$app/navigation'
+  import { primaryColor } from '@/stores/uiStore'
 
   let { children } = $props()
 
@@ -51,6 +52,7 @@
 
 <main
   class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
+  style="--primary-color: {$primaryColor};"
 >
   {@render children()}
 </main>
@@ -97,16 +99,11 @@
     gap: 1.5rem;
     box-sizing: border-box;
     margin: 0;
-    background-image: linear-gradient(
-      -45deg,
-      rgba(33, 207, 117, 0.27) 10%,
-      rgba(33, 207, 117, 0.16) 35%,
-      rgba(10, 134, 70, 0.07) 60%,
-      rgba(0, 0, 0, 0.68) 90%
-    );
+    background-image: linear-gradient(-45deg, var(--primary-color) 10%, rgba(0, 0, 0, 0.68) 90%);
+
     background-size: 400% 400%;
     background-attachment: fixed;
-    background-color: #082b19;
+    background-color: #000000;
     padding: 1rem;
     width: 100vw;
     height: 100vh;

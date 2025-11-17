@@ -1,6 +1,7 @@
 import Database from '@tauri-apps/plugin-sql';
 import type { QueryResult } from '@tauri-apps/plugin-sql';
 import { getAllViewStoreValues } from '@/stores/viewStore';
+import { getImageColor } from '../getImageColor';
 
 // Variable to hold the database instance.
 let db: Database | null = null;
@@ -31,11 +32,13 @@ export async function getArticleByUrl(url: string): Promise<Article | null> {
         ...article,
         metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
       };
-    }
-    return null;
+    } 
+
+    return null
+    
   } catch (error) {
     console.error("Error querying article from database:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -59,7 +62,7 @@ export async function getAllArticles({limit = 100} = {}): Promise<Array<any>> {
   }
 }
 
-export async function saveViewToDb(): Promise<QueryResult> {
+export async function saveViewToDb(): Promise<Article> {
   const data = getAllViewStoreValues();
   const db = await getDb();
 
@@ -68,12 +71,14 @@ export async function saveViewToDb(): Promise<QueryResult> {
     'og:image': data.mainImage || data.ytThumbnailUrl || ''
   }
 
+  data.mainImage = data.mainImage || data.ytThumbnailUrl || '';
+
   // The metadataContent is an object, we save it as a JSON string.
   const metadataJson = JSON.stringify(data.metadataContent);
 
   try {
     // The parameter syntax is with $1, $2, etc.
-    const result = await db.execute(
+    await db.execute(
       `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
@@ -90,11 +95,12 @@ export async function saveViewToDb(): Promise<QueryResult> {
         data.content
       ]
     );
+
+    const article = await getArticleByUrl(data.url || '');
     
-    return result;
+    return article;
 
   } catch (error) {
-    console.error("Error saving to the database:", error);
     throw error;
   }
 }
@@ -109,6 +115,43 @@ export async function deleteArticleById(id: number) {
   } catch (error) {
     console.error('Error deleting article from database:', error);
     return { success: false, error };
+  }
+}
+
+export async function getOrCreateMainColor(articleId: number): Promise<string> {
+  const db = await getDb();
+  
+  try {
+    // First, try to get the article
+    const result = await db.select<Array<any>>(
+      `SELECT rowid as id, mainImage, ytThumbnailUrl, mainColor FROM articles WHERE rowid = $1 LIMIT 1`,
+      [articleId]
+    );
+
+
+    if (!result || result.length === 0) {
+      throw new Error(`Article with ID ${articleId} not found`);
+    }
+
+    const article = result[0];
+
+    // If mainColor already exists, return it
+    if (article.mainColor) {
+      return article.mainColor;
+    }
+
+    // Calculate the color using getImageColor
+    const calculatedColor = await getImageColor(article.mainImage || article.ytThumbnailUrl);
+
+    // Save the calculated color to the database
+    await db.execute(
+      `UPDATE articles SET mainColor = $1 WHERE rowid = $2`,
+      [calculatedColor, articleId]
+    );
+
+    return calculatedColor;
+  } catch (error) {
+    throw error;
   }
 }
 

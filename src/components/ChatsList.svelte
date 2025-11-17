@@ -37,7 +37,7 @@
   }
 </script>
 
-<div class="chats-list">
+<div class="container">
   {#if loading}
     <p class="loading">Loading chats...</p>
   {:else if error}
@@ -47,20 +47,19 @@
   {:else}
     <ul class="chats-column">
       {#each chats as chat (chat.id)}
-        <li>
-          <button type="button" class="chat-item" onclick={() => handleGoChat(chat.id)}>
-            <span class="chat-name">{chat.name}</span>
-            <span class="chat-date">{new Date(chat.createdAt).toLocaleDateString()}</span>
-          </button>
-        </li>
+        <button type="button" class="chat-item" onclick={() => goto(`/chat?chatId=${chat.id}`)}>
+          <span class="chat-name" style={`view-transition-name: chat-name-${chat.id}`}
+            >{chat.name}</span
+          >
+          <span class="chat-date">{new Date(chat.createdAt).toLocaleDateString()}</span>
+        </button>
       {/each}
     </ul>
   {/if}
 </div>
 
 <style>
-  .chats-list {
-    padding: 1rem;
+  .container {
     width: 100%;
   }
 
@@ -69,30 +68,27 @@
     flex-direction: column;
     gap: 0.5rem;
     margin: 0;
-
     padding: 0;
+    width: 100%;
     list-style: none;
-    .chat-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      transition: background-color 0.2s;
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-
-      padding: 0.75rem 1rem;
-      width: 100%;
-      text-align: left;
-    }
-
-    .chat-item:hover,
-    .chat-item:focus {
-      outline: none;
-    }
   }
 
+  .chat-item {
+    all: unset;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 8px;
+    background: rgba(154, 154, 154, 0.1);
+    padding: 0.5rem 1rem;
+    width: 100%;
+  }
   .chat-name {
+    color: var(--primary-color);
     font-weight: 500;
     font-size: 1rem;
   }

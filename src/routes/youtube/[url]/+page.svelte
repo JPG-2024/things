@@ -29,8 +29,8 @@
 
 <style>
   .yt-video {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    border: 1px solid #555;
+    box-shadow: 0 0px 10px var(--primary-color);
+
     border-radius: 8px;
     width: 90vw;
     min-height: 350px;

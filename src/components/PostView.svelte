@@ -5,19 +5,20 @@
   import { urlRouter } from '@/lib/urlRouter'
   import LoadingStack from './LoadingStack.svelte'
   import StringReveal from './StringReveal.svelte'
-  import { getArticleByUrl, deleteArticleById } from '../lib/utils/database/articleDB'
+  import { deleteArticleById } from '../lib/utils/database/articleDB'
   import { goto } from '$app/navigation'
   import {
     title,
     cleanAllState,
     domainUrl,
     loading,
-    loaded,
     articleId,
-    setAllViewStoreValues,
+    content,
+    url,
   } from '@/stores/viewStore'
   import Topbar from './layout/Topbar.svelte'
   import ChatsList from './ChatsList.svelte'
+  import Button from './inputs/Button.component.svelte'
 
   interface Props {
     headerContent?: any
@@ -28,42 +29,20 @@
   // reactive state for deletion flag (Svelte runes)
   let isDeleting = $state(false)
 
-  async function handleUrlAction(url: string) {
-    loading.set(true)
-
-    try {
-      cleanAllState()
-      await urlRouter(url)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      loading.set(false)
-    }
-  }
-
   onMount(async () => {
     try {
       const paramUrl = (page as any)?.params?.url as string | undefined
       if (!paramUrl) return
       const decodedUrl = decodeURIComponent(paramUrl)
 
-      const existing = await getArticleByUrl(decodedUrl)
-      if (existing) {
-        cleanAllState()
-        setAllViewStoreValues(existing)
-        loaded.set(true)
-        loading.set(false)
-        return
-      }
-
-      await handleUrlAction(decodedUrl)
+      await urlRouter(decodedUrl)
     } catch (err) {
       console.error(err)
     }
   })
 
-  // Add window scroll event listener on mount, remove on unload, using $effect
-  $effect(() => {
+  // Add window scroll event listener on mount, remove on unload, using $effect.pre
+  $effect.pre(() => {
     function handleScroll() {
       if (window.scrollX == -2 || window.scrollY == -2) {
         navigate('/')
@@ -112,6 +91,12 @@
     {/if}
   </Topbar>
 
+  {#if $url}
+    <a class="url-link" href={$url} target="_blank" rel="noopener noreferrer">
+      {$url}
+    </a>
+  {/if}
+
   {#if $title}
     <div class="title">
       <StringReveal message={$title} />
@@ -124,12 +109,14 @@
     {/if}
   </div>
 
-  <div class="chat-container">
-    <button onclick={() => handleGoChat()}>start chat</button>
-  </div>
-
   {#if summaryContent}
     {@render summaryContent()}
+  {/if}
+
+  {#if $content}
+    <div class="chat-container">
+      <Button label="new chat" onClick={() => handleGoChat()} />
+    </div>
   {/if}
 
   {#if $articleId}
@@ -144,7 +131,7 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    padding: 100px 10px;
+    padding: 50px 10px;
   }
 
   .title {
@@ -152,7 +139,7 @@
     width: 90vw;
 
     text-decoration: underline;
-    text-decoration-color: #00ff7b91;
+    text-decoration-color: var(--primary-color);
     text-underline-offset: -1px;
     text-transform: uppercase;
   }
@@ -185,6 +172,13 @@
   .delete-btn[disabled] {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  .url-link {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    text-decoration: none;
+    word-break: break-all;
   }
 
   @media (prefers-color-scheme: dark) {

@@ -103,3 +103,30 @@ export async function deleteMessagesByChat(chatId: number) {
     return { success: false, error };
   }
 }
+
+// delete chat by chatId
+export async function deleteChatById(chatId: number) {
+  const db = await getDb();
+  try {
+    // First, delete all messages associated with the chat
+    await db.execute(`DELETE FROM messages WHERE chat_id = $1`, [chatId]);
+    // Then, delete the chat itself
+    await db.execute(`DELETE FROM chats WHERE id = $1`, [chatId]);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting chat from database:', error);
+    return { success: false, error };
+  }
+}
+
+// update chat name by chatId
+export async function updateChatName(chatId: number, newName: string) {
+  const db = await getDb();
+  try {
+    await db.execute(`UPDATE chats SET name = $1 WHERE id = $2`, [newName, chatId]);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating chat name in database:', error);
+    return { success: false, error };
+  }
+}

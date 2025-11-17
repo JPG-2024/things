@@ -165,5 +165,10 @@ export function setAllViewStoreValues(article: any) {
   }
 
   if (article.content) {
-    content.set(article.content);}
+    content.set(article.content);
+  }
+
+  if (article.content) {
+    content.set(article.content);
+  }
 }

@@ -1,10 +1,14 @@
 <script lang="ts">
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import Input from '@/components/inputs/Input.component.svelte'
-
+  import { primaryColor } from '@/stores/uiStore'
   // Data provided by +page.ts load
   let { data } = $props()
   const articles: Array<any> = data.articles ?? []
+
+  $effect(() => {
+    primaryColor.set('rgb(187, 187, 187)')
+  })
 </script>
 
 <div class="container">

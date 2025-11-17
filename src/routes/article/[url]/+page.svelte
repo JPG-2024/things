@@ -45,7 +45,8 @@
 
   .description {
     padding-left: 5px;
-    color: #fafafa;
+    color: var(--primary-color);
+    font-weight: bold;
     font-size: 0.9rem;
     line-height: 1.6;
     font-family: 'Menlo', monospace;

@@ -23,6 +23,7 @@
     if (event.key === 'Enter' && onEnter) {
       event.preventDefault()
       onEnter(value)
+      value = ''
     }
   }
 </script>
@@ -44,9 +45,10 @@
     border: none;
     border-radius: 12px;
     background: rgba(154, 154, 154, 0.1);
-    padding: 0.6rem 0.75rem;
+    padding: 1rem 0.75rem;
     width: 100%;
     color: inherit;
+    font-size: 1rem;
   }
 
   .text-input:focus {
