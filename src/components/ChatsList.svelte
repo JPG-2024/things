@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getChatsByArticleId } from '@/lib/utils/database/chatDB'
   import { goto } from '$app/navigation'
+  import { onMount } from 'svelte'
+  import { chatsRefresh } from '@/stores/chatStore'
 
   interface Props {
     articleId: number
@@ -13,22 +15,27 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  // Cargar chats cuando el componente se monta o cuando cambia articleId
-  $effect(() => {
-    async function loadChats() {
-      loading = true
-      error = null
-      try {
-        const result = await getChatsByArticleId(articleId)
-        chats = result
-      } catch (err) {
-        console.error('Error loading chats:', err)
-        error = 'Failed to load chats'
-      } finally {
-        loading = false
-      }
+  async function loadChats() {
+    loading = true
+    error = null
+    try {
+      const result = await getChatsByArticleId(articleId)
+      chats = result
+    } catch (err) {
+      console.error('Error loading chats:', err)
+      error = 'Failed to load chats'
+    } finally {
+      loading = false
     }
+  }
 
+  onMount(() => {
+    loadChats()
+  })
+
+  // Re-run when chatsRefresh changes (no DOM events)
+  $effect(() => {
+    const _ = $chatsRefresh
     loadChats()
   })
 

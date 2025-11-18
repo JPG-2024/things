@@ -92,14 +92,15 @@
   </Topbar>
 
   {#if $url}
-    <a class="url-link" href={$url} target="_blank" rel="noopener noreferrer">
+    <div class="url-link">
       {$url}
-    </a>
+    </div>
   {/if}
 
   {#if $title}
     <div class="title">
-      <StringReveal message={$title} />
+      <!-- <StringReveal message={$title} disableReveal={false} /> -->
+      {$title}
     </div>
   {/if}
 
@@ -114,7 +115,7 @@
   {/if}
 
   {#if $content}
-    <div class="chat-container">
+    <div class="chat-button">
       <Button label="new chat" onClick={() => handleGoChat()} />
     </div>
   {/if}
@@ -131,17 +132,19 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    padding: 50px 10px;
+    box-sizing: border-box;
+    padding-top: 60px;
   }
 
   .title {
-    padding-top: 1px;
     width: 90vw;
-
+    font-weight: bold;
+    font-size: 1.8rem;
+    line-height: 1.8rem;
+    font-family: 'Raleway', Times, serif;
     text-decoration: underline;
     text-decoration-color: var(--primary-color);
-    text-underline-offset: -1px;
-    text-transform: uppercase;
+    text-underline-offset: -2px;
   }
 
   .title :global(.revealer) {

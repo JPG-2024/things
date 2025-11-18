@@ -14,6 +14,7 @@
   } from '@/lib/utils/database/chatDB'
   import { CHAT_SYSTEM_PROMPT } from '@/constants'
   import Topbar from '@/components/layout/Topbar.svelte'
+  import { invalidateChats } from '@/stores/chatStore'
 
   let chatId = $state<number | null>(null)
   let stream = $state('')
@@ -39,8 +40,9 @@
     if ($messages.length === 0) {
       await deleteChatById(chatId!)
     } else {
-      await updateChatName(chatId!, $messages[0]?.content.slice(0, 30) || 'Chat')
+      await updateChatName(chatId!, $messages[0]?.content.slice(0, 50))
     }
+    invalidateChats()
   })
 
   async function handlePrompt(prompt: string) {
@@ -93,7 +95,11 @@
   <div class="messages">
     {#each $messages as msg}
       <div class="message {msg.sender}">
-        <MarkdownRenderer content={msg.content} />
+        {#if msg.sender === 'user'}
+          <span class="user">{msg.content}</span>
+        {:else}
+          <MarkdownRenderer content={msg.content} />
+        {/if}
       </div>
     {/each}
     {#if stream !== ''}
@@ -133,12 +139,12 @@
     flex: 1;
     flex-direction: column;
     gap: 1rem;
-    margin-bottom: 1rem;
-    height: 80vh;
+    padding-bottom: 80px;
   }
 
   .user {
     align-self: flex-end;
+    color: var(--primary-color);
     font-weight: bold;
     font-size: 1rem;
   }
@@ -148,6 +154,7 @@
     right: 0;
     bottom: 0;
     left: 0;
+
     box-sizing: border-box;
     padding: 1rem;
     width: 100%;

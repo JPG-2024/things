@@ -1,7 +1,6 @@
 <script lang="ts">
   import { domainUrl } from '@/stores/viewStore'
   import type { Snippet } from 'svelte'
-  import { navigate } from '@/lib/utils/url'
 
   interface Props {
     children?: Snippet

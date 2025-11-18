@@ -31,6 +31,7 @@
     color: #fafafa;
     text-align: left;
     word-wrap: break-word;
+    font-size: 0.85rem;
     line-height: 1.6;
     font-family: 'Menlo', monospace;
     overflow-wrap: break-word;

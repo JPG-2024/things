@@ -100,11 +100,10 @@
     box-sizing: border-box;
     margin: 0;
     background-image: linear-gradient(-45deg, var(--primary-color) 10%, rgba(0, 0, 0, 0.68) 90%);
-
     background-size: 400% 400%;
     background-attachment: fixed;
     background-color: #000000;
-    padding: 1rem;
+    padding: 1.2rem;
     width: 100vw;
     height: 100vh;
     overflow-y: auto;

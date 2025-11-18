@@ -4,7 +4,7 @@
 export async function getImageColor(
   imageUrl: string,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = function () {
@@ -13,7 +13,7 @@ export async function getImageColor(
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error('Canvas context not available'));
+        resolve('rgb(100, 100, 100)'); // Color por defecto en caso de error
         return;
       }
       // Resize canvas to max 200x200 for faster processing
@@ -87,7 +87,10 @@ export async function getImageColor(
 
       resolve(`rgb(${[r, g, b].join(', ')})`)
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      // Ignora errores de CORS y retorna color por defecto
+      resolve('rgb(100, 100, 100)');
+    };
     img.src = imageUrl;
   });
 }

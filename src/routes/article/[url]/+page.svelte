@@ -37,10 +37,15 @@
 
 <style>
   .image {
-    border-radius: 8px;
-    max-width: 80%;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
     max-height: 200px;
     object-fit: cover;
+
+    @media screen and (min-width: 768px) {
+      max-height: 400px;
+    }
   }
 
   .description {

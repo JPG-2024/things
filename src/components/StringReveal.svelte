@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   let {
     message = 'Esto es un prueba',
     loading = false,
@@ -7,7 +7,7 @@
     text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()
 
-  let randomChars = $state([])
+  let randomChars = $state<string[]>([])
   let revealedCount = $state(0)
   let isRevealing = $state(false)
 
