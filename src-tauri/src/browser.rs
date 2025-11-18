@@ -129,7 +129,7 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
     app.emit(
         "flow-status",
         json!({"key": "page", "status": "Loading Page", "data": null}),
-    );
+    ).map_err(|e| e.to_string())?;
 
     let page = get_ready_page().await.map_err(|e| e.to_string())?;
 
@@ -146,7 +146,7 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
     app.emit(
         "flow-status",
         json!({"key": "page", "status": "done", "data": null}),
-    );
+    ).map_err(|e| e.to_string())?;
 
     Ok((html, document))
 }

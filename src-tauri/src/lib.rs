@@ -13,7 +13,7 @@ pub use crate::youtube::get_youtube_transcript;
 mod markdown;
 pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
-use tauri_plugin_sql::{Builder, Migration, MigrationKind};
+use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -113,7 +113,7 @@ pub fn run() {
                 .add_migrations("sqlite:notian.db", migrations)
                 .build(),
         )
-        .setup(|app| {
+        .setup(|_app| {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
             });
