@@ -155,6 +155,24 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
   }
 }
 
+export const getArticlesByCategory = async (category: string, {limit = 100} = {}): Promise<Array<Article>> => {
+  const db = await getDb();
+  try {
+    const result = await db.select<Array<any>>(
+      `SELECT * FROM articles WHERE category = $1 ORDER BY rowid DESC LIMIT $2`,
+      [category, limit]
+    );
+    // Parse metadataContent for each article
+    return result.map(article => ({
+      ...article,
+      metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+    }));
+  } catch (error) {
+    console.error("Error querying articles by category from database:", error);
+    return [];
+  }
+}
+
 // Re-export chat and message functions from chatDB.ts
 export { newChat, saveMessage, getMessagesByChat, deleteMessageById, deleteMessagesByChat } from './chatDB';
 

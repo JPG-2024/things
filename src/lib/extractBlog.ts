@@ -3,24 +3,25 @@ import { callMistralChat } from '@/lib/utils/inference'
 import { summary } from '@/stores/viewStore'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 
-export async function extractBlog(url: string) {
+export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
+    let _summary: string | null = null
     // invoke('download_images', { url })
-    const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['article', 'main'] })
+    const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['main', 'article'] })
 
     const compactedMarkdown = compactMarkdown(response.markdown)
   
-    await callMistralChat({
+    _summary = await callMistralChat({
       systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(compactedMarkdown),
       prompt: 'sigue las intrucciones'},
       (result) => {
         summary.update(current => current + result)
     })
   
-    return response
+    return {content: compactedMarkdown, summary: _summary || ''}
   } catch (err) {
     console.error('Error extracting blog:', err)
-    return ''
+    return {content: '', summary: ''}
   }
 }
 

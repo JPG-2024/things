@@ -5,6 +5,10 @@ import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/dat
 import { primaryColor } from '@/stores/uiStore'
 
 
+import { callMistralChat } from './utils/inference'
+import { CONTENT_EXTRACTION_SCHEMA } from './utils/structuredSchemas'
+
+
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
 const inMemoryCache = new Map<string, any>()
@@ -56,14 +60,28 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
   
   // Wrap extraction & save in a try/catch; also register this work in inProgressRequests
   const inFlight = (async () => {
+    let data = {content: '', summary: ''}
+
     try {
       if (/youtube\.com\/watch\?v=/.test(url)) { // youtube route
-        await getYouTubeTranscript(url)
+        data = await getYouTubeTranscript(url)
       } else {
-        await extractBlog(url) // generic article route
+        data = await extractBlog(url) // generic article route
       }
 
+      // TODO: pass extractor functions via parameter in this funcion and map ober to do task with summary or content extracted.
+      const category = await callMistralChat({
+        systemPrompt: `Name the Content with one of this categories: [Artificial Intelligence, Programming, Psychology, Philosophy, Music], just response with one of them`,
+        prompt: `Content: """${data.summary}"""`,
+        maxTokens: 10,
+        temperature: 0
+      })
+
+      console.log('Extracted category:', category)
+
+
       const newArticle = await saveViewToDb()
+
 
       if (newArticle) {
         const mainColor = await getOrCreateMainColor(newArticle.id).catch(() => null);

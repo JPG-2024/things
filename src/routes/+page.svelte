@@ -77,7 +77,6 @@
     border-radius: 20%;
     background: rgb(154, 154, 154, 0.1);
     padding: 30px;
-    padding-left: 25px;
     width: 204px;
     height: 204px;
     color: white;

@@ -1,6 +1,7 @@
 import { MISTRAL_MODELS } from '@/constants';
 import { fetch } from '@tauri-apps/plugin-http';
 
+
 interface MistralChatMessage {
     role: 'system' | 'user' | 'assistant';
     content: string;
@@ -14,6 +15,8 @@ interface MistralChatParams {
     temperature?: number;
     topP?: number;
     stream?: boolean;
+    // zod schema
+    responseFormat?: any 
 }
 
 interface MistralChatResponse {
@@ -56,7 +59,8 @@ export async function callMistralChat(
         maxTokens = 2048,
         temperature = 0.7,
         topP = 1.0,
-        stream = !!callback
+        stream = !!callback,
+        responseFormat
     } = params;
 
     // Build messages array
@@ -81,7 +85,8 @@ export async function callMistralChat(
         max_tokens: maxTokens,
         temperature,
         top_p: topP,
-        stream
+        stream,
+        response_format: responseFormat
     };
 
     try {

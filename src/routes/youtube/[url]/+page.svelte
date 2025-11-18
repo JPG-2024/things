@@ -1,5 +1,4 @@
 <script lang="ts">
-  import StringReveal from '@/components/StringReveal.svelte'
   import { toVTName } from '@/lib/utils/url'
   import { mainImage, ytVideoId, summary, ytThumbnailUrl } from '@/stores/viewStore'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
@@ -33,7 +32,6 @@
             src={$ytThumbnailUrl || $mainImage}
             alt="YouTube thumbnail"
             class="yt-thumbnail"
-            loading="lazy"
             style="view-transition-name: {toVTName($ytThumbnailUrl || $mainImage)}"
           />
         </button>
@@ -65,20 +63,20 @@
 
   /* Wrapper with 16:9 aspect ratio for responsive player */
   .yt-wrapper {
+    position: relative;
+    border-radius: 30px;
+    background-color: var(--card-bg, #000);
     width: 95vw;
     max-width: 100%;
-    overflow: hidden;
-    border-radius: 8px;
-    position: relative;
     min-height: 350px;
-    background-color: var(--card-bg, #000);
+    overflow: hidden;
   }
 
   /* Maintain aspect ratio */
   .yt-wrapper::before {
-    content: '';
     display: block;
     padding-top: 56.25%; /* 16:9 */
+    content: '';
   }
 
   .yt-wrapper iframe,
@@ -86,26 +84,26 @@
     position: absolute;
     top: 0;
     left: 0;
+    border: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border: 0;
   }
 
   .yt-thumbnail {
-    cursor: pointer;
     transition:
       transform 0.24s ease,
       opacity 0.18s ease;
+    cursor: pointer;
   }
 
   .yt-thumbnail-btn {
     position: absolute;
+    cursor: pointer;
     inset: 0;
     border: 0;
-    padding: 0;
     background: transparent;
-    cursor: pointer;
+    padding: 0;
   }
 
   .yt-thumbnail:hover {
@@ -114,29 +112,29 @@
   }
 
   .yt-play {
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    font-size: 28px;
     display: flex;
-    align-items: center;
+    position: absolute;
     justify-content: center;
-    cursor: pointer;
+    align-items: center;
     transform: translateY(-8%);
     transition:
       background 0.12s ease,
       transform 0.12s;
+    cursor: pointer;
+    margin: auto;
+    inset: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    width: 64px;
+    height: 64px;
+    color: white;
+    font-size: 28px;
   }
 
   .yt-play:hover {
-    background: rgba(0, 0, 0, 0.75);
     transform: translateY(-10%);
+    background: rgba(0, 0, 0, 0.75);
   }
 
   @media (prefers-color-scheme: dark) {

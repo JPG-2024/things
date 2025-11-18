@@ -57,15 +57,17 @@ export const ytVideoId = derived(url, ($url) =>
   $url ? new URL($url).searchParams.get('v') : null
 );
 export const ytThumbnailUrl = derived(ytVideoId, ($ytVideoId) =>
-  $ytVideoId ? getYouTubeThumbnailUrl($ytVideoId, 'medium') : ''
+  $ytVideoId ? getYouTubeThumbnailUrl($ytVideoId, 'high') : ''
 );
 
 
-
-// Derived store para la imagen principal
-export const mainImage = derived(metadataStatus, ($metadataStatus) => {
-  return $metadataStatus?.data?.["og:image"] || "";
-});
+export const mainImage = derived(
+  [metadataStatus, ytThumbnailUrl],  // array de dependencias
+  ([$metadataStatus, $ytThumbnailUrl]) => {
+    return $metadataStatus?.data?.["og:image"] || $ytThumbnailUrl;
+  },
+  "" // valor inicial
+);
 
 export const title = derived(metadataStatus, ($metadataStatus) => {
   return $metadataStatus?.data?.["og:title"] || "";
@@ -144,6 +146,7 @@ export function setAllViewStoreValues(article: any) {
   if (article.id !== undefined) {
     articleId.set(article.id);
   }
+
 
   // Restore metadata status with the metadataContent object
   if (article.metadataContent) {
