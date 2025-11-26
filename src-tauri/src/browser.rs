@@ -53,6 +53,11 @@ pub async fn init_browser() -> Result<(), String> {
 
     let mut config = BrowserConfig::builder();
 
+    // Auto-detect browser
+    let chrome_path = find_chrome_executable()?;
+    config = config.chrome_executable(&chrome_path);
+    println!("🌐 Using browser: {}", chrome_path);
+
     // Use a unique, clean user data directory
     let user_data_dir = format!("/tmp/chromium-profile-{}", std::process::id());
 
@@ -149,4 +154,29 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
     ).map_err(|e| e.to_string())?;
 
     Ok((html, document))
+}
+
+fn find_chrome_executable() -> Result<String, String> {
+    let possible_paths = vec![
+        // Linux paths
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/snap/bin/chromium",
+        "/usr/bin/brave-browser",
+        // macOS paths
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    ];
+
+    for path in possible_paths {
+        if std::path::Path::new(path).exists() {
+            return Ok(path.to_string());
+        }
+    }
+
+    Err("No Chromium-based browser found".to_string())
 }
