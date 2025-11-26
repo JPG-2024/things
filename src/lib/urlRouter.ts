@@ -1,6 +1,6 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
-import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState, content } from '@/stores/viewStore'
+import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState, content, category } from '@/stores/viewStore'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
 
@@ -70,18 +70,60 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
       }
 
       // TODO: pass extractor functions via parameter in this funcion and map ober to do task with summary or content extracted.
-      const category = await callMistralChat({
-        systemPrompt: `Name the Content with one of this categories: [Artificial Intelligence, Programming, Psychology, Philosophy, Music], just response with one of them`,
+/*       const extractedCategory = await callMistralChat({
+        systemPrompt: `You are a text classifier. Classify the following inputs into exactly one of these categories:
+
+Inteligencia artificial
+
+Salud
+
+Psicologia
+
+Programacion
+
+Filosofia
+
+Examples:
+
+Inteligencia artificial
+
+ES: "El nuevo iPhone incluye inteligencia artificial" → Inteligencia artificial
+
+EN: "Machine learning models are improving every year" → Inteligencia artificial
+
+Salud
+
+ES: "La dieta mediterránea puede mejorar la salud del corazón" → Salud
+
+EN: "Regular exercise reduces the risk of chronic diseases" → Salud
+
+Psicologia
+
+ES: "La ansiedad puede aumentar bajo situaciones de estrés" → Psicologia
+
+EN: "Cognitive biases affect our daily decision-making" → Psicologia
+
+Programacion
+
+ES: "Cómo crear una API REST usando Node.js" → Programacion
+
+EN: "Python supports multiple programming paradigms" → Programacion
+
+Filosofia
+
+ES: "Platón consideraba que el mundo sensible era una copia imperfecta del mundo de las ideas" → Filosofia
+
+EN: "Existentialism explores the meaning of human existence" → Filosofia`,
         prompt: `Content: """${data.summary}"""`,
         maxTokens: 10,
         temperature: 0
-      })
+      }) */
 
-      console.log('Extracted category:', category)
+      category.set("Unsorted") //extractedCategory.trim()
+      ///////////////////////////////////////////////////////////////////////////////
 
-
+      // Save Article to DB
       const newArticle = await saveViewToDb()
-
 
       if (newArticle) {
         const mainColor = await getOrCreateMainColor(newArticle.id).catch(() => null);

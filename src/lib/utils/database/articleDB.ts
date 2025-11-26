@@ -79,8 +79,8 @@ export async function saveViewToDb(): Promise<Article> {
   try {
     // The parameter syntax is with $1, $2, etc.
     await db.execute(
-      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content, category)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         data.url,
         data.title,
@@ -92,7 +92,8 @@ export async function saveViewToDb(): Promise<Article> {
         data.ytVideoId,
         data.ytThumbnailUrl,
         data.summary,
-        data.content
+        data.content,
+        data.category
       ]
     );
 

@@ -13,6 +13,8 @@ export const url = writable<string | null>(null);
 // Article id (sqlite rowid exposed as id)
 export const articleId = writable<number | null>(null);
 
+export const category = writable<string | null>(null);
+
 // Store para el estado de metadata
 export const metadataStatus = writable<FlowStatusEvent<MetadataPayload> | null>(null);
 
@@ -133,7 +135,8 @@ export function getAllViewStoreValues() {
     summary: get(summary),
     ytTranscript: get(ytTranscript),
     messages: get(messages),
-    content: get(content)
+    content: get(content),
+    category: get(category)
   };
 }
 

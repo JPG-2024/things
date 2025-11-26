@@ -1,14 +1,18 @@
 <script lang="ts">
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
+  import { storeCacheWrapper } from '@/stores/cacheStore'
 
   import Input from '@/components/inputs/Input.component.svelte'
+  import CategoryWidget from '@/components/CategoryWidget.svelte'
   import { primaryColor } from '@/stores/uiStore'
   // Data provided by +page.ts load
-  let { data } = $props()
-  const articles: Array<any> = data.articles ?? []
 
   $effect(() => {
-    primaryColor.set('rgb(187, 187, 187)')
+    // generate random svg
+    // Generate a random light color (avoid dark tones)
+    const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`
+
+    primaryColor.set(randomColor)
   })
 </script>
 
@@ -17,34 +21,11 @@
 
   <Input onChange={(url) => navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)} />
 
-  {#if articles.length}
-    <div class="flex-squares">
-      <div class="square">
-        <div class="img-flex">
-          {#each articles as article}
-            <button
-              type="button"
-              class="img-button"
-              onclick={() =>
-                navigate(
-                  `/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`
-                )}
-              aria-label="View article"
-            >
-              <img
-                src={article?.metadataContent?.['og:image']}
-                alt="Article"
-                class={`mini-img`}
-                style="view-transition-name: {toVTName(article?.metadataContent?.['og:image'])}"
-              />
-            </button>
-          {/each}
-        </div>
-      </div>
-    </div>
-  {:else}
-    <p>No articles found.</p>
-  {/if}
+  <div class="flex-squares">
+    {#each ['Unsorted', 'Programming', 'Psicologia', 'Music'] as categoryId}
+      <CategoryWidget {categoryId} name={categoryId} />
+    {/each}
+  </div>
 </div>
 
 <style>
@@ -61,15 +42,17 @@
     margin-bottom: 1rem;
     color: var(--primary-color);
     font-size: 2.2rem;
-    font-family: 'Anonymous Pro';
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
 
   .flex-squares {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
-    justify-content: flex-start;
-
+    align-items: center;
+    gap: 2rem;
     margin-top: 2rem;
+    width: 100%;
   }
   .square {
     position: relative;
@@ -83,46 +66,5 @@
     font-weight: bold;
   }
 
-  .img-flex {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-evenly;
-    align-items: flex-start;
-    gap: 10px;
-    width: 100%;
-    height: 100%;
-  }
-
-  .mini-img {
-    border-radius: 15px;
-    width: 58px;
-    height: 58px;
-    object-fit: cover;
-  }
-
-  .img-button {
-    transition: transform 0.2s ease-in-out;
-    cursor: pointer;
-    border: none;
-    background: none;
-    padding: 0;
-  }
-
-  .yt-button::after {
-    position: absolute;
-    top: 58%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    content: '▶';
-    color: rgb(255, 0, 0);
-    font-size: 24px;
-  }
-
-  .img-button:hover {
-    transform: scale(1.05);
-  }
-
-  .img-button:active {
-    transform: scale(0.98);
-  }
+  /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
 </style>
