@@ -92,8 +92,9 @@
     justify-content: center;
     align-items: center;
     border-radius: 12%;
-    background: rgb(154, 154, 154, 0.1);
+    background: rgb(154, 154, 154, 0.2);
     padding: 15px;
+    padding-top: 10px;
     width: 204px;
     height: 204px;
     color: white;
@@ -101,14 +102,16 @@
   }
 
   .img-flex {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-evenly;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 60px; /* Changed row height */
     gap: 5px;
+    padding: 20px;
     padding-top: 10px;
+    box-sizing: border-box;
     width: 100%;
     height: 100%;
+    align-items: start;
   }
 
   .mini-img {

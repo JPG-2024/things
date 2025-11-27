@@ -22,7 +22,7 @@
   <Input onChange={(url) => navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)} />
 
   <div class="flex-squares">
-    {#each ['Unsorted', 'Programming', 'Psicologia', 'Music'] as categoryId}
+    {#each ['Unsorted', 'Technology', 'Psychology', 'Health', 'IA', 'Music'] as categoryId}
       <CategoryWidget {categoryId} name={categoryId} />
     {/each}
   </div>
@@ -42,7 +42,7 @@
     margin-bottom: 1rem;
     color: var(--primary-color);
     font-size: 2.2rem;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'JetBrains Mono', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
 
   .flex-squares {
@@ -50,10 +50,12 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 2rem;
     margin-top: 2rem;
     width: 100%;
   }
+
   .square {
     position: relative;
     align-items: center;

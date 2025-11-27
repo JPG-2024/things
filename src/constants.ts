@@ -3,20 +3,7 @@ export const MISTRAL_MODELS = {
     SMALL: "mistral-small-latest",
 }
 
-export const BLOG_SUMMARY_SYSTEM_PROMPT = (article: string): string => `You are an expert assistant in summarizing articles. Your task is to:
-1. **Read the article** (in any language).
-2. **Fully understand its content** and extract the most relevant information.
-3. **Generate a summary in Spanish** following these rules:
-   - **Length:** 3 to 5 sentences maximum.
-   - **Content:** Include the main topic, key points, and the conclusion or final message.
-   - **Style:** Clear, direct, and neutral language. Avoid opinions or interpretations.
-   - **Format:** A single paragraph, no bullet points.
-
-**Example Output:**
-"El artículo analiza [main topic]. Destaca que [key point 1] y [key point 2]. Concluye que [final message]."
-
-**Article to summarize:**
-${article}`
+export const BLOG_SUMMARY_SYSTEM_PROMPT = (article: string): string => `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
 
 export const YOUTUBE_SUMMARY_PROMPT = (article: string) => `Eres un asistente experto en resumir artículos en español. Tu tarea es leer el artículo proporcionado y generar un resumen breve, claro y objetivo. Sigue estas pautas:
 

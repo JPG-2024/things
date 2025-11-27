@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
-import { callMistralChat } from '@/lib/utils/inference'
 import { summary } from '@/stores/viewStore'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
+import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
+
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
@@ -10,13 +11,18 @@ export async function extractBlog(url: string): Promise<{content: string, summar
     const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['main', 'article'] })
 
     const compactedMarkdown = compactMarkdown(response.markdown)
+
+
   
-    _summary = await callMistralChat({
-      systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(compactedMarkdown),
-      prompt: 'sigue las intrucciones'},
-      (result) => {
-        summary.update(current => current + result)
-    })
+    _summary = await runLocalLlamaPrompt(
+      `Resume el siguiente artículo de blog en español:\n\n${compactedMarkdown}`,
+      {
+        systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(''),
+        onChunk: (chunk: string) => {
+          summary.update(current => current + chunk)
+        }
+      }
+    )
   
     return {content: compactedMarkdown, summary: _summary || ''}
   } catch (err) {

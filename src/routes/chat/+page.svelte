@@ -3,7 +3,7 @@
 
   import Input from '@/components/inputs/Input.component.svelte'
   import { messages, content } from '@/stores/viewStore'
-  import { callMistralChat } from '@/lib/utils/inference'
+  import { runLocalLlamaPrompt } from '@/lib/utils/localInference'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import {
     getMessagesByChat,
@@ -60,15 +60,13 @@
 
     // Get AI response
     try {
-      await callMistralChat(
-        {
-          systemPrompt: CHAT_SYSTEM_PROMPT($content),
-          prompt,
+      await runLocalLlamaPrompt(prompt, {
+        messages: [{ role: 'user', content: $content }],
+        systemPrompt: `Responde en español de manera concisa y clara.`,
+        onChunk: (chunk: string) => {
+          stream = stream + chunk
         },
-        (result) => {
-          stream = stream + result
-        }
-      )
+      })
 
       const savedMessage = await saveMessage({
         chatId: chatId!,

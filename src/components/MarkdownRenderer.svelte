@@ -14,11 +14,15 @@
     typographer: true,
     breaks: true,
   })
+
+  function preprocessContent(text: string): string {
+    return text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  }
 </script>
 
 {#if content}
   <div class="markdown-container">
-    {@html md.render(content)}
+    {@html md.render(preprocessContent(content))}
   </div>
 {/if}
 
@@ -85,6 +89,9 @@
     border-radius: 0;
     background-color: transparent;
     padding: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .markdown-container :global(a) {

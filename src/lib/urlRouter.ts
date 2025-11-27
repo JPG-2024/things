@@ -1,8 +1,10 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
+import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
 import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState, content, category } from '@/stores/viewStore'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
+
 
 
 import { callMistralChat } from './utils/inference'
@@ -70,57 +72,19 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
       }
 
       // TODO: pass extractor functions via parameter in this funcion and map ober to do task with summary or content extracted.
-/*       const extractedCategory = await callMistralChat({
-        systemPrompt: `You are a text classifier. Classify the following inputs into exactly one of these categories:
+       const extractedCategory = await  runLocalLlamaPrompt(
+             `Extract the category.`,
+             {
+               systemPrompt: "You are an expert article categorizer. Given the content of a blog article, provide a single-word category that best fits the article from the following options: Technology, Health, Lifestyle, Education, Entertainment, Business, Sports, Science, Travel, Food, Politics, Environment, Fashion, Art, History, Psychology, Music, Programming. If none fit well, respond with 'Unsorted'. Only respond with the category word.",
+               messages: [
+                 { role: 'user', content: data.content }
+               ]
+             }
+           )
 
-Inteligencia artificial
 
-Salud
-
-Psicologia
-
-Programacion
-
-Filosofia
-
-Examples:
-
-Inteligencia artificial
-
-ES: "El nuevo iPhone incluye inteligencia artificial" → Inteligencia artificial
-
-EN: "Machine learning models are improving every year" → Inteligencia artificial
-
-Salud
-
-ES: "La dieta mediterránea puede mejorar la salud del corazón" → Salud
-
-EN: "Regular exercise reduces the risk of chronic diseases" → Salud
-
-Psicologia
-
-ES: "La ansiedad puede aumentar bajo situaciones de estrés" → Psicologia
-
-EN: "Cognitive biases affect our daily decision-making" → Psicologia
-
-Programacion
-
-ES: "Cómo crear una API REST usando Node.js" → Programacion
-
-EN: "Python supports multiple programming paradigms" → Programacion
-
-Filosofia
-
-ES: "Platón consideraba que el mundo sensible era una copia imperfecta del mundo de las ideas" → Filosofia
-
-EN: "Existentialism explores the meaning of human existence" → Filosofia`,
-        prompt: `Content: """${data.summary}"""`,
-        maxTokens: 10,
-        temperature: 0
-      }) */
-
-      category.set("Unsorted") //extractedCategory.trim()
-      ///////////////////////////////////////////////////////////////////////////////
+      category.set(extractedCategory) //extractedCategory.trim()
+      
 
       // Save Article to DB
       const newArticle = await saveViewToDb()

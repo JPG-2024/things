@@ -22,7 +22,7 @@
       setTimeout(() => {
         flashy = false
       }, 2000) // Duración de la animación
-    }, 20000)
+    }, 30000)
 
     return () => {
       stopFlow?.()
