@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { summary, content } from '@/stores/viewStore';
-import {callMistralChat} from '@/lib/utils/inference';
-import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants';
+import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
 
 
@@ -28,9 +27,10 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
   try {
       _summary = await runLocalLlamaPrompt(
-        `Resume el siguiente video de youtube:\n\n${_transcript}`,
+        _transcript,
         {
-          systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(''),
+          systemPrompt: YOUTUBE_SUMMARY_PROMPT,
+          messages: [],
           onChunk: (chunk: string) => {
             summary.update(current => current + chunk)
           }

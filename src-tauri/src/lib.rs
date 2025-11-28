@@ -13,6 +13,12 @@ pub use crate::youtube::get_youtube_transcript;
 mod markdown;
 pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
+mod download_media;
+pub use crate::download_media::download_and_save_image;
+
+mod url;
+pub use crate::url::url_to_folder_name;
+
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -102,6 +108,22 @@ pub fn run() {
             // SQL to add the content column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN content TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your eighth migration.
+        Migration {
+            version: 8,
+            description: "add-mainImageFile-column",
+            // SQL to add the mainImageFile column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN mainImageFile TEXT;",
+            kind: MigrationKind::Up,
+        },
+        // This is your ninth migration.
+        Migration {
+            version: 9,
+            description: "add-mediaDirectory-column",
+            // SQL to add the mediaDirectory column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN mediaDirectory TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -126,7 +148,9 @@ pub fn run() {
             extract_markdown,
             extract_metadata,
             extract_blog,
-            get_youtube_transcript
+            get_youtube_transcript,
+            download_and_save_image,
+            url_to_folder_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

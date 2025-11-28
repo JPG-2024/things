@@ -5,6 +5,7 @@ export async function getImageColor(
   imageUrl: string,
 ): Promise<string> {
   return new Promise((resolve) => {
+    debugger
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = function () {

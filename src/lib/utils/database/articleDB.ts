@@ -1,7 +1,11 @@
 import Database from '@tauri-apps/plugin-sql';
-import type { QueryResult } from '@tauri-apps/plugin-sql';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { BaseDirectory } from '@tauri-apps/api/path';
+
 import { getAllViewStoreValues } from '@/stores/viewStore';
 import { getImageColor } from '../getImageColor';
+import { remove } from '@tauri-apps/plugin-fs';
+import { getImageSrc } from '../dirs';
 
 // Variable to hold the database instance.
 let db: Database | null = null;
@@ -72,15 +76,15 @@ export async function saveViewToDb(): Promise<Article> {
   }
 
   data.mainImage = data.mainImage || data.ytThumbnailUrl || '';
-
+  
   // The metadataContent is an object, we save it as a JSON string.
   const metadataJson = JSON.stringify(data.metadataContent);
 
   try {
     // The parameter syntax is with $1, $2, etc.
     await db.execute(
-      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content, category)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content, category, mediaDirectory)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         data.url,
         data.title,
@@ -93,12 +97,17 @@ export async function saveViewToDb(): Promise<Article> {
         data.ytThumbnailUrl,
         data.summary,
         data.content,
-        data.category
+        data.category,
+        data.mediaDirectory
       ]
     );
 
     const article = await getArticleByUrl(data.url || '');
     
+    if (!article) {
+      throw new Error('Failed to retrieve saved article');
+    }
+
     return article;
 
   } catch (error) {
@@ -110,7 +119,22 @@ export async function saveViewToDb(): Promise<Article> {
 export async function deleteArticleById(id: number) {
   const db = await getDb();
   try {
-    // returns nothing; we can follow up with a select if needed
+    // First, get the article to retrieve mainImageFile
+    const result = await db.select<Array<any>>(
+      `SELECT mainImageFile FROM articles WHERE rowid = $1 LIMIT 1`,
+      [id]
+    );
+
+    if (result && result.length > 0 && result[0].mainImageFile) {
+      try {
+        await remove(`media/${result[0].mainImageFile}`, { baseDir: BaseDirectory.AppData });
+        console.log(`[Image] Deleted local image: ${result[0].mainImageFile}`);
+      } catch (error) {
+        console.error(`[Image] Error deleting local image: ${error}`);
+      }
+    }
+
+    // Delete the article record
     await db.execute(`DELETE FROM articles WHERE rowid = $1`, [id]);
     return { success: true };
   } catch (error) {
@@ -125,7 +149,7 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
   try {
     // First, try to get the article
     const result = await db.select<Array<any>>(
-      `SELECT rowid as id, mainImage, ytThumbnailUrl, mainColor FROM articles WHERE rowid = $1 LIMIT 1`,
+      `SELECT rowid as id, mainImage, mediaDirectory, mainColor FROM articles WHERE rowid = $1 LIMIT 1`,
       [articleId]
     );
 
@@ -141,8 +165,15 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
       return article.mainColor;
     }
 
+    // Use local image path if available, otherwise use remote URL
+    let imageSource = '';
+    debugger
+    if (article.mediaDirectory && article.mainImage) {
+      imageSource = await getImageSrc(article.mediaDirectory, article.mainImage);
+    }
+    
     // Calculate the color using getImageColor
-    const calculatedColor = await getImageColor(article.mainImage || article.ytThumbnailUrl);
+    const calculatedColor = await getImageColor(imageSource);
 
     // Save the calculated color to the database
     await db.execute(

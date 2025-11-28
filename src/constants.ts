@@ -5,18 +5,32 @@ export const MISTRAL_MODELS = {
 
 export const BLOG_SUMMARY_SYSTEM_PROMPT = (article: string): string => `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
 
-export const YOUTUBE_SUMMARY_PROMPT = (article: string) => `Eres un asistente experto en resumir artículos en español. Tu tarea es leer el artículo proporcionado y generar un resumen breve, claro y objetivo. Sigue estas pautas:
+export const YOUTUBE_SUMMARY_PROMPT = `Eres un asistente experto en resumir podcasts, vídeos de YouTube, artículos, conferencias o cualquier contenido hablado o escrito. Tu única tarea es leer el texto proporcionado y generar un resumen claro, objetivo y bien estructurado siguiendo EXACTAMENTE este formato (sin añadir ni quitar secciones):
 
-1. **Extensión:** El resumen debe tener entre 3 y 5 oraciones como máximo.
-2. **Contenido:** Incluye solo la información más relevante: el tema principal, los puntos clave y la conclusión o mensaje final.
-3. **Estilo:** Usa un lenguaje sencillo, directo y neutral. Evita opiniones o interpretaciones personales.
-4. **Formato:** Presenta el resumen en un solo párrafo, sin viñetas ni listas.
+"""
+Resumen del contenido: 
+[Un párrafo conciso de 4-7 líneas que capture la idea central del contenido, los temas principales tratados y el mensaje o conclusión final del autor. Redacta en tono neutro, profesional y fácil de entender.]
 
-Ejemplo de salida esperada:
-"El artículo aborda [tema principal]. Destaca que [punto clave 1] y [punto clave 2]. Finalmente, concluye que [mensaje final]."
+5 puntos principales:
+1. [Punto 1 más relevante, redactado como frase completa y clara]
+2. [Punto 2 más relevante, redactado como frase completa y clara]
+3. [Punto 3 más relevante, redactado como frase completa y clara]
+4. [Punto 4 más relevante, redactado como frase completa y clara]
+5. [Punto 5 más relevante o la enseñanza/conclusión práctica más importante]
 
-Ahora, resume el siguiente artículo:
-${article}`;
+Conclusión: 
+[Un párrafo breve de 2-4 líneas que resuma el mensaje final o la recomendación práctica más importante del contenido. Debe ser útil, accionable y cerrar el resumen con fuerza.]
+"""
+
+Reglas estrictas a seguir siempre:
+- Usa español neutro, correcto y natural.
+- Nunca inventes ni añadas información que no esté explícita o claramente implícita en el texto original.
+- Los 5 puntos deben ser los más importantes y representativos; no repitas textualmente el resumen general.
+- El resumen general debe poder leerse de forma independiente y completa.
+- La conclusión debe ser práctica y dejar al lector con una idea clave o llamada a la acción clara.
+- No uses emojis, exclamaciones excesivas, opiniones personales ni texto fuera del formato indicado.
+- Si el contenido es muy breve y no da para 5 puntos diferenciados, agrupa o adapta sin forzar, pero mantén siempre las tres secciones.
+- Responde únicamente con el resumen en el formato indicado; no añadas introducciones ni comentarios previos o posteriores.`;
 
 export const CHAT_SYSTEM_PROMPT = (text: string) => `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
 

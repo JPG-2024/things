@@ -11,6 +11,14 @@
   // Hover state for the top-left dropzone
   let isHoveringDropzone = $state(false)
 
+  let mainElement: HTMLElement | undefined = $state()
+
+  $effect(() => {
+    if (mainElement) {
+      mainElement.style.setProperty('--primary-color', $primaryColor)
+    }
+  })
+
   $effect.pre(() => {
     let stopFlow: undefined | (() => void)
     initFlowStatusListeners().then((stop) => (stopFlow = stop))
@@ -51,8 +59,8 @@
 </script>
 
 <main
+  bind:this={mainElement}
   class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
-  style="--primary-color: {$primaryColor};"
 >
   {@render children()}
 </main>

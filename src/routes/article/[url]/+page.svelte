@@ -1,20 +1,28 @@
 <script lang="ts">
   import { toVTName } from '@/lib/utils/url'
-  import { mainImage, title, description, ytVideoId, summary } from '@/stores/viewStore'
+  import {
+    mainImage,
+    title,
+    description,
+    ytVideoId,
+    summary,
+    mediaDirectory,
+  } from '@/stores/viewStore'
 
   import PostView from '@/components/PostView.svelte'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
+  import { getImageSrc } from '@/lib/utils/dirs'
 </script>
 
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />
 
 {#snippet headerContentSnippet()}
-  <img
-    class="image"
-    src={$mainImage}
-    alt={$title}
-    style="view-transition-name: {toVTName($mainImage)}"
-  />
+  {#if $mediaDirectory && $mainImage}
+    {#await getImageSrc($mediaDirectory, $mainImage) then src}
+      <img class="image" {src} alt={$title} style="view-transition-name: {toVTName($mainImage)}" />
+    {/await}
+  {/if}
+
   <div class="description">{$description}</div>
 
   {#if $ytVideoId}

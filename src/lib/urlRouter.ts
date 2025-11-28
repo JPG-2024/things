@@ -1,14 +1,11 @@
 import { getYouTubeTranscript } from './getYouTubeTranscript'
 import { extractBlog } from './extractBlog'
 import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
-import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState, content, category } from '@/stores/viewStore'
+import { url as urlStore, loaded, loading, setAllViewStoreValues, articleId, cleanAllState, category, mediaDirectory } from '@/stores/viewStore'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
+import { invoke } from '@tauri-apps/api/core'
 
-
-
-import { callMistralChat } from './utils/inference'
-import { CONTENT_EXTRACTION_SCHEMA } from './utils/structuredSchemas'
 
 
 
@@ -19,7 +16,6 @@ const inProgressRequests = new Map<string, Promise<{data: any, cached: boolean}>
 
 export async function urlRouter(url: string): Promise<{data: any, cached: boolean}> {
   urlStore.set(url)
-  let savedRow = null
 
   // First: check in-memory cache (very fast)
   if (inMemoryCache.has(url)) {
@@ -72,7 +68,7 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
       }
 
       // TODO: pass extractor functions via parameter in this funcion and map ober to do task with summary or content extracted.
-       const extractedCategory = await  runLocalLlamaPrompt(
+/*        const extractedCategory = await  runLocalLlamaPrompt(
              `Extract the category.`,
              {
                systemPrompt: "You are an expert article categorizer. Given the content of a blog article, provide a single-word category that best fits the article from the following options: Technology, Health, Lifestyle, Education, Entertainment, Business, Sports, Science, Travel, Food, Politics, Environment, Fashion, Art, History, Psychology, Music, Programming. If none fit well, respond with 'Unsorted'. Only respond with the category word.",
@@ -80,17 +76,17 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
                  { role: 'user', content: data.content }
                ]
              }
-           )
+           ) */
 
 
-      category.set(extractedCategory) //extractedCategory.trim()
+      category.set("Unsorted") 
       
 
       // Save Article to DB
       const newArticle = await saveViewToDb()
 
       if (newArticle) {
-        const mainColor = await getOrCreateMainColor(newArticle.id).catch(() => null);
+        const mainColor = await getOrCreateMainColor(newArticle.id)
         if (mainColor) primaryColor.set(mainColor);
         // Save in-memory for faster subsequent access during the session
         inMemoryCache.set(url, newArticle)

@@ -10,6 +10,9 @@ export const loading = writable(false);
 export const loaded = writable(false);
 
 export const url = writable<string | null>(null);
+
+export const mediaDirectory = writable<string | null>(null);
+
 // Article id (sqlite rowid exposed as id)
 export const articleId = writable<number | null>(null);
 
@@ -46,6 +49,8 @@ export interface Message {
 
 export const messages = writable<Message[]>([]);
 
+export const mainImage = writable<string>('');
+
 export const domainUrl = derived(url, ($url) => 
   $url ? new URL($url).hostname : null
 );
@@ -63,13 +68,7 @@ export const ytThumbnailUrl = derived(ytVideoId, ($ytVideoId) =>
 );
 
 
-export const mainImage = derived(
-  [metadataStatus, ytThumbnailUrl],  // array de dependencias
-  ([$metadataStatus, $ytThumbnailUrl]) => {
-    return $metadataStatus?.data?.["og:image"] || $ytThumbnailUrl;
-  },
-  "" // valor inicial
-);
+
 
 export const title = derived(metadataStatus, ($metadataStatus) => {
   return $metadataStatus?.data?.["og:title"] || "";
@@ -136,7 +135,8 @@ export function getAllViewStoreValues() {
     ytTranscript: get(ytTranscript),
     messages: get(messages),
     content: get(content),
-    category: get(category)
+    category: get(category),
+    mediaDirectory: get(mediaDirectory)
   };
 }
 
@@ -150,6 +150,13 @@ export function setAllViewStoreValues(article: any) {
     articleId.set(article.id);
   }
 
+  if (article.category) {
+    category.set(article.category);
+  }
+
+  if (article.mainImage) {
+    mainImage.set(article.mainImage);
+  }
 
   // Restore metadata status with the metadataContent object
   if (article.metadataContent) {
@@ -177,4 +184,9 @@ export function setAllViewStoreValues(article: any) {
   if (article.content) {
     content.set(article.content);
   }
+
+  if (article.mediaDirectory) {
+    mediaDirectory.set(article.mediaDirectory);
+  }
+
 }

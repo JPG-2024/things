@@ -5,9 +5,7 @@ import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/dat
 import { primaryColor } from '@/stores/uiStore'
 
 
-
 export async function urlRouter(url: string) {
-
   urlStore.set(url)
   let savedRow = null
 

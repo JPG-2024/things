@@ -3,12 +3,6 @@
   "productName": "Things",
   "version": "0.4.0",
   "identifier": "com.juangargiulo.notian",
-  "build": {
-    "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build",
-    "frontendDist": "../build"
-  },
   "app": {
     "windows": [
       {
@@ -18,14 +12,15 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* http://192.168.0.0/16 http://10.0.0.0/8",
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://127.0.0.1:* http://localhost:*; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self';",
       "assetProtocol": {
-        "scope": ["$HOME/**"],
+        "scope": ["$HOME/**", "$APPDATA/media/**"],
         "enable": true
       },
       "capabilities": ["default", "fs-custom"]
     }
   },
+
   "bundle": {
     "active": true,
     "targets": "all",
@@ -36,5 +31,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+
+
+
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../build"
   }
 }

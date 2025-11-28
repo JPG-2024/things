@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
-import { summary } from '@/stores/viewStore'
+import { summary, mediaDirectory } from '@/stores/viewStore'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
+import { mainImage } from '@/stores/viewStore';
 
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
@@ -12,8 +13,12 @@ export async function extractBlog(url: string): Promise<{content: string, summar
 
     const compactedMarkdown = compactMarkdown(response.markdown)
 
+    const _mediaDir = await invoke<string>('url_to_folder_name', {url})
+    mediaDirectory.set(_mediaDir)
+    const _mainImage = await invoke<string>('download_and_save_image', {url: response.metadata["og:image"], folderName: _mediaDir})
+    mainImage.set(_mainImage)
 
-  
+
     _summary = await runLocalLlamaPrompt(
       `Resume el siguiente artículo de blog en español:\n\n${compactedMarkdown}`,
       {

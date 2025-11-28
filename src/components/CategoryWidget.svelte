@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import { categoryCache } from '@/stores/categoryCache'
+  import { getImageSrc } from '@/lib/utils/dirs'
 
   let { categoryId, name = '' } = $props()
 
@@ -22,8 +23,6 @@
   const articles = $derived(segment?.data || [])
   const loading = $derived(segment?.loading || false)
   const error = $derived(segment?.error || null)
-
-  // No necesitas onDestroy, Svelte maneja la suscripción de $cache automáticamente.
 </script>
 
 <div class="category-widget">
@@ -34,7 +33,7 @@
   <div class="square">
     {#if articles?.length}
       <div class="img-flex">
-        {#each articles as article}
+        {#each articles as article (article.url)}
           <button
             type="button"
             class="img-button"
@@ -44,12 +43,14 @@
               )}
             aria-label="View article"
           >
-            <img
-              src={article?.mainImage}
-              alt="Article"
-              class={`mini-img`}
-              style={`view-transition-name: ${toVTName(article?.mainImage)}`}
-            />
+            {#await getImageSrc(article.mediaDirectory!!, article.mainImage) then src}
+              <img
+                {src}
+                alt="Article"
+                class={`mini-img`}
+                style={`view-transition-name: ${toVTName(article?.mainImage)}`}
+              />
+            {/await}
           </button>
         {/each}
       </div>

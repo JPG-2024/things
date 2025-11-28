@@ -2564,6 +2564,7 @@ dependencies = [
  "scraper 0.24.0",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-fs",
@@ -2572,6 +2573,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "url",
+ "uuid",
  "yt-transcript-rs",
 ]
 
