@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import { categoryCache } from '@/stores/categoryCache'
+  import { urlRouter } from '@/lib/urlRouter'
 
   let { categoryId, name = '' } = $props()
 
@@ -22,6 +23,11 @@
   const articles = $derived(segment?.data || [])
   const loading = $derived(segment?.loading || false)
   const error = $derived(segment?.error || null)
+
+  async function handleNavigateToArticle(article: Article) {
+    await urlRouter(article.url)
+    navigate(`/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`)
+  }
 </script>
 
 <div class="category-widget">
@@ -36,10 +42,7 @@
           <button
             type="button"
             class="img-button"
-            onclick={() =>
-              navigate(
-                `/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`
-              )}
+            onclick={() => handleNavigateToArticle(article)}
             aria-label="View article"
           >
             <img
@@ -117,6 +120,8 @@
     width: 45px;
     height: 45px;
     object-fit: cover;
+    will-change: transform, opacity;
+    transform: translateZ(0);
   }
 
   .img-button {

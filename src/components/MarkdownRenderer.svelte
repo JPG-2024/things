@@ -35,10 +35,14 @@
     color: #fafafa;
     text-align: left;
     word-wrap: break-word;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     line-height: 1.6;
     font-family: 'Menlo', monospace;
     overflow-wrap: break-word;
+  }
+
+  .markdown-container :global(h3) {
+    font-size: 1.1rem;
   }
 
   .markdown-container :global(h1),
@@ -47,7 +51,7 @@
   .markdown-container :global(h4),
   .markdown-container :global(h5),
   .markdown-container :global(h6) {
-    color: #21cf75;
+    color: var(--primary-color);
     font-weight: bold;
   }
 
@@ -95,13 +99,13 @@
   }
 
   .markdown-container :global(a) {
-    color: #21cf75;
+    color: var(--primary-color);
     text-decoration: underline;
     text-decoration-color: #21cf7591;
   }
 
   .markdown-container :global(a:hover) {
-    color: #29ff85;
+    color: var(--primary-color);
   }
 
   .markdown-container :global(ul),
@@ -116,7 +120,7 @@
 
   .markdown-container :global(blockquote) {
     margin: 1rem 0;
-    border-left: 4px solid #21cf75;
+    border-left: 4px solid var(--primary-color);
     padding-left: 1rem;
     color: #d0d0d0;
     font-style: italic;
@@ -134,7 +138,6 @@
   .markdown-container :global(img) {
     margin: 1rem 0;
     border-radius: 8px;
-    max-width: 100%;
     height: auto;
   }
 

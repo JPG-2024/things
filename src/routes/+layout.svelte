@@ -113,10 +113,9 @@
     background-size: 400% 400%;
     background-attachment: fixed;
     background-color: #000000;
-    padding: 1.2rem;
-    width: 100vw;
-    height: 100vh;
     overflow-y: auto;
+    height: 100vh;
+    padding: 2rem;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
   }

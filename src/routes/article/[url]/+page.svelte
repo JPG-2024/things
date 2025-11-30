@@ -21,7 +21,7 @@
 
   <div class="description">{viewState.description}</div>
 
-  {#if viewState.ytVideoId}
+  <!--   {#if viewState.ytVideoId}
     <iframe
       class="yt-video"
       width="560"
@@ -32,7 +32,7 @@
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen
     ></iframe>
-  {/if}
+  {/if} -->
 {/snippet}
 
 {#snippet summaryContentSnippet()}
@@ -41,11 +41,13 @@
 
 <style>
   .image {
+    aspect-ratio: 16/9;
     border-radius: 12px;
     width: 100%;
-    max-width: 500px;
-    max-height: 200px;
+    height: 300px;
     object-fit: cover;
+    will-change: transform, opacity;
+    transform: translateZ(0);
 
     @media screen and (min-width: 768px) {
       max-height: 400px;
@@ -66,7 +68,6 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     border: 1px solid #555;
     border-radius: 8px;
-    width: 90vw;
     min-height: 350px;
   }
 

@@ -20,18 +20,6 @@
   // reactive state for deletion flag (Svelte runes)
   let isDeleting = $state(false)
 
-  onMount(async () => {
-    try {
-      const paramUrl = (page as any)?.params?.url as string | undefined
-      if (!paramUrl) return
-      const decodedUrl = decodeURIComponent(paramUrl)
-
-      await urlRouter(decodedUrl)
-    } catch (err) {
-      console.error(err)
-    }
-  })
-
   // Add window scroll event listener on mount, remove on unload, using $effect.pre
   $effect.pre(() => {
     function handleScroll() {
@@ -82,38 +70,30 @@
     {/if}
   </Topbar>
 
-  {#if viewState.url}
+  <div class="header-container">
     <div class="url-link">
       {viewState.url}
     </div>
-  {/if}
 
-  {#if viewState.title}
     <div class="title">
       <!-- <StringReveal message={viewState.title} disableReveal={false} /> -->
       {viewState.title}
     </div>
-  {/if}
 
-  <div class="header">
-    {#if headerContent}
-      {@render headerContent()}
-    {/if}
+    <div class="header">
+      {#if headerContent}
+        {@render headerContent()}
+      {/if}
+    </div>
   </div>
 
-  {#if summaryContent}
-    {@render summaryContent()}
-  {/if}
+  {@render summaryContent()}
 
-  {#if viewState.content}
-    <div class="chat-button">
-      <Button label="new chat" onClick={() => handleGoChat()} />
-    </div>
-  {/if}
+  <div class="chat-button">
+    <Button label="new chat" onClick={() => handleGoChat()} />
+  </div>
 
-  {#if viewState.articleId}
-    <ChatsList articleId={viewState.articleId}></ChatsList>
-  {/if}
+  <ChatsList articleId={viewState.articleId!}></ChatsList>
 </article>
 
 <style>
@@ -123,12 +103,12 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
+    padding: 2rem;
     box-sizing: border-box;
-    padding-top: 60px;
+    padding-top: 80px;
   }
 
   .title {
-    width: 90vw;
     font-weight: bold;
     font-size: 1.8rem;
     line-height: 1.8rem;

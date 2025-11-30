@@ -32,7 +32,7 @@ export interface RunLocalLlamaOptions {
 }
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'llama3.2:3b';
+const DEFAULT_MODEL = 'gpt-oss:latest';
 
 export async function runLocalLlamaPrompt(
 	prompt: string,

@@ -116,6 +116,8 @@ export async function saveViewToDb(): Promise<Article> {
       ]
     );
 
+
+
     const article = await getArticleByUrl(data.url || '');
     
     if (!article) {

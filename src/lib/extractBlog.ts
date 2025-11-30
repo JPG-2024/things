@@ -24,7 +24,7 @@ export async function extractBlog(url: string): Promise<{content: string, summar
 
 
     _summary = await runLocalLlamaPrompt(
-      `Resume el siguiente artículo de blog en español:\n\n${compactedMarkdown}`,
+      `Summary next content:\n\n${compactedMarkdown}`,
       {
         systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(''),
         onChunk: (chunk: string) => {

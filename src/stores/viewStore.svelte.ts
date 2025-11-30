@@ -76,6 +76,7 @@ class ViewState {
 
   // Methods
   cleanAllState() {
+    this.url = null;
     this.metadataStatus = null;
     this.markdownStatus = null;
     this.content = '';

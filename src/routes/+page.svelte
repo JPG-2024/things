@@ -1,6 +1,7 @@
 <script lang="ts">
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import { storeCacheWrapper } from '@/stores/cacheStore'
+  import { urlRouter } from '@/lib/urlRouter'
 
   import Input from '@/components/inputs/Input.component.svelte'
   import CategoryWidget from '@/components/CategoryWidget.svelte'
@@ -14,12 +15,17 @@
 
     primaryColor.set(randomColor)
   })
+
+  async function handlePasteUrl(url: string) {
+    urlRouter(url)
+    navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)
+  }
 </script>
 
 <div class="dashboard-container">
   <h1 class="dashboard-title">Things</h1>
 
-  <Input onChange={(url) => navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)} />
+  <Input onChange={(url) => handlePasteUrl(url)} />
 
   <div class="flex-squares">
     {#each ['Unsorted', 'Technology', 'Psychology', 'Health', 'IA', 'Music'] as categoryId}

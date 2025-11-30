@@ -15,8 +15,9 @@ const inMemoryCache = new Map<string, any>()
 const inProgressRequests = new Map<string, Promise<{data: any, cached: boolean}>>()
 
 export async function urlRouter(url: string): Promise<{data: any, cached: boolean}> {
-  viewState.url = url
+  viewState.cleanAllState()
 
+  viewState.url = url
   // First: check in-memory cache (very fast)
   if (inMemoryCache.has(url)) {
     const cached = inMemoryCache.get(url)
@@ -53,7 +54,6 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
   viewState.loading = true
   viewState.loaded = false
-  viewState.cleanAllState()
 
   
   // Wrap extraction & save in a try/catch; also register this work in inProgressRequests
@@ -80,8 +80,8 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
 
       viewState.category = "Unsorted"
-      
 
+    
       // Save Article to DB
       const newArticle = await saveViewToDb()
 

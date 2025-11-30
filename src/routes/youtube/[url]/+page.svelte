@@ -58,8 +58,6 @@
 <style>
   .yt-video {
     /* box-shadow: 0 0px 10px var(--primary-color); */
-    border-radius: 8px;
-    width: 95vw;
     min-height: 350px;
   }
 
@@ -68,9 +66,7 @@
     position: relative;
     border-radius: 30px;
     background-color: var(--card-bg, #000);
-    width: 95vw;
-    max-width: 100%;
-    min-height: 350px;
+    width: 100%;
     overflow: hidden;
   }
 
@@ -84,32 +80,20 @@
   .yt-wrapper iframe,
   .yt-wrapper img {
     position: absolute;
-    top: 0;
+    top: -10px;
     left: 0;
+    right: auto;
     border: 0;
-    width: 100%;
-    height: 100%;
+    width: 110%;
+    height: 110%;
     object-fit: cover;
   }
 
-  .yt-thumbnail {
-    transition:
-      transform 0.24s ease,
-      opacity 0.18s ease;
-    cursor: pointer;
-  }
-
   .yt-thumbnail-btn {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    border: 0;
-    background: transparent;
-    padding: 0;
   }
 
   .yt-thumbnail:hover {
-    transform: scale(1.02);
+    transform: scale(1.01);
     opacity: 0.96;
   }
 
