@@ -1,6 +1,6 @@
 export function getYouTubeThumbnailUrl(
     videoId: string,
-    quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'default'
+    quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'high'
   ) {
     const qualityMap = {
       default: 'default.jpg',

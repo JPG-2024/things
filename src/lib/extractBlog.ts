@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
-import { summary, mediaDirectory } from '@/stores/viewStore'
+import { viewState } from '@/stores/viewStore.svelte'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
-import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
-import { mainImage } from '@/stores/viewStore';
+import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
+import { getImageSrc } from './utils/dirs';
+
 
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
@@ -13,10 +14,13 @@ export async function extractBlog(url: string): Promise<{content: string, summar
 
     const compactedMarkdown = compactMarkdown(response.markdown)
 
-    const _mediaDir = await invoke<string>('url_to_folder_name', {url})
-    mediaDirectory.set(_mediaDir)
-    const _mainImage = await invoke<string>('download_and_save_image', {url: response.metadata["og:image"], folderName: _mediaDir})
-    mainImage.set(_mainImage)
+    if (response.metadata["og:image"]) {
+      const _mediaDir = await invoke<string>('url_to_folder_name', {url})
+      viewState.mediaDirectory = _mediaDir
+      const _mainImage = await invoke<string>('download_and_save_image', {url: response.metadata["og:image"], folderName: _mediaDir})
+      viewState.mainImage = _mainImage
+      viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
+    }
 
 
     _summary = await runLocalLlamaPrompt(
@@ -24,7 +28,7 @@ export async function extractBlog(url: string): Promise<{content: string, summar
       {
         systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(''),
         onChunk: (chunk: string) => {
-          summary.update(current => current + chunk)
+          viewState.summary = (viewState.summary || '') + chunk
         }
       }
     )

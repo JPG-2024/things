@@ -1,10 +1,12 @@
 
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { viewState } from '@/stores/viewStore.svelte';
 
 export const getImageDir = async (): Promise<string> => {
   const appData = await appDataDir();
   const mediaDir = await join(appData, 'media');
+  
   return mediaDir;
 }
 

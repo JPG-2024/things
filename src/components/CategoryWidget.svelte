@@ -2,7 +2,6 @@
   import { onMount, onDestroy } from 'svelte'
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import { categoryCache } from '@/stores/categoryCache'
-  import { getImageSrc } from '@/lib/utils/dirs'
 
   let { categoryId, name = '' } = $props()
 
@@ -43,14 +42,12 @@
               )}
             aria-label="View article"
           >
-            {#await getImageSrc(article.mediaDirectory!!, article.mainImage) then src}
-              <img
-                {src}
-                alt="Article"
-                class={`mini-img`}
-                style={`view-transition-name: ${toVTName(article?.mainImage)}`}
-              />
-            {/await}
+            <img
+              src={article.mainImageSrc}
+              alt="Article"
+              class={`mini-img`}
+              style={`view-transition-name: vt-main-image-${toVTName(article.url)}`}
+            />
           </button>
         {/each}
       </div>

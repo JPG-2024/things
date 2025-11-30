@@ -4,7 +4,7 @@ import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
 import { viewState } from '@/stores/viewStore.svelte'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
-
+import { invoke } from '@tauri-apps/api/core'
 
 
 

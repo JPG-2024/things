@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { loading, loaded, initFlowStatusListeners } from '@/stores/viewStore'
+  import { viewState } from '@/stores/viewStore.svelte'
   // SvelteKit navigation and transitions
   import { onNavigate } from '$app/navigation'
   import { primaryColor } from '@/stores/uiStore'
@@ -21,10 +21,11 @@
 
   $effect.pre(() => {
     let stopFlow: undefined | (() => void)
-    initFlowStatusListeners().then((stop) => (stopFlow = stop))
+    viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop))
+    viewState.initMediaBasePath()
 
     const flashyInterval = setInterval(() => {
-      if ($loading) return
+      if (viewState.loading) return
 
       flashy = true
       setTimeout(() => {
@@ -60,7 +61,9 @@
 
 <main
   bind:this={mainElement}
-  class="container {$loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {$loaded ? 'loaded' : ''}"
+  class="container {viewState.loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {viewState.loaded
+    ? 'loaded'
+    : ''}"
 >
   {@render children()}
 </main>
@@ -68,7 +71,6 @@
 <style>
   :global(body) {
     margin: 0;
-    width: 100vw;
     font-size: 15px;
   }
 
@@ -117,27 +119,6 @@
     overflow-y: auto;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
-  }
-
-  /* Top-left dropzone (hover to activate, transparent by default) */
-  .dropzone {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 10000;
-    transition:
-      box-shadow 0.15s ease,
-      background-color 0.15s ease;
-    background: transparent;
-    width: 96px;
-    height: 96px;
-    pointer-events: auto;
-  }
-
-  .dropzone--active {
-    box-shadow: 0 0 18px rgba(255, 255, 255, 0.45);
-    border-bottom-right-radius: 12px;
-    background-color: rgba(0, 0, 0, 0.1);
   }
 
   /* Overlay que barre el viewport cuando .flashy está activo */

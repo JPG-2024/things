@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { domainUrl } from '@/stores/viewStore'
+  import { viewState } from '@/stores/viewStore.svelte'
   import type { Snippet } from 'svelte'
 
   interface Props {
@@ -11,10 +11,10 @@
 
 <div class="top-bar">
   <button onclick={() => history.back()} class="back-navigation">⬅</button>
-  {#if $domainUrl}
+  {#if viewState.domainUrl}
     <img
       class="favicon"
-      src="https://www.google.com/s2/favicons?sz=64&domain={$domainUrl}"
+      src="https://www.google.com/s2/favicons?sz=64&domain={viewState.domainUrl}"
       alt=""
     />
   {/if}

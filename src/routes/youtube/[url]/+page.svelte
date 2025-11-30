@@ -1,7 +1,10 @@
 <script lang="ts">
   import { toVTName } from '@/lib/utils/url'
-  import { mainImage, ytVideoId, summary, ytThumbnailUrl } from '@/stores/viewStore'
+  import { viewState } from '@/stores/viewStore.svelte'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
+  import { page } from '$app/state'
+
+  const articleUrl = page.params.url
 
   import PostView from '@/components/PostView.svelte'
   let showIframe = false
@@ -10,17 +13,16 @@
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />
 
 {#snippet headerContentSnippet()}
-  {#if $ytVideoId}
+  {#if viewState.ytVideoId}
     <div class="yt-wrapper">
       {#if showIframe}
         <iframe
           class="yt-video"
-          src={`https://www.youtube-nocookie.com/embed/${$ytVideoId}?autoplay=1&rel=0&modestbranding=1`}
+          src={`https://www.youtube-nocookie.com/embed/${viewState.ytVideoId}?autoplay=1&rel=0&modestbranding=1`}
           title="YouTube video player"
           frameborder="0"
           allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen
-          style="view-transition-name: {toVTName($mainImage || $ytThumbnailUrl)}"
         ></iframe>
       {:else}
         <button
@@ -29,10 +31,10 @@
           aria-label="Play video"
         >
           <img
-            src={$ytThumbnailUrl || $mainImage}
+            src={viewState.mainImageSrc}
             alt="YouTube thumbnail"
             class="yt-thumbnail"
-            style="view-transition-name: {toVTName($ytThumbnailUrl || $mainImage)}"
+            style={`view-transition-name: vt-main-image-${toVTName(articleUrl!)}`}
           />
         </button>
 
@@ -50,7 +52,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={$summary} />
+  <MarkdownRenderer content={viewState.summary} />
 {/snippet}
 
 <style>

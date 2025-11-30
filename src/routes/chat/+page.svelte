@@ -2,8 +2,8 @@
   import { onMount, onDestroy } from 'svelte'
 
   import Input from '@/components/inputs/Input.component.svelte'
-  import { messages, content } from '@/stores/viewStore'
-  import { runLocalLlamaPrompt } from '@/lib/utils/localInference'
+  import { viewState } from '@/stores/viewStore.svelte'
+  import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import {
     getMessagesByChat,
@@ -14,7 +14,7 @@
   } from '@/lib/utils/database/chatDB'
   import { CHAT_SYSTEM_PROMPT } from '@/constants'
   import Topbar from '@/components/layout/Topbar.svelte'
-  import { invalidateChats } from '@/stores/chatStore'
+  import { invalidateChats, messages } from '@/stores/chatStore'
 
   let chatId = $state<number | null>(null)
   let stream = $state('')
@@ -26,21 +26,20 @@
 
     if (chatIdParam) {
       const chatMessages = await getMessagesByChat(chatIdParam)
-      messages.set(chatMessages)
+      viewState.messages = chatMessages
       chatId = Number(chatIdParam)
     } else {
       const newChatData = await newChat({ articleId: articleIdParam })
       chatId = Number(newChatData.lastInsertId)
-
-      messages.set([])
+      viewState.messages = []
     }
   })
 
   onDestroy(async () => {
-    if ($messages.length === 0) {
+    if (viewState.messages.length === 0) {
       await deleteChatById(chatId!)
     } else {
-      await updateChatName(chatId!, $messages[0]?.content.slice(0, 50))
+      await updateChatName(chatId!, viewState.messages[0]?.content.slice(0, 50))
     }
     invalidateChats()
   })
@@ -53,7 +52,8 @@
         sender: 'user',
         content: prompt,
       })
-      messages.update((msgs) => [...msgs, { sender: 'user', content: prompt }])
+
+      viewState.messages = [...viewState.messages, { sender: 'user', content: prompt }]
     } catch (err) {
       console.error('Error saving user message:', err)
     }
@@ -61,7 +61,7 @@
     // Get AI response
     try {
       await runLocalLlamaPrompt(prompt, {
-        messages: [{ role: 'user', content: $content }],
+        messages: [{ role: 'user', content: viewState.content }],
         systemPrompt: `Responde en español de manera concisa y clara.`,
         onChunk: (chunk: string) => {
           stream = stream + chunk

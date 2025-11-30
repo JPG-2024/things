@@ -4,18 +4,9 @@
   import { navigate } from '@/lib/utils/url'
   import { urlRouter } from '@/lib/urlRouter'
   import LoadingStack from './LoadingStack.svelte'
-  import StringReveal from './StringReveal.svelte'
   import { deleteArticleById } from '../lib/utils/database/articleDB'
   import { goto } from '$app/navigation'
-  import {
-    title,
-    cleanAllState,
-    domainUrl,
-    loading,
-    articleId,
-    content,
-    url,
-  } from '@/stores/viewStore'
+  import { viewState } from '@/stores/viewStore.svelte'
   import Topbar from './layout/Topbar.svelte'
   import ChatsList from './ChatsList.svelte'
   import Button from './inputs/Button.component.svelte'
@@ -56,12 +47,12 @@
   })
 
   async function handleDelete() {
-    if (!$articleId || isDeleting) return
+    if (!viewState.articleId || isDeleting) return
     try {
       isDeleting = true
-      const res = await deleteArticleById($articleId)
+      const res = await deleteArticleById(viewState.articleId)
       if (res?.success) {
-        cleanAllState()
+        viewState.cleanAllState()
         navigate('/')
       } else {
         console.error('Failed to delete article', res?.error)
@@ -74,9 +65,9 @@
   }
 
   async function handleGoChat(chatId?: number) {
-    if (!$domainUrl) return
+    if (!viewState.domainUrl) return
     await goto(
-      `/chat?category=${encodeURIComponent($domainUrl)}&chatId=${chatId}&articleId=${$articleId}`
+      `/chat?category=${encodeURIComponent(viewState.domainUrl)}&chatId=${chatId}&articleId=${viewState.articleId}`
     )
   }
 </script>
@@ -84,23 +75,23 @@
 <article>
   <Topbar>
     <LoadingStack />
-    {#if $articleId && !$loading}
+    {#if viewState.articleId && !viewState.loading}
       <button class="delete-btn" onclick={handleDelete} disabled={isDeleting} title="Delete article"
         >✕</button
       >
     {/if}
   </Topbar>
 
-  {#if $url}
+  {#if viewState.url}
     <div class="url-link">
-      {$url}
+      {viewState.url}
     </div>
   {/if}
 
-  {#if $title}
+  {#if viewState.title}
     <div class="title">
-      <!-- <StringReveal message={$title} disableReveal={false} /> -->
-      {$title}
+      <!-- <StringReveal message={viewState.title} disableReveal={false} /> -->
+      {viewState.title}
     </div>
   {/if}
 
@@ -114,14 +105,14 @@
     {@render summaryContent()}
   {/if}
 
-  {#if $content}
+  {#if viewState.content}
     <div class="chat-button">
       <Button label="new chat" onClick={() => handleGoChat()} />
     </div>
   {/if}
 
-  {#if $articleId}
-    <ChatsList articleId={$articleId}></ChatsList>
+  {#if viewState.articleId}
+    <ChatsList articleId={viewState.articleId}></ChatsList>
   {/if}
 </article>
 

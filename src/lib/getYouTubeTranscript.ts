@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
-import { summary, content } from '@/stores/viewStore';
+import { viewState } from '@/stores/viewStore.svelte';
 import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
-import { runLocalLlamaPrompt } from '@/lib/utils/localInference';
+import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
+import { getYouTubeThumbnailUrl } from './utils/youtube';
+import { getImageSrc } from './utils/dirs';
 
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
@@ -15,11 +17,18 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
   let _summary: string | null = null
 
   try {
+    const _mediaDir = await invoke<string>('url_to_folder_name', {url: videoLink})
+    viewState.mediaDirectory = _mediaDir
+    const ytThumbnailUrl = getYouTubeThumbnailUrl(videoId)
+    const _mainImage = await invoke<string>('download_and_save_image', {url: ytThumbnailUrl, folderName: _mediaDir})
+    viewState.mainImage = _mainImage
+    viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
+
     _transcript = await invoke<string>('get_youtube_transcript', {
       id: videoId,
       languages,
     })
-    content.set(_transcript)
+    viewState.content = _transcript
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }
@@ -32,7 +41,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           systemPrompt: YOUTUBE_SUMMARY_PROMPT,
           messages: [],
           onChunk: (chunk: string) => {
-            summary.update(current => current + chunk)
+            viewState.summary = (viewState.summary || '') + chunk
           }
         }
       )

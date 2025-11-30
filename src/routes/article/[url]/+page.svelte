@@ -1,36 +1,32 @@
 <script lang="ts">
   import { toVTName } from '@/lib/utils/url'
-  import {
-    mainImage,
-    title,
-    description,
-    ytVideoId,
-    summary,
-    mediaDirectory,
-  } from '@/stores/viewStore'
+  import { viewState } from '@/stores/viewStore.svelte'
+  import { page } from '$app/state'
+
+  const articleUrl = page.params.url
 
   import PostView from '@/components/PostView.svelte'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
-  import { getImageSrc } from '@/lib/utils/dirs'
 </script>
 
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />
 
 {#snippet headerContentSnippet()}
-  {#if $mediaDirectory && $mainImage}
-    {#await getImageSrc($mediaDirectory, $mainImage) then src}
-      <img class="image" {src} alt={$title} style="view-transition-name: {toVTName($mainImage)}" />
-    {/await}
-  {/if}
+  <img
+    class="image"
+    src={viewState.mainImageSrc}
+    alt={viewState.title}
+    style={`view-transition-name: vt-main-image-${toVTName(articleUrl!)}`}
+  />
 
-  <div class="description">{$description}</div>
+  <div class="description">{viewState.description}</div>
 
-  {#if $ytVideoId}
+  {#if viewState.ytVideoId}
     <iframe
       class="yt-video"
       width="560"
       height="315"
-      src={`https://www.youtube.com/embed/${$ytVideoId}`}
+      src={`https://www.youtube.com/embed/${viewState.ytVideoId}`}
       title="YouTube video player"
       frameborder="0"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -40,7 +36,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={$summary} />
+  <MarkdownRenderer content={viewState.summary} />
 {/snippet}
 
 <style>

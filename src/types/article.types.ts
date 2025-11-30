@@ -16,5 +16,6 @@ interface Article {
   createdAt?: string;
   mainColor?: string | null;
   ytTranscript?: string | null;
-  mediaDirectory?: string | null;
+  mediaDirectory?: string;
+  mainImageSrc?: string;
 }

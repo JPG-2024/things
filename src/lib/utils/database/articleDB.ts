@@ -2,7 +2,7 @@ import Database from '@tauri-apps/plugin-sql';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { BaseDirectory } from '@tauri-apps/api/path';
 
-import { getAllViewStoreValues } from '@/stores/viewStore';
+import { viewState } from '@/stores/viewStore.svelte';
 import { getImageColor } from '../getImageColor';
 import { remove } from '@tauri-apps/plugin-fs';
 import { getImageSrc } from '../dirs';
@@ -19,6 +19,25 @@ async function getDb() {
   return db;
 }
 
+export const getArticlesByCategory = async (category: string, {limit = 100} = {}): Promise<Array<any>> => {
+  const db = await getDb();
+  try {
+    const result = await db.select<Array<any>>(
+      `SELECT * FROM articles WHERE category = $1 ORDER BY rowid DESC LIMIT $2`,
+      [category, limit]
+    );
+    // Parse metadataContent for each article
+    return Promise.all(result.map(async article => ({
+      ...article,
+      metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+      mainImageSrc: article.mainImage ? await getImageSrc(article.mediaDirectory, article.mainImage) : ''
+    })));
+  } catch (error) {
+    console.error("Error querying articles by category from database:", error);
+    return [];
+  }
+}
+
 // Function to get an article by URL from the database.
 export async function getArticleByUrl(url: string): Promise<Article | null> {
   const db = await getDb();
@@ -30,11 +49,13 @@ export async function getArticleByUrl(url: string): Promise<Article | null> {
       [url]
     );
 
+
     if (result && result.length > 0) {
       const article = result[0];
       return {
         ...article,
         metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+        mainImageSrc: article.mainImage ? await getImageSrc(article.mediaDirectory, article.mainImage) : ''
       };
     } 
 
@@ -67,15 +88,8 @@ export async function getAllArticles({limit = 100} = {}): Promise<Array<any>> {
 }
 
 export async function saveViewToDb(): Promise<Article> {
-  const data = getAllViewStoreValues();
+  const data = viewState.getAllValues();
   const db = await getDb();
-
-  data.metadataContent = {
-    ...data.metadataContent,
-    'og:image': data.mainImage || data.ytThumbnailUrl || ''
-  }
-
-  data.mainImage = data.mainImage || data.ytThumbnailUrl || '';
   
   // The metadataContent is an object, we save it as a JSON string.
   const metadataJson = JSON.stringify(data.metadataContent);
@@ -128,7 +142,6 @@ export async function deleteArticleById(id: number) {
     if (result && result.length > 0 && result[0].mainImageFile) {
       try {
         await remove(`media/${result[0].mainImageFile}`, { baseDir: BaseDirectory.AppData });
-        console.log(`[Image] Deleted local image: ${result[0].mainImageFile}`);
       } catch (error) {
         console.error(`[Image] Error deleting local image: ${error}`);
       }
@@ -167,7 +180,6 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
 
     // Use local image path if available, otherwise use remote URL
     let imageSource = '';
-    debugger
     if (article.mediaDirectory && article.mainImage) {
       imageSource = await getImageSrc(article.mediaDirectory, article.mainImage);
     }
@@ -187,23 +199,6 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
   }
 }
 
-export const getArticlesByCategory = async (category: string, {limit = 100} = {}): Promise<Array<Article>> => {
-  const db = await getDb();
-  try {
-    const result = await db.select<Array<any>>(
-      `SELECT * FROM articles WHERE category = $1 ORDER BY rowid DESC LIMIT $2`,
-      [category, limit]
-    );
-    // Parse metadataContent for each article
-    return result.map(article => ({
-      ...article,
-      metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
-    }));
-  } catch (error) {
-    console.error("Error querying articles by category from database:", error);
-    return [];
-  }
-}
 
 // Re-export chat and message functions from chatDB.ts
 export { newChat, saveMessage, getMessagesByChat, deleteMessageById, deleteMessagesByChat } from './chatDB';
