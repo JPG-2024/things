@@ -6,6 +6,7 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { getImageColor } from '../getImageColor';
 import { remove } from '@tauri-apps/plugin-fs';
 import { getImageSrc } from '../dirs';
+import { removeArticleFromCache } from '../../urlRouter';
 
 // Variable to hold the database instance.
 let db: Database | null = null;
@@ -135,21 +136,31 @@ export async function saveViewToDb(): Promise<Article> {
 export async function deleteArticleById(id: number) {
   const db = await getDb();
   try {
-    // First, get the article to retrieve mainImageFile
+    // First, get the article to retrieve mediaDirectory and url
     const result = await db.select<Array<any>>(
-      `SELECT mainImageFile FROM articles WHERE rowid = $1 LIMIT 1`,
+      `SELECT mediaDirectory, url FROM articles WHERE rowid = $1 LIMIT 1`,
       [id]
     );
 
-    if (result && result.length > 0 && result[0].mainImageFile) {
+    
+    if (result && result.length > 0 && result[0].mediaDirectory) {
       try {
-        await remove(`media/${result[0].mainImageFile}`, { baseDir: BaseDirectory.AppData });
+        // Construct the correct path: AppData/media/{mediaDirectory}
+        const mediaPath = `media/${result[0].mediaDirectory}`;
+        // Delete the entire media directory recursively
+        await remove(mediaPath, { baseDir: BaseDirectory.AppData, recursive: true });
+        console.log(`[Media] Deleted media directory: ${mediaPath}`);
       } catch (error) {
-        console.error(`[Image] Error deleting local image: ${error}`);
+        console.error(`[Media] Error deleting media directory: ${error}`);
       }
     }
 
-    // Delete the article record
+    // Remove from in-memory cache
+    if (result && result.length > 0 && result[0].url) {
+      removeArticleFromCache(result[0].url);
+    }
+
+    // Delete the article record from database
     await db.execute(`DELETE FROM articles WHERE rowid = $1`, [id]);
     return { success: true };
   } catch (error) {

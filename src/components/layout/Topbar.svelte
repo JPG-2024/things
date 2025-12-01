@@ -46,7 +46,6 @@
     cursor: pointer;
     border-radius: 8px;
     padding: 0px 10px;
-    padding-top: 5px;
     font-size: 25px;
     text-decoration: none;
   }

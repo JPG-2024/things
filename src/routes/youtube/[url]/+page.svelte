@@ -16,14 +16,14 @@
   {#if viewState.ytVideoId}
     <div class="yt-wrapper">
       {#if showIframe}
-        <iframe
+        <!--         <iframe
           class="yt-video"
           src={`https://www.youtube-nocookie.com/embed/${viewState.ytVideoId}?autoplay=1&rel=0&modestbranding=1`}
           title="YouTube video player"
           frameborder="0"
           allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen
-        ></iframe>
+        ></iframe> -->
       {:else}
         <button
           class="yt-thumbnail-btn"

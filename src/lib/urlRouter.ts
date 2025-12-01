@@ -6,9 +6,6 @@ import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/dat
 import { primaryColor } from '@/stores/uiStore'
 
 
-
-
-
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
 const inMemoryCache = new Map<string, any>()
 // Map of in-flight requests to prevent concurrent duplicate work
@@ -127,6 +124,10 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
 // Helpers to clear in-memory caches (useful for debugging or when deleting articles)
 export function clearUrlCache(url: string) {
+  inMemoryCache.delete(url)
+}
+
+export function removeArticleFromCache(url: string) {
   inMemoryCache.delete(url)
 }
 

@@ -5,47 +5,26 @@ export const MISTRAL_MODELS = {
 
 export const BLOG_SUMMARY_SYSTEM_PROMPT = (article: string): string => `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
 
-export const YOUTUBE_SUMMARY_PROMPT = `"""
-You are an expert assistant in summarizing podcasts, YouTube videos, articles, lectures, or any spoken or written content. Your only task is to read the provided text and generate a clear, objective, and well-structured summary following EXACTLY this format (without adding or removing sections):
+export const YOUTUBE_SUMMARY_PROMPT = `Eres un asistente experto en resumir contenido escrito, hablado o transcrito.
 
-"""
-Content Summary:
-[A concise paragraph of 4–7 lines capturing the central idea of the content, the main topics covered, and the author’s final message or conclusion. Write in a neutral, professional, and easy-to-understand tone.]
+Tu tarea es leer el texto que se te proporcione y producir un resumen claro, objetivo y bien estructurado con el siguiente formato EXACTO:
 
-5 Main Points:
+1. **Puntos clave**
+   - (3 a 7 bullet points concisos)
+   - Cada bullet debe describir una idea importante del contenido.
+   - No repitas ideas. No inventes información.
 
-[Most relevant point, written as a complete and clear sentence]
+2. **Conclusión**
+   - Un párrafo breve (2 a 4 líneas) que sintetice la idea global del contenido.
+   - No incluya bullet points.
+   - No introduzcas ideas nuevas.
 
-[Second most relevant point, written as a complete and clear sentence]
-
-[Third most relevant point, written as a complete and clear sentence]
-
-[Fourth most relevant point, written as a complete and clear sentence]
-
-[Fifth most relevant point or the most important practical takeaway]
-
-Conclusion:
-[A short paragraph of 2–4 lines summarizing the final message or the most important practical recommendation from the content. It should be useful, actionable, and end the summary strongly.]
-"""
-
-Strict rules to always follow:
-
-Use neutral, correct, and natural Spanish.
-
-Never invent or add information that is not explicit or clearly implied in the original text.
-
-The 5 points must be the most important and representative; do not repeat the general summary verbatim.
-
-The general summary must be readable independently and be complete.
-
-The conclusion must be practical and leave the reader with a key idea or clear call to action.
-
-Do not use emojis, excessive exclamation marks, personal opinions, or text outside the indicated format.
-
-If the content is very brief and does not allow for 5 differentiated points, group or adapt them without forcing, but always keep the three sections.
-
-Respond only with the summary in the indicated format; do not add introductions or comments before or after.
-"""`;
+Reglas:
+- El resumen debe estar en español.
+- No cambies los títulos ("Puntos clave" y "Conclusión").
+- No agregues secciones adicionales.
+- No respondas nada fuera del formato.
+- Mantén un tono neutro y profesional.`;
 
 export const CHAT_SYSTEM_PROMPT = (text: string) => `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
 

@@ -4,7 +4,7 @@ import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
-
+import { generate } from './utils/ollama/generate'
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
   //extract video id from youtube link
@@ -35,7 +35,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
 
   try {
-      _summary = await runLocalLlamaPrompt(
+/*       _summary = await runLocalLlamaPrompt(
         _transcript,
         {
           systemPrompt: YOUTUBE_SUMMARY_PROMPT,
@@ -44,7 +44,19 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
             viewState.summary = (viewState.summary || '') + chunk
           }
         }
-      )
+      ) */
+
+      const response = await generate({
+        model: 'gemma3:latest',
+        prompt: `texto a resumir:\n\n${_transcript}`,
+        system: YOUTUBE_SUMMARY_PROMPT,
+        options: {
+          temperature: 0.3,  // Lower temperature for consistent summarization
+          /* num_predict: -1    */
+        }
+      });
+
+      viewState.summary = response.response;
       
   } catch (inferenceErr) {
     console.error('Error during inference:', inferenceErr)
