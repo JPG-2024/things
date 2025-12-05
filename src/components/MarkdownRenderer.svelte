@@ -30,7 +30,6 @@
   .markdown-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
     width: 100%;
     color: #fafafa;
     text-align: left;
@@ -77,7 +76,7 @@
     background-color: rgba(154, 154, 154, 0.15);
     padding: 2px 6px;
     color: #fafafa;
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 
   .markdown-container :global(pre) {
@@ -112,6 +111,10 @@
   .markdown-container :global(ol) {
     margin: 1rem 0 1rem 2rem;
     padding: 0;
+  }
+
+  .markdown-container :global(ul) {
+    margin-left: 24px;
   }
 
   .markdown-container :global(li) {

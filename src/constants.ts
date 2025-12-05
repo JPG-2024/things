@@ -3,7 +3,7 @@ export const MISTRAL_MODELS = {
     SMALL: "mistral-small-latest",
 }
 
-export const BLOG_SUMMARY_SYSTEM_PROMPT = (article: string): string => `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
+export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
 
 export const YOUTUBE_SUMMARY_PROMPT = `Eres un asistente experto en resumir contenido escrito, hablado o transcrito.
 
@@ -32,7 +32,7 @@ export const CHAT_SYSTEM_PROMPT = (text: string) => `You are a specialized assis
 [${text}]
 
 **Rules:**
-- Give the answers in Spanish.
+- Give the summary in Spanish.
 - Give brief and concise answers.
 - If the user's question can be answered **directly and only** from the provided text, respond concisely and accurately.
 - If the user's question is **not directly answerable** from the provided text, respond: "I cannot answer that based on the provided text."

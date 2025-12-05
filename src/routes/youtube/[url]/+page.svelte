@@ -66,7 +66,7 @@
     position: relative;
     border-radius: 30px;
     background-color: var(--card-bg, #000);
-    width: 100%;
+    width: 120%;
     overflow: hidden;
   }
 

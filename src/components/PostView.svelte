@@ -103,7 +103,7 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    padding: 2rem;
+    padding: 1rem;
     box-sizing: border-box;
     padding-top: 80px;
   }

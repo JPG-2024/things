@@ -4,7 +4,7 @@ import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
-import { generate } from './utils/ollama/generate'
+import { generate, generateStream } from './utils/ollama/generate'
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
   //extract video id from youtube link
@@ -14,7 +14,6 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     throw new Error('Invalid YouTube URL')
   }
   let _transcript: string
-  let _summary: string | null = null
 
   try {
     const _mediaDir = await invoke<string>('url_to_folder_name', {url: videoLink})
@@ -29,26 +28,10 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
       languages,
     })
     viewState.content = _transcript
-  } catch (invokeErr) {
-    throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
-  }
 
-
-  try {
-/*       _summary = await runLocalLlamaPrompt(
-        _transcript,
-        {
-          systemPrompt: YOUTUBE_SUMMARY_PROMPT,
-          messages: [],
-          onChunk: (chunk: string) => {
-            viewState.summary = (viewState.summary || '') + chunk
-          }
-        }
-      ) */
-
-      const response = await generate({
-        model: 'gemma3:latest',
-        prompt: `texto a resumir:\n\n${_transcript}`,
+    const preSummary = await generate({
+        model: 'ministral-3:3b',
+        prompt: `sigue las reglas:\n\n${_transcript}`,
         system: YOUTUBE_SUMMARY_PROMPT,
         options: {
           temperature: 0.3,  // Lower temperature for consistent summarization
@@ -56,11 +39,28 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
         }
       });
 
-      viewState.summary = response.response;
-      
-  } catch (inferenceErr) {
-    console.error('Error during inference:', inferenceErr)
+    for await (const chunk of generateStream({
+        model: 'ministral-3:3b',
+        prompt: `sigue las reglas:\n\n${preSummary.response}`,
+        system: YOUTUBE_SUMMARY_PROMPT,
+        options: {
+          temperature: 0.0,
+          top_k: 1,
+          top_p: 0.1,
+          repeat_penalty: 1.1,
+          repeat_last_n: 128,
+          presence_penalty: 0.0,
+          frequency_penalty: 0.0,
+          mirostat: 0,
+          num_predict: -1
+        }
+      })) {
+        viewState.summary = (viewState.summary || '') + chunk.response
+      }
+
+      return {content: _transcript, summary: viewState.summary || ''} 
+  } catch (invokeErr) {
+    throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }
   
-  return {content: _transcript, summary: _summary || ''} 
 }

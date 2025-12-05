@@ -1,14 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
-import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
 import { getImageSrc } from './utils/dirs';
+import { generate } from './utils/ollama/generate'
 
 
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
-    let _summary: string | null = null
     // invoke('download_images', { url })
     const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['main', 'article'] })
 
@@ -22,18 +21,19 @@ export async function extractBlog(url: string): Promise<{content: string, summar
       viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
     }
 
-
-    _summary = await runLocalLlamaPrompt(
-      `Summary next content:\n\n${compactedMarkdown}`,
-      {
-        systemPrompt: BLOG_SUMMARY_SYSTEM_PROMPT(''),
-        onChunk: (chunk: string) => {
-          viewState.summary = (viewState.summary || '') + chunk
-        }
+    const _summary = await generate({
+      model: 'ministral-3:3b',
+      prompt: `texto a resumir:\n\n${compactedMarkdown}`,
+      system: BLOG_SUMMARY_SYSTEM_PROMPT,
+      options: {
+        temperature: 0.3,  // Lower temperature for consistent summarization
+        /* num_predict: -1    */
       }
-    )
+    });
+
+    viewState.summary = _summary.response;
   
-    return {content: compactedMarkdown, summary: _summary || ''}
+    return {content: compactedMarkdown,   summary: _summary.response || ''}
   } catch (err) {
     console.error('Error extracting blog:', err)
     return {content: '', summary: ''}

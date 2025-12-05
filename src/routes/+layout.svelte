@@ -40,7 +40,7 @@
   })
 
   // Global View Transitions wrapper for all client navigations
-  onNavigate((navigation) => {
+  /*   onNavigate((navigation) => {
     const anyDoc: any = document
     if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return
 
@@ -56,7 +56,7 @@
         await navigation.complete
       })
     })
-  })
+  }) */
 </script>
 
 <main
@@ -115,7 +115,7 @@
     background-color: #000000;
     overflow-y: auto;
     height: 100vh;
-    padding: 2rem;
+    padding: 1rem;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
   }
@@ -151,10 +151,10 @@
 
   @keyframes sweep-overlay {
     from {
-      transform: translateY(-120%);
+      transform: translateY(-100%);
     }
     to {
-      transform: translateY(120%);
+      transform: translateY(100%);
     }
   }
 
@@ -163,7 +163,7 @@
       background-position: 0% 50%;
     }
     50% {
-      background-position: 100% 50%;
+      background-position: 10% 10%;
     }
     100% {
       background-position: 0% 50%;
