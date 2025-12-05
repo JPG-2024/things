@@ -73,7 +73,7 @@
 
   .markdown-container :global(code) {
     border-radius: 4px;
-    background-color: rgba(154, 154, 154, 0.15);
+    background-color: rgba(154, 154, 154, 0.2);
     padding: 2px 6px;
     color: #fafafa;
     font-size: 1rem;

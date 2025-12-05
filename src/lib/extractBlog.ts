@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte'
 import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 import { getImageSrc } from './utils/dirs';
-import { generate } from './utils/ollama/generate'
+import { generate, generateStream } from './utils/ollama/generate'
 
 
 
@@ -21,19 +21,41 @@ export async function extractBlog(url: string): Promise<{content: string, summar
       viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
     }
 
-    const _summary = await generate({
+    const preSummary = await generate({
       model: 'ministral-3:3b',
-      prompt: `texto a resumir:\n\n${compactedMarkdown}`,
+      prompt: `sigue las reglas:\n\n${compactedMarkdown}`,
       system: BLOG_SUMMARY_SYSTEM_PROMPT,
       options: {
-        temperature: 0.3,  // Lower temperature for consistent summarization
-        /* num_predict: -1    */
+        temperature: 0.0,
+        top_k: 1,
+        top_p: 0.1,
+        repeat_penalty: 1.1,
+        repeat_last_n: 128,
+        presence_penalty: 0.0,
+        frequency_penalty: 0.0,
+        mirostat: 0,
       }
     });
 
-    viewState.summary = _summary.response;
+    for await (const chunk of generateStream({
+        model: 'ministral-3:3b',
+        prompt: `sigue las reglas:\n\n${preSummary.response}`,
+        system: BLOG_SUMMARY_SYSTEM_PROMPT,
+        options: {
+          temperature: 0.0,
+          top_k: 1,
+          top_p: 0.1,
+          repeat_penalty: 1.1,
+          repeat_last_n: 128,
+          presence_penalty: 0.0,
+          frequency_penalty: 0.0,
+          mirostat: 0,
+        }
+      })) {
+        viewState.summary = (viewState.summary || '') + chunk.response
+      }
   
-    return {content: compactedMarkdown,   summary: _summary.response || ''}
+    return {content: compactedMarkdown, summary: viewState.summary || ''}
   } catch (err) {
     console.error('Error extracting blog:', err)
     return {content: '', summary: ''}

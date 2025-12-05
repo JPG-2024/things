@@ -42,7 +42,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           frequency_penalty: 0.0,
           mirostat: 0,
         }
-      });
+    });
 
     // first summary can be long, so we stream the final summary  
     for await (const chunk of generateStream({
@@ -63,7 +63,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
         viewState.summary = (viewState.summary || '') + chunk.response
       }
 
-      return {content: _transcript, summary: viewState.summary || ''} 
+    return {content: _transcript, summary: viewState.summary || ''} 
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }
