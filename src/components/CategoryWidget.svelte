@@ -28,6 +28,16 @@
     await urlRouter(article.url)
     navigate(`/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`)
   }
+
+  async function handleSquareDoubleClick() {
+    try {
+      const text = await navigator.clipboard.readText()
+      // Llama a tu callback con `text`
+      console.log('Clipboard text:', text)
+    } catch (err) {
+      console.error('Clipboard error', err)
+    }
+  }
 </script>
 
 <div class="category-widget">
@@ -35,7 +45,7 @@
     <h2 class="category-title">{name}</h2>
   {/if}
 
-  <div class="square">
+  <div class="square" ondblclick={handleSquareDoubleClick} role="group">
     {#if articles?.length}
       <div class="img-flex">
         {#each articles as article (article.url)}

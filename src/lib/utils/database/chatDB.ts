@@ -1,3 +1,4 @@
+import type { Chat } from '@/types/chat.types';
 import Database from '@tauri-apps/plugin-sql';
 
 
@@ -89,6 +90,23 @@ export async function getChatsByArticleId(articleId: number): Promise<Chat[]> {
   } catch (error) {
     console.error('Error retrieving chats from database:', error);
     return [];
+  }
+}
+
+export async function getChatById(chatId: number): Promise<Chat | null> {
+  const db = await getDb();
+  try {
+    const result = await db.select<Array<Chat>>(
+      `SELECT id, article_id as articleId, name, created_at as createdAt FROM chats WHERE id = $1 LIMIT 1`,
+      [chatId]
+    );
+    if (result && result.length > 0) {
+      return result[0];
+    }
+    return null;
+  } catch (error) {
+    console.error('Error retrieving chat from database:', error);
+    return null;
   }
 }
 

@@ -2,84 +2,94 @@
   import { onMount, onDestroy } from 'svelte'
 
   import Input from '@/components/inputs/Input.component.svelte'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
-  import {
-    getMessagesByChat,
-    newChat,
-    saveMessage,
-    deleteChatById,
-    updateChatName,
-  } from '@/lib/utils/database/chatDB'
-  import { CHAT_SYSTEM_PROMPT } from '@/constants'
   import Topbar from '@/components/layout/Topbar.svelte'
-  import { invalidateChats, messages } from '@/stores/chatStore'
+  import { CHAT_SYSTEM_PROMPT } from '@/constants'
+
+  import { ChatService } from '@/lib/services/chatService'
+  import {
+    messages,
+    isStreaming,
+    invalidateChats,
+    setMessages,
+    setStreamingContent,
+    startStreaming,
+    stopStreaming,
+    allMessages,
+  } from '@/stores/chatStore'
+
+  import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
 
   let chatId = $state<number | null>(null)
-  let stream = $state('')
+  let chatService: ChatService | null = $state(null)
+  let userInput = $state('')
 
   onMount(async () => {
     const urlParams = new URLSearchParams(window.location.search)
-    const articleIdParam = Number(urlParams.get('articleId'))
     const chatIdParam = Number(urlParams.get('chatId'))
 
     if (chatIdParam) {
-      const chatMessages = await getMessagesByChat(chatIdParam)
-      viewState.messages = chatMessages
-      chatId = Number(chatIdParam)
+      chatId = chatIdParam
     } else {
+      // Si no hay chatId, crear uno nuevo
+      const articleIdParam = Number(urlParams.get('articleId'))
       const newChatData = await newChat({ articleId: articleIdParam })
       chatId = Number(newChatData.lastInsertId)
-      viewState.messages = []
+    }
+
+    // Inicializar el servicio de chat
+    if (chatId) {
+      chatService = new ChatService(chatId, CHAT_SYSTEM_PROMPT, Number(urlParams.get('articleId')))
+      const history = await chatService.initialize()
+      setMessages(history)
     }
   })
 
   onDestroy(async () => {
-    if (viewState.messages.length === 0) {
-      await deleteChatById(chatId!)
+    if (!chatService || !chatId || $messages.length === 0) return
+
+    // Si no hay mensajes, eliminar el chat
+    if (chatService.getMessageCount() === 0) {
+      await deleteChatById(chatId)
     } else {
-      await updateChatName(chatId!, viewState.messages[0]?.content.slice(0, 50))
+      // Actualizar el nombre del chat con el primer mensaje
+      await updateChatName(chatId, $messages[0].content.slice(0, 50) || 'New Chat')
     }
     invalidateChats()
   })
 
   async function handlePrompt(prompt: string) {
-    // Add user message
-    try {
-      const savedMessage = await saveMessage({
-        chatId: chatId!,
-        sender: 'user',
-        content: prompt,
-      })
+    if (!chatService || !prompt.trim()) return
 
-      viewState.messages = [...viewState.messages, { sender: 'user', content: prompt }]
+    userInput = ''
+    startStreaming()
+
+    try {
+      // Agregar mensaje del usuario a la UI inmediatamente
+      messages.update((msgs) => [...msgs, { role: 'user', content: prompt }])
+
+      // Stream de la respuesta
+      for await (const { chunk, fullContent, done } of chatService.sendMessage(prompt)) {
+        setStreamingContent(fullContent)
+
+        if (done) {
+          // Agregar respuesta final a mensajes
+          messages.update((msgs) => [...msgs, { role: 'assistant', content: fullContent }])
+          stopStreaming()
+        }
+      }
     } catch (err) {
-      console.error('Error saving user message:', err)
-    }
+      console.error('Error en chat:', err)
+      stopStreaming()
 
-    // Get AI response
-    try {
-      await runLocalLlamaPrompt(prompt, {
-        messages: [{ role: 'user', content: viewState.content }],
-        systemPrompt: `Responde en español de manera concisa y clara.`,
-        onChunk: (chunk: string) => {
-          stream = stream + chunk
+      // Mostrar error al usuario
+      messages.update((msgs) => [
+        ...msgs,
+        {
+          role: 'assistant',
+          content: '❌ Error: No se pudo obtener respuesta del modelo.',
         },
-      })
-
-      const savedMessage = await saveMessage({
-        chatId: chatId!,
-        sender: 'ai',
-        content: stream,
-      })
-
-      messages.update((msgs) => [...msgs, { sender: 'ai', content: stream }])
-
-      stream = ''
-      // Save AI message
-    } catch (err) {
-      console.error('Inference error:', err)
+      ])
     }
   }
 </script>
@@ -87,28 +97,31 @@
 <div class="messages-container">
   <Topbar>
     {#if chatId}
-      <span class="chat-title" style={`view-transition-name: chat-name-${chatId};`}>chat</span>
+      <span class="chat-title" style={`view-transition-name: chat-name-${chatId};`}> Chat </span>
     {/if}
   </Topbar>
+
   <div class="messages">
-    {#each $messages as msg}
-      <div class="message {msg.sender}">
-        {#if msg.sender === 'user'}
+    {#each $allMessages as msg}
+      <div class="message {msg.role}">
+        {#if msg.role === 'user'}
           <span class="user">{msg.content}</span>
+        {:else if msg.role === 'system'}
+          <span class="system">ℹ️ {msg.content}</span>
         {:else}
           <MarkdownRenderer content={msg.content} />
         {/if}
       </div>
     {/each}
-    {#if stream !== ''}
-      <div class="message">
-        <MarkdownRenderer content={stream} />
-      </div>
-    {/if}
   </div>
 
   <div class="input-container">
-    <Input placeholder="ask something.." onEnter={handlePrompt} />
+    <Input
+      placeholder="Escribe un mensaje..."
+      bind:value={userInput}
+      onEnter={handlePrompt}
+      disabled={$isStreaming}
+    />
   </div>
 </div>
 
@@ -126,7 +139,6 @@
   .chat-title {
     flex: 1;
     padding-right: 15%;
-    color: bisque;
     font-weight: bold;
     font-size: 1.2rem;
     text-align: center;
@@ -138,13 +150,39 @@
     flex-direction: column;
     gap: 1rem;
     padding-bottom: 80px;
+    overflow-y: auto;
+  }
+
+  .message {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .message.user {
+    align-self: flex-end;
+    max-width: 80%;
+  }
+
+  .message.assistant {
+    align-self: flex-start;
+    max-width: 85%;
+  }
+
+  .message.system {
+    align-self: center;
+    font-size: 0.9rem;
+    max-width: 90%;
   }
 
   .user {
-    align-self: flex-end;
     color: var(--primary-color);
     font-weight: bold;
     font-size: 1rem;
+  }
+
+  .system {
+    color: #856404;
+    font-style: italic;
   }
 
   .input-container {
@@ -152,9 +190,9 @@
     right: 0;
     bottom: 0;
     left: 0;
-
     box-sizing: border-box;
     padding: 1rem;
     width: 100%;
+    backdrop-filter: blur(10px);
   }
 </style>

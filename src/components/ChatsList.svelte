@@ -54,7 +54,11 @@
   {:else}
     <ul class="chats-column">
       {#each chats as chat (chat.id)}
-        <button type="button" class="chat-item" onclick={() => goto(`/chat?chatId=${chat.id}`)}>
+        <button
+          type="button"
+          class="chat-item"
+          onclick={() => goto(`/chat?chatId=${chat.id}&articleId=${articleId}`)}
+        >
           <span class="chat-name" style={`view-transition-name: chat-name-${chat.id}`}
             >{chat.name}</span
           >

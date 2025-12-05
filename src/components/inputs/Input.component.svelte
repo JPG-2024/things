@@ -7,7 +7,13 @@
     onEnter?: (value: string) => void
   }
 
-  let { value = '', placeholder = '', disabled = false, onChange, onEnter }: Props = $props()
+  let {
+    value = $bindable(''),
+    placeholder = '',
+    disabled = false,
+    onChange,
+    onEnter,
+  }: Props = $props()
 
   function handleInput(event: Event) {
     const target = event.target as HTMLInputElement

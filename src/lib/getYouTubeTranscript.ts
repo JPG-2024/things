@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte';
 import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
-import { runLocalLlamaPrompt } from '@/lib/utils/localInference-ollama';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
 import { generate, generateStream } from './utils/ollama/generate'
@@ -34,11 +33,18 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
         prompt: `sigue las reglas:\n\n${_transcript}`,
         system: YOUTUBE_SUMMARY_PROMPT,
         options: {
-          temperature: 0.3,  // Lower temperature for consistent summarization
-          /* num_predict: -1    */
+          temperature: 0.0,
+          top_k: 1,
+          top_p: 0.1,
+          repeat_penalty: 1.1,
+          repeat_last_n: 128,
+          presence_penalty: 0.0,
+          frequency_penalty: 0.0,
+          mirostat: 0,
         }
       });
 
+    // first summary can be long, so we stream the final summary  
     for await (const chunk of generateStream({
         model: 'ministral-3:3b',
         prompt: `sigue las reglas:\n\n${preSummary.response}`,
@@ -52,7 +58,6 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           presence_penalty: 0.0,
           frequency_penalty: 0.0,
           mirostat: 0,
-          num_predict: -1
         }
       })) {
         viewState.summary = (viewState.summary || '') + chunk.response

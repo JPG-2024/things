@@ -68,6 +68,32 @@ export async function getArticleByUrl(url: string): Promise<Article | null> {
   }
 }
 
+// Function to get an article by ID from the database.
+export async function getArticleById(id: number): Promise<Article | null> {
+  const db = await getDb();
+
+  try {
+    const result = await db.select<Array<any>>(
+      `SELECT rowid as id, * FROM articles WHERE rowid = $1 LIMIT 1`,
+      [id]
+    );
+
+    if (result && result.length > 0) {
+      const article = result[0];
+      return {
+        ...article,
+        metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
+        mainImageSrc: article.mainImage ? await getImageSrc(article.mediaDirectory, article.mainImage) : ''
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error querying article by ID from database:", error);
+    throw error;
+  }
+}
+
 // Function to save the store data to the database.
 // Function to get all articles, limited to 20 results.
 export async function getAllArticles({limit = 100} = {}): Promise<Array<any>> {

@@ -1,8 +1,3 @@
-export const MISTRAL_MODELS = {
-    MICRO: 'ministral-3b-latest',
-    SMALL: "mistral-small-latest",
-}
-
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`
 
 export const YOUTUBE_SUMMARY_PROMPT = `Eres un asistente experto en resumir contenido escrito, hablado o transcrito.
@@ -26,13 +21,10 @@ Reglas:
 - No respondas nada fuera del formato.
 - Mantén un tono neutro y profesional.`;
 
-export const CHAT_SYSTEM_PROMPT = (text: string) => `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
-
-**Provided Text:**
-[${text}]
+export const CHAT_SYSTEM_PROMPT = `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
 
 **Rules:**
-- Give the summary in Spanish.
+- Give the response in Spanish.
 - Give brief and concise answers.
 - If the user's question can be answered **directly and only** from the provided text, respond concisely and accurately.
 - If the user's question is **not directly answerable** from the provided text, respond: "I cannot answer that based on the provided text."
