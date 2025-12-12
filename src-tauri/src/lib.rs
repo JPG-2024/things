@@ -10,6 +10,9 @@ pub use crate::inference_hugging::inference; */
 mod youtube;
 pub use crate::youtube::get_youtube_transcript;
 
+mod splitter;
+pub use crate::splitter::{split_text, split_text_command, SplitMode};
+
 mod markdown;
 pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
@@ -158,7 +161,8 @@ pub fn run() {
             extract_blog,
             get_youtube_transcript,
             download_and_save_image,
-            url_to_folder_name
+            url_to_folder_name,
+            split_text_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
