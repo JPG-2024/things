@@ -238,6 +238,20 @@ export async function getOrCreateMainColor(articleId: number): Promise<string> {
   }
 }
 
+export async function updateArticleEmbeddingsStatus(articleId: number, embeddings: boolean): Promise<void> {
+  const db = await getDb();
+  
+  try {
+    await db.execute(
+      `UPDATE articles SET embeddings = $1 WHERE rowid = $2`,
+      [embeddings, articleId]
+    );
+  } catch (error) {
+    console.error(`Error updating embeddings status for article ID ${articleId}:`, error);
+    throw error;
+  }
+}
+
 
 // Re-export chat and message functions from chatDB.ts
 export { newChat, saveMessage, getMessagesByChat, deleteMessageById, deleteMessagesByChat } from './chatDB';

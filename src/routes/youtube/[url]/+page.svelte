@@ -66,7 +66,8 @@
     position: relative;
     border-radius: 30px;
     background-color: var(--card-bg, #000);
-    width: 120%;
+    width: 100vw;
+
     overflow: hidden;
   }
 
@@ -77,19 +78,15 @@
     content: '';
   }
 
-  .yt-wrapper iframe,
   .yt-wrapper img {
     position: absolute;
-    top: -10px;
+    top: 30%;
     left: 0;
     right: auto;
     border: 0;
     width: 110%;
-    height: 110%;
+    height: 70%;
     object-fit: cover;
-  }
-
-  .yt-thumbnail-btn {
   }
 
   .yt-thumbnail:hover {

@@ -22,6 +22,7 @@ class ViewState {
   category = $state<string | null>(null);
   content = $state<string>("");
   summary = $state<string | null>(null);
+  embeddings = $state<boolean>(false);
   ytTranscript = $state<string | null>(null);
   messages = $state<Message[]>([]);
 
@@ -86,6 +87,7 @@ class ViewState {
     this.mainImageSrc = '';
     this.mediaDirectory = null;
     this.primaryColor = '';
+    this.embeddings = false;
   }
 
     // State for listeners
@@ -136,7 +138,8 @@ class ViewState {
       content: this.content,
       category: this.category,
       mediaDirectory: this.mediaDirectory,
-      primaryColor: this.primaryColor
+      primaryColor: this.primaryColor,
+      embeddings: this.embeddings
     };
   }
 
@@ -145,7 +148,7 @@ class ViewState {
 
     const {
       url, id, category, mainImage, summary, content, mediaDirectory,
-      metadataContent, markdownContent, primaryColor
+      metadataContent, markdownContent, primaryColor, embeddings
     } = article;
 
     this.url = url ?? this.url;
@@ -157,6 +160,7 @@ class ViewState {
     this.mediaDirectory = mediaDirectory ?? this.mediaDirectory;
     this.primaryColor = primaryColor ?? this.primaryColor;
     this.mainImageSrc = article.mainImageSrc ?? this.mainImageSrc;
+    this.embeddings = Boolean(article.embeddings) ?? this.embeddings;  
 
     if (metadataContent) {
       this.metadataStatus = { data: metadataContent } as FlowStatusEvent<MetadataPayload>;

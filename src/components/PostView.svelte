@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { page } from '$app/state'
   import { navigate } from '@/lib/utils/url'
   import { urlRouter } from '@/lib/urlRouter'
   import LoadingStack from './LoadingStack.svelte'
@@ -10,6 +8,8 @@
   import Topbar from './layout/Topbar.svelte'
   import ChatsList from './ChatsList.svelte'
   import Button from './inputs/Button.component.svelte'
+  import { saveEmbeddings } from '@/lib/services/embeddings'
+  import { updateArticleEmbeddingsStatus } from '@/lib/utils/database/articleDB'
 
   interface Props {
     headerContent?: any
@@ -19,6 +19,7 @@
   const { headerContent, summaryContent } = $props()
   // reactive state for deletion flag (Svelte runes)
   let isDeleting = $state(false)
+  let isSavingEmbeddings = $state(false)
 
   // Add window scroll event listener on mount, remove on unload, using $effect.pre
   $effect.pre(() => {
@@ -58,6 +59,25 @@
       `/chat?category=${encodeURIComponent(viewState.domainUrl)}&chatId=${chatId}&articleId=${viewState.articleId}`
     )
   }
+
+  async function handleSaveEmbeddings() {
+    try {
+      if (!viewState.articleId || viewState.embeddings || isSavingEmbeddings) return
+      isSavingEmbeddings = true
+      const result = await saveEmbeddings(
+        { articleId: String(viewState.articleId), category: '', strategy: '' },
+        viewState.content
+      )
+
+      console.log('Embeddings saved result:', result)
+
+      await updateArticleEmbeddingsStatus(viewState.articleId, true)
+    } catch (err) {
+      console.error('Error saving embeddings', err)
+    } finally {
+      isSavingEmbeddings = false
+    }
+  }
 </script>
 
 <article>
@@ -71,6 +91,12 @@
   </Topbar>
 
   <div class="header-container">
+    {#if !viewState.embeddings}
+      <button onclick={handleSaveEmbeddings} disabled={isSavingEmbeddings}>
+        {isSavingEmbeddings ? 'Saving...' : 'Save Embeddings'}
+      </button>
+    {/if}
+
     <div class="url-link">
       {viewState.url}
     </div>

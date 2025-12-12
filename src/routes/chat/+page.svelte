@@ -18,6 +18,8 @@
     allMessages,
   } from '@/stores/chatStore'
 
+  import { getDocuments } from '@/lib/services/embeddings'
+
   import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
 
   let chatId = $state<number | null>(null)
@@ -64,12 +66,26 @@
     userInput = ''
     startStreaming()
 
+    const documents = await getDocuments({ query: prompt, topK: 10 })
+    const contentDocuments = documents.results.map((doc) => doc.text).join('\n')
+
+    console.log('Documentos recuperados para el prompt:', contentDocuments)
+
     try {
       // Agregar mensaje del usuario a la UI inmediatamente
-      messages.update((msgs) => [...msgs, { role: 'user', content: prompt }])
+      messages.update((msgs) => [
+        ...msgs,
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ])
 
       // Stream de la respuesta
-      for await (const { chunk, fullContent, done } of chatService.sendMessage(prompt)) {
+      for await (const { chunk, fullContent, done } of chatService.sendMessage(
+        prompt,
+        contentDocuments
+      )) {
         setStreamingContent(fullContent)
 
         if (done) {
@@ -87,7 +103,7 @@
         ...msgs,
         {
           role: 'assistant',
-          content: '❌ Error: No se pudo obtener respuesta del modelo.',
+          content: '❌ Error: model not found.',
         },
       ])
     }

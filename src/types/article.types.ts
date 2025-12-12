@@ -1,21 +1,22 @@
 
 interface Article {
-  id: number;
-  url: string;
-  title: string;
-  description: string;
-  mainImage: string;
-  markdownContent: string;
-  metadataContent: Record<string, any> | string;
-  domainUrl: string;
-  ytVideoId: string | null;
-  ytThumbnailUrl: string | null;
-  summary: string;
-  content: string | null;
   category: string | null;
+  content: string | null;
   createdAt?: string;
+  description: string;
+  domainUrl: string;
+  embeddings?: boolean;
+  id: number;
   mainColor?: string | null;
-  ytTranscript?: string | null;
-  mediaDirectory?: string;
+  mainImage: string;
   mainImageSrc?: string;
+  markdownContent: string;
+  mediaDirectory?: string;
+  metadataContent: Record<string, any> | string;
+  summary: string;
+  title: string;
+  url: string;
+  ytThumbnailUrl: string | null;
+  ytTranscript?: string | null;
+  ytVideoId: string | null;
 }

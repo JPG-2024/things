@@ -46,12 +46,12 @@ export class ChatService {
   /**
    * Inicializa el chat cargando el historial desde la BD
    */
-  async initialize(): Promise<ChatMessageUI[]> {
+  async initialize(fullContent: boolean = false): Promise<ChatMessageUI[]> {
     // 1. Agregar system message primero
     this.conversationManager.addMessage('system', this.systemPrompt);
     
     // 2. Si existe articleId, agregar el contenido del artículo como user message
-    if (this.articleId) {
+    if (fullContent && this.articleId) {
       const article = await getArticleById(this.articleId);
       if (article && article.content) {
         this.conversationManager.addMessage('user', article.content);
@@ -93,8 +93,10 @@ export class ChatService {
 
   /**
    * Enviar mensaje del usuario y obtener respuesta streaming
+   * @param userMessage - El mensaje del usuario
+   * @param context - Contexto adicional que se envía al modelo pero no se guarda en DB
    */
-  async *sendMessage(userMessage: string): AsyncGenerator<{
+  async *sendMessage(userMessage: string, context?: string): AsyncGenerator<{
     chunk: string;
     fullContent: string;
     done: boolean;
@@ -106,10 +108,15 @@ export class ChatService {
       content: userMessage,
     });
 
+    // Preparar mensaje con contexto si existe
+    const messageToSend = context 
+      ? `${context}\n\nUser question: ${userMessage}`
+      : userMessage;
+
     // Stream de respuesta del asistente
     let fullResponse = '';
     
-    for await (const chunk of this.conversationManager.sendMessage(userMessage)) {
+    for await (const chunk of this.conversationManager.sendMessage(messageToSend)) {
       fullResponse += chunk.message.content;
       
       yield {

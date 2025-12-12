@@ -7,6 +7,5 @@
   },
   "[rust]": {
     "editor.formatOnSave": true
-  },
-  "rust-analyzer.rustfmt.extraArgs": ["--edition", "2021"]
+  }
 }

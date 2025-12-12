@@ -124,6 +124,14 @@ pub fn run() {
             // SQL to add the mediaDirectory column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN mediaDirectory TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your tenth migration.
+        Migration {
+            version: 10,
+            description: "add-embeddings-column",
+            // SQL to add the embeddings column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN embeddings BOOLEAN;",
+            kind: MigrationKind::Up,
         }
     ];
 

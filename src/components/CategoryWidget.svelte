@@ -4,7 +4,7 @@
   import { categoryCache } from '@/stores/categoryCache'
   import { urlRouter } from '@/lib/urlRouter'
 
-  let { categoryId, name = '' } = $props()
+  let { categoryId, name = '', showTitle = false } = $props()
 
   const limit = 9
 
@@ -33,7 +33,6 @@
     try {
       const text = await navigator.clipboard.readText()
       // Llama a tu callback con `text`
-      console.log('Clipboard text:', text)
     } catch (err) {
       console.error('Clipboard error', err)
     }
@@ -41,7 +40,7 @@
 </script>
 
 <div class="category-widget">
-  {#if name}
+  {#if name && showTitle}
     <h2 class="category-title">{name}</h2>
   {/if}
 
@@ -100,13 +99,13 @@
     display: flex;
     position: relative;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    border-radius: 12%;
+    border-radius: 30px;
     background: rgb(154, 154, 154, 0.2);
     padding: 15px;
     padding-top: 10px;
-    width: 204px;
+    width: 404px;
     height: 204px;
     color: white;
     font-weight: bold;
@@ -114,14 +113,12 @@
 
   .img-flex {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-auto-rows: 60px; /* Changed row height */
-    gap: 5px;
-    padding: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 10px;
     padding-top: 10px;
     box-sizing: border-box;
     width: 100%;
-    height: 100%;
+    height: auto; /* Changed from 100% to auto */
     align-items: start;
   }
 

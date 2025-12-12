@@ -1,9 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte';
-import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
+import { YOUTUBE_SUMMARY_PROMPT, PRESUMMARY, TECH_SUMMARY_SYSTEM_PROMPT } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
 import { generate, generateStream } from './utils/ollama/generate'
+import { extractKeywords } from './utils/extractKeywords';
+
+
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
   //extract video id from youtube link
@@ -28,10 +31,14 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     })
     viewState.content = _transcript
 
-    const preSummary = await generate({
+
+    //const keywords = await extractKeywords(_transcript)
+    //console.log('Extracted Keywords:', keywords);
+
+/*      const preSummary = await generate({
         model: 'ministral-3:3b',
         prompt: `sigue las reglas:\n\n${_transcript}`,
-        system: YOUTUBE_SUMMARY_PROMPT,
+        system: PRESUMMARY,
         options: {
           temperature: 0.0,
           top_k: 1,
@@ -44,24 +51,28 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
         }
     });
 
+    console.log('PreSummary:', preSummary.response); */
+
     // first summary can be long, so we stream the final summary  
-    for await (const chunk of generateStream({
-        model: 'ministral-3:3b',
-        prompt: `sigue las reglas:\n\n${preSummary.response}`,
+     for await (const chunk of generateStream({
+        model: 'gemma2:2b',
+        prompt: `sigue las reglas, agrega emojis:\n\n${_transcript}`,
         system: YOUTUBE_SUMMARY_PROMPT,
         options: {
-          temperature: 0.0,
-          top_k: 1,
-          top_p: 0.1,
-          repeat_penalty: 1.1,
-          repeat_last_n: 128,
-          presence_penalty: 0.0,
-          frequency_penalty: 0.0,
-          mirostat: 0,
+          "temperature": 0.7,
+          "top_k": 40,
+          "top_p": 0.95,
+          "repeat_penalty": 1.1,
+          "repeat_last_n": 256,
+          "presence_penalty": 0.0,
+          "frequency_penalty": 0.0,
+          "mirostat": 2,
+          "mirostat_tau": 6.0,
+          "mirostat_eta": 0.1
         }
       })) {
         viewState.summary = (viewState.summary || '') + chunk.response
-      }
+      }  
 
     return {content: _transcript, summary: viewState.summary || ''} 
   } catch (invokeErr) {

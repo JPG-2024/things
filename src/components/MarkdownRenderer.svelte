@@ -81,7 +81,7 @@
 
   .markdown-container :global(pre) {
     margin: 1rem 0;
-    border: 1px solid #21cf7536;
+    border: 1px solid var(--primary-color);
     border-radius: 8px;
     background-color: rgba(154, 154, 154, 0.1);
     padding: 15px;
@@ -100,7 +100,7 @@
   .markdown-container :global(a) {
     color: var(--primary-color);
     text-decoration: underline;
-    text-decoration-color: #21cf7591;
+    text-decoration-color: var(--primary-color);
   }
 
   .markdown-container :global(a:hover) {
@@ -132,6 +132,7 @@
   .markdown-container :global(strong) {
     color: #fafafa;
     font-weight: bold;
+    font-size: 1rem;
   }
 
   .markdown-container :global(em) {
@@ -152,7 +153,7 @@
 
   .markdown-container :global(th),
   .markdown-container :global(td) {
-    border: 1px solid #21cf7536;
+    border: 1px solid var(--primary-color);
     padding: 10px;
     text-align: left;
   }

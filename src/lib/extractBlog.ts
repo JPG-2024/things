@@ -1,10 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte'
-import { BLOG_SUMMARY_SYSTEM_PROMPT } from '@/constants'
+import { BLOG_SUMMARY_SYSTEM_PROMPT, DOCS_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 import { getImageSrc } from './utils/dirs';
 import { generate, generateStream } from './utils/ollama/generate'
-
-
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
@@ -21,26 +19,11 @@ export async function extractBlog(url: string): Promise<{content: string, summar
       viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
     }
 
-    const preSummary = await generate({
-      model: 'ministral-3:3b',
-      prompt: `sigue las reglas:\n\n${compactedMarkdown}`,
-      system: BLOG_SUMMARY_SYSTEM_PROMPT,
-      options: {
-        temperature: 0.0,
-        top_k: 1,
-        top_p: 0.1,
-        repeat_penalty: 1.1,
-        repeat_last_n: 128,
-        presence_penalty: 0.0,
-        frequency_penalty: 0.0,
-        mirostat: 0,
-      }
-    });
 
     for await (const chunk of generateStream({
         model: 'ministral-3:3b',
-        prompt: `sigue las reglas:\n\n${preSummary.response}`,
-        system: BLOG_SUMMARY_SYSTEM_PROMPT,
+        prompt: `Resume este texto:\n\n${compactedMarkdown}`,
+        system: DOCS_SUMMARY_SYSTEM_PROMPT,
         options: {
           temperature: 0.0,
           top_k: 1,

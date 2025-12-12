@@ -50,8 +50,8 @@
     box-sizing: border-box;
     outline: none;
     border: none;
-    border-radius: 12px;
-    background: rgba(154, 154, 154, 0.1);
+    border-radius: 15px;
+    background: rgba(154, 154, 154, 0.2);
     padding: 1rem 0.75rem;
     width: 100%;
     color: inherit;
@@ -59,7 +59,8 @@
   }
 
   .text-input:focus {
-    box-shadow: 0 0 0 1px rgba(154, 154, 154, 0.4);
+    box-shadow: inset 0 0 10px 2px var(--primary-color);
+    transition: all 0.3s ease;
   }
 
   .text-input:disabled {

@@ -7,12 +7,12 @@
     "windows": [
       {
         "title": "Things",
-        "width": 800,
+        "width": 600,
         "height": 800
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://127.0.0.1:* http://127.0.0.1:11434/* http://localhost:*; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self';",
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://127.0.0.1:* http://127.0.0.1:11434/* http://127.0.0.1:3000/* http://localhost:*; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self';",
       "assetProtocol": {
         "scope": ["$HOME/**", "$APPDATA/media/**"],
         "enable": true
