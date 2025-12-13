@@ -19,8 +19,13 @@ pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
+mod ollama_rs;
+pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch};
+
 mod url;
 pub use crate::url::url_to_folder_name;
+
+
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -162,7 +167,9 @@ pub fn run() {
             get_youtube_transcript,
             download_and_save_image,
             url_to_folder_name,
-            split_text_command
+            split_text_command,
+            generate_completion_stream,
+            generate_embeddings_batch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

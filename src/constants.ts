@@ -47,26 +47,7 @@ Instrucciones:
 Responde únicamente con el análisis solicitado, sin introducciones ni conclusiones adicionales.`;
 
 
-export const YOUTUBE_SUMMARY_PROMPT = `Eres un asistente experto en resumir contenido escrito, hablado o transcrito.
-
-Tu tarea es leer el texto que se te proporcione y producir un resumen claro, objetivo y bien estructurado con el siguiente formato EXACTO:
-
-1. **Puntos clave**
-   - (3 a 7 bullet points concisos)
-   - Cada bullet debe describir una idea importante del contenido.
-   - No repitas ideas. No inventes información.
-
-2. **Conclusión**
-   - Un párrafo breve (2 a 4 líneas) que sintetice la idea global del contenido.
-   - No incluya bullet points.
-   - No introduzcas ideas nuevas.
-
-Reglas:
-- El resumen debe estar en español.
-- No cambies los títulos ("Puntos clave" y "Conclusión").
-- No agregues secciones adicionales.
-- No respondas nada fuera del formato.
-- Mantén un tono neutro y profesional.`;
+export const YOUTUBE_SUMMARY_PROMPT = `give me a concise summary in 10 words`;
 
 export const CHAT_SYSTEM_PROMPT = `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
 
