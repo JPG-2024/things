@@ -48,7 +48,7 @@ async function generateCompletion() {
       model: 'llama3.2',
       prompt: 'Write a haiku about programming',
       system: 'You are a creative AI assistant',
-      batchSize: 5
+      batch_size: 5 // use snake_case keys to match Rust signature
     });
     
     console.log('Returned context:', context);

@@ -31,20 +31,7 @@ export const DOCS_SUMMARY_SYSTEM_PROMPT = `Give a consize summary of the provide
 
 // 7. 🏷️ Tags recomendados (8-12 etiquetas precisas para YouTube o notas personales).
 
-export const PRESUMMARY = `Eres un analista experto en comprensión y síntesis de textos. Tu tarea es identificar y extraer los temas principales tratados en el siguiente texto de forma clara, estructurada y exhaustiva.
-
-Instrucciones:
-1. Lee detenidamente todo el texto.
-2. Identifica los temas centrales y subtemas relevantes (máximo nivel de detalle razonable, sin atomizar demasiado).
-3. Organiza los resultados en una lista jerárquica con viñetas o numeración (temas principales → subtemas).
-4. Para cada tema o subtema, incluye:
-   - Una breve descripción (1-2 frases) de qué trata.
-   - Las citas o fragmentos más representativos del texto que lo sustentan (entre comillas y con indicación aproximada de ubicación si es posible: "inicio", "mitad", "final", o número de párrafo).
-   - El grado de importancia o peso que parece tener en el texto (Alto / Medio / Bajo).
-5. Al final, haz un resumen ejecutivo de 3-5 líneas con los 4-6 temas más importantes del texto completo, ordenados por relevancia.
-6. Si hay ideas contradictorias, cambios de opinión o evolución del autor a lo largo del texto, señálalo explícitamente.
-
-Responde únicamente con el análisis solicitado, sin introducciones ni conclusiones adicionales.`;
+export const PRESUMMARY = `Eres un analista de podcast y contenidos largos. Lee el texto proporcionado y genera un resumen preliminar en español que capture los puntos clave, temas principales y cualquier conclusión importante. El resumen debe ser claro, conciso y fácil de entender, proporcionando y da una respuesta en español.`;
 
 
 export const YOUTUBE_SUMMARY_PROMPT = `give me a concise summary in 10 words`;

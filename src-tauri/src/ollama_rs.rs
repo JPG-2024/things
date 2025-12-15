@@ -57,13 +57,26 @@ pub async fn generate_completion_stream(
     let mut token_batch = String::new();
     let mut token_count = 0;
     let mut final_context: Option<Vec<i32>> = None;
+    // Track last full response to avoid sending repeated text if responses are cumulative
+    let mut prev_response = String::new();
 
     while let Some(response) = stream.next().await {
         let responses = response.map_err(|e| format!("Stream error: {}", e))?;
 
         for res in responses {
-            // Accumulate tokens
-            token_batch.push_str(&res.response);
+            // Compute the delta (new text) in case res.response is cumulative
+            let res_text = res.response.clone();
+            let delta = if res_text.starts_with(&prev_response) {
+                &res_text[prev_response.len()..]
+            } else {
+                &res_text[..]
+            };
+
+            // Accumulate only the new part
+            if !delta.is_empty() {
+                token_batch.push_str(delta);
+            }
+            prev_response = res_text;
             token_count += 1;
 
             // Store context from response
@@ -115,7 +128,7 @@ pub async fn generate_embeddings_batch(
     // Generate embeddings sequentially
     for text in texts {
         let request = GenerateEmbeddingsRequest::new(model.clone(), text.into());
-        
+
         let response = ollama
             .generate_embeddings(request)
             .await

@@ -39,6 +39,8 @@ Generate text completions with streaming support.
 
 ### TypeScript Example
 
+> Tip: A TypeScript interface `GenerateCompletionStreamParams` is available in `src/lib/utils/ollama-rs/index.ts` to help type the params.
+
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -72,7 +74,7 @@ async function generateText() {
       prompt: 'Write a short poem about Rust programming',
       system: 'You are a helpful assistant.',
       context: context, // Use previous context if available
-      batchSize: 5
+      batch_size: 5
     });
     
     console.log('Final context:', returnedContext);
@@ -118,7 +120,7 @@ async function generateText() {
         prompt: 'Tell me about Rust',
         system: 'You are a Rust expert.',
         context: context,
-        batchSize: 8
+        batch_size: 8
       });
     } catch (error) {
       console.error(error);

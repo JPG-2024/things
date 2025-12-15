@@ -1,50 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event';
 import { viewState } from '@/stores/viewStore.svelte';
-import { YOUTUBE_SUMMARY_PROMPT, PRESUMMARY, TECH_SUMMARY_SYSTEM_PROMPT } from '@/constants';
+import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
-import { generate, generateStream } from './utils/ollama/generate'
 import { extractKeywords } from './utils/extractKeywords';
+import { generateStream} from '@/lib/utils/ollama-rs/index';
 
 
-async function generateCompletion(prompt: string) {
-  let fullResponse = '';
-  let unlisten: () => void;
 
-  // Listen for streaming events
-  unlisten = await listen('ollama-rs-stream', (event: any) => {
-    const payload = event.payload;
-  
-    if (payload.status === 'loading') {
-      console.log('Loading model:', payload.model);
-    } else if (payload.status === 'streaming') {
-      fullResponse += payload.tokens;
-      console.log('Chunk:', payload);
-      viewState.summary = fullResponse; // Update summary in viewState
-      
-      if (payload.done) {
-        console.log('Streaming complete!');
-        console.log('Full response:', fullResponse);
-        unlisten(); // Stop listening
-      }
-    }
-  });
-
-  try {
-    const context = await invoke<number[]>('generate_completion_stream', {
-      model: 'ministral-3:3b',
-      prompt,
-      system: 'You are a creative AI assistant',
-      batchSize: 5
-    });
-    
-    console.log('Returned context:', context);
-  } catch (error) {
-    console.error('Error:', error);
-    unlisten();
-  }
-}
 
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
@@ -115,7 +78,13 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
       }   */
 
       
-    await generateCompletion(`context: ${_transcript} \n\n give me a concise summary. 5 key points. a conclusion.`);
+    await generateStream({ 
+      model: 'ministral-3:3b', 
+      system: YOUTUBE_SUMMARY_PROMPT,
+      prompt: `context: ${_transcript} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`, 
+    }, (chunk: string) => {
+      viewState.summary = (viewState.summary || '') + chunk
+    });
     
     return {content: _transcript, summary: viewState.summary || ''} 
   } catch (invokeErr) {
