@@ -23,7 +23,7 @@ mod ollama_rs;
 pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch};
 
 mod chromadb;
-pub use crate::chromadb::store_embeddings;
+pub use crate::chromadb::{store_embeddings, similarity_search};
 
 mod url;
 pub use crate::url::url_to_folder_name;
@@ -174,6 +174,7 @@ pub fn run() {
             generate_completion_stream,
             generate_embeddings_batch,
             store_embeddings,
+            similarity_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -6,7 +6,7 @@ import { getImageSrc } from './utils/dirs';
 import { extractKeywords } from './utils/extractKeywords';
 import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
 import { splitText } from '@/lib/utils/splitter';
-import { storeEmbeddings } from '@/lib/utils/chromadb';
+import { storeEmbeddings, similaritySearch } from '@/lib/utils/chromadb';
 
 
 
@@ -14,7 +14,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
   //extract video id from youtube link
   const urlObj = new URL(videoLink)
   const videoId = urlObj.searchParams.get('v')
-  if (!videoId) {
+    if (!videoId) {
     throw new Error('Invalid YouTube URL')
   }
   let _transcript: string
@@ -56,20 +56,24 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
     console.log('Split transcript into', docs);
 
-    storeEmbeddings({
+    const res = await storeEmbeddings({
       texts: docs,
       metadata: {
         source: 'youtube_transcript',
-        video_id: videoId,
+        video_id: "129",
       },
-      articleId: "123",
-      collectionName: 'youtube_transcripts',
-    }).then((res) => {
-      console.log('Stored embeddings for YouTube transcript:', res);
-    }).catch((err) => {
-      console.error('Error storing embeddings for YouTube transcript:', err);
-    });
+      articleId: "129",
+    })
 
+      const results = await similaritySearch({
+        queryText: 'resumen, puntos clave, conclusiones',
+        nResults: 3,
+        whereMetadata: {
+          video_id: "129",
+        },
+      });
+
+      console.log('Similarity search results:', results);
       
 /*     await generateStream({ 
       model: 'ministral-3:3b', 
