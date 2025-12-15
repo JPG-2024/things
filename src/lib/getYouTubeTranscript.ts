@@ -4,9 +4,8 @@ import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
 import { extractKeywords } from './utils/extractKeywords';
-import { generateStream} from '@/lib/utils/ollama-rs/index';
-
-
+import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
+import { splitText } from '@/lib/utils/splitter';
 
 
 
@@ -33,34 +32,8 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     })
     viewState.content = _transcript
 
-
-
-    //const keywords = await extractKeywords(_transcript)
-    //console.log('Extracted Keywords:', keywords);
-
-/*      const preSummary = await generate({
-        model: 'ministral-3:3b',
-        prompt: `sigue las reglas:\n\n${_transcript}`,
-        system: PRESUMMARY,
-        options: {
-          temperature: 0.0,
-          top_k: 1,
-          top_p: 0.1,
-          repeat_penalty: 1.1,
-          repeat_last_n: 128,
-          presence_penalty: 0.0,
-          frequency_penalty: 0.0,
-          mirostat: 0,
-        }
-    });
-
-    console.log('PreSummary:', preSummary.response); */
-
-    // first summary can be long, so we stream the final summary  
-/*      for await (const chunk of generateStream({
-        model: 'gemma2:2b',
-        prompt: `context: ${_transcript} \n\n give me a concise summary in 10 words`,
-        system: YOUTUBE_SUMMARY_PROMPT,
+    
+/*  
         options: {
           "temperature": 0.7,
           "top_k": 40,
@@ -73,10 +46,20 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           "mirostat_tau": 6.0,
           "mirostat_eta": 0.1
         }
-      })) {
-        viewState.summary = (viewState.summary || '') + chunk.response
-      }   */
+    */
 
+    const docs = await splitText({
+      mode: 'podcast',
+      text: _transcript,
+    });
+
+    console.log('Split transcript into', docs);
+
+    const embeddings = await generateEmbeddingsBatch({
+      texts: docs
+    });
+
+    console.log('Generated embeddings for transcript chunks', embeddings);
       
     await generateStream({ 
       model: 'ministral-3:3b', 

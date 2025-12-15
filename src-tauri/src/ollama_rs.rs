@@ -21,9 +21,9 @@ pub async fn generate_completion_stream(
     batch_size: Option<usize>,
 ) -> Result<Vec<i32>, String> {
     let batch_size = batch_size.unwrap_or(5);
-    let url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
+    let url = ollama_url.unwrap_or_else(|| "http://localhost".to_string());
 
-    // Create Ollama client
+    // Create Ollama client - siempre usar puerto 11434
     let ollama = Ollama::new(url, 11434);
 
     // Build generation request
@@ -111,34 +111,30 @@ pub async fn generate_completion_stream(
     Ok(final_context.unwrap_or_default())
 }
 
-/// Generate embeddings for multiple texts
+/// Generate embeddings for multiple texts as a batch
 #[tauri::command]
 pub async fn generate_embeddings_batch(
     texts: Vec<String>,
     model: String,
     ollama_url: Option<String>,
 ) -> Result<Vec<Vec<f32>>, String> {
-    let url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
+    let url = ollama_url.unwrap_or_else(|| "http://localhost".to_string());
 
-    // Create Ollama client
+    // Create Ollama client - siempre usar puerto 11434
     let ollama = Ollama::new(url, 11434);
+    
 
-    let mut embeddings: Vec<Vec<f32>> = Vec::new();
+    // Create batch request with all texts
+    let request = GenerateEmbeddingsRequest::new(model.to_string(), texts.into());
 
-    // Generate embeddings sequentially
-    for text in texts {
-        let request = GenerateEmbeddingsRequest::new(model.clone(), text.into());
+    let response = ollama
+        .generate_embeddings(request)
+        .await
+        .map_err(|e| {
+            eprintln!("Failed to generate embeddings: {}", e);
+            format!("Failed to generate embeddings: {}", e)
+        })?;
 
-        let response = ollama
-            .generate_embeddings(request)
-            .await
-            .map_err(|e| format!("Failed to generate embeddings: {}", e))?;
-
-        // The response contains a Vec<Vec<f32>>, we take the first one
-        if let Some(embedding) = response.embeddings.first() {
-            embeddings.push(embedding.clone());
-        }
-    }
-
-    Ok(embeddings)
+    // Return all embeddings from the batch response
+    Ok(response.embeddings)
 }
