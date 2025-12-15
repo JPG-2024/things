@@ -6,6 +6,7 @@ import { getImageSrc } from './utils/dirs';
 import { extractKeywords } from './utils/extractKeywords';
 import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
 import { splitText } from '@/lib/utils/splitter';
+import { storeEmbeddings } from '@/lib/utils/chromadb';
 
 
 
@@ -55,20 +56,29 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
 
     console.log('Split transcript into', docs);
 
-    const embeddings = await generateEmbeddingsBatch({
-      texts: docs
+    storeEmbeddings({
+      texts: docs,
+      metadata: {
+        source: 'youtube_transcript',
+        video_id: videoId,
+      },
+      articleId: "123",
+      collectionName: 'youtube_transcripts',
+    }).then((res) => {
+      console.log('Stored embeddings for YouTube transcript:', res);
+    }).catch((err) => {
+      console.error('Error storing embeddings for YouTube transcript:', err);
     });
 
-    console.log('Generated embeddings for transcript chunks', embeddings);
       
-    await generateStream({ 
+/*     await generateStream({ 
       model: 'ministral-3:3b', 
       system: YOUTUBE_SUMMARY_PROMPT,
       prompt: `context: ${_transcript} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`, 
     }, (chunk: string) => {
       viewState.summary = (viewState.summary || '') + chunk
     });
-    
+     */
     return {content: _transcript, summary: viewState.summary || ''} 
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)

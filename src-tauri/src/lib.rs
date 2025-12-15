@@ -22,6 +22,9 @@ pub use crate::download_media::download_and_save_image;
 mod ollama_rs;
 pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch};
 
+mod chromadb;
+pub use crate::chromadb::store_embeddings;
+
 mod url;
 pub use crate::url::url_to_folder_name;
 
@@ -170,6 +173,7 @@ pub fn run() {
             split_text_command,
             generate_completion_stream,
             generate_embeddings_batch,
+            store_embeddings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
