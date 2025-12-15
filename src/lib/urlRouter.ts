@@ -3,6 +3,8 @@ import { extractBlog } from './extractBlog'
 import { viewState } from '@/stores/viewStore.svelte'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
+import { storeEmbeddings } from '@/lib/utils/chromadb'
+import { splitText } from '@/lib/utils/splitter'
 
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
@@ -81,11 +83,32 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
       // Save Article to DB
       const newArticle = await saveViewToDb()
 
+      console.log('Saved new article to DB:', newArticle)
+
       if (newArticle) {
         const mainColor = await getOrCreateMainColor(newArticle.id)
+
+        console.log('ViewState after save:', viewState.isYouTube)
+
+        const splitMode = viewState.isYouTube ? 'podcast' : 'markdown';
+        
         if (mainColor) primaryColor.set(mainColor);
         // Save in-memory for faster subsequent access during the session
         inMemoryCache.set(url, newArticle)
+
+        const docs = await splitText({
+          mode: splitMode,
+          text: newArticle.content!,
+        });
+
+        await storeEmbeddings({
+          texts: docs,
+          metadata: { category: viewState.category, articleId: String(newArticle.id) },
+          articleId: String(newArticle.id),
+          collectionName: "articles"
+        });
+
+        console.log('Stored embeddings for article ID:', newArticle.id);
       }
 
       viewState.loaded = true

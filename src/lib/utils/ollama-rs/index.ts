@@ -37,7 +37,6 @@ async function generateStream(params: GenerateCompletionStreamParams, callback?:
       }
 
       if (payload.done) {
-        debugger
         console.log('Streaming complete!');
         console.log('Full response:', fullResponse);
         unlisten(); // Stop listening

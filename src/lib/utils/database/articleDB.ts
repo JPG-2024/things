@@ -149,9 +149,10 @@ export async function saveViewToDb(): Promise<Article> {
     
     if (!article) {
       throw new Error('Failed to retrieve saved article');
+    } else {
+      return article;
     }
 
-    return article;
 
   } catch (error) {
     throw error;

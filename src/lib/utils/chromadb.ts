@@ -19,6 +19,37 @@ export interface StoreEmbeddingsParams {
 }
 
 /**
+ * Wrapper function to store embeddings in ChromaDB
+ *
+ * @param params - The parameters for storing embeddings
+ * @returns A promise that resolves to a success message
+ * @throws Error if the operation fails
+ *
+ * @example
+ * ```ts
+ * const result = await storeEmbeddings({
+ *   texts: ["Hello world", "Goodbye world"],
+ *   metadata: { source: "article", category: "tech" },
+ *   articleId: "123",
+ *   collectionName: "my_collection"
+ * });
+ * ```
+ */
+export async function storeEmbeddings(
+	params: StoreEmbeddingsParams
+): Promise<string> {
+	return invoke<string>('store_embeddings', {
+		texts: params.texts,
+		metadata: params.metadata,
+		articleId: params.articleId,
+		model: params.model,
+		ollamaUrl: params.ollamaUrl,
+		collectionName: params.collectionName || 'default_collection',
+	});
+}
+
+
+/**
  * Parameters for similarity search in ChromaDB
  */
 export interface SimilaritySearchParams {
@@ -56,35 +87,6 @@ export interface SimilaritySearchResult {
 	embeddings?: number[][][];
 }
 
-/**
- * Wrapper function to store embeddings in ChromaDB
- *
- * @param params - The parameters for storing embeddings
- * @returns A promise that resolves to a success message
- * @throws Error if the operation fails
- *
- * @example
- * ```ts
- * const result = await storeEmbeddings({
- *   texts: ["Hello world", "Goodbye world"],
- *   metadata: { source: "article", category: "tech" },
- *   articleId: "123",
- *   collectionName: "my_collection"
- * });
- * ```
- */
-export async function storeEmbeddings(
-	params: StoreEmbeddingsParams
-): Promise<string> {
-	return invoke<string>('store_embeddings', {
-		texts: params.texts,
-		metadata: params.metadata,
-		articleId: params.articleId,
-		model: params.model,
-		ollamaUrl: params.ollamaUrl,
-		collectionName: params.collectionName || 'default_collection',
-	});
-}
 
 /**
  * Wrapper function to perform similarity search in ChromaDB
@@ -111,7 +113,7 @@ export async function similaritySearch(
 		collectionName: params.collectionName || 'default_collection',
 		nResults: params.nResults || 5,
 		whereMetadata: params.whereMetadata,
-		includeDocuments: params.includeDocuments,
+		includeDocuments: params.includeDocuments || true,
 		includeEmbeddings: params.includeEmbeddings,
 		model: params.model,
 		ollamaUrl: params.ollamaUrl,

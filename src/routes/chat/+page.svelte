@@ -5,7 +5,6 @@
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import Topbar from '@/components/layout/Topbar.svelte'
   import { CHAT_SYSTEM_PROMPT } from '@/constants'
-
   import { ChatService } from '@/lib/services/chatService'
   import {
     messages,
@@ -18,9 +17,8 @@
     allMessages,
   } from '@/stores/chatStore'
 
-  import { getDocuments } from '@/lib/services/embeddings'
-
   import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
+  import { similaritySearch } from '@/lib/utils/chromadb'
 
   let chatId = $state<number | null>(null)
   let chatService: ChatService | null = $state(null)
@@ -66,10 +64,16 @@
     userInput = ''
     startStreaming()
 
-    const documents = await getDocuments({ query: prompt, topK: 10 })
-    const contentDocuments = documents.results.map((doc) => doc.text).join('\n')
+    const similarityResults = await similaritySearch({
+      queryText: prompt,
+      nResults: 5,
+      collectionName: 'articles',
+      includeDocuments: true,
+    })
 
-    console.log('Documentos recuperados para el prompt:', contentDocuments)
+    console.log('Documentos recuperados para el prompt:', similarityResults)
+
+    const documents = similarityResults.documents[0]?.join('\n\n') || ''
 
     try {
       // Agregar mensaje del usuario a la UI inmediatamente
@@ -82,10 +86,7 @@
       ])
 
       // Stream de la respuesta
-      for await (const { chunk, fullContent, done } of chatService.sendMessage(
-        prompt,
-        contentDocuments
-      )) {
+      for await (const { chunk, fullContent, done } of chatService.sendMessage(prompt, documents)) {
         setStreamingContent(fullContent)
 
         if (done) {

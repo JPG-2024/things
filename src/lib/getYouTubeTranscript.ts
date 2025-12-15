@@ -49,31 +49,6 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
         }
     */
 
-    const docs = await splitText({
-      mode: 'podcast',
-      text: _transcript,
-    });
-
-    console.log('Split transcript into', docs);
-
-    const res = await storeEmbeddings({
-      texts: docs,
-      metadata: {
-        source: 'youtube_transcript',
-        video_id: "129",
-      },
-      articleId: "129",
-    })
-
-      const results = await similaritySearch({
-        queryText: 'resumen, puntos clave, conclusiones',
-        nResults: 3,
-        whereMetadata: {
-          video_id: "129",
-        },
-      });
-
-      console.log('Similarity search results:', results);
       
 /*     await generateStream({ 
       model: 'ministral-3:3b', 

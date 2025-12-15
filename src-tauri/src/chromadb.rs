@@ -38,7 +38,7 @@ pub async fn store_embeddings(
     let mut ids = Vec::new();
     let mut metadatas = Vec::new();
     let mut documents = Vec::new();
-
+    
     // Ensure metadata is an object
     let base_metadata = metadata.as_object().ok_or("Metadata must be a JSON object")?;
 
