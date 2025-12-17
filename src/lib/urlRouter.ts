@@ -101,14 +101,16 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
           text: newArticle.content!,
         });
 
-        await storeEmbeddings({
+        console.log(docs)
+
+         await storeEmbeddings({
           texts: docs,
           metadata: { category: viewState.category, articleId: String(newArticle.id) },
           articleId: String(newArticle.id),
           collectionName: "articles"
         });
 
-        console.log('Stored embeddings for article ID:', newArticle.id);
+        console.log('Stored embeddings for article ID:', newArticle.id); 
       }
 
       viewState.loaded = true

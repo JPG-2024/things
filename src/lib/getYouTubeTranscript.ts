@@ -7,6 +7,7 @@ import { extractKeywords } from './utils/extractKeywords';
 import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
 import { splitText } from '@/lib/utils/splitter';
 import { storeEmbeddings, similaritySearch } from '@/lib/utils/chromadb';
+import { llamaCppCompletionStream } from '@/lib/utils/llama-cpp-rs';
 
 
 
@@ -48,6 +49,15 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           "mirostat_eta": 0.1
         }
     */
+         await llamaCppCompletionStream({
+          model: 'default',
+          system: YOUTUBE_SUMMARY_PROMPT,
+          prompt: `context: ${_transcript} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`,
+          temperature: 0.7,
+          max_tokens: 512,
+        }, (chunk: string) => {
+          viewState.summary = (viewState.summary || '') + chunk
+        }); 
 
       
 /*     await generateStream({ 

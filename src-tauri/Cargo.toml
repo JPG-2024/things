@@ -46,6 +46,8 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 ollama-rs = { version = "0.3.3", features = ["stream"] }
 chromadb = "2.3.0"
 tokio-stream = "0.1"
+hyper = { version = "0.14", features = ["client", "http1", "http2", "stream"] }
+futures-util = "0.3"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "cc"

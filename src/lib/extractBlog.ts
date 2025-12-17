@@ -20,7 +20,7 @@ export async function extractBlog(url: string): Promise<{content: string, summar
     }
 
 
-    for await (const chunk of generateStream({
+/*     for await (const chunk of generateStream({
         model: 'ministral-3:3b',
         prompt: `Resume este texto:\n\n${compactedMarkdown}`,
         system: DOCS_SUMMARY_SYSTEM_PROMPT,
@@ -36,7 +36,7 @@ export async function extractBlog(url: string): Promise<{content: string, summar
         }
       })) {
         viewState.summary = (viewState.summary || '') + chunk.response
-      }
+      } */
   
     return {content: compactedMarkdown, summary: viewState.summary || ''}
   } catch (err) {

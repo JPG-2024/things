@@ -25,6 +25,9 @@ pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch
 mod chromadb;
 pub use crate::chromadb::{store_embeddings, similarity_search};
 
+mod llama_cpp;
+pub use crate::llama_cpp::{llama_cpp_completion_stream, llama_cpp_embeddings, llama_cpp_health_check};
+
 mod url;
 pub use crate::url::url_to_folder_name;
 
@@ -175,6 +178,9 @@ pub fn run() {
             generate_embeddings_batch,
             store_embeddings,
             similarity_search,
+            llama_cpp_completion_stream,
+            llama_cpp_embeddings,
+            llama_cpp_health_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

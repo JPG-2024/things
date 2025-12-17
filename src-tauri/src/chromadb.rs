@@ -15,10 +15,9 @@ pub async fn store_embeddings(
     let model = model.unwrap_or_else(|| "nomic-embed-text".to_string());
 
     // 1. Generate Embeddings
-    let embeddings = crate::ollama_rs::generate_embeddings_batch(
-        texts.clone(),
+    let embeddings = crate::llama_cpp::llama_cpp_embeddings(
         model,
-        ollama_url,
+        texts.clone(),
     )
     .await?;
 
