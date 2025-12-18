@@ -91,11 +91,11 @@
   </Topbar>
 
   <div class="header-container">
-    {#if !viewState.embeddings}
+    <!--     {#if !viewState.embeddings}
       <button onclick={handleSaveEmbeddings} disabled={isSavingEmbeddings}>
         {isSavingEmbeddings ? 'Saving...' : 'Save Embeddings'}
       </button>
-    {/if}
+    {/if} -->
 
     <div class="url-link">
       {viewState.url}
@@ -129,9 +129,19 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    padding: 1rem;
+    padding: 1.5rem;
     box-sizing: border-box;
     padding-top: 80px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .header-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
   }
 
   .title {

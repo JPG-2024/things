@@ -115,7 +115,7 @@
     background-color: #000000;
     overflow-y: auto;
     height: 100vh;
-    padding: 1rem;
+    padding: 1.2rem;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
   }

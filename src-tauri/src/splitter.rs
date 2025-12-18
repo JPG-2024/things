@@ -49,7 +49,7 @@ pub fn split_text(
 
 /// Split markdown while preserving structure (headings, blocks, code fences)
 fn split_markdown(text: &str, capacity: usize, overlap: usize) -> Result<Vec<String>, String> {
-    let config = ChunkConfig::new(capacity)
+    let config = ChunkConfig::new(500..1500)
         .with_overlap(overlap)
         .map_err(|e| format!("Invalid chunk config: {}", e))?;
 
@@ -58,6 +58,8 @@ fn split_markdown(text: &str, capacity: usize, overlap: usize) -> Result<Vec<Str
         .chunks(text)
         .map(|s| s.to_string())
         .collect();
+
+    println!("{}", chunks.join("\n________________________________________________\n"));
 
     Ok(chunks)
 }
@@ -74,6 +76,8 @@ fn split_podcast(text: &str, capacity: usize, overlap: usize) -> Result<Vec<Stri
         .chunks(text)
         .map(|s| s.to_string())
         .collect();
+
+    println!("{}", chunks.join("\n\n"));
 
     Ok(chunks)
 }

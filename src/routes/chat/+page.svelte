@@ -21,6 +21,7 @@
   import { similaritySearch } from '@/lib/utils/chromadb'
 
   let chatId = $state<number | null>(null)
+  let articleId = $state<number | null>(null)
   let chatService: ChatService | null = $state(null)
   let userInput = $state('')
 
@@ -33,6 +34,7 @@
     } else {
       // Si no hay chatId, crear uno nuevo
       const articleIdParam = Number(urlParams.get('articleId'))
+      articleId = articleIdParam || null
       const newChatData = await newChat({ articleId: articleIdParam })
       chatId = Number(newChatData.lastInsertId)
     }
@@ -66,7 +68,8 @@
 
     const similarityResults = await similaritySearch({
       queryText: prompt,
-      nResults: 5,
+      nResults: 20,
+      whereMetadata: { articleId: String(articleId) },
       collectionName: 'articles',
       includeDocuments: true,
     })
@@ -148,7 +151,7 @@
     position: relative;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 100px 10px;
+    padding: 100px 1.5rem;
     width: 100%;
     height: 100%;
   }

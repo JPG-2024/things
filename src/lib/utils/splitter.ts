@@ -22,8 +22,8 @@ export async function splitText(params: SplitTextParams): Promise<string[]> {
     const result = await invoke<string[]>("split_text_command", {
       mode: params.mode,
       text: params.text,
-      capacityChars: params.capacityChars || 1536,
-      overlapChars: params.overlapChars || 256,
+      capacityChars: params.capacityChars || 512,
+      overlapChars: params.overlapChars || 64,
     });
     return result;
   } catch (error) {

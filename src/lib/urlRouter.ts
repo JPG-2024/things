@@ -96,6 +96,8 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
         // Save in-memory for faster subsequent access during the session
         inMemoryCache.set(url, newArticle)
 
+        console.log('split mode:', splitMode)
+
         const docs = await splitText({
           mode: splitMode,
           text: newArticle.content!,

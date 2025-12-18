@@ -39,6 +39,7 @@
     left: 0;
     z-index: 10;
     box-sizing: border-box;
+    padding: 0 1rem;
   }
 
   .back-navigation {

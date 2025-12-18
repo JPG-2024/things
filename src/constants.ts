@@ -34,7 +34,7 @@ export const DOCS_SUMMARY_SYSTEM_PROMPT = `Give a consize summary of the provide
 export const PRESUMMARY = `Eres un analista de podcast y contenidos largos. Lee el texto proporcionado y genera un resumen preliminar en español que capture los puntos clave, temas principales y cualquier conclusión importante. El resumen debe ser claro, conciso y fácil de entender, proporcionando y da una respuesta en español.`;
 
 
-export const YOUTUBE_SUMMARY_PROMPT = `give me a concise summary in 10 words`;
+export const YOUTUBE_SUMMARY_PROMPT = `folow user rules strictly.`;
 
 export const CHAT_SYSTEM_PROMPT = `You are a specialized assistant designed to answer questions **only** based on the following provided text. Do not use any prior knowledge, assumptions, or external information.
 

@@ -3,6 +3,8 @@ import { viewState } from '@/stores/viewStore.svelte'
 import { BLOG_SUMMARY_SYSTEM_PROMPT, DOCS_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 import { getImageSrc } from './utils/dirs';
 import { generate, generateStream } from './utils/ollama/generate'
+import { llamaCppCompletionStream } from '@/lib/utils/llama-cpp-rs';
+
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
@@ -20,23 +22,17 @@ export async function extractBlog(url: string): Promise<{content: string, summar
     }
 
 
-/*     for await (const chunk of generateStream({
-        model: 'ministral-3:3b',
-        prompt: `Resume este texto:\n\n${compactedMarkdown}`,
-        system: DOCS_SUMMARY_SYSTEM_PROMPT,
-        options: {
-          temperature: 0.0,
-          top_k: 1,
-          top_p: 0.1,
-          repeat_penalty: 1.1,
-          repeat_last_n: 128,
-          presence_penalty: 0.0,
-          frequency_penalty: 0.0,
-          mirostat: 0,
-        }
-      })) {
-        viewState.summary = (viewState.summary || '') + chunk.response
-      } */
+    llamaCppCompletionStream({
+      model: 'default',
+      system: BLOG_SUMMARY_SYSTEM_PROMPT,
+      prompt: `context: ${compactedMarkdown} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`,
+      temperature: 0.7,
+      max_tokens: 512,
+    }, (chunk: string) => {
+      viewState.summary = (viewState.summary || '') + chunk
+    });
+
+
   
     return {content: compactedMarkdown, summary: viewState.summary || ''}
   } catch (err) {
