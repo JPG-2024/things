@@ -9,7 +9,6 @@ pub async fn store_embeddings(
     metadata: Value,
     article_id: String,
     model: Option<String>,
-    ollama_url: Option<String>,
     collection_name: String,
 ) -> Result<String, String> {
     let model = model.unwrap_or_else(|| "nomic-embed-text".to_string());

@@ -3,7 +3,7 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
-import { extractKeywords } from './utils/extractKeywords';
+
 import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
 import { splitText } from '@/lib/utils/splitter';
 import { storeEmbeddings, similaritySearch } from '@/lib/utils/chromadb';

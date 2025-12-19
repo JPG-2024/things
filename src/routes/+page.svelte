@@ -62,17 +62,5 @@
     width: 100%;
   }
 
-  .square {
-    position: relative;
-    align-items: center;
-    border-radius: 20%;
-    background: rgb(154, 154, 154, 0.1);
-    padding: 30px;
-    width: 204px;
-    height: 204px;
-    color: white;
-    font-weight: bold;
-  }
-
   /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
 </style>

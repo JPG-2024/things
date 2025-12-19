@@ -48,7 +48,10 @@ pub fn split_text(
 }
 
 /// Split markdown while preserving structure (headings, blocks, code fences)
-fn split_markdown(text: &str, capacity: usize, overlap: usize) -> Result<Vec<String>, String> {
+fn split_markdown(text: &str, _capacity: usize, overlap: usize) -> Result<Vec<String>, String> {
+    // For markdown we keep a reasonable default range rather than a fixed capacity.
+    // The `_capacity` argument is unused intentionally but kept in the API for
+    // compatibility with other splitters.
     let config = ChunkConfig::new(500..1500)
         .with_overlap(overlap)
         .map_err(|e| format!("Invalid chunk config: {}", e))?;
