@@ -3,7 +3,7 @@ import { extractBlog } from './extractBlog'
 import { viewState } from '@/stores/viewStore.svelte'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
-import { storeEmbeddings } from '@/lib/utils/chromadb'
+import { saveDocumentsToLeann } from '@/lib/utils/leann'
 import { splitText } from '@/lib/utils/splitter'
 
 
@@ -105,14 +105,25 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
         console.log(docs)
 
-         await storeEmbeddings({
-          texts: docs,
-          metadata: { category: viewState.category, articleId: String(newArticle.id) },
-          articleId: String(newArticle.id),
-          collectionName: "articles"
-        });
+        // Save documents to Leann with metadata
+        const documents = docs.map(text => ({
+          text,
+          metadata: { 
+            source: viewState.isYouTube ? 'youtube' : 'article',
+            category: viewState.category, 
+            articleId: String(newArticle.id),
+            url: url,
+            title: viewState.title || ''
+          }
+        }));
 
-        console.log('Stored embeddings for article ID:', newArticle.id); 
+        try {
+          await saveDocumentsToLeann(documents);
+          console.log('Stored embeddings for article ID:', newArticle.id);
+        } catch (embedError) {
+          console.error('Failed to store embeddings:', embedError);
+          // Continue even if embedding fails - don't block article save
+        } 
       }
 
       viewState.loaded = true

@@ -6,7 +6,6 @@ import { getImageSrc } from './utils/dirs';
 
 import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
 import { splitText } from '@/lib/utils/splitter';
-import { storeEmbeddings, similaritySearch } from '@/lib/utils/chromadb';
 import { llamaCppCompletionStream } from '@/lib/utils/llama-cpp-rs';
 
 

@@ -22,9 +22,6 @@ pub use crate::download_media::download_and_save_image;
 mod ollama_rs;
 pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch};
 
-mod chromadb;
-pub use crate::chromadb::{store_embeddings, similarity_search};
-
 mod llama_cpp;
 pub use crate::llama_cpp::{llama_cpp_completion_stream, llama_cpp_embeddings, llama_cpp_health_check};
 
@@ -176,8 +173,6 @@ pub fn run() {
             split_text_command,
             generate_completion_stream,
             generate_embeddings_batch,
-            store_embeddings,
-            similarity_search,
             llama_cpp_completion_stream,
             llama_cpp_embeddings,
             llama_cpp_health_check,

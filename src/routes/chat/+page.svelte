@@ -18,7 +18,7 @@
   } from '@/stores/chatStore'
 
   import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
-  import { similaritySearch } from '@/lib/utils/chromadb'
+  import { searchDocumentsInLeann } from '@/lib/utils/leann'
 
   let chatId = $state<number | null>(null)
   let articleId = $state<number | null>(null)
@@ -66,17 +66,15 @@
     userInput = ''
     startStreaming()
 
-    const similarityResults = await similaritySearch({
-      queryText: prompt,
-      nResults: 20,
-      whereMetadata: { articleId: String(articleId) },
-      collectionName: 'articles',
-      includeDocuments: true,
+    const searchResults = await searchDocumentsInLeann({
+      query: prompt,
+      top_k: 10,
+      metadata_filters: { articleId: { '==': String(articleId) } },
     })
 
-    console.log('Documentos recuperados para el prompt:', similarityResults)
+    const documents = searchResults.map((r) => r.text).join('\n\n')
 
-    const documents = similarityResults.documents[0]?.join('\n\n') || ''
+    console.log('Documentos combinados:', documents)
 
     try {
       // Agregar mensaje del usuario a la UI inmediatamente

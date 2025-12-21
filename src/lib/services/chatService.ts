@@ -15,7 +15,7 @@ import { getArticleById } from '../utils/database/articleDB';
 
 // Configuración del modelo
 const DEFAULT_MODEL = 'ministral-3:3b';
-const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080';
 
 export class ChatService {
   private conversationManager: ConversationManager;

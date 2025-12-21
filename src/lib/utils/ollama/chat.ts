@@ -60,7 +60,7 @@ export interface ChatMessage {
 	/** Role of the message sender */
 	role: MessageRole | 'tool';
 	/** Message content text */
-	content: string;
+	content: string | null;
 	/** Tool calls made by the assistant */
 	tool_calls?: ToolCall[];
 	/** Tool call ID (for tool messages) */
@@ -75,6 +75,7 @@ export interface ChatMessage {
 export interface ChatOptions {
 	/** Number of tokens to predict (-1 for infinite, -2 for fill context) */
 	num_predict?: number;
+	max_tokens?: number;
 	/** Top-k sampling parameter */
 	top_k?: number;
 	/** Top-p sampling parameter */
@@ -138,6 +139,7 @@ export interface ChatRequest {
 	tools?: Tool[];
 	/** Response format ('json' for JSON mode) */
 	format?: string | { type: 'json' };
+	response_format?: { type: 'json_object' };
 	/** Enable streaming responses (default: true) */
 	stream?: boolean;
 	/** Enable extended thinking/reasoning mode */
@@ -150,24 +152,44 @@ export interface ChatRequest {
 	logprobs?: boolean;
 	/** Number of top log probabilities to return per token */
 	top_logprobs?: number;
+	max_tokens?: number;
+	presence_penalty?: number;
+	frequency_penalty?: number;
+	seed?: number;
+	stop?: string[];
+	temperature?: number;
+	top_p?: number;
 }
 
 /**
  * Response from the chat API (non-streaming)
  */
 export interface ChatResponse {
+	id: string;
+	object: string;
 	/** Model name used */
 	model: string;
 	/** Timestamp of creation */
-	created_at: string;
+	created: number;
 	/** Message from the assistant */
 	message: ChatMessage;
+	choices: {
+		index: number;
+		message: ChatMessage;
+		finish_reason: string;
+		logprobs: { content: TokenLogProbs[] | null } | null;
+	}[];
 	/** Extended thinking/reasoning (if think mode enabled) */
 	thinking?: string;
 	/** Whether generation is complete */
 	done: boolean;
 	/** Reason for completion (e.g., "stop", "length", "tool_calls") */
 	done_reason?: string;
+	usage?: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
 	/** Total generation time in nanoseconds */
 	total_duration?: number;
 	/** Model load time in nanoseconds */
@@ -187,9 +209,29 @@ export interface ChatResponse {
 /**
  * Streaming chunk from the chat API
  */
-export interface ChatStreamChunk extends ChatResponse {
+export interface ChatStreamChunk {
+	id: string;
+	object: string;
+	created: number;
+	model: string;
+	choices: {
+		index: number;
+		delta: Partial<ChatMessage>;
+		finish_reason: string | null;
+		logprobs?: { content: TokenLogProbs[] | null } | null;
+	}[];
 	/** Whether this is the final chunk */
 	done: boolean;
+	// Fields from old ChatResponse that might appear in a stream
+	message: ChatMessage;
+	done_reason?: string;
+	total_duration?: number;
+	load_duration?: number;
+	prompt_eval_count?: number;
+	prompt_eval_duration?: number;
+	eval_count?: number;
+	eval_duration?: number;
+	thinking?: string;
 }
 
 // ============================================================================
@@ -216,15 +258,35 @@ export interface ChatStreamChunk extends ChatResponse {
  */
 export async function chat(
 	request: ChatRequest,
-	baseUrl: string = 'http://localhost:11434'
+	baseUrl: string = 'http://localhost:8080'
 ): Promise<ChatResponse> {
-	const url = `${baseUrl}/api/chat`;
+	const url = `${baseUrl}/v1/chat/completions`;
 
 	// Force streaming off for non-streaming function
-	const body: ChatRequest = {
+	const body: Partial<ChatRequest> & { stream: false } = {
 		...request,
 		stream: false
 	};
+
+	if (body.options?.num_predict) {
+		body.max_tokens = body.options.num_predict;
+	}
+	if (body.options) {
+		if (body.options.temperature) body.temperature = body.options.temperature;
+		if (body.options.top_p) body.top_p = body.options.top_p;
+		if (body.options.stop) body.stop = body.options.stop;
+		if (body.options.seed) body.seed = body.options.seed;
+		if (body.options.presence_penalty) body.presence_penalty = body.options.presence_penalty;
+		if (body.options.frequency_penalty) body.frequency_penalty = body.options.frequency_penalty;
+	}
+	if (body.format === 'json') {
+		body.response_format = { type: 'json_object' };
+	}
+
+	delete body.options;
+	delete body.keep_alive;
+	delete body.format;
+	delete body.think;
 
 	try {
 		const response = await fetch(url, {
@@ -237,13 +299,25 @@ export async function chat(
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			throw new Error(
-				`Ollama Chat API error (${response.status}): ${errorText}`
-			);
+			throw new Error(`Ollama Chat API error (${response.status}): ${errorText}`);
 		}
 
-		const data: ChatResponse = await response.json();
-		return data;
+		const data = await response.json();
+
+		// Adapt OpenAI response to original ChatResponse structure for compatibility
+		const choice = data.choices[0];
+		const adaptedResponse: ChatResponse = {
+			...data,
+			message: choice.message,
+			done: true,
+			done_reason: choice.finish_reason,
+			created_at: new Date(data.created * 1000).toISOString(),
+			eval_count: data.usage?.completion_tokens,
+			prompt_eval_count: data.usage?.prompt_tokens,
+			logprobs: choice.logprobs?.content ?? undefined
+		};
+
+		return adaptedResponse;
 	} catch (error) {
 		if (error instanceof Error) {
 			throw new Error(`Failed to send chat message: ${error.message}`);
@@ -276,15 +350,35 @@ export async function chat(
  */
 export async function* chatStream(
 	request: ChatRequest,
-	baseUrl: string = 'http://localhost:11434'
+	baseUrl: string = 'http://localhost:8080'
 ): AsyncGenerator<ChatStreamChunk, void, unknown> {
-	const url = `${baseUrl}/api/chat`;
+	const url = `${baseUrl}/v1/chat/completions`;
 
 	// Force streaming on for streaming function
-	const body: ChatRequest = {
+	const body: Partial<ChatRequest> & { stream: true } = {
 		...request,
 		stream: true
 	};
+
+	if (body.options?.num_predict) {
+		body.max_tokens = body.options.num_predict;
+	}
+	if (body.options) {
+		if (body.options.temperature) body.temperature = body.options.temperature;
+		if (body.options.top_p) body.top_p = body.options.top_p;
+		if (body.options.stop) body.stop = body.options.stop;
+		if (body.options.seed) body.seed = body.options.seed;
+		if (body.options.presence_penalty) body.presence_penalty = body.options.presence_penalty;
+		if (body.options.frequency_penalty) body.frequency_penalty = body.options.frequency_penalty;
+	}
+	if (body.format === 'json') {
+		body.response_format = { type: 'json_object' };
+	}
+
+	delete body.options;
+	delete body.keep_alive;
+	delete body.format;
+	delete body.think;
 
 	try {
 		const response = await fetch(url, {
@@ -297,9 +391,7 @@ export async function* chatStream(
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			throw new Error(
-				`Ollama Chat API error (${response.status}): ${errorText}`
-			);
+			throw new Error(`Ollama Chat API error (${response.status}): ${errorText}`);
 		}
 
 		if (!response.body) {
@@ -318,35 +410,56 @@ export async function* chatStream(
 			// Decode the chunk and add to buffer
 			buffer += decoder.decode(value, { stream: true });
 
-			// Process complete lines (NDJSON format)
+			// Process complete lines (NDJSON format with "data: " prefix)
 			const lines = buffer.split('\n');
 			buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
 			for (const line of lines) {
-				if (line.trim()) {
+				if (line.trim().startsWith('data: ')) {
+					const jsonStr = line.trim().substring('data: '.length);
+					if (jsonStr === '[DONE]') {
+						return;
+					}
 					try {
-						const chunk: ChatStreamChunk = JSON.parse(line);
-						yield chunk;
+						const chunk = JSON.parse(jsonStr);
+
+						// Adapt OpenAI stream chunk to original ChatStreamChunk structure
+						const delta = chunk.choices[0]?.delta ?? {};
+						const finish_reason = chunk.choices[0]?.finish_reason;
+
+						const adaptedChunk: ChatStreamChunk = {
+							...chunk,
+							message: {
+								role: delta.role || 'assistant',
+								content: delta.content || '',
+								tool_calls: delta.tool_calls
+							},
+							done: !!finish_reason,
+							done_reason: finish_reason
+						};
+
+						yield adaptedChunk;
 
 						// Exit if generation is complete
-						if (chunk.done) {
+						if (adaptedChunk.done) {
+							// The final chunk in llama-cpp-python server might contain usage stats
+							// We can yield one last time if there's usage info.
+							if (chunk.usage) {
+								const finalChunk: ChatStreamChunk = {
+									...adaptedChunk,
+									done: true,
+									prompt_eval_count: chunk.usage.prompt_tokens,
+									eval_count: chunk.usage.completion_tokens
+								};
+								yield finalChunk;
+							}
 							return;
 						}
 					} catch (parseError) {
-						console.error('Failed to parse chat chunk:', parseError);
+						console.error('Failed to parse chat chunk:', parseError, 'line:', line);
 						// Continue processing other lines
 					}
 				}
-			}
-		}
-
-		// Process any remaining data in buffer
-		if (buffer.trim()) {
-			try {
-				const chunk: ChatStreamChunk = JSON.parse(buffer);
-				yield chunk;
-			} catch (parseError) {
-				console.error('Failed to parse final chat chunk:', parseError);
 			}
 		}
 	} catch (error) {
@@ -381,17 +494,40 @@ export async function chatStreamComplete(
 	baseUrl: string = 'http://localhost:11434'
 ): Promise<ChatResponse> {
 	let fullContent = '';
-	let fullThinking = '';
 	let toolCalls: ToolCall[] = [];
 	let lastChunk: ChatStreamChunk | null = null;
+	let finalRole: MessageRole = 'assistant';
 
 	for await (const chunk of chatStream(request, baseUrl)) {
-		fullContent += chunk.message.content;
-		if (chunk.message.tool_calls) {
-			toolCalls = [...toolCalls, ...chunk.message.tool_calls];
+		if (chunk.choices[0]?.delta?.content) {
+			fullContent += chunk.choices[0].delta.content;
 		}
-		if (chunk.thinking) {
-			fullThinking += chunk.thinking;
+		if (chunk.choices[0]?.delta?.tool_calls) {
+			// This part is tricky as tool calls can be streamed token by token.
+			// A robust implementation would piece them together.
+			// This is a simplified version that assumes they come in one chunk or can be concatenated.
+			for (const toolCall of chunk.choices[0].delta.tool_calls) {
+				const existing = toolCalls.find((tc) => tc.id === toolCall.id);
+				if (existing) {
+					if (toolCall.function?.arguments) {
+						existing.function.arguments =
+							(existing.function.arguments || '') + toolCall.function.arguments;
+					}
+				} else if (toolCall.id && toolCall.function) {
+					toolCalls.push({
+						id: toolCall.id,
+						function: {
+							name: toolCall.function.name || '',
+							arguments: toolCall.function.arguments || ''
+						},
+						// type is not in delta, but is required for ToolCall
+						type: 'function'
+					} as ToolCall);
+				}
+			}
+		}
+		if (chunk.choices[0]?.delta?.role) {
+			finalRole = chunk.choices[0].delta.role as MessageRole;
 		}
 		lastChunk = chunk;
 	}
@@ -400,16 +536,47 @@ export async function chatStreamComplete(
 		throw new Error('No chunks received from streaming chat response');
 	}
 
-	// Return the last chunk with the full accumulated content
-	return {
-		...lastChunk,
+	// Reconstruct the final response from the last chunk and accumulated data
+	const finalResponse: ChatResponse = {
+		id: lastChunk.id,
+		object: lastChunk.object,
+		created: lastChunk.created,
+		model: lastChunk.model,
+		choices: [
+			{
+				index: 0,
+				message: {
+					role: finalRole,
+					content: fullContent,
+					tool_calls: toolCalls.length > 0 ? toolCalls : undefined
+				},
+				finish_reason: lastChunk.choices[0]?.finish_reason || 'stop',
+				logprobs: null
+			}
+		],
+		usage: {
+			prompt_tokens: lastChunk.prompt_eval_count || 0,
+			completion_tokens: lastChunk.eval_count || 0,
+			total_tokens: (lastChunk.prompt_eval_count || 0) + (lastChunk.eval_count || 0)
+		},
+		// For backward compatibility with existing code that uses the old structure
 		message: {
-			...lastChunk.message,
+			role: finalRole,
 			content: fullContent,
 			tool_calls: toolCalls.length > 0 ? toolCalls : undefined
 		},
-		thinking: fullThinking || undefined
+		done: true,
+		done_reason: lastChunk.choices[0]?.finish_reason || 'stop',
+		created_at: new Date(lastChunk.created * 1000).toISOString(),
+		eval_count: lastChunk.eval_count,
+		prompt_eval_count: lastChunk.prompt_eval_count,
+		total_duration: lastChunk.total_duration,
+		load_duration: lastChunk.load_duration,
+		prompt_eval_duration: lastChunk.prompt_eval_duration,
+		eval_duration: lastChunk.eval_duration
 	};
+
+	return finalResponse;
 }
 
 // ============================================================================
@@ -436,7 +603,7 @@ export class ConversationManager {
 	 */
 	constructor(
 		model: string,
-		baseUrl: string = 'http://localhost:11434',
+		baseUrl: string = 'http://localhost:8080',
 		tools?: Tool[],
 		options?: ChatOptions
 	) {
