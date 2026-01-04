@@ -22,6 +22,8 @@ class ViewState {
   category = $state<string | null>(null);
   content = $state<string>("");
   summary = $state<string | null>(null);
+  block1 = $state<string>("");
+  block2 = $state<string>("");
   embeddings = $state<boolean>(false);
   ytTranscript = $state<string | null>(null);
   messages = $state<Message[]>([]);
@@ -83,6 +85,10 @@ class ViewState {
     this.content = '';
     this.articleId = null;
     this.summary = '';
+    this.block1 = '';
+    this.block2 = '';
+    this.ytTranscript = null;
+    this.messages = [];
     this.mainImage = '';
     this.mainImageSrc = '';
     this.mediaDirectory = null;

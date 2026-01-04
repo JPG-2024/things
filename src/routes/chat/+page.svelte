@@ -5,12 +5,10 @@
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import Topbar from '@/components/layout/Topbar.svelte'
   import { CHAT_SYSTEM_PROMPT } from '@/constants'
-  import { ChatService } from '@/lib/services/chatService'
+  import { createStreamingChat } from '@/lib/utils/ollama/chat'
   import {
     messages,
     isStreaming,
-    invalidateChats,
-    setMessages,
     setStreamingContent,
     startStreaming,
     stopStreaming,
@@ -18,11 +16,11 @@
   } from '@/stores/chatStore'
 
   import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
+  import { getArticleById } from '@/lib/utils/database/articleDB'
   import { searchDocumentsInLeann } from '@/lib/utils/leann'
 
   let chatId = $state<number | null>(null)
   let articleId = $state<number | null>(null)
-  let chatService: ChatService | null = $state(null)
   let userInput = $state('')
 
   onMount(async () => {
@@ -38,61 +36,83 @@
       const newChatData = await newChat({ articleId: articleIdParam })
       chatId = Number(newChatData.lastInsertId)
     }
-
-    // Inicializar el servicio de chat
-    if (chatId) {
-      chatService = new ChatService(chatId, CHAT_SYSTEM_PROMPT, Number(urlParams.get('articleId')))
-      const history = await chatService.initialize()
-      setMessages(history)
-    }
   })
 
   onDestroy(async () => {
-    if (!chatService || !chatId || $messages.length === 0) return
+    if (!chatId || $messages.length === 0) return
 
     // Si no hay mensajes, eliminar el chat
-    if (chatService.getMessageCount() === 0) {
+    if ($messages.length === 0) {
       await deleteChatById(chatId)
     } else {
       // Actualizar el nombre del chat con el primer mensaje
       await updateChatName(chatId, $messages[0].content.slice(0, 50) || 'New Chat')
     }
-    invalidateChats()
+
+    // Clear messages on page unload
+    messages.set([])
   })
 
+  function filterContextFromContent(content: string): string {
+    // Remove everything starting from "---" (context separator)
+    const parts = content.split('---')
+    return parts[0].trim()
+  }
+
   async function handlePrompt(prompt: string) {
-    if (!chatService || !prompt.trim()) return
+    if (!prompt.trim()) return
 
     userInput = ''
     startStreaming()
 
-    const searchResults = await searchDocumentsInLeann({
-      query: prompt,
-      top_k: 10,
-      metadata_filters: { articleId: { '==': String(articleId) } },
-    })
-
-    const documents = searchResults.map((r) => r.text).join('\n\n')
-
-    console.log('Documentos combinados:', documents)
-
     try {
-      // Agregar mensaje del usuario a la UI inmediatamente
-      messages.update((msgs) => [
-        ...msgs,
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ])
+      // Fetch article content as context if available
+      let contextContent = ''
+      if (articleId) {
+        const article = await getArticleById(articleId)
+        if (article?.content) {
+          contextContent = `\n\n---\nContext:\n${article.content} \n---\n`
+        }
+      }
+
+      // Combine prompt with context and system prompt for the API call
+      const promptWithContext = prompt + contextContent
+
+      // Add user message to store
+      messages.update((msgs) => [...msgs, { role: 'user', content: prompt }])
 
       // Stream de la respuesta
-      for await (const { chunk, fullContent, done } of chatService.sendMessage(prompt, documents)) {
+      let fullContent = ''
+      for await (const chunk of createStreamingChat({
+        model: 'LiquidAI/LFM2-2.6B-Exp',
+        messages: [
+          {
+            role: 'system',
+            content: CHAT_SYSTEM_PROMPT,
+          },
+          { role: 'user', content: promptWithContext },
+        ],
+        options: {
+          temperature: 0.1,
+          min_p: 0.1,
+          repeat_penalty: 1.2,
+          max_tokens: 500,
+        },
+      })) {
+        if (chunk.choices[0]?.delta?.content) {
+          fullContent += chunk.choices[0].delta.content
+        }
         setStreamingContent(fullContent)
 
-        if (done) {
-          // Agregar respuesta final a mensajes
-          messages.update((msgs) => [...msgs, { role: 'assistant', content: fullContent }])
+        if (chunk.done) {
+          // Add assistant response to messages
+          messages.update((msgs) => [
+            ...msgs,
+            {
+              role: 'assistant',
+              content: fullContent,
+            },
+          ])
           stopStreaming()
         }
       }
@@ -120,12 +140,10 @@
   </Topbar>
 
   <div class="messages">
-    {#each $allMessages as msg}
+    {#each $messages.filter((msg) => msg.role !== 'system') as msg}
       <div class="message {msg.role}">
         {#if msg.role === 'user'}
-          <span class="user">{msg.content}</span>
-        {:else if msg.role === 'system'}
-          <span class="system">ℹ️ {msg.content}</span>
+          <span class="user">{filterContextFromContent(msg.content)}</span>
         {:else}
           <MarkdownRenderer content={msg.content} />
         {/if}

@@ -3,6 +3,7 @@
   import { viewState } from '@/stores/viewStore.svelte'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import { page } from '$app/state'
+  import { blur } from 'svelte/transition'
 
   const articleUrl = page.params.url
 
@@ -52,6 +53,17 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
+  {#if viewState.block1 !== ''}
+    <div class="block1" transition:blur={{ duration: 200 }}>
+      <MarkdownRenderer content={viewState.block1} />
+    </div>
+  {/if}
+  {#if viewState.block2 !== ''}
+    <div class="block1" transition:blur={{ duration: 200 }}>
+      <MarkdownRenderer content={viewState.block2} />
+    </div>
+  {/if}
+
   <MarkdownRenderer content={viewState.summary} />
 {/snippet}
 
@@ -59,6 +71,11 @@
   .yt-video {
     /* box-shadow: 0 0px 10px var(--primary-color); */
     min-height: 350px;
+  }
+
+  .block1 {
+    color: var(--primary-color);
+    min-height: 50px;
   }
 
   /* Wrapper with 16:9 aspect ratio for responsive player */
@@ -80,12 +97,12 @@
 
   .yt-wrapper img {
     position: absolute;
-    top: 30%;
+    top: 0%;
     left: 0;
     right: auto;
     border: 0;
     width: 110%;
-    height: 70%;
+    height: 100%;
     object-fit: cover;
   }
 

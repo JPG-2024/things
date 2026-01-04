@@ -1,6 +1,6 @@
 /**
  * Chat Service
- * Manages chat conversations using Ollama Chat API with database persistence
+ * Manages chat conversations using OpenAI SDK with database persistence
  */
 
 import { ConversationManager } from '@/lib/utils/ollama/chat';
@@ -13,9 +13,11 @@ import {
 import type { DBChatMessage, ChatMessageUI } from '@/types/chat.types';
 import { getArticleById } from '../utils/database/articleDB';
 
-// Configuración del modelo
+// Configuration - uses environment variables or defaults
 const DEFAULT_MODEL = 'ministral-3:3b';
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8080';
+const DEFAULT_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env?.OPENAI_BASE_URL
+  ? import.meta.env.OPENAI_BASE_URL
+  : 'http://127.0.0.1:8080/v1';
 
 export class ChatService {
   private conversationManager: ConversationManager;

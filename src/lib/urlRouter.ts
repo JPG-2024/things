@@ -90,40 +90,43 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
         console.log('ViewState after save:', viewState.isYouTube)
 
-        const splitMode = viewState.isYouTube ? 'podcast' : 'markdown';
-        
         if (mainColor) primaryColor.set(mainColor);
         // Save in-memory for faster subsequent access during the session
         inMemoryCache.set(url, newArticle)
 
-        console.log('split mode:', splitMode)
 
-        const docs = await splitText({
-          mode: splitMode,
-          text: newArticle.content!,
-        });
 
-        console.log(docs)
+/*         try {
+          const splitMode = viewState.isYouTube ? 'podcast' : 'markdown';
 
-        // Save documents to Leann with metadata
-        const documents = docs.map(text => ({
-          text,
-          metadata: { 
-            source: viewState.isYouTube ? 'youtube' : 'article',
-            category: viewState.category, 
-            articleId: String(newArticle.id),
-            url: url,
-            title: viewState.title || ''
-          }
-        }));
+          console.log('split mode:', splitMode)
 
-        try {
+          const docs = await splitText({
+            mode: splitMode,
+            text: newArticle.content!,
+          });
+
+          console.log(docs)
+
+          // Save documents to Leann with metadata
+          const documents = docs.map(text => ({
+            text,
+            metadata: { 
+              source: viewState.isYouTube ? 'youtube' : 'article',
+              category: viewState.category, 
+              articleId: String(newArticle.id),
+              url: url,
+              title: viewState.title || ''
+            }
+          }));
+
+
           await saveDocumentsToLeann(documents);
           console.log('Stored embeddings for article ID:', newArticle.id);
         } catch (embedError) {
           console.error('Failed to store embeddings:', embedError);
           // Continue even if embedding fails - don't block article save
-        } 
+        }   */
       }
 
       viewState.loaded = true

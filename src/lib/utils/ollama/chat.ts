@@ -1,7 +1,41 @@
 /**
- * Ollama Chat API
- * Complete TypeScript implementation for the /api/chat endpoint
+ * OpenAI Chat API Integration
+ * Uses OpenAI SDK to connect to llama-server's OpenAI-compatible API v1
+ * Maintains all existing interfaces for backward compatibility
  */
+
+import OpenAI from 'openai';
+import type { ChatCompletionMessageParam, ChatCompletionCreateParamsStreaming, ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
+
+// ============================================================================
+// Environment Configuration
+// ============================================================================
+
+// Environment variables can be set at build time via import.meta.env
+const DEFAULT_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env?.OPENAI_BASE_URL 
+  ? import.meta.env.OPENAI_BASE_URL 
+  : 'http://localhost:8080/v1';
+const DEFAULT_API_KEY = typeof import.meta !== 'undefined' && import.meta.env?.OPENAI_API_KEY 
+  ? import.meta.env.OPENAI_API_KEY 
+  : 'not-needed'; // llama-server doesn't require API key
+
+// ============================================================================
+// Error Handling
+// ============================================================================
+
+/**
+ * Custom error class for chat API errors
+ */
+export class ChatAPIError extends Error {
+	constructor(
+		message: string,
+		public statusCode?: number,
+		public originalError?: unknown
+	) {
+		super(message);
+		this.name = 'ChatAPIError';
+	}
+}
 
 // ============================================================================
 // Types
@@ -239,248 +273,257 @@ export interface ChatStreamChunk {
 // ============================================================================
 
 /**
- * Send a chat message to Ollama API (non-streaming)
+ * Create an OpenAI client instance
+ * @param baseUrl - Base URL for the API (default from env or http://localhost:8080/v1)
+ * @returns OpenAI client instance
+ */
+function createClient(baseUrl?: string): OpenAI {
+	return new OpenAI({
+		baseURL: baseUrl || DEFAULT_BASE_URL,
+		apiKey: DEFAULT_API_KEY,
+		dangerouslyAllowBrowser: true // Required for browser usage
+	});
+}
+
+/**
+ * Adapt ChatRequest options to OpenAI parameters
+ */
+function adaptRequestOptions(request: ChatRequest): ChatCompletionCreateParamsNonStreaming | ChatCompletionCreateParamsStreaming {
+	const params: any = {
+		model: request.model,
+		messages: request.messages as ChatCompletionMessageParam[],
+	};
+
+	// Map options
+	if (request.options?.temperature !== undefined) params.temperature = request.options.temperature;
+	if (request.options?.top_p !== undefined) params.top_p = request.options.top_p;
+	if (request.options?.max_tokens !== undefined) params.max_tokens = request.options.max_tokens;
+	if (request.options?.num_predict !== undefined) params.max_tokens = request.options.num_predict;
+	if (request.options?.presence_penalty !== undefined) params.presence_penalty = request.options.presence_penalty;
+	if (request.options?.frequency_penalty !== undefined) params.frequency_penalty = request.options.frequency_penalty;
+	if (request.options?.stop !== undefined) params.stop = request.options.stop;
+	if (request.options?.seed !== undefined) params.seed = request.options.seed;
+
+	// Direct parameters override options
+	if (request.temperature !== undefined) params.temperature = request.temperature;
+	if (request.top_p !== undefined) params.top_p = request.top_p;
+	if (request.max_tokens !== undefined) params.max_tokens = request.max_tokens;
+	if (request.presence_penalty !== undefined) params.presence_penalty = request.presence_penalty;
+	if (request.frequency_penalty !== undefined) params.frequency_penalty = request.frequency_penalty;
+	if (request.stop !== undefined) params.stop = request.stop;
+	if (request.seed !== undefined) params.seed = request.seed;
+
+	// Tools
+	if (request.tools && request.tools.length > 0) {
+		params.tools = request.tools;
+	}
+
+	// Response format
+	if (request.format === 'json' || request.response_format?.type === 'json_object') {
+		params.response_format = { type: 'json_object' };
+	}
+
+	// Logprobs
+	if (request.logprobs !== undefined) params.logprobs = request.logprobs;
+	if (request.top_logprobs !== undefined) params.top_logprobs = request.top_logprobs;
+
+	return params;
+}
+
+/**
+ * Batch chat inference (non-streaming)
  * 
  * @param request - The chat request configuration
- * @param baseUrl - Base URL for Ollama API (default: http://localhost:11434)
+ * @param baseUrl - Base URL for API (optional, uses env var or default)
  * @returns Promise resolving to the complete chat response
  * 
  * @example
  * ```typescript
- * const response = await chat({
- *   model: 'llama2',
+ * const response = await createBatchChat({
+ *   model: 'ministral-3:3b',
  *   messages: [
  *     { role: 'user', content: 'What is the capital of France?' }
  *   ]
  * });
- * console.log(response.message.content);
+ * console.log(response.choices[0].message.content);
  * ```
  */
-export async function chat(
+export async function createBatchChat(
 	request: ChatRequest,
-	baseUrl: string = 'http://localhost:8080'
+	baseUrl?: string
 ): Promise<ChatResponse> {
-	const url = `${baseUrl}/v1/chat/completions`;
-
-	// Force streaming off for non-streaming function
-	const body: Partial<ChatRequest> & { stream: false } = {
-		...request,
-		stream: false
-	};
-
-	if (body.options?.num_predict) {
-		body.max_tokens = body.options.num_predict;
-	}
-	if (body.options) {
-		if (body.options.temperature) body.temperature = body.options.temperature;
-		if (body.options.top_p) body.top_p = body.options.top_p;
-		if (body.options.stop) body.stop = body.options.stop;
-		if (body.options.seed) body.seed = body.options.seed;
-		if (body.options.presence_penalty) body.presence_penalty = body.options.presence_penalty;
-		if (body.options.frequency_penalty) body.frequency_penalty = body.options.frequency_penalty;
-	}
-	if (body.format === 'json') {
-		body.response_format = { type: 'json_object' };
-	}
-
-	delete body.options;
-	delete body.keep_alive;
-	delete body.format;
-	delete body.think;
-
+	const client = createClient(baseUrl);
+	
 	try {
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(body)
-		});
+		const params = adaptRequestOptions(request) as ChatCompletionCreateParamsNonStreaming;
+		params.stream = false;
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`Ollama Chat API error (${response.status}): ${errorText}`);
-		}
+		const response = await client.chat.completions.create(params);
 
-		const data = await response.json();
-
-		// Adapt OpenAI response to original ChatResponse structure for compatibility
-		const choice = data.choices[0];
+		// Adapt to ChatResponse format with backward compatibility fields
+		const choice = response.choices[0];
 		const adaptedResponse: ChatResponse = {
-			...data,
-			message: choice.message,
+			id: response.id,
+			object: response.object,
+			model: response.model,
+			created: response.created,
+			choices: response.choices.map(c => ({
+				index: c.index,
+				message: c.message as ChatMessage,
+				finish_reason: c.finish_reason || 'stop',
+				logprobs: c.logprobs
+			})),
+			usage: response.usage,
+			// Backward compatibility fields
+			message: choice.message as ChatMessage,
 			done: true,
-			done_reason: choice.finish_reason,
-			created_at: new Date(data.created * 1000).toISOString(),
-			eval_count: data.usage?.completion_tokens,
-			prompt_eval_count: data.usage?.prompt_tokens,
-			logprobs: choice.logprobs?.content ?? undefined
+			done_reason: choice.finish_reason || 'stop',
+			prompt_eval_count: response.usage?.prompt_tokens,
+			eval_count: response.usage?.completion_tokens
 		};
 
 		return adaptedResponse;
 	} catch (error) {
-		if (error instanceof Error) {
-			throw new Error(`Failed to send chat message: ${error.message}`);
+		if (error instanceof OpenAI.APIError) {
+			throw new ChatAPIError(
+				`API error: ${error.message}`,
+				error.status,
+				error
+			);
 		}
-		throw error;
+		throw new ChatAPIError(
+			`Failed to create batch chat: ${error instanceof Error ? error.message : String(error)}`,
+			undefined,
+			error
+		);
 	}
 }
 
 /**
- * Send a chat message with streaming responses
+ * Streaming chat inference
  * 
  * @param request - The chat request configuration
- * @param baseUrl - Base URL for Ollama API (default: http://localhost:11434)
+ * @param baseUrl - Base URL for API (optional, uses env var or default)
  * @returns AsyncGenerator yielding response chunks as they arrive
  * 
  * @example
  * ```typescript
- * for await (const chunk of chatStream({
- *   model: 'llama2',
+ * for await (const chunk of createStreamingChat({
+ *   model: 'ministral-3:3b',
  *   messages: [
  *     { role: 'user', content: 'Tell me about TypeScript' }
  *   ]
  * })) {
- *   process.stdout.write(chunk.message.content);
+ *   process.stdout.write(chunk.choices[0]?.delta?.content || '');
  *   if (chunk.done) {
- *     console.log('\nConversation complete!');
+ *     console.log('\nComplete!');
  *   }
  * }
  * ```
  */
-export async function* chatStream(
+export async function* createStreamingChat(
 	request: ChatRequest,
-	baseUrl: string = 'http://localhost:8080'
+	baseUrl?: string
 ): AsyncGenerator<ChatStreamChunk, void, unknown> {
-	const url = `${baseUrl}/v1/chat/completions`;
-
-	// Force streaming on for streaming function
-	const body: Partial<ChatRequest> & { stream: true } = {
-		...request,
-		stream: true
-	};
-
-	if (body.options?.num_predict) {
-		body.max_tokens = body.options.num_predict;
-	}
-	if (body.options) {
-		if (body.options.temperature) body.temperature = body.options.temperature;
-		if (body.options.top_p) body.top_p = body.options.top_p;
-		if (body.options.stop) body.stop = body.options.stop;
-		if (body.options.seed) body.seed = body.options.seed;
-		if (body.options.presence_penalty) body.presence_penalty = body.options.presence_penalty;
-		if (body.options.frequency_penalty) body.frequency_penalty = body.options.frequency_penalty;
-	}
-	if (body.format === 'json') {
-		body.response_format = { type: 'json_object' };
-	}
-
-	delete body.options;
-	delete body.keep_alive;
-	delete body.format;
-	delete body.think;
-
+	const client = createClient(baseUrl);
+	
 	try {
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(body)
-		});
+		const params = adaptRequestOptions(request) as ChatCompletionCreateParamsStreaming;
+		params.stream = true;
+		params.stream_options = { include_usage: true };
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`Ollama Chat API error (${response.status}): ${errorText}`);
-		}
+		const stream = await client.chat.completions.create(params);
 
-		if (!response.body) {
-			throw new Error('Response body is null');
-		}
+		for await (const chunk of stream) {
+			const choice = chunk.choices[0];
+			const delta = choice?.delta || {};
+			const finish_reason = choice?.finish_reason;
 
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = '';
+			// Convert OpenAI tool calls to our format
+			const convertedToolCalls = delta.tool_calls?.map(tc => ({
+				id: tc.id || '',
+				function: typeof tc.function === 'object' ? tc.function.name || '' : tc.function || '',
+				arguments: typeof tc.function === 'object' ? tc.function.arguments : undefined
+			}));
 
-		while (true) {
-			const { done, value } = await reader.read();
+			const adaptedChunk: ChatStreamChunk = {
+				id: chunk.id,
+				object: chunk.object,
+				created: chunk.created,
+				model: chunk.model,
+				choices: chunk.choices.map(c => ({
+					index: c.index,
+					delta: c.delta as Partial<ChatMessage>,
+					finish_reason: c.finish_reason,
+					logprobs: c.logprobs
+				})),
+				done: !!finish_reason,
+				// Backward compatibility fields
+				message: {
+					role: (delta.role as MessageRole) || 'assistant',
+					content: delta.content || '',
+					tool_calls: convertedToolCalls
+				},
+				done_reason: finish_reason || undefined
+			};
 
-			if (done) break;
-
-			// Decode the chunk and add to buffer
-			buffer += decoder.decode(value, { stream: true });
-
-			// Process complete lines (NDJSON format with "data: " prefix)
-			const lines = buffer.split('\n');
-			buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-			for (const line of lines) {
-				if (line.trim().startsWith('data: ')) {
-					const jsonStr = line.trim().substring('data: '.length);
-					if (jsonStr === '[DONE]') {
-						return;
-					}
-					try {
-						const chunk = JSON.parse(jsonStr);
-
-						// Adapt OpenAI stream chunk to original ChatStreamChunk structure
-						const delta = chunk.choices[0]?.delta ?? {};
-						const finish_reason = chunk.choices[0]?.finish_reason;
-
-						const adaptedChunk: ChatStreamChunk = {
-							...chunk,
-							message: {
-								role: delta.role || 'assistant',
-								content: delta.content || '',
-								tool_calls: delta.tool_calls
-							},
-							done: !!finish_reason,
-							done_reason: finish_reason
-						};
-
-						yield adaptedChunk;
-
-						// Exit if generation is complete
-						if (adaptedChunk.done) {
-							// The final chunk in llama-cpp-python server might contain usage stats
-							// We can yield one last time if there's usage info.
-							if (chunk.usage) {
-								const finalChunk: ChatStreamChunk = {
-									...adaptedChunk,
-									done: true,
-									prompt_eval_count: chunk.usage.prompt_tokens,
-									eval_count: chunk.usage.completion_tokens
-								};
-								yield finalChunk;
-							}
-							return;
-						}
-					} catch (parseError) {
-						console.error('Failed to parse chat chunk:', parseError, 'line:', line);
-						// Continue processing other lines
-					}
-				}
+			// Add usage stats if available (typically in the final chunk)
+			if (chunk.usage) {
+				adaptedChunk.prompt_eval_count = chunk.usage.prompt_tokens;
+				adaptedChunk.eval_count = chunk.usage.completion_tokens;
 			}
+
+			yield adaptedChunk;
 		}
 	} catch (error) {
-		if (error instanceof Error) {
-			throw new Error(`Failed to send streaming chat message: ${error.message}`);
+		if (error instanceof OpenAI.APIError) {
+			throw new ChatAPIError(
+				`API error: ${error.message}`,
+				error.status,
+				error
+			);
 		}
-		throw error;
+		throw new ChatAPIError(
+			`Failed to create streaming chat: ${error instanceof Error ? error.message : String(error)}`,
+			undefined,
+			error
+		);
 	}
+}
+
+/**
+ * Send a chat message to API (non-streaming) - Legacy alias
+ * @deprecated Use createBatchChat instead
+ */
+export async function chat(
+	request: ChatRequest,
+	baseUrl?: string
+): Promise<ChatResponse> {
+	return createBatchChat(request, baseUrl);
+}
+
+/**
+ * Send a chat message with streaming responses - Legacy alias
+ * @deprecated Use createStreamingChat instead
+ */
+export async function* chatStream(
+	request: ChatRequest,
+	baseUrl?: string
+): AsyncGenerator<ChatStreamChunk, void, unknown> {
+	yield* createStreamingChat(request, baseUrl);
 }
 
 /**
  * Helper function to collect all chunks from a streaming chat into a single response
  * 
  * @param request - The chat request configuration
- * @param baseUrl - Base URL for Ollama API (default: http://localhost:11434)
+ * @param baseUrl - Base URL for API (optional, uses env var or default)
  * @returns Promise resolving to the complete response with all chunks combined
  * 
  * @example
  * ```typescript
  * const response = await chatStreamComplete({
- *   model: 'llama2',
+ *   model: 'ministral-3:3b',
  *   messages: [
  *     { role: 'user', content: 'Write a haiku about TypeScript' }
  *   ]
@@ -491,38 +534,37 @@ export async function* chatStream(
  */
 export async function chatStreamComplete(
 	request: ChatRequest,
-	baseUrl: string = 'http://localhost:11434'
+	baseUrl?: string
 ): Promise<ChatResponse> {
 	let fullContent = '';
 	let toolCalls: ToolCall[] = [];
 	let lastChunk: ChatStreamChunk | null = null;
 	let finalRole: MessageRole = 'assistant';
 
-	for await (const chunk of chatStream(request, baseUrl)) {
+	for await (const chunk of createStreamingChat(request, baseUrl)) {
 		if (chunk.choices[0]?.delta?.content) {
 			fullContent += chunk.choices[0].delta.content;
 		}
 		if (chunk.choices[0]?.delta?.tool_calls) {
-			// This part is tricky as tool calls can be streamed token by token.
-			// A robust implementation would piece them together.
-			// This is a simplified version that assumes they come in one chunk or can be concatenated.
-			for (const toolCall of chunk.choices[0].delta.tool_calls) {
-				const existing = toolCalls.find((tc) => tc.id === toolCall.id);
+			// Piece together tool calls that are streamed incrementally
+			for (const deltaToolCall of chunk.choices[0].delta.tool_calls as any[]) {
+				if (!deltaToolCall.id) continue;
+				
+				const existing = toolCalls.find((tc) => tc.id === deltaToolCall.id);
+				
 				if (existing) {
-					if (toolCall.function?.arguments) {
-						existing.function.arguments =
-							(existing.function.arguments || '') + toolCall.function.arguments;
+					// Append arguments if they exist
+					if (deltaToolCall.function?.arguments) {
+						existing.arguments =
+							(existing.arguments || '') + deltaToolCall.function.arguments;
 					}
-				} else if (toolCall.id && toolCall.function) {
+				} else if (deltaToolCall.function?.name) {
+					// Create new tool call entry
 					toolCalls.push({
-						id: toolCall.id,
-						function: {
-							name: toolCall.function.name || '',
-							arguments: toolCall.function.arguments || ''
-						},
-						// type is not in delta, but is required for ToolCall
-						type: 'function'
-					} as ToolCall);
+						id: deltaToolCall.id,
+						function: deltaToolCall.function.name,
+						arguments: deltaToolCall.function.arguments
+					});
 				}
 			}
 		}
@@ -533,7 +575,7 @@ export async function chatStreamComplete(
 	}
 
 	if (!lastChunk) {
-		throw new Error('No chunks received from streaming chat response');
+		throw new ChatAPIError('No chunks received from streaming chat response');
 	}
 
 	// Reconstruct the final response from the last chunk and accumulated data
@@ -567,7 +609,6 @@ export async function chatStreamComplete(
 		},
 		done: true,
 		done_reason: lastChunk.choices[0]?.finish_reason || 'stop',
-		created_at: new Date(lastChunk.created * 1000).toISOString(),
 		eval_count: lastChunk.eval_count,
 		prompt_eval_count: lastChunk.prompt_eval_count,
 		total_duration: lastChunk.total_duration,
@@ -586,32 +627,30 @@ export async function chatStreamComplete(
 /**
  * Conversation manager for handling multi-turn interactions
  */
-export class ConversationManager {
-	private messages: ChatMessage[] = [];
-	private model: string;
-	private baseUrl: string;
-	private tools?: Tool[];
-	private options?: ChatOptions;
+export interface ConversationManagerConfig {
+       model: string;
+       baseUrl?: string;
+       tools?: Tool[];
+       options?: ChatOptions;
+}
 
-	/**
-	 * Create a new conversation manager
-	 * 
-	 * @param model - The model to use for this conversation
-	 * @param baseUrl - Base URL for Ollama API
-	 * @param tools - Optional tools available to the model
-	 * @param options - Optional model options
-	 */
-	constructor(
-		model: string,
-		baseUrl: string = 'http://localhost:8080',
-		tools?: Tool[],
-		options?: ChatOptions
-	) {
-		this.model = model;
-		this.baseUrl = baseUrl;
-		this.tools = tools;
-		this.options = options;
-	}
+export class ConversationManager {
+       private messages: ChatMessage[] = [];
+       private model: string;
+       private baseUrl?: string;
+       private tools?: Tool[];
+       private options?: ChatOptions;
+
+       /**
+	* Create a new conversation manager
+	* @param config - Configuration object for the conversation
+	*/
+       constructor(config: ConversationManagerConfig) {
+	       this.model = config.model;
+	       this.baseUrl = config.baseUrl;
+	       this.tools = config.tools;
+	       this.options = config.options;
+       }
 
 	/**
 	 * Add a message to the conversation
@@ -641,7 +680,7 @@ export class ConversationManager {
 	async *sendMessage(userMessage: string): AsyncGenerator<ChatStreamChunk, void, unknown> {
 		this.addMessage('user', userMessage);
 
-		yield* chatStream({
+		yield* createStreamingChat({
 			model: this.model,
 			messages: this.messages,
 			tools: this.tools,
@@ -663,7 +702,7 @@ export class ConversationManager {
 		}, this.baseUrl);
 
 		// Add assistant response to conversation history
-		this.addAssistantMessage(response.message.content, response.message.tool_calls);
+		this.addAssistantMessage(response.message.content || '', response.message.tool_calls);
 
 		return response;
 	}

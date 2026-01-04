@@ -16,7 +16,23 @@
   })
 
   function preprocessContent(text: string): string {
-    return text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+    let processed = text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+    
+    // Handle <think> tags for reasoning models
+    // Replace opening tag with details/summary
+    processed = processed.replace(/<think>/g, '<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">')
+    
+    // Replace closing tag
+    processed = processed.replace(/<\/think>/g, '</div></details>')
+    
+    // Handle unclosed tag (streaming)
+    const lastOpen = processed.lastIndexOf('<details class="thought-process">')
+    const lastClose = processed.lastIndexOf('</details>')
+    if (lastOpen > lastClose) {
+      processed += '</div></details>'
+    }
+    
+    return processed
   }
 </script>
 
@@ -38,6 +54,35 @@
     line-height: 1.6;
     font-family: 'Menlo', monospace;
     overflow-wrap: break-word;
+  }
+
+  /* Styles for thought process */
+  .markdown-container :global(.thought-process) {
+    margin-bottom: 1rem;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background-color: #1a1a1a;
+  }
+
+  .markdown-container :global(.thought-process summary) {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    color: #888;
+    font-size: 0.8rem;
+    user-select: none;
+  }
+
+  .markdown-container :global(.thought-process summary:hover) {
+    color: #aaa;
+    background-color: #222;
+  }
+
+  .markdown-container :global(.thought-content) {
+    padding: 1rem;
+    border-top: 1px solid #333;
+    color: #aaa;
+    font-size: 0.85rem;
+    font-style: italic;
   }
 
   .markdown-container :global(h3) {

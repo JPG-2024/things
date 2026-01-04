@@ -4,9 +4,17 @@ import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
 
-import { generateStream, generateEmbeddingsBatch } from '@/lib/utils/ollama-rs';
-import { splitText } from '@/lib/utils/splitter';
-import { llamaCppCompletionStream } from '@/lib/utils/llama-cpp-rs';
+
+import type { ChatRequest } from '@/lib/utils/ollama/chat';
+import { createBatchChat } from '@/lib/utils/ollama/chat';
+import { createStreamingChat } from '@/lib/utils/ollama/chat';
+
+
+export async function getChatBlocks(requests: ChatRequest[]): Promise<any[]> {
+  // Map each request to a createBatchChat call
+  const responses = await Promise.all(requests.map(req => createBatchChat(req)));
+  return responses;
+}
 
 
 
@@ -48,25 +56,102 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
           "mirostat_eta": 0.1
         }
     */
-         await llamaCppCompletionStream({
-          model: 'default',
-          system: YOUTUBE_SUMMARY_PROMPT,
-          prompt: `context: ${_transcript} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`,
-          temperature: 0.7,
-          max_tokens: 512,
-        }, (chunk: string) => {
-          viewState.summary = (viewState.summary || '') + chunk
-        }); 
+        viewState.summary = '';
 
-      
-/*     await generateStream({ 
-      model: 'ministral-3:3b', 
-      system: YOUTUBE_SUMMARY_PROMPT,
-      prompt: `context: ${_transcript} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`, 
-    }, (chunk: string) => {
-      viewState.summary = (viewState.summary || '') + chunk
-    });
-     */
+
+        // const results = await invoke('search_youtube', { query: 'bitcoin' });
+
+        
+
+        
+
+        const summaryPrompt = `context: ${_transcript} \n\n Give me a concise summary in spanish of the 5 key points in bulletpoints of this context. Avoid title description.`;
+        
+
+        const requestLiquid: ChatRequest = {
+          model: 'LiquidAI/LFM2-2.6B-Exp',
+          messages: [
+            { role: 'system', content: YOUTUBE_SUMMARY_PROMPT },
+            { role: 'user', content: summaryPrompt }
+          ],
+          options: {
+            temperature: 0.3,
+            min_p: 0.15,
+            repeat_penalty: 1.05,
+            max_tokens: 800
+          }
+        };
+
+
+        const request: ChatRequest = {
+          model: 'gemma-3n-4b-it',
+          messages: [
+            { role: 'system', content: YOUTUBE_SUMMARY_PROMPT },
+            { role: 'user', content: summaryPrompt }
+          ],
+          options: {
+            temperature: 0.7,
+            max_tokens: 800
+          }
+        };
+
+        const request2: ChatRequest = {
+          model: 'LiquidAI/LFM2-2.6B-Exp',
+          messages: [
+            { role: 'system', content: "your mission is to extract 5 keywords separated by \",\" from the context. avoid adding extra information" },
+            { role: 'user', content: `context: ${_transcript} \n\n extract 5 keywords` }
+          ],
+          options: {
+            temperature: 0.1,
+            min_p: 0.15,
+            repeat_penalty: 1.05,
+            max_tokens: 200
+          }
+        };
+
+        const introRequest: ChatRequest = {
+          model: 'LiquidAI/LFM2-2.6B-Exp',
+          messages: [
+            { role: 'system', content: "follow instructions. dont add title or any extra information." },
+            { role: 'user', content: `context: ${_transcript} \n\n generate a title in spanish` }
+          ],
+          options: {
+            temperature: 0.3,
+            min_p: 0.15,
+            repeat_penalty: 1.05,
+            max_tokens: 100
+          }
+        };
+
+
+
+
+          const stream = createStreamingChat(requestLiquid);
+          
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            viewState.summary += content;
+            
+ 
+            if (chunk.done) {
+              console.log('\n\nStream complete!');
+              console.log('Tokens:', chunk.eval_count);
+            }
+          }
+
+        getChatBlocks([request2, introRequest]).then(responses => {
+          const block1 = responses[0].choices[0]?.message?.content || '';
+          viewState.block1 = block1;
+          viewState.block2 = responses[1].choices[0]?.message?.content || '';
+        })
+
+
+/*         for await (const chunk of chatStream(request)) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            viewState.summary = (viewState.summary || '') + delta;
+          }
+        } */
     return {content: _transcript, summary: viewState.summary || ''} 
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
