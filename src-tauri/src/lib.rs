@@ -19,12 +19,6 @@ pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
-mod ollama_rs;
-pub use crate::ollama_rs::{generate_completion_stream, generate_embeddings_batch};
-
-mod llama_cpp;
-pub use crate::llama_cpp::{llama_cpp_completion_stream, llama_cpp_embeddings, llama_cpp_health_check};
-
 mod url;
 pub use crate::url::url_to_folder_name;
 
@@ -171,12 +165,7 @@ pub fn run() {
             search_youtube,
             download_and_save_image,
             url_to_folder_name,
-            split_text_command,
-            generate_completion_stream,
-            generate_embeddings_batch,
-            llama_cpp_completion_stream,
-            llama_cpp_embeddings,
-            llama_cpp_health_check,
+            split_text_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
