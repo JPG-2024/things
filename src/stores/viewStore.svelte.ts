@@ -16,7 +16,10 @@ class ViewState {
   // Primitive state
   loading = $state(false);
   loaded = $state(false);
+
   url = $state<string | null>(null);
+  prompt = $state<string | null>(null);
+
   mediaDirectory = $state<string | null>(null);
   articleId = $state<number | null>(null);
   category = $state<string | null>(null);

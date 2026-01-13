@@ -22,7 +22,8 @@ pub use crate::download_media::download_and_save_image;
 mod url;
 pub use crate::url::url_to_folder_name;
 
-
+mod inference;
+pub use crate::inference::{generate_response, generate_chat_response};
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -165,7 +166,9 @@ pub fn run() {
             search_youtube,
             download_and_save_image,
             url_to_folder_name,
-            split_text_command
+            split_text_command,
+            generate_response,
+            generate_chat_response
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

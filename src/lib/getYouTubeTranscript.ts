@@ -17,6 +17,34 @@ export async function getChatBlocks(requests: ChatRequest[]): Promise<any[]> {
 }
 
 
+const STRUCTURED_SUMMARY_PROMPT = `You are a structured-output assistant.
+
+                        Output rules:
+                        - Always in spanish.
+                        - Always respond with a single valid JSON object.
+                        - Do not include explanations, markdown, or extra text.
+                        - Do not add fields not defined in the schema.
+                        - If information is missing, use an empty string or empty array as appropriate.
+
+                        Schema:
+                        {
+                          "summary": "string",
+                          "fiveKeypoints": [
+                            "string",
+                            "string",
+                            "string",
+                            "string",
+                            "string"
+                          ],
+                          "conclusion": "string"
+                        }
+
+                        Constraints:
+                        - "fiveKeypoints" must contain exactly 5 items.
+                        - Keep language concise and factual.
+                        - Ensure JSON is strictly valid.`
+
+
 
 export async function getYouTubeTranscript(videoLink: string, languages: string[] = ['en', 'es']): Promise<{  content: string, summary: string}> {
   //extract video id from youtube link
@@ -41,118 +69,38 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     })
     viewState.content = _transcript
 
+    console.log('YouTube Transcript fetched:', _transcript)
+
+  
+    viewState.summary = '';
+
+    // Truncate transcript to avoid context window overflow
+    const truncatedTranscript = _transcript;
+
+    console.log('Generating summary with prompt:', viewState.prompt);
+
+    const prompt = viewState.prompt || "Follow rules.";
+    const system_prompt = viewState.prompt ? "Answer in spanish" : STRUCTURED_SUMMARY_PROMPT;
+
+
+    const summaryPrompt = `context: ${_transcript} \n\n ${prompt}`;
     
-/*  
-        options: {
-          "temperature": 0.7,
-          "top_k": 40,
-          "top_p": 0.95,
-          "repeat_penalty": 1.1,
-          "repeat_last_n": 256,
-          "presence_penalty": 0.0,
-          "frequency_penalty": 0.0,
-          "mirostat": 2,
-          "mirostat_tau": 6.0,
-          "mirostat_eta": 0.1
-        }
-    */
-        viewState.summary = '';
+    const response = await invoke<string>('generate_response', {
+      prompt: summaryPrompt,
+      stream: true,
+      options: {
+        system_prompt: system_prompt,
+        model: 'gpt-4o-mini',
+      }
+    });
 
 
-        // const results = await invoke('search_youtube', { query: 'bitcoin' });
+    console.log('Summary generated:', JSON.parse(response));
 
-        
+    viewState.summary = JSON.parse(response);
 
-        
-
-        const summaryPrompt = `context: ${_transcript} \n\n Give me a concise summary in spanish of the 5 key points in bulletpoints of this context. Avoid title description.`;
-        
-
-        const requestLiquid: ChatRequest = {
-          model: 'LiquidAI/LFM2-2.6B-Exp',
-          messages: [
-            { role: 'system', content: YOUTUBE_SUMMARY_PROMPT },
-            { role: 'user', content: summaryPrompt }
-          ],
-          options: {
-            temperature: 0.3,
-            min_p: 0.15,
-            repeat_penalty: 1.05,
-            max_tokens: 800
-          }
-        };
-
-
-        const request: ChatRequest = {
-          model: 'gemma-3n-4b-it',
-          messages: [
-            { role: 'system', content: YOUTUBE_SUMMARY_PROMPT },
-            { role: 'user', content: summaryPrompt }
-          ],
-          options: {
-            temperature: 0.7,
-            max_tokens: 800
-          }
-        };
-
-        const request2: ChatRequest = {
-          model: 'LiquidAI/LFM2-2.6B-Exp',
-          messages: [
-            { role: 'system', content: "your mission is to extract 5 keywords separated by \",\" from the context. avoid adding extra information" },
-            { role: 'user', content: `context: ${_transcript} \n\n extract 5 keywords` }
-          ],
-          options: {
-            temperature: 0.1,
-            min_p: 0.15,
-            repeat_penalty: 1.05,
-            max_tokens: 200
-          }
-        };
-
-        const introRequest: ChatRequest = {
-          model: 'LiquidAI/LFM2-2.6B-Exp',
-          messages: [
-            { role: 'system', content: "follow instructions. dont add title or any extra information." },
-            { role: 'user', content: `context: ${_transcript} \n\n generate a title in spanish` }
-          ],
-          options: {
-            temperature: 0.3,
-            min_p: 0.15,
-            repeat_penalty: 1.05,
-            max_tokens: 100
-          }
-        };
-
-
-
-
-          const stream = createStreamingChat(requestLiquid);
-          
-          for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            viewState.summary += content;
-            
- 
-            if (chunk.done) {
-              console.log('\n\nStream complete!');
-              console.log('Tokens:', chunk.eval_count);
-            }
-          }
-
-        getChatBlocks([request2, introRequest]).then(responses => {
-          const block1 = responses[0].choices[0]?.message?.content || '';
-          viewState.block1 = block1;
-          viewState.block2 = responses[1].choices[0]?.message?.content || '';
-        })
-
-
-/*         for await (const chunk of chatStream(request)) {
-          const delta = chunk.choices[0]?.delta?.content;
-          if (delta) {
-            viewState.summary = (viewState.summary || '') + delta;
-          }
-        } */
     return {content: _transcript, summary: viewState.summary || ''} 
+
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
   }

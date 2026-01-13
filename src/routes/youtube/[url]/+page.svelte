@@ -64,7 +64,37 @@
     </div>
   {/if}
 
-  <MarkdownRenderer content={viewState.summary} />
+  {#if viewState.summary && typeof viewState.summary === 'object'}
+    {#if viewState.summary.summary}
+      <div class="summary-section" transition:blur={{ duration: 200 }}>
+        <h3>Resumen</h3>
+        <MarkdownRenderer content={viewState.summary.summary} />
+      </div>
+    {/if}
+
+    {#if viewState.summary.fiveKeypoints && viewState.summary.fiveKeypoints.length > 0}
+      <div class="keypoints-section" transition:blur={{ duration: 200 }}>
+        <h3>Puntos Clave</h3>
+        <ul class="keypoints-list">
+          {#each viewState.summary.fiveKeypoints as keypoint, index}
+            {#if keypoint}
+              <li>
+                <!-- <span class="keypoint-number">{index + 1}</span> -->
+                <MarkdownRenderer content={keypoint} />
+              </li>
+            {/if}
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
+    {#if viewState.summary.conclusion}
+      <div class="conclusion-section" transition:blur={{ duration: 200 }}>
+        <h3>Conclusión</h3>
+        <MarkdownRenderer content={viewState.summary.conclusion} />
+      </div>
+    {/if}
+  {/if}
 {/snippet}
 
 <style>
@@ -135,6 +165,49 @@
   .yt-play:hover {
     transform: translateY(-10%);
     background: rgba(0, 0, 0, 0.75);
+  }
+
+  .summary-section,
+  .keypoints-section,
+  .conclusion-section {
+    margin-bottom: 2rem;
+  }
+
+  .summary-section h3,
+  .keypoints-section h3,
+  .conclusion-section h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+
+  .keypoints-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .keypoints-list li {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.2rem 0.75rem;
+    border-left: 3px solid var(--primary-color);
+    background-color: var(--card-bg-secondary, rgba(255, 255, 255, 0.05));
+    border-radius: 4px;
+  }
+
+  .keypoint-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    font-weight: bold;
+    flex-shrink: 0;
   }
 
   @media (prefers-color-scheme: dark) {

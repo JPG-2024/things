@@ -1,11 +1,15 @@
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core'
   import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
   import { storeCacheWrapper } from '@/stores/cacheStore'
   import { urlRouter } from '@/lib/urlRouter'
+  import { handleYoutubeQuestion } from '@/lib/utils/youtube'
 
   import Input from '@/components/inputs/Input.component.svelte'
   import CategoryWidget from '@/components/CategoryWidget.svelte'
   import { primaryColor } from '@/stores/uiStore'
+  import { viewState } from '@/stores/viewStore.svelte'
+  import { query } from '$app/server'
   // Data provided by +page.ts load
 
   $effect(() => {
@@ -25,7 +29,12 @@
 <div class="dashboard-container">
   <h1 class="dashboard-title">Things</h1>
 
-  <Input onChange={(url) => handlePasteUrl(url)} />
+  <div class="inputs-container">
+    <Input onChange={(url) => handlePasteUrl(url)} />
+    <Input onChange={(prompt) => (viewState.prompt = prompt)} />
+    <Input onChange={(query) => (viewState.prompt = query)} />
+    <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button>
+  </div>
 
   <div class="flex-squares">
     {#each ['Unsorted', 'Technology', 'Psychology', 'Health', 'IA', 'Music'] as categoryId}
@@ -60,6 +69,15 @@
     gap: 2rem;
     margin-top: 2rem;
     width: 100%;
+  }
+
+  .inputs-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 800px;
+    margin-bottom: 2rem;
   }
 
   /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
