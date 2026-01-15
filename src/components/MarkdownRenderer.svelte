@@ -3,9 +3,10 @@
 
   interface Props {
     content?: string | null
+    fontSize?: string | number
   }
 
-  let { content }: Props = $props()
+  let { content, fontSize = 0.9 }: Props = $props()
 
   // Initialize markdown-it
   const md = new MarkdownIt({
@@ -17,27 +18,31 @@
 
   function preprocessContent(text: string): string {
     let processed = text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
-    
+
     // Handle <think> tags for reasoning models
     // Replace opening tag with details/summary
-    processed = processed.replace(/<think>/g, '<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">')
-    
+    processed = processed.replace(
+      /<think>/g,
+      '<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">'
+    )
+
     // Replace closing tag
     processed = processed.replace(/<\/think>/g, '</div></details>')
-    
+
     // Handle unclosed tag (streaming)
     const lastOpen = processed.lastIndexOf('<details class="thought-process">')
     const lastClose = processed.lastIndexOf('</details>')
     if (lastOpen > lastClose) {
       processed += '</div></details>'
     }
-    
+
     return processed
   }
 </script>
 
 {#if content}
-  <div class="markdown-container">
+  <!-- apply computed font size -->
+  <div class="markdown-container" style="font-size: {fontSize}rem;">
     {@html md.render(preprocessContent(content))}
   </div>
 {/if}
@@ -86,7 +91,7 @@
   }
 
   .markdown-container :global(h3) {
-    font-size: 1.1rem;
+    font-size: 1.1em;
   }
 
   .markdown-container :global(h1),
@@ -175,9 +180,9 @@
   }
 
   .markdown-container :global(strong) {
-    color: #fafafa;
+    color: var(--primary-color);
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 0.9em;
   }
 
   .markdown-container :global(em) {

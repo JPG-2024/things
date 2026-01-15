@@ -82,7 +82,12 @@
 
 <article>
   <Topbar>
-    <LoadingStack />
+    {#if viewState.loaded}
+      <span>{viewState.url}</span>
+    {:else}
+      <LoadingStack />
+    {/if}
+
     {#if viewState.articleId && !viewState.loading}
       <button class="delete-btn" onclick={handleDelete} disabled={isDeleting} title="Delete article"
         >✕</button
@@ -97,9 +102,11 @@
       </button>
     {/if} -->
 
-    <div class="url-link">
-      {viewState.url}
-    </div>
+    <!--     <div class="url-link">
+      {#if !viewState.loaded}
+        {viewState.url}
+      {/if}
+    </div> -->
 
     <div class="title">
       <!-- <StringReveal message={viewState.title} disableReveal={false} /> -->
@@ -131,7 +138,7 @@
     gap: 1.5rem;
     padding: 1.5rem;
     box-sizing: border-box;
-    padding-top: 80px;
+    padding-top: 16px;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
@@ -188,6 +195,7 @@
     color: var(--primary-color);
     font-size: 0.9rem;
     text-decoration: none;
+    text-align: center;
     word-break: break-all;
   }
 

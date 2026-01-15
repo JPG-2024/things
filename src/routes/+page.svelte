@@ -31,13 +31,13 @@
 
   <div class="inputs-container">
     <Input onChange={(url) => handlePasteUrl(url)} />
-    <Input onChange={(prompt) => (viewState.prompt = prompt)} />
+    <!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} />
-    <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button>
+    <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
   </div>
 
   <div class="flex-squares">
-    {#each ['Unsorted', 'Technology', 'Psychology', 'Health', 'IA', 'Music'] as categoryId}
+    {#each ['Unsorted'] as categoryId}
       <CategoryWidget {categoryId} name={categoryId} />
     {/each}
   </div>

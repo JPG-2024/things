@@ -36,7 +36,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={viewState.summary} />
+  <MarkdownRenderer content={viewState.summary.summary} />
 {/snippet}
 
 <style>

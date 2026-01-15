@@ -12,6 +12,13 @@ export interface Message {
   createdAt?: string;
 }
 
+export interface SummaryState {
+  summary: string;
+  keypoints: string[];
+  conclusion: string;
+  title: string;
+}
+
 class ViewState {
   // Primitive state
   loading = $state(false);
@@ -24,7 +31,7 @@ class ViewState {
   articleId = $state<number | null>(null);
   category = $state<string | null>(null);
   content = $state<string>("");
-  summary = $state<string | null>(null);
+  summary = $state<SummaryState | null>(null);
   block1 = $state<string>("");
   block2 = $state<string>("");
   embeddings = $state<boolean>(false);

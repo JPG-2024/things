@@ -1,48 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte';
-import { YOUTUBE_SUMMARY_PROMPT } from '@/constants';
+import { STRUCTURED_SUMMARY_JSON_PROMPT_ES } from '@/constants';
 import { getYouTubeThumbnailUrl } from './utils/youtube';
 import { getImageSrc } from './utils/dirs';
-
-
-import type { ChatRequest } from '@/lib/utils/ollama/chat';
-import { createBatchChat } from '@/lib/utils/ollama/chat';
-import { createStreamingChat } from '@/lib/utils/ollama/chat';
-
-
-export async function getChatBlocks(requests: ChatRequest[]): Promise<any[]> {
-  // Map each request to a createBatchChat call
-  const responses = await Promise.all(requests.map(req => createBatchChat(req)));
-  return responses;
-}
-
-
-const STRUCTURED_SUMMARY_PROMPT = `You are a structured-output assistant.
-
-                        Output rules:
-                        - Always in spanish.
-                        - Always respond with a single valid JSON object.
-                        - Do not include explanations, markdown, or extra text.
-                        - Do not add fields not defined in the schema.
-                        - If information is missing, use an empty string or empty array as appropriate.
-
-                        Schema:
-                        {
-                          "summary": "string",
-                          "fiveKeypoints": [
-                            "string",
-                            "string",
-                            "string",
-                            "string",
-                            "string"
-                          ],
-                          "conclusion": "string"
-                        }
-
-                        Constraints:
-                        - "fiveKeypoints" must contain exactly 5 items.
-                        - Keep language concise and factual.
-                        - Ensure JSON is strictly valid.`
+import { parseLLMJson } from '@/lib/utils/llm/index';
+import { generateResponse } from './inference';
 
 
 
@@ -72,7 +34,7 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     console.log('YouTube Transcript fetched:', _transcript)
 
   
-    viewState.summary = '';
+    viewState.summary = null;
 
     // Truncate transcript to avoid context window overflow
     const truncatedTranscript = _transcript;
@@ -80,26 +42,30 @@ export async function getYouTubeTranscript(videoLink: string, languages: string[
     console.log('Generating summary with prompt:', viewState.prompt);
 
     const prompt = viewState.prompt || "Follow rules.";
-    const system_prompt = viewState.prompt ? "Answer in spanish" : STRUCTURED_SUMMARY_PROMPT;
-
+    const system_prompt = viewState.prompt ? "Answer brief in spanish" : STRUCTURED_SUMMARY_JSON_PROMPT_ES;
 
     const summaryPrompt = `context: ${_transcript} \n\n ${prompt}`;
     
-    const response = await invoke<string>('generate_response', {
+    const response = await generateResponse({
       prompt: summaryPrompt,
-      stream: true,
-      options: {
-        system_prompt: system_prompt,
-        model: 'gpt-4o-mini',
-      }
+      systemPrompt: system_prompt,
+      temperature: 0.2,
     });
 
+    console.log(response)
 
-    console.log('Summary generated:', JSON.parse(response));
+    const parsedResponse = parseLLMJson(response);
 
-    viewState.summary = JSON.parse(response);
+    const summary = {
+      summary: Object.values(parsedResponse)[0] as string,
+      keypoints: Object.values(parsedResponse)[1] as string[],
+      conclusion: Object.values(parsedResponse)[2] as string,
+      title: Object.values(parsedResponse)[4] as string
+    }
 
-    return {content: _transcript, summary: viewState.summary || ''} 
+    viewState.summary = summary;
+
+    return {content: _transcript, summary: JSON.stringify(viewState.summary)} 
 
   } catch (invokeErr) {
     throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)

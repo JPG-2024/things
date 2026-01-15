@@ -8,6 +8,7 @@
   const articleUrl = page.params.url
 
   import PostView from '@/components/PostView.svelte'
+  import KeypointItem from '@/components/KeypointItem.svelte'
   let showIframe = false
 </script>
 
@@ -53,7 +54,7 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  {#if viewState.block1 !== ''}
+  <!--   {#if viewState.block1 !== ''}
     <div class="block1" transition:blur={{ duration: 200 }}>
       <MarkdownRenderer content={viewState.block1} />
     </div>
@@ -62,26 +63,27 @@
     <div class="block1" transition:blur={{ duration: 200 }}>
       <MarkdownRenderer content={viewState.block2} />
     </div>
+  {/if} -->
+
+  {#if viewState?.summary?.title}
+    <div class="title-section" transition:blur={{ duration: 1500 }}>
+      {viewState?.summary?.title}
+    </div>
   {/if}
 
   {#if viewState.summary && typeof viewState.summary === 'object'}
     {#if viewState.summary.summary}
       <div class="summary-section" transition:blur={{ duration: 200 }}>
-        <h3>Resumen</h3>
         <MarkdownRenderer content={viewState.summary.summary} />
       </div>
     {/if}
 
-    {#if viewState.summary.fiveKeypoints && viewState.summary.fiveKeypoints.length > 0}
-      <div class="keypoints-section" transition:blur={{ duration: 200 }}>
-        <h3>Puntos Clave</h3>
+    {#if viewState.summary.keypoints && viewState.summary.keypoints.length > 0}
+      <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
         <ul class="keypoints-list">
-          {#each viewState.summary.fiveKeypoints as keypoint, index}
+          {#each viewState.summary.keypoints as keypoint, index}
             {#if keypoint}
-              <li>
-                <!-- <span class="keypoint-number">{index + 1}</span> -->
-                <MarkdownRenderer content={keypoint} />
-              </li>
+              <KeypointItem content={keypoint} />
             {/if}
           {/each}
         </ul>
@@ -98,22 +100,22 @@
 {/snippet}
 
 <style>
-  .yt-video {
-    /* box-shadow: 0 0px 10px var(--primary-color); */
-    min-height: 350px;
-  }
-
-  .block1 {
-    color: var(--primary-color);
-    min-height: 50px;
+  .title-section {
+    font-weight: bold;
+    font-size: 1.8rem;
+    line-height: 1.8rem;
+    font-family: 'Raleway', Times, serif;
+    text-decoration: underline;
+    text-decoration-color: var(--primary-color);
+    text-underline-offset: -2px;
   }
 
   /* Wrapper with 16:9 aspect ratio for responsive player */
   .yt-wrapper {
     position: relative;
-    border-radius: 30px;
+
     background-color: var(--card-bg, #000);
-    width: 100%;
+    width: 120%;
 
     overflow: hidden;
   }
@@ -170,7 +172,7 @@
   .summary-section,
   .keypoints-section,
   .conclusion-section {
-    margin-bottom: 2rem;
+    margin-bottom: 15px;
   }
 
   .summary-section h3,
@@ -187,28 +189,7 @@
     margin: 0;
   }
 
-  .keypoints-list li {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    padding: 0.2rem 0.75rem;
-    border-left: 3px solid var(--primary-color);
-    background-color: var(--card-bg-secondary, rgba(255, 255, 255, 0.05));
-    border-radius: 4px;
-  }
-
-  .keypoint-number {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    background-color: var(--primary-color);
-    color: white;
-    border-radius: 50%;
-    font-weight: bold;
-    flex-shrink: 0;
-  }
+  /* .keypoint-item styles moved into KeypointItem.svelte */
 
   @media (prefers-color-scheme: dark) {
     :root {

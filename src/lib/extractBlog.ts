@@ -2,17 +2,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { viewState } from '@/stores/viewStore.svelte'
 import { BLOG_SUMMARY_SYSTEM_PROMPT, DOCS_SUMMARY_SYSTEM_PROMPT } from '@/constants'
 import { getImageSrc } from './utils/dirs';
-import { generate, generateStream } from './utils/ollama/generate'
-import { llamaCppCompletionStream } from '@/lib/utils/llama-cpp-rs';
+
 
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
-    // invoke('download_images', { url })
     const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['main', 'article'] })
-
-    const compactedMarkdown = compactMarkdown(response.markdown)
-
+  
     if (response.metadata["og:image"]) {
       const _mediaDir = await invoke<string>('url_to_folder_name', {url})
       viewState.mediaDirectory = _mediaDir
@@ -21,20 +17,28 @@ export async function extractBlog(url: string): Promise<{content: string, summar
       viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage)
     }
 
+    const compactedMarkdown = compactMarkdown(response.markdown)
+    const system_prompt = "Follow rules. Answer in spanish"
 
-    llamaCppCompletionStream({
-      model: 'default',
-      system: BLOG_SUMMARY_SYSTEM_PROMPT,
-      prompt: `context: ${compactedMarkdown} \n\n dame un resumen breve. 5 puntos clave y una conclusión.`,
-      temperature: 0.7,
-      max_tokens: 512,
-    }, (chunk: string) => {
-      viewState.summary = (viewState.summary || '') + chunk
+    const prompt = viewState.prompt || `dame un resumen breve. 5 puntos clave y una conclusión.`
+
+    const summaryPrompt = `context: ${compactedMarkdown} \n\n ${prompt}`;
+
+    viewState.summary = null;
+
+    const llmResponse = await invoke<string>('generate_response', {
+      prompt: summaryPrompt,
+      stream: true,
+      options: {
+        system_prompt: system_prompt,
+        model: 'not-necessary',
+      }
     });
 
+    viewState.summary = {summary: llmResponse, keypoints: [], conclusion: ''};
 
-  
-    return {content: compactedMarkdown, summary: viewState.summary || ''}
+
+    return {content: compactedMarkdown, summary: JSON.stringify(viewState.summary)};
   } catch (err) {
     console.error('Error extracting blog:', err)
     return {content: '', summary: ''}

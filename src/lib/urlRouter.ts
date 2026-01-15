@@ -87,6 +87,7 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
       if (newArticle) {
         const mainColor = await getOrCreateMainColor(newArticle.id)
+        console.log('Main color fetched:', mainColor)
 
         console.log('ViewState after save:', viewState.isYouTube)
 

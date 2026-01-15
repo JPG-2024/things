@@ -1,7 +1,5 @@
 <script lang="ts">
   import { viewState } from '@/stores/viewStore.svelte'
-  // SvelteKit navigation and transitions
-  import { onNavigate } from '$app/navigation'
   import { primaryColor } from '@/stores/uiStore'
 
   let { children } = $props()
@@ -14,10 +12,30 @@
   let mainElement: HTMLElement | undefined = $state()
 
   $effect(() => {
+    console.log(mainElement)
     if (mainElement) {
+      console.log('Updating primary color to:', $primaryColor)
       mainElement.style.setProperty('--primary-color', $primaryColor)
     }
+
+    console.log('ViewState loaded:', viewState.loaded)
   })
+
+  // scroll effect
+  /*   $effect(() => {
+    if (mainElement === undefined) return
+
+    mainElement.scrollTop = 100
+
+    if (viewState.loaded && mainElement) {
+      setTimeout(() => {
+        if (mainElement === undefined) return
+        // scroll mainElement to top of page
+
+        mainElement.scrollTop = 0
+      }, 200) // Delay to allow the flashy animation to complete
+    }
+  }) */
 
   $effect.pre(() => {
     let stopFlow: undefined | (() => void)
@@ -60,6 +78,7 @@
 </script>
 
 <main
+  id="layout-main"
   bind:this={mainElement}
   class="container {viewState.loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {viewState.loaded
     ? 'loaded'
