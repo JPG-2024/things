@@ -35,9 +35,9 @@
   {/if} -->
 {/snippet}
 
-{#snippet summaryContentSnippet()}
+<!-- {#snippet summaryContentSnippet()}
   <MarkdownRenderer content={viewState.summary.summary} />
-{/snippet}
+{/snippet} -->
 
 <style>
   .image {

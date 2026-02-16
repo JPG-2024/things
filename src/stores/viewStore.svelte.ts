@@ -4,6 +4,9 @@ import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "@/lib/ty
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { appDataDir, join } from '@tauri-apps/api/path';
 
+
+type language = 'en' | 'es'
+
 export interface Message {
   id?: number;
   chatId?: number;
@@ -21,6 +24,7 @@ export interface SummaryState {
 
 class ViewState {
   // Primitive state
+  language = $state<language>('en')
   loading = $state(false);
   loaded = $state(false);
 
@@ -31,7 +35,9 @@ class ViewState {
   articleId = $state<number | null>(null);
   category = $state<string | null>(null);
   content = $state<string>("");
-  summary = $state<SummaryState | null>(null);
+  summary = $state<string |null>(null);
+  keypoints = $state<string[] | null>(null);
+  questions = $state<string[] | null>(null);
   block1 = $state<string>("");
   block2 = $state<string>("");
   embeddings = $state<boolean>(false);
@@ -95,6 +101,8 @@ class ViewState {
     this.content = '';
     this.articleId = null;
     this.summary = '';
+    this.keypoints = [];
+    this.questions = [];
     this.block1 = '';
     this.block2 = '';
     this.ytTranscript = null;
@@ -145,6 +153,7 @@ class ViewState {
       ytVideoId: this.ytVideoId,
       ytThumbnailUrl: this.ytThumbnailUrl,
       mainImage: this.mainImage,
+      mainColor: this.primaryColor,
       title: this.title,
       description: this.description,
       articleId: this.articleId,

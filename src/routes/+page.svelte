@@ -9,7 +9,8 @@
   import CategoryWidget from '@/components/CategoryWidget.svelte'
   import { primaryColor } from '@/stores/uiStore'
   import { viewState } from '@/stores/viewStore.svelte'
-  import { query } from '$app/server'
+  import Dropdown from '@/components/inputs/Dropdown.component.svelte'
+  import InstantResponse from '@/components/InstantResponse.svelte'
   // Data provided by +page.ts load
 
   $effect(() => {
@@ -27,13 +28,22 @@
 </script>
 
 <div class="dashboard-container">
+  <Dropdown
+    options={[
+      { label: 'Spanish', value: 'es' },
+      { label: 'English', value: 'en' },
+    ]}
+    bind:value={viewState.language}
+  ></Dropdown>
+
   <h1 class="dashboard-title">Things</h1>
 
   <div class="inputs-container">
     <Input onChange={(url) => handlePasteUrl(url)} />
     <!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
-    <Input onChange={(query) => (viewState.prompt = query)} />
-    <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
+    <Input onChange={(query) => (viewState.prompt = query)} /> -->
+    <!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
+    <!-- <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
   </div>
 
   <div class="flex-squares">

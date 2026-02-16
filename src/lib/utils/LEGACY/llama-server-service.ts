@@ -26,6 +26,9 @@ export interface LlamaCompletionParams {
 		| { prompt_string: string; multimodal_data?: string[] }
 		| Array<string | number[] | Array<number | string> | { prompt_string: string; multimodal_data?: string[] }>;
 
+	/** Optional system prompt to prepend to the prompt. */
+	system_prompt?: string;
+
 	/** Sampling temperature (default server-side: 0.8). */
 	temperature?: number;
 
@@ -222,6 +225,13 @@ function extractSseDataLines(eventBlock: string): string[] {
 		.filter(Boolean);
 }
 
+function findSseSeparatorIndex(buffer: string): { index: number; length: number } | null {
+	const idx = buffer.search(/\r?\n\r?\n/);
+	if (idx === -1) return null;
+	const m = buffer.slice(idx).match(/^\r?\n\r?\n/);
+	return { index: idx, length: m?.[0].length ?? 2 };
+}
+
 async function readSseJson(
 	res: Response,
 	onEvent: (json: any) => void,
@@ -248,15 +258,16 @@ async function readSseJson(
 
 		buffer += decoder.decode(value, { stream: true });
 
-		// Events separated by blank line
-		let sepIndex: number;
-		while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-			const rawEvent = buffer.slice(0, sepIndex);
-			buffer = buffer.slice(sepIndex + 2);
+		// Events separated by blank line (LF or CRLF)
+		while (true) {
+			const sep = findSseSeparatorIndex(buffer);
+			if (!sep) break;
+
+			const rawEvent = buffer.slice(0, sep.index);
+			buffer = buffer.slice(sep.index + sep.length);
 
 			const dataLines = extractSseDataLines(rawEvent);
 			for (const data of dataLines) {
-				// Some servers send [DONE] (OAI style); llama.cpp /completion typically sends JSON only.
 				if (data === "[DONE]") continue;
 				onEvent(JSON.parse(data));
 			}
@@ -274,11 +285,112 @@ async function readSseJson(
 	}
 }
 
+function promptToOpenAI(
+	prompt: LlamaCompletionParams["prompt"],
+	systemPrompt?: string,
+): OpenAICompletionPrompt {
+	const sys = (systemPrompt ?? "").trim();
+	const prefix = sys ? `${sys}\n` : "";
+
+	const toSingleString = (p: any): string => {
+		if (typeof p === "string") return p;
+		if (Array.isArray(p) && p.every((x) => typeof x === "number")) return p.join(" "); // best-effort stringify
+		if (Array.isArray(p)) return p.map((x) => (typeof x === "string" ? x : String(x))).join("");
+		if (p && typeof p === "object" && typeof p.prompt_string === "string") return p.prompt_string;
+		return String(p ?? "");
+	};
+
+	// If system prompt exists, we always return string or string[] so we can prepend safely.
+	if (Array.isArray(prompt)) {
+		// token array vs array of prompts
+		if (prompt.every((x) => typeof x === "number")) {
+			const asStr = (prompt as number[]).join(" ");
+			return prefix ? `${prefix}${asStr}` : asStr;
+		}
+		return (prompt as any[]).map((p) => `${prefix}${toSingleString(p)}`);
+	}
+
+	const s = toSingleString(prompt);
+	return prefix ? `${prefix}${s}` : s;
+}
+
+function logitBiasToOpenAI(logit_bias: LlamaLogitBias | undefined): Record<string, number> | undefined {
+	if (!logit_bias) return undefined;
+
+	// OpenAI expects: { "token_id_as_string": bias_number }
+	if (Array.isArray(logit_bias)) {
+		const out: Record<string, number> = {};
+		for (const [tok, bias] of logit_bias) {
+			if (bias === false) {
+				out[String(tok)] = -100; // "ban" equivalent
+			} else if (typeof bias === "number") {
+				out[String(tok)] = bias;
+			}
+		}
+		return out;
+	}
+
+	const out: Record<string, number> = {};
+	for (const [tok, bias] of Object.entries(logit_bias)) {
+		if (bias === false) out[String(tok)] = -100;
+		else if (typeof bias === "number") out[String(tok)] = bias;
+	}
+	return out;
+}
+
+function finishReasonToStopType(r?: string | null): LlamaCompletionResponse["stop_type"] {
+	// OpenAI: "stop" | "length" | "content_filter" | null
+	if (!r) return "none";
+	if (r === "stop") return "word";
+	if (r === "length") return "limit";
+	return "none";
+}
+
 /**
- * Call llama.cpp server POST /completion (non-OAI endpoint).
+ * OpenAI-compatible v1 /completions request/response (minimal fields used here).
+ */
+type OpenAICompletionPrompt = string | string[] | number[] | number[][];
+
+interface OpenAICompletionRequest {
+	model: string;
+	prompt: OpenAICompletionPrompt;
+	max_tokens?: number;
+	temperature?: number;
+	top_p?: number;
+	stop?: string | string[];
+	presence_penalty?: number;
+	frequency_penalty?: number;
+	logit_bias?: Record<string, number>;
+	stream?: boolean;
+	// allow llama-server extensions without fighting TS
+	[k: string]: any;
+}
+
+interface OpenAICompletionChoice {
+	text?: string;
+	finish_reason?: string | null;
+}
+
+interface OpenAICompletionResponse {
+	id?: string;
+	model?: string;
+	choices: OpenAICompletionChoice[];
+	usage?: any;
+	[k: string]: any;
+}
+
+interface OpenAICompletionChunk {
+	id?: string;
+	model?: string;
+	choices: OpenAICompletionChoice[];
+	[k: string]: any;
+}
+
+/**
+ * Call llama-server OpenAI-compatible POST /v1/completions endpoint.
  *
  * @param baseUrl e.g. "http://localhost:8080"
- * @param params request payload
+ * @param params request payload (llama-style; mapped to OpenAI fields)
  * @param onToken optional callback invoked for each streamed token when stream=true
  * @param options optional fetch options (headers, signal, etc.)
  */
@@ -288,10 +400,30 @@ export async function completion(
 	onToken?: (tokenText: string, event: LlamaCompletionResponse) => void,
 	options?: Omit<RequestInit, "method" | "body">,
 ): Promise<LlamaCompletionResponse> {
-	const url = joinUrl(baseUrl, "/completion");
+	const url = joinUrl(baseUrl, "/v1/completions");
 
 	const streamEnabled = params.stream === true || typeof onToken === "function";
-	const payload: LlamaCompletionParams = { ...params, stream: streamEnabled };
+
+	// llama-server typically requires `model` for OpenAI routes; allow caller to pass via (params as any).model
+	const model = params.model ?? "default";
+
+	const payload: OpenAICompletionRequest = {
+		model,
+		prompt: promptToOpenAI(params.prompt, params.system_prompt),
+		max_tokens: params.n_predict,
+		temperature: params.temperature,
+		top_p: params.top_p,
+		stop: params.stop,
+		presence_penalty: params.presence_penalty,
+		frequency_penalty: params.frequency_penalty,
+		logit_bias: logitBiasToOpenAI(params.logit_bias),
+		stream: streamEnabled,
+        json_schema: params.json_schema,
+		seed: params.seed,
+
+		// optional pass-through for servers that accept it as an extension field
+		system_prompt: params.system_prompt,
+	};
 
 	const res = await fetch(url, {
 		method: "POST",
@@ -305,32 +437,74 @@ export async function completion(
 
 	if (!res.ok) {
 		const text = await res.text().catch(() => "");
-		throw new Error(`llama.cpp /completion failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`);
+		// try to surface OpenAI-style error.message if present
+		try {
+			const j = text ? JSON.parse(text) : null;
+			const msg = j?.error?.message;
+			if (msg) throw new Error(`llama-server /v1/completions failed: ${res.status} ${res.statusText} - ${msg}`);
+		} catch {
+			// ignore parse errors
+		}
+		throw new Error(
+			`llama-server /v1/completions failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`,
+		);
 	}
 
+	// Prepare the system prompt prefix that was included in the prompt
+	const sysPrefixToRemove = params.system_prompt ? `${params.system_prompt.trim()}\n` : "";
+
 	if (!streamEnabled) {
-		return (await res.json()) as LlamaCompletionResponse;
+		const j = (await res.json()) as OpenAICompletionResponse;
+		const choice0 = j.choices?.[0];
+		let text = choice0?.text ?? "";
+
+		// Remove system prompt if it was prepended to the response
+		if (sysPrefixToRemove && text.startsWith(sysPrefixToRemove)) {
+			text = text.slice(sysPrefixToRemove.length);
+		}
+
+		return {
+			content: text,
+			model: j.model,
+			stop: Boolean(choice0?.finish_reason),
+			stop_type: finishReasonToStopType(choice0?.finish_reason),
+			// keep original raw for callers that relied on extra fields
+			choices: j.choices,
+			usage: j.usage,
+		} as any;
 	}
 
 	let aggregated = "";
-	let lastEvent: LlamaCompletionResponse = { content: "" };
+	let lastChunk: OpenAICompletionChunk | null = null;
 
 	await readSseJson(
 		res,
 		(evt) => {
-			const e = evt as LlamaCompletionResponse;
-			lastEvent = e;
-			if (typeof e.content === "string" && e.content.length) {
-				aggregated += e.content;
-				onToken?.(e.content, e);
+			const chunk = evt as OpenAICompletionChunk;
+			lastChunk = chunk;
+
+			const t = chunk.choices?.[0]?.text ?? "";
+			if (t) {
+				aggregated += t;
+				onToken?.(t, { content: t } as any);
 			}
 		},
 		options?.signal,
 	);
 
+	// Remove system prompt from aggregated response if it was prepended
+	let finalContent = aggregated;
+	if (sysPrefixToRemove && finalContent.startsWith(sysPrefixToRemove)) {
+		finalContent = finalContent.slice(sysPrefixToRemove.length);
+	}
+
+	const finishReason = lastChunk?.choices?.[0]?.finish_reason ?? null;
+
 	return {
-		...lastEvent,
-		// normalize to full text for convenience
-		content: aggregated,
-	};
+		content: finalContent,
+		model: lastChunk?.model ?? model,
+		stop: Boolean(finishReason),
+		stop_type: finishReasonToStopType(finishReason),
+		choices: lastChunk?.choices,
+	} as any;
 }

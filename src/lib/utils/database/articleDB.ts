@@ -1,7 +1,7 @@
 import Database from '@tauri-apps/plugin-sql';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { BaseDirectory } from '@tauri-apps/api/path';
-
+import { primaryColor } from '@/stores/uiStore';
+import { get } from 'svelte/store';
 import { viewState } from '@/stores/viewStore.svelte';
 import { getImageColor } from '../getImageColor';
 import { remove } from '@tauri-apps/plugin-fs';
@@ -121,16 +121,19 @@ export async function saveViewToDb(): Promise<Article> {
   // The metadataContent is an object, we save it as a JSON string.
   const metadataJson = JSON.stringify(data.metadataContent);
 
+  console.log('Saving article to DB with primary color:', get(primaryColor));
+
   try {
     // The parameter syntax is with $1, $2, etc.
     await db.execute(
-      `INSERT INTO articles (url, title, description, mainImage, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content, category, mediaDirectory)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      `INSERT INTO articles (url, title, description, mainImage, mainColor, markdownContent, metadataContent, domainUrl, ytVideoId, ytThumbnailUrl, summary, content, category, mediaDirectory)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         data.url,
         data.title,
         data.description,
         data.mainImage,
+        get(primaryColor),
         data.markdownContent,
         metadataJson,
         data.domainUrl,

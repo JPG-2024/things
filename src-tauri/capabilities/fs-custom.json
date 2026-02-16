@@ -17,11 +17,14 @@
       "identifier": "fs:scope",
       "allow": [
         { "path": "$APPDATA" },   
-        { "path": "$APPDATA/**" } ,
+        { "path": "$APPDATA/**" },
         { "path": "$APPDATA/media" },
         { "path": "$APPDATA/media/*" },
         { "path": "$HOME/notian" }, 
-        { "path": "$HOME/notian/**" }
+        { "path": "$HOME/notian/**" },
+        { "path": "$TEMP/**" },
+        { "path": "/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/**" }
+        
       ]
     }
   ]

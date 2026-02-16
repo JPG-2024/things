@@ -1,22 +1,27 @@
 <script lang="ts">
+  interface Option {
+    label: string
+    value: string
+  }
+
   interface Props {
+    options: Option[]
     value?: string
     placeholder?: string
     disabled?: boolean
     onChange?: (value: string) => void
-    onEnter?: (value: string) => void
   }
 
   let {
+    options = [],
     value = $bindable(''),
-    placeholder = '',
+    placeholder = 'Select option...',
     disabled = false,
     onChange,
-    onEnter,
   }: Props = $props()
 
-  function handleInput(event: Event) {
-    const target = event.target as HTMLInputElement
+  function handleChange(event: Event) {
+    const target = event.target as HTMLSelectElement
     const newValue = target.value
     value = newValue
 
@@ -24,47 +29,50 @@
       onChange(newValue)
     }
   }
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && onEnter) {
-      event.preventDefault()
-      onEnter(value)
-      value = ''
-    }
-  }
 </script>
 
-<input
-  class="text-input"
-  type="text"
+<select
+  class="dropdown-input"
   bind:value
-  {placeholder}
   {disabled}
-  oninput={handleInput}
-  onkeydown={handleKeydown}
-/>
+  onchange={handleChange}
+>
+  {#if placeholder}
+    <option value="" disabled selected hidden>{placeholder}</option>
+  {/if}
+  {#each options as option}
+    <option value={option.value}>{option.label}</option>
+  {/each}
+</select>
 
 <style>
-  .text-input {
+  .dropdown-input {
+    appearance: none;
     backdrop-filter: blur(8px);
     box-sizing: border-box;
     outline: none;
     border: none;
     border-radius: 15px;
     background: rgba(154, 154, 154, 0.2);
-    padding: 0.6rem 0.75rem;
+    padding: 1rem 0.75rem;
     width: 100%;
     color: inherit;
     font-size: 1rem;
+    cursor: pointer;
   }
 
-  .text-input:focus {
+  .dropdown-input:focus {
     box-shadow: inset 0 0 10px 2px var(--primary-color);
     transition: all 0.3s ease;
   }
 
-  .text-input:disabled {
+  .dropdown-input:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  option {
+    background: #1a1a1a;
+    color: white;
   }
 </style>

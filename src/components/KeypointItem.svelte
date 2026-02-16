@@ -1,9 +1,28 @@
 <script lang="ts">
+  import { chatCompletions } from '@/lib/utils/llama-completions'
+  import type {
+    LlamaChatCompletionsRequest,
+    LlamaChatCompletionsResponse,
+  } from '@/lib/utils/llama-completions'
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import { viewState } from '@/stores/viewStore.svelte'
-  import { generateResponse } from '@/lib/inference'
+  import { synthesizeSpeech } from '$lib/utils/tts'
+  import { invoke } from '@tauri-apps/api/core'
 
-  let { content } = $props()
+  const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
+    model: 'ggml-alpaca-7b-q4.bin',
+    temperature: 0.3,
+    max_tokens: 500,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.',
+      },
+    ],
+  }
+
+  let { content, completionParameters = DEFAULT_COMPLETION_PARAMETERS } = $props()
   let additionalInfo = $state<string | null>(null)
   let posibleYoutubeQuery = $state<string | null>(null)
 
@@ -17,17 +36,40 @@
 
     console.log('Generated YouTube Query:', posibleYoutubeQuery) */
 
-    const prompt = `context: "${viewState.content}" \n\n add additional information present in context about this keypoint: "${keypoint}"`
+    const prompt = `context: "${viewState.content}" \n\n profundiza en un resumen de un parrafo breve sobre: "${keypoint}".`
 
-    const response = await generateResponse({
-      prompt,
-      systemPrompt: 'Follow rules. Be brief. Always answer in spanish.',
-      temperature: 0.2,
+    const completionRequest: LlamaChatCompletionsRequest = {
+      ...completionParameters,
+      model: 'ggml-alpaca-7b-q4.bin',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.',
+        },
+        { role: 'user', content: `CONTEXT: ${content} \n\n PROMPT: ${prompt} ` },
+      ],
+    }
+
+    const response = await chatCompletions(completionRequest, 'http://localhost:8080', {
+      onToken: (token) => {
+        additionalInfo = additionalInfo ? additionalInfo + token : token
+      },
     })
 
-    console.log(response)
+    const spech = await synthesizeSpeech(
+      additionalInfo!,
+      viewState.language,
+      '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json',
+      {
+        speed: 1.4,
+        onnx_dir:
+          '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/',
+        total_step: 5,
+      }
+    )
 
-    additionalInfo = response
+    await invoke('play_tts_file', { filePath: spech.file_path })
   }
 </script>
 

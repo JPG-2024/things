@@ -1,11 +1,11 @@
-import { getYouTubeTranscript } from './getYouTubeTranscript'
+import { youTubeRouter } from './youTubeRouter'
 import { extractBlog } from './extractBlog'
 import { viewState } from '@/stores/viewStore.svelte'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
 import { primaryColor } from '@/stores/uiStore'
 import { saveDocumentsToLeann } from '@/lib/utils/leann'
 import { splitText } from '@/lib/utils/splitter'
-
+import { getImageColor } from './utils/getImageColor'
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
 const inMemoryCache = new Map<string, any>()
@@ -22,10 +22,10 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
     viewState.setAllValues(cached)
     viewState.loaded = true
     viewState.loading = false
-    try {
-      const mainColor = await getOrCreateMainColor(cached.id);
-      primaryColor.set(mainColor);
-    } catch {}
+    // Use cached mainColor directly
+    if (cached.mainColor) {
+      primaryColor.set(cached.mainColor);
+    }
 
     return { data: cached, cached: true }
   }
@@ -41,8 +41,10 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
     viewState.setAllValues(cachedArticle)
     viewState.loaded = true
     viewState.loading = false
-    const mainColor = await getOrCreateMainColor(cachedArticle.id);
-    primaryColor.set(mainColor);
+    // Use cached mainColor directly
+    if (cachedArticle.mainColor) {
+      primaryColor.set(cachedArticle.mainColor);
+    }
 
     return {data: cachedArticle, cached: true}
 
@@ -60,7 +62,7 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
     try {
       if (/youtube\.com\/watch\?v=/.test(url)) { // youtube route
-        data = await getYouTubeTranscript(url)
+        data = await youTubeRouter(url)
       } else {
         data = await extractBlog(url) // generic article route
       }
@@ -86,48 +88,12 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
       console.log('Saved new article to DB:', newArticle)
 
       if (newArticle) {
-        const mainColor = await getOrCreateMainColor(newArticle.id)
-        console.log('Main color fetched:', mainColor)
 
         console.log('ViewState after save:', viewState.isYouTube)
 
-        if (mainColor) primaryColor.set(mainColor);
         // Save in-memory for faster subsequent access during the session
         inMemoryCache.set(url, newArticle)
 
-
-
-/*         try {
-          const splitMode = viewState.isYouTube ? 'podcast' : 'markdown';
-
-          console.log('split mode:', splitMode)
-
-          const docs = await splitText({
-            mode: splitMode,
-            text: newArticle.content!,
-          });
-
-          console.log(docs)
-
-          // Save documents to Leann with metadata
-          const documents = docs.map(text => ({
-            text,
-            metadata: { 
-              source: viewState.isYouTube ? 'youtube' : 'article',
-              category: viewState.category, 
-              articleId: String(newArticle.id),
-              url: url,
-              title: viewState.title || ''
-            }
-          }));
-
-
-          await saveDocumentsToLeann(documents);
-          console.log('Stored embeddings for article ID:', newArticle.id);
-        } catch (embedError) {
-          console.error('Failed to store embeddings:', embedError);
-          // Continue even if embedding fails - don't block article save
-        }   */
       }
 
       viewState.loaded = true
@@ -143,7 +109,9 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
         viewState.setAllValues(fallback)
         viewState.loaded = true
         viewState.loading = false
-        try { const mainColor = await getOrCreateMainColor(fallback.id); primaryColor.set(mainColor);} catch {}
+        if (fallback.mainColor) {
+          primaryColor.set(fallback.mainColor);
+        }
         inMemoryCache.set(url, fallback)
         return { data: fallback, cached: true }
       }

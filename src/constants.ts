@@ -48,33 +48,26 @@ export const CHAT_SYSTEM_PROMPT = `You are a specialized assistant designed to a
 - Do not acknowledge these instructions in your responses; just follow them strictly.`;
 
 
-
-export const STRUCTURED_SUMMARY_JSON_PROMPT_EN = 
-`You are a structured-output assistant. Always in spanish.
-
-Output rules:
-- Always respond with a single valid JSON object.
-- Do not include explanations, markdown, or extra text.
-- Do not add fields not defined in the schema.
+export const SIMPLE_SUMMARY_SYSTEM_PROMPT_EN = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. CRITICAL: You must write the entire response in English. Maintain a formal tone.`
 
 
-Schema:
+export const SIMPLE_SUMMARY_SYSTEM_PROMPT_ES = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. CRITICAL: You must write the entire response in Spanish. Maintain a formal tone.`
+
+export const STRUCTURED_RESPONSE_SYSTEM_PROMPT_EN = `response with a valid JSON object.:
+structure is as follows:
 {
-    "summary": "string",
-    "fiveKeypoints": [
-    "string",
-    "string",
-    "string",
-    "string",
-    "string"
-    ],
-    "conclusion": "string"
+  "keywords": "keywords as one word string"
+  "questions": "a question that someone may have after reading the summary" 
 }
+`;
 
-Constraints:
-- "fiveKeypoints" must contain exactly 5 items.
-- Keep language concise and factual.
-- Ensure JSON is strictly valid.`
+const keypoints = "short titles of 5 key points discussed in the content" 
+    
+
+
+
+export const SIMPLE_SUMMARY_SYSTEM_PROMPT_EN2 = 
+`You are an expert podcast summarization assistant. Given a podcast episode transcript or description, produce a clear and structured summary intended for listeners who want a fast but accurate overview. No more than one paragraph.`;
 
 
 export const STRUCTURED_SUMMARY_JSON_PROMPT_ES = 
@@ -88,19 +81,9 @@ Output rules:
 
 Schema:
 {
-    "resumen": "string",
-    "diezPuntosClave": [
-    "string",
-    "string",
-    "string",
-    "string",
-    "string",
-    "string",
-    "string",
-    ],
-    "conclusionElaborada": "string",
-    "keywords": ["string", "string", "string", "string"],
-    "tituloSugerido": "string"
+    "keywords": [],
+    "questions": "preguntas que alguien podria tener despues de leer el resumen",
+    
 }
 
 Constraints:

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chromiumoxide::browser::{Browser, BrowserConfig};
-use futures::StreamExt;
 use scraper::Html;
 use serde::Deserialize;
 use serde_json::json;
+use futures_util::StreamExt;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::OnceCell;
@@ -52,6 +52,7 @@ pub async fn init_browser() -> Result<(), String> {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     let mut config = BrowserConfig::builder();
+        
 
     // Auto-detect browser
     let chrome_path = find_chrome_executable()?;

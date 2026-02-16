@@ -138,7 +138,7 @@
     gap: 1.5rem;
     padding: 1.5rem;
     box-sizing: border-box;
-    padding-top: 16px;
+    padding-top: 60px;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;

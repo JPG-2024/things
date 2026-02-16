@@ -1,4 +1,4 @@
-import { getYouTubeTranscript } from './getYouTubeTranscript'
+import { youTubeRouter } from './youTubeRouter'
 import { extractBlog } from './extractBlog'
 import { viewState } from '@/stores/viewStore.svelte'
 import { saveViewToDb, getArticleByUrl, getOrCreateMainColor } from './utils/database/articleDB'
@@ -61,7 +61,7 @@ export async function urlRouter(url: string): Promise<{data: any, cached: boolea
 
     try {
       if (/youtube\.com\/watch\?v=/.test(url)) { // youtube route
-        data = await getYouTubeTranscript(url)
+        data = await youTubeRouter(url)
       } else {
         data = await extractBlog(url) // generic article route
       }

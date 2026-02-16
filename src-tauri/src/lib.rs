@@ -8,7 +8,15 @@ pub use crate::inference_openrouter::inference; */
 pub use crate::inference_hugging::inference; */
 
 mod youtube;
-pub use crate::youtube::{get_youtube_transcript, search_youtube};
+pub use crate::youtube::{
+    get_video_info,
+    get_youtube_transcript_timed,
+    get_youtube_transcript_timed_text,
+    search_youtube,
+};
+
+mod youtube_info;
+pub use crate::youtube_info::get_youtube_info;
 
 mod splitter;
 pub use crate::splitter::{split_text, split_text_command, SplitMode};
@@ -22,8 +30,11 @@ pub use crate::download_media::download_and_save_image;
 mod url;
 pub use crate::url::url_to_folder_name;
 
-mod inference;
-pub use crate::inference::{generate_response, generate_chat_response};
+
+mod tts_helpers;
+
+mod tts;
+pub use crate::tts::{synthesize_speech, synthesize_speech_batch, cleanup_tts_file, play_tts_file, stop_tts_playback};
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -153,6 +164,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let _ = crate::browser::init_browser().await;
             });
+
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
@@ -162,13 +174,19 @@ pub fn run() {
             extract_markdown,
             extract_metadata,
             extract_blog,
-            get_youtube_transcript,
+            get_video_info,
+            get_youtube_info,
+            get_youtube_transcript_timed,
+            get_youtube_transcript_timed_text,
             search_youtube,
             download_and_save_image,
             url_to_folder_name,
             split_text_command,
-            generate_response,
-            generate_chat_response
+            synthesize_speech,
+            synthesize_speech_batch,
+            cleanup_tts_file,
+            play_tts_file,
+            stop_tts_playback
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

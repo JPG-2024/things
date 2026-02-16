@@ -4,6 +4,7 @@
   import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
   import { page } from '$app/state'
   import { blur } from 'svelte/transition'
+  import InstantResponse from '@/components/InstantResponse.svelte'
 
   const articleUrl = page.params.url
 
@@ -13,6 +14,8 @@
 </script>
 
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />
+
+<InstantResponse content={viewState.summary!} />
 
 {#snippet headerContentSnippet()}
   {#if viewState.ytVideoId}
@@ -71,31 +74,36 @@
     </div>
   {/if}
 
-  {#if viewState.summary && typeof viewState.summary === 'object'}
-    {#if viewState.summary.summary}
+  {#if typeof viewState.summary === 'string'}
+    {#if viewState.summary}
       <div class="summary-section" transition:blur={{ duration: 200 }}>
-        <MarkdownRenderer content={viewState.summary.summary} />
+        <MarkdownRenderer content={viewState.summary} />
       </div>
     {/if}
+  {/if}
 
-    {#if viewState.summary.keypoints && viewState.summary.keypoints.length > 0}
-      <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
-        <ul class="keypoints-list">
-          {#each viewState.summary.keypoints as keypoint, index}
-            {#if keypoint}
-              <KeypointItem content={keypoint} />
-            {/if}
-          {/each}
-        </ul>
-      </div>
-    {/if}
+  {#if viewState.keypoints && viewState.keypoints.length > 0}
+    <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
+      <ul class="keypoints-list">
+        {#each viewState.keypoints as keypoint, index}
+          {#if keypoint}
+            <KeypointItem content={keypoint} />
+          {/if}
+        {/each}
+      </ul>
+    </div>
+  {/if}
 
-    {#if viewState.summary.conclusion}
-      <div class="conclusion-section" transition:blur={{ duration: 200 }}>
-        <h3>Conclusión</h3>
-        <MarkdownRenderer content={viewState.summary.conclusion} />
-      </div>
-    {/if}
+  {#if viewState.questions && viewState.questions.length > 0}
+    <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
+      <ul class="keypoints-list">
+        {#each viewState.questions as question, index}
+          {#if question}
+            <KeypointItem content={question} />
+          {/if}
+        {/each}
+      </ul>
+    </div>
   {/if}
 {/snippet}
 
@@ -115,8 +123,8 @@
     position: relative;
 
     background-color: var(--card-bg, #000);
-    width: 120%;
-
+    width: 100%;
+    border-radius: 20px;
     overflow: hidden;
   }
 
@@ -125,6 +133,7 @@
     display: block;
     padding-top: 56.25%; /* 16:9 */
     content: '';
+    border-radius: 20px;
   }
 
   .yt-wrapper img {
@@ -132,16 +141,17 @@
     top: 0%;
     left: 0;
     right: auto;
-    border: 0;
-    width: 110%;
+    border: 1px solid var(--primary-color);
+    width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 20px;
   }
 
-  .yt-thumbnail:hover {
+  /*   .yt-thumbnail:hover {
     transform: scale(1.01);
     opacity: 0.96;
-  }
+  } */
 
   .yt-play {
     display: flex;
@@ -164,10 +174,10 @@
     font-size: 28px;
   }
 
-  .yt-play:hover {
+  /*   .yt-play:hover {
     transform: translateY(-10%);
     background: rgba(0, 0, 0, 0.75);
-  }
+  } */
 
   .summary-section,
   .keypoints-section,

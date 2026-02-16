@@ -7,7 +7,7 @@ import { getImageSrc } from './utils/dirs';
 
 export async function extractBlog(url: string): Promise<{content: string, summary: string}> {
   try {
-    const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['main', 'article'] })
+    const response = await invoke<{metadata: Record<string, string>, markdown: string}>('extract_blog', { url, selectors: ['#primary-inner', 'article'] })
   
     if (response.metadata["og:image"]) {
       const _mediaDir = await invoke<string>('url_to_folder_name', {url})

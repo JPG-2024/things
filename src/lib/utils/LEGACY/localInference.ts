@@ -1,6 +1,6 @@
 import { fetch } from '@tauri-apps/plugin-http';
 
-export type LocalStreamCallback = (chunk: string, metadata: unknown) => void;
+export type LocalStreamCallback = (chunk: string) => void;
 
 /**
  * Configuration options for running a local Llama language model inference.
@@ -145,7 +145,7 @@ export async function runLocalLlamaPrompt(
 			aggregatedChunks.push(chunkText);
 
 			if (onChunk) {
-				onChunk(chunkText, metadata);
+				onChunk(chunkText);
 			}
 		}
 	};
