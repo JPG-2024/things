@@ -44,7 +44,7 @@
     <h2 class="category-title">{name}</h2>
   {/if}
 
-  <div class="square" ondblclick={handleSquareDoubleClick} role="group">
+  <div class="widget" ondblclick={handleSquareDoubleClick} role="group">
     {#if articles?.length}
       <div class="img-flex">
         {#each articles as article (article.url)}
@@ -70,6 +70,7 @@
     {:else}
       <span>No articles found.</span>
     {/if}
+    <div class="widget-corner"></div>
   </div>
 </div>
 
@@ -95,20 +96,90 @@
     font-size: 0.9rem;
   }
 
-  .square {
-    display: flex;
+  .widget {
     position: relative;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
+    width: 280px;
+    height: 280px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
     border-radius: 30px;
-    background: rgb(154, 154, 154, 0.2);
     padding: 15px;
-    padding-top: 10px;
-    width: 404px;
-    height: 204px;
-    color: white;
-    font-weight: bold;
+    overflow: hidden;
+  }
+
+  /* Esquina superior izquierda + lado superior */
+  .widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60%; /* Cubre 60% del ancho superior */
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    border-radius: 30px 0 0 0;
+  }
+
+  .widget::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 60%; /* Cubre 60% de la altura izquierda */
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    border-radius: 30px 0 0 0;
+  }
+
+  /* Esquina inferior derecha + lado inferior (usando span o elemento extra) */
+  .widget-corner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 60%;
+    height: 60%;
+    pointer-events: none;
+  }
+
+  .widget-corner::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+      270deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    border-radius: 0 0 30px 0;
+  }
+
+  .widget-corner::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    border-radius: 0 0 30px 0;
   }
 
   .img-flex {
