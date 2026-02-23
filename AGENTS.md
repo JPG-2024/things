@@ -3,8 +3,9 @@
 ## Tech stack
 frontend: svelte 5 with runes.
 
-## Visión general
-- Ignore folders: /LEGACY/
+## Ignore folders
+LEGACY,PLANS
+  
 
 ### Svelte 5 implementations
 
@@ -23,3 +24,4 @@ frontend: svelte 5 with runes.
 
   let pills = $state<Pill[]>([])
 ```
+

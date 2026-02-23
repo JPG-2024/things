@@ -2,6 +2,7 @@
   import TextNode from '@/components/TextNode.svelte'
   import { taskRunner } from '@/stores/taskRunner.svelte'
   import type { Task } from '@/types/taskRunner.types'
+  import CompletionOptionsPanel from '@/components/CompletionOptionsPanel.svelte'
 
   // async function that returns a string after 2 seconds
   async function delayedString(): Promise<string> {
@@ -32,6 +33,7 @@
         model: 'gpt-4o-mini',
         temperature: 0.7,
         max_tokens: 180,
+        stream: true,
       },
       baseUrl: 'http://localhost:8080',
     },
@@ -43,6 +45,12 @@
     await taskRunner.run()
   }
 </script>
+
+<CompletionOptionsPanel
+  onParametersChange={(params) => {
+    console.log('Updated completion parameters:', params)
+  }}
+/>
 
 <button onclick={runPipeline} disabled={taskRunner.running}>
   {taskRunner.running ? 'Running...' : 'Run'}
