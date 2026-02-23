@@ -2,7 +2,7 @@
   let {
     message = 'Esto es un prueba',
     loading = false,
-    CHANGE_PERIOD = 10,
+    CHANGE_PERIOD = 20,
     TIMEOUT_SECONDS = 0.1,
     text = 'abcdefghijklmnopqrstuvwxyz',
   } = $props()

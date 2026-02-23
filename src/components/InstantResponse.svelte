@@ -68,9 +68,9 @@
       const speech = await synthesizeSpeech(
         streamedText,
         'es',
-        '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F2.json',
+        '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json',
         {
-          speed: 1.4,
+          speed: 1.3,
           onnx_dir:
             '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/',
           total_step: 5,

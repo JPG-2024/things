@@ -228,6 +228,8 @@ pub async fn get_video_info(
     app: AppHandle,
     url: String,
     selectors: Vec<VideoInfoSelector>,
+    attempts: Option<u32>,
+    interval_ms: Option<u64>,
 ) -> Result<HashMap<String, Value>, String> {
     app.emit(
         "flow-status",
@@ -254,7 +256,10 @@ pub async fn get_video_info(
         let selector = item.selector.clone();
         println!("🔍 Extracting '{}' with selector '{}'", &name, &selector);
 
-        match wait_for_element_spa(&page, &selector, 50, 100).await {
+        let attempts = attempts.unwrap_or(3);
+        let interval_ms = interval_ms.unwrap_or(2000);
+
+        match wait_for_element_spa(&page, &selector, attempts, interval_ms).await {
             Ok(texts) => {
                 println!("✅ Selector '{}' found, {} texts extracted", &selector, texts.len());
                 

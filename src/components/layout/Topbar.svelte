@@ -44,9 +44,10 @@
     align-items: center;
     gap: 10px;
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(10px);
     background: rgba(54, 54, 54, 0.6);
     min-height: 50px;
-    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(10px);
     right: 0;
     left: 0;
     z-index: 10;

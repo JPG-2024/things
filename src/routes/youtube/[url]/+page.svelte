@@ -5,11 +5,11 @@
   import { page } from '$app/state'
   import { blur } from 'svelte/transition'
   import InstantResponse from '@/components/InstantResponse.svelte'
-
-  const articleUrl = page.params.url
-
   import PostView from '@/components/PostView.svelte'
   import KeypointItem from '@/components/KeypointItem.svelte'
+  import TextNode from '@/components/TextNode.svelte'
+
+  const articleUrl = page.params.url
   let showIframe = false
 </script>
 
@@ -21,14 +21,14 @@
   {#if viewState.ytVideoId}
     <div class="yt-wrapper">
       {#if showIframe}
-        <!--         <iframe
+        <iframe
           class="yt-video"
           src={`https://www.youtube-nocookie.com/embed/${viewState.ytVideoId}?autoplay=1&rel=0&modestbranding=1`}
           title="YouTube video player"
           frameborder="0"
           allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen
-        ></iframe> -->
+        ></iframe>
       {:else}
         <button
           class="yt-thumbnail-btn"
@@ -57,29 +57,18 @@
 {/snippet}
 
 {#snippet summaryContentSnippet()}
-  <!--   {#if viewState.block1 !== ''}
-    <div class="block1" transition:blur={{ duration: 200 }}>
-      <MarkdownRenderer content={viewState.block1} />
-    </div>
-  {/if}
-  {#if viewState.block2 !== ''}
-    <div class="block1" transition:blur={{ duration: 200 }}>
-      <MarkdownRenderer content={viewState.block2} />
-    </div>
-  {/if} -->
-
-  {#if viewState?.summary?.title}
-    <div class="title-section" transition:blur={{ duration: 1500 }}>
-      {viewState?.summary?.title}
-    </div>
-  {/if}
-
   {#if typeof viewState.summary === 'string'}
     {#if viewState.summary}
       <div class="summary-section" transition:blur={{ duration: 200 }}>
         <MarkdownRenderer content={viewState.summary} />
       </div>
     {/if}
+  {/if}
+
+  {#if viewState.youtubeInfo?.chapterSummaries && viewState.youtubeInfo.chapterSummaries.length > 0}
+    {#each viewState.youtubeInfo.chapterSummaries as chapter}
+      <TextNode id={chapter.startTime.toString()} result={chapter.summary} title={chapter.title} />
+    {/each}
   {/if}
 
   {#if viewState.keypoints && viewState.keypoints.length > 0}
@@ -148,10 +137,15 @@
     border-radius: 20px;
   }
 
-  /*   .yt-thumbnail:hover {
-    transform: scale(1.01);
-    opacity: 0.96;
-  } */
+  /* Make iframe fill the wrapper */
+  .yt-wrapper .yt-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
 
   .yt-play {
     display: flex;
@@ -174,23 +168,10 @@
     font-size: 28px;
   }
 
-  /*   .yt-play:hover {
-    transform: translateY(-10%);
-    background: rgba(0, 0, 0, 0.75);
-  } */
-
   .summary-section,
-  .keypoints-section,
-  .conclusion-section {
+  .keypoints-section {
+    padding: 1rem;
     margin-bottom: 15px;
-  }
-
-  .summary-section h3,
-  .keypoints-section h3,
-  .conclusion-section h3 {
-    color: var(--primary-color);
-    margin-bottom: 1rem;
-    font-size: 1.25rem;
   }
 
   .keypoints-list {
@@ -198,8 +179,6 @@
     padding: 0;
     margin: 0;
   }
-
-  /* .keypoint-item styles moved into KeypointItem.svelte */
 
   @media (prefers-color-scheme: dark) {
     :root {

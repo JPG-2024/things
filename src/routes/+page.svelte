@@ -36,7 +36,10 @@
     bind:value={viewState.language}
   ></Dropdown>
 
-  <h1 class="dashboard-title">Things</h1>
+  <div class="title-row">
+    <h1 class="dashboard-title">Things</h1>
+    <a class="runner-link" href="/runner">Runner</a>
+  </div>
 
   <div class="inputs-container">
     <Input onChange={(url) => handlePasteUrl(url)} />
@@ -67,7 +70,7 @@
     margin-bottom: 1rem;
     color: var(--primary-color);
     font-size: 2.2rem;
-    font-family: 'JetBrains Mono', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Courier, monospace;
   }
 
   .flex-squares {
@@ -88,6 +91,23 @@
     width: 100%;
     max-width: 800px;
     margin-bottom: 2rem;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .runner-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    border: 1px solid var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
   }
 
   /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */

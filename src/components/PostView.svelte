@@ -10,6 +10,8 @@
   import Button from './inputs/Button.component.svelte'
   import { saveEmbeddings } from '@/lib/services/embeddings'
   import { updateArticleEmbeddingsStatus } from '@/lib/utils/database/articleDB'
+  import Link from './Link.svelte'
+  import StringReveal from './StringReveal.svelte'
 
   interface Props {
     headerContent?: any
@@ -83,7 +85,7 @@
 <article>
   <Topbar>
     {#if viewState.loaded}
-      <span>{viewState.url}</span>
+      <Link url={viewState.url!} />
     {:else}
       <LoadingStack />
     {/if}
@@ -109,8 +111,7 @@
     </div> -->
 
     <div class="title">
-      <!-- <StringReveal message={viewState.title} disableReveal={false} /> -->
-      {viewState.title}
+      <StringReveal message={viewState.title} />
     </div>
 
     <div class="header">
@@ -122,11 +123,11 @@
 
   {@render summaryContent()}
 
-  <div class="chat-button">
+  <!--   <div class="chat-button">
     <Button label="new chat" onClick={() => handleGoChat()} />
   </div>
 
-  <ChatsList articleId={viewState.articleId!}></ChatsList>
+  <ChatsList articleId={viewState.articleId!}></ChatsList> -->
 </article>
 
 <style>
@@ -136,9 +137,8 @@
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    padding: 1.5rem;
     box-sizing: border-box;
-    padding-top: 60px;
+    padding-top: 50px;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
@@ -164,7 +164,6 @@
   .title :global(.revealer) {
     font-weight: bold;
     font-size: 1.5rem;
-    font-family: 'Arial', Times, serif;
   }
 
   .header {

@@ -6,7 +6,10 @@
     fontSize?: string | number
   }
 
-  let { content, fontSize = 0.9 }: Props = $props()
+  export type MarkdownRendererProps = Props
+  const DEFAULT_FONT_SIZE = 0.9
+
+  let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props()
 
   // Initialize markdown-it
   const md = new MarkdownIt({
@@ -19,10 +22,10 @@
   function preprocessContent(text: string): string {
     let processed = text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
 
-    // Handle <think> tags for reasoning models
+    // Handle 陇 tags for reasoning models
     // Replace opening tag with details/summary
     processed = processed.replace(
-      /<think>/g,
+      /陇/g,
       '<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">'
     )
 
@@ -49,15 +52,15 @@
 
 <style>
   .markdown-container {
+    font-family: 'Noto Sans Mono Thin', monospace;
     display: flex;
     flex-direction: column;
     width: 100%;
     color: #fafafa;
     text-align: left;
     word-wrap: break-word;
-    font-size: 0.9rem;
+    font-size: 1rem;
     line-height: 1.6;
-    font-family: 'Menlo', monospace;
     overflow-wrap: break-word;
   }
 
@@ -73,7 +76,7 @@
     padding: 0.5rem 1rem;
     cursor: pointer;
     color: #888;
-    font-size: 0.8rem;
+    font-size: 1rem;
     user-select: none;
   }
 
@@ -182,7 +185,7 @@
   .markdown-container :global(strong) {
     color: var(--primary-color);
     font-weight: bold;
-    font-size: 0.9em;
+    font-size: 1em;
   }
 
   .markdown-container :global(em) {

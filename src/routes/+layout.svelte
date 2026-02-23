@@ -12,7 +12,6 @@
   let mainElement: HTMLElement | undefined = $state()
 
   $effect(() => {
-    console.log(mainElement)
     if (mainElement) {
       console.log('Updating primary color to:', $primaryColor)
       mainElement.style.setProperty('--primary-color', $primaryColor)
@@ -134,7 +133,7 @@
     background-color: #000000;
     overflow-y: auto;
     height: 100vh;
-    padding: 1.2rem;
+    padding: 2rem;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
   }

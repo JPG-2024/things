@@ -3,7 +3,9 @@ import { listenMarkdownFlowStatus } from "@/lib/listeners/markdownListener";
 import type { FlowStatusEvent, MetadataPayload, MarkdownPayload } from "@/lib/types/flowStatus";
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { appDataDir, join } from '@tauri-apps/api/path';
-
+import type { Chapter } from "@/lib/utils/youtube/joinCaptionsByChapters";
+import type { ChapterCaption } from "@/lib/utils/youtube/joinCaptionsByChapters";
+import type { ChapterSummaryItem } from "@/lib/utils/youtube/summarizeChapters";
 
 type language = 'en' | 'es'
 
@@ -22,36 +24,45 @@ export interface SummaryState {
   title: string;
 }
 
+export interface YoutubeVideoInfo {
+  title: string;
+  channel: string;
+  withChapters: boolean;
+  chapters: Chapter[];
+  chapterCaptions: ChapterCaption[];
+  chapterSummaries: ChapterSummaryItem[];  
+  transcript: string;
+}
+
 class ViewState {
   // Primitive state
   language = $state<language>('en')
+  primaryColor = $state<string>('');
   loading = $state(false);
   loaded = $state(false);
 
   url = $state<string | null>(null);
   prompt = $state<string | null>(null);
 
-  mediaDirectory = $state<string | null>(null);
   articleId = $state<number | null>(null);
-  category = $state<string | null>(null);
-  content = $state<string>("");
-  summary = $state<string |null>(null);
-  keypoints = $state<string[] | null>(null);
-  questions = $state<string[] | null>(null);
-  block1 = $state<string>("");
-  block2 = $state<string>("");
-  embeddings = $state<boolean>(false);
-  ytTranscript = $state<string | null>(null);
-  messages = $state<Message[]>([]);
-
+  mediaDirectory = $state<string | null>(null);
   mediaBasePath = $state<string>('');
   mainImage = $state<string>('');
   mainImageSrc = $state<string>('');
-
-  primaryColor = $state<string>('');
-  
   metadataStatus = $state<FlowStatusEvent<MetadataPayload> | null>(null);
   markdownStatus = $state<FlowStatusEvent<MarkdownPayload> | null>(null);
+
+  youtubeInfo = $state<YoutubeVideoInfo | null>(null);
+  
+  content = $state<string>("");
+  summary = $state<string |null>(null);
+  category = $state<string | null>(null);
+  keypoints = $state<string[] | null>(null);
+  questions = $state<string[] | null>(null);
+  embeddings = $state<boolean>(false);
+  
+
+  messages = $state<Message[]>([]);
 
   // Derived state (computed values)
   markdownContent = $derived(this.markdownStatus?.data || "");
@@ -73,8 +84,9 @@ class ViewState {
     this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, 'high') : ''
   );
   
+
   title = $derived(
-    this.metadataStatus?.data?.["og:title"] || ""
+    this.youtubeInfo?.title || this.metadataStatus?.data?.["og:title"] || ""
   );
   
   description = $derived(
@@ -103,15 +115,21 @@ class ViewState {
     this.summary = '';
     this.keypoints = [];
     this.questions = [];
-    this.block1 = '';
-    this.block2 = '';
-    this.ytTranscript = null;
     this.messages = [];
     this.mainImage = '';
     this.mainImageSrc = '';
     this.mediaDirectory = null;
     this.primaryColor = '';
     this.embeddings = false;
+    this.youtubeInfo = {
+      title: '',
+      channel: '',
+      withChapters: false,
+      chapters: [],
+      chapterCaptions: [],
+      chapterSummaries: {},
+      transcript: ''
+    };
   }
 
     // State for listeners
@@ -158,7 +176,7 @@ class ViewState {
       description: this.description,
       articleId: this.articleId,
       summary: this.summary,
-      ytTranscript: this.ytTranscript,
+      ytTranscript: this.youtubeInfo?.transcript,
       messages: this.messages,
       content: this.content,
       category: this.category,

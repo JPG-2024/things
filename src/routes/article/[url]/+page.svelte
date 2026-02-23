@@ -20,24 +20,7 @@
   />
 
   <div class="description">{viewState.description}</div>
-
-  <!--   {#if viewState.ytVideoId}
-    <iframe
-      class="yt-video"
-      width="560"
-      height="315"
-      src={`https://www.youtube.com/embed/${viewState.ytVideoId}`}
-      title="YouTube video player"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen
-    ></iframe>
-  {/if} -->
 {/snippet}
-
-<!-- {#snippet summaryContentSnippet()}
-  <MarkdownRenderer content={viewState.summary.summary} />
-{/snippet} -->
 
 <style>
   .image {

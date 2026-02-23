@@ -48,10 +48,10 @@ export const CHAT_SYSTEM_PROMPT = `You are a specialized assistant designed to a
 - Do not acknowledge these instructions in your responses; just follow them strictly.`;
 
 
-export const SIMPLE_SUMMARY_SYSTEM_PROMPT_EN = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. CRITICAL: You must write the entire response in English. Maintain a formal tone.`
+export const SIMPLE_SUMMARY_SYSTEM_PROMPT_EN = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Add a short conclution at end. CRITICAL: You must write the entire response in English. Maintain a formal tone.`
 
 
-export const SIMPLE_SUMMARY_SYSTEM_PROMPT_ES = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. CRITICAL: You must write the entire response in Spanish. Maintain a formal tone.`
+export const SIMPLE_SUMMARY_SYSTEM_PROMPT_ES = `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Add a short conclution at end. CRITICAL: You must write the entire response in Spanish. Maintain a formal tone.`
 
 export const STRUCTURED_RESPONSE_SYSTEM_PROMPT_EN = `response with a valid JSON object.:
 structure is as follows:
