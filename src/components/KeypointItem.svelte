@@ -1,33 +1,33 @@
 <script lang="ts">
-  import { chatCompletions } from '@/lib/utils/llama-completions'
-  import type {
-    LlamaChatCompletionsRequest,
-    LlamaChatCompletionsResponse,
-  } from '@/lib/utils/llama-completions'
-  import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import { synthesizeSpeech } from '$lib/utils/tts'
-  import { invoke } from '@tauri-apps/api/core'
+import { invoke } from "@tauri-apps/api/core"
+import MarkdownRenderer from "@/components/MarkdownRenderer.svelte"
+import type {
+	LlamaChatCompletionsRequest,
+	LlamaChatCompletionsResponse,
+} from "@/lib/utils/llama-completions"
+import { chatCompletions } from "@/lib/utils/llama-completions"
+import { viewState } from "@/stores/viewStore.svelte"
+import { synthesizeSpeech } from "$lib/utils/tts"
 
-  const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
-    model: 'ggml-alpaca-7b-q4.bin',
-    temperature: 0.3,
-    max_tokens: 500,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.',
-      },
-    ],
-  }
+const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
+	model: "ggml-alpaca-7b-q4.bin",
+	temperature: 0.3,
+	max_tokens: 500,
+	messages: [
+		{
+			role: "system",
+			content:
+				"Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.",
+		},
+	],
+}
 
-  let { content, completionParameters = DEFAULT_COMPLETION_PARAMETERS } = $props()
-  let additionalInfo = $state<string | null>(null)
-  let posibleYoutubeQuery = $state<string | null>(null)
+let { content, completionParameters = DEFAULT_COMPLETION_PARAMETERS } = $props()
+let additionalInfo = $state<string | null>(null)
+let posibleYoutubeQuery = $state<string | null>(null)
 
-  async function fetchAdditionalInfo(keypoint: string) {
-    /*     posibleYoutubeQuery = await generateResponse({
+async function fetchAdditionalInfo(keypoint: string) {
+	/*     posibleYoutubeQuery = await generateResponse({
       prompt: `context: "${viewState.content}" \n\n keypoint: "${keypoint}" \n\n generate a youtube search query that would help to find a video related to this keypoint.`,
       systemPrompt:
         'You are a youtube query generator. Answer only with the query, no additional text.',
@@ -36,41 +36,41 @@
 
     console.log('Generated YouTube Query:', posibleYoutubeQuery) */
 
-    const prompt = `context: "${viewState.content}" \n\n profundiza en un resumen de un parrafo breve sobre: "${keypoint}".`
+	const prompt = `context: "${viewState.content}" \n\n profundiza en un resumen de un parrafo breve sobre: "${keypoint}".`
 
-    const completionRequest: LlamaChatCompletionsRequest = {
-      ...completionParameters,
-      model: 'ggml-alpaca-7b-q4.bin',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.',
-        },
-        { role: 'user', content: `CONTEXT: ${content} \n\n PROMPT: ${prompt} ` },
-      ],
-    }
+	const completionRequest: LlamaChatCompletionsRequest = {
+		...completionParameters,
+		model: "ggml-alpaca-7b-q4.bin",
+		messages: [
+			{
+				role: "system",
+				content:
+					"Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.",
+			},
+			{ role: "user", content: `CONTEXT: ${content} \n\n PROMPT: ${prompt} ` },
+		],
+	}
 
-    const response = await chatCompletions(completionRequest, 'http://localhost:8080', {
-      onToken: (token) => {
-        additionalInfo = additionalInfo ? additionalInfo + token : token
-      },
-    })
+	const response = await chatCompletions(completionRequest, {
+		onToken: (token) => {
+			additionalInfo = additionalInfo ? additionalInfo + token : token
+		},
+	})
 
-    const spech = await synthesizeSpeech(
-      additionalInfo!,
-      viewState.language,
-      '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json',
-      {
-        speed: 1.4,
-        onnx_dir:
-          '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/',
-        total_step: 5,
-      }
-    )
+	const spech = await synthesizeSpeech(
+		additionalInfo!,
+		viewState.language,
+		"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json",
+		{
+			speed: 1.4,
+			onnx_dir:
+				"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/",
+			total_step: 5,
+		},
+	)
 
-    await invoke('play_tts_file', { filePath: spech.file_path })
-  }
+	await invoke("play_tts_file", { filePath: spech.file_path })
+}
 </script>
 
 <li>

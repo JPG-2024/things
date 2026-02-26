@@ -1,94 +1,89 @@
 <script lang="ts">
-  import { chatCompletions } from '@/lib/utils/llama-completions'
-  import type {
-    LlamaChatCompletionsRequest,
-    LlamaChatCompletionsResponse,
-  } from '@/lib/utils/llama-completions'
-  import Input from './inputs/Input.component.svelte'
-  import { invoke } from '@tauri-apps/api/core'
-  import { synthesizeSpeech } from '$lib/utils/tts'
+import { invoke } from "@tauri-apps/api/core"
+import type {
+	LlamaChatCompletionsRequest,
+	LlamaChatCompletionsResponse,
+} from "@/lib/utils/llama-completions"
+import { chatCompletions } from "@/lib/utils/llama-completions"
+import { synthesizeSpeech } from "$lib/utils/tts"
+import Input from "./inputs/Input.component.svelte"
 
-  const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
-    model: 'ggml-alpaca-7b-q4.bin',
-    temperature: 0.3,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.',
-      },
-    ],
-  }
+const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
+	model: "ggml-alpaca-7b-q4.bin",
+	temperature: 0.3,
+	messages: [
+		{
+			role: "system",
+			content:
+				"Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.",
+		},
+	],
+}
 
-  interface Props {
-    model?: string
-    baseUrl?: string
-    maxTokens?: number
-    content?: string
-    completionParameters?: LlamaChatCompletionsRequest
-  }
+interface Props {
+	model?: string
+	maxTokens?: number
+	content?: string
+	completionParameters?: LlamaChatCompletionsRequest
+}
 
-  let {
-    baseUrl = 'http://localhost:8080',
-    completionParameters = DEFAULT_COMPLETION_PARAMETERS,
-    content = '',
-  }: Props = $props()
+let { completionParameters = DEFAULT_COMPLETION_PARAMETERS, content = "" }: Props = $props()
 
-  let response = $state<LlamaChatCompletionsResponse | null>(null)
-  let loading = $state(false)
-  let error = $state<string | null>(null)
-  let streamedText = $state('')
+let response = $state<LlamaChatCompletionsResponse | null>(null)
+let loading = $state(false)
+let error = $state<string | null>(null)
+let streamedText = $state("")
 
-  async function handleSubmit(prompt: string) {
-    if (!prompt.trim()) return
+async function handleSubmit(prompt: string) {
+	if (!prompt.trim()) return
 
-    loading = true
-    error = null
-    streamedText = ''
-    response = null
+	loading = true
+	error = null
+	streamedText = ""
+	response = null
 
-    try {
-      const completionRequest: LlamaChatCompletionsRequest = {
-        ...completionParameters,
-        messages: [
-          ...completionParameters.messages,
-          { role: 'user', content: `CONTEXT: ${content} \n\n PROMPT: ${prompt}.` },
-        ],
-      }
+	try {
+		const completionRequest: LlamaChatCompletionsRequest = {
+			...completionParameters,
+			messages: [
+				...completionParameters.messages,
+				{ role: "user", content: `CONTEXT: ${content} \n\n PROMPT: ${prompt}.` },
+			],
+		}
 
-      const result = await chatCompletions(completionRequest, baseUrl, {
-        onToken: (token) => {
-          streamedText += token
-        },
-      })
+		const result = await chatCompletions(completionRequest, {
+			onToken: (token) => {
+				streamedText += token
+			},
+		})
 
-      streamedText = result.choices[0]?.message?.content ?? ''
-      console.log('Final completion result:', result)
+		streamedText = result.choices[0]?.message?.content ?? ""
+		console.log("Final completion result:", result)
 
-      const speech = await synthesizeSpeech(
-        streamedText,
-        'es',
-        '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json',
-        {
-          speed: 1.3,
-          onnx_dir:
-            '/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/',
-          total_step: 5,
-        }
-      )
+		const speech = await synthesizeSpeech(
+			streamedText,
+			"es",
+			"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json",
+			{
+				speed: 1.3,
+				onnx_dir:
+					"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/",
+				total_step: 5,
+			},
+		)
 
-      console.log('TTS result:', speech)
+		console.log("TTS result:", speech)
 
-      invoke('play_tts_file', { filePath: speech.file_path }).catch((err) => {
-        console.error('Error playing TTS:', err)
-      })
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Completion error:', err)
-    } finally {
-      loading = false
-    }
-  }
+		invoke("play_tts_file", { filePath: speech.file_path }).catch((err) => {
+			console.error("Error playing TTS:", err)
+		})
+	} catch (err) {
+		error = err instanceof Error ? err.message : "Unknown error occurred"
+		console.error("Completion error:", err)
+	} finally {
+		loading = false
+	}
+}
 </script>
 
 <div class="instant-response-container">
