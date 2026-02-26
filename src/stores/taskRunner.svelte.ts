@@ -3,7 +3,8 @@ import type { LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions'
 import type {
 	IaTask,
 	Task,
-	TaskDependencyState,
+	TaskMapBase,
+	TaskGlobalState,
 	TaskRunSummary,
 	TaskStateUpdate,
 	TaskStatus,
@@ -65,6 +66,17 @@ class TaskRunnerStore {
 	}
 
 	/**
+	 * Create a snapshot of the current tasks (defensive copy).
+	 * @returns An array of tasks with copied dependencies.
+	 */
+	private snapshotTasks(): Task[] {
+		return this.tasks.map((task) => ({
+			...task,
+			dependencies: [...task.dependencies],
+		}));
+	}
+
+	/**
 	 * Insert or update a single task by id.
 	 * @param task - Task to upsert.
 	 */
@@ -115,8 +127,11 @@ class TaskRunnerStore {
 	 * @param taskId - Task id to fetch data for.
 	 * @returns The task's data or undefined.
 	 */
-	getTaskData(taskId: string): Task['data'] | undefined {
-		return this.getTaskById(taskId)?.data;
+	getTaskData<
+		TMap extends TaskMapBase = TaskMapBase,
+		TId extends keyof TMap & string = keyof TMap & string,
+	>(taskId: TId): TMap[TId] | undefined {
+		return this.getTaskById(taskId)?.data as TMap[TId] | undefined;
 	}
 
 	/**
@@ -129,17 +144,15 @@ class TaskRunnerStore {
 	}
 
 	/**
-	 * Build a dependency state object for a task mapping dependency id -> dependency data.
-	 * @param task - Task whose dependencies will be resolved.
-	 * @returns The TaskDependencyState mapping.
+	 * Build a global state object mapping all task ids to their current data.
+	 * @returns The TaskGlobalState mapping.
 	 */
-	private getDependencyData(task: Task): TaskDependencyState {
-		const state: TaskDependencyState = {};
-		for (const dependencyId of task.dependencies) {
-			const dependency = this.getTaskById(dependencyId);
-			state[dependencyId] = dependency?.data;
+	private getGlobalData<TMap extends TaskMapBase = TaskMapBase>(): TaskGlobalState<TMap> {
+		const state: Record<string, unknown> = {};
+		for (const currentTask of this.tasks) {
+			state[currentTask.id] = currentTask.data;
 		}
-		return state;
+		return state as TaskGlobalState<TMap>;
 	}
 
 	/**
@@ -262,9 +275,9 @@ class TaskRunnerStore {
 	 * @param task - The IaTask to run.
 	 */
 	private async runIaTask(task: IaTask): Promise<void> {
-		const dependencyState = this.getDependencyData(task);
+		const globalState = this.getGlobalData();
 		const runResultRaw = task.run
-			? await task.run(dependencyState, this.statusUpdaterFor(task.id))
+			? await task.run(globalState, this.statusUpdaterFor(task.id))
 			: '';
 		const runResult = String(runResultRaw ?? '').trim();
 		const userContent = runResult
@@ -300,8 +313,8 @@ class TaskRunnerStore {
 	 * @returns The task result (assigned to task.data).
 	 */
 	private async runScriptTask(task: Extract<Task, { type: 'script' }>): Promise<void> {
-		const dependencyState = this.getDependencyData(task);
-		const result = await task.run(dependencyState, this.statusUpdaterFor(task.id));
+		const globalState = this.getGlobalData();
+		const result = await task.run(globalState, this.statusUpdaterFor(task.id));
 		this.setTaskFields(task.id, { data: result });
 	}
 
@@ -401,6 +414,7 @@ class TaskRunnerStore {
 			this.lastRun = {
 				startedAt,
 				endedAt,
+				tasks: this.snapshotTasks(),
 				total: this.tasks.length,
 				done: this.countStatus('done'),
 				failed: this.countStatus('failed'),
@@ -408,16 +422,11 @@ class TaskRunnerStore {
 				pending: this.countStatus('pending'),
 				...(failedTaskId ? { failedTaskId } : {}),
 			};
-
-      // console.log entire state for debugging
-      console.log('Task Runner State after run:', {
-        tasks: this.tasks.map(({ id, status, error, debug, data }) => ({ id, status, error, debug, data })),
-        lastRun: this.lastRun,
-      });
 		}
 
 		return this.lastRun;
 	}
+
 }
 
 export const taskRunner = new TaskRunnerStore();

@@ -7,7 +7,9 @@ export type TaskType = 'script' | 'ia';
 
 export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 
-export type TaskDependencyState = Record<string, unknown>;
+export type TaskMapBase = Record<string, unknown>;
+
+export type TaskGlobalState<TMap extends TaskMapBase> = Partial<TMap>;
 
 export interface TaskStateUpdate {
 	data?: unknown;
@@ -16,14 +18,14 @@ export interface TaskStateUpdate {
 
 export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 
-interface TaskBase {
-	id: string;
+interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
+	id: TId;
 	name: string
 	widget: boolean;
-	dependencies: string[];
+	dependencies: (keyof TMap & string)[];
 	type: TaskType;
-	data?: unknown;
-  component?: string;
+	data?: TMap[TId];
+	component?: string;
 	status?: TaskStatus;
 	error?: string;
 	// Optional field to store debug information about the task execution, such as intermediate results or logs
@@ -32,29 +34,42 @@ interface TaskBase {
 	endedAt?: number;
 }
 
-export interface ScriptTask extends TaskBase {
+export interface ScriptTask<
+	TMap extends TaskMapBase = TaskMapBase,
+	TId extends keyof TMap & string = keyof TMap & string,
+> extends TaskBase<TMap, TId> {
 	type: 'script';
-	run: (state: TaskDependencyState, statusUpdater: TaskStatusUpdater) => Promise<unknown> | unknown;
+	run: (
+		state: Readonly<TaskGlobalState<TMap>>,
+		statusUpdater: TaskStatusUpdater,
+	) => Promise<TMap[TId]> | TMap[TId];
 	systemMessage?: never;
 	userMessage?: never;
 	completionOptions?: never;
 	baseUrl?: never;
 }
 
-export interface IaTask extends TaskBase {
+export interface IaTask<
+	TMap extends TaskMapBase = TaskMapBase,
+	TId extends keyof TMap & string = keyof TMap & string,
+> extends TaskBase<TMap, TId> {
 	type: 'ia';
 	systemMessage: string;
 	userMessage: string;
 	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string };
 	baseUrl?: string;
-	run?: (state: TaskDependencyState, statusUpdater: TaskStatusUpdater) => Promise<string> | string;
+	run?: (
+		state: Readonly<TaskGlobalState<TMap>>,
+		statusUpdater: TaskStatusUpdater,
+	) => Promise<string> | string;
 }
 
-export type Task = ScriptTask | IaTask;
+export type Task<TMap extends TaskMapBase = TaskMapBase> = ScriptTask<TMap> | IaTask<TMap>;
 
-export interface TaskRunSummary {
+export interface TaskRunSummary<TMap extends TaskMapBase = TaskMapBase> {
 	startedAt: number;
 	endedAt: number;
+	tasks: Task<TMap>[];
 	total: number;
 	done: number;
 	failed: number;
@@ -63,10 +78,10 @@ export interface TaskRunSummary {
 	failedTaskId?: string;
 }
 
-export interface TaskRunnerState {
-	tasks: Task[];
+export interface TaskRunnerState<TMap extends TaskMapBase = TaskMapBase> {
+	tasks: Task<TMap>[];
 	running: boolean;
-	lastRun?: TaskRunSummary;
+	lastRun?: TaskRunSummary<TMap>;
 }
 
 export interface IaTaskResult {
