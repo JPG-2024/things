@@ -7,7 +7,7 @@
   import InstantResponse from '@/components/InstantResponse.svelte'
   import PostView from '@/components/PostView.svelte'
   import KeypointItem from '@/components/KeypointItem.svelte'
-  import TextNode from '@/components/TextNode.svelte'
+  import TasksRender from '@/components/Tasks/TasksRender.svelte'
 
   const articleUrl = page.params.url
   let showIframe = false
@@ -65,16 +65,12 @@
     {/if}
   {/if}
 
-  {#if viewState.youtubeInfo?.chapterSummaries && viewState.youtubeInfo.chapterSummaries.length > 0}
-    {#each viewState.youtubeInfo.chapterSummaries as chapter}
-      <TextNode id={chapter.startTime.toString()} result={chapter.summary} title={chapter.title} />
-    {/each}
-  {/if}
+  <TasksRender />
 
   {#if viewState.keypoints && viewState.keypoints.length > 0}
     <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
       <ul class="keypoints-list">
-        {#each viewState.keypoints as keypoint, index}
+        {#each viewState.keypoints as keypoint}
           {#if keypoint}
             <KeypointItem content={keypoint} />
           {/if}
@@ -86,7 +82,7 @@
   {#if viewState.questions && viewState.questions.length > 0}
     <div class="keypoints-section" transition:blur={{ duration: 1000 }}>
       <ul class="keypoints-list">
-        {#each viewState.questions as question, index}
+        {#each viewState.questions as question}
           {#if question}
             <KeypointItem content={question} />
           {/if}
@@ -97,16 +93,6 @@
 {/snippet}
 
 <style>
-  .title-section {
-    font-weight: bold;
-    font-size: 1.8rem;
-    line-height: 1.8rem;
-    font-family: 'Raleway', Times, serif;
-    text-decoration: underline;
-    text-decoration-color: var(--primary-color);
-    text-underline-offset: -2px;
-  }
-
   /* Wrapper with 16:9 aspect ratio for responsive player */
   .yt-wrapper {
     position: relative;

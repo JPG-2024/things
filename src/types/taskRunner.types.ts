@@ -18,12 +18,15 @@ export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 
 interface TaskBase {
 	id: string;
+	name: string
 	widget: boolean;
 	dependencies: string[];
 	type: TaskType;
 	data?: unknown;
+  component?: string;
 	status?: TaskStatus;
 	error?: string;
+	// Optional field to store debug information about the task execution, such as intermediate results or logs
 	debug?: string;
 	startedAt?: number;
 	endedAt?: number;
@@ -41,10 +44,10 @@ export interface ScriptTask extends TaskBase {
 export interface IaTask extends TaskBase {
 	type: 'ia';
 	systemMessage: string;
-	userMessage: (state: TaskDependencyState) => string;
+	userMessage: string;
 	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string };
 	baseUrl?: string;
-	run?: never;
+	run?: (state: TaskDependencyState, statusUpdater: TaskStatusUpdater) => Promise<string> | string;
 }
 
 export type Task = ScriptTask | IaTask;

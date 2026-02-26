@@ -1,5 +1,6 @@
 <script lang="ts">
   let { url }: { url: string } = $props()
+  import Icon from './Icon.svelte'
 
   async function copyToClipboard(event: MouseEvent) {
     event.preventDefault()
@@ -13,7 +14,9 @@
   }
 </script>
 
-<button type="button" onclick={copyToClipboard} class="link" title="Copy link"> 🔗 </button>
+<button type="button" onclick={copyToClipboard} class="link" title="Copy link">
+  <Icon name="Link" />
+</button>
 
 <style>
   .link {

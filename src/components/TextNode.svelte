@@ -14,6 +14,4 @@
   {data}
 {:else if data != null}
   <pre>{JSON.stringify(data, null, 2)}</pre>
-{:else}
-  <em>No output yet.</em>
 {/if}

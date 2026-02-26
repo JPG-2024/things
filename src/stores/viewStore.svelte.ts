@@ -40,6 +40,7 @@ class ViewState {
   primaryColor = $state<string>('');
   loading = $state(false);
   loaded = $state(false);
+  showAllTasks = $state(false);
 
   url = $state<string | null>(null);
   prompt = $state<string | null>(null);

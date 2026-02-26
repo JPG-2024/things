@@ -6,9 +6,6 @@
 
   let flashy = $state(false)
 
-  // Hover state for the top-left dropzone
-  let isHoveringDropzone = $state(false)
-
   let mainElement: HTMLElement | undefined = $state()
 
   $effect(() => {

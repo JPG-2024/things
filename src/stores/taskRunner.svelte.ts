@@ -263,11 +263,18 @@ class TaskRunnerStore {
 	 */
 	private async runIaTask(task: IaTask): Promise<void> {
 		const dependencyState = this.getDependencyData(task);
+		const runResultRaw = task.run
+			? await task.run(dependencyState, this.statusUpdaterFor(task.id))
+			: '';
+		const runResult = String(runResultRaw ?? '').trim();
+		const userContent = runResult
+			? `context: ${runResult} ${task.userMessage}`
+			: task.userMessage;
 		const request: LlamaChatCompletionsRequest = {
 			...task.completionOptions,
 			messages: [
 				{ role: 'system', content: task.systemMessage },
-				{ role: 'user', content: task.userMessage(dependencyState) },
+				{ role: 'user', content: userContent },
 			],
 		};
 

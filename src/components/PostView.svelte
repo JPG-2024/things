@@ -10,8 +10,10 @@
   import Button from './inputs/Button.component.svelte'
   import { saveEmbeddings } from '@/lib/services/embeddings'
   import { updateArticleEmbeddingsStatus } from '@/lib/utils/database/articleDB'
-  import Link from './Link.svelte'
+  import LinkIcon from './LinkIcon.svelte'
   import StringReveal from './StringReveal.svelte'
+  import ToggleIcon from './ToggleIcon.svelte'
+  import Icon from './Icon.svelte'
 
   interface Props {
     headerContent?: any
@@ -84,16 +86,28 @@
 
 <article>
   <Topbar>
-    {#if viewState.loaded}
+    <!--     {#if viewState.loaded}
       <Link url={viewState.url!} />
     {:else}
       <LoadingStack />
-    {/if}
+    {/if} -->
+
+    <ToggleIcon
+      name="ListChecks"
+      checked={viewState.showAllTasks}
+      onToggle={() => (viewState.showAllTasks = !viewState.showAllTasks)}
+    />
+    <LinkIcon url={viewState.url!} />
 
     {#if viewState.articleId && !viewState.loading}
-      <button class="delete-btn" onclick={handleDelete} disabled={isDeleting} title="Delete article"
-        >✕</button
+      <button
+        class="delete-btn"
+        onclick={handleDelete}
+        disabled={isDeleting}
+        title="Delete article"
       >
+        <Icon name="Trash" />
+      </button>
     {/if}
   </Topbar>
 
@@ -135,7 +149,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     gap: 1.5rem;
     box-sizing: border-box;
     padding-top: 50px;
@@ -180,7 +194,7 @@
     cursor: pointer;
     border-radius: 8px;
     padding: 6px 10px;
-    color: #ff6b6b;
+    color: white;
     font-size: 18px;
     line-height: 1;
   }

@@ -3,6 +3,7 @@ import { SIMPLE_SUMMARY_SYSTEM_PROMPT_EN, SIMPLE_SUMMARY_SYSTEM_PROMPT_ES } from
 import { getYouTubeThumbnailUrl } from './utils/youtube'
 import { getImageSrc } from './utils/dirs'
 import { synthesizeSpeech } from '$lib/utils/tts'
+import type { TTSLanguage } from '$lib/utils/tts'
 import { getImageColor } from './utils/getImageColor'
 import { primaryColor } from '@/stores/uiStore'
 import { currentDuration } from '@/stores/ttsStore'
@@ -11,6 +12,7 @@ import { joinCaptionsByChapters } from './utils/youtube/joinCaptionsByChapters'
 import type { Chapter, ChapterCaption, TimedCaption } from './utils/youtube/joinCaptionsByChapters'
 import { taskRunner } from '@/stores/taskRunner.svelte'
 import type { Task } from '@/types/taskRunner.types'
+import { viewState } from '@/stores/viewStore.svelte'
 
 type VideoMetaItem = {
 	name: string
@@ -21,7 +23,7 @@ type VideoMetaItem = {
 type InitContext = {
 	url: string
 	videoId: string
-	preferredLanguage: string
+	preferredLanguage: TTSLanguage
 }
 
 type ThumbnailContext = {
@@ -45,12 +47,13 @@ type ChapterContext = {
 	chapterSummaries: string[]
 }
 
-export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es']): Task[] {
-	const selectedLanguage = languages[0] || 'es'
+export function createYouTubeTasks(url: string, language?: TTSLanguage): Task[] {
+	const selectedLanguage = language ?? viewState.language
 
 	return [
 		{
 			id: 'yt:init-context',
+			name: 'Initialize YouTube Context',
 			widget: false,
 			dependencies: [],
 			type: 'script',
@@ -66,6 +69,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:thumbnail',
+			name: 'Get thumbnail',
 			widget: false,
 			dependencies: ['yt:init-context'],
 			type: 'script',
@@ -80,11 +84,13 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 				})
 
 				const mainImageSrc = await getImageSrc(mediaDirectory, mainImage)
+				viewState.mainImageSrc = mainImageSrc
 				return { mediaDirectory, mainImage, mainImageSrc } satisfies ThumbnailContext
 			},
 		},
 		{
 			id: 'yt:main-color',
+			name: 'Get main color',
 			widget: false,
 			dependencies: ['yt:thumbnail'],
 			type: 'script',
@@ -105,6 +111,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:video-info',
+			name: 'Extract Info',
 			widget: false,
 			dependencies: ['yt:init-context'],
 			type: 'script',
@@ -126,6 +133,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:transcript',
+			name: 'Get transcript',
 			widget: false,
 			dependencies: ['yt:init-context', 'yt:video-info'],
 			type: 'script',
@@ -142,6 +150,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:chapters',
+			name: 'Process Chapters',
 			widget: false,
 			dependencies: ['yt:init-context', 'yt:video-info', 'yt:transcript'],
 			type: 'script',
@@ -157,27 +166,28 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 				const chapterCaptions = joinCaptionsByChapters(transcript.timedCaptions, info.chapters)
 				const chapterSummaries = await summarizeChapters(chapterCaptions, context.preferredLanguage)
 
-				return { chapterCaptions, chapterSummaries } satisfies ChapterContext
+				return { chapterCaptions, chapterSummaries }
 			},
 		},
 		{
 			id: 'yt:summary',
+			name: 'Generate Summary',
 			widget: true,
 			dependencies: ['yt:init-context', 'yt:transcript'],
+            component: 'base',
 			type: 'ia',
 			systemMessage:
 				selectedLanguage === 'es' ? SIMPLE_SUMMARY_SYSTEM_PROMPT_ES : SIMPLE_SUMMARY_SYSTEM_PROMPT_EN,
-			userMessage: (state) => {
+			run: (state) => {
 				const transcript = state['yt:transcript'] as TranscriptContext
-				const summaryPromptEs = 'Resume el contexto de manera concisa y clara en un solo párrafo.'
-				const summaryPromptEn = 'Summarize the context concisely and clearly in a single paragraph.'
-
-				return selectedLanguage === 'es'
-					? `context: ${transcript.transcriptText}\n\n${summaryPromptEs}`
-					: `context: ${transcript.transcriptText}\n\n${summaryPromptEn}`
+				return transcript.transcriptText
 			},
+			userMessage:
+				selectedLanguage === 'es'
+					? 'Resume el contexto de manera concisa y clara en un solo párrafo. maximo 4 lineas.'
+					: 'Summarize the context concisely and clearly in a single paragraph. maximum 4 lines.',
 			completionOptions: {
-				model: 'gpt-3.5-turbo',
+				model: 'llama-server',
 				temperature: 0.7,
 				stream: true,
 			},
@@ -185,6 +195,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:summary-state',
+			name: 'Summary State',
 			widget: false,
 			dependencies: ['yt:summary'],
 			type: 'script',
@@ -192,6 +203,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:tts',
+			name: 'Generate TTS',
 			widget: false,
 			dependencies: ['yt:summary-state'],
 			type: 'script',
@@ -223,6 +235,7 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 		},
 		{
 			id: 'yt:result',
+			name: 'Final Result',
 			widget: false,
 			dependencies: ['yt:transcript', 'yt:summary-state', 'yt:tts'],
 			type: 'script',
@@ -239,12 +252,14 @@ export function createYouTubeTasks(url: string, languages: string[] = ['en', 'es
 
 export async function youTubeRunner(
 	url: string,
-	languages: string[] = ['en', 'es'],
+	language?: TTSLanguage,
 ): Promise<{ content: string; summary: string }> {
 	try {
-		const tasks = createYouTubeTasks(url, languages)
+		const selectedLanguage = language ?? viewState.language
+		const tasks = createYouTubeTasks(url, selectedLanguage)
 		taskRunner.setTasks(tasks)
-		await taskRunner.run()
+		const tasksa = await taskRunner.run()
+		console.log('All tasks completed:', tasksa)
 
 		const result = taskRunner.getTaskData('yt:result') as { content: string; summary: string } | undefined
 		if (!result) {
@@ -253,6 +268,6 @@ export async function youTubeRunner(
 
 		return result
 	} catch (invokeErr) {
-		throw new Error(`Failed to fetch YouTube transcript: ${invokeErr}`)
+		throw new Error(`Error: ${invokeErr}`)
 	}
 }
