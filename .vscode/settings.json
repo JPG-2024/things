@@ -1,11 +1,11 @@
 {
-  "svelte.enable-ts-plugin": true,
-  "editor.defaultFormatter": "svelte.svelte-vscode",
-  "editor.formatOnSave": true,
-  "[svelte]": {
-    "editor.defaultFormatter": "svelte.svelte-vscode"
-  },
-  "[rust]": {
-    "editor.formatOnSave": true
-  }
+	"svelte.enable-ts-plugin": true,
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "biomejs.biome",
+	"[rust]": {
+		"editor.formatOnSave": true
+	},
+	"[svelte]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	}
 }
