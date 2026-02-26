@@ -1,21 +1,22 @@
-import ollama from 'ollama';
-import z from 'zod';
+import ollama from "ollama"
+import z from "zod"
 
+export async function extractKeywords(
+	content: string,
+	config: { maxKeywords?: number } = { maxKeywords: 10 },
+): Promise<any> {
+	const schema = z.object({
+		keywords: z.array(z.string()),
+		summary: z.string().optional(),
+	})
 
-
-export async function extractKeywords(content: string, config: { maxKeywords?: number } = { maxKeywords: 10 }): Promise<any> {
-  const schema = z.object({
-    keywords: z.array(z.string()),
-    summary: z.string().optional()
-  });
-
-  const response = await ollama.chat({
-    model: "gpt-oss",
-    format: "json",
-    messages: [
-      {
-        role: "system",
-        content: `You must respond using the following JSON schema.
+	const response = await ollama.chat({
+		model: "gpt-oss",
+		format: "json",
+		messages: [
+			{
+				role: "system",
+				content: `You must respond using the following JSON schema.
 
 {
   "response_format": {
@@ -39,20 +40,19 @@ export async function extractKeywords(content: string, config: { maxKeywords?: n
       "required": ["keywords", "summary"]
     }
   }
-}`
-      },
-      {
-        role: "user",
-        content: `make a summary and extract keywords: \n\n${content}`
-      }
-    ]
-  });
+}`,
+			},
+			{
+				role: "user",
+				content: `make a summary and extract keywords: \n\n${content}`,
+			},
+		],
+	})
 
-  const parsed = schema.safeParse(JSON.parse(response.message.content));
-  if (!parsed.success) {
-    return [];
-  }
-  // const keywords = parsed.data.keywords.slice(0, config.maxKeywords ?? 10);
-  return parsed;
+	const parsed = schema.safeParse(JSON.parse(response.message.content))
+	if (!parsed.success) {
+		return []
+	}
+	// const keywords = parsed.data.keywords.slice(0, config.maxKeywords ?? 10);
+	return parsed
 }
-

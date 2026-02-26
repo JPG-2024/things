@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.6.0/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
@@ -11,17 +11,5 @@
 		"rules": {
 			"recommended": true
 		}
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "double",
-			"semicolons": "asNeeded"
-		}
-	},
-	"files": {
-		"ignore": ["node_modules", "dist", "build", "src-tauri/target"]
-	},
-	"organizeImports": {
-		"enabled": false
 	}
 }

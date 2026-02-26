@@ -1,6 +1,7 @@
 <script>
-  let { show = false, onClose, children } = $props()
-  import { fade, scale } from 'svelte/transition'
+let { show = false, onClose, children } = $props()
+
+import { fade, scale } from "svelte/transition"
 </script>
 
 {#if show}

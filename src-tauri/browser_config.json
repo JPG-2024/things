@@ -1,18 +1,18 @@
 {
-  "chrome_args": [
-    "--disable-blink-features=AutomationControlled",
-    "--disable-dev-shm-usage",
-    "--disable-gpu",
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-web-security",
-    "--disable-features=IsolateOrigins,site-per-process",
-    "--disable-infobars",
-    "--window-size=1920,1080",
-    "--start-maximized",
-    "--exclude-switches=enable-automation",
-    "--disable-extensions",
-    "--profile-directory=Default",
-    "--incognito"
-  ]
+	"chrome_args": [
+		"--disable-blink-features=AutomationControlled",
+		"--disable-dev-shm-usage",
+		"--disable-gpu",
+		"--no-sandbox",
+		"--disable-setuid-sandbox",
+		"--disable-web-security",
+		"--disable-features=IsolateOrigins,site-per-process",
+		"--disable-infobars",
+		"--window-size=1920,1080",
+		"--start-maximized",
+		"--exclude-switches=enable-automation",
+		"--disable-extensions",
+		"--profile-directory=Default",
+		"--incognito"
+	]
 }

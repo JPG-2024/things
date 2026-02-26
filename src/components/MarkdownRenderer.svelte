@@ -1,46 +1,46 @@
 <script lang="ts">
-  import MarkdownIt from 'markdown-it'
+import MarkdownIt from "markdown-it"
 
-  interface Props {
-    content?: string | null
-    fontSize?: string | number
-  }
+interface Props {
+	content?: string | null
+	fontSize?: string | number
+}
 
-  export type MarkdownRendererProps = Props
-  const DEFAULT_FONT_SIZE = 0.9
+export type MarkdownRendererProps = Props
+const DEFAULT_FONT_SIZE = 0.9
 
-  let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props()
+let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props()
 
-  // Initialize markdown-it
-  const md = new MarkdownIt({
-    html: true,
-    linkify: true,
-    typographer: true,
-    breaks: true,
-  })
+// Initialize markdown-it
+const md = new MarkdownIt({
+	html: true,
+	linkify: true,
+	typographer: true,
+	breaks: true,
+})
 
-  function preprocessContent(text: string): string {
-    let processed = text.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+function preprocessContent(text: string): string {
+	let processed = text.replace(/\\n/g, "\n").replace(/\\"/g, '"')
 
-    // Handle 陇 tags for reasoning models
-    // Replace opening tag with details/summary
-    processed = processed.replace(
-      /陇/g,
-      '<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">'
-    )
+	// Handle 陇 tags for reasoning models
+	// Replace opening tag with details/summary
+	processed = processed.replace(
+		/陇/g,
+		'<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">',
+	)
 
-    // Replace closing tag
-    processed = processed.replace(/<\/think>/g, '</div></details>')
+	// Replace closing tag
+	processed = processed.replace(/<\/think>/g, "</div></details>")
 
-    // Handle unclosed tag (streaming)
-    const lastOpen = processed.lastIndexOf('<details class="thought-process">')
-    const lastClose = processed.lastIndexOf('</details>')
-    if (lastOpen > lastClose) {
-      processed += '</div></details>'
-    }
+	// Handle unclosed tag (streaming)
+	const lastOpen = processed.lastIndexOf('<details class="thought-process">')
+	const lastClose = processed.lastIndexOf("</details>")
+	if (lastOpen > lastClose) {
+		processed += "</div></details>"
+	}
 
-    return processed
-  }
+	return processed
+}
 </script>
 
 {#if content}

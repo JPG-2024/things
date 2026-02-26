@@ -1,47 +1,47 @@
 <script lang="ts">
-  import { getChatsByArticleId } from '@/lib/utils/database/chatDB'
-  import { goto } from '$app/navigation'
-  import { onMount } from 'svelte'
-  import { chatsRefresh } from '@/stores/chatStore'
+import { onMount } from "svelte"
+import { getChatsByArticleId } from "@/lib/utils/database/chatDB"
+import { chatsRefresh } from "@/stores/chatStore"
+import { goto } from "$app/navigation"
 
-  interface Props {
-    articleId: number
-  }
+interface Props {
+	articleId: number
+}
 
-  let { articleId }: Props = $props()
+let { articleId }: Props = $props()
 
-  let chats = $state<Chat[]>([])
+let chats = $state<Chat[]>([])
 
-  let loading = $state(true)
-  let error = $state<string | null>(null)
+let loading = $state(true)
+let error = $state<string | null>(null)
 
-  async function loadChats() {
-    loading = true
-    error = null
-    try {
-      const result = await getChatsByArticleId(articleId)
-      chats = result
-    } catch (err) {
-      console.error('Error loading chats:', err)
-      error = 'Failed to load chats'
-    } finally {
-      loading = false
-    }
-  }
+async function loadChats() {
+	loading = true
+	error = null
+	try {
+		const result = await getChatsByArticleId(articleId)
+		chats = result
+	} catch (err) {
+		console.error("Error loading chats:", err)
+		error = "Failed to load chats"
+	} finally {
+		loading = false
+	}
+}
 
-  onMount(() => {
-    loadChats()
-  })
+onMount(() => {
+	loadChats()
+})
 
-  // Re-run when chatsRefresh changes (no DOM events)
-  $effect(() => {
-    const _ = $chatsRefresh
-    loadChats()
-  })
+// Re-run when chatsRefresh changes (no DOM events)
+$effect(() => {
+	const _ = $chatsRefresh
+	loadChats()
+})
 
-  async function handleGoChat(chatId?: number) {
-    await goto(`/chat?chatId=${chatId}`)
-  }
+async function handleGoChat(chatId?: number) {
+	await goto(`/chat?chatId=${chatId}`)
+}
 </script>
 
 <div class="container">

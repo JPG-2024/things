@@ -1,27 +1,27 @@
 <script lang="ts">
-  import type { LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions'
+import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions"
 
-  interface CompletionParams extends Omit<LlamaChatCompletionsRequest, 'model' | 'messages'> {}
+interface CompletionParams extends Omit<LlamaChatCompletionsRequest, "model" | "messages"> {}
 
-  let {
-    model = 'llama-2',
-    onParametersChange = (params: CompletionParams) => {},
-  }: { model?: string; onParametersChange?: (params: CompletionParams) => void } = $props()
+let {
+	model = "llama-2",
+	onParametersChange = (params: CompletionParams) => {},
+}: { model?: string; onParametersChange?: (params: CompletionParams) => void } = $props()
 
-  let params = $state<CompletionParams>({
-    temperature: 0.7,
-    top_p: 0.9,
-    top_k: 40,
-    max_tokens: 512,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-    repeat_penalty: 1.1,
-    stream: false,
-  })
+let params = $state<CompletionParams>({
+	temperature: 0.7,
+	top_p: 0.9,
+	top_k: 40,
+	max_tokens: 512,
+	frequency_penalty: 0,
+	presence_penalty: 0,
+	repeat_penalty: 1.1,
+	stream: false,
+})
 
-  $effect(() => {
-    onParametersChange(params)
-  })
+$effect(() => {
+	onParametersChange(params)
+})
 </script>
 
 <div class="panel">

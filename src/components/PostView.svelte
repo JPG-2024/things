@@ -1,87 +1,87 @@
 <script lang="ts">
-  import { navigate } from '@/lib/utils/url'
-  import { urlRouter } from '@/lib/urlRouter'
-  import LoadingStack from './LoadingStack.svelte'
-  import { deleteArticleById } from '../lib/utils/database/articleDB'
-  import { goto } from '$app/navigation'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import Topbar from './layout/Topbar.svelte'
-  import ChatsList from './ChatsList.svelte'
-  import Button from './inputs/Button.component.svelte'
-  import { saveEmbeddings } from '@/lib/services/embeddings'
-  import { updateArticleEmbeddingsStatus } from '@/lib/utils/database/articleDB'
-  import LinkIcon from './LinkIcon.svelte'
-  import StringReveal from './StringReveal.svelte'
-  import ToggleIcon from './ToggleIcon.svelte'
-  import Icon from './Icon.svelte'
+import { saveEmbeddings } from "@/lib/services/embeddings"
+import { urlRouter } from "@/lib/urlRouter"
+import { updateArticleEmbeddingsStatus } from "@/lib/utils/database/articleDB"
+import { navigate } from "@/lib/utils/url"
+import { viewState } from "@/stores/viewStore.svelte"
+import { goto } from "$app/navigation"
+import { deleteArticleById } from "../lib/utils/database/articleDB"
+import ChatsList from "./ChatsList.svelte"
+import Icon from "./Icon.svelte"
+import Button from "./inputs/Button.component.svelte"
+import LinkIcon from "./LinkIcon.svelte"
+import LoadingStack from "./LoadingStack.svelte"
+import Topbar from "./layout/Topbar.svelte"
+import StringReveal from "./StringReveal.svelte"
+import ToggleIcon from "./ToggleIcon.svelte"
 
-  interface Props {
-    headerContent?: any
-    summaryContent?: any
-  }
+interface Props {
+	headerContent?: any
+	summaryContent?: any
+}
 
-  const { headerContent, summaryContent } = $props()
-  // reactive state for deletion flag (Svelte runes)
-  let isDeleting = $state(false)
-  let isSavingEmbeddings = $state(false)
+const { headerContent, summaryContent } = $props()
+// reactive state for deletion flag (Svelte runes)
+let isDeleting = $state(false)
+let isSavingEmbeddings = $state(false)
 
-  // Add window scroll event listener on mount, remove on unload, using $effect.pre
-  $effect.pre(() => {
-    function handleScroll() {
-      if (window.scrollX == -2 || window.scrollY == -2) {
-        navigate('/')
-      }
-    }
-    window.addEventListener('scroll', handleScroll)
-    // Cleanup on component unload
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  })
+// Add window scroll event listener on mount, remove on unload, using $effect.pre
+$effect.pre(() => {
+	function handleScroll() {
+		if (window.scrollX == -2 || window.scrollY == -2) {
+			navigate("/")
+		}
+	}
+	window.addEventListener("scroll", handleScroll)
+	// Cleanup on component unload
+	return () => {
+		window.removeEventListener("scroll", handleScroll)
+	}
+})
 
-  async function handleDelete() {
-    if (!viewState.articleId || isDeleting) return
-    try {
-      isDeleting = true
-      const res = await deleteArticleById(viewState.articleId)
-      if (res?.success) {
-        viewState.cleanAllState()
-        navigate('/')
-      } else {
-        console.error('Failed to delete article', res?.error)
-      }
-    } catch (err) {
-      console.error('Error deleting article', err)
-    } finally {
-      isDeleting = false
-    }
-  }
+async function handleDelete() {
+	if (!viewState.articleId || isDeleting) return
+	try {
+		isDeleting = true
+		const res = await deleteArticleById(viewState.articleId)
+		if (res?.success) {
+			viewState.cleanAllState()
+			navigate("/")
+		} else {
+			console.error("Failed to delete article", res?.error)
+		}
+	} catch (err) {
+		console.error("Error deleting article", err)
+	} finally {
+		isDeleting = false
+	}
+}
 
-  async function handleGoChat(chatId?: number) {
-    if (!viewState.domainUrl) return
-    await goto(
-      `/chat?category=${encodeURIComponent(viewState.domainUrl)}&chatId=${chatId}&articleId=${viewState.articleId}`
-    )
-  }
+async function handleGoChat(chatId?: number) {
+	if (!viewState.domainUrl) return
+	await goto(
+		`/chat?category=${encodeURIComponent(viewState.domainUrl)}&chatId=${chatId}&articleId=${viewState.articleId}`,
+	)
+}
 
-  async function handleSaveEmbeddings() {
-    try {
-      if (!viewState.articleId || viewState.embeddings || isSavingEmbeddings) return
-      isSavingEmbeddings = true
-      const result = await saveEmbeddings(
-        { articleId: String(viewState.articleId), category: '', strategy: '' },
-        viewState.content
-      )
+async function handleSaveEmbeddings() {
+	try {
+		if (!viewState.articleId || viewState.embeddings || isSavingEmbeddings) return
+		isSavingEmbeddings = true
+		const result = await saveEmbeddings(
+			{ articleId: String(viewState.articleId), category: "", strategy: "" },
+			viewState.content,
+		)
 
-      console.log('Embeddings saved result:', result)
+		console.log("Embeddings saved result:", result)
 
-      await updateArticleEmbeddingsStatus(viewState.articleId, true)
-    } catch (err) {
-      console.error('Error saving embeddings', err)
-    } finally {
-      isSavingEmbeddings = false
-    }
-  }
+		await updateArticleEmbeddingsStatus(viewState.articleId, true)
+	} catch (err) {
+		console.error("Error saving embeddings", err)
+	} finally {
+		isSavingEmbeddings = false
+	}
+}
 </script>
 
 <article>

@@ -1,24 +1,24 @@
 <script lang="ts">
-  import { viewState } from '@/stores/viewStore.svelte'
-  import { primaryColor } from '@/stores/uiStore'
+import { primaryColor } from "@/stores/uiStore"
+import { viewState } from "@/stores/viewStore.svelte"
 
-  let { children } = $props()
+let { children } = $props()
 
-  let flashy = $state(false)
+let flashy = $state(false)
 
-  let mainElement: HTMLElement | undefined = $state()
+let mainElement: HTMLElement | undefined = $state()
 
-  $effect(() => {
-    if (mainElement) {
-      console.log('Updating primary color to:', $primaryColor)
-      mainElement.style.setProperty('--primary-color', $primaryColor)
-    }
+$effect(() => {
+	if (mainElement) {
+		console.log("Updating primary color to:", $primaryColor)
+		mainElement.style.setProperty("--primary-color", $primaryColor)
+	}
 
-    console.log('ViewState loaded:', viewState.loaded)
-  })
+	console.log("ViewState loaded:", viewState.loaded)
+})
 
-  // scroll effect
-  /*   $effect(() => {
+// scroll effect
+/*   $effect(() => {
     if (mainElement === undefined) return
 
     mainElement.scrollTop = 100
@@ -33,28 +33,28 @@
     }
   }) */
 
-  $effect.pre(() => {
-    let stopFlow: undefined | (() => void)
-    viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop))
-    viewState.initMediaBasePath()
+$effect.pre(() => {
+	let stopFlow: undefined | (() => void)
+	viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop))
+	viewState.initMediaBasePath()
 
-    const flashyInterval = setInterval(() => {
-      if (viewState.loading) return
+	const flashyInterval = setInterval(() => {
+		if (viewState.loading) return
 
-      flashy = true
-      setTimeout(() => {
-        flashy = false
-      }, 2000) // Duración de la animación
-    }, 30000)
+		flashy = true
+		setTimeout(() => {
+			flashy = false
+		}, 2000) // Duración de la animación
+	}, 30000)
 
-    return () => {
-      stopFlow?.()
-      clearInterval(flashyInterval)
-    }
-  })
+	return () => {
+		stopFlow?.()
+		clearInterval(flashyInterval)
+	}
+})
 
-  // Global View Transitions wrapper for all client navigations
-  /*   onNavigate((navigation) => {
+// Global View Transitions wrapper for all client navigations
+/*   onNavigate((navigation) => {
     const anyDoc: any = document
     if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return
 

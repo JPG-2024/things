@@ -1,5 +1,5 @@
 <script>
-  let { label = '', checked = $bindable(false), disabled = false } = $props()
+let { label = "", checked = $bindable(false), disabled = false } = $props()
 </script>
 
 <label class="toggle-wrapper">

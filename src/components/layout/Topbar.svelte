@@ -1,21 +1,21 @@
 <script lang="ts">
-  import { viewState } from '@/stores/viewStore.svelte'
-  import type { Snippet } from 'svelte'
-  import { invoke } from '@tauri-apps/api/core'
+import { invoke } from "@tauri-apps/api/core"
+import type { Snippet } from "svelte"
+import { viewState } from "@/stores/viewStore.svelte"
 
-  interface Props {
-    children?: Snippet
-  }
+interface Props {
+	children?: Snippet
+}
 
-  let { children }: Props = $props()
+let { children }: Props = $props()
 
-  async function stopTTSPlayback() {
-    try {
-      await invoke('stop_tts_playback')
-    } catch (err) {
-      console.error('Failed to stop TTS playback', err)
-    }
-  }
+async function stopTTSPlayback() {
+	try {
+		await invoke("stop_tts_playback")
+	} catch (err) {
+		console.error("Failed to stop TTS playback", err)
+	}
+}
 </script>
 
 <div class="top-bar">

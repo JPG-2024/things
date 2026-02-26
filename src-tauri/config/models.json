@@ -1,5 +1,5 @@
 {
-  "hugging_face": {
-    "model": "Qwen/Qwen3-VL-8B-Instruct:novita"
-  }
+	"hugging_face": {
+		"model": "Qwen/Qwen3-VL-8B-Instruct:novita"
+	}
 }

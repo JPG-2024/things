@@ -1,34 +1,34 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
-  import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
-  import { categoryCache } from '@/stores/categoryCache'
-  import { urlRouter } from '@/lib/urlRouter'
-  import Card from '@/components/Card.svelte'
+import { onDestroy, onMount } from "svelte"
+import Card from "@/components/Card.svelte"
+import { urlRouter } from "@/lib/urlRouter"
+import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url"
+import { categoryCache } from "@/stores/categoryCache"
 
-  let { categoryId, name = '', showTitle = false } = $props()
+let { categoryId, name = "", showTitle = false } = $props()
 
-  const limit = 9
+const limit = 9
 
-  // Inicias la carga (esto está bien aquí)
-  categoryCache.load(categoryId, { limit })
+// Inicias la carga (esto está bien aquí)
+categoryCache.load(categoryId, { limit })
 
-  // Lógica reactiva con Svelte 5 (Rune mode)
-  // 1. Calculamos la key reactivamente
-  const key = $derived(`${categoryId}-${JSON.stringify({ limit })}`)
+// Lógica reactiva con Svelte 5 (Rune mode)
+// 1. Calculamos la key reactivamente
+const key = $derived(`${categoryId}-${JSON.stringify({ limit })}`)
 
-  // 2. Accedemos al segmento usando la sintaxis $categoryCache (auto-suscripción)
-  // Svelte 5 permite usar $ en stores locales
-  const segment = $derived($categoryCache.segments[key])
-  // 3. Derivamos los estados finales.
-  // Al ser $derived, siempre estarán actualizados antes del render.
-  const articles = $derived(segment?.data || [])
-  const loading = $derived(segment?.loading || false)
-  const error = $derived(segment?.error || null)
+// 2. Accedemos al segmento usando la sintaxis $categoryCache (auto-suscripción)
+// Svelte 5 permite usar $ en stores locales
+const segment = $derived($categoryCache.segments[key])
+// 3. Derivamos los estados finales.
+// Al ser $derived, siempre estarán actualizados antes del render.
+const articles = $derived(segment?.data || [])
+const loading = $derived(segment?.loading || false)
+const error = $derived(segment?.error || null)
 
-  async function handleNavigateToArticle(article: Article) {
-    await urlRouter(article.url)
-    navigate(`/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`)
-  }
+async function handleNavigateToArticle(article: Article) {
+	await urlRouter(article.url)
+	navigate(`/${getRouteForDomain(article.domainUrl)}/${encodeURIComponent(article.url)}`)
+}
 </script>
 
 <div class="category-widget">

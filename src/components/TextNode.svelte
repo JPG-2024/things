@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { taskRunner } from '@/stores/taskRunner.svelte'
+import { taskRunner } from "@/stores/taskRunner.svelte"
 
-  type Props = {
-    taskId: string
-  }
+type Props = {
+	taskId: string
+}
 
-  let { taskId }: Props = $props()
+let { taskId }: Props = $props()
 
-  const data = $derived(taskRunner.getTaskData(taskId))
+const data = $derived(taskRunner.getTaskData(taskId))
 </script>
 
 {#if typeof data === 'string'}

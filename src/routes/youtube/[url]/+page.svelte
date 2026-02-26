@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { toVTName } from '@/lib/utils/url'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
-  import { page } from '$app/state'
-  import { blur } from 'svelte/transition'
-  import InstantResponse from '@/components/InstantResponse.svelte'
-  import PostView from '@/components/PostView.svelte'
-  import KeypointItem from '@/components/KeypointItem.svelte'
-  import TasksRender from '@/components/Tasks/TasksRender.svelte'
+import { blur } from "svelte/transition"
+import InstantResponse from "@/components/InstantResponse.svelte"
+import KeypointItem from "@/components/KeypointItem.svelte"
+import MarkdownRenderer from "@/components/MarkdownRenderer.svelte"
+import PostView from "@/components/PostView.svelte"
+import TasksRender from "@/components/Tasks/TasksRender.svelte"
+import { toVTName } from "@/lib/utils/url"
+import { viewState } from "@/stores/viewStore.svelte"
+import { page } from "$app/state"
 
-  const articleUrl = page.params.url
-  let showIframe = false
+const articleUrl = page.params.url
+let showIframe = false
 </script>
 
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />

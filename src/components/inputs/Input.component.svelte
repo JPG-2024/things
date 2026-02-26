@@ -1,37 +1,37 @@
 <script lang="ts">
-  interface Props {
-    value?: string
-    placeholder?: string
-    disabled?: boolean
-    onChange?: (value: string) => void
-    onEnter?: (value: string) => void
-  }
+interface Props {
+	value?: string
+	placeholder?: string
+	disabled?: boolean
+	onChange?: (value: string) => void
+	onEnter?: (value: string) => void
+}
 
-  let {
-    value = $bindable(''),
-    placeholder = '',
-    disabled = false,
-    onChange,
-    onEnter,
-  }: Props = $props()
+let {
+	value = $bindable(""),
+	placeholder = "",
+	disabled = false,
+	onChange,
+	onEnter,
+}: Props = $props()
 
-  function handleInput(event: Event) {
-    const target = event.target as HTMLInputElement
-    const newValue = target.value
-    value = newValue
+function handleInput(event: Event) {
+	const target = event.target as HTMLInputElement
+	const newValue = target.value
+	value = newValue
 
-    if (onChange) {
-      onChange(newValue)
-    }
-  }
+	if (onChange) {
+		onChange(newValue)
+	}
+}
 
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && onEnter) {
-      event.preventDefault()
-      onEnter(value)
-      value = ''
-    }
-  }
+function handleKeydown(event: KeyboardEvent) {
+	if (event.key === "Enter" && onEnter) {
+		event.preventDefault()
+		onEnter(value)
+		value = ""
+	}
+}
 </script>
 
 <input

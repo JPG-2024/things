@@ -1,8 +1,9 @@
 <script lang="ts">
-  import * as icons from '@lucide/svelte'
-  let { name, size = 18, color = 'white', handleClick = undefined, ...props } = $props()
+import * as icons from "@lucide/svelte"
 
-  const Icon = (icons as any)[name]
+let { name, size = 18, color = "white", handleClick = undefined, ...props } = $props()
+
+const Icon = (icons as any)[name]
 </script>
 
 {#if handleClick}

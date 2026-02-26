@@ -1,30 +1,30 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core'
-  import { toVTName, navigate, getRouteForDomain } from '@/lib/utils/url'
-  import { storeCacheWrapper } from '@/stores/cacheStore'
-  import { urlRouter } from '@/lib/urlRouter'
-  import { handleYoutubeQuestion } from '@/lib/utils/youtube'
+import { invoke } from "@tauri-apps/api/core"
+import CategoryWidget from "@/components/CategoryWidget.svelte"
+import InstantResponse from "@/components/InstantResponse.svelte"
+import Dropdown from "@/components/inputs/Dropdown.component.svelte"
+import Input from "@/components/inputs/Input.component.svelte"
+import { urlRouter } from "@/lib/urlRouter"
+import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url"
+import { handleYoutubeQuestion } from "@/lib/utils/youtube"
+import { storeCacheWrapper } from "@/stores/cacheStore"
+import { primaryColor } from "@/stores/uiStore"
+import { viewState } from "@/stores/viewStore.svelte"
 
-  import Input from '@/components/inputs/Input.component.svelte'
-  import CategoryWidget from '@/components/CategoryWidget.svelte'
-  import { primaryColor } from '@/stores/uiStore'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import Dropdown from '@/components/inputs/Dropdown.component.svelte'
-  import InstantResponse from '@/components/InstantResponse.svelte'
-  // Data provided by +page.ts load
+// Data provided by +page.ts load
 
-  $effect(() => {
-    // generate random svg
-    // Generate a random light color (avoid dark tones)
-    const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`
+$effect(() => {
+	// generate random svg
+	// Generate a random light color (avoid dark tones)
+	const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`
 
-    primaryColor.set(randomColor)
-  })
+	primaryColor.set(randomColor)
+})
 
-  async function handlePasteUrl(url: string) {
-    urlRouter(url)
-    navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)
-  }
+async function handlePasteUrl(url: string) {
+	urlRouter(url)
+	navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)
+}
 </script>
 
 <div class="dashboard-container">

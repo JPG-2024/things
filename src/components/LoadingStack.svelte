@@ -1,41 +1,41 @@
 <script lang="ts">
-  import { listen } from '@tauri-apps/api/event'
-  import type { FlowStatusEvent, MetadataPayload } from '@/lib/types/flowStatus'
+import { listen } from "@tauri-apps/api/event"
+import type { FlowStatusEvent, MetadataPayload } from "@/lib/types/flowStatus"
 
-  type FlowPayload = {
-    key: string
-    status: string
-    // ...any other fields...
-  }
+type FlowPayload = {
+	key: string
+	status: string
+	// ...any other fields...
+}
 
-  type Pill = { key: string; status: string }
+type Pill = { key: string; status: string }
 
-  let pills = $state<Pill[]>([])
+let pills = $state<Pill[]>([])
 
-  function upsertPill(payload: FlowPayload) {
-    const idx = pills.findIndex((p) => p.key === payload.key)
-    if (idx === -1) {
-      pills = [...pills, { key: payload.key, status: payload.status }]
-    } else {
-      pills = pills.map((p, i) => (i === idx ? { ...p, status: payload.status } : p))
-    }
-  }
+function upsertPill(payload: FlowPayload) {
+	const idx = pills.findIndex((p) => p.key === payload.key)
+	if (idx === -1) {
+		pills = [...pills, { key: payload.key, status: payload.status }]
+	} else {
+		pills = pills.map((p, i) => (i === idx ? { ...p, status: payload.status } : p))
+	}
+}
 
-  export function resetStack() {
-    pills = []
-  }
+export function resetStack() {
+	pills = []
+}
 
-  $effect.pre(() => {
-    const unlisten = listen<FlowStatusEvent<FlowPayload>>('flow-status', (event) => {
-      const payload = event?.payload as FlowPayload
-      if (!payload || typeof payload.key !== 'string' || typeof payload.status !== 'string') return
-      upsertPill(payload)
-    })
+$effect.pre(() => {
+	const unlisten = listen<FlowStatusEvent<FlowPayload>>("flow-status", (event) => {
+		const payload = event?.payload as FlowPayload
+		if (!payload || typeof payload.key !== "string" || typeof payload.status !== "string") return
+		upsertPill(payload)
+	})
 
-    return () => {
-      unlisten.then((fn) => fn())
-    }
-  })
+	return () => {
+		unlisten.then((fn) => fn())
+	}
+})
 </script>
 
 <div class="stack">

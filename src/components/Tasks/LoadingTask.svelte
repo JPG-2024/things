@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { Task, TaskStatus } from '@/types/taskRunner.types'
-  import { fade } from 'svelte/transition'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import { show } from '@tauri-apps/api/app'
+import { show } from "@tauri-apps/api/app"
+import { fade } from "svelte/transition"
+import { viewState } from "@/stores/viewStore.svelte"
+import type { Task, TaskStatus } from "@/types/taskRunner.types"
 
-  type Props = {
-    task: Task
-  }
+type Props = {
+	task: Task
+}
 
-  let { task }: Props = $props()
+let { task }: Props = $props()
 </script>
 
 {#if task.status !== 'done' || viewState.showAllTasks}

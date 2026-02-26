@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { toVTName } from '@/lib/utils/url'
-  import { viewState } from '@/stores/viewStore.svelte'
-  import { page } from '$app/state'
+import { toVTName } from "@/lib/utils/url"
+import { viewState } from "@/stores/viewStore.svelte"
+import { page } from "$app/state"
 
-  const articleUrl = page.params.url
+const articleUrl = page.params.url
 
-  import PostView from '@/components/PostView.svelte'
-  import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
+import MarkdownRenderer from "@/components/MarkdownRenderer.svelte"
+import PostView from "@/components/PostView.svelte"
 </script>
 
 <PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />

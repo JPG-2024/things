@@ -1,34 +1,34 @@
 <script lang="ts">
-  interface Option {
-    label: string
-    value: string
-  }
+interface Option {
+	label: string
+	value: string
+}
 
-  interface Props {
-    options: Option[]
-    value?: string
-    placeholder?: string
-    disabled?: boolean
-    onChange?: (value: string) => void
-  }
+interface Props {
+	options: Option[]
+	value?: string
+	placeholder?: string
+	disabled?: boolean
+	onChange?: (value: string) => void
+}
 
-  let {
-    options = [],
-    value = $bindable(''),
-    placeholder = 'Select option...',
-    disabled = false,
-    onChange,
-  }: Props = $props()
+let {
+	options = [],
+	value = $bindable(""),
+	placeholder = "Select option...",
+	disabled = false,
+	onChange,
+}: Props = $props()
 
-  function handleChange(event: Event) {
-    const target = event.target as HTMLSelectElement
-    const newValue = target.value
-    value = newValue
+function handleChange(event: Event) {
+	const target = event.target as HTMLSelectElement
+	const newValue = target.value
+	value = newValue
 
-    if (onChange) {
-      onChange(newValue)
-    }
-  }
+	if (onChange) {
+		onChange(newValue)
+	}
+}
 </script>
 
 <select

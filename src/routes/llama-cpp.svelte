@@ -1,98 +1,98 @@
 <script lang="ts">
-  import { streamCompletion, generateEmbeddings, healthCheck } from '@/lib/services/llamaCppService'
-  import { onMount } from 'svelte'
+import { onMount } from "svelte"
+import { generateEmbeddings, healthCheck, streamCompletion } from "@/lib/services/llamaCppService"
 
-  let prompt = $state('Explain Rust ownership in simple terms')
-  let systemPrompt = $state('You are a helpful programming tutor')
-  let model = $state('llama')
-  let socketPath = $state('/tmp/llama.sock')
-  let temperature = $state(0.7)
-  let maxTokens = $state(512)
+let prompt = $state("Explain Rust ownership in simple terms")
+let systemPrompt = $state("You are a helpful programming tutor")
+let model = $state("llama")
+let socketPath = $state("/tmp/llama.sock")
+let temperature = $state(0.7)
+let maxTokens = $state(512)
 
-  let response = $state('')
-  let isStreaming = $state(false)
-  let error = $state('')
-  let isHealthy = $state(false)
-  let embeddings = $state<number[][]>([])
+let response = $state("")
+let isStreaming = $state(false)
+let error = $state("")
+let isHealthy = $state(false)
+let embeddings = $state<number[][]>([])
 
-  let unlistenFn: (() => void) | null = null
+let unlistenFn: (() => void) | null = null
 
-  onMount(async () => {
-    // Check health on mount
-    await checkHealth()
-  })
+onMount(async () => {
+	// Check health on mount
+	await checkHealth()
+})
 
-  async function checkHealth() {
-    try {
-      isHealthy = await healthCheck(socketPath)
-      error = isHealthy ? '' : 'Server is not reachable'
-    } catch (e) {
-      error = String(e)
-      isHealthy = false
-    }
-  }
+async function checkHealth() {
+	try {
+		isHealthy = await healthCheck(socketPath)
+		error = isHealthy ? "" : "Server is not reachable"
+	} catch (e) {
+		error = String(e)
+		isHealthy = false
+	}
+}
 
-  async function handleStreamCompletion() {
-    if (isStreaming) return
+async function handleStreamCompletion() {
+	if (isStreaming) return
 
-    response = ''
-    error = ''
-    isStreaming = true
+	response = ""
+	error = ""
+	isStreaming = true
 
-    try {
-      unlistenFn = await streamCompletion(
-        {
-          socketPath,
-          model,
-          prompt,
-          system: systemPrompt || undefined,
-          temperature,
-          maxTokens,
-        },
-        (token) => {
-          response += token
-        },
-        (err) => {
-          error = err
-          isStreaming = false
-        }
-      )
-    } catch (e) {
-      error = String(e)
-      isStreaming = false
-    }
+	try {
+		unlistenFn = await streamCompletion(
+			{
+				socketPath,
+				model,
+				prompt,
+				system: systemPrompt || undefined,
+				temperature,
+				maxTokens,
+			},
+			(token) => {
+				response += token
+			},
+			(err) => {
+				error = err
+				isStreaming = false
+			},
+		)
+	} catch (e) {
+		error = String(e)
+		isStreaming = false
+	}
 
-    // Auto-cleanup after completion
-    setTimeout(() => {
-      isStreaming = false
-    }, 1000)
-  }
+	// Auto-cleanup after completion
+	setTimeout(() => {
+		isStreaming = false
+	}, 1000)
+}
 
-  async function handleGenerateEmbeddings() {
-    const texts = [
-      'Hello world',
-      'Rust is a systems programming language',
-      'Machine learning with neural networks',
-    ]
+async function handleGenerateEmbeddings() {
+	const texts = [
+		"Hello world",
+		"Rust is a systems programming language",
+		"Machine learning with neural networks",
+	]
 
-    error = ''
+	error = ""
 
-    try {
-      embeddings = await generateEmbeddings({
-        socketPath,
-        model,
-        texts,
-      })
-    } catch (e) {
-      error = String(e)
-    }
-  }
+	try {
+		embeddings = await generateEmbeddings({
+			socketPath,
+			model,
+			texts,
+		})
+	} catch (e) {
+		error = String(e)
+	}
+}
 
-  function stopStreaming() {
-    unlistenFn?.()
-    unlistenFn = null
-    isStreaming = false
-  }
+function stopStreaming() {
+	unlistenFn?.()
+	unlistenFn = null
+	isStreaming = false
+}
 </script>
 
 <div class="container">

@@ -1,124 +1,124 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
-  import { invoke } from '@tauri-apps/api/core'
-  import { listen } from '@tauri-apps/api/event'
+import { invoke } from "@tauri-apps/api/core"
+import { listen } from "@tauri-apps/api/event"
+import { onDestroy, onMount } from "svelte"
 
-  import Input from '@/components/inputs/Input.component.svelte'
-  import MarkdownRenderer from '@/components/MarkdownRenderer.svelte'
-  import Topbar from '@/components/layout/Topbar.svelte'
-  import { CHAT_SYSTEM_PROMPT } from '@/constants'
-  import {
-    messages,
-    isStreaming,
-    setStreamingContent,
-    startStreaming,
-    stopStreaming,
-    allMessages,
-  } from '@/stores/chatStore'
+import Input from "@/components/inputs/Input.component.svelte"
+import Topbar from "@/components/layout/Topbar.svelte"
+import MarkdownRenderer from "@/components/MarkdownRenderer.svelte"
+import { CHAT_SYSTEM_PROMPT } from "@/constants"
+import { getArticleById } from "@/lib/utils/database/articleDB"
 
-  import { newChat, deleteChatById, updateChatName } from '@/lib/utils/database/chatDB'
-  import { getArticleById } from '@/lib/utils/database/articleDB'
+import { deleteChatById, newChat, updateChatName } from "@/lib/utils/database/chatDB"
+import {
+	allMessages,
+	isStreaming,
+	messages,
+	setStreamingContent,
+	startStreaming,
+	stopStreaming,
+} from "@/stores/chatStore"
 
-  let chatId = $state<number | null>(null)
-  let articleId = $state<number | null>(null)
-  let userInput = $state('')
-  let unlistenChatToken: (() => void) | null = null
+let chatId = $state<number | null>(null)
+let articleId = $state<number | null>(null)
+let userInput = $state("")
+let unlistenChatToken: (() => void) | null = null
 
-  onMount(async () => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const chatIdParam = Number(urlParams.get('chatId'))
+onMount(async () => {
+	const urlParams = new URLSearchParams(window.location.search)
+	const chatIdParam = Number(urlParams.get("chatId"))
 
-    if (chatIdParam) {
-      chatId = chatIdParam
-    } else {
-      const articleIdParam = Number(urlParams.get('articleId'))
-      articleId = articleIdParam || null
-      const newChatData = await newChat({ articleId: articleIdParam })
-      chatId = Number(newChatData.lastInsertId)
-    }
+	if (chatIdParam) {
+		chatId = chatIdParam
+	} else {
+		const articleIdParam = Number(urlParams.get("articleId"))
+		articleId = articleIdParam || null
+		const newChatData = await newChat({ articleId: articleIdParam })
+		chatId = Number(newChatData.lastInsertId)
+	}
 
-    // Setup listener for streaming tokens
-    unlistenChatToken = await listen('chat-token', (event: any) => {
-      const token = event.payload.token
-      messages.update((msgs) => {
-        const lastMsg = msgs[msgs.length - 1]
-        if (lastMsg?.role === 'assistant') {
-          lastMsg.content += token
-        }
-        return msgs
-      })
-    })
-  })
+	// Setup listener for streaming tokens
+	unlistenChatToken = await listen("chat-token", (event: any) => {
+		const token = event.payload.token
+		messages.update((msgs) => {
+			const lastMsg = msgs[msgs.length - 1]
+			if (lastMsg?.role === "assistant") {
+				lastMsg.content += token
+			}
+			return msgs
+		})
+	})
+})
 
-  onDestroy(async () => {
-    if (unlistenChatToken) {
-      unlistenChatToken()
-    }
+onDestroy(async () => {
+	if (unlistenChatToken) {
+		unlistenChatToken()
+	}
 
-    if (!chatId || $messages.length === 0) return
+	if (!chatId || $messages.length === 0) return
 
-    if ($messages.length === 0) {
-      await deleteChatById(chatId)
-    } else {
-      await updateChatName(chatId, $messages[0].content.slice(0, 50) || 'New Chat')
-    }
+	if ($messages.length === 0) {
+		await deleteChatById(chatId)
+	} else {
+		await updateChatName(chatId, $messages[0].content.slice(0, 50) || "New Chat")
+	}
 
-    messages.set([])
-  })
+	messages.set([])
+})
 
-  function filterContextFromContent(content: string): string {
-    const parts = content.split('---')
-    return parts[0].trim()
-  }
+function filterContextFromContent(content: string): string {
+	const parts = content.split("---")
+	return parts[0].trim()
+}
 
-  async function handlePrompt(prompt: string) {
-    if (!prompt.trim()) return
+async function handlePrompt(prompt: string) {
+	if (!prompt.trim()) return
 
-    userInput = ''
-    startStreaming()
+	userInput = ""
+	startStreaming()
 
-    try {
-      // Build conversation messages
-      const conversationMessages = [
-        ...$messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        { role: 'user', content: prompt },
-      ]
+	try {
+		// Build conversation messages
+		const conversationMessages = [
+			...$messages.map((msg) => ({
+				role: msg.role,
+				content: msg.content,
+			})),
+			{ role: "user", content: prompt },
+		]
 
-      // Add user message to store
-      messages.update((msgs) => [...msgs, { role: 'user', content: prompt }])
+		// Add user message to store
+		messages.update((msgs) => [...msgs, { role: "user", content: prompt }])
 
-      // Add empty assistant message for streaming
-      messages.update((msgs) => [...msgs, { role: 'assistant', content: '' }])
+		// Add empty assistant message for streaming
+		messages.update((msgs) => [...msgs, { role: "assistant", content: "" }])
 
-      // Call generate_chat_response
-      await invoke('generate_chat_response', {
-        messages: conversationMessages,
-        options: {
-          model: 'LiquidAI/LFM2-2.6B-Exp',
-          system_prompt: CHAT_SYSTEM_PROMPT,
-          temperature: 0.1,
-          max_tokens: 500,
-        },
-        stream: true,
-      })
+		// Call generate_chat_response
+		await invoke("generate_chat_response", {
+			messages: conversationMessages,
+			options: {
+				model: "LiquidAI/LFM2-2.6B-Exp",
+				system_prompt: CHAT_SYSTEM_PROMPT,
+				temperature: 0.1,
+				max_tokens: 500,
+			},
+			stream: true,
+		})
 
-      stopStreaming()
-    } catch (err) {
-      console.error('Error en chat:', err)
-      stopStreaming()
+		stopStreaming()
+	} catch (err) {
+		console.error("Error en chat:", err)
+		stopStreaming()
 
-      messages.update((msgs) => [
-        ...msgs,
-        {
-          role: 'assistant',
-          content: '❌ Error: ' + (err instanceof Error ? err.message : String(err)),
-        },
-      ])
-    }
-  }
+		messages.update((msgs) => [
+			...msgs,
+			{
+				role: "assistant",
+				content: "❌ Error: " + (err instanceof Error ? err.message : String(err)),
+			},
+		])
+	}
+}
 </script>
 
 <div class="messages-container">
