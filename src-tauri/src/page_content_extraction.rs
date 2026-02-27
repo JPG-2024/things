@@ -21,6 +21,8 @@ pub async fn get_youtube_info(
 	app: AppHandle,
 	url: String,
 	selectors: Vec<YoutubeInfoSelector>,
+	interval_time: u64,
+	max_attempts: u32,
 ) -> Result<Vec<YoutubeInfoResult>, String> {
 	app.emit(
 		"flow-status",
@@ -40,16 +42,13 @@ pub async fn get_youtube_info(
 		.await
 		.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
-    // Wait for the page to load
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
 	let mut results: Vec<YoutubeInfoResult> = Vec::with_capacity(selectors.len());
 
 	for item in selectors {
 		let selector_escaped = item.selector.replace('\\', "\\\\").replace('\'', "\\'");
 		let mut text_content: Option<String> = None;
 
-		for _ in 0..50 {
+		for _ in 0..max_attempts {
 			let script = format!(
 				r#"(() => {{
 					const el = document.querySelector('{selector}');
@@ -72,7 +71,7 @@ pub async fn get_youtube_info(
 				break;
 			}
 
-			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			tokio::time::sleep(tokio::time::Duration::from_millis(interval_time)).await;
 		}
 
 		results.push(YoutubeInfoResult {
