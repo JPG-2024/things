@@ -1,5 +1,5 @@
-import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions"
-import { chatCompletions } from "@/lib/utils/llama-completions"
+import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions";
+import { chatCompletions } from "@/lib/utils/llama-completions";
 import type {
 	IaTask,
 	Task,
@@ -9,7 +9,7 @@ import type {
 	TaskStateUpdate,
 	TaskStatus,
 	TaskStatusUpdater,
-} from "@/types/taskRunner.types"
+} from "@/types/taskRunner.types";
 
 /**
  * Convert various error shapes into a readable message string.
@@ -17,12 +17,12 @@ import type {
  * @returns A human-readable error message.
  */
 function toErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message
-	if (typeof error === "string") return error
+	if (error instanceof Error) return error.message;
+	if (typeof error === "string") return error;
 	try {
-		return JSON.stringify(error)
+		return JSON.stringify(error);
 	} catch {
-		return "Unknown error"
+		return "Unknown error";
 	}
 }
 
@@ -32,10 +32,10 @@ function toErrorMessage(error: unknown): string {
  * @returns Concatenated assistant text or empty string.
  */
 function collectAssistantText(content: Task["data"]): string {
-	if (typeof content === "string") return content
-	if (!Array.isArray(content)) return ""
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
 
-	let text = ""
+	let text = "";
 	for (const part of content) {
 		if (
 			part &&
@@ -44,18 +44,18 @@ function collectAssistantText(content: Task["data"]): string {
 			part.type === "text" &&
 			"text" in part
 		) {
-			const chunk = part.text
-			if (typeof chunk === "string") text += chunk
+			const chunk = part.text;
+			if (typeof chunk === "string") text += chunk;
 		}
 	}
 
-	return text
+	return text;
 }
 
 class TaskRunnerStore {
-	tasks = $state<Task[]>([])
-	running = $state(false)
-	lastRun = $state<TaskRunSummary | undefined>(undefined)
+	tasks = $state<Task[]>([]);
+	running = $state(false);
+	lastRun = $state<TaskRunSummary | undefined>(undefined);
 
 	/**
 	 * Replace the store's tasks with a new set (defensive copy).
@@ -68,7 +68,7 @@ class TaskRunnerStore {
 			status: task.status ?? "pending",
 			error: task.error,
 			debug: task.debug,
-		}))
+		}));
 	}
 
 	/**
@@ -79,7 +79,7 @@ class TaskRunnerStore {
 		return this.tasks.map((task) => ({
 			...task,
 			dependencies: [...task.dependencies],
-		}))
+		}));
 	}
 
 	/**
@@ -87,7 +87,7 @@ class TaskRunnerStore {
 	 * @param task - Task to upsert.
 	 */
 	upsertTask(task: Task) {
-		const index = this.tasks.findIndex((item) => item.id === task.id)
+		const index = this.tasks.findIndex((item) => item.id === task.id);
 		if (index === -1) {
 			this.tasks = [
 				...this.tasks,
@@ -96,15 +96,15 @@ class TaskRunnerStore {
 					dependencies: [...task.dependencies],
 					status: task.status ?? "pending",
 				},
-			]
-			return
+			];
+			return;
 		}
 
 		this.tasks[index] = {
 			...task,
 			dependencies: [...task.dependencies],
 			status: task.status ?? this.tasks[index].status ?? "pending",
-		}
+		};
 	}
 
 	/**
@@ -112,7 +112,7 @@ class TaskRunnerStore {
 	 * @param taskId - Id of the task to remove.
 	 */
 	removeTask(taskId: string) {
-		this.tasks = this.tasks.filter((task) => task.id !== taskId)
+		this.tasks = this.tasks.filter((task) => task.id !== taskId);
 	}
 
 	/**
@@ -120,11 +120,12 @@ class TaskRunnerStore {
 	 */
 	resetStatuses() {
 		for (const task of this.tasks) {
-			task.status = "pending"
-			task.error = undefined
-			task.startedAt = undefined
-			task.endedAt = undefined
-			task.debug = undefined
+			task.status = "pending";
+			task.error = undefined;
+			task.startedAt = undefined;
+			task.endedAt = undefined;
+			task.debug = undefined;
+			task.data = undefined; // Clear previous data to avoid stale results when re-running tasks
 		}
 	}
 
@@ -137,7 +138,7 @@ class TaskRunnerStore {
 		TMap extends TaskMapBase = TaskMapBase,
 		TId extends keyof TMap & string = keyof TMap & string,
 	>(taskId: TId): TMap[TId] | undefined {
-		return this.getTaskById(taskId)?.data as TMap[TId] | undefined
+		return this.getTaskById(taskId)?.data as TMap[TId] | undefined;
 	}
 
 	/**
@@ -146,7 +147,7 @@ class TaskRunnerStore {
 	 * @returns The Task or undefined.
 	 */
 	private getTaskById(taskId: string): Task | undefined {
-		return this.tasks.find((task) => task.id === taskId)
+		return this.tasks.find((task) => task.id === taskId);
 	}
 
 	/**
@@ -154,11 +155,11 @@ class TaskRunnerStore {
 	 * @returns The TaskGlobalState mapping.
 	 */
 	private getGlobalData<TMap extends TaskMapBase = TaskMapBase>(): TaskGlobalState<TMap> {
-		const state: Record<string, unknown> = {}
+		const state: Record<string, unknown> = {};
 		for (const currentTask of this.tasks) {
-			state[currentTask.id] = currentTask.data
+			state[currentTask.id] = currentTask.data;
 		}
-		return state as TaskGlobalState<TMap>
+		return state as TaskGlobalState<TMap>;
 	}
 
 	/**
@@ -167,9 +168,9 @@ class TaskRunnerStore {
 	 * @param patch - Partial task fields to assign.
 	 */
 	private setTaskFields(taskId: string, patch: Partial<Task>) {
-		const task = this.getTaskById(taskId)
-		if (!task) return
-		Object.assign(task, patch)
+		const task = this.getTaskById(taskId);
+		if (!task) return;
+		Object.assign(task, patch);
 	}
 
 	/**
@@ -182,8 +183,8 @@ class TaskRunnerStore {
 			this.setTaskFields(taskId, {
 				...(update.data !== undefined ? { data: update.data } : {}),
 				...(update.debug !== undefined ? { debug: update.debug } : {}),
-			})
-		}
+			});
+		};
 	}
 
 	/**
@@ -191,48 +192,48 @@ class TaskRunnerStore {
 	 * @throws Error when validation fails.
 	 */
 	private validateTasks() {
-		const idSet = new Set<string>()
+		const idSet = new Set<string>();
 		for (const task of this.tasks) {
 			if (!task.id?.trim()) {
-				throw new Error("Task id is required.")
+				throw new Error("Task id is required.");
 			}
 			if (idSet.has(task.id)) {
-				throw new Error(`Duplicated task id: ${task.id}`)
+				throw new Error(`Duplicated task id: ${task.id}`);
 			}
-			idSet.add(task.id)
+			idSet.add(task.id);
 		}
 
 		for (const task of this.tasks) {
 			for (const dependencyId of task.dependencies) {
 				if (!idSet.has(dependencyId)) {
-					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`)
+					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`);
 				}
 				if (dependencyId === task.id) {
-					throw new Error(`Task ${task.id} cannot depend on itself.`)
+					throw new Error(`Task ${task.id} cannot depend on itself.`);
 				}
 			}
 		}
 
-		const visiting = new Set<string>()
-		const visited = new Set<string>()
+		const visiting = new Set<string>();
+		const visited = new Set<string>();
 
 		const dfs = (taskId: string) => {
 			if (visiting.has(taskId)) {
-				throw new Error(`Cycle detected involving task: ${taskId}`)
+				throw new Error(`Cycle detected involving task: ${taskId}`);
 			}
-			if (visited.has(taskId)) return
+			if (visited.has(taskId)) return;
 
-			visiting.add(taskId)
-			const task = this.getTaskById(taskId)
+			visiting.add(taskId);
+			const task = this.getTaskById(taskId);
 			for (const dependencyId of task?.dependencies ?? []) {
-				dfs(dependencyId)
+				dfs(dependencyId);
 			}
-			visiting.delete(taskId)
-			visited.add(taskId)
-		}
+			visiting.delete(taskId);
+			visited.add(taskId);
+		};
 
 		for (const task of this.tasks) {
-			dfs(task.id)
+			dfs(task.id);
 		}
 	}
 
@@ -241,27 +242,27 @@ class TaskRunnerStore {
 	 * @param failedTaskId - Id of the task that failed.
 	 */
 	private markDescendantsBlocked(failedTaskId: string) {
-		const blocked = new Set<string>()
-		const queue = [failedTaskId]
+		const blocked = new Set<string>();
+		const queue = [failedTaskId];
 
 		while (queue.length > 0) {
-			const current = queue.shift()
-			if (!current) continue
+			const current = queue.shift();
+			if (!current) continue;
 
 			for (const task of this.tasks) {
 				if (task.dependencies.includes(current) && !blocked.has(task.id)) {
-					blocked.add(task.id)
-					queue.push(task.id)
+					blocked.add(task.id);
+					queue.push(task.id);
 				}
 			}
 		}
 
 		for (const taskId of blocked) {
-			const task = this.getTaskById(taskId)
-			if (!task || task.status !== "pending") continue
-			task.status = "blocked"
-			task.error = `Blocked by failed dependency: ${failedTaskId}`
-			task.endedAt = Date.now()
+			const task = this.getTaskById(taskId);
+			if (!task || task.status !== "pending") continue;
+			task.status = "blocked";
+			task.error = `Blocked by failed dependency: ${failedTaskId}`;
+			task.endedAt = Date.now();
 		}
 	}
 
@@ -271,11 +272,11 @@ class TaskRunnerStore {
 	 */
 	private getReadyTasks(): Task[] {
 		return this.tasks.filter((task) => {
-			if (task.status !== "pending") return false
+			if (task.status !== "pending") return false;
 			return task.dependencies.every(
 				(dependencyId) => this.getTaskById(dependencyId)?.status === "done",
-			)
-		})
+			);
+		});
 	}
 
 	/**
@@ -283,33 +284,35 @@ class TaskRunnerStore {
 	 * @param task - The IaTask to run.
 	 */
 	private async runIaTask(task: IaTask): Promise<void> {
-		const globalState = this.getGlobalData()
-		const runResultRaw = task.run ? await task.run(globalState, this.statusUpdaterFor(task.id)) : ""
-		const runResult = String(runResultRaw ?? "").trim()
-		const userContent = runResult ? `context: ${runResult} ${task.userMessage}` : task.userMessage
+		const globalState = this.getGlobalData();
+		const runResultRaw = task.run
+			? await task.run(globalState, this.statusUpdaterFor(task.id))
+			: "";
+		const runResult = String(runResultRaw ?? "").trim();
+		const userContent = runResult ? `context: ${runResult} ${task.userMessage}` : task.userMessage;
 		const request: LlamaChatCompletionsRequest = {
 			...task.completionOptions,
 			messages: [
 				{ role: "system", content: task.systemMessage },
 				{ role: "user", content: userContent },
 			],
-		}
+		};
 
 		const response = await chatCompletions(
 			request,
 			task.completionOptions.stream
 				? {
 						onToken: (chunk: string) => {
-							const currentData = this.getTaskData(task.id) || ""
-							this.setTaskFields(task.id, { data: currentData + chunk })
+							const currentData = this.getTaskData(task.id) || "";
+							this.setTaskFields(task.id, { data: currentData + chunk });
 						},
 					}
 				: undefined,
-		)
+		);
 
-		const message = response.choices?.[0]?.message
-		const text = collectAssistantText(message?.content ?? null)
-		this.setTaskFields(task.id, { data: text })
+		const message = response.choices?.[0]?.message;
+		const text = collectAssistantText(message?.content ?? null);
+		this.setTaskFields(task.id, { data: text });
 	}
 
 	/**
@@ -318,9 +321,9 @@ class TaskRunnerStore {
 	 * @returns The task result (assigned to task.data).
 	 */
 	private async runScriptTask(task: Extract<Task, { type: "script" }>): Promise<void> {
-		const globalState = this.getGlobalData()
-		const result = await task.run(globalState, this.statusUpdaterFor(task.id))
-		this.setTaskFields(task.id, { data: result })
+		const globalState = this.getGlobalData();
+		const result = await task.run(globalState, this.statusUpdaterFor(task.id));
+		this.setTaskFields(task.id, { data: result });
 	}
 
 	/**
@@ -333,26 +336,26 @@ class TaskRunnerStore {
 			status: "running",
 			startedAt: Date.now(),
 			error: undefined,
-		})
+		});
 
 		try {
 			if (task.type === "ia") {
-				await this.runIaTask(task)
+				await this.runIaTask(task);
 			} else {
-				await this.runScriptTask(task)
+				await this.runScriptTask(task);
 			}
 
 			this.setTaskFields(task.id, {
 				status: "done",
 				endedAt: Date.now(),
-			})
+			});
 		} catch (error) {
 			this.setTaskFields(task.id, {
 				status: "failed",
 				error: toErrorMessage(error),
 				endedAt: Date.now(),
-			})
-			throw error
+			});
+			throw error;
 		}
 	}
 
@@ -362,7 +365,7 @@ class TaskRunnerStore {
 	 * @returns Number of tasks with the provided status.
 	 */
 	private countStatus(status: TaskStatus): number {
-		return this.tasks.filter((task) => task.status === status).length
+		return this.tasks.filter((task) => task.status === status).length;
 	}
 
 	/**
@@ -371,52 +374,52 @@ class TaskRunnerStore {
 	 */
 	async run(): Promise<TaskRunSummary> {
 		if (this.running) {
-			throw new Error("Task runner is already running.")
+			throw new Error("Task runner is already running.");
 		}
 
-		this.validateTasks()
-		this.resetStatuses()
-		this.running = true
+		this.validateTasks();
+		this.resetStatuses();
+		this.running = true;
 
-		const startedAt = Date.now()
-		let failedTaskId: string | undefined
+		const startedAt = Date.now();
+		let failedTaskId: string | undefined;
 
 		try {
 			while (true) {
-				const ready = this.getReadyTasks()
-				if (ready.length === 0) break
+				const ready = this.getReadyTasks();
+				if (ready.length === 0) break;
 
-				const readyScripts = ready.filter((task) => task.type === "script")
+				const readyScripts = ready.filter((task) => task.type === "script");
 				if (readyScripts.length > 0) {
 					const results = await Promise.allSettled(
 						readyScripts.map((task) => this.executeTask(task)),
-					)
-					const failedIndex = results.findIndex((result) => result.status === "rejected")
+					);
+					const failedIndex = results.findIndex((result) => result.status === "rejected");
 
 					if (failedIndex !== -1) {
-						failedTaskId = readyScripts[failedIndex]?.id
+						failedTaskId = readyScripts[failedIndex]?.id;
 						if (failedTaskId) {
-							this.markDescendantsBlocked(failedTaskId)
+							this.markDescendantsBlocked(failedTaskId);
 						}
-						break
+						break;
 					}
-					continue
+					continue;
 				}
 
-				const nextIa = ready.find((task) => task.type === "ia")
-				if (!nextIa) break
+				const nextIa = ready.find((task) => task.type === "ia");
+				if (!nextIa) break;
 
 				try {
-					await this.executeTask(nextIa)
+					await this.executeTask(nextIa);
 				} catch {
-					failedTaskId = nextIa.id
-					this.markDescendantsBlocked(nextIa.id)
-					break
+					failedTaskId = nextIa.id;
+					this.markDescendantsBlocked(nextIa.id);
+					break;
 				}
 			}
 		} finally {
-			this.running = false
-			const endedAt = Date.now()
+			this.running = false;
+			const endedAt = Date.now();
 
 			this.lastRun = {
 				startedAt,
@@ -428,11 +431,11 @@ class TaskRunnerStore {
 				blocked: this.countStatus("blocked"),
 				pending: this.countStatus("pending"),
 				...(failedTaskId ? { failedTaskId } : {}),
-			}
+			};
 		}
 
-		return this.lastRun
+		return this.lastRun;
 	}
 }
 
-export const taskRunner = new TaskRunnerStore()
+export const taskRunner = new TaskRunnerStore();

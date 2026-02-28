@@ -107,6 +107,34 @@ pub fn get_migrations() -> Vec<Migration> {
             // SQL to add the embeddings column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN embeddings BOOLEAN;",
             kind: MigrationKind::Up,
+        },
+        // This is your eleventh migration.
+        Migration {
+            version: 11,
+            description: "rewrite-articles-table-for-task-runner-state",
+            // SQL to rewrite articles table with only id, url and tasks.
+            sql: "PRAGMA foreign_keys=OFF;
+            CREATE TABLE IF NOT EXISTS articles_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT UNIQUE,
+                tasks JSON
+            );
+            INSERT INTO articles_new (id, url, tasks)
+            SELECT
+                a1.id,
+                CASE
+                    WHEN a1.url IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM articles a2 WHERE a2.url = a1.url AND a2.id > a1.id
+                    ) THEN NULL
+                    ELSE a1.url
+                END,
+                NULL
+            FROM articles a1;
+            DROP TABLE articles;
+            ALTER TABLE articles_new RENAME TO articles;
+            CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
+            PRAGMA foreign_keys=ON;",
+            kind: MigrationKind::Up,
         }
     ]
 }

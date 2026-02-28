@@ -1,60 +1,23 @@
 <script lang="ts">
-import { blur } from "svelte/transition"
-import InstantResponse from "@/components/InstantResponse.svelte"
-import KeypointItem from "@/components/KeypointItem.svelte"
-import MarkdownRenderer from "@/components/MarkdownRenderer.svelte"
-import PostView from "@/components/PostView.svelte"
-import TasksRender from "@/components/Tasks/TasksRender.svelte"
-import { toVTName } from "@/lib/utils/url"
-import { viewState } from "@/stores/viewStore.svelte"
-import { page } from "$app/state"
+import { blur } from "svelte/transition";
+import InstantResponse from "@/components/InstantResponse.svelte";
+import KeypointItem from "@/components/KeypointItem.svelte";
+import MarkdownRenderer from "@/components/MarkdownRenderer.svelte";
+import PostView from "@/components/PostView.svelte";
+import TasksRender from "@/components/Tasks/TasksRender.svelte";
+import { toVTName } from "@/lib/utils/url";
+import { viewState } from "@/stores/viewStore.svelte";
+import { page } from "$app/state";
 
-const articleUrl = page.params.url
-let showIframe = false
+const articleUrl = page.params.url;
+let showIframe = false;
 </script>
 
-<PostView headerContent={headerContentSnippet} summaryContent={summaryContentSnippet} />
+<PostView headerContent={null} summaryContent={summaryContentSnippet} />
 
 <InstantResponse content={viewState.summary!} />
 
-{#snippet headerContentSnippet()}
-  {#if viewState.ytVideoId}
-    <div class="yt-wrapper">
-      {#if showIframe}
-        <iframe
-          class="yt-video"
-          src={`https://www.youtube-nocookie.com/embed/${viewState.ytVideoId}?autoplay=1&rel=0&modestbranding=1`}
-          title="YouTube video player"
-          frameborder="0"
-          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-        ></iframe>
-      {:else}
-        <button
-          class="yt-thumbnail-btn"
-          onclick={() => (showIframe = true)}
-          aria-label="Play video"
-        >
-          <img
-            src={viewState.mainImageSrc}
-            alt="YouTube thumbnail"
-            class="yt-thumbnail"
-            style={`view-transition-name: vt-main-image-${toVTName(articleUrl!)}`}
-          />
-        </button>
 
-        <button
-          class="yt-play"
-          onclick={() => (showIframe = true)}
-          aria-label="Play video"
-          title="Play video"
-        >
-          ▶
-        </button>
-      {/if}
-    </div>
-  {/if}
-{/snippet}
 
 {#snippet summaryContentSnippet()}
   {#if typeof viewState.summary === 'string'}

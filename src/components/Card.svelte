@@ -1,11 +1,11 @@
 <script lang="ts">
-import type { Snippet } from "svelte" // Optional, for TypeScript
-export type CardProps = { children?: Snippet; title?: string; showTopLeftBorder?: boolean }
+import type { Snippet } from "svelte"; // Optional, for TypeScript
+export type CardProps = { children?: Snippet; title?: string; showTopLeftBorder?: boolean };
 let {
 	children,
 	title = "",
 	showTopLeftBorder = true,
-}: { children?: Snippet; title?: string; showTopLeftBorder?: boolean } = $props()
+}: { children?: Snippet; title?: string; showTopLeftBorder?: boolean } = $props();
 </script>
 
 <div class="widget" class:no-top-left-border={!showTopLeftBorder} role="group">

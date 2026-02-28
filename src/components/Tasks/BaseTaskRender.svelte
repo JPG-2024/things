@@ -1,14 +1,15 @@
 <script lang="ts">
-import type { Task } from "@/types/taskRunner.types"
-import Modal from "../Modal.svelte"
+import type { Task } from "@/types/taskRunner.types";
+import Modal from "../Modal.svelte";
 
 type Props = {
-	task: Task
-}
+	task: Task;
+};
 
-let { task }: Props = $props()
-let showModal = $state(false)
-console.log("Rendering BaseTaskRender with task:", task)
+let { task }: Props = $props();
+
+let showModal = $state(false);
+console.log("Rendering BaseTaskRender with task:", task);
 </script>
 
 {#if typeof task.data === 'string'}

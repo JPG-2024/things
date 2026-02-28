@@ -1,18 +1,18 @@
 <script lang="ts">
-import { show } from "@tauri-apps/api/app"
-import { fade } from "svelte/transition"
-import { viewState } from "@/stores/viewStore.svelte"
-import type { Task, TaskStatus } from "@/types/taskRunner.types"
+import { show } from "@tauri-apps/api/app";
+import { fade } from "svelte/transition";
+import { viewState } from "@/stores/viewStore.svelte";
+import type { Task, TaskStatus } from "@/types/taskRunner.types";
 
 type Props = {
-	task: Task
-}
+	task: Task;
+};
 
-let { task }: Props = $props()
+let { task }: Props = $props();
 </script>
 
 {#if task.status !== 'done' || viewState.showAllTasks}
-  <div class="pill" transition:fade={{ duration: 300 }}>
+  <div class="pill" transition:fade={{ duration: 500 }}>
     <strong>{task.name}</strong>
     {#if task.error}
       <p>{task.error}</p>
