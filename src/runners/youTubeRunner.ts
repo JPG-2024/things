@@ -5,7 +5,7 @@ import { saveTasks } from "@/stores/tasksStore";
 import { currentDuration } from "@/stores/ttsStore";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
-import { type Task } from "@/types/taskRunner.types";
+import type { Task } from "@/types/taskRunner.types";
 import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
 import { synthesizeSpeech } from "$lib/utils/tts";
 import { getImageSrc } from "@/lib/utils/dirs";
@@ -18,7 +18,6 @@ import type {
 } from "@/lib/utils/youtube/joinCaptionsByChapters";
 import { joinCaptionsByChapters } from "@/lib/utils/youtube/joinCaptionsByChapters";
 import type { ChapterSummaryItem } from "@/lib/utils/youtube/summarizeChapters";
-import { summarizeChapters } from "@/lib/utils/youtube/summarizeChapters";
 
 //#region Types
 type VideoMetaItem = {
@@ -68,7 +67,7 @@ enum TaskNames {
 	VIDEO_INFO = "video-info",
 	TTS = "tts",
 	RESULT = "result",
-	SHORT_SUMMARY = "short-summary",
+	Title = "title",
 }
 
 type YouTubeTaskState = {
@@ -82,9 +81,43 @@ type YouTubeTaskState = {
 	[TaskNames.SUMMARY_STATE]: string;
 	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.RESULT]: { content: string; summary: string };
-	[TaskNames.SHORT_SUMMARY]: string;
+	[TaskNames.Title]: string;
 };
 //#endregion
+
+const CHAPTER_SUMMARY_TASK_PREFIX = "chapter-summary-";
+
+function chapterSummaryTaskId(index: number): string {
+	return `${CHAPTER_SUMMARY_TASK_PREFIX}${index}`;
+}
+
+function buildChapterSummaryTasks(
+	chapterCaptions: ChapterCaption[],
+	language: TTSLanguage,
+): Task[] {
+	return chapterCaptions.map((chapter, index) => ({
+		id: chapterSummaryTaskId(index),
+		name: chapter.title,
+		widget: false,
+		type: "ia",
+		component: "base",
+		dependencies: index === 0 ? [TaskNames.CHAPTERS] : [chapterSummaryTaskId(index - 1)],
+		systemMessage:
+			language === "es"
+				? "Eres un asistente que resume capítulos de video."
+				: "You are an assistant that summarizes video chapters.",
+		run: () => `Title: ${chapter.title}\n\n${chapter.content}`,
+		userMessage:
+			language === "es"
+				? "Resume este capítulo en 2-3 líneas."
+				: "Summarize this chapter in 2-3 lines.",
+		completionOptions: {
+			model: "llama-server",
+			temperature: 0.5,
+			stream: true,
+		},
+	}));
+}
 
 export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<YouTubeTaskState>[] {
 	const selectedLanguage = language ?? viewState.language;
@@ -107,6 +140,33 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			},
 		},
 		{
+			id: TaskNames.Title,
+			name: "",
+			widget: true,
+			dependencies: [TaskNames.SUMMARY],
+			component: "base",
+			type: "ia",
+			systemMessage:
+				selectedLanguage === "es" ? "you are a title creator." : "you are a title creator.",
+			run: (state) => {
+				const summary = state[TaskNames.SUMMARY];
+				if (!summary) {
+					return "";
+				}
+				return summary;
+			},
+			userMessage:
+				selectedLanguage === "es"
+					? "Crea un titulo descriptivo corto. Evita comillas y signos de puntuación innecesarios."
+					: "Create a short descriptive title. Avoid quotes and unnecessary punctuation.",
+			completionOptions: {
+				model: "llama-server",
+				temperature: 0.5,
+				stream: true,
+			},
+			baseUrl: "http://localhost:8080",
+		},
+		{
 			id: TaskNames.THUMBNAIL,
 			name: "Get thumbnail",
 			widget: false,
@@ -114,7 +174,10 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			type: "script",
 			component: "player",
 			run: async (state) => {
-				const context = state[TaskNames.INIT]!;
+				const context = state[TaskNames.INIT];
+				if (!context) {
+					throw new Error("Missing init context");
+				}
 				const mediaDirectory = await invoke<string>("url_to_folder_name", { url: context.url });
 
 				const ytThumbnailUrl = getYouTubeThumbnailUrl(context.videoId);
@@ -140,7 +203,10 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			dependencies: [TaskNames.THUMBNAIL],
 			type: "script",
 			run: async (state) => {
-				const thumbnail = state[TaskNames.THUMBNAIL]!;
+				const thumbnail = state[TaskNames.THUMBNAIL];
+				if (!thumbnail) {
+					throw new Error("Missing thumbnail context");
+				}
 				let mainColor = "";
 				try {
 					mainColor = await getImageColor(thumbnail.mainImageSrc || "");
@@ -156,12 +222,15 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 		},
 		{
 			id: TaskNames.VIDEO_INFO,
-			name: "Extract Info",
+			name: "Crawling",
 			widget: false,
 			dependencies: [TaskNames.INIT],
 			type: "script",
 			run: async (state) => {
-				const context = state[TaskNames.INIT]!;
+				const context = state[TaskNames.INIT];
+				if (!context) {
+					throw new Error("Missing init context");
+				}
 				const [videoMeta = [], chapters = []] = await invoke<[VideoMetaItem[], Chapter[]]>(
 					"get_youtube_info",
 					{
@@ -188,7 +257,10 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			dependencies: [TaskNames.INIT, TaskNames.VIDEO_INFO],
 			type: "script",
 			run: async (state) => {
-				const context = state[TaskNames.INIT]!;
+				const context = state[TaskNames.INIT];
+				if (!context) {
+					throw new Error("Missing init context");
+				}
 				const timedCaptions = await invoke<TimedCaption[]>("get_youtube_transcript_timed", {
 					id: context.videoId,
 					language: context.preferredLanguage,
@@ -208,46 +280,29 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			dependencies: [TaskNames.INIT, TaskNames.VIDEO_INFO, TaskNames.TRANSCRIPT],
 			type: "script",
 			run: async (state) => {
-				const context = state[TaskNames.INIT]!;
-				const info = state[TaskNames.VIDEO_INFO]!;
-				const transcript = state[TaskNames.TRANSCRIPT]!;
+				const context = state[TaskNames.INIT];
+				const info = state[TaskNames.VIDEO_INFO];
+				const transcript = state[TaskNames.TRANSCRIPT];
+
+				if (!context || !info || !transcript) {
+					throw new Error("Missing prerequisites for chapter processing");
+				}
 
 				if (!info.chapters.length) {
 					return { chapterCaptions: [], chapterSummaries: [] } satisfies ChapterContext;
 				}
 
 				const chapterCaptions = joinCaptionsByChapters(transcript.timedCaptions, info.chapters);
-				const chapterSummaries = await summarizeChapters(
+				const chapterSummaryTasks = buildChapterSummaryTasks(
 					chapterCaptions,
 					context.preferredLanguage,
 				);
 
-				return { chapterCaptions, chapterSummaries } satisfies ChapterContext;
+				// this will create new tasks in runner and run them after the current task finishes, because they are added with dependencies to the current task.
+				taskRunner.enqueueTasks(chapterSummaryTasks);
+
+				return { chapterCaptions, chapterSummaries: [] } satisfies ChapterContext;
 			},
-		},
-		{
-			id: TaskNames.SHORT_SUMMARY,
-			name: "Short Summary",
-			widget: true,
-			dependencies: [TaskNames.SUMMARY],
-			component: "base",
-			type: "ia",
-			systemMessage:
-				selectedLanguage === "es" ? "you are a title creator." : "you are a title creator.",
-			run: (state) => {
-				const summary = state[TaskNames.SUMMARY]!;
-				return summary;
-			},
-			userMessage:
-				selectedLanguage === "es"
-					? "Crea un titulo descriptivo corto."
-					: "Create a short descriptive title.",
-			completionOptions: {
-				model: "llama-server",
-				temperature: 0.5,
-				stream: true,
-			},
-			baseUrl: "http://localhost:8080",
 		},
 		{
 			id: TaskNames.SUMMARY,
@@ -261,7 +316,10 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 					? SIMPLE_SUMMARY_SYSTEM_PROMPT_ES
 					: SIMPLE_SUMMARY_SYSTEM_PROMPT_EN,
 			run: (state) => {
-				const transcript = state[TaskNames.TRANSCRIPT]!;
+				const transcript = state[TaskNames.TRANSCRIPT];
+				if (!transcript) {
+					return "";
+				}
 				return transcript.transcriptText;
 			},
 			userMessage:
@@ -322,11 +380,54 @@ export async function youTubeRunner(
 
 		console.log("All tasks completed:", runSummary);
 
-		await saveTasks(url, runSummary.tasks);
+		const orderedChapterTasks = runSummary.tasks
+			.filter((task) => task.id.startsWith(CHAPTER_SUMMARY_TASK_PREFIX))
+			.sort((a, b) => {
+				const firstIndex = Number(a.id.replace(CHAPTER_SUMMARY_TASK_PREFIX, ""));
+				const secondIndex = Number(b.id.replace(CHAPTER_SUMMARY_TASK_PREFIX, ""));
+				return firstIndex - secondIndex;
+			});
+
+		const tasksToSave = runSummary.tasks.map((task) => {
+			if (task.id !== TaskNames.CHAPTERS) {
+				return task;
+			}
+
+			const chaptersData = task.data as ChapterContext | undefined;
+			if (!chaptersData) {
+				return task;
+			}
+
+			const chapterSummaries: ChapterSummaryItem[] = chaptersData.chapterCaptions.map(
+				(chapter, index) => ({
+					title: chapter.title,
+					startTime: chapter.startTime,
+					summary: String(orderedChapterTasks[index]?.data ?? "").trim(),
+				}),
+			);
+
+			return {
+				...task,
+				data: {
+					...chaptersData,
+					chapterSummaries,
+				} satisfies ChapterContext,
+			};
+		});
+
+		await saveTasks(url, tasksToSave);
 
 		console.log("Tasks saved to store and database.");
 
-		return runSummary;
+		const content = String(
+			tasksToSave.find((task) => task.id === TaskNames.TRANSCRIPT)?.data
+				? (tasksToSave.find((task) => task.id === TaskNames.TRANSCRIPT)?.data as TranscriptContext)
+						.transcriptText
+				: "",
+		);
+		const summary = String(tasksToSave.find((task) => task.id === TaskNames.SUMMARY)?.data ?? "");
+
+		return { content, summary };
 	} catch (invokeErr) {
 		throw new Error(`Error: ${invokeErr}`);
 	}

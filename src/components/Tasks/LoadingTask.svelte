@@ -22,6 +22,7 @@ let { task }: Props = $props();
 
 <style>
   .pill {
+    color: white;;
     border: 1px solid #555;
     border-radius: 999px;
     background-color: rgb(154, 154, 154, 0.1);

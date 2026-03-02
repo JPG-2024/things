@@ -56,6 +56,8 @@ class TaskRunnerStore {
 	tasks = $state<Task[]>([]);
 	running = $state(false);
 	lastRun = $state<TaskRunSummary | undefined>(undefined);
+	private pendingTasksQueue: Task[] = [];
+	private restartRequested = false;
 
 	/**
 	 * Replace the store's tasks with a new set (defensive copy).
@@ -69,6 +71,28 @@ class TaskRunnerStore {
 			error: task.error,
 			debug: task.debug,
 		}));
+		this.pendingTasksQueue = [];
+		this.restartRequested = false;
+	}
+
+	/**
+	 * Queue tasks to be added while a run is in progress.
+	 * @param tasks - Tasks to enqueue.
+	 * @param options - Optional behavior flags.
+	 */
+	enqueueTasks(tasks: Task[], options?: { restart?: boolean }) {
+		if (!tasks.length) return;
+
+		const safeTasks = tasks.map((task) => ({
+			...task,
+			dependencies: [...task.dependencies],
+			status: task.status ?? "pending",
+		}));
+
+		this.pendingTasksQueue.push(...safeTasks);
+		if (options?.restart) {
+			this.restartRequested = true;
+		}
 	}
 
 	/**
@@ -105,6 +129,20 @@ class TaskRunnerStore {
 			dependencies: [...task.dependencies],
 			status: task.status ?? this.tasks[index].status ?? "pending",
 		};
+	}
+
+	/**
+	 * Add queued tasks to the active list and re-validate graph.
+	 */
+	private flushQueuedTasks() {
+		if (this.pendingTasksQueue.length === 0) return;
+
+		for (const task of this.pendingTasksQueue) {
+			this.upsertTask(task);
+		}
+
+		this.pendingTasksQueue = [];
+		this.validateTasks();
 	}
 
 	/**
@@ -380,12 +418,22 @@ class TaskRunnerStore {
 		this.validateTasks();
 		this.resetStatuses();
 		this.running = true;
+		this.pendingTasksQueue = [];
+		this.restartRequested = false;
 
 		const startedAt = Date.now();
 		let failedTaskId: string | undefined;
 
 		try {
 			while (true) {
+				this.flushQueuedTasks();
+
+				if (this.restartRequested) {
+					this.restartRequested = false;
+					this.resetStatuses();
+					continue;
+				}
+
 				const ready = this.getReadyTasks();
 				if (ready.length === 0) break;
 

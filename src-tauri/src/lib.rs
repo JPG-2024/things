@@ -30,6 +30,9 @@ pub use crate::download_media::download_and_save_image;
 mod url;
 pub use crate::url::url_to_folder_name;
 
+mod llama_server;
+pub use crate::llama_server::launch_llama_server;
+
 
 mod tts_helpers;
 
@@ -75,6 +78,7 @@ pub fn run() {
             search_youtube,
             download_and_save_image,
             url_to_folder_name,
+            launch_llama_server,
             split_text_command,
             synthesize_speech,
             synthesize_speech_batch,

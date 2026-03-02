@@ -1,29 +1,44 @@
 <script lang="ts">
-import { invoke } from "@tauri-apps/api/core"
-import CategoryWidget from "@/components/CategoryWidget.svelte"
-import InstantResponse from "@/components/InstantResponse.svelte"
-import Dropdown from "@/components/inputs/Dropdown.component.svelte"
-import Input from "@/components/inputs/Input.component.svelte"
-import { urlRouter } from "@/lib/urlRouter"
-import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url"
-import { handleYoutubeQuestion } from "@/lib/utils/youtube"
-import { storeCacheWrapper } from "@/stores/cacheStore"
-import { primaryColor } from "@/stores/uiStore"
-import { viewState } from "@/stores/viewStore.svelte"
+import { onMount } from "svelte";
+import { invoke } from "@tauri-apps/api/core";
+import CategoryWidget from "@/components/CategoryWidget.svelte";
+import InstantResponse from "@/components/InstantResponse.svelte";
+import Dropdown from "@/components/inputs/Dropdown.component.svelte";
+import Input from "@/components/inputs/Input.component.svelte";
+import { urlRouter } from "@/lib/urlRouter";
+import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url";
+import { handleYoutubeQuestion } from "@/lib/utils/youtube";
+import { storeCacheWrapper } from "@/stores/cacheStore";
+import { primaryColor } from "@/stores/uiStore";
+import { viewState } from "@/stores/viewStore.svelte";
+import { getArticles, type ArticleWithPlayerTask } from "@/stores/tasksStore";
 
 // Data provided by +page.ts load
 
 $effect(() => {
 	// generate random svg
 	// Generate a random light color (avoid dark tones)
-	const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`
+	const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`;
 
-	primaryColor.set(randomColor)
-})
+	primaryColor.set(randomColor);
+});
+
+let playerArticles = $state<ArticleWithPlayerTask[]>([]);
+
+onMount(async () => {
+	try {
+		await invoke("launch_llama_server");
+	} catch (error) {
+		console.warn("llama-server launch skipped:", error);
+	}
+
+	playerArticles = await getArticles();
+	console.debug("loaded articles with player tasks", playerArticles);
+});
 
 async function handlePasteUrl(url: string) {
-	urlRouter(url)
-	navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`)
+	urlRouter(url);
+	navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`);
 }
 </script>
 
