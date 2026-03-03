@@ -23,17 +23,14 @@ $effect(() => {
 	primaryColor.set(randomColor);
 });
 
-let playerArticles = $state<ArticleWithPlayerTask[]>([]);
-
 onMount(async () => {
 	try {
+		console.debug("Attempting to launch llama-server...");
 		await invoke("launch_llama_server");
+		console.debug("llama-server launch invoked successfully.");
 	} catch (error) {
 		console.warn("llama-server launch skipped:", error);
 	}
-
-	playerArticles = await getArticles();
-	console.debug("loaded articles with player tasks", playerArticles);
 });
 
 async function handlePasteUrl(url: string) {
@@ -56,7 +53,7 @@ async function handlePasteUrl(url: string) {
   </div>
 
   <div class="inputs-container">
-    <Input onChange={(url) => handlePasteUrl(url)} />
+    <Input onChange={(url) => handlePasteUrl(url)} placeholder="Paste URL here..." />
     <!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
     <!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
@@ -74,6 +71,7 @@ async function handlePasteUrl(url: string) {
   .dashboard-container {
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
     align-items: center;
     box-sizing: border-box;
     padding: 20px;
@@ -94,7 +92,6 @@ async function handlePasteUrl(url: string) {
     align-items: center;
     justify-content: center;
     gap: 2rem;
-    margin-top: 2rem;
     width: 100%;
   }
 
@@ -104,7 +101,6 @@ async function handlePasteUrl(url: string) {
     gap: 1rem;
     width: 100%;
     max-width: 800px;
-    margin-bottom: 2rem;
   }
 
   .title-row {

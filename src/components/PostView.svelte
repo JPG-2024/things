@@ -1,12 +1,7 @@
 <script lang="ts">
-import { saveEmbeddings } from "@/lib/services/embeddings";
 import { urlRouter } from "@/lib/urlRouter";
-import { updateArticleEmbeddingsStatus } from "@/lib/utils/database/articleDB";
 import { navigate } from "@/lib/utils/url";
 import { viewState } from "@/stores/viewStore.svelte";
-import { goto } from "$app/navigation";
-import { deleteArticleById } from "../lib/utils/database/articleDB";
-import ChatsList from "./ChatsList.svelte";
 import Icon from "./Icon.svelte";
 import Button from "./inputs/Button.component.svelte";
 import LinkIcon from "./LinkIcon.svelte";
@@ -14,7 +9,7 @@ import LoadingStack from "./LoadingStack.svelte";
 import Topbar from "./layout/Topbar.svelte";
 import StringReveal from "./StringReveal.svelte";
 import ToggleIcon from "./ToggleIcon.svelte";
-import { taskRunner } from "@/stores/taskRunner.svelte";
+import { deleteArticleByUrl } from "@/stores/tasksStore";
 
 interface Props {
 	headerContent?: any;
@@ -24,7 +19,6 @@ interface Props {
 const { headerContent, summaryContent } = $props();
 // reactive state for deletion flag (Svelte runes)
 let isDeleting = $state(false);
-let isSavingEmbeddings = $state(false);
 
 // Add window scroll event listener on mount, remove on unload, using $effect.pre
 $effect.pre(() => {
@@ -41,15 +35,15 @@ $effect.pre(() => {
 });
 
 async function handleDelete() {
-	if (!viewState.articleId || isDeleting) return;
+	if (!viewState.url || isDeleting) return;
 	try {
 		isDeleting = true;
-		const res = await deleteArticleById(viewState.articleId);
+		const res = await deleteArticleByUrl(viewState.url);
 		if (res?.success) {
 			viewState.cleanAllState();
 			navigate("/");
 		} else {
-			console.error("Failed to delete article", res?.error);
+			console.error("Failed to delete article");
 		}
 	} catch (err) {
 		console.error("Error deleting article", err);
@@ -57,47 +51,14 @@ async function handleDelete() {
 		isDeleting = false;
 	}
 }
-
-async function handleGoChat(chatId?: number) {
-	if (!viewState.domainUrl) return;
-	await goto(
-		`/chat?category=${encodeURIComponent(viewState.domainUrl)}&chatId=${chatId}&articleId=${viewState.articleId}`,
-	);
-}
-
-async function handleSaveEmbeddings() {
-	try {
-		if (!viewState.articleId || viewState.embeddings || isSavingEmbeddings) return;
-		isSavingEmbeddings = true;
-		const result = await saveEmbeddings(
-			{ articleId: String(viewState.articleId), category: "", strategy: "" },
-			viewState.content,
-		);
-
-		console.log("Embeddings saved result:", result);
-
-		await updateArticleEmbeddingsStatus(viewState.articleId, true);
-	} catch (err) {
-		console.error("Error saving embeddings", err);
-	} finally {
-		isSavingEmbeddings = false;
-	}
-}
 </script>
 
 <article>
   <Topbar>
-    <!--     {#if viewState.loaded}
-      <Link url={viewState.url!} />
-    {:else}
-      <LoadingStack />
-    {/if} -->
-
-
     <ToggleIcon
       name="RefreshCcw"
       checked={true}
-      onToggle={() => taskRunner.run()}
+      onToggle={() => urlRouter(viewState.url!, { forceInFlight: true })}
     />
 
     <ToggleIcon
@@ -107,7 +68,7 @@ async function handleSaveEmbeddings() {
     />
     <LinkIcon url={viewState.url!} />
 
-    {#if viewState.articleId && !viewState.loading}
+    {#if viewState.url && !viewState.loading}
       <button
         class="delete-btn"
         onclick={handleDelete}
@@ -120,18 +81,6 @@ async function handleSaveEmbeddings() {
   </Topbar>
 
   <div class="header-container">
-    <!--     {#if !viewState.embeddings}
-      <button onclick={handleSaveEmbeddings} disabled={isSavingEmbeddings}>
-        {isSavingEmbeddings ? 'Saving...' : 'Save Embeddings'}
-      </button>
-    {/if} -->
-
-    <!--     <div class="url-link">
-      {#if !viewState.loaded}
-        {viewState.url}
-      {/if}
-    </div> -->
-
     <div class="title">
       <StringReveal message={viewState.title} />
     </div>
@@ -144,12 +93,6 @@ async function handleSaveEmbeddings() {
   </div>
 
   {@render summaryContent()}
-
-  <!--   <div class="chat-button">
-    <Button label="new chat" onClick={() => handleGoChat()} />
-  </div>
-
-  <ChatsList articleId={viewState.articleId!}></ChatsList> -->
 </article>
 
 <style>

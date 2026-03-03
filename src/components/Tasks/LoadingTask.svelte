@@ -1,19 +1,28 @@
 <script lang="ts">
-import { show } from "@tauri-apps/api/app";
 import { fade } from "svelte/transition";
+import Pill from "@/components/Pill.svelte";
 import { viewState } from "@/stores/viewStore.svelte";
-import type { Task, TaskStatus } from "@/types/taskRunner.types";
+import type { Task } from "@/types/taskRunner.types";
 
 type Props = {
 	task: Task;
 };
 
 let { task }: Props = $props();
+
+type PillStatus = "loading" | "error" | "idle" | "done";
+
+const getPillStatus = (status?: Task["status"]): PillStatus => {
+	if (status === "running") return "loading";
+	if (status === "failed" || status === "blocked") return "error";
+	if (status === "done") return "done";
+	return "idle";
+};
 </script>
 
 {#if task.status !== 'done' || viewState.showAllTasks}
   <div class="pill" transition:fade={{ duration: 500 }}>
-    <strong>{task.name}</strong>
+    <Pill status={getPillStatus(task.status)} text={task.name} />
     {#if task.error}
       <p>{task.error}</p>
     {/if}
@@ -22,32 +31,6 @@ let { task }: Props = $props();
 
 <style>
   .pill {
-    color: white;;
-    border: 1px solid #555;
-    border-radius: 999px;
-    background-color: rgb(154, 154, 154, 0.1);
-    padding: 0.1rem 0.4rem;
-    font-size: 0.75rem;
-    line-height: 1.2;
     width: max-content;
-    padding: 5px 8px;
-  }
-
-  .pill::before {
-    display: inline-block;
-    margin-right: 0.3rem;
-    border-radius: 50%;
-    background-color: var(--pill-indicator, #6b7280);
-    width: 0.5rem;
-    height: 0.5rem;
-    content: '';
-  }
-
-  .pill.done::before {
-    background-color: var(--pill-indicator-done, #57f234);
-  }
-
-  .pill.done {
-    opacity: 0.5;
   }
 </style>

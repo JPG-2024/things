@@ -26,7 +26,6 @@ export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	id: TId;
 	name: string;
-	widget: boolean;
 	dependencies: (keyof TMap & string)[];
 	type: TaskType;
 	data?: TMap[TId];

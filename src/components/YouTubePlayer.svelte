@@ -32,7 +32,7 @@ let showIframe = $state(false);
       aria-label="Play video"
     >
       <img
-        src={task?.data?.mainImageSrc}
+        src={task?.data?.thumbnailImageSrc}
         alt="YouTube thumbnail"
         class="yt-thumbnail"
         style={`view-transition-name: vt-main-image-${toVTName(task?.data?.videoId || '')}`}

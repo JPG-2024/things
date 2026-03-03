@@ -66,7 +66,7 @@ class TaskRunnerStore {
 	setTasks(tasks: Task[]) {
 		this.tasks = tasks.map((task) => ({
 			...task,
-			dependencies: [...task.dependencies],
+			dependencies: [...(task.dependencies ?? [])],
 			status: task.status ?? "pending",
 			error: task.error,
 			debug: task.debug,
@@ -85,7 +85,7 @@ class TaskRunnerStore {
 
 		const safeTasks = tasks.map((task) => ({
 			...task,
-			dependencies: [...task.dependencies],
+			dependencies: [...(task.dependencies ?? [])],
 			status: task.status ?? "pending",
 		}));
 
@@ -102,7 +102,7 @@ class TaskRunnerStore {
 	private snapshotTasks(): Task[] {
 		return this.tasks.map((task) => ({
 			...task,
-			dependencies: [...task.dependencies],
+			dependencies: [...(task.dependencies ?? [])],
 		}));
 	}
 
@@ -117,7 +117,7 @@ class TaskRunnerStore {
 				...this.tasks,
 				{
 					...task,
-					dependencies: [...task.dependencies],
+					dependencies: [...(task.dependencies ?? [])],
 					status: task.status ?? "pending",
 				},
 			];
@@ -126,7 +126,7 @@ class TaskRunnerStore {
 
 		this.tasks[index] = {
 			...task,
-			dependencies: [...task.dependencies],
+			dependencies: [...(task.dependencies ?? [])],
 			status: task.status ?? this.tasks[index].status ?? "pending",
 		};
 	}

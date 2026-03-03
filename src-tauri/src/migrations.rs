@@ -135,6 +135,30 @@ pub fn get_migrations() -> Vec<Migration> {
             CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
             PRAGMA foreign_keys=ON;",
             kind: MigrationKind::Up,
+        },
+        // This is your twelfth migration.
+        Migration {
+            version: 12,
+            description: "add-title-and-thumbnail-columns",
+            // SQL to add the title and thumbnail columns to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN title TEXT; ALTER TABLE articles ADD COLUMN thumbnail TEXT;",
+            kind: MigrationKind::Up,
+        },
+        // This is your thirteenth migration.
+        Migration {
+            version: 13,
+            description: "add-content-column-if-not-exists",
+            // SQL to add the content column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN content TEXT;",
+            kind: MigrationKind::Up,
+        },
+        // This is your fourteenth migration.
+        Migration {
+            version: 14,
+            description: "add-directory-column",
+            // SQL to add the directory column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN directory TEXT;",
+            kind: MigrationKind::Up,
         }
     ]
 }

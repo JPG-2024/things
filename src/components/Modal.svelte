@@ -1,7 +1,7 @@
 <script>
-let { show = false, onClose, children } = $props()
+let { show = false, onClose, children } = $props();
 
-import { fade, scale } from "svelte/transition"
+import { fade, scale } from "svelte/transition";
 </script>
 
 {#if show}

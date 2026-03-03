@@ -1,21 +1,19 @@
 <script lang="ts">
-import { primaryColor } from "@/stores/uiStore"
-import { viewState } from "@/stores/viewStore.svelte"
+import { primaryColor } from "@/stores/uiStore";
+import { viewState } from "@/stores/viewStore.svelte";
 
-let { children } = $props()
+let { children } = $props();
 
-let flashy = $state(false)
+let flashy = $state(false);
 
-let mainElement: HTMLElement | undefined = $state()
+let mainElement: HTMLElement | undefined = $state();
 
 $effect(() => {
 	if (mainElement) {
-		console.log("Updating primary color to:", $primaryColor)
-		mainElement.style.setProperty("--primary-color", $primaryColor)
+		console.log("Updating primary color to:", $primaryColor);
+		mainElement.style.setProperty("--primary-color", $primaryColor);
 	}
-
-	console.log("ViewState loaded:", viewState.loaded)
-})
+});
 
 // scroll effect
 /*   $effect(() => {
@@ -34,24 +32,24 @@ $effect(() => {
   }) */
 
 $effect.pre(() => {
-	let stopFlow: undefined | (() => void)
-	viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop))
-	viewState.initMediaBasePath()
+	let stopFlow: undefined | (() => void);
+	viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop));
+	viewState.initMediaBasePath();
 
 	const flashyInterval = setInterval(() => {
-		if (viewState.loading) return
+		if (viewState.loading) return;
 
-		flashy = true
+		flashy = true;
 		setTimeout(() => {
-			flashy = false
-		}, 2000) // Duración de la animación
-	}, 30000)
+			flashy = false;
+		}, 2000); // Duración de la animación
+	}, 40000);
 
 	return () => {
-		stopFlow?.()
-		clearInterval(flashyInterval)
-	}
-})
+		stopFlow?.();
+		clearInterval(flashyInterval);
+	};
+});
 
 // Global View Transitions wrapper for all client navigations
 /*   onNavigate((navigation) => {

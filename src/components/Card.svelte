@@ -19,6 +19,8 @@ let {
 <style>
   .widget {
     position: relative;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     min-width: 0;
@@ -30,16 +32,12 @@ let {
     backdrop-filter: blur(20px);
     border-radius: 30px;
     padding: 15px;
-    padding-top: 50px;
     overflow: hidden;
   }
 
   .widget-title {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    padding: 0 14px;
+    padding: 12px;
+    
     line-height: 1;
     font-size: 1rem;
     font-weight: 600;
@@ -127,51 +125,5 @@ let {
       transparent 100%
     );
     border-radius: 0 0 30px 0;
-  }
-
-  .img-flex {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
-    gap: 10px;
-    padding-top: 10px;
-    box-sizing: border-box;
-    width: 100%;
-    height: auto;
-    align-items: start;
-  }
-
-  .mini-img {
-    border-radius: 15px;
-    width: 45px;
-    height: 45px;
-    object-fit: cover;
-    will-change: transform, opacity;
-    transform: translateZ(0);
-  }
-
-  .img-button {
-    transition: transform 0.2s ease-in-out;
-    cursor: pointer;
-    border: none;
-    background: none;
-    padding: 0;
-  }
-
-  .yt-button::after {
-    position: absolute;
-    top: 58%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    content: '▶';
-    color: rgb(255, 0, 0);
-    font-size: 24px;
-  }
-
-  .img-button:hover {
-    transform: scale(1.05);
-  }
-
-  .img-button:active {
-    transform: scale(0.98);
   }
 </style>

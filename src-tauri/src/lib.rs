@@ -32,6 +32,7 @@ pub use crate::url::url_to_folder_name;
 
 mod llama_server;
 pub use crate::llama_server::launch_llama_server;
+use crate::llama_server::{stop_llama_server, LlamaServerState};
 
 
 mod tts_helpers;
@@ -41,6 +42,8 @@ pub use crate::tts::{synthesize_speech, synthesize_speech_batch, cleanup_tts_fil
 
 mod migrations;
 pub use crate::migrations::get_migrations;
+use tauri::RunEvent;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -49,7 +52,8 @@ pub fn run() {
 
     let migrations = get_migrations();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .manage(LlamaServerState::default())
         .plugin(
             // Build the SQL plugin
             tauri_plugin_sql::Builder::default()
@@ -86,6 +90,13 @@ pub fn run() {
             play_tts_file,
             stop_tts_playback
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::Exit = event {
+            let state = app_handle.state::<LlamaServerState>();
+            stop_llama_server(&state);
+        }
+    });
 }

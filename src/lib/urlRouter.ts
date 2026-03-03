@@ -1,117 +1,101 @@
-import { saveDocumentsToLeann } from "@/lib/utils/leann";
-import { splitText } from "@/lib/utils/splitter";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
-import { extractBlog } from "./extractBlog";
-import { getArticleByUrl, getOrCreateMainColor, saveViewToDb } from "./utils/database/articleDB";
-import { getImageColor } from "./utils/getImageColor";
+import type { Task } from "@/types/taskRunner.types";
+import { taskRunner } from "@/stores/taskRunner.svelte";
+import { getArticleCacheMap, type ArticleWithPlayerTask } from "@/stores/tasksStore";
+
 import { youTubeRunner } from "@/runners/youTubeRunner";
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
-const inMemoryCache = new Map<string, any>();
+type RouterCachedArticle = {
+	url: string | null;
+	mainColor?: string | null;
+	tasks?: Task[];
+	[key: string]: unknown;
+};
+
+type RouterResult = { data: RouterCachedArticle; cached: boolean };
+
+const inMemoryCache = new Map<string, RouterCachedArticle>();
 // Map of in-flight requests to prevent concurrent duplicate work
-const inProgressRequests = new Map<string, Promise<{ data: any; cached: boolean }>>();
+const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
-export async function urlRouter(url: string): Promise<{ data: any; cached: boolean }> {
+const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
+
+function applyCachedArticle(cached: ArticleWithPlayerTask) {
 	viewState.cleanAllState();
+	viewState.url = cached.url ?? "";
+	viewState.setAllValues(cached as unknown as Article);
+	viewState.loaded = true;
+	viewState.loading = false;
+	if (cached.mainColor) {
+		primaryColor.set(cached.mainColor as string);
+	}
+	taskRunner.setTasks(cached.tasks ?? []);
+}
 
-	viewState.url = url;
+async function fillCacheFromDb() {
+	const dbCache = await getArticleCacheMap();
+	for (const [cachedUrl, article] of dbCache.entries()) {
+		inMemoryCache.set(cachedUrl, article);
+	}
+}
+
+type UrlRouterOptions = {
+	forceInFlight?: boolean;
+};
+
+export async function urlRouter(
+	url: string,
+	{ forceInFlight = false }: UrlRouterOptions = {},
+): Promise<RouterResult> {
+	if (inProgressRequests.has(url)) {
+		return inProgressRequests.get(url) as Promise<RouterResult>;
+	}
+
 	// First: check in-memory cache (very fast)
-	if (inMemoryCache.has(url)) {
-		const cached = inMemoryCache.get(url);
-		viewState.setAllValues(cached);
-		viewState.loaded = true;
-		viewState.loading = false;
-		// Use cached mainColor directly
-		if (cached.mainColor) {
-			primaryColor.set(cached.mainColor);
-		}
-
+	if (!forceInFlight && inMemoryCache.has(url)) {
+		const cached = inMemoryCache.get(url) as ArticleWithPlayerTask;
+		applyCachedArticle(cached);
 		return { data: cached, cached: true };
 	}
 
-	// Prevent running the same task concurrently
-	if (inProgressRequests.has(url)) {
-		return inProgressRequests.get(url) as Promise<{ data: any; cached: boolean }>;
-	}
+	if (!forceInFlight) {
+		await fillCacheFromDb();
 
-	const cachedArticle = await getArticleByUrl(url);
-	if (cachedArticle) {
-		// Restore from database
-		viewState.setAllValues(cachedArticle);
-		viewState.loaded = true;
-		viewState.loading = false;
-		// Use cached mainColor directly
-		if (cachedArticle.mainColor) {
-			primaryColor.set(cachedArticle.mainColor);
+		const cachedArticle = inMemoryCache.get(url) as ArticleWithPlayerTask | undefined;
+		if (cachedArticle) {
+			applyCachedArticle(cachedArticle);
+			return { data: cachedArticle, cached: true };
 		}
-
-		return { data: cachedArticle, cached: true };
 	}
 
-	// Extract and save new content
-
+	viewState.cleanAllState();
+	viewState.url = url;
 	viewState.loading = true;
 	viewState.loaded = false;
 
-	// Wrap extraction & save in a try/catch; also register this work in inProgressRequests
-	const inFlight = (async () => {
-		let data = {};
-
+	const inFlight: Promise<RouterResult> = (async () => {
 		try {
-			if (/youtube\.com\/watch\?v=/.test(url)) {
-				// youtube route
-				data = await youTubeRunner(url);
-			} else {
-				data = await extractBlog(url); // generic article route
+			if (!YOUTUBE_URL_REGEX.test(url)) {
+				throw new Error("Unsupported URL. Only YouTube URLs are handled by urlRouter.");
 			}
 
-			// TODO: pass extractor functions via parameter in this funcion and map ober to do task with summary or content extracted.
-			/*        const extractedCategory = await  runLocalLlamaPrompt(
-             `Extract the category.`,
-             {
-               systemPrompt: "You are an expert article categorizer. Given the content of a blog article, provide a single-word category that best fits the article from the following options: Technology, Health, Lifestyle, Education, Entertainment, Business, Sports, Science, Travel, Food, Politics, Environment, Fashion, Art, History, Psychology, Music, Programming. If none fit well, respond with 'Unsorted'. Only respond with the category word.",
-               messages: [
-                 { role: 'user', content: data.content }
-               ]
-             }
-           ) */
+			const tasks = await youTubeRunner(url);
+			const freshData: RouterCachedArticle = {
+				...viewState.getAllValues(),
+				url,
+				tasks,
+			};
 
-			viewState.category = "Unsorted";
-
-			// Save Article to DB
-			const newArticle = await saveViewToDb();
-
-			console.log("Saved new article to DB:", newArticle);
-
-			if (newArticle) {
-				console.log("ViewState after save:", viewState.isYouTube);
-
-				// Save in-memory for faster subsequent access during the session
-				inMemoryCache.set(url, newArticle);
-			}
+			inMemoryCache.set(url, freshData);
 
 			viewState.loaded = true;
 			viewState.loading = false;
-			viewState.articleId = newArticle?.id || null;
-			return { data: newArticle, cached: false };
+
+			return { data: freshData, cached: false };
 		} catch (err) {
 			console.error("Error while routing URL:", err);
-
-			// If extraction or saving fails, try again to fetch from DB as a fallback
-			const fallback = await getArticleByUrl(url);
-			if (fallback) {
-				viewState.setAllValues(fallback);
-				viewState.loaded = true;
-				viewState.loading = false;
-				if (fallback.mainColor) {
-					primaryColor.set(fallback.mainColor);
-				}
-				inMemoryCache.set(url, fallback);
-				return { data: fallback, cached: true };
-			}
-
-			// No cached article found - rethrow to allow caller to handle it
 			viewState.loading = false;
 			viewState.loaded = false;
 			throw err;
@@ -133,6 +117,7 @@ export function clearUrlCache(url: string) {
 
 export function removeArticleFromCache(url: string) {
 	inMemoryCache.delete(url);
+	inProgressRequests.delete(url);
 }
 
 export function clearAllUrlCaches() {
