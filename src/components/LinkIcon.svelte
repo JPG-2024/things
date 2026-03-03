@@ -1,16 +1,16 @@
 <script lang="ts">
-import Icon from "./Icon.svelte"
+import Icon from "./Icon.svelte";
 
-let { url }: { url: string } = $props()
+let { url }: { url: string } = $props();
 
 async function copyToClipboard(event: MouseEvent) {
-	event.preventDefault()
+	event.preventDefault();
 	try {
-		await navigator.clipboard.writeText(url)
+		await navigator.clipboard.writeText(url);
 		// Optionally, you can show a notification or visual feedback here
 	} catch (err) {
 		// Optionally, handle error
-		console.error("Failed to copy!", err)
+		console.error("Failed to copy!", err);
 	}
 }
 </script>

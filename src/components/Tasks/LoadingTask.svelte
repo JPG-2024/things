@@ -1,6 +1,7 @@
 <script lang="ts">
 import { fade } from "svelte/transition";
 import Pill from "@/components/Pill.svelte";
+import Modal from "@/components/Modal.svelte";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
 
@@ -9,6 +10,8 @@ type Props = {
 };
 
 let { task }: Props = $props();
+
+let showModal = $state(false);
 
 type PillStatus = "loading" | "error" | "idle" | "done";
 
@@ -21,7 +24,7 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
 </script>
 
 {#if task.status !== 'done' || viewState.showAllTasks}
-  <div class="pill" transition:fade={{ duration: 500 }}>
+  <div class="pill" transition:fade={{ duration: 500 }} onclick={() => (showModal = true)}>
     <Pill status={getPillStatus(task.status)} text={task.name} />
     {#if task.error}
       <p>{task.error}</p>
@@ -29,8 +32,20 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
   </div>
 {/if}
 
+<Modal show={showModal} onClose={() => (showModal = false)}>
+  <h2>Task Details</h2>
+  <pre class="wrapped-output">{JSON.stringify(task, null, 2)}</pre>
+</Modal>
+
 <style>
   .pill {
     width: max-content;
+    cursor: pointer;
+  }
+
+  .wrapped-output {
+    text-wrap: auto;
+    max-width: 100%;
+    overflow-y: auto;
   }
 </style>

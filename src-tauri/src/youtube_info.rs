@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 use std::collections::HashSet;
+use tokio::time::{Duration, Instant};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct YoutubeInfoSelector {
@@ -23,12 +24,24 @@ pub struct YoutubeDetail {
 	pub time: Option<String>,
 }
 
+async fn wait_retry_interval(interval_time: u64) {
+	let duration = Duration::from_millis(interval_time.max(1));
+	let mut ticker = tokio::time::interval_at(Instant::now() + duration, duration);
+	ticker.tick().await;
+}
+
 #[tauri::command]
 pub async fn get_youtube_info(
 	app: AppHandle,
 	url: String,
 	selectors: Vec<YoutubeInfoSelector>,
+	interval_time: u64,
+	max_attempts: u32,
 ) -> Result<(Vec<YoutubeInfoResult>, Vec<YoutubeDetail>), String> {
+	if max_attempts == 0 {
+		return Err("max_attempts must be greater than 0".to_string());
+	}
+
 	app.emit(
 		"flow-status",
 		json!({"key": "youtube-info", "status": "Extracting selectors", "data": null}),
@@ -47,9 +60,6 @@ pub async fn get_youtube_info(
 		.await
 		.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
-    // Wait for the page to load
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-
 	// click element "tp-yt-paper-button" with id "expand"
 	let expand_button_selector = "tp-yt-paper-button#expand";
 	let click_script = format!(
@@ -63,16 +73,35 @@ pub async fn get_youtube_info(
 		}})()"#,
 		expand_button_selector
 	);
-	let clicked: bool = page
-		.evaluate(click_script)
-		.await
-		.map_err(|e| format!("Failed to evaluate click script: {}", e))?
-		.into_value()
-		.map_err(|e| format!("Failed to parse click result: {}", e))?;
-	if !clicked {
-		return Err("Failed to find expand button element".to_string());
+
+	let mut clicked = false;
+	let mut click_error = String::from("Failed to find expand button element");
+	for attempt in 1..=max_attempts {
+		match page.evaluate(click_script.clone()).await {
+			Ok(eval) => match eval.into_value::<bool>() {
+				Ok(true) => {
+					clicked = true;
+					break;
+				}
+				Ok(false) => {
+					click_error = "Failed to find expand button element".to_string();
+				}
+				Err(e) => {
+					click_error = format!("Failed to parse click result: {}", e);
+				}
+			},
+			Err(e) => {
+				click_error = format!("Failed to evaluate click script: {}", e);
+			}
+		}
+
+		if attempt < max_attempts {
+			wait_retry_interval(interval_time).await;
+		}
 	}
-	tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+	if !clicked {
+		return Err(click_error);
+	}
 
 	// get details (title and time) from each div#details
 	let script = r#"(() => {
@@ -99,13 +128,34 @@ pub async fn get_youtube_info(
 		}
 	})()"#;
 
-	let details_data: Vec<Value> = page
-		.evaluate(script)
-		.await
-		.map_err(|e| format!("Failed to execute JS script for details: {}", e))?
-		.into_value()
-		.map_err(|e| format!("Failed to parse JS result for details: {}", e))?;
+	let mut details_data: Vec<Value> = Vec::new();
+	let mut details_error = String::new();
+	for attempt in 1..=max_attempts {
+		match page.evaluate(script).await {
+			Ok(eval) => match eval.into_value::<Vec<Value>>() {
+				Ok(v) => {
+					details_data = v;
+					break;
+				}
+				Err(e) => {
+					details_error = format!("Failed to parse JS result for details: {}", e);
+				}
+			},
+			Err(e) => {
+				details_error = format!("Failed to execute JS script for details: {}", e);
+			}
+		}
 
+		if attempt < max_attempts {
+			wait_retry_interval(interval_time).await;
+		}
+	}
+	if details_data.is_empty() && !details_error.is_empty() {
+		return Err(details_error);
+	}
+
+	// Remove duplicates while preserving order
+	let mut seen = std::collections::HashSet::new();
 	let mut time_texts: Vec<YoutubeDetail> = details_data
 		.into_iter()
 		.filter_map(|item| {
@@ -116,7 +166,6 @@ pub async fn get_youtube_info(
 		.collect();
 
 	// Remove duplicates while preserving order
-	let mut seen = std::collections::HashSet::new();
 	time_texts.retain(|detail| {
 		let key = format!("{:?}{:?}", detail.title, detail.time);
 		seen.insert(key)
@@ -130,7 +179,7 @@ pub async fn get_youtube_info(
 		let selector_escaped = item.selector.replace('\\', "\\\\").replace('\'', "\\'");
 		let mut text_content: Option<String> = None;
 
-		for _ in 0..50 {
+		for attempt in 1..=max_attempts {
 			let script = format!(
 				r#"(() => {{
 					const el = document.querySelector('{selector}');
@@ -153,7 +202,9 @@ pub async fn get_youtube_info(
 				break;
 			}
 
-			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			if attempt < max_attempts {
+				wait_retry_interval(interval_time).await;
+			}
 		}
 
 		results.push(YoutubeInfoResult {

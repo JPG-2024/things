@@ -129,43 +129,19 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			},
 		},
 		{
-			id: TaskNames.Title,
-			name: "",
-			dependencies: [TaskNames.SUMMARY],
-			component: "base",
-			type: "ia",
-			systemMessage:
-				selectedLanguage === "es" ? "you are a title creator." : "you are a title creator.",
-			run: (state) => {
-				const summary = state[TaskNames.SUMMARY];
-				if (!summary) {
-					return "";
-				}
-				return summary;
-			},
-			userMessage:
-				selectedLanguage === "es"
-					? "Crea un titulo descriptivo corto. Evita comillas y signos de puntuación innecesarios."
-					: "Create a short descriptive title. Avoid quotes and unnecessary punctuation.",
-			completionOptions: {
-				model: "llama-server",
-				temperature: 0.5,
-				stream: true,
-			},
-		},
-		{
 			id: TaskNames.THUMBNAIL,
 			name: "Get thumbnail",
 			dependencies: [TaskNames.INIT],
 			type: "script",
 			component: "player",
 			run: async (state) => {
-				const context = state[TaskNames.INIT];
-				if (!context) {
-					throw new Error("Missing init context");
+				const urlData = state[TaskNames.INIT];
+
+				if (!urlData) {
+					throw new Error("Missing dependency context");
 				}
 
-				const ytThumbnailUrl = getYouTubeThumbnailUrl(context.videoId);
+				const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId);
 
 				const {
 					mediaDirectory,
@@ -177,7 +153,7 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 					mediaDirectory,
 					thumbnailImage,
 					thumbnailImageSrc,
-					videoId: context.videoId,
+					videoId: urlData.videoId,
 				} satisfies YouTubePlayerContext;
 			},
 		},
@@ -208,6 +184,7 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 			id: TaskNames.VIDEO_INFO,
 			name: "Crawling",
 			dependencies: [TaskNames.INIT],
+			component: "videoInfo",
 			type: "script",
 			run: async (state) => {
 				const context = state[TaskNames.INIT];
@@ -225,8 +202,8 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 							{ name: "uploadDate", selector: "div#info-strings yt-formatted-string" },
 							{ name: "channel", selector: "#channel-name a" },
 						],
-						max_attempts: 3,
-						interval_time: 100,
+						intervalTime: 5,
+						maxAttempts: 200,
 					},
 				);
 

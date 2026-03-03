@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Task } from "@/types/taskRunner.types";
-import Modal from "../Modal.svelte";
+import Modal from "@/components/Modal.svelte";
 
 type Props = {
 	task: Task;

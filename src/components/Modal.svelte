@@ -1,14 +1,16 @@
 <script>
-let { show = false, onClose, children } = $props();
-
 import { fade, scale } from "svelte/transition";
+
+let { show = false, onClose, children } = $props();
 </script>
 
 {#if show}
-  <div class="backdrop" role="presentation">
+  <div class="backdrop" role="presentation" transition:fade={{ duration: 200 }}>
     <div class="modal" role="dialog" transition:scale={{ start: 0.8, duration: 100 }}>
       <button class="close-btn" onclick={onClose} aria-label="Close modal">×</button>
-      {@render children()}
+      <div class="modal-content">
+        {@render children()}
+      </div>
     </div>
   </div>
 {/if}
@@ -21,19 +23,24 @@ import { fade, scale } from "svelte/transition";
     justify-content: center;
     align-items: center;
     background: rgba(0, 0, 0, 0.7);
-
-    /* desenfoque del fondo detrás del backdrop */
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    z-index: 9999;
   }
 
   .modal {
     position: relative;
-    background: rgba(0, 0, 0, 0.8);
+    background: black;
     padding: 1.5rem;
-    max-width: 100%;
-    padding-top: 20px;
-    z-index: 1000;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 8px;
+    z-index: 10000;
+  }
+
+  .modal-content {
+    color: white;
   }
 
   .close-btn {
@@ -44,7 +51,7 @@ import { fade, scale } from "svelte/transition";
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: inherit;
+    color: white;
     padding: 0;
     width: 2rem;
     height: 2rem;

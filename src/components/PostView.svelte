@@ -3,9 +3,7 @@ import { urlRouter } from "@/lib/urlRouter";
 import { navigate } from "@/lib/utils/url";
 import { viewState } from "@/stores/viewStore.svelte";
 import Icon from "./Icon.svelte";
-import Button from "./inputs/Button.component.svelte";
 import LinkIcon from "./LinkIcon.svelte";
-import LoadingStack from "./LoadingStack.svelte";
 import Topbar from "./layout/Topbar.svelte";
 import StringReveal from "./StringReveal.svelte";
 import ToggleIcon from "./ToggleIcon.svelte";
@@ -80,6 +78,8 @@ async function handleDelete() {
     {/if}
   </Topbar>
 
+  
+
   <div class="header-container">
     <div class="title">
       <StringReveal message={viewState.title} />
@@ -103,7 +103,7 @@ async function handleDelete() {
     align-items: flex-start;
     gap: 1.5rem;
     box-sizing: border-box;
-    padding-top: 50px;
+    padding-top: 20px;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;

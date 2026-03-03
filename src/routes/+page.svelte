@@ -71,7 +71,7 @@ async function handlePasteUrl(url: string) {
   .dashboard-container {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.4rem;
     align-items: center;
     box-sizing: border-box;
     padding: 20px;
