@@ -1,11 +1,11 @@
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
-import { taskRunner } from "@/stores/taskRunner.svelte";
-import { getArticleWithTasksByUrl, type ArticleWithPlayerTask } from "@/stores/tasksStore";
-
+import { taskRunner } from "@/runners/taskRunner.svelte";
+import { getArticleWithTasksByUrl, type ArticleWithTasks } from "@/stores/tasksStore";
 import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
 import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
+import { deleteArticleByUrl } from "@/stores/tasksStore";
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
 type RouterCachedArticle = {
@@ -27,10 +27,14 @@ const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
 
 type UrlRouteCondition = RegExp | ((url: string) => boolean);
 
+type UrlRouteHandlerContext = {
+	cachedArticle?: ArticleWithTasks | null;
+};
+
 type UrlRoute = {
 	name: string;
 	condition: UrlRouteCondition;
-	handler: (url: string) => Promise<Task[]>;
+	handler: (url: string, context?: UrlRouteHandlerContext) => Promise<Task[]>;
 };
 
 function matchesRoute(url: string, condition: UrlRouteCondition): boolean {
@@ -45,7 +49,7 @@ const routeDefinitions: UrlRoute[] = [
 	{
 		name: "youtubeVideo",
 		condition: YOUTUBE_URL_REGEX,
-		handler: youTubeRunner,
+		handler: (url, context) => youTubeRunner(url, undefined, context?.cachedArticle),
 	},
 	{
 		name: "toubeProfileVideos",
@@ -63,7 +67,7 @@ export function addUrlRoute(route: UrlRoute) {
 	routeDefinitions.push(route);
 }
 
-function applyCachedArticle(cached: ArticleWithPlayerTask) {
+function applyCachedArticle(cached: ArticleWithTasks) {
 	viewState.cleanAllState();
 	viewState.url = cached.url ?? "";
 	viewState.setAllValues(cached as unknown as Article);
@@ -76,26 +80,34 @@ function applyCachedArticle(cached: ArticleWithPlayerTask) {
 }
 
 type UrlRouterOptions = {
-	forceInFlight?: boolean;
+	forceRunTasks?: boolean;
 };
 
 export async function urlRouter(
 	url: string,
-	{ forceInFlight = false }: UrlRouterOptions = {},
+	{ forceRunTasks = false }: UrlRouterOptions = {},
 ): Promise<RouterResult> {
 	if (inProgressRequests.has(url)) {
 		return inProgressRequests.get(url) as Promise<RouterResult>;
 	}
 
+	// Si forceRunTasks es true, limpiar completamente el cache
+	if (forceRunTasks) {
+		inMemoryCache.delete(url);
+		await deleteArticleByUrl(url); 
+	}
+
 	// First: check in-memory cache (very fast)
-	if (!forceInFlight && inMemoryCache.has(url)) {
-		const cached = inMemoryCache.get(url) as ArticleWithPlayerTask;
+	if (!forceRunTasks && inMemoryCache.has(url)) {
+		const cached = inMemoryCache.get(url) as ArticleWithTasks;
 		applyCachedArticle(cached);
 		return { data: cached, cached: true };
 	}
 
-	if (!forceInFlight) {
-		const cachedArticle = await getArticleWithTasksByUrl(url);
+	let cachedArticle: ArticleWithTasks | null = null;
+
+	if (!forceRunTasks) {
+		cachedArticle = await getArticleWithTasksByUrl(url);
 
 		viewState.primaryColor = cachedArticle?.mainColor || viewState.primaryColor;
 
@@ -120,7 +132,7 @@ export async function urlRouter(
 				throw new Error(`Unsupported URL. Supported routes: ${supportedRoutes}.`);
 			}
 
-			const tasks = await matchingRoute.handler(url);
+			const tasks = await matchingRoute.handler(url, { cachedArticle });
 			const freshData: RouterCachedArticle = {
 				...viewState.getAllValues(),
 				url,

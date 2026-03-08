@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { taskRunner } from "@/stores/taskRunner.svelte";
+import { taskRunner } from "@/runners/taskRunner.svelte";
 import type { Task } from "@/types/taskRunner.types";
 
 

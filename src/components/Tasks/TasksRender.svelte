@@ -1,7 +1,7 @@
 <script lang="ts">
 import LoadingTask from "@/components/Tasks/LoadingTask.svelte"
 import { taskRenderRegistry } from "@/components/Tasks/taskRenderRegistry"
-import { taskRunner } from "@/stores/taskRunner.svelte"
+import { taskRunner } from "@/runners/taskRunner.svelte"
 import type { Task } from "@/types/taskRunner.types"
 
 function resolveRenderer(task: Task): any {

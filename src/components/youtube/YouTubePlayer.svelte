@@ -1,6 +1,6 @@
 <script lang="ts">
 import { toVTName } from "@/lib/utils/url";
-import { taskRunner } from "@/stores/taskRunner.svelte";
+import { taskRunner } from "@/runners/taskRunner.svelte";
 import type { Task } from "@/types/taskRunner.types";
 
 type Props = {

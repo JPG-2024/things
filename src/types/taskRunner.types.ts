@@ -23,6 +23,10 @@ export interface TaskStateUpdate {
 
 export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 
+export interface TaskRunOptions {
+	force?: boolean;
+}
+
 interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	id: TId;
 	name: string;
@@ -30,6 +34,7 @@ interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	type: TaskType;
 	data?: TMap[TId];
 	component?: string;
+	persist?: boolean;
 	status?: TaskStatus;
 	error?: string;
 	// Optional field to store debug information about the task execution, such as intermediate results or logs

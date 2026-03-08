@@ -18,13 +18,21 @@ type StoredTask = {
 	component?: string;
 };
 
-export interface ArticleWithPlayerTask {
+export type PersistedTaskState = {
+	id: string;
+	data?: unknown;
+	status?: Task["status"];
+	component?: string;
+};
+
+export interface ArticleWithTasks {
 	id: number;
 	url: string | null;
 	title: string | null;
 	thumbnail: string | null;
 	mainColor?: string | null;
 	tasks: Task[];
+	persistedTasks?: PersistedTaskState[];
 	[key: string]: unknown;
 }
 
@@ -34,10 +42,12 @@ type ArticleRow = {
 	title: string | null;
 	thumbnail: string | null;
 	tasks: string | null;
+	main_color?: string | null;
+	metadataContent?: unknown;
 	[key: string]: unknown;
 };
 
-function parseStoredTasks(raw: string | null): Task[] {
+function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 	if (!raw) {
 		return [];
 	}
@@ -45,19 +55,12 @@ function parseStoredTasks(raw: string | null): Task[] {
 	try {
 		const parsed = JSON.parse(raw) as StoredTask[];
 		if (Array.isArray(parsed)) {
-			return parsed.map((task, index) => {
-				const id = typeof task?.id === "string" && task.id.trim() ? task.id : `cached-${index}`;
-				return {
-					id,
-					name: id,
-					dependencies: [],
-					type: "script",
-					run: () => task?.data,
-					data: task?.data,
-					status: task?.status ?? "done",
-					component: task?.component,
-				} satisfies Task;
-			});
+			return parsed.map((task, index) => ({
+				id: typeof task?.id === "string" && task.id.trim() ? task.id : `cached-${index}`,
+				data: task?.data,
+				status: task?.status ?? "done",
+				component: task?.component,
+			}));
 		}
 	} catch (error) {
 		console.warn("Unable to parse stored tasks JSON", error);
@@ -66,7 +69,22 @@ function parseStoredTasks(raw: string | null): Task[] {
 	return [];
 }
 
-export async function getArticles(): Promise<ArticleWithPlayerTask[]> {
+function parseStoredTasks(raw: string | null): Task[] {
+	return parsePersistedTaskStates(raw)
+		.filter((task) => typeof task.component === "string" && task.component.trim().length > 0)
+		.map((task) => ({
+			id: task.id,
+			name: task.id,
+			dependencies: [],
+			type: "script",
+			run: () => task.data,
+			data: task.data,
+			status: task.status ?? "done",
+			component: task.component,
+		} satisfies Task));
+}
+
+export async function getArticles(): Promise<ArticleWithTasks[]> {
 	const database = await getDb();
 
 	try {
@@ -80,12 +98,14 @@ export async function getArticles(): Promise<ArticleWithPlayerTask[]> {
 				typeof row.metadataContent === "string" && row.metadataContent
 					? JSON.parse(row.metadataContent)
 					: row.metadataContent;
+			const mainColor = typeof row.main_color === "string" ? row.main_color : null;
 
 			return {
 				...row,
 				metadataContent,
+				mainColor,
 				tasks: parseStoredTasks(row.tasks),
-			} as ArticleWithPlayerTask;
+			} as ArticleWithTasks;
 		});
 	} catch (error) {
 		console.error("Error querying articles with player task", error);
@@ -93,7 +113,7 @@ export async function getArticles(): Promise<ArticleWithPlayerTask[]> {
 	}
 }
 
-export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithPlayerTask | null> {
+export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
 	const database = await getDb();
 
 	try {
@@ -107,19 +127,21 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 			return null;
 		}
 
+		const persistedTasks = parsePersistedTaskStates(row.tasks);
 		const metadataContent =
 			typeof row.metadataContent === "string" && row.metadataContent
 				? JSON.parse(row.metadataContent)
 				: row.metadataContent;
 
-		const mainColor = row.main_color || "#000000"; // default to black if not set
+		const mainColor = typeof row.main_color === "string" ? row.main_color : "#000000";
 
 		return {
 			...row,
 			metadataContent,
 			mainColor,
 			tasks: parseStoredTasks(row.tasks),
-		} as ArticleWithPlayerTask;
+			persistedTasks,
+		} as ArticleWithTasks;
 	} catch (error) {
 		console.error("Error querying article with player task", error);
 		return null;
@@ -130,7 +152,10 @@ export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
 	const database = await getDb();
 
 	const tasksToSave: StoredTask[] = tasks
-		.filter((task) => task.component)
+		.filter((task) => {
+			const hasComponent = typeof task.component === "string" && task.component.trim().length > 0;
+			return hasComponent || task.persist === true;
+		})
 		.map((task) => ({
 			id: task.id,
 			data: task.data,

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { taskRunner } from "@/stores/taskRunner.svelte";
+import { taskRunner } from "@/runners/taskRunner.svelte";
 
 type Props = {
 	taskId: string;

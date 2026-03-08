@@ -5,6 +5,7 @@ import type {
 	Task,
 	TaskGlobalState,
 	TaskMapBase,
+	TaskRunOptions,
 	TaskRunSummary,
 	TaskStateUpdate,
 	TaskStatus,
@@ -155,9 +156,17 @@ class TaskRunnerStore {
 
 	/**
 	 * Reset statuses and runtime metadata on all tasks.
+	 * @param options - Controls whether already completed tasks should be preserved.
 	 */
-	resetStatuses() {
+	resetStatuses(options?: TaskRunOptions) {
+		const force = options?.force ?? false;
+
 		for (const task of this.tasks) {
+			if (!force && task.status === "done") {
+				task.error = undefined;
+				continue;
+			}
+
 			task.status = "pending";
 			task.error = undefined;
 			task.startedAt = undefined;
@@ -408,15 +417,18 @@ class TaskRunnerStore {
 
 	/**
 	 * Run the task runner: validate tasks, run ready tasks in correct order and update lastRun.
+	 * @param options - Execution controls such as forcing completed tasks to rerun.
 	 * @returns Summary of the run.
 	 */
-	async run(): Promise<TaskRunSummary> {
+	async run(options?: TaskRunOptions): Promise<TaskRunSummary> {
 		if (this.running) {
 			throw new Error("Task runner is already running.");
 		}
 
+		const runOptions = { force: false, ...options };
+
 		this.validateTasks();
-		this.resetStatuses();
+		this.resetStatuses(runOptions);
 		this.running = true;
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
@@ -430,7 +442,7 @@ class TaskRunnerStore {
 
 				if (this.restartRequested) {
 					this.restartRequested = false;
-					this.resetStatuses();
+					this.resetStatuses({ force: true });
 					continue;
 				}
 

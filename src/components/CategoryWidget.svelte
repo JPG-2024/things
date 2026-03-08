@@ -3,11 +3,11 @@ import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
 import { urlRouter } from "@/lib/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
-import { getArticles, type ArticleWithPlayerTask } from "@/stores/tasksStore";
+import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
 
 let { categoryId, name = "", showTitle = false } = $props();
 
-let articles = $state<ArticleWithPlayerTask[]>([]);
+let articles = $state<ArticleWithTasks[]>([]);
 let loading = $state<boolean>(false);
 
 onMount(async () => {
@@ -17,7 +17,7 @@ onMount(async () => {
 	loading = false;
 });
 
-async function handleNavigateToArticle(article: ArticleWithPlayerTask) {
+async function handleNavigateToArticle(article: ArticleWithTasks) {
 	if (!article.url) return;
 	await urlRouter(article.url);
 	navigate(`/youtube/${encodeURIComponent(article.url)}`);

@@ -11,7 +11,7 @@ import { handleYoutubeQuestion } from "@/lib/utils/youtube";
 import { storeCacheWrapper } from "@/stores/cacheStore";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
-import { getArticles, type ArticleWithPlayerTask } from "@/stores/tasksStore";
+import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
 
 // Data provided by +page.ts load
 
