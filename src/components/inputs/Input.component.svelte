@@ -52,14 +52,16 @@ function handleKeydown(event: KeyboardEvent) {
     border: none;
     border-radius: 15px;
     background: rgba(154, 154, 154, 0.12);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
     padding: 0.6rem 0.75rem;
     width: 100%;
     color: inherit;
     font-size: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   .text-input:focus {
-    box-shadow: inset 0 0 7px 1px var(--primary-color);
+    box-shadow: inset 0 0 5px 1px var(--primary-color);
     transition: all 0.3s ease;
   }
 

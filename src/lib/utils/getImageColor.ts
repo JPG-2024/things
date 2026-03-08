@@ -47,7 +47,7 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 			const shift = 4
 			const buckets = new Map<number, { count: number; r: number; g: number; b: number }>()
 
-			const BLACK_THRESHOLD = 35 // sube/baja según qué tan agresivo quieras el filtro
+			const BLACK_THRESHOLD = 120 // sube/baja según qué tan agresivo quieras el filtro
 			const isNearBlack = (r: number, g: number, b: number) =>
 				r <= BLACK_THRESHOLD && g <= BLACK_THRESHOLD && b <= BLACK_THRESHOLD
 

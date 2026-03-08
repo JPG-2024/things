@@ -9,9 +9,6 @@ type Props = {
 
 let { task }: Props = $props();
 
-// log task data for debugging
-console.log("Rendering Player with task data:", task.data);
-
 let showIframe = $state(false);
 </script>
 

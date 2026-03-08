@@ -73,83 +73,68 @@ export interface LlamaChatToolCall {
 }
 
 export interface LlamaChatMessage {
-	role: "system" | "user" | "assistant" | "tool";
-	content?: string | LlamaChatMessageContentPart[] | null;
-	name?: string;
-	tool_call_id?: string;
-	tool_calls?: LlamaChatToolCall[];
-	function_call?: {
-		name: string;
-		arguments: string;
-	};
+    role: "system" | "user" | "assistant" | "tool";
+    content?: string | LlamaChatMessageContentPart[] | null;
+    name?: string;
+    tool_call_id?: string;
+    tool_calls?: LlamaChatToolCall[];
+    function_call?: {
+        name: string;
+        arguments: string;
+    };
+    reasoning_content?: string; // <- add
 }
 
-export interface LlamaLoraSpec {
-	id: number;
-	scale: number;
-}
-
-export interface LlamaStreamOptions {
-	include_usage?: boolean;
-}
-
-/**
- * Chat completions request for llama-server OpenAI-compatible endpoint.
- *
- * Endpoint: POST /v1/chat/completions
- *
- * This interface includes:
- * - OpenAI-compatible fields used by llama-server
- * - tool-calling fields from llama.cpp function-calling docs
- * - common llama-server sampling extensions
- */
 export interface LlamaChatCompletionsRequest {
-	model: string;
-	messages: LlamaChatMessage[];
+    model: string;
+    messages: LlamaChatMessage[];
 
-	tools?: LlamaTool[];
-	tool_choice?: LlamaToolChoice;
-	parallel_tool_calls?: boolean;
+    tools?: LlamaTool[];
+    tool_choice?: LlamaToolChoice;
+    parallel_tool_calls?: boolean;
 
-	stream?: boolean;
-	stream_options?: LlamaStreamOptions;
+    stream?: boolean;
+    stream_options?: LlamaStreamOptions;
 
-	response_format?: LlamaResponseFormat;
+    response_format?: LlamaResponseFormat;
 
-	temperature?: number;
-	top_p?: number;
-	n?: number;
-	stop?: string | string[];
-	max_tokens?: number;
-	max_completion_tokens?: number;
-	presence_penalty?: number;
-	frequency_penalty?: number;
-	logit_bias?: Record<string, number>;
-	user?: string;
-	seed?: number;
+    temperature?: number;
+    top_p?: number;
+    n?: number;
+    stop?: string | string[];
+    max_tokens?: number;
+    max_completion_tokens?: number;
+    presence_penalty?: number;
+    frequency_penalty?: number;
+    logit_bias?: Record<string, number>;
+    user?: string;
+    seed?: number;
 
-	// llama-server extensions frequently accepted by OAI route
-	top_k?: number;
-	min_p?: number;
-	typical_p?: number;
-	repeat_penalty?: number;
-	repeat_last_n?: number;
-	mirostat?: 0 | 1 | 2;
-	mirostat_tau?: number;
-	mirostat_eta?: number;
-	grammar?: string;
-	json_schema?: JsonObject;
-	cache_prompt?: boolean;
-	n_keep?: number;
-	n_predict?: number;
-	timings_per_token?: boolean;
-	return_tokens?: boolean;
-	return_progress?: boolean;
-	response_fields?: string[];
-	lora?: LlamaLoraSpec[];
+    // DashScope / compatible-mode options
+    enable_thinking?: boolean; // <- add
+    enable_search?: boolean; // <- add
 
-	// forward-compatibility with new llama-server params
-	[key: string]: unknown;
+    // llama-server extensions frequently accepted by OAI route
+    top_k?: number;
+    min_p?: number;
+    typical_p?: number;
+    repeat_penalty?: number;
+    repeat_last_n?: number;
+    mirostat?: 0 | 1 | 2;
+    mirostat_tau?: number;
+    mirostat_eta?: number;
+    grammar?: string;
+    json_schema?: JsonObject;
+    cache_prompt?: boolean;
+    n_keep?: number;
+    n_predict?: number;
+    timings_per_token?: boolean;
+    return_tokens?: boolean;
+    return_progress?: boolean;
+    response_fields?: string[];
+    lora?: LlamaLoraSpec[];
+
+    [key: string]: unknown;
 }
 
 export interface LlamaChatCompletionsUsage {
@@ -178,14 +163,15 @@ export interface LlamaChatCompletionsResponse {
 }
 
 export interface LlamaChatCompletionsDelta {
-	role?: "assistant";
-	content?: string | null;
-	tool_calls?: LlamaChatToolCall[];
-	function_call?: {
-		name?: string;
-		arguments?: string;
-	};
-	[key: string]: unknown;
+    role?: "assistant";
+    content?: string | null;
+    reasoning_content?: string | null; // <- add
+    tool_calls?: LlamaChatToolCall[];
+    function_call?: {
+        name?: string;
+        arguments?: string;
+    };
+    [key: string]: unknown;
 }
 
 export interface LlamaChatCompletionsChunkChoice {
@@ -208,10 +194,9 @@ export interface LlamaChatCompletionsChunk {
 export interface LlamaChatCompletionOptions {
 	headers?: HeadersInit;
 	signal?: AbortSignal;
-	/** Callback invoked for each streamed content token/chunk piece. */
 	onToken?: (tokenText: string, chunk: LlamaChatCompletionsChunk) => void;
-	/** Callback invoked for every streamed chunk (including non-content deltas). */
 	onChunk?: (chunk: LlamaChatCompletionsChunk) => void;
+	onReasoningToken?: (tokenText: string, chunk: LlamaChatCompletionsChunk) => void; // <- add
 }
 
 export class LlamaChatCompletionError extends Error {
@@ -317,51 +302,50 @@ function normalizeToolCalls(toolCalls: Record<number, LlamaChatToolCall>): Llama
 }
 
 interface ChoiceAccumulator {
-	role?: "assistant";
-	content: string;
-	finish_reason: LlamaChatCompletionsChoice["finish_reason"];
-	toolCalls: Record<number, LlamaChatToolCall>;
-	functionCallName: string;
-	functionCallArguments: string;
-	logprobs?: unknown;
+    role?: "assistant";
+    content: string;
+    reasoningContent: string; // <- add
+    finish_reason: LlamaChatCompletionsChoice["finish_reason"];
+    toolCalls: Record<number, LlamaChatToolCall>;
+    functionCallName: string;
+    functionCallArguments: string;
+    logprobs?: unknown;
 }
 
 function toMessage(acc: ChoiceAccumulator): LlamaChatMessage {
-	const toolCalls = normalizeToolCalls(acc.toolCalls);
-	const hasFunctionCall = acc.functionCallName || acc.functionCallArguments;
+    const toolCalls = normalizeToolCalls(acc.toolCalls);
+    const hasFunctionCall = acc.functionCallName || acc.functionCallArguments;
 
-	return {
-		role: acc.role ?? "assistant",
-		content: acc.content || null,
-		...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
-		...(hasFunctionCall
-			? {
-					function_call: {
-						name: acc.functionCallName,
-						arguments: acc.functionCallArguments,
-					},
-				}
-			: {}),
-	};
+    return {
+        role: acc.role ?? "assistant",
+        content: acc.content || null,
+        ...(acc.reasoningContent ? { reasoning_content: acc.reasoningContent } : {}), // <- add
+        ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+        ...(hasFunctionCall
+            ? {
+                    function_call: {
+                        name: acc.functionCallName,
+                        arguments: acc.functionCallArguments,
+                    },
+                }
+            : {}),
+    };
 }
 
-/**
- * Calls llama-server OpenAI-compatible chat completions endpoint.
- *
- * Docs checked against llama.cpp function-calling docs:
- * https://raw.githubusercontent.com/ggml-org/llama.cpp/master/docs/function-calling.md
- */
 export async function chatCompletions(
-	request: LlamaChatCompletionsRequest,
-	options?: LlamaChatCompletionOptions,
+    request: LlamaChatCompletionsRequest,
+    options?: LlamaChatCompletionOptions,
 ): Promise<LlamaChatCompletionsResponse> {
 	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8083";
 	const url = joinUrl(baseUrl, "/v1/chat/completions");
-	const streamEnabled = request.stream === true || typeof options?.onToken === "function";
+	const streamEnabled =
+        request.stream === true ||
+        typeof options?.onToken === "function" ||
+        typeof options?.onReasoningToken === "function"; // <- update
 	const body: LlamaChatCompletionsRequest = {
-		...request,
-		stream: streamEnabled,
-	};
+        ...request,
+        stream: streamEnabled,
+    };
 
 	const res = await fetch(url, {
 		method: "POST",
@@ -419,6 +403,7 @@ export async function chatCompletions(
 					({
 						role: undefined,
 						content: "",
+						reasoningContent: "", // <- add
 						finish_reason: null,
 						toolCalls: {},
 						functionCallName: "",
@@ -426,6 +411,13 @@ export async function chatCompletions(
 					} satisfies ChoiceAccumulator);
 
 				if (delta.role) current.role = delta.role;
+
+				const reasoningToken =
+					typeof delta.reasoning_content === "string" ? delta.reasoning_content : "";
+				if (reasoningToken) {
+					current.reasoningContent += reasoningToken;
+					options?.onReasoningToken?.(reasoningToken, chunk);
+				}
 
 				const token = typeof delta.content === "string" ? delta.content : "";
 				if (token) {

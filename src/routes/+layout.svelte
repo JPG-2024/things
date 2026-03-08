@@ -85,7 +85,7 @@ $effect.pre(() => {
   :global(body) {
     margin: 0;
     font-size: 15px;
-    font-family: 'Noto Sans Mono Thin', monospace;
+    font-family: 'CaskaydiaCove NFM Light', monospace;
   }
 
   *,

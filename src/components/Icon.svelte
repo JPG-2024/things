@@ -1,13 +1,13 @@
 <script lang="ts">
-import * as icons from "@lucide/svelte"
+import * as icons from "@lucide/svelte";
 
-let { name, size = 18, color = "white", handleClick = undefined, ...props } = $props()
+let { name, size = 18, color = "white", onClick = undefined, ...props } = $props();
 
-const Icon = (icons as any)[name]
+const Icon = (icons as any)[name];
 </script>
 
-{#if handleClick}
-  <button onclick={handleClick} class="icon-button">
+{#if onClick}
+  <button onclick={onClick} class="icon-button">
     <Icon {...props} {color} {size} />
   </button>
 {:else}

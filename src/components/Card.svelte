@@ -28,7 +28,7 @@ let {
     max-width: 100%;
     max-height: 100%;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.031);
+    background: rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(20px);
     border-radius: 30px;
     padding: 15px;

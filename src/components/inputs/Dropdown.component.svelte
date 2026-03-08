@@ -1,15 +1,15 @@
 <script lang="ts">
 interface Option {
-	label: string
-	value: string
+	label: string;
+	value: string;
 }
 
 interface Props {
-	options: Option[]
-	value?: string
-	placeholder?: string
-	disabled?: boolean
-	onChange?: (value: string) => void
+	options: Option[];
+	value?: string;
+	placeholder?: string;
+	disabled?: boolean;
+	onChange?: (value: string) => void;
 }
 
 let {
@@ -18,15 +18,15 @@ let {
 	placeholder = "Select option...",
 	disabled = false,
 	onChange,
-}: Props = $props()
+}: Props = $props();
 
 function handleChange(event: Event) {
-	const target = event.target as HTMLSelectElement
-	const newValue = target.value
-	value = newValue
+	const target = event.target as HTMLSelectElement;
+	const newValue = target.value;
+	value = newValue;
 
 	if (onChange) {
-		onChange(newValue)
+		onChange(newValue);
 	}
 }
 </script>
@@ -47,22 +47,24 @@ function handleChange(event: Event) {
 
 <style>
   .dropdown-input {
-    appearance: none;
     backdrop-filter: blur(8px);
     box-sizing: border-box;
     outline: none;
     border: none;
     border-radius: 15px;
-    background: rgba(154, 154, 154, 0.2);
-    padding: 1rem 0.75rem;
+    background: rgba(154, 154, 154, 0.12);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.6rem 0.75rem;
     width: 100%;
     color: inherit;
     font-size: 1rem;
+    appearance: none;
     cursor: pointer;
   }
 
   .dropdown-input:focus {
-    box-shadow: inset 0 0 10px 2px var(--primary-color);
+    box-shadow: inset 0 0 5px 1px var(--primary-color);
     transition: all 0.3s ease;
   }
 

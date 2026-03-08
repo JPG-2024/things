@@ -159,6 +159,14 @@ pub fn get_migrations() -> Vec<Migration> {
             // SQL to add the directory column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN directory TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your fifteenth migration.
+        Migration {
+            version: 15,
+            description: "add-main_color-column",
+            // SQL to add the main_color column to the articles table.
+            sql: "ALTER TABLE articles ADD COLUMN main_color TEXT;",
+            kind: MigrationKind::Up,
         }
     ]
 }

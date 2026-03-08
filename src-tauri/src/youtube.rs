@@ -46,6 +46,8 @@ pub struct CaptionEntry {
 pub struct VideoInfoSelector {
     pub name: String,
     pub selector: String,
+    #[serde(default)]
+    pub attribute: Option<String>,
 }
 
 /// Waits for an element to appear in the DOM using JavaScript evaluation
@@ -63,11 +65,17 @@ pub struct VideoInfoSelector {
 async fn wait_for_element_spa(
     page: &chromiumoxide::Page,
     selector: &str,
+    attribute: Option<&str>,
     max_attempts: u32,
     interval_ms: u64,
 ) -> Result<Vec<String>, String> {
     let selector_escaped = selector.replace('\\', "\\\\").replace('\'', "\\'");
-    
+    let attribute_escaped = attribute.map(|a| a.replace('\\', "\\\\").replace('\'', "\\'"));
+    let preferred_attr_js = attribute_escaped
+        .as_deref()
+        .map(|a| format!("'{}'", a))
+        .unwrap_or_else(|| "null".to_string());
+
     for attempt in 0..max_attempts {
         let exists: bool = page
             .evaluate(format!(
@@ -82,43 +90,46 @@ async fn wait_for_element_spa(
         println!("Selector '{}' exists: {}", selector, exists);
 
         if exists {
-            // More robust text extraction for SPAs
             let script = format!(
                 r#"(() => {{
                     const elements = document.querySelectorAll('{}');
                     const results = [];
-                    
+                    const preferredAttr = {};
+
                     elements.forEach(el => {{
-                        // Try multiple strategies in order of preference
                         let text = '';
-                        
-                        // 1. innerText (respects CSS visibility, most SPA-friendly)
-                        if (el.innerText && el.innerText.trim()) {{
-                            text = el.innerText.trim();
+
+                        // 0. preferred attribute extraction (if configured)
+                        if (preferredAttr) {{
+                            const attrValue = el.getAttribute(preferredAttr);
+                            if (attrValue && attrValue.trim()) {{
+                                text = attrValue.trim();
+                            }}
                         }}
-                        // 2. textContent (faster, gets all text including hidden)
-                        else if (el.textContent && el.textContent.trim()) {{
-                            text = el.textContent.trim();
+
+                        // fallback to current behavior
+                        if (!text) {{
+                            if (el.innerText && el.innerText.trim()) {{
+                                text = el.innerText.trim();
+                            }} else if (el.textContent && el.textContent.trim()) {{
+                                text = el.textContent.trim();
+                            }} else if (el.getAttribute('aria-label')) {{
+                                text = el.getAttribute('aria-label').trim();
+                            }} else if (el.value) {{
+                                text = el.value.toString().trim();
+                            }}
                         }}
-                        // 3. aria-label or other accessible attributes
-                        else if (el.getAttribute('aria-label')) {{
-                            text = el.getAttribute('aria-label').trim();
-                        }}
-                        // 4. value for input elements
-                        else if (el.value) {{
-                            text = el.value.toString().trim();
-                        }}
-                        
+
                         if (text) {{
-                            // Split by newlines and filter empty lines for cleaner results
                             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
                             results.push(...lines);
                         }}
                     }});
-                    
+
                     return results;
                 }})()"#,
-                selector_escaped
+                selector_escaped,
+                preferred_attr_js
             );
 
             let values: Vec<String> = page
@@ -254,12 +265,30 @@ pub async fn get_video_info(
     for item in selectors {
         let name = item.name.clone();
         let selector = item.selector.clone();
-        println!("🔍 Extracting '{}' with selector '{}'", &name, &selector);
+        let attribute = item.attribute.clone();
+
+        println!(
+            "🔍 Extracting '{}' with selector '{}'{}",
+            &name,
+            &selector,
+            attribute
+                .as_ref()
+                .map(|a| format!(" (attribute: {})", a))
+                .unwrap_or_default()
+        );
 
         let attempts = attempts.unwrap_or(3);
         let interval_ms = interval_ms.unwrap_or(2000);
 
-        match wait_for_element_spa(&page, &selector, attempts, interval_ms).await {
+        match wait_for_element_spa(
+            &page,
+            &selector,
+            attribute.as_deref(),
+            attempts,
+            interval_ms,
+        )
+        .await
+        {
             Ok(texts) => {
                 println!("✅ Selector '{}' found, {} texts extracted", &selector, texts.len());
                 

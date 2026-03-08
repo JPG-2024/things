@@ -52,7 +52,6 @@ function preprocessContent(text: string): string {
 
 <style>
   .markdown-container {
-    font-family: 'Noto Sans Mono Thin', monospace;
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -103,7 +102,6 @@ function preprocessContent(text: string): string {
   .markdown-container :global(h4),
   .markdown-container :global(h5),
   .markdown-container :global(h6) {
-    color: var(--primary-color);
     font-weight: bold;
   }
 
@@ -126,7 +124,7 @@ function preprocessContent(text: string): string {
 
   .markdown-container :global(code) {
     border-radius: 4px;
-    background-color: rgba(154, 154, 154, 0.2);
+    
     padding: 2px 6px;
     color: #fafafa;
     font-size: 1rem;
@@ -134,9 +132,9 @@ function preprocessContent(text: string): string {
 
   .markdown-container :global(pre) {
     margin: 1rem 0;
-    border: 1px solid var(--primary-color);
+    
     border-radius: 8px;
-    background-color: rgba(154, 154, 154, 0.1);
+    
     padding: 15px;
     overflow-x: auto;
   }
@@ -151,14 +149,9 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(a) {
-    color: var(--primary-color);
     text-decoration: underline;
-    text-decoration-color: var(--primary-color);
   }
 
-  .markdown-container :global(a:hover) {
-    color: var(--primary-color);
-  }
 
   .markdown-container :global(ul),
   .markdown-container :global(ol) {
@@ -176,14 +169,12 @@ function preprocessContent(text: string): string {
 
   .markdown-container :global(blockquote) {
     margin: 1rem 0;
-    border-left: 4px solid var(--primary-color);
     padding-left: 1rem;
     color: #d0d0d0;
     font-style: italic;
   }
 
   .markdown-container :global(strong) {
-    color: var(--primary-color);
     font-weight: bold;
     font-size: 1em;
   }

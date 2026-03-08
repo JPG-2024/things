@@ -23,7 +23,7 @@ $effect(() => {
 	primaryColor.set(randomColor);
 });
 
-onMount(async () => {
+/* onMount(async () => {
 	try {
 		console.debug("Attempting to launch llama-server...");
 		await invoke("launch_llama_server");
@@ -31,7 +31,7 @@ onMount(async () => {
 	} catch (error) {
 		console.warn("llama-server launch skipped:", error);
 	}
-});
+}); */
 
 async function handlePasteUrl(url: string) {
 	urlRouter(url);
@@ -40,6 +40,9 @@ async function handlePasteUrl(url: string) {
 </script>
 
 <div class="dashboard-container">
+
+  <button onclick={() => invoke("stop_llama_server")}>Stop llama-server</button>
+
   <Dropdown
     options={[
       { label: 'Spanish', value: 'es' },
@@ -48,9 +51,9 @@ async function handlePasteUrl(url: string) {
     bind:value={viewState.language}
   ></Dropdown>
 
-  <div class="title-row">
+<!--   <div class="title-row">
     <h1 class="dashboard-title">Things</h1>
-  </div>
+  </div> -->
 
   <div class="inputs-container">
     <Input onChange={(url) => handlePasteUrl(url)} placeholder="Paste URL here..." />

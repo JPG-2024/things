@@ -54,16 +54,15 @@ async function handleDelete() {
 <article>
   <Topbar>
     <ToggleIcon
-      name="RefreshCcw"
-      checked={true}
-      onToggle={() => urlRouter(viewState.url!, { forceInFlight: true })}
-    />
-
-    <ToggleIcon
       name="ListChecks"
       checked={viewState.showAllTasks}
       onToggle={() => (viewState.showAllTasks = !viewState.showAllTasks)}
     />
+    <Icon
+      name="RefreshCcw"
+      onClick={() => urlRouter(viewState.url!, { forceInFlight: true })}
+    />
+    
     <LinkIcon url={viewState.url!} />
 
     {#if viewState.url && !viewState.loading}

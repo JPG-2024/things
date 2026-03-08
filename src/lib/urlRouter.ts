@@ -2,9 +2,10 @@ import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import { taskRunner } from "@/stores/taskRunner.svelte";
-import { getArticleCacheMap, type ArticleWithPlayerTask } from "@/stores/tasksStore";
+import { getArticleWithTasksByUrl, type ArticleWithPlayerTask } from "@/stores/tasksStore";
 
-import { youTubeRunner } from "@/runners/youTubeRunner";
+import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
+import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
 
 // In-memory cache for quick session-level lookup and to avoid duplicate fetches
 type RouterCachedArticle = {
@@ -21,6 +22,46 @@ const inMemoryCache = new Map<string, RouterCachedArticle>();
 const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
 const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
+const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
+
+
+type UrlRouteCondition = RegExp | ((url: string) => boolean);
+
+type UrlRoute = {
+	name: string;
+	condition: UrlRouteCondition;
+	handler: (url: string) => Promise<Task[]>;
+};
+
+function matchesRoute(url: string, condition: UrlRouteCondition): boolean {
+	if (condition instanceof RegExp) {
+		return condition.test(url);
+	}
+
+	return condition(url);
+}
+
+const routeDefinitions: UrlRoute[] = [
+	{
+		name: "youtubeVideo",
+		condition: YOUTUBE_URL_REGEX,
+		handler: youTubeRunner,
+	},
+	{
+		name: "toubeProfileVideos",
+		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
+		handler: extractProfileRunner,
+	},
+];
+
+function findRoute(url: string): UrlRoute | undefined {
+	return routeDefinitions.find((route) => matchesRoute(url, route.condition));
+}
+
+// Allows external modules to register new routes with either regex or custom condition logic.
+export function addUrlRoute(route: UrlRoute) {
+	routeDefinitions.push(route);
+}
 
 function applyCachedArticle(cached: ArticleWithPlayerTask) {
 	viewState.cleanAllState();
@@ -32,13 +73,6 @@ function applyCachedArticle(cached: ArticleWithPlayerTask) {
 		primaryColor.set(cached.mainColor as string);
 	}
 	taskRunner.setTasks(cached.tasks ?? []);
-}
-
-async function fillCacheFromDb() {
-	const dbCache = await getArticleCacheMap();
-	for (const [cachedUrl, article] of dbCache.entries()) {
-		inMemoryCache.set(cachedUrl, article);
-	}
 }
 
 type UrlRouterOptions = {
@@ -61,10 +95,12 @@ export async function urlRouter(
 	}
 
 	if (!forceInFlight) {
-		await fillCacheFromDb();
+		const cachedArticle = await getArticleWithTasksByUrl(url);
 
-		const cachedArticle = inMemoryCache.get(url) as ArticleWithPlayerTask | undefined;
+		viewState.primaryColor = cachedArticle?.mainColor || viewState.primaryColor;
+
 		if (cachedArticle) {
+			inMemoryCache.set(url, cachedArticle);
 			applyCachedArticle(cachedArticle);
 			return { data: cachedArticle, cached: true };
 		}
@@ -77,11 +113,14 @@ export async function urlRouter(
 
 	const inFlight: Promise<RouterResult> = (async () => {
 		try {
-			if (!YOUTUBE_URL_REGEX.test(url)) {
-				throw new Error("Unsupported URL. Only YouTube URLs are handled by urlRouter.");
+			const matchingRoute = findRoute(url);
+
+			if (!matchingRoute) {
+				const supportedRoutes = routeDefinitions.map((route) => route.name).join(", ");
+				throw new Error(`Unsupported URL. Supported routes: ${supportedRoutes}.`);
 			}
 
-			const tasks = await youTubeRunner(url);
+			const tasks = await matchingRoute.handler(url);
 			const freshData: RouterCachedArticle = {
 				...viewState.getAllValues(),
 				url,

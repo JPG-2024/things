@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Task } from "@/types/taskRunner.types";
 import Modal from "@/components/Modal.svelte";
+import MarkdownRenderer from "../MarkdownRenderer.svelte";
 
 type Props = {
 	task: Task;
@@ -9,7 +10,6 @@ type Props = {
 let { task }: Props = $props();
 
 let showModal = $state(false);
-console.log("Rendering BaseTaskRender with task:", task);
 </script>
 
 {#if typeof task.data === 'string'}
@@ -17,7 +17,7 @@ console.log("Rendering BaseTaskRender with task:", task);
     <div class="task-header">
       <div onclick={() => (showModal = true)} class="task-title">{task.name}</div>
     </div>
-    {task.data}
+    <MarkdownRenderer content={task.data} />
   </div>
 {:else if typeof task.data === 'object' && task.data !== null}
   <pre class="wrapped-output">{JSON.stringify(task.data, null, 2)}</pre>
@@ -32,14 +32,15 @@ console.log("Rendering BaseTaskRender with task:", task);
 <style>
   .base-task-render {
     display: flex;
+    line-height: 1.8rem;
     flex-direction: column;
-    font-family: 'Noto Sans Mono Thin', monospace;
+    font-family: 'CaskaydiaCove NFM Light', monospace;
     white-space: pre-wrap;
     word-break: break-word;
 
     .task-header {
       font-weight: bold;
-      margin-bottom: 0.5em;
+      font-size: 1.2em;
     }
   }
 

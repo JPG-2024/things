@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { SIMPLE_SUMMARY_SYSTEM_PROMPT_EN, SIMPLE_SUMMARY_SYSTEM_PROMPT_ES } from "@/constants";
 import { taskRunner } from "@/stores/taskRunner.svelte";
+import type { Task } from "@/types/taskRunner.types";
+import { SIMPLE_SUMMARY_SYSTEM_PROMPT_EN, SIMPLE_SUMMARY_SYSTEM_PROMPT_ES } from "@/constants";
 import { saveTasks } from "@/stores/tasksStore";
 import { currentDuration } from "@/stores/ttsStore";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
-import type { Task } from "@/types/taskRunner.types";
 import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
 import { synthesizeSpeech } from "$lib/utils/tts";
 import { getImageColor } from "@/lib/utils/getImageColor";
@@ -58,7 +58,8 @@ enum TaskNames {
 	INIT = "init",
 	THUMBNAIL = "thumbnail",
 	MAIN_COLOR = "main-color",
-	SUMMARY = "summary",
+	SUMMARY = "Summary",
+	KEY_POINTS = "key-points",
 	CHAPTERS = "chapters",
 	TIMED_CAPTIONS = "timed-captions",
 	CONTENT = "content",
@@ -70,12 +71,13 @@ enum TaskNames {
 type YouTubeTaskState = {
 	[TaskNames.INIT]: InitContext;
 	[TaskNames.THUMBNAIL]: YouTubePlayerContext;
-	[TaskNames.MAIN_COLOR]: { mainColor: string };
+	[TaskNames.MAIN_COLOR]: string;
 	[TaskNames.VIDEO_INFO]: VideoInfoContext;
 	[TaskNames.TIMED_CAPTIONS]: TimedCaption[];
 	[TaskNames.CONTENT]: string;
 	[TaskNames.CHAPTERS]: ChapterContext;
 	[TaskNames.SUMMARY]: string;
+	[TaskNames.KEY_POINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.Title]: string;
 };
@@ -103,7 +105,7 @@ function buildChapterSummaryTasks(
 				: "Summarize this chapter in 2-3 lines.",
 		completionOptions: {
 			model: "llama-server",
-			temperature: 0.5,
+			temperature: 0.2,
 			stream: true,
 		},
 	}));
@@ -177,7 +179,7 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 					console.error("Error extracting main color:", colorError);
 				}
 
-				return { mainColor } satisfies { mainColor: string };
+				return mainColor satisfies string;
 			},
 		},
 		{
@@ -303,8 +305,34 @@ export function createYouTubeTasks(url: string, language?: TTSLanguage): Task<Yo
 				temperature: 0.7,
 				stream: true,
 			},
-			baseUrl: "http://localhost:8080",
 		},
+/* 		{
+			id: TaskNames.KEY_POINTS,
+			name: "Key Points",
+			dependencies: [TaskNames.INIT, TaskNames.CONTENT],
+			component: "base",
+			type: "ia",
+			systemMessage:
+				selectedLanguage === "es"
+					? "Eres un asistente que extrae los puntos clave de un video."
+					: "You are an assistant that extracts key points from a video.",
+			run: (state) => {
+				const transcriptText = state[TaskNames.CONTENT];
+				if (!transcriptText) {
+					return "";
+				}
+				return transcriptText;
+			},
+			userMessage:
+				selectedLanguage === "es"
+					? "Extrae los 10 puntos clave más importantes del video en una lista numerada."
+					: "Extract the 10 most important key points from the video in a numbered list.",
+			completionOptions: {
+				model: "llama-server",
+				temperature: 0.7,
+				stream: true,
+			},
+		}, */
 		{
 			id: TaskNames.TTS,
 			name: "Generate TTS",

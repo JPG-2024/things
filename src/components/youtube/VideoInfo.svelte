@@ -9,8 +9,9 @@ type Props = {
 let { task }: Props = $props();
 
 function getDataContent(key: string): string {
-	const content = task.data.videoMeta?.find((item) => item.name === key)?.textContent;
-	return content || "Unknown";
+    if (!task || !task.data || !task.data.videoMeta) return "Unknown";
+    const content = task.data.videoMeta.find((item) => item.name === key)?.textContent;
+    return content || "Unknown";
 }
 
 function calculateDaysAgo(uploadDate: string): string {
@@ -31,32 +32,36 @@ function calculateDaysAgo(uploadDate: string): string {
 
 
 
-<div class="video-info">
-    <h4>{getDataContent("title")}</h4>
-    <div class="info-row">
-        <div class="pill">
-            <Icon name="User" />
-            <p>{getDataContent("channel")}</p>
-        </div>
-        <div class="pill">
-            <Icon name="Eye" />
-            <p>{getDataContent("views")}</p>
-        </div>
-        <div class="pill">
-            <Icon name="Calendar" />
-            <p>{calculateDaysAgo(getDataContent("uploadDate"))}</p>
-        </div>
-    </div>
 
-
-</div>
+{#if task && task.data && task.data.videoMeta}
+  <div class="video-info">
+      <h3>{getDataContent("title")}</h3>
+      <div class="info-row">
+          <div class="pill">
+              <Icon name="User" />
+              <p>{getDataContent("channel")}</p>
+          </div>
+          <div class="pill">
+              <Icon name="Eye" />
+              <p>{getDataContent("views")}</p>
+          </div>
+          <div class="pill">
+              <Icon name="Calendar" />
+              <p>{calculateDaysAgo(getDataContent("uploadDate"))}</p>
+          </div>
+      </div>
+  </div>
+{/if}
 
 
 <style>
+h3 {
+    color: var(--primary-color)
+}
+
 .video-info {
   width: 100%;
   color: white;
-  font-family: 'Noto Sans Mono Thin', monospace;
 }
 
 .pill {

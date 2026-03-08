@@ -1,7 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, remove } from "@tauri-apps/plugin-fs";
 import type { Task } from "@/types/taskRunner.types";
-import { getImageSrc } from "@/lib/utils/files";
 
 let db: Database | null = null;
 
@@ -24,6 +23,7 @@ export interface ArticleWithPlayerTask {
 	url: string | null;
 	title: string | null;
 	thumbnail: string | null;
+	mainColor?: string | null;
 	tasks: Task[];
 	[key: string]: unknown;
 }
@@ -36,34 +36,6 @@ type ArticleRow = {
 	tasks: string | null;
 	[key: string]: unknown;
 };
-
-export async function getArticleByUrl(url: string): Promise<Article | null> {
-	const db = await getDb();
-
-	try {
-		const result = await db.select<Array<any>>(
-			// expose the implicit rowid as id for later deletion
-			`SELECT rowid as id, * FROM articles WHERE url = $1 LIMIT 1`,
-			[url],
-		);
-
-		if (result && result.length > 0) {
-			const article = result[0];
-			return {
-				...article,
-				metadataContent: article.metadataContent ? JSON.parse(article.metadataContent) : {},
-				mainImageSrc: article.mainImage
-					? await getImageSrc(article.mediaDirectory, article.mainImage)
-					: "",
-			};
-		}
-
-		return null;
-	} catch (error) {
-		console.error("Error querying article from database:", error);
-		throw error;
-	}
-}
 
 function parseStoredTasks(raw: string | null): Task[] {
 	if (!raw) {
@@ -102,6 +74,7 @@ export async function getArticles(): Promise<ArticleWithPlayerTask[]> {
 			`SELECT rowid as id, * FROM articles ORDER BY rowid DESC`,
 			[],
 		);
+
 		return result.map((row) => {
 			const metadataContent =
 				typeof row.metadataContent === "string" && row.metadataContent
@@ -120,16 +93,37 @@ export async function getArticles(): Promise<ArticleWithPlayerTask[]> {
 	}
 }
 
-export async function getArticleCacheMap(): Promise<Map<string, ArticleWithPlayerTask>> {
-	const articles = await getArticles();
-	const articleMap = new Map<string, ArticleWithPlayerTask>();
+export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithPlayerTask | null> {
+	const database = await getDb();
 
-	for (const article of articles) {
-		if (!article.url) continue;
-		articleMap.set(article.url, article);
+	try {
+		const result = await database.select<ArticleRow[]>(
+			`SELECT rowid as id, * FROM articles WHERE url = $1 LIMIT 1`,
+			[url],
+		);
+
+		const row = result?.[0];
+		if (!row) {
+			return null;
+		}
+
+		const metadataContent =
+			typeof row.metadataContent === "string" && row.metadataContent
+				? JSON.parse(row.metadataContent)
+				: row.metadataContent;
+
+		const mainColor = row.main_color || "#000000"; // default to black if not set
+
+		return {
+			...row,
+			metadataContent,
+			mainColor,
+			tasks: parseStoredTasks(row.tasks),
+		} as ArticleWithPlayerTask;
+	} catch (error) {
+		console.error("Error querying article with player task", error);
+		return null;
 	}
-
-	return articleMap;
 }
 
 export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
@@ -155,12 +149,13 @@ export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
 	const thumbnail = thumbnailTaskData.thumbnailImageSrc || "";
 	const mediaDirectory = thumbnailTaskData.mediaDirectory || "";
 	const title = tasks.find((task) => task.id === "title")?.data || "";
+	const mainColor = tasks.find((task) => task.id === "main-color")?.data || "";
 
 	await database.execute(
-		`INSERT INTO articles (url, tasks, content, thumbnail, title, directory)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 ON CONFLICT(url) DO UPDATE SET tasks = excluded.tasks, content = excluded.content, thumbnail = excluded.thumbnail, title = excluded.title, directory = excluded.directory`,
-		[url, tasksJson, content, thumbnail, title, mediaDirectory],
+		`INSERT INTO articles (url, tasks, content, thumbnail, title, directory, main_color)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT(url) DO UPDATE SET tasks = excluded.tasks, content = excluded.content, thumbnail = excluded.thumbnail, title = excluded.title, directory = excluded.directory, main_color = excluded.main_color`,
+		[url, tasksJson, content, thumbnail, title, mediaDirectory, mainColor],
 	);
 }
 
