@@ -55,6 +55,22 @@ async function stopTTSPlayback() {
     padding: 0 1rem;
   }
 
+    .top-bar::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+      270deg,
+      rgba(255, 255, 255, 0.334) 0%,
+      rgba(255, 255, 255, 0.159) 50%,
+      transparent 100%
+    );
+    border-radius: 0 0 30px 0;
+  }
+
   .back-navigation {
     all: unset;
     cursor: pointer;

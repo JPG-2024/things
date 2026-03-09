@@ -9,14 +9,14 @@ pub use crate::inference_hugging::inference; */
 
 mod youtube;
 pub use crate::youtube::{
-    get_video_info,
+    get_page_elements,
     get_youtube_transcript_timed,
     get_youtube_transcript_timed_text,
     search_youtube,
 };
 
 mod youtube_info;
-pub use crate::youtube_info::get_youtube_info;
+pub use crate::youtube_info::{extract_chapters, get_youtube_info};
 
 mod splitter;
 pub use crate::splitter::{split_text, split_text_command, SplitMode};
@@ -75,8 +75,9 @@ pub fn run() {
             extract_markdown,
             extract_metadata,
             extract_blog,
-            get_video_info,
+            get_page_elements,
             get_youtube_info,
+            extract_chapters,
             get_youtube_transcript_timed,
             get_youtube_transcript_timed_text,
             search_youtube,

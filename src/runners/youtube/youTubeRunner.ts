@@ -4,13 +4,13 @@ import type { Task } from "@/types/taskRunner.types";
 import { getArticleWithTasksByUrl, saveTasks, type ArticleWithTasks } from "@/stores/tasksStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { TTSLanguage } from "$lib/utils/tts";
-import { TaskNames, type YouTubeTaskId, youtubeTaskRegistry } from "@/runners/youtube/tasks";
+import { TaskNames, type YouTubeTaskId, youtubeTaskRegistry } from "@/runners/youtube/ytTasks";
 
 const ytVideoTasksIds: YouTubeTaskId[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
-	TaskNames.CHAPTERS,
+	TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.SUMMARY,
 	TaskNames.TTS,
 ];

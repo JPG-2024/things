@@ -51,25 +51,25 @@ export enum TaskNames {
 	SUMMARY = "Summary",
 	KEY_POINTS = "key-points",
 	CHAPTERS = "chapters",
+	CHAPTERS_SUMMARY = "chapters-summary",
 	TIMED_CAPTIONS = "timed-captions",
 	CONTENT = "content",
 	VIDEO_INFO = "video-info",
 	TTS = "tts",
-	Title = "title",
 }
 
 export type YouTubeTaskState = {
 	[TaskNames.INIT]: InitContext;
 	[TaskNames.THUMBNAIL]: YouTubePlayerContext;
 	[TaskNames.MAIN_COLOR]: string;
-	[TaskNames.VIDEO_INFO]: VideoInfoContext;
+	[TaskNames.VIDEO_INFO]: VideoMetaItem[];
 	[TaskNames.TIMED_CAPTIONS]: TimedCaption[];
 	[TaskNames.CONTENT]: string;
-	[TaskNames.CHAPTERS]: ChapterContext;
+	[TaskNames.CHAPTERS]: Chapter[];
+	[TaskNames.CHAPTERS_SUMMARY]: ChapterContext;
 	[TaskNames.SUMMARY]: string;
 	[TaskNames.KEY_POINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
-	[TaskNames.Title]: string;
 };
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;
@@ -88,7 +88,7 @@ function buildChapterSummaryTasks(chapterCaptions: ChapterCaption[], language: T
 		widget: false,
 		type: "ia",
 		component: "base",
-		dependencies: index === 0 ? [TaskNames.CHAPTERS] : [`chapter-summary-${index - 1}`],
+		dependencies: index === 0 ? [TaskNames.CHAPTERS_SUMMARY] : [`chapter-summary-${index - 1}`],
 		systemMessage:
 			language === "es"
 				? "Eres un asistente que resume cap\u00edtulos de video."
@@ -119,7 +119,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 				throw new Error("Invalid YouTube URL");
 			}
 
-			return { url, videoId, preferredLanguage: language } satisfies InitContext;
+			return { url, videoId, preferredLanguage: language };
 		},
 	}),
 	[TaskNames.THUMBNAIL]: () => ({
@@ -148,7 +148,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 				thumbnailImage,
 				thumbnailImageSrc,
 				videoId: urlData.videoId,
-			} satisfies YouTubePlayerContext;
+			};
 		},
 	}),
 	[TaskNames.MAIN_COLOR]: () => ({
@@ -171,7 +171,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 				console.error("Error extracting main color:", colorError);
 			}
 
-			return mainColor satisfies string;
+			return mainColor;
 		},
 	}),
 	[TaskNames.VIDEO_INFO]: () => ({
@@ -185,23 +185,46 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			if (!context) {
 				throw new Error("Missing init context");
 			}
-			const [videoMeta = [], chapters = []] = await invoke<[VideoMetaItem[], Chapter[]]>(
-				"get_youtube_info",
-				{
-					url: context.url,
+			const params = {
+				url: context.url,
+				attempts: 5,
+				intervalMs: 2000,
+			};
+
+			const videoMeta = await invoke<VideoMetaItem[]>("get_page_elements", {
+					...params,
 					selectors: [
 						{ name: "title", selector: "#title h1 yt-formatted-string" },
-						{ name: "channel", selector: "#text-container yt-formatted-string" },
 						{ name: "views", selector: "span.view-count" },
 						{ name: "uploadDate", selector: "div#info-strings yt-formatted-string" },
-						{ name: "channel", selector: "#channel-name a" },
+						{ name: "channel", selector: "#channel-name a", attribute: "href" },
 					],
-					intervalTime: 5,
-					maxAttempts: 200,
-				},
-			);
+				});
 
-			return { videoMeta, chapters } satisfies VideoInfoContext;
+
+			return videoMeta;
+		},
+	}),
+	[TaskNames.CHAPTERS]: () => ({
+		id: TaskNames.CHAPTERS,
+		name: "Crawling",
+		dependencies: [TaskNames.INIT],
+		component: "videoInfo",
+		type: "script",
+		run: async (state) => {
+			const context = state[TaskNames.INIT];
+			if (!context) {
+				throw new Error("Missing init context");
+			}
+			const params = {
+				url: context.url,
+				attempts: 5,
+				intervalMs: 2000,
+			};
+
+			const chapters = await invoke<Chapter[]>("extract_chapters", params);
+
+			return chapters;
 		},
 	}),
 	[TaskNames.TIMED_CAPTIONS]: () => ({
@@ -209,7 +232,6 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 		name: "Get timed captions",
 		dependencies: [TaskNames.INIT],
 		type: "script",
-		persist: true,
 		run: async (state) => {
 			const context = state[TaskNames.INIT];
 			if (!context) {
@@ -243,26 +265,26 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			return transcriptText;
 		},
 	}),
-	[TaskNames.CHAPTERS]: () => ({
-		id: TaskNames.CHAPTERS,
+	[TaskNames.CHAPTERS_SUMMARY]: () => ({
+		id: TaskNames.CHAPTERS_SUMMARY,
 		name: "Process Chapters",
-		dependencies: [TaskNames.INIT, TaskNames.VIDEO_INFO, TaskNames.TIMED_CAPTIONS],
+		dependencies: [TaskNames.INIT, TaskNames.CHAPTERS, TaskNames.TIMED_CAPTIONS],
 		type: "script",
 		persist: true,
 		run: async (state) => {
 			const context = state[TaskNames.INIT];
-			const info = state[TaskNames.VIDEO_INFO];
+			const chapters = state[TaskNames.CHAPTERS];
 			const timedCaptions = state[TaskNames.TIMED_CAPTIONS];
 
-			if (!context || !info || !timedCaptions) {
+			if (!context || !chapters || !timedCaptions) {
 				throw new Error("Missing prerequisites for chapter processing");
 			}
 
-			if (!info.chapters.length) {
-				return { chapterCaptions: [] } satisfies ChapterContext;
+			if (!chapters.length) {
+				return { chapterCaptions: [] };
 			}
 
-			const chapterCaptions = joinCaptionsByChapters(timedCaptions, info.chapters);
+			const chapterCaptions = joinCaptionsByChapters(timedCaptions, chapters);
 			const chapterSummaryTasks = buildChapterSummaryTasks(
 				chapterCaptions,
 				context.preferredLanguage,
@@ -270,7 +292,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 
 			taskRunner.enqueueTasks(chapterSummaryTasks);
 
-			return { chapterCaptions } satisfies ChapterContext;
+			return { chapterCaptions };
 		},
 	}),
 	[TaskNames.SUMMARY]: ({ language }) => ({
@@ -358,15 +380,5 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 
 			return result;
 		},
-	}),
-	[TaskNames.Title]: () => ({
-		id: TaskNames.Title,
-		name: "Title",
-		dependencies: [TaskNames.VIDEO_INFO],
-		type: "script",
-		run: (state) => {
-			const info = state[TaskNames.VIDEO_INFO];
-			return info?.videoMeta.find((item) => item.name === "title")?.textContent ?? "";
-		},
-	}),
+	})
 };

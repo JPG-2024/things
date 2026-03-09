@@ -83,9 +83,23 @@ async fn wait_for_element_spa(
                 selector_escaped
             ))
             .await
-            .ok()
-            .and_then(|v| v.into_value::<bool>().ok())
-            .unwrap_or(false);
+            .map_err(|e| {
+                format!(
+                    "Failed while checking selector '{}' on attempt {}: {}",
+                    selector,
+                    attempt + 1,
+                    e
+                )
+            })?
+            .into_value::<bool>()
+            .map_err(|e| {
+                format!(
+                    "Failed to parse selector check result for '{}' on attempt {}: {}",
+                    selector,
+                    attempt + 1,
+                    e
+                )
+            })?;
 
         println!("Selector '{}' exists: {}", selector, exists);
 
@@ -231,11 +245,11 @@ async fn collect_near_child_texts(
 ///
 /// # Returns
 /// Objeto dinámico con la forma { "name": value }
-/// - selector inválido => "invalid selector"
+/// - selector con error => mensaje real del error
 /// - selector válido sin texto => null
 /// - selector válido con resultados => array de strings
 #[tauri::command]
-pub async fn get_video_info(
+pub async fn get_page_elements(
     app: AppHandle,
     url: String,
     selectors: Vec<VideoInfoSelector>,
@@ -278,7 +292,7 @@ pub async fn get_video_info(
         );
 
         let attempts = attempts.unwrap_or(3);
-        let interval_ms = interval_ms.unwrap_or(2000);
+        let interval_ms = interval_ms.unwrap_or(1000);
 
         match wait_for_element_spa(
             &page,
@@ -296,12 +310,20 @@ pub async fn get_video_info(
                 
                 if values.is_empty() {
                     result.insert(name.clone(), Value::Null);
+                } else if values.len() == 1 {
+                    result.insert(name.clone(), values.into_iter().next().unwrap());
                 } else {
                     result.insert(name.clone(), Value::Array(values));
                 }
             }
-            Err(_) => {
-                result.insert(name.clone(), Value::String("invalid selector".to_string()));
+            Err(err) => {
+                eprintln!(
+                    "Failed to extract '{}' with selector '{}': {}",
+                    &name,
+                    &selector,
+                    err
+                );
+                result.insert(name.clone(), Value::String(err));
             }
         }
     }

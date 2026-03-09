@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
-use std::collections::HashSet;
 use tokio::time::{Duration, Instant};
 
 #[derive(Deserialize, Clone, Debug)]
@@ -24,35 +23,18 @@ pub struct YoutubeDetail {
 	pub time: Option<String>,
 }
 
-async fn wait_retry_interval(interval_time: u64) {
-	let duration = Duration::from_millis(interval_time.max(1));
+async fn wait_retry_interval(interval_ms: u64) {
+	let duration = Duration::from_millis(interval_ms.max(1));
 	let mut ticker = tokio::time::interval_at(Instant::now() + duration, duration);
 	ticker.tick().await;
 }
 
-#[tauri::command]
-pub async fn get_youtube_info(
-	app: AppHandle,
-	url: String,
-	selectors: Vec<YoutubeInfoSelector>,
-	interval_time: u64,
-	max_attempts: u32,
-) -> Result<(Vec<YoutubeInfoResult>, Vec<YoutubeDetail>), String> {
-	if max_attempts == 0 {
-		return Err("max_attempts must be greater than 0".to_string());
-	}
-
-	app.emit(
-		"flow-status",
-		json!({"key": "youtube-info", "status": "Extracting selectors", "data": null}),
-	)
-	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-
+async fn open_page_for_url(url: &str) -> Result<chromiumoxide::Page, String> {
 	let page = crate::browser::get_ready_page()
 		.await
 		.map_err(|e| format!("Failed to get browser page: {}", e))?;
 
-	page.goto(&url)
+	page.goto(url)
 		.await
 		.map_err(|e| format!("Failed to navigate to page: {}", e))?;
 
@@ -60,7 +42,14 @@ pub async fn get_youtube_info(
 		.await
 		.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
-	// click element "tp-yt-paper-button" with id "expand"
+	Ok(page)
+}
+
+async fn extract_chapters_from_page(
+	page: &chromiumoxide::Page,
+	interval_ms: u64,
+	attempts: u32,
+) -> Result<Vec<YoutubeDetail>, String> {
 	let expand_button_selector = "tp-yt-paper-button#expand";
 	let click_script = format!(
 		r#"(() => {{
@@ -76,7 +65,7 @@ pub async fn get_youtube_info(
 
 	let mut clicked = false;
 	let mut click_error = String::from("Failed to find expand button element");
-	for attempt in 1..=max_attempts {
+	for attempt in 1..=attempts {
 		match page.evaluate(click_script.clone()).await {
 			Ok(eval) => match eval.into_value::<bool>() {
 				Ok(true) => {
@@ -95,15 +84,14 @@ pub async fn get_youtube_info(
 			}
 		}
 
-		if attempt < max_attempts {
-			wait_retry_interval(interval_time).await;
+		if attempt < attempts {
+			wait_retry_interval(interval_ms).await;
 		}
 	}
 	if !clicked {
 		return Err(click_error);
 	}
 
-	// get details (title and time) from each div#details
 	let script = r#"(() => {
 		try {
 			const details = document.querySelectorAll('div#details');
@@ -130,11 +118,11 @@ pub async fn get_youtube_info(
 
 	let mut details_data: Vec<Value> = Vec::new();
 	let mut details_error = String::new();
-	for attempt in 1..=max_attempts {
+	for attempt in 1..=attempts {
 		match page.evaluate(script).await {
 			Ok(eval) => match eval.into_value::<Vec<Value>>() {
-				Ok(v) => {
-					details_data = v;
+				Ok(values) => {
+					details_data = values;
 					break;
 				}
 				Err(e) => {
@@ -146,32 +134,82 @@ pub async fn get_youtube_info(
 			}
 		}
 
-		if attempt < max_attempts {
-			wait_retry_interval(interval_time).await;
+		if attempt < attempts {
+			wait_retry_interval(interval_ms).await;
 		}
 	}
 	if details_data.is_empty() && !details_error.is_empty() {
 		return Err(details_error);
 	}
 
-	// Remove duplicates while preserving order
 	let mut seen = std::collections::HashSet::new();
-	let mut time_texts: Vec<YoutubeDetail> = details_data
+	let mut chapters: Vec<YoutubeDetail> = details_data
 		.into_iter()
-		.filter_map(|item| {
+		.map(|item| {
 			let title = item.get("title").and_then(|v| v.as_str()).map(|s| s.to_string());
 			let time = item.get("time").and_then(|v| v.as_str()).map(|s| s.to_string());
-			Some(YoutubeDetail { title, time })
+			YoutubeDetail { title, time }
 		})
 		.collect();
 
-	// Remove duplicates while preserving order
-	time_texts.retain(|detail| {
+	chapters.retain(|detail| {
 		let key = format!("{:?}{:?}", detail.title, detail.time);
 		seen.insert(key)
 	});
 
-	println!("Details: {:?}", time_texts);
+	println!("Details: {:?}", chapters);
+
+	Ok(chapters)
+}
+
+#[tauri::command]
+pub async fn extract_chapters(
+	app: AppHandle,
+	url: String,
+	interval_ms: u64,
+	attempts: u32,
+) -> Result<Vec<YoutubeDetail>, String> {
+	if attempts == 0 {
+		return Err("attempts must be greater than 0".to_string());
+	}
+
+	app.emit(
+		"flow-status",
+		json!({"key": "youtube-chapters", "status": "Extracting chapters", "data": null}),
+	)
+	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+	let page = open_page_for_url(&url).await?;
+	let chapters = extract_chapters_from_page(&page, interval_ms, attempts).await?;
+
+	app.emit(
+		"flow-status",
+		json!({"key": "youtube-chapters", "status": "done", "data": chapters}),
+	)
+	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+	Ok(chapters)
+}
+
+#[tauri::command]
+pub async fn get_youtube_info(
+	app: AppHandle,
+	url: String,
+	selectors: Vec<YoutubeInfoSelector>,
+	interval_ms: u64,
+	attempts: u32,
+) -> Result<Vec<YoutubeInfoResult>, String> {
+	if attempts == 0 {
+		return Err("attempts must be greater than 0".to_string());
+	}
+
+	app.emit(
+		"flow-status",
+		json!({"key": "youtube-info", "status": "Extracting selectors", "data": null}),
+	)
+	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+	let page = open_page_for_url(&url).await?;
 
 	let mut results: Vec<YoutubeInfoResult> = Vec::with_capacity(selectors.len());
 
@@ -179,7 +217,7 @@ pub async fn get_youtube_info(
 		let selector_escaped = item.selector.replace('\\', "\\\\").replace('\'', "\\'");
 		let mut text_content: Option<String> = None;
 
-		for attempt in 1..=max_attempts {
+		for attempt in 1..=attempts {
 			let script = format!(
 				r#"(() => {{
 					const el = document.querySelector('{selector}');
@@ -202,8 +240,8 @@ pub async fn get_youtube_info(
 				break;
 			}
 
-			if attempt < max_attempts {
-				wait_retry_interval(interval_time).await;
+			if attempt < attempts {
+				wait_retry_interval(interval_ms).await;
 			}
 		}
 
@@ -216,9 +254,9 @@ pub async fn get_youtube_info(
 
 	app.emit(
 		"flow-status",
-		json!({"key": "youtube-info", "status": "done", "data": {"results": results, "time_texts": time_texts}}),
+		json!({"key": "youtube-info", "status": "done", "data": results}),
 	)
 	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-	Ok((results, time_texts))
+	Ok(results)
 }

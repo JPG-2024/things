@@ -25,21 +25,21 @@ function extractProfileTasks( url: string): Task[] {
             type: "script",
             name: "Getting profile videos",
             run: async () => {
-                const response = await invoke(
+                const profileInfo = await invoke(
                     "get_video_info",
                     {
                         url,
                         selectors: [
+                            { name: "channelName", selector: "h1 > span" },
+                            { name: "channelPicSrc", selector: "yt-avatar-shape img", attribute: "src" },
                             { name: "videoId", selector: "a#video-title-link", attribute: "href"  },
                         ],
-                        intervalTime: 5,
-                        maxAttempts: 200,
+                        attempts: 5,
+                        interval_ms: 2000,
                     },
                 );
 
-                
-
-                return response
+                return profileInfo;
             }
         },
     ]

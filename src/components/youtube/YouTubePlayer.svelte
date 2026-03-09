@@ -70,7 +70,7 @@ let showIframe = $state(false);
     top: 0%;
     left: 0;
     right: auto;
-    border: 1px solid var(--primary-color);
+    /* border: 1px solid var(--primary-color); */
     width: 100%;
     height: 100%;
     object-fit: cover;
