@@ -1,9 +1,9 @@
 import type { ChapterCaption } from "@/lib/utils/youtube/joinCaptionsByChapters";
 import { joinCaptionsByChapters } from "@/lib/utils/youtube/joinCaptionsByChapters";
-import { taskRunner } from "@/runners/taskRunner.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import type { TTSLanguage } from "$lib/utils/tts";
 import {
+	type YouTubeTaskState,
 	defaultCompletionOptions,
 	getRequiredTaskState,
 	TaskNames,
@@ -13,7 +13,7 @@ import {
 function buildChapterSummaryTasks(
 	chapterCaptions: ChapterCaption[],
 	language: TTSLanguage
-): Task[] {
+): Task<YouTubeTaskState>[] {
 	return chapterCaptions.map((chapter, index) => ({
 		id: `chapter-summary-${index}`,
 		name: chapter.title,
@@ -50,7 +50,7 @@ export const chapterTaskRegistry: YouTubeTaskRegistrySubset<ChapterTaskIds> = {
 		],
 		type: "script",
 		persist: true,
-		run: async (state) => {
+		run: async ({ state, enqueueTasks }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 			const chapters = getRequiredTaskState(state, TaskNames.CHAPTERS);
 			const timedCaptions = getRequiredTaskState(
@@ -68,7 +68,7 @@ export const chapterTaskRegistry: YouTubeTaskRegistrySubset<ChapterTaskIds> = {
 				context.language
 			);
 
-			taskRunner.enqueueTasks(chapterSummaryTasks);
+			enqueueTasks(chapterSummaryTasks);
 
 			return { chapterCaptions };
 		},

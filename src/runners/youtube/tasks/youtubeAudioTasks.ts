@@ -15,7 +15,7 @@ export const audioTaskRegistry: YouTubeTaskRegistrySubset<AudioTaskIds> = {
 		dependencies: [TaskNames.SUMMARY],
 		type: "script",
 		persist: true,
-		run: async (state) => {
+		run: async ({ state }) => {
 			const summary = String(state[TaskNames.SUMMARY] || "");
 			if (!summary.trim()) {
 				return null;

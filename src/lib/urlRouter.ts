@@ -1,7 +1,10 @@
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
-import { taskRunner } from "@/runners/taskRunner.svelte";
+import {
+	buildWorkflowRunId,
+	workflowManager,
+} from "@/runners/workflowManager.svelte";
 import {
 	getArticleWithTasksByUrl,
 	type ArticleWithTasks,
@@ -69,7 +72,7 @@ export function addUrlRoute(route: UrlRoute) {
 	routeDefinitions.push(route);
 }
 
-function applyCachedArticle(cached: ArticleWithTasks) {
+function applyCachedArticle(cached: ArticleWithTasks, runId: string) {
 	viewState.cleanAllState();
 	viewState.url = cached.url ?? "";
 	viewState.setAllValues(cached as unknown as Article);
@@ -78,7 +81,10 @@ function applyCachedArticle(cached: ArticleWithTasks) {
 	if (cached.mainColor) {
 		primaryColor.set(cached.mainColor as string);
 	}
-	taskRunner.setTasks(cached.tasks ?? []);
+	workflowManager.hydrateRun(runId, cached.tasks ?? [], {
+		makeActive: true,
+		status: "done",
+	});
 }
 
 type UrlRouterOptions = {
@@ -102,7 +108,10 @@ export async function urlRouter(
 	// First: check in-memory cache (very fast)
 	if (!forceRunTasks && inMemoryCache.has(url)) {
 		const cached = inMemoryCache.get(url) as ArticleWithTasks;
-		applyCachedArticle(cached);
+		const cachedRoute = findRoute(url);
+		if (cachedRoute) {
+			applyCachedArticle(cached, buildWorkflowRunId(cachedRoute.name, url));
+		}
 		return { data: cached, cached: true };
 	}
 
@@ -115,7 +124,13 @@ export async function urlRouter(
 
 		if (cachedArticle) {
 			inMemoryCache.set(url, cachedArticle);
-			applyCachedArticle(cachedArticle);
+			const cachedRoute = findRoute(url);
+			if (cachedRoute) {
+				applyCachedArticle(
+					cachedArticle,
+					buildWorkflowRunId(cachedRoute.name, url)
+				);
+			}
 			return { data: cachedArticle, cached: true };
 		}
 	}

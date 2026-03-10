@@ -33,7 +33,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 		dependencies: [TaskNames.INIT],
 		type: "script",
 		component: "player",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
 
 			if (!urlData.videoId) {
@@ -62,7 +62,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 		name: "Get main color",
 		dependencies: [TaskNames.THUMBNAIL],
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const thumbnail = getRequiredTaskState(state, TaskNames.THUMBNAIL);
 
 			let mainColor = "";

@@ -30,56 +30,57 @@ pub async fn get_youtube_info(
 	)
 	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-	let page = crate::browser::get_ready_page()
-		.await
-		.map_err(|e| format!("Failed to get browser page: {}", e))?;
+	let results = crate::browser::with_ready_page(|page| async move {
+		page.goto(&url)
+			.await
+			.map_err(|e| format!("Failed to navigate to page: {}", e))?;
 
-	page.goto(&url)
-		.await
-		.map_err(|e| format!("Failed to navigate to page: {}", e))?;
+		page.wait_for_navigation()
+			.await
+			.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
-	page.wait_for_navigation()
-		.await
-		.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
+		let mut results: Vec<YoutubeInfoResult> = Vec::with_capacity(selectors.len());
 
-	let mut results: Vec<YoutubeInfoResult> = Vec::with_capacity(selectors.len());
+		for item in selectors {
+			let selector_escaped = item.selector.replace('\\', "\\\\").replace('\'', "\\'");
+			let mut text_content: Option<String> = None;
 
-	for item in selectors {
-		let selector_escaped = item.selector.replace('\\', "\\\\").replace('\'', "\\'");
-		let mut text_content: Option<String> = None;
+			for _ in 0..max_attempts {
+				let script = format!(
+					r#"(() => {{
+						const el = document.querySelector('{selector}');
+						if (!el) return null;
+						const txt = (el.textContent || '').trim();
+						return txt.length ? txt : null;
+					}})()"#,
+					selector = selector_escaped
+				);
 
-		for _ in 0..max_attempts {
-			let script = format!(
-				r#"(() => {{
-					const el = document.querySelector('{selector}');
-					if (!el) return null;
-					const txt = (el.textContent || '').trim();
-					return txt.length ? txt : null;
-				}})()"#,
-				selector = selector_escaped
-			);
+				let maybe_text: Option<String> = page
+					.evaluate(script)
+					.await
+					.map_err(|e| format!("Failed to execute JS script: {}", e))?
+					.into_value()
+					.map_err(|e| format!("Failed to parse JS result: {}", e))?;
 
-			let maybe_text: Option<String> = page
-				.evaluate(script)
-				.await
-				.map_err(|e| format!("Failed to execute JS script: {}", e))?
-				.into_value()
-				.map_err(|e| format!("Failed to parse JS result: {}", e))?;
+				if let Some(value) = maybe_text {
+					text_content = Some(value);
+					break;
+				}
 
-			if let Some(value) = maybe_text {
-				text_content = Some(value);
-				break;
+				tokio::time::sleep(tokio::time::Duration::from_millis(interval_time)).await;
 			}
 
-			tokio::time::sleep(tokio::time::Duration::from_millis(interval_time)).await;
+			results.push(YoutubeInfoResult {
+				name: item.name,
+				selector: item.selector,
+				text_content,
+			});
 		}
 
-		results.push(YoutubeInfoResult {
-			name: item.name,
-			selector: item.selector,
-			text_content,
-		});
-	}
+		Ok(results)
+	})
+	.await?;
 
 	app.emit(
 		"flow-status",

@@ -1,6 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, remove } from "@tauri-apps/plugin-fs";
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskMapBase } from "@/types/taskRunner.types";
 
 let db: Database | null = null;
 
@@ -161,7 +161,10 @@ export async function getArticleWithTasksByUrl(
 	}
 }
 
-export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
+export async function saveTasks<TMap extends TaskMapBase>(
+	url: string,
+	tasks: Task<TMap>[]
+): Promise<void> {
 	const database = await getDb();
 
 	const tasksToSave: StoredTask[] = tasks

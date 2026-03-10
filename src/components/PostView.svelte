@@ -8,8 +8,6 @@ import Topbar from "./layout/Topbar.svelte";
 import StringReveal from "./StringReveal.svelte";
 import ToggleIcon from "./ToggleIcon.svelte";
 import { deleteArticleByUrl } from "@/stores/tasksStore";
-import { taskRunner } from "@/runners/taskRunner.svelte";
-
 
 interface Props {
 	headerContent?: any;

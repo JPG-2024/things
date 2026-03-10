@@ -3,7 +3,11 @@ import type {
 	ChapterCaption,
 	TimedCaption,
 } from "@/lib/utils/youtube/joinCaptionsByChapters";
-import type { Task, TaskGlobalState } from "@/types/taskRunner.types";
+import type {
+	Task,
+	TaskGlobalState,
+	TaskRuntime,
+} from "@/types/taskRunner.types";
 import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
 
 export type VideoMetaItem = {
@@ -67,7 +71,7 @@ export type YouTubeTaskState = {
 	[TaskNames.KEY_POINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.TITLE_SUMMARY]: string;
-};
+} & Record<`chapter-summary-${number}`, string>;
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;
 
@@ -92,9 +96,9 @@ export const defaultCompletionOptions = {
 } as const;
 
 export function getContentFromState(
-	state: Readonly<TaskGlobalState<YouTubeTaskState>>
+	runtime: Pick<TaskRuntime<YouTubeTaskState>, "state">
 ): string {
-	return String(state[TaskNames.CONTENT] || "");
+	return String(runtime.state[TaskNames.CONTENT] || "");
 }
 
 export function getRequiredTaskState<TId extends YouTubeTaskId>(

@@ -61,13 +61,6 @@ pub fn run() {
                 .add_migrations("sqlite:notian.db", migrations)
                 .build(),
         )
-        .setup(|_app| {
-            tauri::async_runtime::spawn(async move {
-                let _ = crate::browser::init_browser().await;
-            });
-
-            Ok(())
-        })
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         // Register the command wrapper here
@@ -96,6 +89,7 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {
+            let _ = tauri::async_runtime::block_on(crate::browser::shutdown_browser());
             let state = app_handle.state::<LlamaServerState>();
             stop_llama_server(&state);
         }

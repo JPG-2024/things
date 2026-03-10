@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { downloadImageUrl } from "@/lib/utils/files";
 import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
-import { youTubeRunner } from "./youTubeRunner";
 
 import {
 	getRequiredTaskState,
@@ -9,6 +8,7 @@ import {
 	type GetChannelVideosContext,
 	type YouTubeTaskRegistrySubset,
 } from "./youtubeTasks.shared";
+import { youTubeRunner } from "../youTubeRunner";
 
 type ProfileTaskIds =
 	| TaskNames.INIT
@@ -36,7 +36,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		dependencies: [TaskNames.INIT],
 		type: "script",
 		component: "player",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
 
 			if (!urlData.videoId) {
@@ -65,7 +65,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		name: "Get channel videos",
 		dependencies: [TaskNames.INIT],
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
 			const profileInfo = await invoke<GetChannelVideosContext>(
 				"get_page_elements",
@@ -98,16 +98,22 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		name: "Extract channel videos",
 		dependencies: [TaskNames.GET_CHANNEL_VIDEOS],
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const { videoIds } = getRequiredTaskState(
 				state,
 				TaskNames.GET_CHANNEL_VIDEOS
 			);
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
 
-			const tasks = await youTubeRunner(fullUrls[0]);
+			const results = [];
 
-			return fullUrls;
+			for (const url of fullUrls.slice(0, 5)) {
+				results.push(
+					await youTubeRunner(url, undefined, { makeActive: false })
+				);
+			}
+
+			return { fullUrls, results };
 		},
 	}),
 };

@@ -12,6 +12,14 @@ export type TaskType = "script" | "ia";
 
 export type TaskStatus = "pending" | "running" | "done" | "failed" | "blocked";
 
+export type WorkflowRunStatus =
+	| "idle"
+	| "pending"
+	| "running"
+	| "done"
+	| "failed"
+	| "blocked";
+
 export type TaskMapBase = Record<string, unknown>;
 
 export type TaskGlobalState<TMap extends TaskMapBase> = Partial<TMap>;
@@ -23,8 +31,23 @@ export interface TaskStateUpdate {
 
 export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 
+export interface TaskRuntime<
+	TMap extends TaskMapBase = TaskMapBase,
+	TId extends keyof TMap & string = keyof TMap & string,
+> {
+	runId: string;
+	taskId: TId;
+	state: Readonly<TaskGlobalState<TMap>>;
+	update: TaskStatusUpdater;
+	enqueueTasks: (tasks: Task<TMap>[], options?: { restart?: boolean }) => void;
+	getTaskData: <TTaskId extends keyof TMap & string>(
+		taskId: TTaskId
+	) => TMap[TTaskId] | undefined;
+}
+
 export interface TaskRunOptions {
 	force?: boolean;
+	stream?: boolean;
 }
 
 interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
@@ -48,10 +71,7 @@ export interface ScriptTask<
 	TId extends keyof TMap & string = keyof TMap & string,
 > extends TaskBase<TMap, TId> {
 	type: "script";
-	run: (
-		state: Readonly<TaskGlobalState<TMap>>,
-		statusUpdater: TaskStatusUpdater,
-	) => Promise<TMap[TId]> | TMap[TId];
+	run(runtime: TaskRuntime<TMap, TId>): Promise<TMap[TId]> | TMap[TId];
 	systemMessage?: never;
 	userMessage?: never;
 	completionOptions?: never;
@@ -65,15 +85,16 @@ export interface IaTask<
 	type: "ia";
 	systemMessage: string;
 	userMessage: string;
-	completionOptions: Omit<LlamaChatCompletionsRequest, "messages" | "model"> & { model: string };
+	completionOptions: Omit<LlamaChatCompletionsRequest, "messages" | "model"> & {
+		model: string;
+	};
 	baseUrl?: string;
-	run?: (
-		state: Readonly<TaskGlobalState<TMap>>,
-		statusUpdater: TaskStatusUpdater,
-	) => Promise<string> | string;
+	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 }
 
-export type Task<TMap extends TaskMapBase = TaskMapBase> = ScriptTask<TMap> | IaTask<TMap>;
+export type Task<TMap extends TaskMapBase = TaskMapBase> =
+	| ScriptTask<TMap>
+	| IaTask<TMap>;
 
 export interface TaskRunSummary<TMap extends TaskMapBase = TaskMapBase> {
 	startedAt: number;
@@ -91,6 +112,23 @@ export interface TaskRunnerState<TMap extends TaskMapBase = TaskMapBase> {
 	tasks: Task<TMap>[];
 	running: boolean;
 	lastRun?: TaskRunSummary<TMap>;
+}
+
+export interface WorkflowRunOptions {
+	dependencies?: string[];
+	force?: boolean;
+	makeActive?: boolean;
+	stream?: boolean;
+}
+
+export interface WorkflowRunSummary<TMap extends TaskMapBase = TaskMapBase> {
+	id: string;
+	status: WorkflowRunStatus;
+	dependencies: string[];
+	summary?: TaskRunSummary<TMap>;
+	error?: string;
+	startedAt?: number;
+	endedAt?: number;
 }
 
 export interface IaTaskResult {

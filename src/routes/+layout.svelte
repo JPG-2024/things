@@ -74,7 +74,7 @@ $effect.pre(() => {
 <main
   id="layout-main"
   bind:this={mainElement}
-  class="container {viewState.loading ? 'loading' : ''} {flashy ? 'flashy' : ''} {viewState.loaded
+  class="container {flashy ? 'flashy' : ''} {viewState.loaded
     ? 'loaded'
     : ''}"
 >

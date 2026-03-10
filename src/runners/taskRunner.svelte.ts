@@ -6,6 +6,7 @@ import type {
 	TaskGlobalState,
 	TaskMapBase,
 	TaskRunOptions,
+	TaskRuntime,
 	TaskRunSummary,
 	TaskStateUpdate,
 	TaskStatus,
@@ -53,25 +54,41 @@ function collectAssistantText(content: Task["data"]): string {
 	return text;
 }
 
-class TaskRunnerStore {
-	tasks = $state<Task[]>([]);
+function createRunId() {
+	if (
+		typeof crypto !== "undefined" &&
+		typeof crypto.randomUUID === "function"
+	) {
+		return crypto.randomUUID();
+	}
+
+	return `runner-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
+	readonly id: string;
+	tasks = $state<Task<TMap>[]>([]);
 	running = $state(false);
-	lastRun = $state<TaskRunSummary | undefined>(undefined);
-	private pendingTasksQueue: Task[] = [];
+	lastRun = $state<TaskRunSummary<TMap> | undefined>(undefined);
+	private pendingTasksQueue: Task<TMap>[] = [];
 	private restartRequested = false;
+
+	constructor(id = createRunId()) {
+		this.id = id;
+	}
 
 	/**
 	 * Replace the store's tasks with a new set (defensive copy).
 	 * @param tasks - Array of tasks to set.
 	 */
-	setTasks(tasks: Task[]) {
+	setTasks(tasks: Task<TMap>[]) {
 		this.tasks = tasks.map((task) => ({
 			...task,
 			dependencies: [...(task.dependencies ?? [])],
 			status: task.status ?? "pending",
 			error: task.error,
 			debug: task.debug,
-		}));
+		})) as Task<TMap>[];
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
 	}
@@ -81,7 +98,7 @@ class TaskRunnerStore {
 	 * @param tasks - Tasks to enqueue.
 	 * @param options - Optional behavior flags.
 	 */
-	enqueueTasks(tasks: Task[], options?: { restart?: boolean }) {
+	enqueueTasks(tasks: Task<TMap>[], options?: { restart?: boolean }) {
 		if (!tasks.length) return;
 
 		const safeTasks = tasks.map((task) => ({
@@ -100,18 +117,18 @@ class TaskRunnerStore {
 	 * Create a snapshot of the current tasks (defensive copy).
 	 * @returns An array of tasks with copied dependencies.
 	 */
-	private snapshotTasks(): Task[] {
+	private snapshotTasks(): Task<TMap>[] {
 		return this.tasks.map((task) => ({
 			...task,
 			dependencies: [...(task.dependencies ?? [])],
-		}));
+		})) as Task<TMap>[];
 	}
 
 	/**
 	 * Insert or update a single task by id.
 	 * @param task - Task to upsert.
 	 */
-	upsertTask(task: Task) {
+	upsertTask(task: Task<TMap>) {
 		const index = this.tasks.findIndex((item) => item.id === task.id);
 		if (index === -1) {
 			this.tasks = [
@@ -181,10 +198,9 @@ class TaskRunnerStore {
 	 * @param taskId - Task id to fetch data for.
 	 * @returns The task's data or undefined.
 	 */
-	getTaskData<
-		TMap extends TaskMapBase = TaskMapBase,
-		TId extends keyof TMap & string = keyof TMap & string,
-	>(taskId: TId): TMap[TId] | undefined {
+	getTaskData<TId extends keyof TMap & string = keyof TMap & string>(
+		taskId: TId
+	): TMap[TId] | undefined {
 		return this.getTaskById(taskId)?.data as TMap[TId] | undefined;
 	}
 
@@ -193,7 +209,7 @@ class TaskRunnerStore {
 	 * @param taskId - Id of the task.
 	 * @returns The Task or undefined.
 	 */
-	private getTaskById(taskId: string): Task | undefined {
+	private getTaskById(taskId: string): Task<TMap> | undefined {
 		return this.tasks.find((task) => task.id === taskId);
 	}
 
@@ -201,7 +217,7 @@ class TaskRunnerStore {
 	 * Build a global state object mapping all task ids to their current data.
 	 * @returns The TaskGlobalState mapping.
 	 */
-	private getGlobalData<TMap extends TaskMapBase = TaskMapBase>(): TaskGlobalState<TMap> {
+	private getGlobalData(): TaskGlobalState<TMap> {
 		const state: Record<string, unknown> = {};
 		for (const currentTask of this.tasks) {
 			state[currentTask.id] = currentTask.data;
@@ -214,7 +230,7 @@ class TaskRunnerStore {
 	 * @param taskId - Id of the task to patch.
 	 * @param patch - Partial task fields to assign.
 	 */
-	private setTaskFields(taskId: string, patch: Partial<Task>) {
+	private setTaskFields(taskId: string, patch: Partial<Task<TMap>>) {
 		const task = this.getTaskById(taskId);
 		if (!task) return;
 		Object.assign(task, patch);
@@ -228,9 +244,24 @@ class TaskRunnerStore {
 	private statusUpdaterFor(taskId: string): TaskStatusUpdater {
 		return (update: TaskStateUpdate) => {
 			this.setTaskFields(taskId, {
-				...(update.data !== undefined ? { data: update.data } : {}),
+				...(update.data !== undefined
+					? { data: update.data as TMap[keyof TMap & string] }
+					: {}),
 				...(update.debug !== undefined ? { debug: update.debug } : {}),
 			});
+		};
+	}
+
+	private runtimeFor<TId extends keyof TMap & string>(
+		taskId: TId
+	): TaskRuntime<TMap, TId> {
+		return {
+			runId: this.id,
+			taskId,
+			state: this.getGlobalData(),
+			update: this.statusUpdaterFor(taskId),
+			enqueueTasks: (tasks, options) => this.enqueueTasks(tasks, options),
+			getTaskData: (dependencyTaskId) => this.getTaskData(dependencyTaskId),
 		};
 	}
 
@@ -253,7 +284,9 @@ class TaskRunnerStore {
 		for (const task of this.tasks) {
 			for (const dependencyId of task.dependencies) {
 				if (!idSet.has(dependencyId)) {
-					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`);
+					throw new Error(
+						`Task ${task.id} has unknown dependency: ${dependencyId}`
+					);
 				}
 				if (dependencyId === task.id) {
 					throw new Error(`Task ${task.id} cannot depend on itself.`);
@@ -317,11 +350,11 @@ class TaskRunnerStore {
 	 * Get tasks that are ready to run (pending and all dependencies done).
 	 * @returns Array of ready tasks.
 	 */
-	private getReadyTasks(): Task[] {
+	private getReadyTasks(): Task<TMap>[] {
 		return this.tasks.filter((task) => {
 			if (task.status !== "pending") return false;
 			return task.dependencies.every(
-				(dependencyId) => this.getTaskById(dependencyId)?.status === "done",
+				(dependencyId) => this.getTaskById(dependencyId)?.status === "done"
 			);
 		});
 	}
@@ -330,15 +363,23 @@ class TaskRunnerStore {
 	 * Execute an IA task using chat completions and optionally stream tokens.
 	 * @param task - The IaTask to run.
 	 */
-	private async runIaTask(task: IaTask): Promise<void> {
-		const globalState = this.getGlobalData();
-		const runResultRaw = task.run
-			? await task.run(globalState, this.statusUpdaterFor(task.id))
-			: "";
+	private async runIaTask(
+		task: IaTask<TMap>,
+		options?: TaskRunOptions
+	): Promise<void> {
+		const runtime = this.runtimeFor(task.id);
+		const runResultRaw = task.run ? await task.run(runtime) : "";
 		const runResult = String(runResultRaw ?? "").trim();
-		const userContent = runResult ? `context: ${runResult} ${task.userMessage}` : task.userMessage;
+		const userContent = runResult
+			? `context: ${runResult} ${task.userMessage}`
+			: task.userMessage;
+		const useStream =
+			options?.stream !== undefined
+				? options.stream === true
+				: task.completionOptions.stream === true;
 		const request: LlamaChatCompletionsRequest = {
 			...task.completionOptions,
+			stream: useStream,
 			messages: [
 				{ role: "system", content: task.systemMessage },
 				{ role: "user", content: userContent },
@@ -347,19 +388,21 @@ class TaskRunnerStore {
 
 		const response = await chatCompletions(
 			request,
-			task.completionOptions.stream
+			useStream
 				? {
 						onToken: (chunk: string) => {
 							const currentData = this.getTaskData(task.id) || "";
-							this.setTaskFields(task.id, { data: currentData + chunk });
+							this.setTaskFields(task.id, {
+								data: (currentData + chunk) as TMap[keyof TMap & string],
+							});
 						},
 					}
-				: undefined,
+				: undefined
 		);
 
 		const message = response.choices?.[0]?.message;
 		const text = collectAssistantText(message?.content ?? null);
-		this.setTaskFields(task.id, { data: text });
+		this.setTaskFields(task.id, { data: text as TMap[keyof TMap & string] });
 	}
 
 	/**
@@ -367,9 +410,10 @@ class TaskRunnerStore {
 	 * @param task - Script task to execute.
 	 * @returns The task result (assigned to task.data).
 	 */
-	private async runScriptTask(task: Extract<Task, { type: "script" }>): Promise<void> {
-		const globalState = this.getGlobalData();
-		const result = await task.run(globalState, this.statusUpdaterFor(task.id));
+	private async runScriptTask(
+		task: Extract<Task<TMap>, { type: "script" }>
+	): Promise<void> {
+		const result = await task.run(this.runtimeFor(task.id));
 		this.setTaskFields(task.id, { data: result });
 	}
 
@@ -378,7 +422,10 @@ class TaskRunnerStore {
 	 * @param task - Task to execute.
 	 * @throws Will rethrow errors from task execution.
 	 */
-	private async executeTask(task: Task): Promise<void> {
+	private async executeTask(
+		task: Task<TMap>,
+		options?: TaskRunOptions
+	): Promise<void> {
 		this.setTaskFields(task.id, {
 			status: "running",
 			startedAt: Date.now(),
@@ -387,7 +434,7 @@ class TaskRunnerStore {
 
 		try {
 			if (task.type === "ia") {
-				await this.runIaTask(task);
+				await this.runIaTask(task, options);
 			} else {
 				await this.runScriptTask(task);
 			}
@@ -420,7 +467,7 @@ class TaskRunnerStore {
 	 * @param options - Execution controls such as forcing completed tasks to rerun.
 	 * @returns Summary of the run.
 	 */
-	async run(options?: TaskRunOptions): Promise<TaskRunSummary> {
+	async run(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
 		if (this.running) {
 			throw new Error("Task runner is already running.");
 		}
@@ -452,9 +499,11 @@ class TaskRunnerStore {
 				const readyScripts = ready.filter((task) => task.type === "script");
 				if (readyScripts.length > 0) {
 					const results = await Promise.allSettled(
-						readyScripts.map((task) => this.executeTask(task)),
+						readyScripts.map((task) => this.executeTask(task, runOptions))
 					);
-					const failedIndex = results.findIndex((result) => result.status === "rejected");
+					const failedIndex = results.findIndex(
+						(result) => result.status === "rejected"
+					);
 
 					if (failedIndex !== -1) {
 						failedTaskId = readyScripts[failedIndex]?.id;
@@ -470,7 +519,7 @@ class TaskRunnerStore {
 				if (!nextIa) break;
 
 				try {
-					await this.executeTask(nextIa);
+					await this.executeTask(nextIa, runOptions);
 				} catch {
 					failedTaskId = nextIa.id;
 					this.markDescendantsBlocked(nextIa.id);
@@ -498,4 +547,8 @@ class TaskRunnerStore {
 	}
 }
 
-export const taskRunner = new TaskRunnerStore();
+export function createTaskRunner<TMap extends TaskMapBase = TaskMapBase>(
+	id?: string
+) {
+	return new TaskRunnerStore<TMap>(id);
+}

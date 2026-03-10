@@ -1,15 +1,17 @@
 import { buildTaskSubroutine } from "@/runners/taskBuilder";
-import { taskRunner } from "@/runners/taskRunner.svelte";
+import { buildWorkflowRunId, workflowManager } from "@/runners/workflowManager.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import { getArticleWithTasksByUrl, saveTasks, type ArticleWithTasks } from "@/stores/tasksStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { TTSLanguage } from "$lib/utils/tts";
-import { TaskNames, type YouTubeTaskId, youtubeTaskRegistry } from "@/runners/youtube/youtubeTasks";
+import {
+	TaskNames,
+	youtubeTaskRegistry,
+} from "@/runners/youtube/tasks/youtubeTasks";
 
-const videoPage: YouTubeTaskId[] = [
-	TaskNames.TITLE_SUMMARY,
+const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
-	TaskNames.MAIN_COLOR,
+	//TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
 	TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.SUMMARY,
@@ -17,14 +19,10 @@ const videoPage: YouTubeTaskId[] = [
 	//TaskNames.TTS,
 ];
 
-const videoItem: YouTubeTaskId[] = [
+const videoItem: TaskNames[] = [
 	TaskNames.TITLE_SUMMARY,
 	TaskNames.THUMBNAIL,
-	TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
-	TaskNames.CHAPTERS_SUMMARY,
-	TaskNames.SUMMARY,
-	TaskNames.KEY_POINTS,
 	//TaskNames.TTS,
 ];
 
@@ -33,30 +31,29 @@ const routine = {
 	videoItem,
 }
 
+type YouTubeRunnerOptions = {
+  makeActive?: boolean;
+  routine?: keyof typeof routine;
+};
+
 export async function youTubeRunner(
 	url: string,
 	cachedArticle?: ArticleWithTasks | null,
+	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
-	try {
-		const resolvedCachedArticle = cachedArticle ?? (await getArticleWithTasksByUrl(url));
-		const tasks = await buildTaskSubroutine(
-			routine.videoItem,
-			youtubeTaskRegistry,
-			{ url, language: viewState.language },
-			{ persistedTasks: resolvedCachedArticle?.persistedTasks },
-		);
-		taskRunner.enqueueTasks(tasks);
-		const runResult = await taskRunner.run();
+	const runId = buildWorkflowRunId("youtube-video", url);
 
+	const tasks = await buildTaskSubroutine(
+		routine[options.routine ?? "videoPage"],
+		youtubeTaskRegistry,
+		{ url, language: viewState.language },
+		{ persistedTasks: cachedArticle?.persistedTasks }
+	);
 
-		console.log("All tasks completed:", runResult);
+	const runResult = await workflowManager.run(runId, tasks, {
+		makeActive: options.makeActive ?? true,
+	});
 
-		await saveTasks(url, runResult.tasks);
-
-		console.log("Tasks saved to store and database.");
-
-		return runResult.tasks;
-	} catch (invokeErr) {
-		throw new Error(`Error: ${invokeErr}`);
-	}
+	await saveTasks(url, runResult.tasks);
+	return runResult.tasks as Task[];
 }

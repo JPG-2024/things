@@ -24,7 +24,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		dependencies: [TaskNames.INIT],
 		component: "videoInfo",
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
 			return invoke<VideoMetaItem[]>("get_page_elements", {
@@ -47,7 +47,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		dependencies: [TaskNames.INIT],
 		component: "videoInfo",
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
 			return invoke<Chapter[]>(
@@ -61,7 +61,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		name: "Get timed captions",
 		dependencies: [TaskNames.INIT],
 		type: "script",
-		run: async (state) => {
+		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
 			return invoke<TimedCaption[]>("get_youtube_transcript_timed", {
@@ -76,7 +76,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		dependencies: [TaskNames.TIMED_CAPTIONS],
 		type: "script",
 		persist: true,
-		run: async (state) => {
+		run: async ({ state }) => {
 			const timedCaptions = getRequiredTaskState(
 				state,
 				TaskNames.TIMED_CAPTIONS

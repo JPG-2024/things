@@ -1,15 +1,17 @@
 import { buildTaskSubroutine } from "@/runners/taskBuilder";
-import { taskRunner } from "@/runners/taskRunner.svelte";
+import {
+	buildWorkflowRunId,
+	workflowManager,
+} from "@/runners/workflowManager.svelte";
 import type { Task } from "@/types/taskRunner.types";
 
 import { viewState } from "@/stores/viewStore.svelte";
 import {
 	TaskNames,
-	type YouTubeTaskId,
 	youtubeTaskRegistry,
-} from "@/runners/youtube/youtubeTasks";
+} from "@/runners/youtube/tasks/youtubeTasks";
 
-const profileTasks: YouTubeTaskId[] = [
+const profileTasks: TaskNames[] = [
 	TaskNames.INIT,
 	TaskNames.GET_CHANNEL_VIDEOS,
 	TaskNames.EXTRACT_CHANNEL_VIDEOS,
@@ -17,16 +19,19 @@ const profileTasks: YouTubeTaskId[] = [
 
 export async function extractProfileRunner(url: string): Promise<Task[]> {
 	try {
+		const runId = buildWorkflowRunId("youtube-profile", url);
 		const tasks = await buildTaskSubroutine(profileTasks, youtubeTaskRegistry, {
 			url,
 			language: viewState.language,
 		});
-		taskRunner.setTasks(tasks);
-		const runResult = await taskRunner.run();
+		const runResult = await workflowManager.run(runId, tasks, {
+			makeActive: false,
+			stream: false,
+		});
 
 		console.log("All tasks completed:", runResult);
 
-		return runResult.tasks;
+		return runResult.tasks as unknown as Task[];
 	} catch (invokeErr) {
 		throw new Error(`Error: ${invokeErr}`);
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { taskRunner } from "@/runners/taskRunner.svelte";
+import { workflowManager } from "@/runners/workflowManager.svelte";
 
 type Props = {
 	taskId: string;
@@ -7,7 +7,12 @@ type Props = {
 
 let { taskId }: Props = $props();
 
-const data = $derived(taskRunner.getTaskData(taskId));
+const data = $derived.by(() =>
+	workflowManager.activeRunner?.getTaskData(taskId)
+);
+
+void workflowManager;
+void data;
 </script>
 
 {#if typeof data === 'string'}
