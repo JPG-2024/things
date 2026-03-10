@@ -167,6 +167,20 @@ pub fn get_migrations() -> Vec<Migration> {
             // SQL to add the main_color column to the articles table.
             sql: "ALTER TABLE articles ADD COLUMN main_color TEXT;",
             kind: MigrationKind::Up,
+        },
+        // This is your seventeenth migration.
+        Migration {
+            version: 17,
+            description: "create-channels-table-and-link-articles",
+            // Create channels and add the one-to-many relationship from channels to articles.
+            sql: "CREATE TABLE IF NOT EXISTS channels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                profile_pic TEXT
+            );
+            ALTER TABLE articles ADD COLUMN channel_id INTEGER REFERENCES channels(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_articles_channel_id ON articles(channel_id);",
+            kind: MigrationKind::Up,
         }
     ]
 }

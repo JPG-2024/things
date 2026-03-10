@@ -40,9 +40,6 @@ async function handlePasteUrl(url: string) {
 </script>
 
 <div class="dashboard-container">
-
-  <button onclick={() => invoke("stop_llama_server")}>Stop llama-server</button>
-
   <Dropdown
     options={[
       { label: 'Spanish', value: 'es' },

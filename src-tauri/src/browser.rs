@@ -4,6 +4,7 @@ use scraper::Html;
 use serde::Deserialize;
 use serde_json::json;
 use futures_util::StreamExt;
+use std::future::Future;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::OnceCell;
@@ -130,6 +131,27 @@ pub async fn get_ready_page() -> Result<chromiumoxide::Page> {
     Ok(page)
 }
 
+pub async fn close_page(page: chromiumoxide::Page) {
+    if let Err(error) = page.close().await {
+        eprintln!("Failed to close browser page: {}", error);
+    }
+}
+
+pub async fn with_ready_page<T, F, Fut>(work: F) -> Result<T, String>
+where
+    F: FnOnce(chromiumoxide::Page) -> Fut,
+    Fut: Future<Output = Result<T, String>>,
+{
+    let page = get_ready_page()
+        .await
+        .map_err(|e| format!("Failed to get browser page: {}", e))?;
+
+    let result = work(page.clone()).await;
+    close_page(page).await;
+
+    result
+}
+
 /// Navega a una URL y retorna el HTML y documento parseado
 pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
     app.emit(
@@ -137,17 +159,21 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
         json!({"key": "page", "status": "Loading Page", "data": null}),
     ).map_err(|e| e.to_string())?;
 
-    let page = get_ready_page().await.map_err(|e| e.to_string())?;
+    let html = with_ready_page(|page| async move {
+        page.goto(&url).await.map_err(|e| e.to_string())?;
+        page.wait_for_navigation()
+            .await
+            .map_err(|e| e.to_string())?;
 
-    page.goto(&url).await.map_err(|e| e.to_string())?;
-    page.wait_for_navigation()
-        .await
-        .map_err(|e| e.to_string())?;
+        let html: String = page.content().await.map_err(|e| e.to_string())?;
 
-    let html: String = page.content().await.map_err(|e| e.to_string())?;
+        println!("✅ Página cargada: {}", url);
+
+        Ok(html)
+    })
+    .await?;
+
     let document = Html::parse_document(&html);
-
-    println!("✅ Página cargada: {}", url);
 
     app.emit(
         "flow-status",

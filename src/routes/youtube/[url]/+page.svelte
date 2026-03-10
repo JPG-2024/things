@@ -15,9 +15,6 @@ let showIframe = false;
 
 <PostView headerContent={null} summaryContent={summaryContentSnippet} />
 
-<InstantResponse content={viewState.summary!} />
-
-
 
 {#snippet summaryContentSnippet()}
   {#if typeof viewState.summary === 'string'}
@@ -56,67 +53,6 @@ let showIframe = false;
 {/snippet}
 
 <style>
-  /* Wrapper with 16:9 aspect ratio for responsive player */
-  .yt-wrapper {
-    position: relative;
-
-    background-color: var(--card-bg, #000);
-    width: 100%;
-    border-radius: 20px;
-    overflow: hidden;
-  }
-
-  /* Maintain aspect ratio */
-  .yt-wrapper::before {
-    display: block;
-    padding-top: 56.25%; /* 16:9 */
-    content: '';
-    border-radius: 20px;
-  }
-
-  .yt-wrapper img {
-    position: absolute;
-    top: 0%;
-    left: 0;
-    right: auto;
-    border: 1px solid var(--primary-color);
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 20px;
-  }
-
-  /* Make iframe fill the wrapper */
-  .yt-wrapper .yt-video {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
-
-  .yt-play {
-    display: flex;
-    position: absolute;
-    justify-content: center;
-    align-items: center;
-    transform: translateY(-8%);
-    transition:
-      background 0.12s ease,
-      transform 0.12s;
-    cursor: pointer;
-    margin: auto;
-    inset: 0;
-    border: none;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
-    width: 64px;
-    height: 64px;
-    color: white;
-    font-size: 28px;
-  }
-
   .summary-section,
   .keypoints-section {
     padding: 1rem;

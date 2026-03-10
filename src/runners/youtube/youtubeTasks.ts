@@ -25,7 +25,7 @@ type VideoMetaItem = {
 type InitContext = {
 	url: string;
 	videoId: string;
-	preferredLanguage: TTSLanguage;
+	language: TTSLanguage;
 };
 
 type YouTubePlayerContext = {
@@ -56,6 +56,7 @@ export enum TaskNames {
 	CONTENT = "content",
 	VIDEO_INFO = "video-info",
 	TTS = "tts",
+	TITLE_SUMMARY = "title-summary"
 }
 
 export type YouTubeTaskState = {
@@ -70,6 +71,7 @@ export type YouTubeTaskState = {
 	[TaskNames.SUMMARY]: string;
 	[TaskNames.KEY_POINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
+	[TaskNames.TITLE_SUMMARY]: string;
 };
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;
@@ -100,7 +102,7 @@ function buildChapterSummaryTasks(chapterCaptions: ChapterCaption[], language: T
 				: "Summarize this chapter in 2-3 lines.",
 		completionOptions: {
 			model: "llama-server",
-			temperature: 0.2,
+			temperature: 0.7,
 			stream: true,
 		},
 	}));
@@ -119,7 +121,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 				throw new Error("Invalid YouTube URL");
 			}
 
-			return { url, videoId, preferredLanguage: language };
+			return { url, videoId, language };
 		},
 	}),
 	[TaskNames.THUMBNAIL]: () => ({
@@ -239,7 +241,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			}
 			const timedCaptions = await invoke<TimedCaption[]>("get_youtube_transcript_timed", {
 				id: context.videoId,
-				language: context.preferredLanguage,
+				language: context.language,
 			});
 
 			return timedCaptions;
@@ -287,7 +289,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			const chapterCaptions = joinCaptionsByChapters(timedCaptions, chapters);
 			const chapterSummaryTasks = buildChapterSummaryTasks(
 				chapterCaptions,
-				context.preferredLanguage,
+				context.language,
 			);
 
 			taskRunner.enqueueTasks(chapterSummaryTasks);
@@ -301,10 +303,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 		dependencies: [TaskNames.CONTENT],
 		component: "base",
 		type: "ia",
-		systemMessage:
-			language === "es"
-				? SIMPLE_SUMMARY_SYSTEM_PROMPT_ES
-				: SIMPLE_SUMMARY_SYSTEM_PROMPT_EN,
+		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Limit to 60 words maximum. Maintain a formal tone. CRITICAL answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
 		run: (state) => {
 			const transcriptText = state[TaskNames.CONTENT];
 			if (!transcriptText) {
@@ -312,10 +311,28 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			}
 			return transcriptText;
 		},
-		userMessage:
-			language === "es"
-				? "Resume el contexto de manera concisa y clara en un solo p\u00e1rrafo. maximo 4 lineas."
-				: "Summarize the context concisely and clearly in a single paragraph. maximum 4 lines.",
+		userMessage: "Summarize the context clearly in a single paragraph with a short conclusion.",
+		completionOptions: {
+			model: "llama-server",
+			temperature: 0.7,
+			stream: true,
+		},
+	}),
+		[TaskNames.TITLE_SUMMARY]: ({ language }) => ({
+		id: TaskNames.TITLE_SUMMARY,
+		name: "Title Summary",
+		dependencies: [TaskNames.CONTENT],
+		component: "base",
+		type: "ia",
+		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Limit to 20 words maximum. Avoid words like summary, video, etc. CRITICAL answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
+		run: (state) => {
+			const transcriptText = state[TaskNames.CONTENT];
+			if (!transcriptText) {
+				return "";
+			}
+			return transcriptText;
+		},
+		userMessage: `Generate a short summary for this video. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: {
 			model: "llama-server",
 			temperature: 0.7,
@@ -329,9 +346,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 		component: "base",
 		type: "ia",
 		systemMessage:
-			language === "es"
-				? "Eres un asistente que extrae los puntos clave de un video."
-				: "You are an assistant that extracts key points from a video.",
+			"Return only valid JSON that matches the provided schema.",
 		run: (state) => {
 			const transcriptText = state[TaskNames.CONTENT];
 			if (!transcriptText) {
@@ -340,13 +355,31 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 			return transcriptText;
 		},
 		userMessage:
-			language === "es"
-				? "Extrae los 10 puntos clave m\u00e1s importantes del video en una lista numerada."
-				: "Extract the 10 most important key points from the video in a numbered list.",
+			"extract 5 keywords that represent the main topics of the video.",
 		completionOptions: {
 			model: "llama-server",
 			temperature: 0.7,
 			stream: true,
+			 response_format: {
+				type: 'json_schema',
+				json_schema: {
+				name: 'summary_keywords',
+				strict: true,
+				schema: {
+					type: 'object',
+					properties: {
+					keywords: {
+						type: 'array',
+						items: { type: 'string' },
+						minItems: 5,
+						maxItems: 5
+					}
+					},
+					required: ['keywords'],
+					additionalProperties: false
+				}
+				}
+			}
 		},
 	}),
 	[TaskNames.TTS]: ({ language }) => ({
@@ -369,7 +402,7 @@ export const youtubeTaskRegistry: Record<YouTubeTaskId, YouTubeTaskFactory> = {
 					speed: 1.3,
 					onnx_dir:
 						"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/",
-					total_step: 4,
+					total_step: 6,
 				},
 			);
 

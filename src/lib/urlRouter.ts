@@ -2,7 +2,10 @@ import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import { taskRunner } from "@/runners/taskRunner.svelte";
-import { getArticleWithTasksByUrl, type ArticleWithTasks } from "@/stores/tasksStore";
+import {
+	getArticleWithTasksByUrl,
+	type ArticleWithTasks,
+} from "@/stores/tasksStore";
 import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
 import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
 import { deleteArticleByUrl } from "@/stores/tasksStore";
@@ -23,7 +26,6 @@ const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
 const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
 const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
-
 
 type UrlRouteCondition = RegExp | ((url: string) => boolean);
 
@@ -49,7 +51,7 @@ const routeDefinitions: UrlRoute[] = [
 	{
 		name: "youtubeVideo",
 		condition: YOUTUBE_URL_REGEX,
-		handler: (url, context) => youTubeRunner(url, undefined, context?.cachedArticle),
+		handler: (url, context) => youTubeRunner(url, context?.cachedArticle),
 	},
 	{
 		name: "toubeProfileVideos",
@@ -85,7 +87,7 @@ type UrlRouterOptions = {
 
 export async function urlRouter(
 	url: string,
-	{ forceRunTasks = false }: UrlRouterOptions = {},
+	{ forceRunTasks = false }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
 	if (inProgressRequests.has(url)) {
 		return inProgressRequests.get(url) as Promise<RouterResult>;
@@ -94,7 +96,7 @@ export async function urlRouter(
 	// Si forceRunTasks es true, limpiar completamente el cache
 	if (forceRunTasks) {
 		inMemoryCache.delete(url);
-		await deleteArticleByUrl(url); 
+		await deleteArticleByUrl(url);
 	}
 
 	// First: check in-memory cache (very fast)
@@ -128,8 +130,12 @@ export async function urlRouter(
 			const matchingRoute = findRoute(url);
 
 			if (!matchingRoute) {
-				const supportedRoutes = routeDefinitions.map((route) => route.name).join(", ");
-				throw new Error(`Unsupported URL. Supported routes: ${supportedRoutes}.`);
+				const supportedRoutes = routeDefinitions
+					.map((route) => route.name)
+					.join(", ");
+				throw new Error(
+					`Unsupported URL. Supported routes: ${supportedRoutes}.`
+				);
 			}
 
 			const tasks = await matchingRoute.handler(url, { cachedArticle });

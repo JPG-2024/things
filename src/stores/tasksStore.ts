@@ -56,7 +56,10 @@ function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 		const parsed = JSON.parse(raw) as StoredTask[];
 		if (Array.isArray(parsed)) {
 			return parsed.map((task, index) => ({
-				id: typeof task?.id === "string" && task.id.trim() ? task.id : `cached-${index}`,
+				id:
+					typeof task?.id === "string" && task.id.trim()
+						? task.id
+						: `cached-${index}`,
 				data: task?.data,
 				status: task?.status ?? "done",
 				component: task?.component,
@@ -71,17 +74,23 @@ function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 
 function parseStoredTasks(raw: string | null): Task[] {
 	return parsePersistedTaskStates(raw)
-		.filter((task) => typeof task.component === "string" && task.component.trim().length > 0)
-		.map((task) => ({
-			id: task.id,
-			name: task.id,
-			dependencies: [],
-			type: "script",
-			run: () => task.data,
-			data: task.data,
-			status: task.status ?? "done",
-			component: task.component,
-		} satisfies Task));
+		.filter(
+			(task) =>
+				typeof task.component === "string" && task.component.trim().length > 0
+		)
+		.map(
+			(task) =>
+				({
+					id: task.id,
+					name: task.id,
+					dependencies: [],
+					type: "script",
+					run: () => task.data,
+					data: task.data,
+					status: task.status ?? "done",
+					component: task.component,
+				}) satisfies Task
+		);
 }
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
@@ -90,7 +99,7 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const result = await database.select<ArticleRow[]>(
 			`SELECT rowid as id, * FROM articles ORDER BY rowid DESC`,
-			[],
+			[]
 		);
 
 		return result.map((row) => {
@@ -98,7 +107,8 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 				typeof row.metadataContent === "string" && row.metadataContent
 					? JSON.parse(row.metadataContent)
 					: row.metadataContent;
-			const mainColor = typeof row.main_color === "string" ? row.main_color : null;
+			const mainColor =
+				typeof row.main_color === "string" ? row.main_color : null;
 
 			return {
 				...row,
@@ -113,13 +123,15 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	}
 }
 
-export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
+export async function getArticleWithTasksByUrl(
+	url: string
+): Promise<ArticleWithTasks | null> {
 	const database = await getDb();
 
 	try {
 		const result = await database.select<ArticleRow[]>(
 			`SELECT rowid as id, * FROM articles WHERE url = $1 LIMIT 1`,
-			[url],
+			[url]
 		);
 
 		const row = result?.[0];
@@ -133,7 +145,8 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 				? JSON.parse(row.metadataContent)
 				: row.metadataContent;
 
-		const mainColor = typeof row.main_color === "string" ? row.main_color : "#000000";
+		const mainColor =
+			typeof row.main_color === "string" ? row.main_color : "#000000";
 
 		return {
 			...row,
@@ -153,7 +166,8 @@ export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
 
 	const tasksToSave: StoredTask[] = tasks
 		.filter((task) => {
-			const hasComponent = typeof task.component === "string" && task.component.trim().length > 0;
+			const hasComponent =
+				typeof task.component === "string" && task.component.trim().length > 0;
 			return hasComponent || task.persist === true;
 		})
 		.map((task) => ({
@@ -180,24 +194,29 @@ export async function saveTasks(url: string, tasks: Task[]): Promise<void> {
 		`INSERT INTO articles (url, tasks, content, thumbnail, title, directory, main_color)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 ON CONFLICT(url) DO UPDATE SET tasks = excluded.tasks, content = excluded.content, thumbnail = excluded.thumbnail, title = excluded.title, directory = excluded.directory, main_color = excluded.main_color`,
-		[url, tasksJson, content, thumbnail, title, mediaDirectory, mainColor],
+		[url, tasksJson, content, thumbnail, title, mediaDirectory, mainColor]
 	);
 }
 
-export async function deleteArticleByUrl(url: string): Promise<{ success: boolean }> {
+export async function deleteArticleByUrl(
+	url: string
+): Promise<{ success: boolean }> {
 	const database = await getDb();
 
 	try {
 		const result = await database.select<Array<{ directory: string | null }>>(
 			`SELECT directory FROM articles WHERE url = $1 LIMIT 1`,
-			[url],
+			[url]
 		);
 
 		const directory = result?.[0]?.directory;
 		if (typeof directory === "string" && directory.trim()) {
 			const mediaPath = `media/${directory}`;
 			try {
-				await remove(mediaPath, { baseDir: BaseDirectory.AppData, recursive: true });
+				await remove(mediaPath, {
+					baseDir: BaseDirectory.AppData,
+					recursive: true,
+				});
 				console.log(`[Media] Deleted media directory: ${mediaPath}`);
 			} catch (error) {
 				console.error(`[Media] Error deleting media directory: ${error}`);
@@ -207,7 +226,9 @@ export async function deleteArticleByUrl(url: string): Promise<{ success: boolea
 		await database.execute(`DELETE FROM articles WHERE url = $1`, [url]);
 
 		try {
-			const { removeArticleFromCache: removeFromUrlRouterCache } = await import("@/lib/urlRouter");
+			const { removeArticleFromCache: removeFromUrlRouterCache } = await import(
+				"@/lib/urlRouter"
+			);
 			removeFromUrlRouterCache(url);
 		} catch (error) {
 			console.warn("Unable to clear urlRouter cache after delete", error);

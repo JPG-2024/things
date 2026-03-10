@@ -262,71 +262,72 @@ pub async fn get_page_elements(
     )
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    let page = crate::browser::get_ready_page()
-        .await
-        .map_err(|e| format!("Failed to get browser page: {}", e))?;
+    let result = crate::browser::with_ready_page(|page| async move {
+        page.goto(&url)
+            .await
+            .map_err(|e| format!("Failed to navigate to page: {}", e))?;
 
-    page.goto(&url)
-        .await
-        .map_err(|e| format!("Failed to navigate to page: {}", e))?;
+        page.wait_for_navigation()
+            .await
+            .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
-    page.wait_for_navigation()
-        .await
-        .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
+        let mut result: HashMap<String, Value> = HashMap::new();
 
-    let mut result: HashMap<String, Value> = HashMap::new();
+        for item in selectors {
+            let name = item.name.clone();
+            let selector = item.selector.clone();
+            let attribute = item.attribute.clone();
 
-    for item in selectors {
-        let name = item.name.clone();
-        let selector = item.selector.clone();
-        let attribute = item.attribute.clone();
+            println!(
+                "🔍 Extracting '{}' with selector '{}'{}",
+                &name,
+                &selector,
+                attribute
+                    .as_ref()
+                    .map(|a| format!(" (attribute: {})", a))
+                    .unwrap_or_default()
+            );
 
-        println!(
-            "🔍 Extracting '{}' with selector '{}'{}",
-            &name,
-            &selector,
-            attribute
-                .as_ref()
-                .map(|a| format!(" (attribute: {})", a))
-                .unwrap_or_default()
-        );
+            let attempts = attempts.unwrap_or(3);
+            let interval_ms = interval_ms.unwrap_or(1000);
 
-        let attempts = attempts.unwrap_or(3);
-        let interval_ms = interval_ms.unwrap_or(1000);
+            match wait_for_element_spa(
+                &page,
+                &selector,
+                attribute.as_deref(),
+                attempts,
+                interval_ms,
+            )
+            .await
+            {
+                Ok(texts) => {
+                    println!("✅ Selector '{}' found, {} texts extracted", &selector, texts.len());
 
-        match wait_for_element_spa(
-            &page,
-            &selector,
-            attribute.as_deref(),
-            attempts,
-            interval_ms,
-        )
-        .await
-        {
-            Ok(texts) => {
-                println!("✅ Selector '{}' found, {} texts extracted", &selector, texts.len());
-                
-                let values: Vec<Value> = texts.into_iter().map(Value::String).collect();
-                
-                if values.is_empty() {
-                    result.insert(name.clone(), Value::Null);
-                } else if values.len() == 1 {
-                    result.insert(name.clone(), values.into_iter().next().unwrap());
-                } else {
-                    result.insert(name.clone(), Value::Array(values));
+                    let values: Vec<Value> = texts.into_iter().map(Value::String).collect();
+
+                    if values.is_empty() {
+                        result.insert(name.clone(), Value::Null);
+                    } else if values.len() == 1 {
+                        result.insert(name.clone(), values.into_iter().next().unwrap());
+                    } else {
+                        result.insert(name.clone(), Value::Array(values));
+                    }
+                }
+                Err(err) => {
+                    eprintln!(
+                        "Failed to extract '{}' with selector '{}': {}",
+                        &name,
+                        &selector,
+                        err
+                    );
+                    result.insert(name.clone(), Value::String(err));
                 }
             }
-            Err(err) => {
-                eprintln!(
-                    "Failed to extract '{}' with selector '{}': {}",
-                    &name,
-                    &selector,
-                    err
-                );
-                result.insert(name.clone(), Value::String(err));
-            }
         }
-    }
+
+        Ok(result)
+    })
+    .await?;
 
     app.emit(
         "flow-status",
@@ -356,70 +357,61 @@ pub async fn search_youtube(
     )
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    // Obtener página del navegador con anti-detección
-    let page = crate::browser::get_ready_page()
-        .await
-        .map_err(|e| format!("Failed to get browser page: {}", e))?;
-
-    // Construir URL de búsqueda directa (más confiable que interactuar con el input)
     let search_url = format!(
         "https://www.youtube.com/results?search_query={}",
         urlencoding::encode(&query)
     );
+    let app_for_page = app.clone();
 
-    println!("🔍 Buscando en YouTube: {}", query);
+    let results = crate::browser::with_ready_page(|page| async move {
+        println!("🔍 Buscando en YouTube: {}", query);
 
-    // Navegar a la página de resultados
-    page.goto(&search_url)
-        .await
-        .map_err(|e| format!("Failed to navigate to YouTube: {}", e))?;
-
-    page.wait_for_navigation()
-        .await
-        .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
-
-    app.emit(
-        "flow-status",
-        json!({"key": "youtube-search", "status": "waiting for results", "data": null}),
-    )
-    .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-
-    // Esperar a que carguen los resultados dinámicamente
-    // Intentamos hasta 10 veces con 500ms de espera entre cada intento
-    let mut attempts = 0;
-    let max_attempts = 10;
-
-    loop {
-        let has_results: bool = page
-            .evaluate("document.querySelectorAll('ytd-video-renderer').length > 0")
+        page.goto(&search_url)
             .await
-            .map_err(|e| format!("Failed to check for results: {}", e))?
-            .into_value()
-            .unwrap_or(false);
+            .map_err(|e| format!("Failed to navigate to YouTube: {}", e))?;
 
-        if has_results {
-            break;
+        page.wait_for_navigation()
+            .await
+            .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
+
+        app_for_page.emit(
+            "flow-status",
+            json!({"key": "youtube-search", "status": "waiting for results", "data": null}),
+        )
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+        let mut attempts = 0;
+        let max_attempts = 10;
+
+        loop {
+            let has_results: bool = page
+                .evaluate("document.querySelectorAll('ytd-video-renderer').length > 0")
+                .await
+                .map_err(|e| format!("Failed to check for results: {}", e))?
+                .into_value()
+                .unwrap_or(false);
+
+            if has_results {
+                break;
+            }
+
+            attempts += 1;
+            if attempts >= max_attempts {
+                return Err("Timeout waiting for YouTube search results".to_string());
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
 
-        attempts += 1;
-        if attempts >= max_attempts {
-            return Err("Timeout waiting for YouTube search results".to_string());
-        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    }
+        app_for_page.emit(
+            "flow-status",
+            json!({"key": "youtube-search", "status": "extracting results", "data": null}),
+        )
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    // Pequeña espera adicional para asegurar que todo esté cargado
-    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
-
-    app.emit(
-        "flow-status",
-        json!({"key": "youtube-search", "status": "extracting results", "data": null}),
-    )
-    .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
-
-    // Extraer resultados via JavaScript
-    let js_extract = r#"
+        let js_extract = r#"
         (() => {
             const results = [];
             const videoRenderers = document.querySelectorAll('ytd-video-renderer');
@@ -450,14 +442,18 @@ pub async fn search_youtube(
         })()
     "#;
 
-    let results: Vec<VideoSearchResult> = page
-        .evaluate(js_extract)
-        .await
-        .map_err(|e| format!("Failed to extract results: {}", e))?
-        .into_value()
-        .map_err(|e| format!("Failed to parse results: {}", e))?;
+        let results: Vec<VideoSearchResult> = page
+            .evaluate(js_extract)
+            .await
+            .map_err(|e| format!("Failed to extract results: {}", e))?
+            .into_value()
+            .map_err(|e| format!("Failed to parse results: {}", e))?;
 
-    println!("✅ Encontrados {} videos", results.len());
+        println!("✅ Encontrados {} videos", results.len());
+
+        Ok(results)
+    })
+    .await?;
 
     app.emit(
         "flow-status",
