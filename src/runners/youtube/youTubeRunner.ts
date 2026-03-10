@@ -3,6 +3,7 @@ import { taskRunner } from "@/runners/taskRunner.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import { getArticleWithTasksByUrl, saveTasks, type ArticleWithTasks } from "@/stores/tasksStore";
 import { viewState } from "@/stores/viewStore.svelte";
+import type { TTSLanguage } from "$lib/utils/tts";
 import { TaskNames, type YouTubeTaskId, youtubeTaskRegistry } from "@/runners/youtube/youtubeTasks";
 
 const videoPage: YouTubeTaskId[] = [
@@ -19,7 +20,12 @@ const videoPage: YouTubeTaskId[] = [
 const videoItem: YouTubeTaskId[] = [
 	TaskNames.TITLE_SUMMARY,
 	TaskNames.THUMBNAIL,
+	TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
+	TaskNames.CHAPTERS_SUMMARY,
+	TaskNames.SUMMARY,
+	TaskNames.KEY_POINTS,
+	//TaskNames.TTS,
 ];
 
 const routine = {
@@ -30,17 +36,16 @@ const routine = {
 export async function youTubeRunner(
 	url: string,
 	cachedArticle?: ArticleWithTasks | null,
-	routineName: keyof typeof routine = "videoPage",
 ): Promise<Task[]> {
 	try {
 		const resolvedCachedArticle = cachedArticle ?? (await getArticleWithTasksByUrl(url));
 		const tasks = await buildTaskSubroutine(
-			routine[routineName],
+			routine.videoItem,
 			youtubeTaskRegistry,
 			{ url, language: viewState.language },
 			{ persistedTasks: resolvedCachedArticle?.persistedTasks },
 		);
-		taskRunner.setTasks(tasks);
+		taskRunner.enqueueTasks(tasks);
 		const runResult = await taskRunner.run();
 
 
