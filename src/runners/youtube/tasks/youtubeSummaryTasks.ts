@@ -39,19 +39,32 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 	[TaskNames.KEY_POINTS]: () => ({
 		id: TaskNames.KEY_POINTS,
 		name: "Key Points",
-		dependencies: [TaskNames.CONTENT],
+		dependencies: [TaskNames.SUMMARY],
 		component: "base",
 		type: "ia",
 		systemMessage: "Return only valid JSON that matches the provided schema.",
-		run: getContentFromState,
-		userMessage:
-			"extract 5 keywords that represent the main topics of the video.",
+		run: ({ state }) => {
+			const summary = state[TaskNames.SUMMARY];
+
+			if (typeof summary !== "string") {
+				throw new Error("Summary content is missing or invalid");
+			}
+
+			return summary;
+		},
+		userMessage: "extract 5 keywords.",
 		completionOptions: {
 			...defaultCompletionOptions,
+			temperature: 1.0,
+			top_p: 0.95,
+			top_k: 20,
+			min_p: 0.0,
+			presence_penalty: 1.5,
+			repeat_penalty: 1.0,
 			response_format: {
 				type: "json_schema",
 				json_schema: {
-					name: "summary_keywords",
+					name: "keywords",
 					strict: true,
 					schema: {
 						type: "object",

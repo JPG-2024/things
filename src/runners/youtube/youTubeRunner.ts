@@ -1,7 +1,14 @@
 import { buildTaskSubroutine } from "@/runners/taskBuilder";
-import { buildWorkflowRunId, workflowManager } from "@/runners/workflowManager.svelte";
+import {
+	buildWorkflowRunId,
+	workflowManager,
+} from "@/runners/workflowManager.svelte";
 import type { Task } from "@/types/taskRunner.types";
-import { getArticleWithTasksByUrl, saveTasks, type ArticleWithTasks } from "@/stores/tasksStore";
+import {
+	getArticleWithTasksByUrl,
+	saveTasks,
+	type ArticleWithTasks,
+} from "@/stores/tasksStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { TTSLanguage } from "$lib/utils/tts";
 import {
@@ -16,7 +23,7 @@ const videoPage: TaskNames[] = [
 	TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.SUMMARY,
 	TaskNames.KEY_POINTS,
-	//TaskNames.TTS,
+	TaskNames.TTS,
 ];
 
 const videoItem: TaskNames[] = [
@@ -29,11 +36,11 @@ const videoItem: TaskNames[] = [
 const routine = {
 	videoPage,
 	videoItem,
-}
+};
 
 type YouTubeRunnerOptions = {
-  makeActive?: boolean;
-  routine?: keyof typeof routine;
+	makeActive?: boolean;
+	routine?: keyof typeof routine;
 };
 
 export async function youTubeRunner(
@@ -42,6 +49,8 @@ export async function youTubeRunner(
 	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
 	const runId = buildWorkflowRunId("youtube-video", url);
+
+	debugger;
 
 	const tasks = await buildTaskSubroutine(
 		routine[options.routine ?? "videoPage"],

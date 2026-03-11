@@ -48,9 +48,9 @@ async function handlePasteUrl(url: string) {
     bind:value={viewState.language}
   ></Dropdown>
 
-<!--   <div class="title-row">
-    <h1 class="dashboard-title">Things</h1>
-  </div> -->
+   <div class="title-row">
+    <span class="dashboard-title">Things</span>
+  </div> 
 
   <div class="inputs-container">
     <Input onChange={(url) => handlePasteUrl(url)} placeholder="Paste URL here..." />
@@ -83,6 +83,10 @@ async function handlePasteUrl(url: string) {
     color: var(--primary-color);
     font-size: 2.2rem;
     font-family: 'Segoe UI', Courier, monospace;
+    box-shadow: inset 0 0 50px var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: 0.1rem 1rem;
+    border-radius: 20px;
   }
 
   .flex-squares {
@@ -109,7 +113,7 @@ async function handlePasteUrl(url: string) {
     gap: 0.75rem;
     width: 100%;
     justify-content: center;
-    padding-top: 10px;
+    padding: 10px;
   }
 
   /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */

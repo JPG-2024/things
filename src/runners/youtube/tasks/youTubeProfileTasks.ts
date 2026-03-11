@@ -109,7 +109,10 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 			for (const url of fullUrls.slice(0, 5)) {
 				results.push(
-					await youTubeRunner(url, undefined, { makeActive: false })
+					await youTubeRunner(url, undefined, {
+						makeActive: true,
+						routine: "videoItem",
+					})
 				);
 			}
 

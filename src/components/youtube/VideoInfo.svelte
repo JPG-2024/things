@@ -4,22 +4,20 @@ import Icon from "../Icon.svelte";
 import { calculateDaysAgo } from "@/lib/utils/date";
 
 type Props = {
-    task: Task;
+	task: Task;
 };
 
 let { task }: Props = $props();
 
 function getDataContent(key: string): string | null {
-    const data = task?.data as Record<string, unknown> | null | undefined;
-    if (!data) return null;
-    const value = data[key];
-    if (typeof value === "string" && value.trim()) {
-        return value;
-    }
-    return null;
+	const data = task?.data as Record<string, unknown> | null | undefined;
+	if (!data) return null;
+	const value = data[key];
+	if (typeof value === "string" && value.trim()) {
+		return value;
+	}
+	return null;
 }
-
-
 </script>
 
 
@@ -47,7 +45,8 @@ function getDataContent(key: string): string | null {
 
 <style>
 h3 {
-    color: var(--primary-color)
+    color: var(--primary-color);
+    font-family: Fira Sans Two;
 }
 
 .video-info {
@@ -56,6 +55,7 @@ h3 {
 }
 
 .pill {
+    font-size: 0.8rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;

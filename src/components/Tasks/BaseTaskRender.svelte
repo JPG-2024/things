@@ -44,6 +44,13 @@ let showModal = $state(false);
     }
   }
 
+  .task-title {
+    font-family: Fira Sans Two;
+    cursor: pointer;
+    color: var(--primary-color);
+    user-select: none;
+  }
+
   .wrapped-output {
     text-wrap: auto;
     max-width: 100%;

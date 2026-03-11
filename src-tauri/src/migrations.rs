@@ -168,9 +168,9 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: "ALTER TABLE articles ADD COLUMN main_color TEXT;",
             kind: MigrationKind::Up,
         },
-        // This is your seventeenth migration.
+        // This is your sixteenth migration.
         Migration {
-            version: 17,
+            version: 16,
             description: "create-channels-table-and-link-articles",
             // Create channels and add the one-to-many relationship from channels to articles.
             sql: "CREATE TABLE IF NOT EXISTS channels (
