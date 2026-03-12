@@ -6,12 +6,15 @@ import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
 
 type Props = {
+	runId?: string;
 	task: Task;
 };
 
-let { task }: Props = $props();
+let { runId = undefined, task }: Props = $props();
 
 let showModal = $state(false);
+
+void runId;
 
 type PillStatus = "loading" | "error" | "idle" | "done";
 

@@ -79,14 +79,10 @@ async function handlePasteUrl(url: string) {
   }
 
   .dashboard-title {
-    margin-bottom: 1rem;
     color: var(--primary-color);
     font-size: 2.2rem;
-    font-family: 'Segoe UI', Courier, monospace;
-    box-shadow: inset 0 0 50px var(--primary-color);
-    border: 1px solid var(--primary-color);
     padding: 0.1rem 1rem;
-    border-radius: 20px;
+    
   }
 
   .flex-squares {

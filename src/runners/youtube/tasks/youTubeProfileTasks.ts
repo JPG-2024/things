@@ -98,7 +98,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		name: "Extract channel videos",
 		dependencies: [TaskNames.GET_CHANNEL_VIDEOS],
 		type: "script",
-		run: async ({ state }) => {
+		run: async ({ runId, state }) => {
 			const { videoIds } = getRequiredTaskState(
 				state,
 				TaskNames.GET_CHANNEL_VIDEOS
@@ -107,10 +107,11 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 			const results = [];
 
-			for (const url of fullUrls.slice(0, 5)) {
+			for (const url of fullUrls.slice(0, 2)) {
 				results.push(
 					await youTubeRunner(url, undefined, {
-						makeActive: true,
+						makeActive: false,
+						parentRunId: runId,
 						routine: "videoItem",
 					})
 				);

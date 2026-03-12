@@ -3,12 +3,15 @@ import { toVTName } from "@/lib/utils/url";
 import type { Task } from "@/types/taskRunner.types";
 
 type Props = {
+	runId?: string;
 	task: Task;
 };
 
-let { task }: Props = $props();
+let { runId = undefined, task }: Props = $props();
 
 let showIframe = $state(false);
+
+void runId;
 </script>
 
 <div class="yt-wrapper">
@@ -50,10 +53,10 @@ let showIframe = $state(false);
   /* Wrapper with 16:9 aspect ratio for responsive player */
   .yt-wrapper {
     position: relative;
-    background-color: var(--card-bg, #000);
     width: 100%;
     border-radius: 20px;
     overflow: hidden;
+    border: none;
   }
 
   /* Maintain aspect ratio */
@@ -69,11 +72,16 @@ let showIframe = $state(false);
     top: 0%;
     left: 0;
     right: auto;
-    /* border: 1px solid var(--primary-color); */
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 20px;
+    border-radius: 15px;
+    filter: grayscale(.5);
+    transition: filter 0.2s;
+
+    &:hover {
+      filter: grayscale(0);
+    }
   }
 
   /* Make iframe fill the wrapper */
@@ -100,7 +108,7 @@ let showIframe = $state(false);
     inset: 0;
     border: none;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.4);
     width: 64px;
     height: 64px;
     color: white;

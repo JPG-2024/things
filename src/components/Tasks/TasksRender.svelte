@@ -3,22 +3,21 @@ import LoadingTask from "@/components/Tasks/LoadingTask.svelte";
 import { taskRenderRegistry } from "@/components/Tasks/taskRenderRegistry";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
-const activeTasks = $derived.by(
-	() => workflowManager.activeRunner?.tasks ?? []
-);
+const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
 
 void LoadingTask;
 void taskRenderRegistry;
 void workflowManager;
-void activeTasks;
+void stackedTasks;
 </script>
 
-{#each activeTasks as task (task.id)}
+{#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
+  {@const task = entry.task}
   {@const componentKey = task.component?.trim()}
   {@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
   {#if Renderer}
-    <Renderer {task} />
+    <Renderer {task} runId={entry.runId} />
   {:else if task.status !== 'pending'}
-    <LoadingTask {task} />
+    <LoadingTask {task} runId={entry.runId} />
   {/if}
 {/each}

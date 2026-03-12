@@ -93,6 +93,59 @@ function parseStoredTasks(raw: string | null): Task[] {
 		);
 }
 
+function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): boolean {
+	const hasComponent =
+		typeof task.component === "string" && task.component.trim().length > 0;
+	return hasComponent || task.persist === true;
+}
+
+function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): StoredTask {
+	return {
+		id: task.id,
+		data: task.data,
+		status: task.status,
+		component: task.component,
+	};
+}
+
+function mergeStoredTasks<TMap extends TaskMapBase>(
+	existingTasks: PersistedTaskState[] | undefined,
+	nextTasks: Task<TMap>[]
+): StoredTask[] {
+	const mergedTasks = new Map<string, StoredTask>();
+
+	for (const task of existingTasks ?? []) {
+		mergedTasks.set(task.id, {
+			id: task.id,
+			data: task.data,
+			status: task.status,
+			component: task.component,
+		});
+	}
+
+	for (const task of nextTasks) {
+		if (!shouldPersistTask(task)) {
+			continue;
+		}
+
+		mergedTasks.set(task.id, toStoredTask(task));
+	}
+
+	return Array.from(mergedTasks.values());
+}
+
+function getStoredTaskData<T>(tasks: StoredTask[], taskId: string): T | undefined {
+	return tasks.find((task) => task.id === taskId)?.data as T | undefined;
+}
+
+function getArticleStringField(
+	article: ArticleWithTasks | null,
+	fieldName: string
+): string {
+	const fieldValue = article?.[fieldName];
+	return typeof fieldValue === "string" ? fieldValue : "";
+}
+
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	const database = await getDb();
 
@@ -166,32 +219,31 @@ export async function saveTasks<TMap extends TaskMapBase>(
 	tasks: Task<TMap>[]
 ): Promise<void> {
 	const database = await getDb();
-
-	const tasksToSave: StoredTask[] = tasks
-		.filter((task) => {
-			const hasComponent =
-				typeof task.component === "string" && task.component.trim().length > 0;
-			return hasComponent || task.persist === true;
-		})
-		.map((task) => ({
-			id: task.id,
-			data: task.data,
-			status: task.status,
-			component: task.component,
-		}));
-
+	const existingArticle = await getArticleWithTasksByUrl(url);
+	const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
 	const tasksJson = JSON.stringify(tasksToSave);
 
-	// extract content, thumbnail, title, and mediaDirectory from tasks
-	const content = tasks.find((task) => task.id === "content")?.data || "";
+	const content =
+		getStoredTaskData<string>(tasksToSave, "content") ??
+		getArticleStringField(existingArticle, "content");
 	const thumbnailTaskData =
-		(tasks.find((task) => task.id === "thumbnail")?.data as
-			| { thumbnailImageSrc?: string; mediaDirectory?: string }
-			| undefined) || {};
-	const thumbnail = thumbnailTaskData.thumbnailImageSrc || "";
-	const mediaDirectory = thumbnailTaskData.mediaDirectory || "";
-	const title = tasks.find((task) => task.id === "title")?.data || "";
-	const mainColor = tasks.find((task) => task.id === "main-color")?.data || "";
+		getStoredTaskData<{
+			thumbnailImageSrc?: string;
+			mediaDirectory?: string;
+		}>(tasksToSave, "thumbnail") ?? {};
+	const thumbnail =
+		thumbnailTaskData.thumbnailImageSrc ?? existingArticle?.thumbnail ?? "";
+	const mediaDirectory =
+		thumbnailTaskData.mediaDirectory ??
+		getArticleStringField(existingArticle, "directory");
+	const title =
+		getStoredTaskData<string>(tasksToSave, "title") ??
+		existingArticle?.title ??
+		"";
+	const mainColor =
+		getStoredTaskData<string>(tasksToSave, "main-color") ??
+		existingArticle?.mainColor ??
+		"";
 
 	await database.execute(
 		`INSERT INTO articles (url, tasks, content, thumbnail, title, directory, main_color)
@@ -227,15 +279,6 @@ export async function deleteArticleByUrl(
 		}
 
 		await database.execute(`DELETE FROM articles WHERE url = $1`, [url]);
-
-		try {
-			const { removeArticleFromCache: removeFromUrlRouterCache } = await import(
-				"@/lib/urlRouter"
-			);
-			removeFromUrlRouterCache(url);
-		} catch (error) {
-			console.warn("Unable to clear urlRouter cache after delete", error);
-		}
 
 		return { success: true };
 	} catch (error) {

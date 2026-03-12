@@ -1,6 +1,6 @@
 <script lang="ts">
-import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
+import { primaryColor } from "@/stores/uiStore";
 
 let { children } = $props();
 
@@ -194,5 +194,23 @@ $effect.pre(() => {
     100% {
       background-position: 0% 0%;
     }
+  }
+
+  main::before {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.4;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='540' height='540' viewBox='0 0 240 240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 240px 240px;
+    pointer-events: none;
+    content: '';
+  }
+
+  main > * {
+    position: relative;
+    z-index: 1;
   }
 </style>

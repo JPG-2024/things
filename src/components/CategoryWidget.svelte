@@ -19,8 +19,8 @@ onMount(async () => {
 
 async function handleNavigateToArticle(article: ArticleWithTasks) {
 	if (!article.url) return;
-	await urlRouter(article.url);
 	navigate(`/youtube/${encodeURIComponent(article.url)}`);
+	await urlRouter(article.url);
 }
 </script>
 

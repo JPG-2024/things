@@ -57,11 +57,11 @@ function handleKeydown(event: KeyboardEvent) {
     width: 100%;
     color: inherit;
     font-size: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    /* border-bottom: 1px solid rgba(255, 255, 255, 0.2); */
   }
 
   .text-input:focus {
-    box-shadow: inset 0 0 5px 1px var(--primary-color);
+    box-shadow: inset 0 -1px 3px 0px var(--primary-color);
     transition: all 0.3s ease;
   }
 

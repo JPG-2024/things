@@ -4,12 +4,15 @@ import Modal from "@/components/Modal.svelte";
 import MarkdownRenderer from "../MarkdownRenderer.svelte";
 
 type Props = {
+	runId?: string;
 	task: Task;
 };
 
-let { task }: Props = $props();
+let { runId = undefined, task }: Props = $props();
 
 let showModal = $state(false);
+
+void runId;
 </script>
 
 {#if typeof task.data === 'string'}

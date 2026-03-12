@@ -2,13 +2,16 @@
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
 type Props = {
+	runId?: string;
 	taskId: string;
 };
 
-let { taskId }: Props = $props();
+let { runId = undefined, taskId }: Props = $props();
 
 const data = $derived.by(() =>
-	workflowManager.activeRunner?.getTaskData(taskId)
+	runId
+		? workflowManager.getTaskData(runId, taskId)
+		: workflowManager.activeRunner?.getTaskData(taskId)
 );
 
 void workflowManager;

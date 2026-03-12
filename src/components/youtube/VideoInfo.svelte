@@ -4,10 +4,13 @@ import Icon from "../Icon.svelte";
 import { calculateDaysAgo } from "@/lib/utils/date";
 
 type Props = {
+	runId?: string;
 	task: Task;
 };
 
-let { task }: Props = $props();
+let { runId = undefined, task }: Props = $props();
+
+void runId;
 
 function getDataContent(key: string): string | null {
 	const data = task?.data as Record<string, unknown> | null | undefined;
@@ -46,7 +49,7 @@ function getDataContent(key: string): string | null {
 <style>
 h3 {
     color: var(--primary-color);
-    font-family: Fira Sans Two;
+    font-family: Noto Sans Mono Thin;
 }
 
 .video-info {

@@ -118,6 +118,7 @@ export interface WorkflowRunOptions {
 	dependencies?: string[];
 	force?: boolean;
 	makeActive?: boolean;
+	parentRunId?: string;
 	stream?: boolean;
 }
 
