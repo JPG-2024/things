@@ -4,10 +4,14 @@ import { navigate } from "@/lib/utils/url";
 import { viewState } from "@/stores/viewStore.svelte";
 import Icon from "./Icon.svelte";
 import LinkIcon from "./LinkIcon.svelte";
+import Modal from "@/components/Modal.svelte";
 import Topbar from "./layout/Topbar.svelte";
 import StringReveal from "./StringReveal.svelte";
 import ToggleIcon from "./ToggleIcon.svelte";
 import { deleteArticleByUrl } from "@/stores/tasksStore";
+import Dropdown from "@/components/inputs/Dropdown.component.svelte";
+import { AVAILABLE_VOICES, ttsStore } from "@/stores/ttsStore";
+import Input from "./inputs/Input.component.svelte";
 
 interface Props {
 	headerContent?: any;
@@ -17,6 +21,7 @@ interface Props {
 const { headerContent, summaryContent } = $props();
 // reactive state for deletion flag (Svelte runes)
 let isDeleting = $state(false);
+let showSettingsModal = $state(false);
 
 // Add window scroll event listener on mount, remove on unload, using $effect.pre
 $effect.pre(() => {
@@ -62,7 +67,13 @@ async function handleDelete() {
       name="RefreshCcw"
       onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
     />
-    
+
+    <Icon
+      name="Settings"
+      title="Settings"
+      onClick={() => (showSettingsModal = true)}
+    />
+
     <LinkIcon url={viewState.url!} />
 
     {#if viewState.url && !viewState.loading}
@@ -92,6 +103,30 @@ async function handleDelete() {
   </div>
 
   {@render summaryContent()}
+
+  <Modal show={showSettingsModal} onClose={() => (showSettingsModal = false)}>
+    <div class="modal-inner">
+      <h2>Settings</h2>
+      
+      <Dropdown
+        options={[
+          { label: 'Spanish', value: 'es' },
+          { label: 'English', value: 'en' },
+        ]}
+        bind:value={viewState.language}
+       />
+
+         <Dropdown
+          options={AVAILABLE_VOICES.map((voice) => ({ label: voice, value: voice }))}
+          onChange={(voice) => (ttsStore.state.update((prev) => ({ ...prev, selectedVoice: voice })))}
+          value={ttsStore.state.selectedVoice}
+        />
+
+        <Input placeholder="speed.." onChange={(speed) => (ttsStore.state.update((prev) => ({ ...prev, speed: Number(speed) })))} value={String(ttsStore.state.speed)}/>
+
+        <Input placeholder="total steps.." onChange={(totalStep) => (ttsStore.state.update((prev) => ({ ...prev, totalStep: Number(totalStep) })))} value={String(ttsStore.state.totalStep)}/>
+    </div>
+  </Modal>
 </article>
 
 <style>

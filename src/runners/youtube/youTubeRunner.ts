@@ -15,16 +15,17 @@ const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	//TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
-	//TaskNames.CHAPTERS_SUMMARY,
+	TaskNames.KEYWORDS,
+	TaskNames.KEYPOINTS,
+	TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.SUMMARY,
-	TaskNames.KEY_POINTS,
 	//TaskNames.TTS,
 ];
 
 const videoItem: TaskNames[] = [
-	TaskNames.TITLE_SUMMARY,
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
+	TaskNames.TITLE_SUMMARY,
 	//TaskNames.TTS,
 ];
 
@@ -37,6 +38,7 @@ type YouTubeRunnerOptions = {
 	makeActive?: boolean;
 	parentRunId?: string;
 	routine?: keyof typeof routine;
+	Rebuild?: boolean;
 };
 
 export async function youTubeRunner(
@@ -50,12 +52,16 @@ export async function youTubeRunner(
 		routine[options.routine ?? "videoPage"],
 		youtubeTaskRegistry,
 		{ url, language: viewState.language },
-		{ persistedTasks: cachedArticle?.persistedTasks }
+		{
+			persistedTasks: cachedArticle?.persistedTasks,
+			Rebuild: options.Rebuild,
+		}
 	);
 
 	const runResult = await workflowManager.run(runId, tasks, {
 		makeActive: options.makeActive ?? true,
 		parentRunId: options.parentRunId,
+		Rebuild: options.Rebuild,
 	});
 
 	await saveTasks(url, runResult.tasks);

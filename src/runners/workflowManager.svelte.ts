@@ -220,7 +220,7 @@ export class WorkflowManager {
 			record.status = "running";
 
 			const summary = await record.runner.run({
-				force: options?.force,
+				Rebuild: options?.Rebuild,
 				stream: options?.stream,
 			});
 			record.summary = summary;

@@ -1,11 +1,19 @@
 <script lang="ts">
 import type { Snippet } from "svelte"; // Optional, for TypeScript
-export type CardProps = { children?: Snippet; title?: string; showTopLeftBorder?: boolean };
+export type CardProps = {
+	children?: Snippet;
+	title?: string;
+	showTopLeftBorder?: boolean;
+};
 let {
 	children,
 	title = "",
 	showTopLeftBorder = true,
-}: { children?: Snippet; title?: string; showTopLeftBorder?: boolean } = $props();
+}: {
+	children?: Snippet;
+	title?: string;
+	showTopLeftBorder?: boolean;
+} = $props();
 </script>
 
 <div class="widget" class:no-top-left-border={!showTopLeftBorder} role="group">
@@ -14,6 +22,12 @@ let {
   {/if}
   {@render children?.()}
   <div class="widget-corner"></div>
+  <svg class="widget-curve-tl" viewBox="0 0 60 60" preserveAspectRatio="none">
+    <path d="M 0 30 Q 0 0, 30 0" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" fill="none" />
+  </svg>
+  <svg class="widget-curve-br" viewBox="0 0 60 60" preserveAspectRatio="none">
+    <path d="M 60 30 Q 60 60, 30 60" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" fill="none" />
+  </svg>
 </div>
 
 <style>
@@ -62,8 +76,8 @@ let {
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.334) 0%,
-      rgba(255, 255, 255, 0.159) 50%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.159) 80%,
       transparent 100%
     );
     border-radius: 30px 0 0 0;
@@ -78,8 +92,8 @@ let {
     height: 40%; /* Cubre 40% de la altura izquierda */
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.334) 0%,
-      rgba(255, 255, 255, 0.159) 50%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.159) 80%,
       transparent 100%
     );
     border-radius: 30px 0 0 0;
@@ -104,8 +118,8 @@ let {
     height: 1px;
     background: linear-gradient(
       270deg,
-      rgba(255, 255, 255, 0.334) 0%,
-      rgba(255, 255, 255, 0.159) 50%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.159) 80%,
       transparent 100%
     );
     border-radius: 0 0 30px 0;
@@ -120,10 +134,28 @@ let {
     height: 100%;
     background: linear-gradient(
       0deg,
-      rgba(255, 255, 255, 0.334) 0%,
-      rgba(255, 255, 255, 0.159) 50%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.159) 80%,
       transparent 100%
     );
     border-radius: 0 0 30px 0;
+  }
+
+  .widget-curve-tl {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 60px;
+    height: 60px;
+    pointer-events: none;
+  }
+
+  .widget-curve-br {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    width: 60px;
+    height: 60px;
+    pointer-events: none;
   }
 </style>

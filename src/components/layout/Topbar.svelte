@@ -1,19 +1,19 @@
 <script lang="ts">
-import { invoke } from "@tauri-apps/api/core"
-import type { Snippet } from "svelte"
-import { viewState } from "@/stores/viewStore.svelte"
+import { invoke } from "@tauri-apps/api/core";
+import type { Snippet } from "svelte";
+import { viewState } from "@/stores/viewStore.svelte";
 
 interface Props {
-	children?: Snippet
+	children?: Snippet;
 }
 
-let { children }: Props = $props()
+let { children }: Props = $props();
 
 async function stopTTSPlayback() {
 	try {
-		await invoke("stop_tts_playback")
+		await invoke("stop_tts_playback");
 	} catch (err) {
-		console.error("Failed to stop TTS playback", err)
+		console.error("Failed to stop TTS playback", err);
 	}
 }
 </script>
@@ -22,12 +22,13 @@ async function stopTTSPlayback() {
   <button onclick={() => history.back()} class="back-navigation">⬅</button>
   <!-- <button title="Stop TTS" onclick={stopTTSPlayback} class="tts-stop">[]</button> -->
   {#if viewState.domainUrl}
-    <img
-      onclick={stopTTSPlayback}
-      class="favicon"
-      src="https://www.google.com/s2/favicons?sz=64&domain={viewState.domainUrl}"
-      alt=""
-    />
+    <button type="button" onclick={stopTTSPlayback} class="favicon-btn" aria-label="Stop TTS playback">
+      <img
+        class="favicon"
+        src="https://www.google.com/s2/favicons?sz=64&domain={viewState.domainUrl}"
+        alt=""
+      />
+    </button>
   {/if}
 
   {@render children?.()}
@@ -43,11 +44,10 @@ async function stopTTSPlayback() {
     justify-content: flex-start;
     align-items: center;
     gap: 10px;
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(10px);
-    background: rgba(54, 54, 54, 0.6);
-    min-height: 50px;
     backdrop-filter: blur(10px);
+    background: rgba(54, 54, 54, 0.98);
+    min-height: 50px;
     right: 0;
     left: 0;
     z-index: 10;
@@ -80,8 +80,17 @@ async function stopTTSPlayback() {
     text-decoration: none;
   }
 
-  .favicon {
+  .favicon-btn {
+    all: unset;
+    cursor: pointer;
     margin-right: auto;
+    border-radius: 8px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .favicon {
     border-radius: 8px;
     width: 32px;
     height: 32px;

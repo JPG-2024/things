@@ -1,9 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { invoke } from "@tauri-apps/api/core";
 import CategoryWidget from "@/components/CategoryWidget.svelte";
-import InstantResponse from "@/components/InstantResponse.svelte";
-import Dropdown from "@/components/inputs/Dropdown.component.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
 import { urlRouter } from "@/lib/urlRouter";
 import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url";
@@ -40,14 +36,6 @@ async function handlePasteUrl(url: string) {
 </script>
 
 <div class="dashboard-container">
-  <Dropdown
-    options={[
-      { label: 'Spanish', value: 'es' },
-      { label: 'English', value: 'en' },
-    ]}
-    bind:value={viewState.language}
-  ></Dropdown>
-
    <div class="title-row">
     <span class="dashboard-title">Things</span>
   </div> 

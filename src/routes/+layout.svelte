@@ -74,7 +74,7 @@ $effect.pre(() => {
 <main
   id="layout-main"
   bind:this={mainElement}
-  class="container {flashy ? 'flashy' : ''} {viewState.loaded
+  class="container {flashy ? 'flashy' : ''} {viewState.loading ? 'loading' : ''} {viewState.loaded
     ? 'loaded'
     : ''}"
 >
@@ -105,14 +105,7 @@ $effect.pre(() => {
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
 
-    * {
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE 10+ */
-      &::-webkit-scrollbar {
-        background: transparent; /* Chrome/Safari/Webkit */
-        width: 0px;
-      }
-    }
+ 
   }
 
   main {
@@ -146,9 +139,9 @@ $effect.pre(() => {
     background: linear-gradient(
       to bottom,
       rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0) 10%,
+      rgba(255, 255, 255, 0) 20%,
       var(--primary-color) 50%,
-      rgba(255, 255, 255, 0) 80%,
+      rgba(255, 255, 255, 0) 70%,
       rgba(255, 255, 255, 0) 100%
     );
     pointer-events: none; /* que no bloquee clicks */
@@ -196,7 +189,7 @@ $effect.pre(() => {
     }
   }
 
-  main::before {
+/*   main::before {
     position: fixed;
     inset: 0;
     z-index: 0;
@@ -207,7 +200,7 @@ $effect.pre(() => {
     background-size: 240px 240px;
     pointer-events: none;
     content: '';
-  }
+  } */
 
   main > * {
     position: relative;

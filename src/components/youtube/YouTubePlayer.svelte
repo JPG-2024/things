@@ -76,12 +76,6 @@ void runId;
     height: 100%;
     object-fit: cover;
     border-radius: 15px;
-    filter: grayscale(.5);
-    transition: filter 0.2s;
-
-    &:hover {
-      filter: grayscale(0);
-    }
   }
 
   /* Make iframe fill the wrapper */

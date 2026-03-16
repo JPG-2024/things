@@ -1,7 +1,22 @@
 <script>
 import { fade, scale } from "svelte/transition";
+import { onMount } from "svelte";
 
 let { show = false, onClose, children } = $props();
+
+onMount(() => {
+	const handleEscape = (e) => {
+		if (e.key === "Escape" && show) {
+			onClose();
+		}
+	};
+
+	window.addEventListener("keydown", handleEscape);
+
+	return () => {
+		window.removeEventListener("keydown", handleEscape);
+	};
+});
 </script>
 
 {#if show}
@@ -32,8 +47,8 @@ let { show = false, onClose, children } = $props();
     position: relative;
     background: black;
     padding: 1.5rem;
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 100vw;
+    height: 100vh;
     overflow-y: auto;
     border-radius: 8px;
     z-index: 10000;
@@ -44,7 +59,7 @@ let { show = false, onClose, children } = $props();
   }
 
   .close-btn {
-    position: absolute;
+    position: fixed;
     top: 0.5rem;
     right: 0.5rem;
     background: none;

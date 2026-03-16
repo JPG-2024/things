@@ -31,7 +31,7 @@ function getDataContent(key: string): string | null {
         <div class="info-row">
             <div class="pill">
                 <Icon name="User" />
-                <p>{getDataContent("channel")}</p>
+                <p class="channel-name">{getDataContent("channel")?.slice(2, 50)}</p>
             </div>
             <div class="pill">
                 <Icon name="Eye" />
@@ -55,6 +55,11 @@ h3 {
 .video-info {
   width: 100%;
   color: white;
+}
+
+.channel-name {
+    font-size: 1rem;
+    font-weight: bold;
 }
 
 .pill {

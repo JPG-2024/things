@@ -24,7 +24,7 @@ export const audioTaskRegistry: YouTubeTaskRegistrySubset<AudioTaskIds> = {
 			const result = await synthesizeSpeech(
 				summary,
 				language,
-				"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json",
+				"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/M1.json",
 				{
 					speed: 1.3,
 					onnx_dir:

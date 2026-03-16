@@ -1,7 +1,13 @@
 <script lang="ts">
 import * as icons from "@lucide/svelte";
 
-let { name, size = 18, color = "white", onClick = undefined, ...props } = $props();
+let {
+	name,
+	size = 18,
+	color = "white",
+	onClick = undefined,
+	...props
+} = $props();
 
 const Icon = (icons as any)[name];
 </script>

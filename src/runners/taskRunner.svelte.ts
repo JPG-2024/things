@@ -176,10 +176,10 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @param options - Controls whether already completed tasks should be preserved.
 	 */
 	resetStatuses(options?: TaskRunOptions) {
-		const force = options?.force ?? false;
+		const shouldRebuild = options?.Rebuild ?? false;
 
 		for (const task of this.tasks) {
-			if (!force && task.status === "done") {
+			if (!shouldRebuild && task.status === "done") {
 				task.error = undefined;
 				continue;
 			}
@@ -464,7 +464,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 	/**
 	 * Run the task runner: validate tasks, run ready tasks in correct order and update lastRun.
-	 * @param options - Execution controls such as forcing completed tasks to rerun.
+	 * @param options - Execution controls such as rebuilding completed tasks.
 	 * @returns Summary of the run.
 	 */
 	async run(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
@@ -472,7 +472,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			throw new Error("Task runner is already running.");
 		}
 
-		const runOptions = { force: false, ...options };
+		const runOptions = { Rebuild: false, ...options };
 
 		this.validateTasks();
 		this.resetStatuses(runOptions);
@@ -489,7 +489,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 				if (this.restartRequested) {
 					this.restartRequested = false;
-					this.resetStatuses({ force: true });
+					this.resetStatuses({ Rebuild: true });
 					continue;
 				}
 

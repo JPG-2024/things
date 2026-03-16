@@ -1,3 +1,4 @@
+import { viewState } from "@/stores/viewStore.svelte";
 import {
 	defaultCompletionOptions,
 	getContentFromState,
@@ -8,7 +9,8 @@ import {
 type SummaryTaskIds =
 	| TaskNames.SUMMARY
 	| TaskNames.TITLE_SUMMARY
-	| TaskNames.KEY_POINTS;
+	| TaskNames.KEYWORDS
+	| TaskNames.KEYPOINTS;
 
 export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 	[TaskNames.SUMMARY]: ({ language }) => ({
@@ -36,21 +38,21 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		completionOptions: defaultCompletionOptions,
 	}),
 
-	[TaskNames.KEY_POINTS]: () => ({
-		id: TaskNames.KEY_POINTS,
-		name: "Key Points",
-		dependencies: [TaskNames.SUMMARY],
-		component: "base",
+	[TaskNames.KEYWORDS]: () => ({
+		id: TaskNames.KEYWORDS,
+		name: "Keywords",
+		dependencies: [TaskNames.CONTENT],
+		component: "keywords",
 		type: "ia",
 		systemMessage: "Return only valid JSON that matches the provided schema.",
 		run: ({ state }) => {
-			const summary = state[TaskNames.SUMMARY];
+			const content = state[TaskNames.CONTENT];
 
-			if (typeof summary !== "string") {
-				throw new Error("Summary content is missing or invalid");
+			if (typeof content !== "string") {
+				throw new Error("Content is missing or invalid");
 			}
 
-			return summary;
+			return content;
 		},
 		userMessage: "extract 5 keywords.",
 		completionOptions: {
@@ -77,6 +79,54 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 							},
 						},
 						required: ["keywords"],
+						additionalProperties: false,
+					},
+				},
+			},
+		},
+	}),
+
+	[TaskNames.KEYPOINTS]: () => ({
+		id: TaskNames.KEYPOINTS,
+		name: "Key Points",
+		dependencies: [TaskNames.CONTENT],
+		component: "listItems",
+		type: "ia",
+		systemMessage: `Return only valid JSON that matches the provided schema. Response in language: ${viewState.language === "es" ? "Spanish" : "English"}.`,
+		run: ({ state }) => {
+			const content = state[TaskNames.CONTENT];
+
+			if (typeof content !== "string") {
+				throw new Error("Content is missing or invalid");
+			}
+
+			return content;
+		},
+		userMessage: "extract 5 key points titles in one line.",
+		completionOptions: {
+			...defaultCompletionOptions,
+			temperature: 1.0,
+			top_p: 0.95,
+			top_k: 20,
+			min_p: 0.0,
+			presence_penalty: 1.5,
+			repeat_penalty: 1.0,
+			response_format: {
+				type: "json_schema",
+				json_schema: {
+					name: "keypointsTitles",
+					strict: true,
+					schema: {
+						type: "object",
+						properties: {
+							keypointsTitles: {
+								type: "array",
+								items: { type: "string" },
+								minItems: 5,
+								maxItems: 5,
+							},
+						},
+						required: ["keypointsTitles"],
 						additionalProperties: false,
 					},
 				},

@@ -47,6 +47,8 @@ function handleChange(event: Event) {
 
 <style>
   .dropdown-input {
+    position: relative;
+    color: var(--primary-color);
     backdrop-filter: blur(8px);
     box-sizing: border-box;
     outline: none;
@@ -54,7 +56,6 @@ function handleChange(event: Event) {
     border-radius: 15px;
     background: rgba(154, 154, 154, 0.12);
     box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     padding: 0.6rem 0.75rem;
     width: 100%;
     color: inherit;

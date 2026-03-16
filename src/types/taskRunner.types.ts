@@ -46,7 +46,7 @@ export interface TaskRuntime<
 }
 
 export interface TaskRunOptions {
-	force?: boolean;
+	Rebuild?: boolean;
 	stream?: boolean;
 }
 
@@ -116,7 +116,7 @@ export interface TaskRunnerState<TMap extends TaskMapBase = TaskMapBase> {
 
 export interface WorkflowRunOptions {
 	dependencies?: string[];
-	force?: boolean;
+	Rebuild?: boolean;
 	makeActive?: boolean;
 	parentRunId?: string;
 	stream?: boolean;

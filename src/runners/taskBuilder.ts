@@ -110,6 +110,7 @@ function normalizeTaskSelections<
 
 type BuildTaskSubroutineOptions = {
 	persistedTasks?: PersistedTaskState[];
+	Rebuild?: boolean;
 };
 
 export async function buildTaskSubroutine<
@@ -124,6 +125,7 @@ export async function buildTaskSubroutine<
 	options?: BuildTaskSubroutineOptions
 ): Promise<Task<TState>[]> {
 	const persistedTaskMap = createPersistedTaskStateMap(options?.persistedTasks);
+	const shouldRebuild = options?.Rebuild ?? false;
 	const { orderedTaskIds, taskOverrides } =
 		normalizeTaskSelections(selectedTaskIds);
 	const visited = new Set<TTaskId>();
@@ -148,6 +150,15 @@ export async function buildTaskSubroutine<
 			),
 			taskOverrides.get(taskId)
 		);
+
+		if (!shouldRebuild && task.status === "done") {
+			visited.add(taskId);
+			orderedTasks.push({
+				...task,
+				dependencies: [],
+			});
+			return;
+		}
 
 		for (const dependencyId of task.dependencies as TTaskId[]) {
 			visit(dependencyId);

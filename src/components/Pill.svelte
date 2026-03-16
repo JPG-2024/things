@@ -4,18 +4,19 @@ type PillStatus = "loading" | "error" | "idle" | "done";
 type Props = {
 	status: PillStatus;
 	text: string;
+	tag?: boolean;
 };
 
-let { status, text }: Props = $props();
+let { status, text, tag = false }: Props = $props();
 </script>
 
-<span class={`pill ${status}`}>
+<span class={`pill ${status} ${tag ? 'tag' : ''}`}>
 	{text}
 </span>
 
 <style>
 	.pill {
-		color: white;
+		color: var(--primary-color);
 		border: 1px solid #555;
 		border-radius: 999px;
 		background-color: rgb(154, 154, 154, 0.1);
@@ -36,7 +37,7 @@ let { status, text }: Props = $props();
 	}
 
 	.pill.loading::before {
-		background-color: var(--pill-indicator-loading, #f59e0b);
+		background-color: var(--pill-indicator-loading, var(--primary-color, #3b82f6));
 	}
 
 	.pill.error::before {
@@ -53,5 +54,13 @@ let { status, text }: Props = $props();
 
 	.pill.done {
 		opacity: 0.5;
+	}
+
+	.pill.tag {
+		border-radius: 4px;
+	}
+
+	.pill.tag::before {
+		display: none;
 	}
 </style>

@@ -2,6 +2,7 @@
 import type { Task } from "@/types/taskRunner.types";
 import Modal from "@/components/Modal.svelte";
 import MarkdownRenderer from "../MarkdownRenderer.svelte";
+import TTSPlayback from "../TTSComponent.svelte";
 
 type Props = {
 	runId?: string;
@@ -11,6 +12,7 @@ type Props = {
 let { runId = undefined, task }: Props = $props();
 
 let showModal = $state(false);
+const playbackId = $derived(runId ? `${runId}:${task.id}` : `task:${task.id}`);
 
 void runId;
 </script>
@@ -19,6 +21,7 @@ void runId;
   <div class="base-task-render">
     <div class="task-header">
       <div onclick={() => (showModal = true)} class="task-title">{task.name}</div>
+      <TTSPlayback id={playbackId} text={task.data}/>
     </div>
     <MarkdownRenderer content={task.data} />
   </div>
@@ -42,6 +45,9 @@ void runId;
     word-break: break-word;
 
     .task-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
       font-weight: bold;
       font-size: 1.2em;
     }

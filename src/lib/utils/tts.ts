@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "@tauri-apps/api/core";
 
 // ============================================================================
 // Type Definitions
@@ -9,11 +9,11 @@ import { invoke } from "@tauri-apps/api/core"
  */
 export interface TTSOptions {
 	/** Path to ONNX model directory (default: "assets/onnx") */
-	onnx_dir?: string
+	onnx_dir?: string;
 	/** Number of denoising steps (default: 5) */
-	total_step?: number
+	total_step?: number;
 	/** Speech speed factor, higher = faster (default: 1.05) */
-	speed?: number
+	speed?: number;
 }
 
 /**
@@ -21,23 +21,23 @@ export interface TTSOptions {
  */
 export interface TTSResult {
 	/** Path to the generated WAV file in system temp directory */
-	file_path: string
+	file_path: string;
 	/** Duration of the audio in seconds */
-	duration: number
+	duration: number;
 }
 
 // ============================================================================
 // Available Languages
 // ============================================================================
 
-export const AVAILABLE_LANGUAGES = ["en", "ko", "es", "pt", "fr"] as const
-export type TTSLanguage = (typeof AVAILABLE_LANGUAGES)[number]
+export const AVAILABLE_LANGUAGES = ["en", "ko", "es", "pt", "fr"] as const;
+export type TTSLanguage = (typeof AVAILABLE_LANGUAGES)[number];
 
 /**
  * Check if a language code is valid for TTS
  */
 export function isValidLanguage(lang: string): lang is TTSLanguage {
-	return AVAILABLE_LANGUAGES.includes(lang as TTSLanguage)
+	return AVAILABLE_LANGUAGES.includes(lang as TTSLanguage);
 }
 
 // ============================================================================
@@ -69,10 +69,12 @@ export async function synthesizeSpeech(
 	text: string,
 	lang: TTSLanguage,
 	voiceStylePath: string,
-	options?: TTSOptions,
+	options?: TTSOptions
 ): Promise<TTSResult> {
 	if (!isValidLanguage(lang)) {
-		throw new Error(`Invalid language: ${lang}. Available: ${AVAILABLE_LANGUAGES.join(", ")}`)
+		throw new Error(
+			`Invalid language: ${lang}. Available: ${AVAILABLE_LANGUAGES.join(", ")}`
+		);
 	}
 
 	return await invoke<TTSResult>("synthesize_speech", {
@@ -80,7 +82,7 @@ export async function synthesizeSpeech(
 		lang,
 		voiceStylePath,
 		options: options || null,
-	})
+	});
 }
 
 /**
@@ -114,24 +116,26 @@ export async function synthesizeSpeechBatch(
 	texts: string[],
 	langs: TTSLanguage[],
 	voiceStylePaths: string[],
-	options?: TTSOptions,
+	options?: TTSOptions
 ): Promise<TTSResult[]> {
 	// Validate lengths
 	if (texts.length !== langs.length) {
 		throw new Error(
-			`Number of texts (${texts.length}) must match number of languages (${langs.length})`,
-		)
+			`Number of texts (${texts.length}) must match number of languages (${langs.length})`
+		);
 	}
 	if (texts.length !== voiceStylePaths.length) {
 		throw new Error(
-			`Number of texts (${texts.length}) must match number of voice styles (${voiceStylePaths.length})`,
-		)
+			`Number of texts (${texts.length}) must match number of voice styles (${voiceStylePaths.length})`
+		);
 	}
 
 	// Validate languages
 	for (const lang of langs) {
 		if (!isValidLanguage(lang)) {
-			throw new Error(`Invalid language: ${lang}. Available: ${AVAILABLE_LANGUAGES.join(", ")}`)
+			throw new Error(
+				`Invalid language: ${lang}. Available: ${AVAILABLE_LANGUAGES.join(", ")}`
+			);
 		}
 	}
 
@@ -140,7 +144,7 @@ export async function synthesizeSpeechBatch(
 		langs,
 		voiceStylePaths,
 		options: options || null,
-	})
+	});
 }
 
 /**
@@ -161,7 +165,7 @@ export async function synthesizeSpeechBatch(
  * ```
  */
 export async function cleanupTTSFile(filePath: string): Promise<void> {
-	await invoke("cleanup_tts_file", { filePath })
+	await invoke("cleanup_tts_file", { filePath });
 }
 
 // ============================================================================
@@ -176,9 +180,9 @@ export const VOICE_STYLES = {
 	male2: "assets/voice_styles/M2.json",
 	female1: "assets/voice_styles/F1.json",
 	female2: "assets/voice_styles/F2.json",
-} as const
+} as const;
 
-export type VoiceStylePreset = keyof typeof VOICE_STYLES
+export type VoiceStylePreset = keyof typeof VOICE_STYLES;
 
 /**
  * Play a TTS-generated audio file
@@ -193,12 +197,12 @@ export type VoiceStylePreset = keyof typeof VOICE_STYLES
  * ```
  */
 export async function playTTS(filePath: string): Promise<void> {
-	await invoke("play_tts_file", { filePath })
+	await invoke("play_tts_file", { filePath });
 }
 
 /**
  * Get voice style path from preset name
  */
 export function getVoiceStylePath(preset: VoiceStylePreset): string {
-	return VOICE_STYLES[preset]
+	return VOICE_STYLES[preset];
 }

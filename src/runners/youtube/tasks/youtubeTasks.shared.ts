@@ -43,10 +43,11 @@ export enum TaskNames {
 	INIT = "init",
 	THUMBNAIL = "thumbnail",
 	MAIN_COLOR = "main-color",
-	SUMMARY = "Summary",
-	GET_CHANNEL_VIDEOS = "Getting channel videos",
-	EXTRACT_CHANNEL_VIDEOS = "Extract channel videos",
-	KEY_POINTS = "key-points",
+	SUMMARY = "summary",
+	GET_CHANNEL_VIDEOS = "getting-channel-videos",
+	EXTRACT_CHANNEL_VIDEOS = "extract-channel-videos",
+	KEYWORDS = "keywords",
+	KEYPOINTS = "key-points",
 	CHAPTERS = "chapters",
 	CHAPTERS_SUMMARY = "chapters-summary",
 	TIMED_CAPTIONS = "timed-captions",
@@ -68,7 +69,8 @@ export type YouTubeTaskState = {
 	[TaskNames.CHAPTERS]: Chapter[];
 	[TaskNames.CHAPTERS_SUMMARY]: ChapterContext;
 	[TaskNames.SUMMARY]: string;
-	[TaskNames.KEY_POINTS]: string;
+	[TaskNames.KEYWORDS]: string;
+	[TaskNames.KEYPOINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.TITLE_SUMMARY]: string;
 } & Record<`chapter-summary-${number}`, string>;
