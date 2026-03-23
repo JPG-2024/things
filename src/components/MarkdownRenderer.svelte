@@ -1,15 +1,15 @@
 <script lang="ts">
-import MarkdownIt from "markdown-it"
+import MarkdownIt from "markdown-it";
 
 interface Props {
-	content?: string | null
-	fontSize?: string | number
+	content?: string | null;
+	fontSize?: string | number;
 }
 
-export type MarkdownRendererProps = Props
-const DEFAULT_FONT_SIZE = 0.9
+export type MarkdownRendererProps = Props;
+const DEFAULT_FONT_SIZE = 1;
 
-let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props()
+let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props();
 
 // Initialize markdown-it
 const md = new MarkdownIt({
@@ -17,35 +17,35 @@ const md = new MarkdownIt({
 	linkify: true,
 	typographer: true,
 	breaks: true,
-})
+});
 
 function preprocessContent(text: string): string {
-	let processed = text.replace(/\\n/g, "\n").replace(/\\"/g, '"')
+	let processed = text.replace(/\\n/g, "\n").replace(/\\"/g, '"');
 
 	// Handle 陇 tags for reasoning models
 	// Replace opening tag with details/summary
 	processed = processed.replace(
 		/陇/g,
-		'<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">',
-	)
+		'<details class="thought-process"><summary>Thought Process</summary><div class="thought-content">'
+	);
 
 	// Replace closing tag
-	processed = processed.replace(/<\/think>/g, "</div></details>")
+	processed = processed.replace(/<\/think>/g, "</div></details>");
 
 	// Handle unclosed tag (streaming)
-	const lastOpen = processed.lastIndexOf('<details class="thought-process">')
-	const lastClose = processed.lastIndexOf("</details>")
+	const lastOpen = processed.lastIndexOf('<details class="thought-process">');
+	const lastClose = processed.lastIndexOf("</details>");
 	if (lastOpen > lastClose) {
-		processed += "</div></details>"
+		processed += "</div></details>";
 	}
 
-	return processed
+	return processed;
 }
 </script>
 
 {#if content}
   <!-- apply computed font size -->
-  <div class="markdown-container" style="font-size: {fontSize}rem;">
+  <div class="markdown-container" style="font-size: {fontSize}em;">
     {@html md.render(preprocessContent(content))}
   </div>
 {/if}
@@ -58,24 +58,24 @@ function preprocessContent(text: string): string {
     color: #fafafa;
     text-align: left;
     word-wrap: break-word;
-    font-size: 1rem;
+    font-size: 1em;
     line-height: 1.6;
     overflow-wrap: break-word;
   }
 
   /* Styles for thought process */
   .markdown-container :global(.thought-process) {
-    margin-bottom: 1rem;
+    margin-bottom: em;
     border: 1px solid #333;
     border-radius: 6px;
     background-color: #1a1a1a;
   }
 
   .markdown-container :global(.thought-process summary) {
-    padding: 0.5rem 1rem;
+    padding: 0.5em 1em;
     cursor: pointer;
     color: #888;
-    font-size: 1rem;
+    font-size: em;
     user-select: none;
   }
 
@@ -85,10 +85,10 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(.thought-content) {
-    padding: 1rem;
+    padding: 1em;
     border-top: 1px solid #333;
     color: #aaa;
-    font-size: 0.85rem;
+    font-size: 0.85em;
     font-style: italic;
   }
 
@@ -106,19 +106,20 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(h1) {
-    font-size: 1.8rem;
+    font-size: 1.8em;
   }
 
   .markdown-container :global(h2) {
-    font-size: 1.5rem;
+    font-size: 1.5em;
   }
 
   .markdown-container :global(h3) {
-    font-size: 1.3rem;
+    font-size: 1.3em;
   }
 
   .markdown-container :global(p) {
-    margin: 0.8rem 0;
+    font-size: 1em;
+    margin: 0.8em 0;
     line-height: 1.8;
   }
 
@@ -127,11 +128,11 @@ function preprocessContent(text: string): string {
     
     padding: 2px 6px;
     color: #fafafa;
-    font-size: 1rem;
+    font-size: 1em;
   }
 
   .markdown-container :global(pre) {
-    margin: 1rem 0;
+    margin: 1em 0;
     
     border-radius: 8px;
     
@@ -152,10 +153,13 @@ function preprocessContent(text: string): string {
     text-decoration: underline;
   }
 
+  .markdown-container :global(p) {
+    font-size: 1em;
+  }
 
   .markdown-container :global(ul),
   .markdown-container :global(ol) {
-    margin: 1rem 0 1rem 2rem;
+    margin: 1em 0 1em 2em;
     padding: 0;
   }
 
@@ -164,12 +168,12 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(li) {
-    margin: 0.5rem 0;
+    margin: 0.5em 0;
   }
 
   .markdown-container :global(blockquote) {
-    margin: 1rem 0;
-    padding-left: 1rem;
+    margin: 1em 0;
+    padding-left: 1em;
     color: #d0d0d0;
     font-style: italic;
   }
@@ -177,6 +181,7 @@ function preprocessContent(text: string): string {
   .markdown-container :global(strong) {
     font-weight: bold;
     font-size: 1em;
+    color: var(--primary-color);
   }
 
   .markdown-container :global(em) {
@@ -184,13 +189,13 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(img) {
-    margin: 1rem 0;
+    margin: 1em 0;
     border-radius: 8px;
     height: auto;
   }
 
   .markdown-container :global(table) {
-    margin: 1rem 0;
+    margin: 1em 0;
     border-collapse: collapse;
     width: 100%;
   }

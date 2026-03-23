@@ -1,3 +1,6 @@
+
+Avoid fix biome linter.
+
 # AGENTS.md - Agents intructions
 
 ## Tech stack

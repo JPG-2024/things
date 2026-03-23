@@ -132,7 +132,6 @@ export interface LlamaChatCompletionsRequest {
 	return_tokens?: boolean; // Requests raw generated tokens in the response.
 	return_progress?: boolean; // Requests intermediate progress events.
 	response_fields?: string[]; // Selects optional extra fields to include in the response.
-	lora?: LlamaLoraSpec[]; // LoRA adapters to apply for this request.
 
 	[key: string]: unknown; // Allows provider-specific extra request fields.
 }

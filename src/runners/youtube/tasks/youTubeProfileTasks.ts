@@ -32,7 +32,6 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		name: "Get thumbnail",
 		dependencies: [TaskNames.INIT],
 		type: "script",
 		component: "player",

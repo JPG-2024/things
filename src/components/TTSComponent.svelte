@@ -101,7 +101,6 @@ $effect(() => {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		
 		border-radius: 4px;
 		background: rgba(255, 255, 255, 0.06);
 		padding: 0 8px;
@@ -113,7 +112,7 @@ $effect(() => {
 		opacity: 0.6;
 	}
 	.time {
-		
+		word-break: keep-all;
 		font-variant-numeric: tabular-nums;
 	}
 

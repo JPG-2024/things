@@ -16,7 +16,7 @@ pub use crate::youtube::{
 };
 
 mod youtube_info;
-pub use crate::youtube_info::{extract_chapters, get_youtube_info};
+pub use crate::youtube_info::{extract_chapters};
 
 mod splitter;
 pub use crate::splitter::{split_text, split_text_command, SplitMode};
@@ -69,7 +69,6 @@ pub fn run() {
             extract_metadata,
             extract_blog,
             get_page_elements,
-            get_youtube_info,
             extract_chapters,
             get_youtube_transcript_timed,
             get_youtube_transcript_timed_text,

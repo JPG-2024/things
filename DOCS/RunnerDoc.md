@@ -122,7 +122,7 @@ An IA task sends a chat completion request to an LLM. The runner builds the mess
   name: "Summary",
   dependencies: [TaskNames.FETCH_DATA],
   type: "ia",
-  component: "base",                       // optional: UI component hint
+  component: "markdownTaskComponent",                       // optional: UI component hint
   systemMessage: "You are a helpful summarizer.",
   userMessage: "Summarize the context concisely in one paragraph.",
   run: (state) => {
@@ -186,7 +186,7 @@ The `component` field is an optional string that tells the frontend which compon
 
 | Value        | Usage                        |
 |--------------|------------------------------|
-| `"base"`     | Markdown text output         |
+| `markdownTaskComponent`     | Markdown text output         |
 | `"player"`   | Media player                 |
 | `"videoInfo"` | Video metadata display      |
 | *(omitted)*  | No UI widget rendered        |
@@ -237,7 +237,7 @@ function createTasks(input: string): Task<StepState>[] {
       name: "Summarize",
       dependencies: [Steps.ANALYZE],
       type: "ia",
-      component: "base",
+      component: "taskBase",
       systemMessage: "You summarize text concisely.",
       userMessage: "Summarize this in 2 sentences.",
       run: (state) => state[Steps.ANALYZE]?.text ?? "",

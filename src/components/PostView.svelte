@@ -135,7 +135,7 @@ async function handleDelete() {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    gap: 1.5rem;
+    gap: 0.2em;
     box-sizing: border-box;
     padding-top: 20px;
     width: 100%;

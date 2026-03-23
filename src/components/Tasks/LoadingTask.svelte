@@ -26,13 +26,13 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
 };
 </script>
 
-{#if task.status !== 'done' || viewState.showAllTasks}
-  <div class="pill" transition:fade={{ duration: 500 }} onclick={() => (showModal = true)}>
-    <Pill status={getPillStatus(task.status)} text={task.name} />
+{#if getPillStatus(task.status) === 'loading' || viewState.showAllTasks}
+  <button class="loading-container" transition:fade={{ duration: 500 }} onclick={() => (showModal = true)}>
+    <Pill status={getPillStatus(task.status)} text={task.id} />
     {#if task.error}
       <p>{task.error}</p>
     {/if}
-  </div>
+  </button>
 {/if}
 
 <Modal show={showModal} onClose={() => (showModal = false)}>
@@ -41,9 +41,13 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
 </Modal>
 
 <style>
-  .pill {
+  .loading-container {
     width: max-content;
     cursor: pointer;
+    margin: 2em 0;
+    border: none;
+    background: none;
+    padding: 0;
   }
 
   .wrapped-output {

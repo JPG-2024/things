@@ -17,7 +17,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		id: TaskNames.SUMMARY,
 		name: "Summary",
 		dependencies: [TaskNames.CONTENT],
-		component: "base",
+		component: "taskBase",
 		type: "ia",
 		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Limit to 60 words maximum. Maintain a formal tone. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
@@ -30,7 +30,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		id: TaskNames.TITLE_SUMMARY,
 		name: "Title Summary",
 		dependencies: [TaskNames.CONTENT],
-		component: "base",
+		component: "taskBase",
 		type: "ia",
 		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Limit to 20 words maximum. Avoid words like summary, video, etc. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
@@ -40,7 +40,6 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 	[TaskNames.KEYWORDS]: () => ({
 		id: TaskNames.KEYWORDS,
-		name: "Keywords",
 		dependencies: [TaskNames.CONTENT],
 		component: "keywords",
 		type: "ia",
@@ -88,7 +87,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 	[TaskNames.KEYPOINTS]: () => ({
 		id: TaskNames.KEYPOINTS,
-		name: "Key Points",
+		name: "Key points",
 		dependencies: [TaskNames.CONTENT],
 		component: "listItems",
 		type: "ia",

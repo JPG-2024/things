@@ -29,7 +29,6 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		name: "Get thumbnail",
 		dependencies: [TaskNames.INIT],
 		type: "script",
 		component: "player",
@@ -40,7 +39,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 				throw new Error("Video ID not found in URL");
 			}
 
-			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId);
+			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, "default");
 
 			const {
 				mediaDirectory,

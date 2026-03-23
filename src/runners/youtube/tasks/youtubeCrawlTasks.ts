@@ -20,7 +20,6 @@ type CrawlTaskIds =
 export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.VIDEO_INFO]: () => ({
 		id: TaskNames.VIDEO_INFO,
-		name: "Crawling",
 		dependencies: [TaskNames.INIT],
 		component: "videoInfo",
 		type: "script",
@@ -38,14 +37,14 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 					},
 					{ name: "channel", selector: "#channel-name a", attribute: "href" },
 				],
+				attempts: 5,
+				intervalMs: 200,
 			});
 		},
 	}),
 	[TaskNames.CHAPTERS]: () => ({
 		id: TaskNames.CHAPTERS,
-		name: "Crawling",
 		dependencies: [TaskNames.INIT],
-		component: "videoInfo",
 		type: "script",
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);

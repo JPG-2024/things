@@ -57,6 +57,11 @@ pub async fn download_and_save_image(
 
     // Write the image file
     let filepath = media_dir.join(&filename);
+
+    if filepath.exists() {
+        return Ok(filename);
+    }
+
     std::fs::write(&filepath, bytes)
         .map_err(|e| format!("Failed to save image: {}", e))?;
 

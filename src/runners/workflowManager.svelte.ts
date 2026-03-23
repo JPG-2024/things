@@ -5,6 +5,8 @@ import {
 import type {
 	Task,
 	TaskMapBase,
+	TaskRerunOptions,
+	TaskRerunPatch,
 	TaskRunSummary,
 	WorkflowRunOptions,
 	WorkflowRunStatus,
@@ -166,6 +168,38 @@ export class WorkflowManager {
 		return promise;
 	}
 
+	async rerunTask<TMap extends TaskMapBase = TaskMapBase>(
+		id: string,
+		taskId: keyof TMap & string,
+		patch?: TaskRerunPatch<TMap>,
+		options?: TaskRerunOptions
+	): Promise<TaskRunSummary<TMap>> {
+		const record = this.runs.get(id) as WorkflowRunRecord<TMap> | undefined;
+		if (!record) {
+			throw new Error(`Unknown workflow run: ${id}`);
+		}
+
+		if (record.status === "running" && record.promise) {
+			throw new Error(`Workflow run is already running: ${id}`);
+		}
+
+		this.syncRunStack(record.id, {
+			makeActive: true,
+			parentRunId: undefined,
+		});
+		this.setActiveRun(id);
+		record.status = "pending";
+		record.error = undefined;
+		record.summary = undefined;
+		record.startedAt = Date.now();
+		record.endedAt = undefined;
+
+		const promise = this.executeTaskRerun(record, taskId, patch, options);
+		record.promise = promise;
+
+		return promise;
+	}
+
 	private ensureRun<TMap extends TaskMapBase>(
 		id: string
 	): WorkflowRunRecord<TMap> {
@@ -223,6 +257,33 @@ export class WorkflowManager {
 				Rebuild: options?.Rebuild,
 				stream: options?.stream,
 			});
+			record.summary = summary;
+			record.endedAt = Date.now();
+			record.status = isSuccessfulSummary(summary) ? "done" : "failed";
+			record.promise = undefined;
+
+			return summary;
+		} catch (error) {
+			record.error = toErrorMessage(error);
+			record.endedAt = Date.now();
+			record.status = record.error.startsWith("Blocked by dependency")
+				? "blocked"
+				: "failed";
+			record.promise = undefined;
+			throw error;
+		}
+	}
+
+	private async executeTaskRerun<TMap extends TaskMapBase>(
+		record: WorkflowRunRecord<TMap>,
+		taskId: keyof TMap & string,
+		patch?: TaskRerunPatch<TMap>,
+		options?: TaskRerunOptions
+	): Promise<TaskRunSummary<TMap>> {
+		try {
+			record.status = "running";
+
+			const summary = await record.runner.rerunTask(taskId, patch, options);
 			record.summary = summary;
 			record.endedAt = Date.now();
 			record.status = isSuccessfulSummary(summary) ? "done" : "failed";

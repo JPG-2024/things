@@ -1,9 +1,37 @@
 <script lang="ts">
+import { tick } from "svelte";
+import BaseTaskComponent from "@/components/Tasks/baseTaskComponent.svelte";
 import LoadingTask from "@/components/Tasks/LoadingTask.svelte";
 import { taskRenderRegistry } from "@/components/Tasks/taskRenderRegistry";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
 const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
+
+let bottomAnchor: HTMLDivElement | undefined = $state();
+let previousFinishedCount = $state(0);
+
+async function scrollToBottom() {
+	await tick();
+	bottomAnchor?.scrollIntoView({
+		behavior: "smooth",
+		block: "end",
+	});
+}
+
+$effect(() => {
+	const finishedCount = stackedTasks.filter(
+		({ task }) =>
+			task.status === "done" ||
+			task.status === "failed" ||
+			task.status === "blocked"
+	).length;
+
+	if (finishedCount > previousFinishedCount) {
+		void scrollToBottom();
+	}
+
+	previousFinishedCount = finishedCount;
+});
 
 void LoadingTask;
 void taskRenderRegistry;
@@ -15,9 +43,15 @@ void stackedTasks;
   {@const task = entry.task}
   {@const componentKey = task.component?.trim()}
   {@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-  {#if Renderer}
-    <Renderer {task} runId={entry.runId} />
-  {:else if task.status !== 'pending'}
-    <LoadingTask {task} runId={entry.runId} />
-  {/if}
+
+    {#if Renderer && task.status === 'done'}
+      <BaseTaskComponent {task} runId={entry.runId}>
+        <Renderer {task} runId={entry.runId} />
+      </BaseTaskComponent>
+    {:else}
+      <LoadingTask {task} runId={entry.runId} />
+    {/if}
+
 {/each}
+
+<div bind:this={bottomAnchor} aria-hidden="true"></div>

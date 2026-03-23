@@ -5,9 +5,11 @@ import type {
 	Task,
 	TaskGlobalState,
 	TaskMapBase,
+	TaskRerunOptions,
+	TaskRerunPatch,
 	TaskRunOptions,
-	TaskRuntime,
 	TaskRunSummary,
+	TaskRuntime,
 	TaskStateUpdate,
 	TaskStatus,
 	TaskStatusUpdater,
@@ -194,6 +196,24 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 
 	/**
+	 * Reset runtime fields for a specific set of tasks.
+	 * @param taskIds - Task ids to reset.
+	 */
+	private resetTaskIds(taskIds: Iterable<string>) {
+		for (const taskId of taskIds) {
+			const task = this.getTaskById(taskId);
+			if (!task) continue;
+
+			task.status = "pending";
+			task.error = undefined;
+			task.startedAt = undefined;
+			task.endedAt = undefined;
+			task.debug = undefined;
+			task.data = undefined;
+		}
+	}
+
+	/**
 	 * Get stored data for a task.
 	 * @param taskId - Task id to fetch data for.
 	 * @returns The task's data or undefined.
@@ -211,6 +231,30 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	private getTaskById(taskId: string): Task<TMap> | undefined {
 		return this.tasks.find((task) => task.id === taskId);
+	}
+
+	/**
+	 * Get all descendant task ids that depend on the provided task.
+	 * @param taskId - Root task id.
+	 * @returns Descendant task ids.
+	 */
+	private getDescendantTaskIds(taskId: string): string[] {
+		const descendants = new Set<string>();
+		const queue = [taskId];
+
+		while (queue.length > 0) {
+			const current = queue.shift();
+			if (!current) continue;
+
+			for (const task of this.tasks) {
+				if (task.dependencies.includes(current) && !descendants.has(task.id)) {
+					descendants.add(task.id);
+					queue.push(task.id);
+				}
+			}
+		}
+
+		return [...descendants];
 	}
 
 	/**
@@ -234,6 +278,16 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const task = this.getTaskById(taskId);
 		if (!task) return;
 		Object.assign(task, patch);
+	}
+
+	/**
+	 * Apply editable overrides to a task before re-running it.
+	 * @param taskId - Task id to patch.
+	 * @param patch - Editable task fields.
+	 */
+	private patchTask(taskId: string, patch?: TaskRerunPatch<TMap>) {
+		if (!patch) return;
+		this.setTaskFields(taskId, patch as Partial<Task<TMap>>);
 	}
 
 	/**
@@ -463,19 +517,13 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 
 	/**
-	 * Run the task runner: validate tasks, run ready tasks in correct order and update lastRun.
-	 * @param options - Execution controls such as rebuilding completed tasks.
+	 * Execute the scheduler loop and update lastRun.
+	 * @param options - Execution controls.
 	 * @returns Summary of the run.
 	 */
-	async run(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
-		if (this.running) {
-			throw new Error("Task runner is already running.");
-		}
-
-		const runOptions = { Rebuild: false, ...options };
-
-		this.validateTasks();
-		this.resetStatuses(runOptions);
+	private async executeRunLoop(
+		options?: TaskRunOptions
+	): Promise<TaskRunSummary<TMap>> {
 		this.running = true;
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
@@ -499,7 +547,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				const readyScripts = ready.filter((task) => task.type === "script");
 				if (readyScripts.length > 0) {
 					const results = await Promise.allSettled(
-						readyScripts.map((task) => this.executeTask(task, runOptions))
+						readyScripts.map((task) => this.executeTask(task, options))
 					);
 					const failedIndex = results.findIndex(
 						(result) => result.status === "rejected"
@@ -519,7 +567,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				if (!nextIa) break;
 
 				try {
-					await this.executeTask(nextIa, runOptions);
+					await this.executeTask(nextIa, options);
 				} catch {
 					failedTaskId = nextIa.id;
 					this.markDescendantsBlocked(nextIa.id);
@@ -544,6 +592,55 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		}
 
 		return this.lastRun;
+	}
+
+	/**
+	 * Run the task runner: validate tasks, run ready tasks in correct order and update lastRun.
+	 * @param options - Execution controls such as rebuilding completed tasks.
+	 * @returns Summary of the run.
+	 */
+	async run(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
+		if (this.running) {
+			throw new Error("Task runner is already running.");
+		}
+
+		const runOptions = { Rebuild: false, ...options };
+
+		this.validateTasks();
+		this.resetStatuses(runOptions);
+
+		return this.executeRunLoop(runOptions);
+	}
+
+	/**
+	 * Re-run a task after patching its parameters, invalidating its descendants.
+	 * @param taskId - Task id to re-run.
+	 * @param patch - Editable task fields to override before the run.
+	 * @param options - Execution controls.
+	 * @returns Summary of the run.
+	 */
+	async rerunTask(
+		taskId: keyof TMap & string,
+		patch?: TaskRerunPatch<TMap>,
+		options?: TaskRerunOptions
+	): Promise<TaskRunSummary<TMap>> {
+		if (this.running) {
+			throw new Error("Task runner is already running.");
+		}
+
+		this.validateTasks();
+
+		const task = this.getTaskById(taskId);
+		if (!task) {
+			throw new Error(`Task not found: ${taskId}`);
+		}
+
+		this.patchTask(taskId, patch);
+
+		const affectedTaskIds = [taskId, ...this.getDescendantTaskIds(taskId)];
+		this.resetTaskIds(affectedTaskIds);
+
+		return this.executeRunLoop({ Rebuild: false, ...options });
 	}
 }
 

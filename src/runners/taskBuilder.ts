@@ -1,5 +1,9 @@
 import type { PersistedTaskState } from "@/stores/tasksStore";
-import type { Task, TaskMapBase } from "@/types/taskRunner.types";
+import type {
+	Task,
+	TaskMapBase,
+	TaskRerunPatch,
+} from "@/types/taskRunner.types";
 
 type NoInfer<T> = [T][T extends unknown ? 0 : never];
 
@@ -25,9 +29,7 @@ type TaskFactoryContext<TFactory> =
 
 type TaskRegistryBase = Record<string, unknown>;
 
-export type TaskOverride<TState extends TaskMapBase> = Partial<
-	Omit<Task<TState>, "id" | "dependencies" | "type" | "run">
->;
+export type TaskOverride<TState extends TaskMapBase> = TaskRerunPatch<TState>;
 
 export type TaskSelection<
 	TState extends TaskMapBase,

@@ -74,7 +74,7 @@ $effect.pre(() => {
 <main
   id="layout-main"
   bind:this={mainElement}
-  class="container {flashy ? 'flashy' : ''} {viewState.loading ? 'loading' : ''} {viewState.loaded
+  class="container {flashy ? 'flashy' : ''} {viewState.loaded
     ? 'loaded'
     : ''}"
 >
@@ -84,7 +84,7 @@ $effect.pre(() => {
 <style>
   :global(body) {
     margin: 0;
-    font-size: 15px;
+    font-size: 14px;
     font-family: 'CaskaydiaCove NFM Light', monospace;
   }
 
@@ -122,7 +122,7 @@ $effect.pre(() => {
     background-color: #000000;
     overflow-y: auto;
     height: 100vh;
-    padding: 2rem;
+    padding: 1.5rem;
     scroll-behavior: smooth;
     scroll-padding-top: 2rem;
   }
@@ -182,7 +182,7 @@ $effect.pre(() => {
       background-position: 0% 0%;
     }
     50% {
-      background-position: 80% 5%;
+      background-position: 8% 5%;
     }
     100% {
       background-position: 0% 0%;

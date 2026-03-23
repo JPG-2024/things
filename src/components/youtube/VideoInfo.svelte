@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Task } from "@/types/taskRunner.types";
 import Icon from "../Icon.svelte";
+import StringReveal from "../StringReveal.svelte";
 import { calculateDaysAgo } from "@/lib/utils/date";
 
 type Props = {
@@ -21,13 +22,16 @@ function getDataContent(key: string): string | null {
 	}
 	return null;
 }
+
+let title = $derived(task?.data ? getDataContent("title") : null);
 </script>
 
 
 
 {#if task?.data && getDataContent("title") && getDataContent("channel") && getDataContent("views") && getDataContent("uploadDate")}
     <div class="video-info">
-        <h3>{getDataContent("title")}</h3>
+        <StringReveal message={title} revealDelay={20} />
+
         <div class="info-row">
             <div class="pill">
                 <Icon name="User" />
@@ -55,6 +59,12 @@ h3 {
 .video-info {
   width: 100%;
   color: white;
+}
+
+:global(.revealer) {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--primary-color);
 }
 
 .channel-name {

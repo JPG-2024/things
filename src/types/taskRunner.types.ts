@@ -50,9 +50,27 @@ export interface TaskRunOptions {
 	stream?: boolean;
 }
 
+export type TaskRerunPatch<TMap extends TaskMapBase = TaskMapBase> = Partial<
+	Omit<
+		Task<TMap>,
+		| "id"
+		| "dependencies"
+		| "type"
+		| "run"
+		| "data"
+		| "status"
+		| "error"
+		| "debug"
+		| "startedAt"
+		| "endedAt"
+	>
+>;
+
+export interface TaskRerunOptions extends TaskRunOptions {}
+
 interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	id: TId;
-	name: string;
+	name?: string;
 	dependencies: (keyof TMap & string)[];
 	type: TaskType;
 	data?: TMap[TId];

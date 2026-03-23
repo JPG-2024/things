@@ -288,8 +288,8 @@ pub async fn get_page_elements(
                     .unwrap_or_default()
             );
 
-            let attempts = attempts.unwrap_or(3);
-            let interval_ms = interval_ms.unwrap_or(1000);
+            let attempts = attempts.unwrap_or(5);
+            let interval_ms = interval_ms.unwrap_or(500);
 
             match wait_for_element_spa(
                 &page,

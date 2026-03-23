@@ -19,7 +19,7 @@ function buildChapterSummaryTasks(
 		name: chapter.title,
 		widget: false,
 		type: "ia",
-		component: "base",
+		component: "taskBase",
 		dependencies:
 			index === 0
 				? [TaskNames.CHAPTERS_SUMMARY]
@@ -31,8 +31,8 @@ function buildChapterSummaryTasks(
 		run: () => `Title: ${chapter.title}\n\n${chapter.content}`,
 		userMessage:
 			language === "es"
-				? "Resume este cap\u00edtulo en 2-3 l\u00edneas."
-				: "Summarize this chapter in 2-3 lines.",
+				? "Resume este cap\u00edtulo en 2 lineas."
+				: "Summarize this chapter in 2 lines.",
 		completionOptions: defaultCompletionOptions,
 	}));
 }
@@ -42,7 +42,6 @@ type ChapterTaskIds = TaskNames.CHAPTERS_SUMMARY;
 export const chapterTaskRegistry: YouTubeTaskRegistrySubset<ChapterTaskIds> = {
 	[TaskNames.CHAPTERS_SUMMARY]: () => ({
 		id: TaskNames.CHAPTERS_SUMMARY,
-		name: "Process Chapters",
 		dependencies: [
 			TaskNames.INIT,
 			TaskNames.CHAPTERS,
