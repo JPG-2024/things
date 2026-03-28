@@ -73,8 +73,8 @@ class TTSStore {
 		fullDurationSeconds: 0,
 		remainingSeconds: 0,
 		cachedDurationById: {},
-		selectedVoice: AVAILABLE_VOICES[0],
-		speed: 1.3,
+		selectedVoice: AVAILABLE_VOICES[1],
+		speed: 1.2,
 		totalStep: 6,
 	});
 

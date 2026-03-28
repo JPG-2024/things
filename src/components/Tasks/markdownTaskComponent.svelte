@@ -1,15 +1,17 @@
 <script lang="ts">
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
 import MarkdownRenderer from "../MarkdownRenderer.svelte";
 
 type Props = {
 	runId?: string;
 	task: Task;
+	componentProps?: TaskComponentProps;
 };
 
-let { runId = undefined, task }: Props = $props();
+let { runId = undefined, task, componentProps = {} }: Props = $props();
 
 void runId;
+void componentProps;
 </script>
 
 {#if typeof task.data === 'string'}

@@ -24,15 +24,10 @@ function buildChapterSummaryTasks(
 			index === 0
 				? [TaskNames.CHAPTERS_SUMMARY]
 				: [`chapter-summary-${index - 1}`],
-		systemMessage:
-			language === "es"
-				? "Eres un asistente que resume cap\u00edtulos de video."
-				: "You are an assistant that summarizes video chapters.",
+		systemMessage: `You are a helpful assistant that summarizes YouTube video chapters. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: () => `Title: ${chapter.title}\n\n${chapter.content}`,
 		userMessage:
-			language === "es"
-				? "Resume este cap\u00edtulo en 2 lineas."
-				: "Summarize this chapter in 2 lines.",
+			"Summarize this chapter in 2 lines. add a relevant emoji at the beginning of the summary.",
 		completionOptions: defaultCompletionOptions,
 	}));
 }

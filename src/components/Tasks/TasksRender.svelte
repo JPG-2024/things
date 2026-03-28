@@ -6,6 +6,7 @@ import { taskRenderRegistry } from "@/components/Tasks/taskRenderRegistry";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
 const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
+$inspect(stackedTasks, "stackedTasks");
 
 let bottomAnchor: HTMLDivElement | undefined = $state();
 let previousFinishedCount = $state(0);
@@ -42,11 +43,12 @@ void stackedTasks;
 {#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
   {@const task = entry.task}
   {@const componentKey = task.component?.trim()}
+	{@const componentProps = task.componentProps}
   {@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
 
     {#if Renderer && task.status === 'done'}
-      <BaseTaskComponent {task} runId={entry.runId}>
-        <Renderer {task} runId={entry.runId} />
+	   <BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+			<Renderer {task} runId={entry.runId} {componentProps} />
       </BaseTaskComponent>
     {:else}
       <LoadingTask {task} runId={entry.runId} />

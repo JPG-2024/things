@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
 import Icon from "../Icon.svelte";
 import StringReveal from "../StringReveal.svelte";
 import { calculateDaysAgo } from "@/lib/utils/date";
@@ -7,11 +7,13 @@ import { calculateDaysAgo } from "@/lib/utils/date";
 type Props = {
 	runId?: string;
 	task: Task;
+	componentProps?: TaskComponentProps;
 };
 
-let { runId = undefined, task }: Props = $props();
+let { runId = undefined, task, componentProps = {} }: Props = $props();
 
 void runId;
+void componentProps;
 
 function getDataContent(key: string): string | null {
 	const data = task?.data as Record<string, unknown> | null | undefined;
@@ -30,7 +32,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 
 {#if task?.data && getDataContent("title") && getDataContent("channel") && getDataContent("views") && getDataContent("uploadDate")}
     <div class="video-info">
-        <StringReveal message={title} revealDelay={20} />
+        <h3>{getDataContent("title")}</h3>
 
         <div class="info-row">
             <div class="pill">

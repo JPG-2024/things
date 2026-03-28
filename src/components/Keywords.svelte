@@ -1,13 +1,16 @@
 <script lang="ts">
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
 import Pill from "./Pill.svelte";
 
 interface Props {
 	task?: Task;
 	keywords?: string[];
+	componentProps?: TaskComponentProps;
 }
 
-let { task = undefined, keywords = [] }: Props = $props();
+let { task = undefined, keywords = [], componentProps = {} }: Props = $props();
+
+void componentProps;
 
 const parsedKeywords = $derived.by(() => {
 	if (keywords.length > 0) {

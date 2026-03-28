@@ -46,7 +46,7 @@ async function stopTTSPlayback() {
     gap: 10px;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    background: rgba(54, 54, 54, 0.98);
+    background: rgba(54, 54, 54, 0.5);
     min-height: 50px;
     right: 0;
     left: 0;

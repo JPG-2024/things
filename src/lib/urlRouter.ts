@@ -8,6 +8,7 @@ import {
 import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
 import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
 import { deleteArticleByUrl } from "@/stores/tasksStore";
+import { workflowManager } from "@/runners/workflowManager.svelte";
 
 // Router response payload built from the persisted article snapshot and current run
 type RouterCachedArticle = {
@@ -87,6 +88,8 @@ export async function urlRouter(
 	url: string,
 	{ forceRunTasks = false }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
+	workflowManager.clearStack();
+
 	if (inProgressRequests.has(url)) {
 		return inProgressRequests.get(url) as Promise<RouterResult>;
 	}

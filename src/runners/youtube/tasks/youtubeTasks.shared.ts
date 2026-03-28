@@ -80,6 +80,7 @@ export type YouTubeTaskId = keyof YouTubeTaskState & string;
 export type YouTubeTaskFactoryContext = {
 	url: string;
 	language: TTSLanguage;
+	freshRun: boolean;
 };
 
 export type YouTubeTaskFactory = (

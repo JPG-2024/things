@@ -47,11 +47,14 @@ export async function youTubeRunner(
 	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
 	const runId = buildWorkflowRunId("youtube-video", url);
+	const freshRun =
+		options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
 
+	// Build the task list based on the selected routine and registry, incorporating persisted task states if available, and marking the run as fresh if Rebuild is true or no persisted tasks are found
 	const tasks = await buildTaskSubroutine(
 		routine[options.routine ?? "videoPage"],
 		youtubeTaskRegistry,
-		{ url, language: viewState.language },
+		{ url, language: viewState.language, freshRun },
 		{
 			persistedTasks: cachedArticle?.persistedTasks,
 			Rebuild: options.Rebuild,

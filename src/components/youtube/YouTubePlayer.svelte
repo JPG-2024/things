@@ -1,24 +1,28 @@
 <script lang="ts">
 import { toVTName } from "@/lib/utils/url";
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
+import type { YouTubePlayerContext } from "@/runners/youtube/tasks/youtubeTasks.shared";
 
 type Props = {
 	runId?: string;
 	task: Task;
+	componentProps?: TaskComponentProps;
 };
 
-let { runId = undefined, task }: Props = $props();
+let { runId = undefined, task, componentProps = {} }: Props = $props();
 
 let showIframe = $state(false);
+const playerData = $derived((task.data ?? {}) as Partial<YouTubePlayerContext>);
 
 void runId;
+void componentProps;
 </script>
 
 <div class="yt-wrapper">
   {#if showIframe}
     <iframe
       class="yt-video"
-      src={`https://www.youtube-nocookie.com/embed/${task.data.videoId}?autoplay=1&rel=0&modestbranding=1`}
+      src={`https://www.youtube-nocookie.com/embed/${playerData.videoId || ''}?autoplay=1&rel=0&modestbranding=1`}
       title="YouTube video player"
       frameborder="0"
       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -31,10 +35,10 @@ void runId;
       aria-label="Play video"
     >
       <img
-        src={task?.data?.thumbnailImageSrc}
+        src={playerData.thumbnailImageSrc}
         alt="YouTube thumbnail"
         class="yt-thumbnail"
-        style={`view-transition-name: vt-main-image-${toVTName(task?.data?.videoId || '')}`}
+        style={`view-transition-name: vt-main-image-${toVTName(playerData.videoId || '')}`}
       />
     </button>
 

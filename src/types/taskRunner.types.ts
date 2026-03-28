@@ -21,6 +21,7 @@ export type WorkflowRunStatus =
 	| "blocked";
 
 export type TaskMapBase = Record<string, unknown>;
+export type TaskComponentProps = Record<string, unknown>;
 
 export type TaskGlobalState<TMap extends TaskMapBase> = Partial<TMap>;
 
@@ -75,6 +76,7 @@ interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	type: TaskType;
 	data?: TMap[TId];
 	component?: string;
+	componentProps?: TaskComponentProps;
 	persist?: boolean;
 	status?: TaskStatus;
 	error?: string;

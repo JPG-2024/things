@@ -1,5 +1,5 @@
 <script lang="ts">
-import { fade } from "svelte/transition";
+import { fade, fly } from "svelte/transition";
 import Pill from "@/components/Pill.svelte";
 import Modal from "@/components/Modal.svelte";
 import { viewState } from "@/stores/viewStore.svelte";
@@ -27,7 +27,7 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
 </script>
 
 {#if getPillStatus(task.status) === 'loading' || viewState.showAllTasks}
-  <button class="loading-container" transition:fade={{ duration: 500 }} onclick={() => (showModal = true)}>
+  <button class="loading-container" in:fly={{ y: 30, duration: 800 }} out:fly={{ y: -30, duration: 400 }} onclick={() => (showModal = true)}>
     <Pill status={getPillStatus(task.status)} text={task.id} />
     {#if task.error}
       <p>{task.error}</p>
@@ -44,10 +44,11 @@ const getPillStatus = (status?: Task["status"]): PillStatus => {
   .loading-container {
     width: max-content;
     cursor: pointer;
-    margin: 2em 0;
+    margin: 1em 0;
     border: none;
     background: none;
     padding: 0;
+    margin-bottom: 50px;
   }
 
   .wrapped-output {

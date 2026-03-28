@@ -13,11 +13,14 @@ type SummaryTaskIds =
 	| TaskNames.KEYPOINTS;
 
 export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
-	[TaskNames.SUMMARY]: ({ language }) => ({
+	[TaskNames.SUMMARY]: ({ language, freshRun }) => ({
 		id: TaskNames.SUMMARY,
 		name: "Summary",
 		dependencies: [TaskNames.CONTENT],
 		component: "taskBase",
+		componentProps: {
+			autoplayTTS: freshRun,
+		},
 		type: "ia",
 		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Limit to 60 words maximum. Maintain a formal tone. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,

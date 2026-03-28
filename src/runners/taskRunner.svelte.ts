@@ -80,6 +80,18 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 
 	/**
+	 * Limpia completamente el state del TaskRunnerStore.
+	 * Elimina todas las tareas, reinicia la cola de pendientes, flags y resultados previos.
+	 */
+	clear() {
+		this.tasks = [];
+		this.pendingTasksQueue = [];
+		this.running = false;
+		this.lastRun = undefined;
+		this.restartRequested = false;
+	}
+
+	/**
 	 * Replace the store's tasks with a new set (defensive copy).
 	 * @param tasks - Array of tasks to set.
 	 */

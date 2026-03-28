@@ -3,21 +3,34 @@ import type { Snippet } from "svelte";
 import Modal from "@/components/Modal.svelte";
 import TaskRerunEditor from "@/components/Tasks/TaskRerunEditor.svelte";
 import TTSPlayback from "@/components/TTSComponent.svelte";
-import type { Task } from "@/types/taskRunner.types";
+import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
 
 type Props = {
 	runId?: string;
 	task: Task;
 	children?: Snippet;
+	componentProps?: TaskComponentProps;
+	autoplayTTS?: boolean;
 };
 
-let { runId = undefined, task, children }: Props = $props();
+let {
+	runId = undefined,
+	task,
+	children,
+	componentProps = {},
+	autoplayTTS = false,
+}: Props = $props();
 
 let showModal = $state(false);
 
 const playbackId = $derived(runId ? `${runId}:${task.id}` : `task:${task.id}`);
 const playbackText = $derived(
 	typeof task.data === "string" ? task.data.trim() : ""
+);
+const resolvedAutoplayTTS = $derived(
+	typeof componentProps.autoplayTTS === "boolean"
+		? componentProps.autoplayTTS
+		: autoplayTTS
 );
 </script>
 
@@ -32,7 +45,7 @@ const playbackText = $derived(
 	<div class="task-footer is">
 		<div class="toolbar">		
 			{#if playbackText}
-				<TTSPlayback id={playbackId} text={playbackText} />
+				<TTSPlayback id={playbackId} text={playbackText} autoplay={resolvedAutoplayTTS} />
 			{/if}
 			<TaskRerunEditor {task} {runId} />
 		</div>
