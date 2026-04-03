@@ -1,7 +1,7 @@
 <script lang="ts">
 import CategoryWidget from "@/components/CategoryWidget.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
-import { urlRouter } from "@/lib/urlRouter";
+import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url";
 import { handleYoutubeQuestion } from "@/lib/utils/youtube";
 import { storeCacheWrapper } from "@/stores/cacheStore";
@@ -31,7 +31,7 @@ $effect(() => {
 
 async function handlePasteUrl(url: string) {
 	urlRouter(url);
-	navigate(`/${getRouteForDomain(url)}/${encodeURIComponent(url)}`);
+	navigate(`/youtube/${encodeURIComponent(url)}`);
 }
 </script>
 

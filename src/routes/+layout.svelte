@@ -10,7 +10,6 @@ let mainElement: HTMLElement | undefined = $state();
 
 $effect(() => {
 	if (mainElement) {
-		console.log("Updating primary color to:", $primaryColor);
 		mainElement.style.setProperty("--primary-color", $primaryColor);
 	}
 });
@@ -74,9 +73,9 @@ $effect.pre(() => {
 <main
   id="layout-main"
   bind:this={mainElement}
-  class="container {flashy ? 'flashy' : ''} {viewState.loaded
-    ? 'loaded'
-    : ''}"
+  class="container"
+  class:flashy={flashy}
+  class:loaded={viewState.loaded}
 >
   {@render children()}
 </main>

@@ -1,20 +1,20 @@
-import ollama from "ollama"
-import z from "zod"
+import ollama from "ollama";
+import z from "zod";
 
 interface KeywordResult {
 	keywords: Array<{
-		term: string
-		frequency: number
-		relevance: number
-	}>
-	summary: string
+		term: string;
+		frequency: number;
+		relevance: number;
+	}>;
+	summary: string;
 }
 
 export async function extractKeywords(
 	content: string,
-	config: { maxKeywords?: number } = { maxKeywords: 10 },
+	config: { maxKeywords?: number } = { maxKeywords: 10 }
 ): Promise<KeywordResult> {
-	const maxKeywords = config.maxKeywords || 10
+	const maxKeywords = config.maxKeywords || 10;
 
 	try {
 		const response = await ollama.chat({
@@ -41,23 +41,24 @@ TEXT:
 ${content}`,
 				},
 			],
-		})
+		});
 
 		// Extract and clean the response content
-		let content_text = response.message.content.trim()
+		let content_text = response.message.content.trim();
 
 		// Remove any markdown code blocks if present
 		if (content_text.includes("```json")) {
-			content_text = content_text.replace(/```json\n?/g, "").replace(/```\n?/g, "")
+			content_text = content_text
+				.replace(/```json\n?/g, "")
+				.replace(/```\n?/g, "");
 		} else if (content_text.includes("```")) {
-			content_text = content_text.replace(/```\n?/g, "")
+			content_text = content_text.replace(/```\n?/g, "");
 		}
 
-		const result: KeywordResult = JSON.parse(content_text)
-		console.log("Extracted keywords:", result)
-		return result
+		const result: KeywordResult = JSON.parse(content_text);
+		return result;
 	} catch (error) {
-		console.error("Error extracting keywords:", error)
-		throw new Error(`Failed to extract keywords: ${error}`)
+		console.error("Error extracting keywords:", error);
+		throw new Error(`Failed to extract keywords: ${error}`);
 	}
 }

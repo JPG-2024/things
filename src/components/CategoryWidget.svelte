@@ -1,7 +1,7 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
-import { urlRouter } from "@/lib/urlRouter";
+import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
 import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
 
@@ -13,7 +13,6 @@ let loading = $state<boolean>(false);
 onMount(async () => {
 	loading = true;
 	articles = await getArticles();
-	console.debug("loaded articles with player tasks", articles);
 	loading = false;
 });
 

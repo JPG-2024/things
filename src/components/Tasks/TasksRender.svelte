@@ -3,10 +3,10 @@ import { tick } from "svelte";
 import BaseTaskComponent from "@/components/Tasks/baseTaskComponent.svelte";
 import LoadingTask from "@/components/Tasks/LoadingTask.svelte";
 import { taskRenderRegistry } from "@/components/Tasks/taskRenderRegistry";
+import { viewState } from "@/stores/viewStore.svelte";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
 const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
-$inspect(stackedTasks, "stackedTasks");
 
 let bottomAnchor: HTMLDivElement | undefined = $state();
 let previousFinishedCount = $state(0);
@@ -40,20 +40,24 @@ void workflowManager;
 void stackedTasks;
 </script>
 
+
 {#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
-  {@const task = entry.task}
-  {@const componentKey = task.component?.trim()}
+	{@const task = entry.task}
+	{@const componentKey = task.component?.trim()}
 	{@const componentProps = task.componentProps}
-  {@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+	{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
 
-    {#if Renderer && task.status === 'done'}
-	   <BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+	{#if Renderer && task.status === "done"}
+		<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 			<Renderer {task} runId={entry.runId} {componentProps} />
-      </BaseTaskComponent>
-    {:else}
-      <LoadingTask {task} runId={entry.runId} />
-    {/if}
-
+		</BaseTaskComponent>
+	{:else if task.status === "done" && viewState.showAllTasks}
+		<LoadingTask {task} runId={entry.runId} />
+	{:else if task.status === "running" || task.status === "pending"}
+		<LoadingTask {task} runId={entry.runId} />
+	{:else if task.status === "failed" || task.status === "blocked"}
+		<LoadingTask {task} runId={entry.runId} />
+	{/if}
 {/each}
 
 <div bind:this={bottomAnchor} aria-hidden="true"></div>

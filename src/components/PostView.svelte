@@ -1,5 +1,5 @@
 <script lang="ts">
-import { urlRouter } from "@/lib/urlRouter";
+import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate } from "@/lib/utils/url";
 import { viewState } from "@/stores/viewStore.svelte";
 import Icon from "./Icon.svelte";
@@ -91,10 +91,6 @@ async function handleDelete() {
   
 
   <div class="header-container">
-    <div class="title">
-      <StringReveal message={viewState.title} />
-    </div>
-
     <div class="header">
       {#if headerContent}
         {@render headerContent()}
@@ -137,7 +133,7 @@ async function handleDelete() {
     align-items: flex-start;
     gap: 0.2em;
     box-sizing: border-box;
-    padding-top: 20px;
+    padding-top: 50px;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;

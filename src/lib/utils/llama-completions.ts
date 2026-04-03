@@ -72,6 +72,11 @@ export interface LlamaChatToolCall {
 	};
 }
 
+export interface LlamaStreamOptions {
+	include_usage?: boolean;
+	[key: string]: unknown;
+}
+
 export interface LlamaChatMessage {
 	role: "system" | "user" | "assistant" | "tool";
 	content?: string | LlamaChatMessageContentPart[] | null;
@@ -224,6 +229,12 @@ export class LlamaChatCompletionError extends Error {
 	}
 }
 
+function isAbortError(error: unknown): boolean {
+	return error instanceof DOMException
+		? error.name === "AbortError"
+		: error instanceof Error && error.name === "AbortError";
+}
+
 function joinUrl(baseUrl: string, path: string): string {
 	return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
 }
@@ -367,15 +378,33 @@ export async function chatCompletions(
 		stream: streamEnabled,
 	};
 
-	const res = await fetch(url, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...(options?.headers ?? {}),
-		},
-		body: JSON.stringify(body),
-		signal: options?.signal,
-	});
+	let res: Response;
+	try {
+		res = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				...(options?.headers ?? {}),
+			},
+			body: JSON.stringify(body),
+			signal: options?.signal,
+		});
+	} catch (error) {
+		if (isAbortError(error)) {
+			throw error;
+		}
+
+		const detail =
+			error instanceof Error && error.message.trim()
+				? error.message.trim()
+				: "Unknown network error";
+
+		throw new LlamaChatCompletionError(
+			`llama-server is not running or not reachable at ${baseUrl}. Start it and retry. (${detail})`,
+			undefined,
+			error
+		);
+	}
 
 	if (!res.ok) {
 		const text = await res.text().catch(() => "");

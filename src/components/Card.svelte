@@ -3,20 +3,20 @@ import type { Snippet } from "svelte"; // Optional, for TypeScript
 export type CardProps = {
 	children?: Snippet;
 	title?: string;
-	showTopLeftBorder?: boolean;
+  showBorders?: boolean;
 };
 let {
 	children,
 	title = "",
-	showTopLeftBorder = true,
+  showBorders = false,
 }: {
 	children?: Snippet;
 	title?: string;
-	showTopLeftBorder?: boolean;
+  showBorders?: boolean;
 } = $props();
 </script>
 
-<div class="widget" class:no-top-left-border={!showTopLeftBorder} role="group">
+<div class="widget" class:no-borders={!showBorders} role="group">
   {#if title}
     <div class="widget-title">{title}</div>
   {/if}
@@ -61,8 +61,11 @@ let {
     font-family: 'Noto Sans Mono', monospace;
   }
 
-  .widget.no-top-left-border::before,
-  .widget.no-top-left-border::after {
+  .widget.no-borders::before,
+  .widget.no-borders::after,
+  .widget.no-borders .widget-corner,
+  .widget.no-borders .widget-curve-tl,
+  .widget.no-borders .widget-curve-br {
     display: none;
   }
 

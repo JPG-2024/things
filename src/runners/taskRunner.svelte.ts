@@ -1,5 +1,8 @@
-import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions";
-import { chatCompletions } from "@/lib/utils/llama-completions";
+import {
+	chatCompletions,
+	LlamaChatCompletionError,
+	type LlamaChatCompletionsRequest,
+} from "@/lib/utils/llama-completions";
 import type {
 	IaTask,
 	Task,
@@ -28,6 +31,35 @@ function toErrorMessage(error: unknown): string {
 	} catch {
 		return "Unknown error";
 	}
+}
+
+function formatTaskExecutionError(error: unknown): {
+	message: string;
+	debug?: string;
+} {
+	const rawMessage = toErrorMessage(error);
+
+	if (error instanceof LlamaChatCompletionError) {
+		if (
+			error.status === undefined ||
+			rawMessage.includes("not running or not reachable")
+		) {
+			return {
+				message: "Local AI service unavailable. Start llama-server and retry.",
+				debug: rawMessage,
+			};
+		}
+
+		return {
+			message: rawMessage.replace(
+				/^llama-server \/v1\/chat\/completions failed:\s*/u,
+				""
+			),
+			debug: rawMessage,
+		};
+	}
+
+	return { message: rawMessage };
 }
 
 /**
@@ -510,9 +542,11 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				endedAt: Date.now(),
 			});
 		} catch (error) {
+			const formattedError = formatTaskExecutionError(error);
 			this.setTaskFields(task.id, {
 				status: "failed",
-				error: toErrorMessage(error),
+				error: formattedError.message,
+				debug: formattedError.debug,
 				endedAt: Date.now(),
 			});
 			throw error;

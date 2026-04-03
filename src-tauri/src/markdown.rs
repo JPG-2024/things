@@ -161,5 +161,7 @@ pub async fn extract_blog(
 
     println!("<< ✅ Blog extraído completamente >>");
 
+    println!("Metadatos extraídos: {} elementos", markdown);
+
     Ok(BlogContent { metadata, markdown })
 }

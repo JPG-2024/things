@@ -7,6 +7,7 @@ import {
 } from "@/stores/tasksStore";
 import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
 import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
+import { webRunner } from "@/runners/web/webRunner";
 import { deleteArticleByUrl } from "@/stores/tasksStore";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
@@ -56,6 +57,11 @@ const routeDefinitions: UrlRoute[] = [
 		name: "toubeProfileVideos",
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
 		handler: extractProfileRunner,
+	},
+	{
+		name: "defaultBlog",
+		condition: () => true,
+		handler: (url, context) => webRunner(url, context?.cachedArticle),
 	},
 ];
 
