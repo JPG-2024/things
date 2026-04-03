@@ -28,7 +28,6 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 
 	[WebTaskNames.KEYWORDS]: ({ language }) => ({
 		id: WebTaskNames.KEYWORDS,
-		name: "Keywords",
 		dependencies: [WebTaskNames.CONTENT],
 		component: "keywords",
 		type: "ia",
@@ -69,7 +68,7 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 		type: "ia",
 		systemMessage: `Return only valid JSON that matches the provided schema. Keep all key points in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
-		userMessage: "Extract 5 key point titles in one line each.",
+		userMessage: "Extract 5 insights in one line each.",
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 0.9,

@@ -3,9 +3,9 @@
 // See: https://svelte.dev/docs/kit/single-page-apps
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 /* import adapter from "@sveltejs/adapter-static"; */
-import adapter from "@sveltejs/adapter-static"
-import { vitePreprocess } from "@sveltejs/vite-plugin-svelte"
-import path from "path"
+import adapter from "@sveltejs/adapter-static";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import path from "path";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -32,6 +32,6 @@ const config = {
             '@stores': path.resolve('./src/stores') */
 		},
 	},
-}
+};
 
-export default config
+export default config;

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { viewState } from "@/stores/viewStore.svelte";
 import { primaryColor } from "@/stores/uiStore";
+import { onMount } from "svelte";
 
 let { children } = $props();
 
@@ -30,7 +31,7 @@ $effect(() => {
     }
   }) */
 
-$effect.pre(() => {
+onMount(() => {
 	let stopFlow: undefined | (() => void);
 	viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop));
 	viewState.initMediaBasePath();

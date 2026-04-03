@@ -53,7 +53,6 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 
 	[WebTaskNames.THUMBNAIL]: () => ({
 		id: WebTaskNames.THUMBNAIL,
-		name: "Download main image",
 		dependencies: [WebTaskNames.INIT, WebTaskNames.METADATA],
 		type: "script",
 		component: "image",

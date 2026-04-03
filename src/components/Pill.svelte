@@ -17,14 +17,14 @@ let { status, text, tag = false }: Props = $props();
 <style>
 	.pill {
 		color: var(--primary-color);
-		border: 1px solid var(--primary-color);
 		border-radius: 999px;
 		background-color: rgb(154, 154, 154, 0.1);
 		background-size: 200% 200%;
-		font-size: 0.80rem;
+		font-size: 0.88rem;
 		line-height: 1.2;
 		width: max-content;
 		padding: 10px 20px;
+		font-weight: bold;
 	}
 
 	.pill::before {

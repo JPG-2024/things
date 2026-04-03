@@ -64,8 +64,9 @@ async function stopTTSPlayback() {
     height: 1px;
     background: linear-gradient(
       270deg,
-      rgba(255, 255, 255, 0.334) 0%,
-      rgba(255, 255, 255, 0.159) 50%,
+      rgba(255, 255, 255, 0.01) 0%,
+      rgba(255, 255, 255, 0.334) 50%,
+      rgba(255, 255, 255, 0.01) 100%,
       transparent 100%
     );
     border-radius: 0 0 30px 0;
