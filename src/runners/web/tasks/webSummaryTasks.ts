@@ -13,7 +13,6 @@ type SummaryTaskIds =
 export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 	[WebTaskNames.SUMMARY]: ({ language, freshRun }) => ({
 		id: WebTaskNames.SUMMARY,
-		name: "Summary",
 		dependencies: [WebTaskNames.CONTENT],
 		component: "taskBase",
 		componentProps: {
@@ -29,7 +28,6 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 	[WebTaskNames.KEYWORDS]: ({ language }) => ({
 		id: WebTaskNames.KEYWORDS,
 		dependencies: [WebTaskNames.CONTENT],
-		component: "keywords",
 		type: "ia",
 		systemMessage: `Return only valid JSON that matches the provided schema. The keywords must be in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
@@ -62,7 +60,6 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 
 	[WebTaskNames.KEYPOINTS]: ({ language }) => ({
 		id: WebTaskNames.KEYPOINTS,
-		name: "Key points",
 		dependencies: [WebTaskNames.CONTENT],
 		component: "listItems",
 		type: "ia",

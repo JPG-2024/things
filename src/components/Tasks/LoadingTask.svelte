@@ -40,9 +40,6 @@ const shouldShowTask = $derived(
 		onclick={() => (showModal = true)}
 	>
 		<Pill status={getPillStatus(task.status)} text={task.id} />
-		{#if task.error}
-			<p>{task.error}</p>
-		{/if}
 	</button>
 {/if}
 

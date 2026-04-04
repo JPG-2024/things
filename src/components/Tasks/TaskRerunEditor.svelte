@@ -138,7 +138,7 @@ void targetRunId;
 void isIaTask;
 </script>
 
-<Icon name="Settings2" onClick={openEditor} size={14} color="var(--primary-color)" title="Edit and rerun task" class="task-action" />
+<Icon name="Settings2" onClick={openEditor} size={18} color="var(--primary-color)" title="Edit and rerun task" class="task-action" />
 
 <Modal show={showModal} onClose={closeEditor}>
 	<div class="editor-shell">

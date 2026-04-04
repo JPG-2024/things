@@ -13,8 +13,8 @@ import {
 
 const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
-	//TaskNames.MAIN_COLOR,
 	TaskNames.VIDEO_INFO,
+	//TaskNames.MAIN_COLOR,
 	TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.KEYWORDS,
 	TaskNames.KEYPOINTS,

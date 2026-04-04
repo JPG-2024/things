@@ -147,20 +147,6 @@ async function handleDelete() {
     gap: 0.8rem;
   }
 
-  .title {
-    font-weight: bold;
-    font-size: 1.8rem;
-    line-height: 1.8rem;
-    font-family: 'Raleway', Times, serif;
-    text-decoration: underline;
-    text-decoration-color: var(--primary-color);
-    text-underline-offset: -2px;
-  }
-
-  .title :global(.revealer) {
-    font-weight: bold;
-    font-size: 1.5rem;
-  }
 
   .header {
     display: flex;

@@ -1,9 +1,16 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { listenMarkdownFlowStatus } from "@/lib/listeners/markdownListener";
 import { listenMetadataFlowStatus } from "@/lib/listeners/metadataListener";
-import type { FlowStatusEvent, MarkdownPayload, MetadataPayload } from "@/lib/types/flowStatus";
+import type {
+	FlowStatusEvent,
+	MarkdownPayload,
+	MetadataPayload,
+} from "@/lib/types/flowStatus";
 import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
-import type { Chapter, ChapterCaption } from "@/lib/utils/youtube/joinCaptionsByChapters";
+import type {
+	Chapter,
+	ChapterCaption,
+} from "@/lib/utils/youtube/joinCaptionsByChapters";
 import type { ChapterSummaryItem } from "@/lib/utils/youtube/summarizeChapters";
 
 type language = "en" | "es";
@@ -40,6 +47,8 @@ class ViewState {
 	loading = $state(false);
 	loaded = $state(false);
 	showAllTasks = $state(false);
+	lastHandledClipboardUrl = $state("");
+	clipboardPollingEnabled = $state(true);
 
 	url = $state<string | null>(null);
 	prompt = $state<string | null>(null);
@@ -69,13 +78,21 @@ class ViewState {
 
 	domainUrl = $derived(this.url ? new URL(this.url).hostname : null);
 
-	isYouTube = $derived(this.url ? new URL(this.url).hostname.includes("youtube.com") : false);
+	isYouTube = $derived(
+		this.url ? new URL(this.url).hostname.includes("youtube.com") : false
+	);
 
-	ytVideoId = $derived(this.url ? new URL(this.url).searchParams.get("v") : null);
+	ytVideoId = $derived(
+		this.url ? new URL(this.url).searchParams.get("v") : null
+	);
 
-	ytThumbnailUrl = $derived(this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, "high") : "");
+	ytThumbnailUrl = $derived(
+		this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, "high") : ""
+	);
 
-	title = $derived(this.youtubeInfo?.title || this.metadataStatus?.data?.["og:title"] || "");
+	title = $derived(
+		this.youtubeInfo?.title || this.metadataStatus?.data?.["og:title"] || ""
+	);
 
 	description = $derived(this.metadataStatus?.data?.["description"] || "");
 
@@ -203,10 +220,14 @@ class ViewState {
 		this.embeddings = Boolean(article.embeddings) ?? this.embeddings;
 
 		if (metadataContent) {
-			this.metadataStatus = { data: metadataContent } as FlowStatusEvent<MetadataPayload>;
+			this.metadataStatus = {
+				data: metadataContent,
+			} as FlowStatusEvent<MetadataPayload>;
 		}
 		if (markdownContent) {
-			this.markdownStatus = { data: markdownContent } as FlowStatusEvent<MarkdownPayload>;
+			this.markdownStatus = {
+				data: markdownContent,
+			} as FlowStatusEvent<MarkdownPayload>;
 		}
 	}
 }

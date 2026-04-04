@@ -1,15 +1,39 @@
 <script lang="ts">
+import { onMount } from "svelte";
+import { invoke } from "@tauri-apps/api/core";
+
 import CategoryWidget from "@/components/CategoryWidget.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
-import { getRouteForDomain, navigate, toVTName } from "@/lib/utils/url";
-import { handleYoutubeQuestion } from "@/lib/utils/youtube";
-import { storeCacheWrapper } from "@/stores/cacheStore";
+import { navigate } from "@/lib/utils/url";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
-import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
 
 // Data provided by +page.ts load
+
+const CLIPBOARD_POLL_INTERVAL_MS = 5000;
+const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
+
+let processingUrl = false;
+
+function extractValidUrl(value: string): string | null {
+	const trimmedValue = value.trim();
+
+	if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
+		return null;
+	}
+
+	try {
+		const parsedUrl = new URL(trimmedValue);
+		if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+			return null;
+		}
+
+		return parsedUrl.toString();
+	} catch {
+		return null;
+	}
+}
 
 $effect(() => {
 	// generate random svg
@@ -30,9 +54,47 @@ $effect(() => {
 }); */
 
 async function handlePasteUrl(url: string) {
-	urlRouter(url);
-	navigate(`/youtube/${encodeURIComponent(url)}`);
+	const validUrl = extractValidUrl(url);
+	if (!validUrl || processingUrl) return;
+
+	processingUrl = true;
+
+	try {
+		viewState.lastHandledClipboardUrl = validUrl;
+		navigate(`/youtube/${encodeURIComponent(validUrl)}`);
+		await urlRouter(validUrl);
+	} finally {
+		processingUrl = false;
+	}
 }
+
+onMount(() => {
+	const pollClipboard = async () => {
+		if (!viewState.clipboardPollingEnabled || processingUrl) return;
+
+		try {
+			const clipboardText = await invoke<string>("read_clipboard_text");
+			const validUrl = extractValidUrl(clipboardText ?? "");
+
+			if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
+				return;
+			}
+
+			await handlePasteUrl(validUrl);
+		} catch {
+			viewState.clipboardPollingEnabled = false;
+		}
+	};
+
+	void pollClipboard();
+	const clipboardInterval = setInterval(() => {
+		void pollClipboard();
+	}, CLIPBOARD_POLL_INTERVAL_MS);
+
+	return () => {
+		clearInterval(clipboardInterval);
+	};
+});
 </script>
 
 <div class="dashboard-container">

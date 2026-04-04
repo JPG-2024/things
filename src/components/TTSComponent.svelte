@@ -72,11 +72,11 @@ $effect(() => {
 >
 	
 		{#if $ttsState.activeId === id && $ttsState.isLoading}
-			<Icon name="Loader" size={12}/>
+			<Icon name="Loader" size={18}/>
 		{:else if $ttsState.activeId === id && $ttsState.isPlaying}
-			<Icon name="Square" size={12}/>
+			<Icon name="Square" size={18}/>
 		{:else}
-			<Icon name="AudioLines" size={12} />
+			<Icon name="AudioLines" size={18} />
 		{/if}
 	
 	<span class="time">
@@ -105,7 +105,7 @@ $effect(() => {
 		background: rgba(255, 255, 255, 0.06);
 		padding: 0 8px;
 		color: var(--primary-color);
-		font-size: 0.75rem;
+		font-size: 0.80rem;
 	}
 
 	.tts-playback:disabled {

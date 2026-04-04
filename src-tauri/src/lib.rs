@@ -44,6 +44,18 @@ mod migrations;
 pub use crate::migrations::get_migrations;
 use tauri::RunEvent;
 use tauri::Manager;
+use tauri_plugin_clipboard_manager::ClipboardExt;
+
+#[tauri::command]
+async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.clipboard()
+            .read_text()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -61,6 +73,7 @@ pub fn run() {
                 .add_migrations("sqlite:notian.db", migrations)
                 .build(),
         )
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         // Register the command wrapper here
@@ -77,6 +90,7 @@ pub fn run() {
             url_to_folder_name,
             launch_llama_server,
             split_text_command,
+            read_clipboard_text,
             synthesize_speech,
             synthesize_speech_batch,
             cleanup_tts_file,
