@@ -43,7 +43,7 @@ export const chapterTaskRegistry: YouTubeTaskRegistrySubset<ChapterTaskIds> = {
 			TaskNames.TIMED_CAPTIONS,
 		],
 		type: "script",
-		persist: true,
+		persist: false,
 		run: async ({ state, enqueueTasks }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 			const chapters = getRequiredTaskState(state, TaskNames.CHAPTERS);

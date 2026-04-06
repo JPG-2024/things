@@ -61,7 +61,7 @@ function handleKeydown(event: KeyboardEvent) {
   }
 
   .text-input:focus {
-    box-shadow: inset 0 -1px 3px 0px var(--primary-color);
+    box-shadow: inset 0 -1px 2px 0px var(--primary-color);
     transition: all 0.3s ease;
   }
 

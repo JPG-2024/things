@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
+import Icon from "./Icon.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
 import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
@@ -60,6 +61,16 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
     width: 100%;
     align-items: center;
     box-sizing: border-box;
+  }
+
+  .delete-btn {
+        all: unset;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: white;
+    font-size: 18px;
+    line-height: 1;
   }
 
   .category-title {

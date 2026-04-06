@@ -29,6 +29,7 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 		id: WebTaskNames.KEYWORDS,
 		dependencies: [WebTaskNames.CONTENT],
 		type: "ia",
+		component: "keywords",
 		systemMessage: `Return only valid JSON that matches the provided schema. The keywords must be in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
 		userMessage: "Extract 5 representative keywords from the article.",

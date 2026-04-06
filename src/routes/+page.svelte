@@ -3,6 +3,8 @@ import { onMount } from "svelte";
 import { invoke } from "@tauri-apps/api/core";
 
 import CategoryWidget from "@/components/CategoryWidget.svelte";
+import Icon from "@/components/Icon.svelte";
+import SettingsModal from "@/components/modals/SettingsModal.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate } from "@/lib/utils/url";
@@ -14,7 +16,8 @@ import { viewState } from "@/stores/viewStore.svelte";
 const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
-let processingUrl = false;
+let processingUrl = $state(false);
+let showSettingsModal = $state(false);
 
 function extractValidUrl(value: string): string | null {
 	const trimmedValue = value.trim();
@@ -97,6 +100,17 @@ onMount(() => {
 });
 </script>
 
+<div class="page-topbar">
+	<button
+		type="button"
+		class="settings-trigger"
+		onclick={() => (showSettingsModal = true)}
+		aria-label="Open settings"
+	>
+		<Icon name="Settings" />
+	</button>
+</div>
+
 <div class="dashboard-container">
    <div class="title-row">
     <span class="dashboard-title">Things</span>
@@ -117,14 +131,46 @@ onMount(() => {
   </div>
 </div>
 
+<SettingsModal
+	show={showSettingsModal}
+	onClose={() => (showSettingsModal = false)}
+/>
+
 <style>
+	.page-topbar {
+		position: fixed;
+		top: 0;
+		right: 0;
+		left: 0;
+		z-index: 10;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		min-height: 52px;
+		padding: 0 1rem;
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		background: rgba(54, 54, 54, 0.2);
+	}
+
+	.settings-trigger {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border-radius: 999px;
+		padding: 0.45rem;
+		background: rgba(255, 255, 255, 0.06);
+	}
+
   .dashboard-container {
     display: flex;
     flex-direction: column;
     gap: 1.4rem;
     align-items: center;
     box-sizing: border-box;
-    padding: 20px;
+		padding: 76px 20px 20px;
     width: 100%;
   }
 

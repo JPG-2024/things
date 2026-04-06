@@ -24,7 +24,7 @@ onMount(() => {
     <div class="modal" role="dialog" transition:scale={{ start: 0.8, duration: 100 }}>
       <button class="close-btn" onclick={onClose} aria-label="Close modal">×</button>
       <div class="modal-content">
-        {@render children()}
+      {@render children?.()}
       </div>
     </div>
   </div>

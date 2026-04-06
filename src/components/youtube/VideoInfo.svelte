@@ -55,7 +55,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 <style>
 h3 {
     color: var(--primary-color);
-    font-family: Noto Sans Mono Thin;
+    font-family: Noto Sans Mono;
 }
 
 .video-info {

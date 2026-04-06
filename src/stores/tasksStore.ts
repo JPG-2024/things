@@ -75,8 +75,7 @@ function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 function parseStoredTasks(raw: string | null): Task[] {
 	return parsePersistedTaskStates(raw)
 		.filter(
-			(task) =>
-				typeof task.component === "string" && task.component.trim().length > 0
+			(task) => typeof task.component === "string" || task.status === "done"
 		)
 		.map(
 			(task) =>
@@ -93,7 +92,9 @@ function parseStoredTasks(raw: string | null): Task[] {
 		);
 }
 
-function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): boolean {
+function shouldPersistTask<TMap extends TaskMapBase>(
+	task: Task<TMap>
+): boolean {
 	const hasComponent =
 		typeof task.component === "string" && task.component.trim().length > 0;
 	return hasComponent || task.persist === true;
@@ -134,7 +135,10 @@ function mergeStoredTasks<TMap extends TaskMapBase>(
 	return Array.from(mergedTasks.values());
 }
 
-function getStoredTaskData<T>(tasks: StoredTask[], taskId: string): T | undefined {
+function getStoredTaskData<T>(
+	tasks: StoredTask[],
+	taskId: string
+): T | undefined {
 	return tasks.find((task) => task.id === taskId)?.data as T | undefined;
 }
 
