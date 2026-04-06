@@ -41,7 +41,7 @@ async function stopTTSPlayback() {
     position: fixed;
     top: 0px;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     gap: 10px;
     -webkit-backdrop-filter: blur(10px);
@@ -53,6 +53,7 @@ async function stopTTSPlayback() {
     z-index: 10;
     box-sizing: border-box;
     padding: 0 1rem;
+    padding-right: 1.8em;
   }
 
     .top-bar::after {

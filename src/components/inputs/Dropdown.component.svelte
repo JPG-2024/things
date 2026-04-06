@@ -52,11 +52,10 @@ function handleChange(event: Event) {
     backdrop-filter: blur(8px);
     box-sizing: border-box;
     outline: none;
-    border: none;
-    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(154, 154, 154, 0.12);
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-    padding: 0.6rem 0.75rem;
+    box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
+    padding: 0.4rem 0.75rem;
     width: 100%;
     color: inherit;
     font-size: 1rem;

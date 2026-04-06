@@ -18,7 +18,6 @@ interface Props {
 const { headerContent, summaryContent } = $props();
 // reactive state for deletion flag (Svelte runes)
 let isDeleting = $state(false);
-let showSettingsModal = $state(false);
 
 // Add window scroll event listener on mount, remove on unload, using $effect.pre
 $effect.pre(() => {
@@ -65,14 +64,6 @@ async function handleDelete() {
       onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
     />
 
-    <Icon
-      name="Settings"
-      title="Settings"
-      onClick={() => (showSettingsModal = true)}
-    />
-
-    <LinkIcon url={viewState.url!} />
-
     {#if viewState.url && !viewState.loading}
       <button
         class="delete-btn"
@@ -83,6 +74,17 @@ async function handleDelete() {
         <Icon name="Trash" />
       </button>
     {/if}
+
+
+
+    <LinkIcon url={viewState.url!} />
+    <Icon
+      name="Settings"
+      title="Settings"
+      onClick={() => (viewState.modalSettingVisible = true)}
+    />
+
+
   </Topbar>
 
   
@@ -98,8 +100,8 @@ async function handleDelete() {
   {@render summaryContent()}
 
   <SettingsModal
-    show={showSettingsModal}
-    onClose={() => (showSettingsModal = false)}
+    show={viewState.modalSettingVisible}
+    onClose={() => (viewState.modalSettingVisible = false)}
   />
 </article>
 

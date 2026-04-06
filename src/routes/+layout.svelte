@@ -93,6 +93,7 @@ onMount(() => {
   *::after {
     box-sizing: border-box;
   }
+  
 
   :root {
     color: #ffffff;

@@ -17,7 +17,6 @@ const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 let processingUrl = $state(false);
-let showSettingsModal = $state(false);
 
 function extractValidUrl(value: string): string | null {
 	const trimmedValue = value.trim();
@@ -104,7 +103,7 @@ onMount(() => {
 	<button
 		type="button"
 		class="settings-trigger"
-		onclick={() => (showSettingsModal = true)}
+		onclick={() => (viewState.modalSettingVisible = true)}
 		aria-label="Open settings"
 	>
 		<Icon name="Settings" />
@@ -132,8 +131,8 @@ onMount(() => {
 </div>
 
 <SettingsModal
-	show={showSettingsModal}
-	onClose={() => (showSettingsModal = false)}
+	show={viewState.modalSettingVisible}
+	onClose={() => (viewState.modalSettingVisible = false)}
 />
 
 <style>

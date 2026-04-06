@@ -13,7 +13,7 @@ function closeModal() {
 	onClose();
 }
 
-function handleVoiceChange(voice) {
+function handleVoiceChange(voice: string) {
 	if (!AVAILABLE_VOICES.includes(voice)) {
 		return;
 	}
@@ -21,11 +21,11 @@ function handleVoiceChange(voice) {
 	ttsStore.state.update((prev) => ({ ...prev, selectedVoice: voice }));
 }
 
-function handleSpeedChange(speed) {
+function handleSpeedChange(speed: string) {
 	ttsStore.state.update((prev) => ({ ...prev, speed: Number(speed) }));
 }
 
-function handleTotalStepChange(totalStep) {
+function handleTotalStepChange(totalStep: string) {
 	ttsStore.state.update((prev) => ({ ...prev, totalStep: Number(totalStep) }));
 }
 </script>

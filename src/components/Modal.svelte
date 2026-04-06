@@ -60,8 +60,8 @@ onMount(() => {
 
   .close-btn {
     position: fixed;
-    top: 0.5rem;
-    right: 0.5rem;
+    top: 0.6rem;
+    right: 1rem;
     background: none;
     border: none;
     font-size: 1.5rem;
