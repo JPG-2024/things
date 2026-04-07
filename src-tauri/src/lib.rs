@@ -30,6 +30,14 @@ pub use crate::download_media::download_and_save_image;
 mod url;
 pub use crate::url::url_to_folder_name;
 
+mod article_store;
+pub use crate::article_store::{
+    delete_stored_article_by_url,
+    get_stored_article_by_url,
+    list_stored_articles,
+    upsert_stored_article,
+};
+
 mod llama_server;
 pub use crate::llama_server::launch_llama_server;
 use crate::llama_server::{stop_llama_server, LlamaServerState};
@@ -78,6 +86,10 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         // Register the command wrapper here
         .invoke_handler(tauri::generate_handler![
+            list_stored_articles,
+            get_stored_article_by_url,
+            upsert_stored_article,
+            delete_stored_article_by_url,
             extract_markdown,
             extract_metadata,
             extract_blog,

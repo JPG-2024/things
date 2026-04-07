@@ -45,6 +45,9 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 quick-xml = "0.31"
 base64 = "0.21"  # Para decodificar si es necesario
 futures-util = "0.3"
+lancedb = { git = "https://github.com/lancedb/lancedb", package = "lancedb" }
+arrow-array = "57.3.0"
+arrow-schema = "57.3.0"
 
 
 # ONNX Runtime
