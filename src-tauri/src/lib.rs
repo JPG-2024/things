@@ -47,9 +47,6 @@ mod tts_helpers;
 
 mod tts;
 pub use crate::tts::{synthesize_speech, synthesize_speech_batch, cleanup_tts_file, play_tts_file, stop_tts_playback};
-
-mod migrations;
-pub use crate::migrations::get_migrations;
 use tauri::RunEvent;
 use tauri::Manager;
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -65,22 +62,35 @@ async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
     .map_err(|error| error.to_string())?
 }
 
+fn cleanup_legacy_sqlite_files(app: &tauri::AppHandle) -> Result<(), String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
+
+    for file_name in [
+        "notian.db",
+        "notian.db-shm",
+        "notian.db-wal",
+        "notian.db-journal",
+    ] {
+        let path = app_data_dir.join(file_name);
+
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
 
-    let migrations = get_migrations();
-
     let app = tauri::Builder::default()
         .manage(LlamaServerState::default())
-        .plugin(
-            // Build the SQL plugin
-            tauri_plugin_sql::Builder::default()
-                // Add migrations to the 'notian.db' database
-                .add_migrations("sqlite:notian.db", migrations)
-                .build(),
-        )
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
@@ -111,6 +121,11 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
+
+    let app_handle = app.handle().clone();
+    if let Err(error) = cleanup_legacy_sqlite_files(&app_handle) {
+        eprintln!("Unable to remove legacy SQLite files: {error}");
+    }
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {

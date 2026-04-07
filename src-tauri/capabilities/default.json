@@ -7,9 +7,6 @@
 		"core:default",
 		"core:path:default",
 		"clipboard-manager:allow-read-text",
-		"sql:default",
-		"sql:allow-load",
-		"sql:allow-execute",
 		{
 			"identifier": "http:default",
 			"allow": [

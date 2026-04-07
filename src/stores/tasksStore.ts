@@ -1,20 +1,7 @@
-import Database from "@tauri-apps/plugin-sql";
 import { invoke } from "@tauri-apps/api/core";
 import { BaseDirectory, remove } from "@tauri-apps/plugin-fs";
 import { splitText } from "@/lib/utils/splitter";
 import type { Task, TaskMapBase } from "@/types/taskRunner.types";
-
-let db: Database | null = null;
-let legacyMigrationPromise: Promise<void> | null = null;
-
-const LEGACY_MIGRATION_KEY = "notian:lancedb-articles-migration-v1";
-
-async function getDb() {
-	if (!db) {
-		db = await Database.load("sqlite:notian.db");
-	}
-	return db;
-}
 
 type StoredTask = {
 	id?: string;
@@ -43,17 +30,6 @@ export interface ArticleWithTasks {
 	persistedTasks?: PersistedTaskState[];
 	[key: string]: unknown;
 }
-
-type LegacyArticleRow = {
-	id: number;
-	url: string | null;
-	title: string | null;
-	thumbnail: string | null;
-	tasks: string | null;
-	main_color?: string | null;
-	metadataContent?: unknown;
-	[key: string]: unknown;
-};
 
 type SearchRowKind = "content_chunk" | "keyword_bundle";
 
@@ -195,31 +171,9 @@ function getArticleStringField(
 	return typeof fieldValue === "string" ? fieldValue : "";
 }
 
-function getLegacyMigrationStatus(): boolean {
-	if (typeof window === "undefined") {
-		return false;
-	}
-
-	try {
-		return window.localStorage.getItem(LEGACY_MIGRATION_KEY) === "done";
-	} catch {
-		return false;
-	}
-}
-
-function setLegacyMigrationStatus(): void {
-	if (typeof window === "undefined") {
-		return;
-	}
-
-	try {
-		window.localStorage.setItem(LEGACY_MIGRATION_KEY, "done");
-	} catch {
-		// Ignore storage failures and keep runtime-only migration protection.
-	}
-}
-
-function normalizeNullableString(value: string | null | undefined): string | null {
+function normalizeNullableString(
+	value: string | null | undefined
+): string | null {
 	if (typeof value !== "string") {
 		return null;
 	}
@@ -334,14 +288,18 @@ async function buildUpsertInput(params: {
 }): Promise<UpsertStoredArticleInput> {
 	const title =
 		normalizeNullableString(params.title) ??
-		normalizeNullableString(getStoredTaskData<string>(params.tasksToSave, "title")) ??
+		normalizeNullableString(
+			getStoredTaskData<string>(params.tasksToSave, "title")
+		) ??
 		normalizeNullableString(params.existingArticle?.title ?? null);
 	const content =
 		normalizeNullableString(params.content) ??
 		normalizeNullableString(
 			getStoredTaskData<string>(params.tasksToSave, "content")
 		) ??
-		normalizeNullableString(getArticleStringField(params.existingArticle, "content"));
+		normalizeNullableString(
+			getArticleStringField(params.existingArticle, "content")
+		);
 	const thumbnailTaskData =
 		getStoredTaskData<{
 			thumbnailImageSrc?: string;
@@ -387,65 +345,6 @@ async function buildUpsertInput(params: {
 		searchRows,
 	};
 }
-
-async function ensureLegacyMigration(): Promise<void> {
-	if (getLegacyMigrationStatus()) {
-		return;
-	}
-
-	if (!legacyMigrationPromise) {
-		legacyMigrationPromise = migrateLegacyArticles();
-	}
-
-	await legacyMigrationPromise;
-}
-
-async function migrateLegacyArticles(): Promise<void> {
-	const database = await getDb();
-	let legacyRows: LegacyArticleRow[] = [];
-
-	try {
-		legacyRows = await database.select<LegacyArticleRow[]>(
-			`SELECT rowid as id, * FROM articles ORDER BY rowid ASC`,
-			[]
-		);
-	} catch (error) {
-		console.warn("Unable to read legacy SQLite articles for migration", error);
-		setLegacyMigrationStatus();
-		return;
-	}
-
-	for (const row of legacyRows) {
-		if (typeof row.url !== "string" || !row.url.trim()) {
-			continue;
-		}
-
-		const persistedTasks = parsePersistedTaskStates(row.tasks);
-		const input = await buildUpsertInput({
-			url: row.url,
-			tasksToSave: persistedTasks,
-			existingArticle: null,
-			tasksJson: row.tasks ?? "[]",
-			title: typeof row.title === "string" ? row.title : null,
-			thumbnail: typeof row.thumbnail === "string" ? row.thumbnail : null,
-			content: typeof row.content === "string" ? row.content : null,
-			directory: typeof row.directory === "string" ? row.directory : null,
-			mainColor: typeof row.main_color === "string" ? row.main_color : null,
-		});
-
-		try {
-			await invoke("upsert_stored_article", { input });
-		} catch (error) {
-			console.error("Unable to migrate legacy article into LanceDB", {
-				url: row.url,
-				error,
-			});
-		}
-	}
-
-	setLegacyMigrationStatus();
-}
-
 function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 	const tasksJson = row.tasksJson ?? "[]";
 	const mainColor =
@@ -470,8 +369,6 @@ function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 }
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
-	await ensureLegacyMigration();
-
 	try {
 		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
 
@@ -490,8 +387,6 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 export async function getArticleWithTasksByUrl(
 	url: string
 ): Promise<ArticleWithTasks | null> {
-	await ensureLegacyMigration();
-
 	try {
 		const row = await invoke<StoredArticleRecord | null>(
 			"get_stored_article_by_url",
@@ -513,7 +408,6 @@ export async function saveTasks<TMap extends TaskMapBase>(
 	url: string,
 	tasks: Task<TMap>[]
 ): Promise<void> {
-	await ensureLegacyMigration();
 	const existingArticle = await getArticleWithTasksByUrl(url);
 	const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
 	const tasksJson = JSON.stringify(tasksToSave);
@@ -530,8 +424,6 @@ export async function saveTasks<TMap extends TaskMapBase>(
 export async function deleteArticleByUrl(
 	url: string
 ): Promise<{ success: boolean }> {
-	await ensureLegacyMigration();
-
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
 		const directory =
@@ -554,9 +446,6 @@ export async function deleteArticleByUrl(
 		}
 
 		await invoke("delete_stored_article_by_url", { url });
-
-		const database = await getDb();
-		await database.execute(`DELETE FROM articles WHERE url = $1`, [url]);
 
 		return { success: true };
 	} catch (error) {

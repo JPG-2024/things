@@ -36,7 +36,6 @@ urlencoding = "2.1"
 dotenv = "0.15"
 dirs = "6.0.0"
 tauri-plugin-http = "2"
-tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10.9"
 text-splitter = { version = "0.28", features = ["markdown", "code"] }
