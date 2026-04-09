@@ -1,4 +1,5 @@
 import type { Component } from "svelte";
+import AskComponent from "@/components/AskComponent.svelte";
 import Image from "@/components/Image.svelte";
 import MarkdownTaskComponent from "@/components/Tasks/markdownTaskComponent.svelte";
 import Player from "@/components/youtube/YouTubePlayer.svelte";
@@ -10,6 +11,7 @@ export const taskRenderRegistry: Record<
 	string,
 	Component<Record<string, unknown>>
 > = {
+	ask: AskComponent,
 	taskBase: MarkdownTaskComponent,
 	image: Image,
 	player: Player,

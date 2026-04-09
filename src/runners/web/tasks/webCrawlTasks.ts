@@ -9,8 +9,8 @@ type CrawlTaskIds = WebTaskNames.CONTENT;
 export const crawlTaskRegistry: WebTaskRegistrySubset<CrawlTaskIds> = {
 	[WebTaskNames.CONTENT]: () => ({
 		id: WebTaskNames.CONTENT,
-		name: "Get content",
 		dependencies: [WebTaskNames.INIT],
+		component: "ask",
 		type: "script",
 		persist: true,
 		run: ({ state }) => {

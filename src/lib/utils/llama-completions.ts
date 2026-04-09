@@ -172,6 +172,34 @@ export interface LlamaChatCompletionsResponse {
 	[key: string]: unknown;
 }
 
+export interface LlamaEmbeddingsRequest {
+	model: string;
+	input: string | string[];
+	encoding_format?: "float" | "base64";
+	user?: string;
+	dimensions?: number;
+	[key: string]: unknown;
+}
+
+export interface LlamaEmbedding {
+	object: "embedding";
+	embedding: number[];
+	index: number;
+}
+
+export interface LlamaEmbeddingsUsage {
+	prompt_tokens: number;
+	total_tokens: number;
+}
+
+export interface LlamaEmbeddingsResponse {
+	object: "list";
+	data: LlamaEmbedding[];
+	model: string;
+	usage?: LlamaEmbeddingsUsage;
+	[key: string]: unknown;
+}
+
 export interface LlamaChatCompletionsDelta {
 	role?: "assistant";
 	content?: string | null;
@@ -218,6 +246,11 @@ export interface LlamaChatCompletionOptions {
 	) => void; // <- add
 }
 
+export interface LlamaEmbeddingsOptions {
+	headers?: HeadersInit;
+	signal?: AbortSignal;
+}
+
 export class LlamaChatCompletionError extends Error {
 	constructor(
 		message: string,
@@ -226,6 +259,17 @@ export class LlamaChatCompletionError extends Error {
 	) {
 		super(message);
 		this.name = "LlamaChatCompletionError";
+	}
+}
+
+export class LlamaEmbeddingsError extends Error {
+	constructor(
+		message: string,
+		public status?: number,
+		public payload?: unknown
+	) {
+		super(message);
+		this.name = "LlamaEmbeddingsError";
 	}
 }
 
@@ -553,4 +597,63 @@ export async function chatCompletions(
 		choices,
 		...(usage ? { usage } : {}),
 	};
+}
+
+export async function createEmbeddings(
+	request: LlamaEmbeddingsRequest,
+	options?: LlamaEmbeddingsOptions
+): Promise<LlamaEmbeddingsResponse> {
+	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8083";
+	const url = joinUrl(baseUrl, "/v1/embeddings");
+
+	let res: Response;
+	try {
+		res = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				...(options?.headers ?? {}),
+			},
+			body: JSON.stringify(request),
+			signal: options?.signal,
+		});
+	} catch (error) {
+		if (isAbortError(error)) {
+			throw error;
+		}
+
+		const detail =
+			error instanceof Error && error.message.trim()
+				? error.message.trim()
+				: "Unknown network error";
+
+		throw new LlamaEmbeddingsError(
+			`llama-server is not running or not reachable at ${baseUrl}. Start it and retry. (${detail})`,
+			undefined,
+			error
+		);
+	}
+
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		let payload: unknown;
+		try {
+			payload = text ? JSON.parse(text) : undefined;
+		} catch {
+			payload = text || undefined;
+		}
+
+		const message =
+			typeof payload === "object" && payload !== null && "error" in payload
+				? `${res.status} ${res.statusText} - ${JSON.stringify((payload as Record<string, unknown>).error)}`
+				: `${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`;
+
+		throw new LlamaEmbeddingsError(
+			`llama-server /v1/embeddings failed: ${message}`,
+			res.status,
+			payload
+		);
+	}
+
+	return (await res.json()) as LlamaEmbeddingsResponse;
 }

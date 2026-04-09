@@ -138,13 +138,13 @@ onMount(() => {
     animation: sweep-overlay 1s ease-in-out forwards; /* 5s = tu ventana de flashy */
     inset: 0;
     background: linear-gradient(
-      to bottom,
+      0deg,
       rgba(255, 255, 255, 0) 0%,
       rgba(255, 255, 255, 0) 20%,
-      var(--primary-color) 50%,
+      rgba(255,255,255, 0.275) 50%,
       rgba(255, 255, 255, 0) 70%,
       rgba(255, 255, 255, 0) 100%
-    );
+        );
     pointer-events: none; /* que no bloquee clicks */
     content: '';
   }

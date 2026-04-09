@@ -24,6 +24,7 @@ export interface ArticleWithTasks {
 	thumbnail: string | null;
 	content?: string | null;
 	mediaDirectory?: string | null;
+	profile?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
 	tasks: Task[];
@@ -42,6 +43,7 @@ type StoredArticleRecord = {
 	content: string | null;
 	directory: string | null;
 	mediaDirectory: string | null;
+	profile: string | null;
 	mainColor: string | null;
 	primaryColor: string | null;
 	tasksJson: string | null;
@@ -63,6 +65,7 @@ type UpsertStoredArticleInput = {
 	content: string | null;
 	directory: string | null;
 	mainColor: string | null;
+	profile: string | null;
 	tasksJson: string;
 	embeddingSourceText: string | null;
 	searchRows: StoredArticleSearchRowInput[];
@@ -285,6 +288,7 @@ async function buildUpsertInput(params: {
 	content?: string | null;
 	directory?: string | null;
 	mainColor?: string | null;
+	profile?: string | null;
 }): Promise<UpsertStoredArticleInput> {
 	const title =
 		normalizeNullableString(params.title) ??
@@ -326,6 +330,11 @@ async function buildUpsertInput(params: {
 	const keywords = parseKeywords(
 		getStoredTaskData<unknown>(params.tasksToSave, "keywords")
 	);
+	const profile =
+		normalizeNullableString(params.profile) ??
+		normalizeNullableString(
+			getArticleStringField(params.existingArticle, "profile")
+		);
 	const searchRows = await buildSearchRows(content, keywords);
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
@@ -340,6 +349,7 @@ async function buildUpsertInput(params: {
 		content,
 		directory,
 		mainColor,
+		profile,
 		tasksJson: params.tasksJson,
 		embeddingSourceText,
 		searchRows,
@@ -357,6 +367,7 @@ function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 		thumbnail: row.thumbnail,
 		content: row.content,
 		mediaDirectory: row.mediaDirectory,
+		profile: row.profile,
 		directory: row.directory,
 		mainColor,
 		primaryColor: mainColor,

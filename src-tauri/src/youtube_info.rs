@@ -153,8 +153,6 @@ async fn extract_chapters_from_page(
 		seen.insert(key)
 	});
 
-	println!("Details: {:?}", chapters);
-
 	Ok(chapters)
 }
 

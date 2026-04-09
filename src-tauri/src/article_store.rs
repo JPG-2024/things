@@ -28,6 +28,7 @@ pub struct StoredArticleRecord {
     pub directory: Option<String>,
     pub media_directory: Option<String>,
     pub main_color: Option<String>,
+    pub profile: Option<String>,
     pub primary_color: Option<String>,
     pub tasks_json: Option<String>,
     pub updated_at: i64,
@@ -52,6 +53,7 @@ pub struct UpsertStoredArticleInput {
     pub content: Option<String>,
     pub directory: Option<String>,
     pub main_color: Option<String>,
+    pub profile: Option<String>,
     pub tasks_json: String,
     pub embedding_source_text: Option<String>,
     pub search_rows: Vec<StoredArticleSearchRowInput>,
@@ -101,8 +103,8 @@ async fn connection(app: &AppHandle) -> Result<Connection, String> {
         .map_err(|error| error.to_string())
 }
 
-fn articles_schema() -> SchemaRef {
-    Arc::new(Schema::new(vec![
+fn articles_schema(include_profile: bool) -> SchemaRef {
+    let mut fields = vec![
         Field::new("id", DataType::Int64, false),
         Field::new("url", DataType::Utf8, false),
         Field::new("article_uid", DataType::Utf8, false),
@@ -111,10 +113,17 @@ fn articles_schema() -> SchemaRef {
         Field::new("content", DataType::Utf8, true),
         Field::new("directory", DataType::Utf8, true),
         Field::new("main_color", DataType::Utf8, true),
-        Field::new("tasks_json", DataType::Utf8, false),
-        Field::new("embedding_source_text", DataType::Utf8, true),
-        Field::new("updated_at", DataType::Int64, false),
-    ]))
+    ];
+
+    if include_profile {
+        fields.push(Field::new("profile", DataType::Utf8, true));
+    }
+
+    fields.push(Field::new("tasks_json", DataType::Utf8, false));
+    fields.push(Field::new("embedding_source_text", DataType::Utf8, true));
+    fields.push(Field::new("updated_at", DataType::Int64, false));
+
+    Arc::new(Schema::new(fields))
 }
 
 fn article_search_schema() -> SchemaRef {
@@ -152,12 +161,12 @@ async fn open_or_create_table(
 }
 
 async fn open_articles_table(db: &Connection) -> Result<Table, String> {
-    open_or_create_table(db, ARTICLES_TABLE, articles_schema()).await
+    open_or_create_table(db, ARTICLES_TABLE, articles_schema(true)).await
 }
 
 async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
     let table = open_or_create_table(db, ARTICLE_SEARCH_TABLE, article_search_schema()).await?;
-    ensure_search_indices(&table).await?;
+    //ensure_search_indices(&table).await?;
     Ok(table)
 }
 
@@ -178,28 +187,32 @@ async fn ensure_search_indices(table: &Table) -> Result<(), String> {
     Ok(())
 }
 
-fn article_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String> {
+fn article_batch(input: &UpsertStoredArticleInput, include_profile: bool) -> Result<RecordBatch, String> {
     let article_uid = article_uid_from_url(&input.url);
     let id = article_numeric_id(&article_uid);
     let updated_at = chrono_like_now();
-    let schema = articles_schema();
+    let schema = articles_schema(include_profile);
 
-    RecordBatch::try_new(
-        schema,
-        vec![
-            Arc::new(Int64Array::from(vec![id])),
-            Arc::new(StringArray::from(vec![input.url.as_str()])),
-            Arc::new(StringArray::from(vec![article_uid.as_str()])),
-            Arc::new(StringArray::from(vec![input.title.as_deref()])),
-            Arc::new(StringArray::from(vec![input.thumbnail.as_deref()])),
-            Arc::new(StringArray::from(vec![input.content.as_deref()])),
-            Arc::new(StringArray::from(vec![input.directory.as_deref()])),
-            Arc::new(StringArray::from(vec![input.main_color.as_deref()])),
-            Arc::new(StringArray::from(vec![Some(input.tasks_json.as_str())])),
-            Arc::new(StringArray::from(vec![input.embedding_source_text.as_deref()])),
-            Arc::new(Int64Array::from(vec![updated_at])),
-        ],
-    )
+    let mut columns: Vec<Arc<dyn Array>> = vec![
+        Arc::new(Int64Array::from(vec![id])),
+        Arc::new(StringArray::from(vec![input.url.as_str()])),
+        Arc::new(StringArray::from(vec![article_uid.as_str()])),
+        Arc::new(StringArray::from(vec![input.title.as_deref()])),
+        Arc::new(StringArray::from(vec![input.thumbnail.as_deref()])),
+        Arc::new(StringArray::from(vec![input.content.as_deref()])),
+        Arc::new(StringArray::from(vec![input.directory.as_deref()])),
+        Arc::new(StringArray::from(vec![input.main_color.as_deref()])),
+    ];
+
+    if include_profile {
+        columns.push(Arc::new(StringArray::from(vec![input.profile.as_deref()])));
+    }
+
+    columns.push(Arc::new(StringArray::from(vec![Some(input.tasks_json.as_str())])));
+    columns.push(Arc::new(StringArray::from(vec![input.embedding_source_text.as_deref()])));
+    columns.push(Arc::new(Int64Array::from(vec![updated_at])));
+
+    RecordBatch::try_new(schema, columns)
     .map_err(|error| error.to_string())
 }
 
@@ -281,6 +294,21 @@ fn string_column<'a>(batch: &'a RecordBatch, name: &str) -> Result<&'a StringArr
         .ok_or_else(|| format!("Column '{name}' is not Utf8"))
 }
 
+fn optional_string_column<'a>(
+    batch: &'a RecordBatch,
+    name: &str,
+) -> Result<Option<&'a StringArray>, String> {
+    let Some(column) = batch.column_by_name(name) else {
+        return Ok(None);
+    };
+
+    column
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .map(Some)
+        .ok_or_else(|| format!("Column '{name}' is not Utf8"))
+}
+
 fn int64_column<'a>(batch: &'a RecordBatch, name: &str) -> Result<&'a Int64Array, String> {
     batch
         .column_by_name(name)
@@ -298,6 +326,10 @@ fn read_optional_string(array: &StringArray, row: usize) -> Option<String> {
     }
 }
 
+fn read_optional_string_from_column(array: Option<&StringArray>, row: usize) -> Option<String> {
+    array.and_then(|value| read_optional_string(value, row))
+}
+
 fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRecord>, String> {
     let mut records = Vec::new();
 
@@ -305,33 +337,35 @@ fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRe
         let ids = int64_column(&batch, "id")?;
         let urls = string_column(&batch, "url")?;
         let article_uids = string_column(&batch, "article_uid")?;
-        let titles = string_column(&batch, "title")?;
-        let thumbnails = string_column(&batch, "thumbnail")?;
-        let contents = string_column(&batch, "content")?;
-        let directories = string_column(&batch, "directory")?;
-        let main_colors = string_column(&batch, "main_color")?;
-        let tasks_json = string_column(&batch, "tasks_json")?;
-        let embedding_source_texts = string_column(&batch, "embedding_source_text")?;
+        let titles = optional_string_column(&batch, "title")?;
+        let thumbnails = optional_string_column(&batch, "thumbnail")?;
+        let contents = optional_string_column(&batch, "content")?;
+        let directories = optional_string_column(&batch, "directory")?;
+        let main_colors = optional_string_column(&batch, "main_color")?;
+        let profiles = optional_string_column(&batch, "profile")?;
+        let tasks_json = optional_string_column(&batch, "tasks_json")?;
+        let embedding_source_texts = optional_string_column(&batch, "embedding_source_text")?;
         let updated_ats = int64_column(&batch, "updated_at")?;
 
         for row in 0..batch.num_rows() {
-            let directory = read_optional_string(directories, row);
-            let main_color = read_optional_string(main_colors, row);
+            let directory = read_optional_string_from_column(directories, row);
+            let main_color = read_optional_string_from_column(main_colors, row);
 
             records.push(StoredArticleRecord {
                 id: ids.value(row),
                 url: read_optional_string(urls, row),
                 article_uid: article_uids.value(row).to_string(),
-                title: read_optional_string(titles, row),
-                thumbnail: read_optional_string(thumbnails, row),
-                content: read_optional_string(contents, row),
+                title: read_optional_string_from_column(titles, row),
+                thumbnail: read_optional_string_from_column(thumbnails, row),
+                content: read_optional_string_from_column(contents, row),
                 media_directory: directory.clone(),
                 directory,
                 main_color: main_color.clone(),
+                profile: read_optional_string_from_column(profiles, row),
                 primary_color: main_color,
-                tasks_json: read_optional_string(tasks_json, row),
+                tasks_json: read_optional_string_from_column(tasks_json, row),
                 updated_at: updated_ats.value(row),
-                embedding_source_text: read_optional_string(embedding_source_texts, row),
+                embedding_source_text: read_optional_string_from_column(embedding_source_texts, row),
             });
         }
     }
@@ -375,6 +409,29 @@ pub async fn get_stored_article_by_url(
     Ok(records.pop())
 }
 
+async fn merge_article_row(
+    table: &Table,
+    input: &UpsertStoredArticleInput,
+    include_profile: bool,
+) -> Result<(), String> {
+    let schema = articles_schema(include_profile);
+    let mut article_merge = table.merge_insert(&["url"]);
+    article_merge.when_matched_update_all(None);
+    article_merge.when_not_matched_insert_all();
+    article_merge
+        .execute(Box::new(RecordBatchIterator::new(
+            vec![Ok(article_batch(input, include_profile)?)],
+            schema,
+        )))
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+fn is_profile_schema_mismatch(error: &str) -> bool {
+    error.contains("unexpected=[profile]") || error.contains("missing=[profile]")
+}
+
 #[tauri::command]
 pub async fn upsert_stored_article(
     app: AppHandle,
@@ -385,20 +442,18 @@ pub async fn upsert_stored_article(
     input.content = normalize_optional_string(input.content);
     input.directory = normalize_optional_string(input.directory);
     input.main_color = normalize_optional_string(input.main_color);
+    input.profile = normalize_optional_string(input.profile);
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
 
     let db = connection(&app).await?;
     let articles_table = open_articles_table(&db).await?;
-    let mut article_merge = articles_table.merge_insert(&["url"]);
-    article_merge.when_matched_update_all(None);
-    article_merge.when_not_matched_insert_all();
-    article_merge
-        .execute(Box::new(RecordBatchIterator::new(
-            vec![Ok(article_batch(&input)?)],
-            articles_schema(),
-        )))
-        .await
-        .map_err(|error| error.to_string())?;
+    if let Err(error) = merge_article_row(&articles_table, &input, true).await {
+        if is_profile_schema_mismatch(&error) {
+            merge_article_row(&articles_table, &input, false).await?;
+        } else {
+            return Err(error);
+        }
+    }
 
     let article_search_table = open_article_search_table(&db).await?;
     let article_uid = article_uid_from_url(&input.url);
