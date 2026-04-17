@@ -80,8 +80,6 @@ fn split_podcast(text: &str, capacity: usize, overlap: usize) -> Result<Vec<Stri
         .map(|s| s.to_string())
         .collect();
 
-    println!("{}", chunks.join("\n\n"));
-
     Ok(chunks)
 }
 

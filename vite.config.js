@@ -1,12 +1,18 @@
-import { sveltekit } from "@sveltejs/kit/vite"
-import { defineConfig } from "vite"
+import { sveltekit } from "@sveltejs/kit/vite";
+import { defineConfig } from "vite";
 
 // @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST
+const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
 	plugins: [sveltekit()],
+	css: {
+		postcss: {
+			// Excluye los archivos .svelte del procesamiento con PostCSS
+			exclude: ["*.svelte"],
+		},
+	},
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
 	//
 	// 1. prevent Vite from obscuring rust errors
@@ -28,4 +34,4 @@ export default defineConfig(async () => ({
 			ignored: ["**/src-tauri/**"],
 		},
 	},
-}))
+}));

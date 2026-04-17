@@ -39,6 +39,7 @@ type YouTubeRunnerOptions = {
 	parentRunId?: string;
 	routine?: keyof typeof routine;
 	Rebuild?: boolean;
+	stream?: boolean;
 };
 
 export async function youTubeRunner(
@@ -65,6 +66,7 @@ export async function youTubeRunner(
 		makeActive: options.makeActive ?? true,
 		parentRunId: options.parentRunId,
 		Rebuild: options.Rebuild,
+		stream: options.stream,
 	});
 
 	await saveTasks(url, runResult.tasks);
