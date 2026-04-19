@@ -10,6 +10,11 @@ type StoredTask = {
 	component?: string;
 };
 
+type LegacyPageElementItem = {
+	name?: unknown;
+	textContent?: unknown;
+};
+
 export type PersistedTaskState = {
 	id: string;
 	data?: unknown;
@@ -168,7 +173,7 @@ function getStoredTaskData<T>(
 
 function getArticleStringField(
 	article: ArticleWithTasks | null,
-	fieldName: string
+	fieldName: "content" | "profile" | "mediaDirectory" | "directory"
 ): string {
 	const fieldValue = article?.[fieldName];
 	return typeof fieldValue === "string" ? fieldValue : "";
@@ -183,6 +188,19 @@ function normalizeNullableString(
 
 	const normalized = value.trim();
 	return normalized.length > 0 ? normalized : null;
+}
+
+function firstNormalizedString(
+	...values: Array<string | null | undefined>
+): string | null {
+	for (const value of values) {
+		const normalized = normalizeNullableString(value);
+		if (normalized) {
+			return normalized;
+		}
+	}
+
+	return null;
 }
 
 function parseKeywords(data: unknown): string[] {
@@ -207,6 +225,51 @@ function parseKeywords(data: unknown): string[] {
 	}
 
 	return [];
+}
+
+function getFirstStringValue(value: unknown): string | null {
+	if (typeof value === "string") {
+		return value;
+	}
+
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			if (typeof item === "string") {
+				return item;
+			}
+		}
+	}
+
+	return null;
+}
+
+function getPageElementField(
+	tasks: Array<{ id?: string; data?: unknown }>,
+	fieldName: string
+): string | null {
+	const data = getStoredTaskData<unknown>(tasks, "video-info");
+
+	if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+		const value = (data as Record<string, unknown>)[fieldName];
+		return getFirstStringValue(value);
+	}
+
+	if (Array.isArray(data)) {
+		const item = data.find((entry) => {
+			if (typeof entry !== "object" || entry === null) {
+				return false;
+			}
+
+			const candidate = entry as LegacyPageElementItem;
+			return candidate.name === fieldName;
+		});
+
+		if (typeof item === "object" && item !== null) {
+			return getFirstStringValue((item as LegacyPageElementItem).textContent);
+		}
+	}
+
+	return null;
 }
 
 async function buildSearchRows(
@@ -290,51 +353,46 @@ async function buildUpsertInput(params: {
 	mainColor?: string | null;
 	profile?: string | null;
 }): Promise<UpsertStoredArticleInput> {
-	const title =
-		normalizeNullableString(params.title) ??
-		normalizeNullableString(
-			getStoredTaskData<string>(params.tasksToSave, "title")
-		) ??
-		normalizeNullableString(params.existingArticle?.title ?? null);
-	const content =
-		normalizeNullableString(params.content) ??
-		normalizeNullableString(
-			getStoredTaskData<string>(params.tasksToSave, "content")
-		) ??
-		normalizeNullableString(
-			getArticleStringField(params.existingArticle, "content")
-		);
+	const title = firstNormalizedString(
+		params.title,
+		getStoredTaskData<string>(params.tasksToSave, "title"),
+		params.existingArticle?.title ?? null
+	);
+	const content = firstNormalizedString(
+		params.content,
+		getStoredTaskData<string>(params.tasksToSave, "content"),
+		getArticleStringField(params.existingArticle, "content")
+	);
 	const thumbnailTaskData =
 		getStoredTaskData<{
 			thumbnailImageSrc?: string;
 			mediaDirectory?: string;
 		}>(params.tasksToSave, "thumbnail") ?? {};
-	const thumbnail =
-		normalizeNullableString(params.thumbnail) ??
-		normalizeNullableString(thumbnailTaskData.thumbnailImageSrc) ??
-		normalizeNullableString(params.existingArticle?.thumbnail ?? null);
-	const directory =
-		normalizeNullableString(params.directory) ??
-		normalizeNullableString(thumbnailTaskData.mediaDirectory) ??
-		normalizeNullableString(
-			getArticleStringField(params.existingArticle, "mediaDirectory") ||
-				getArticleStringField(params.existingArticle, "directory")
-		);
-	const mainColor =
-		normalizeNullableString(params.mainColor) ??
-		normalizeNullableString(
-			getStoredTaskData<string>(params.tasksToSave, "main-color")
-		) ??
-		normalizeNullableString(params.existingArticle?.mainColor ?? null) ??
-		normalizeNullableString(params.existingArticle?.primaryColor ?? null);
+	const thumbnail = firstNormalizedString(
+		params.thumbnail,
+		thumbnailTaskData.thumbnailImageSrc,
+		params.existingArticle?.thumbnail ?? null
+	);
+	const directory = firstNormalizedString(
+		params.directory,
+		thumbnailTaskData.mediaDirectory,
+		getArticleStringField(params.existingArticle, "mediaDirectory"),
+		getArticleStringField(params.existingArticle, "directory")
+	);
+	const mainColor = firstNormalizedString(
+		params.mainColor,
+		getStoredTaskData<string>(params.tasksToSave, "main-color"),
+		params.existingArticle?.mainColor ?? null,
+		params.existingArticle?.primaryColor ?? null
+	);
 	const keywords = parseKeywords(
 		getStoredTaskData<unknown>(params.tasksToSave, "keywords")
 	);
-	const profile =
-		normalizeNullableString(params.profile) ??
-		normalizeNullableString(
-			getArticleStringField(params.existingArticle, "profile")
-		);
+	const profile = firstNormalizedString(
+		params.profile,
+		getPageElementField(params.tasksToSave, "profile"),
+		getArticleStringField(params.existingArticle, "profile")
+	);
 	const searchRows = await buildSearchRows(content, keywords);
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
@@ -383,6 +441,7 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
 
+		console.log("Queried articles from database:", result);
 		return result
 			.map((row) => mapStoredArticle(row))
 			.sort(

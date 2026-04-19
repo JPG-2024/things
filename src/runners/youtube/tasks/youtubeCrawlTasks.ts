@@ -7,7 +7,7 @@ import {
 	buildVideoPageParams,
 	getRequiredTaskState,
 	TaskNames,
-	type VideoMetaItem,
+	type PageElementItem,
 	type YouTubeTaskRegistrySubset,
 } from "./youtubeTasks.shared";
 
@@ -26,7 +26,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
-			return invoke<VideoMetaItem[]>("get_page_elements", {
+			return invoke<PageElementItem[]>("get_page_elements", {
 				...buildVideoPageParams(context.url),
 				selectors: [
 					{ name: "title", selector: "#title h1 yt-formatted-string" },
@@ -35,7 +35,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 						name: "uploadDate",
 						selector: "div#info-strings yt-formatted-string",
 					},
-					{ name: "channel", selector: "#channel-name a", attribute: "href" },
+					{ name: "profile", selector: "#channel-name a", attribute: "href" },
 				],
 				attempts: 5,
 				intervalMs: 200,

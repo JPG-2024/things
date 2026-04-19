@@ -103,8 +103,8 @@ async fn connection(app: &AppHandle) -> Result<Connection, String> {
         .map_err(|error| error.to_string())
 }
 
-fn articles_schema(include_profile: bool) -> SchemaRef {
-    let mut fields = vec![
+fn articles_schema() -> SchemaRef {
+    Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int64, false),
         Field::new("url", DataType::Utf8, false),
         Field::new("article_uid", DataType::Utf8, false),
@@ -113,17 +113,11 @@ fn articles_schema(include_profile: bool) -> SchemaRef {
         Field::new("content", DataType::Utf8, true),
         Field::new("directory", DataType::Utf8, true),
         Field::new("main_color", DataType::Utf8, true),
-    ];
-
-    if include_profile {
-        fields.push(Field::new("profile", DataType::Utf8, true));
-    }
-
-    fields.push(Field::new("tasks_json", DataType::Utf8, false));
-    fields.push(Field::new("embedding_source_text", DataType::Utf8, true));
-    fields.push(Field::new("updated_at", DataType::Int64, false));
-
-    Arc::new(Schema::new(fields))
+        Field::new("profile", DataType::Utf8, true),
+        Field::new("tasks_json", DataType::Utf8, false),
+        Field::new("embedding_source_text", DataType::Utf8, true),
+        Field::new("updated_at", DataType::Int64, false),
+    ]))
 }
 
 fn article_search_schema() -> SchemaRef {
@@ -161,7 +155,7 @@ async fn open_or_create_table(
 }
 
 async fn open_articles_table(db: &Connection) -> Result<Table, String> {
-    open_or_create_table(db, ARTICLES_TABLE, articles_schema(true)).await
+    open_or_create_table(db, ARTICLES_TABLE, articles_schema()).await
 }
 
 async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
@@ -187,13 +181,13 @@ async fn ensure_search_indices(table: &Table) -> Result<(), String> {
     Ok(())
 }
 
-fn article_batch(input: &UpsertStoredArticleInput, include_profile: bool) -> Result<RecordBatch, String> {
+fn article_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String> {
     let article_uid = article_uid_from_url(&input.url);
     let id = article_numeric_id(&article_uid);
     let updated_at = chrono_like_now();
-    let schema = articles_schema(include_profile);
+    let schema = articles_schema();
 
-    let mut columns: Vec<Arc<dyn Array>> = vec![
+    let columns: Vec<Arc<dyn Array>> = vec![
         Arc::new(Int64Array::from(vec![id])),
         Arc::new(StringArray::from(vec![input.url.as_str()])),
         Arc::new(StringArray::from(vec![article_uid.as_str()])),
@@ -202,18 +196,14 @@ fn article_batch(input: &UpsertStoredArticleInput, include_profile: bool) -> Res
         Arc::new(StringArray::from(vec![input.content.as_deref()])),
         Arc::new(StringArray::from(vec![input.directory.as_deref()])),
         Arc::new(StringArray::from(vec![input.main_color.as_deref()])),
+        Arc::new(StringArray::from(vec![input.profile.as_deref()])),
+        Arc::new(StringArray::from(vec![Some(input.tasks_json.as_str())])),
+        Arc::new(StringArray::from(vec![input.embedding_source_text.as_deref()])),
+        Arc::new(Int64Array::from(vec![updated_at])),
     ];
 
-    if include_profile {
-        columns.push(Arc::new(StringArray::from(vec![input.profile.as_deref()])));
-    }
-
-    columns.push(Arc::new(StringArray::from(vec![Some(input.tasks_json.as_str())])));
-    columns.push(Arc::new(StringArray::from(vec![input.embedding_source_text.as_deref()])));
-    columns.push(Arc::new(Int64Array::from(vec![updated_at])));
-
     RecordBatch::try_new(schema, columns)
-    .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())
 }
 
 fn article_search_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String> {
@@ -412,24 +402,19 @@ pub async fn get_stored_article_by_url(
 async fn merge_article_row(
     table: &Table,
     input: &UpsertStoredArticleInput,
-    include_profile: bool,
 ) -> Result<(), String> {
-    let schema = articles_schema(include_profile);
+    let schema = articles_schema();
     let mut article_merge = table.merge_insert(&["url"]);
     article_merge.when_matched_update_all(None);
     article_merge.when_not_matched_insert_all();
     article_merge
         .execute(Box::new(RecordBatchIterator::new(
-            vec![Ok(article_batch(input, include_profile)?)],
+            vec![Ok(article_batch(input)?)],
             schema,
         )))
         .await
         .map(|_| ())
         .map_err(|error| error.to_string())
-}
-
-fn is_profile_schema_mismatch(error: &str) -> bool {
-    error.contains("unexpected=[profile]") || error.contains("missing=[profile]")
 }
 
 #[tauri::command]
@@ -447,13 +432,7 @@ pub async fn upsert_stored_article(
 
     let db = connection(&app).await?;
     let articles_table = open_articles_table(&db).await?;
-    if let Err(error) = merge_article_row(&articles_table, &input, true).await {
-        if is_profile_schema_mismatch(&error) {
-            merge_article_row(&articles_table, &input, false).await?;
-        } else {
-            return Err(error);
-        }
-    }
+    merge_article_row(&articles_table, &input).await?;
 
     let article_search_table = open_article_search_table(&db).await?;
     let article_uid = article_uid_from_url(&input.url);

@@ -10,7 +10,7 @@ import type {
 } from "@/types/taskRunner.types";
 import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
 
-export type VideoMetaItem = {
+export type PageElementItem = {
 	name: string;
 	selector: string;
 	textContent: string | null;
@@ -61,7 +61,7 @@ export type YouTubeTaskState = {
 	[TaskNames.INIT]: InitContext;
 	[TaskNames.THUMBNAIL]: YouTubePlayerContext;
 	[TaskNames.MAIN_COLOR]: string;
-	[TaskNames.VIDEO_INFO]: VideoMetaItem[];
+	[TaskNames.VIDEO_INFO]: PageElementItem[];
 	[TaskNames.TIMED_CAPTIONS]: TimedCaption[];
 	[TaskNames.CONTENT]: string;
 	[TaskNames.GET_CHANNEL_VIDEOS]: GetChannelVideosContext;

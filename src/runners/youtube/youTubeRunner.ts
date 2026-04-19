@@ -14,8 +14,8 @@ import {
 const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
-	//TaskNames.MAIN_COLOR,
 	TaskNames.SUMMARY,
+	//TaskNames.MAIN_COLOR,
 	TaskNames.KEYWORDS,
 	TaskNames.KEYPOINTS,
 	//TaskNames.CHAPTERS_SUMMARY,
@@ -24,7 +24,7 @@ const videoPage: TaskNames[] = [
 
 const videoItem: TaskNames[] = [
 	TaskNames.THUMBNAIL,
-	TaskNames.VIDEO_INFO,
+	//TaskNames.VIDEO_INFO,
 	TaskNames.TITLE_SUMMARY,
 	//TaskNames.TTS,
 ];
