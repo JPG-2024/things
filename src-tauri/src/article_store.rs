@@ -1,5 +1,6 @@
 use std::fs;
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use arrow_array::{Array, Int32Array, Int64Array, RecordBatch, RecordBatchIterator, StringArray};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
@@ -14,7 +15,10 @@ use tauri::{AppHandle, Manager};
 
 const ARTICLES_TABLE: &str = "articles";
 const ARTICLE_SEARCH_TABLE: &str = "article_search";
+const ARTICLE_PROFILES_TABLE: &str = "article_profiles";
 const DB_DIRECTORY: &str = "lancedb";
+pub const UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
+pub const UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +37,14 @@ pub struct StoredArticleRecord {
     pub tasks_json: Option<String>,
     pub updated_at: i64,
     pub embedding_source_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredArticleProfileRecord {
+    pub id: String,
+    pub name: String,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +145,15 @@ fn article_search_schema() -> SchemaRef {
     ]))
 }
 
+fn article_profiles_schema() -> SchemaRef {
+    Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Utf8, false),
+        Field::new("name", DataType::Utf8, false),
+        Field::new("count", DataType::Int64, false),
+        Field::new("updated_at", DataType::Int64, false),
+    ]))
+}
+
 async fn open_or_create_table(
     db: &Connection,
     table_name: &str,
@@ -162,6 +183,10 @@ async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
     let table = open_or_create_table(db, ARTICLE_SEARCH_TABLE, article_search_schema()).await?;
     //ensure_search_indices(&table).await?;
     Ok(table)
+}
+
+async fn open_article_profiles_table(db: &Connection) -> Result<Table, String> {
+    open_or_create_table(db, ARTICLE_PROFILES_TABLE, article_profiles_schema()).await
 }
 
 async fn ensure_search_indices(table: &Table) -> Result<(), String> {
@@ -268,6 +293,43 @@ fn article_search_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch,
     .map_err(|error| error.to_string())
 }
 
+fn article_profiles_batch(profiles: &[StoredArticleProfileRecord]) -> Result<RecordBatch, String> {
+    if profiles.is_empty() {
+        return Err("Cannot create profile batch from empty profile list".to_string());
+    }
+
+    let updated_at = chrono_like_now();
+    let schema = article_profiles_schema();
+
+    let ids = profiles
+        .iter()
+        .map(|profile| Some(profile.id.as_str()))
+        .collect::<Vec<_>>();
+    let names = profiles
+        .iter()
+        .map(|profile| Some(profile.name.as_str()))
+        .collect::<Vec<_>>();
+    let counts = profiles
+        .iter()
+        .map(|profile| profile.count)
+        .collect::<Vec<_>>();
+    let updated_ats = profiles
+        .iter()
+        .map(|_| updated_at)
+        .collect::<Vec<_>>();
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(StringArray::from(ids)),
+            Arc::new(StringArray::from(names)),
+            Arc::new(Int64Array::from(counts)),
+            Arc::new(Int64Array::from(updated_ats)),
+        ],
+    )
+    .map_err(|error| error.to_string())
+}
+
 fn chrono_like_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -318,6 +380,42 @@ fn read_optional_string(array: &StringArray, row: usize) -> Option<String> {
 
 fn read_optional_string_from_column(array: Option<&StringArray>, row: usize) -> Option<String> {
     array.and_then(|value| read_optional_string(value, row))
+}
+
+fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
+    let normalized = profile
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+
+    match normalized {
+        Some(value) => (value.clone(), value),
+        None => (
+            UNKNOWN_PROFILE_ID.to_string(),
+            UNKNOWN_PROFILE_LABEL.to_string(),
+        ),
+    }
+}
+
+fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticleProfileRecord> {
+    let mut aggregated = HashMap::<String, StoredArticleProfileRecord>::new();
+
+    for record in records {
+        let (id, name) = normalize_profile_bucket(record.profile.as_deref());
+        aggregated
+            .entry(id.clone())
+            .and_modify(|profile| profile.count += 1)
+            .or_insert(StoredArticleProfileRecord { id, name, count: 1 });
+    }
+
+    let mut profiles = aggregated.into_values().collect::<Vec<_>>();
+    profiles.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    profiles
 }
 
 fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRecord>, String> {
@@ -380,11 +478,149 @@ async fn query_articles(table: &Table, filter: Option<String>) -> Result<Vec<Sto
     records_from_batches(batches)
 }
 
+async fn query_profiles(
+    table: &Table,
+    filter: Option<String>,
+) -> Result<Vec<StoredArticleProfileRecord>, String> {
+    let query = match filter {
+        Some(filter) => table.query().only_if(filter),
+        None => table.query(),
+    };
+
+    let batches = query
+        .execute()
+        .await
+        .map_err(|error| error.to_string())?
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let mut profiles = Vec::new();
+
+    for batch in batches {
+        let ids = string_column(&batch, "id")?;
+        let names = string_column(&batch, "name")?;
+        let counts = int64_column(&batch, "count")?;
+
+        for row in 0..batch.num_rows() {
+            profiles.push(StoredArticleProfileRecord {
+                id: ids.value(row).to_string(),
+                name: names.value(row).to_string(),
+                count: counts.value(row),
+            });
+        }
+    }
+
+    Ok(profiles)
+}
+
+async fn upsert_profile_rows(
+    table: &Table,
+    profiles: &[StoredArticleProfileRecord],
+) -> Result<(), String> {
+    if profiles.is_empty() {
+        return Ok(());
+    }
+
+    let mut profile_merge = table.merge_insert(&["id"]);
+    profile_merge.when_matched_update_all(None);
+    profile_merge.when_not_matched_insert_all();
+    profile_merge
+        .execute(Box::new(RecordBatchIterator::new(
+            vec![Ok(article_profiles_batch(profiles)?)],
+            article_profiles_schema(),
+        )))
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+async fn adjust_profile_count(
+    table: &Table,
+    profile_id: &str,
+    profile_name: &str,
+    delta: i64,
+) -> Result<(), String> {
+    if delta == 0 {
+        return Ok(());
+    }
+
+    let filter = format!("id = {}", sql_string(profile_id));
+    let existing = query_profiles(table, Some(filter.clone())).await?;
+    let current_count = existing.first().map(|item| item.count).unwrap_or(0);
+    let next_count = current_count + delta;
+
+    if next_count <= 0 {
+        table.delete(&filter).await.map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+
+    upsert_profile_rows(
+        table,
+        &[StoredArticleProfileRecord {
+            id: profile_id.to_string(),
+            name: profile_name.to_string(),
+            count: next_count,
+        }],
+    )
+    .await
+}
+
 #[tauri::command]
 pub async fn list_stored_articles(app: AppHandle) -> Result<Vec<StoredArticleRecord>, String> {
     let db = connection(&app).await?;
     let table = open_articles_table(&db).await?;
     query_articles(&table, None).await
+}
+
+#[tauri::command]
+pub async fn list_stored_article_profiles(
+    app: AppHandle,
+) -> Result<Vec<StoredArticleProfileRecord>, String> {
+    let db = connection(&app).await?;
+    let profile_table = open_article_profiles_table(&db).await?;
+    let mut profiles = query_profiles(&profile_table, None).await?;
+
+    if profiles.is_empty() {
+        let article_table = open_articles_table(&db).await?;
+        let records = query_articles(&article_table, None).await?;
+        let aggregated = aggregate_profiles(records);
+        upsert_profile_rows(&profile_table, &aggregated).await?;
+        profiles = aggregated;
+    }
+
+    profiles.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.name.cmp(&right.name))
+    });
+
+    Ok(profiles)
+}
+
+#[tauri::command]
+pub async fn list_stored_articles_by_profile(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<Vec<StoredArticleRecord>, String> {
+    let db = connection(&app).await?;
+    let table = open_articles_table(&db).await?;
+    let normalized_profile_id = profile_id.trim();
+
+    if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+        let records = query_articles(&table, None).await?;
+        return Ok(records
+            .into_iter()
+            .filter(|record| {
+                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
+            })
+            .collect::<Vec<_>>());
+    }
+
+    let filter = format!("profile = {}", sql_string(normalized_profile_id));
+    query_articles(&table, Some(filter)).await
 }
 
 #[tauri::command]
@@ -430,9 +666,54 @@ pub async fn upsert_stored_article(
     input.profile = normalize_optional_string(input.profile);
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
 
+    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
+    let previous_profile_bucket = previous_article
+        .as_ref()
+        .map(|article| normalize_profile_bucket(article.profile.as_deref()));
+    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
+
     let db = connection(&app).await?;
     let articles_table = open_articles_table(&db).await?;
     merge_article_row(&articles_table, &input).await?;
+
+    let profile_table = open_article_profiles_table(&db).await?;
+    match previous_profile_bucket {
+        Some((previous_id, previous_name)) => {
+            if previous_id != next_profile_bucket.0 {
+                adjust_profile_count(&profile_table, &previous_id, &previous_name, -1).await?;
+                adjust_profile_count(
+                    &profile_table,
+                    &next_profile_bucket.0,
+                    &next_profile_bucket.1,
+                    1,
+                )
+                .await?;
+            } else {
+                let filter = format!("id = {}", sql_string(&next_profile_bucket.0));
+                let existing = query_profiles(&profile_table, Some(filter)).await?;
+                if existing.is_empty() {
+                    upsert_profile_rows(
+                        &profile_table,
+                        &[StoredArticleProfileRecord {
+                            id: next_profile_bucket.0.clone(),
+                            name: next_profile_bucket.1.clone(),
+                            count: 1,
+                        }],
+                    )
+                    .await?;
+                }
+            }
+        }
+        None => {
+            adjust_profile_count(
+                &profile_table,
+                &next_profile_bucket.0,
+                &next_profile_bucket.1,
+                1,
+            )
+            .await?;
+        }
+    }
 
     let article_search_table = open_article_search_table(&db).await?;
     let article_uid = article_uid_from_url(&input.url);
@@ -486,6 +767,10 @@ pub async fn delete_stored_article_by_url(
         .delete(&search_filter)
         .await
         .map_err(|error| error.to_string())?;
+
+    let profile_table = open_article_profiles_table(&db).await?;
+    let (profile_id, profile_name) = normalize_profile_bucket(article.profile.as_deref());
+    adjust_profile_count(&profile_table, &profile_id, &profile_name, -1).await?;
 
     Ok(true)
 }

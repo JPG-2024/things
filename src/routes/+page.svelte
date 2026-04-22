@@ -8,6 +8,12 @@ import SettingsModal from "@/components/modals/SettingsModal.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate } from "@/lib/utils/url";
+import {
+	getProfiles,
+	UNKNOWN_PROFILE_ID,
+	UNKNOWN_PROFILE_LABEL,
+	type ArticleProfile,
+} from "@/stores/tasksStore";
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 
@@ -17,6 +23,7 @@ const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 let processingUrl = $state(false);
+let profileCategories = $state<ArticleProfile[]>([]);
 
 function extractValidUrl(value: string): string | null {
 	const trimmedValue = value.trim();
@@ -71,6 +78,20 @@ async function handlePasteUrl(url: string) {
 }
 
 onMount(() => {
+	void (async () => {
+		const profiles = await getProfiles();
+		console.log("Fetched profiles:", profiles);
+		profileCategories = profiles.length
+			? profiles
+			: [
+					{
+						id: UNKNOWN_PROFILE_ID,
+						name: UNKNOWN_PROFILE_LABEL,
+						count: 0,
+					},
+				];
+	})();
+
 	const pollClipboard = async () => {
 		if (!viewState.clipboardPollingEnabled || processingUrl) return;
 
@@ -124,8 +145,8 @@ onMount(() => {
   </div>
 
   <div class="flex-squares">
-    {#each ['Unsorted'] as categoryId}
-      <CategoryWidget {categoryId} name={categoryId} />
+		{#each profileCategories as profile (profile.id)}
+			<CategoryWidget categoryId={profile.id} name={profile.name} showTitle />
     {/each}
   </div>
 </div>

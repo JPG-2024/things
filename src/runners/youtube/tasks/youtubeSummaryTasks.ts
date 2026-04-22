@@ -56,7 +56,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 			return content;
 		},
-		userMessage: "extract 5 keywords.",
+		userMessage: "extract 5 keywords. add representative emoji at start.",
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,
@@ -104,7 +104,8 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 			return content;
 		},
-		userMessage: "extract 5 key points titles in one line.",
+		userMessage:
+			"extract 5 key points titles in one line. add representative emoji at start.",
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,

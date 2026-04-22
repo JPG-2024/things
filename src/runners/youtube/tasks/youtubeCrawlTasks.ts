@@ -26,7 +26,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
-			return invoke<PageElementItem[]>("get_page_elements", {
+			const videoInfo = await invoke<PageElementItem[]>("get_page_elements", {
 				...buildVideoPageParams(context.url),
 				selectors: [
 					{ name: "title", selector: "#title h1 yt-formatted-string" },
@@ -40,6 +40,8 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 				attempts: 5,
 				intervalMs: 200,
 			});
+
+			return videoInfo;
 		},
 	}),
 	[TaskNames.CHAPTERS]: () => ({

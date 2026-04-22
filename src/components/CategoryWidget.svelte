@@ -1,10 +1,12 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
-import Icon from "./Icon.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
-import { getArticles, type ArticleWithTasks } from "@/stores/tasksStore";
+import {
+	getArticlesByProfile,
+	type ArticleWithTasks,
+} from "@/stores/tasksStore";
 
 let { categoryId, name = "", showTitle = false } = $props();
 
@@ -13,7 +15,10 @@ let loading = $state<boolean>(false);
 
 onMount(async () => {
 	loading = true;
-	articles = await getArticles();
+	const normalizedCategoryId =
+		typeof categoryId === "string" ? categoryId : String(categoryId);
+	console.log("Fetching articles for categoryId:", normalizedCategoryId);
+	articles = await getArticlesByProfile(normalizedCategoryId);
 	loading = false;
 });
 
@@ -25,11 +30,12 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
 </script>
 
 <div class="category-widget">
-  {#if name && showTitle}
-    <h2 class="category-title">{name}</h2>
-  {/if}
+
 
   <Card>
+    {#if name && showTitle}
+    <h2 class="category-title">{name}</h2>
+  {/if}
     {#if articles?.length}
       <div class="img-flex">
         {#each articles as article (article.url)}
@@ -75,11 +81,11 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
 
   .category-title {
     transform: translateY(10px);
-    margin: 0 0 0.5rem 0;
+    padding-left: 20px;;
     color: var(--primary-color);
     font-weight: 600;
-    font-size: 1.2rem;
-    font-family: 'Segoe UI', Courier, monospace;
+    font-size: 0.9rem;
+    opacity: 0.7;
   }
 
   .error {

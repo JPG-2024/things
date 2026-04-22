@@ -26,7 +26,7 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 		});
 		const runResult = await workflowManager.run(runId, tasks, {
 			makeActive: true,
-			stream: false,
+			stream: true,
 		});
 
 		console.log("All tasks completed:", runResult);

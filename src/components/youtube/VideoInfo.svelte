@@ -16,6 +16,7 @@ void runId;
 void componentProps;
 
 function getDataContent(key: string): string | null {
+	console.log("Task data:", task?.data);
 	const data = task?.data as Record<string, unknown> | null | undefined;
 	if (!data) return null;
 	const value = data[key];
@@ -30,14 +31,14 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 
 
 
-{#if task?.data && getDataContent("title") && getDataContent("channel") && getDataContent("views") && getDataContent("uploadDate")}
+{#if task?.data && getDataContent("title") && getDataContent("profile") && getDataContent("views") && getDataContent("uploadDate")}
     <div class="video-info">
         <h3>{getDataContent("title")}</h3>
 
         <div class="info-row">
             <div class="pill">
                 <Icon name="User" />
-                <p class="channel-name">{getDataContent("channel")?.slice(2, 50)}</p>
+                <p class="channel-name">{getDataContent("profile")?.slice(2, 50)}</p>
             </div>
             <div class="pill">
                 <Icon name="Eye" />

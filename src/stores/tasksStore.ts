@@ -37,6 +37,15 @@ export interface ArticleWithTasks {
 	[key: string]: unknown;
 }
 
+export const UNKNOWN_PROFILE_ID = "__unknown_profile__";
+export const UNKNOWN_PROFILE_LABEL = "Unknown profile";
+
+export interface ArticleProfile {
+	id: string;
+	name: string;
+	count: number;
+}
+
 type SearchRowKind = "content_chunk" | "keyword_bundle";
 
 type StoredArticleRecord = {
@@ -61,6 +70,12 @@ type StoredArticleSearchRowInput = {
 	kind: SearchRowKind;
 	ordinal: number;
 	text: string;
+};
+
+type StoredArticleProfileRecord = {
+	id: string;
+	name: string;
+	count: number;
 };
 
 type UpsertStoredArticleInput = {
@@ -454,6 +469,56 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	}
 }
 
+export async function getProfiles(): Promise<ArticleProfile[]> {
+	try {
+		const result = await invoke<StoredArticleProfileRecord[]>(
+			"list_stored_article_profiles"
+		);
+
+		return result
+			.map((row) => ({
+				id:
+					typeof row.id === "string" && row.id.trim()
+						? row.id.trim()
+						: UNKNOWN_PROFILE_ID,
+				name:
+					typeof row.name === "string" && row.name.trim()
+						? row.name.trim()
+						: UNKNOWN_PROFILE_LABEL,
+				count: Number(row.count ?? 0),
+			}))
+			.filter((row) => row.count > 0)
+			.sort(
+				(left, right) =>
+					right.count - left.count || left.name.localeCompare(right.name)
+			);
+	} catch (error) {
+		console.error("Error querying article profiles", error);
+		return [];
+	}
+}
+
+export async function getArticlesByProfile(
+	profileId: string
+): Promise<ArticleWithTasks[]> {
+	try {
+		const result = await invoke<StoredArticleRecord[]>(
+			"list_stored_articles_by_profile",
+			{ profileId }
+		);
+
+		return result
+			.map((row) => mapStoredArticle(row))
+			.sort(
+				(left, right) =>
+					Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0)
+			);
+	} catch (error) {
+		console.error("Error querying profile articles", error);
+		return [];
+	}
+}
+
 export async function getArticleWithTasksByUrl(
 	url: string
 ): Promise<ArticleWithTasks | null> {
@@ -487,6 +552,8 @@ export async function saveTasks<TMap extends TaskMapBase>(
 		existingArticle,
 		tasksJson,
 	});
+
+	console.log("Saving article with input:", input);
 
 	await invoke("upsert_stored_article", { input });
 }

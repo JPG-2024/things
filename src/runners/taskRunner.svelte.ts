@@ -478,6 +478,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const request: LlamaChatCompletionsRequest = {
 			...task.completionOptions,
 			stream: useStream,
+			think: false,
+			enable_thinking: false,
 			messages: [
 				{ role: "system", content: task.systemMessage },
 				{ role: "user", content: userContent },
@@ -497,6 +499,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 					}
 				: undefined
 		);
+
+		console.log("IA task response:", response);
 
 		const message = response.choices?.[0]?.message;
 		const text = collectAssistantText(message?.content ?? null);

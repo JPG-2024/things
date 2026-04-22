@@ -106,7 +106,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 			const results = [];
 
-			for (const url of fullUrls.slice(0, 3)) {
+			for (const url of fullUrls.slice(0, 6)) {
 				results.push(
 					await youTubeRunner(url, undefined, {
 						makeActive: false,

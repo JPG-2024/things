@@ -24,7 +24,7 @@ const videoPage: TaskNames[] = [
 
 const videoItem: TaskNames[] = [
 	TaskNames.THUMBNAIL,
-	//TaskNames.VIDEO_INFO,
+	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE_SUMMARY,
 	//TaskNames.TTS,
 ];
