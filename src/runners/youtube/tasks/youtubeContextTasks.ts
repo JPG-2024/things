@@ -14,16 +14,22 @@ type ContextTaskIds =
 	| TaskNames.MAIN_COLOR;
 
 export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
-	[TaskNames.INIT]: ({ url, language }) => ({
+	[TaskNames.INIT]: (runnerOptions) => ({
 		id: TaskNames.INIT,
 		name: "Initialize YouTube Context",
 		dependencies: [],
 		type: "script",
 		run: () => {
-			const urlObj = new URL(url);
+			const urlObj = new URL(runnerOptions.url);
 			const videoId = urlObj.searchParams.get("v");
 
-			return { url, videoId, language };
+			console.log("INIT task - URL:", runnerOptions);
+
+			return {
+				url: runnerOptions.url,
+				videoId,
+				language: runnerOptions.language,
+			};
 		},
 	}),
 

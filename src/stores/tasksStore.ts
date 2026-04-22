@@ -32,7 +32,6 @@ export interface ArticleWithTasks {
 	profile?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
-	tasks: Task[];
 	persistedTasks?: PersistedTaskState[];
 	[key: string]: unknown;
 }
@@ -116,26 +115,6 @@ function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 	return [];
 }
 
-function parseStoredTasks(raw: string | null): Task[] {
-	return parsePersistedTaskStates(raw)
-		.filter(
-			(task) => typeof task.component === "string" || task.status === "done"
-		)
-		.map(
-			(task) =>
-				({
-					id: task.id,
-					name: task.id,
-					dependencies: [],
-					type: "script",
-					run: () => task.data,
-					data: task.data,
-					status: task.status ?? "done",
-					component: task.component,
-				}) satisfies Task
-		);
-}
-
 function shouldPersistTask<TMap extends TaskMapBase>(
 	task: Task<TMap>
 ): boolean {
@@ -205,6 +184,14 @@ function normalizeNullableString(
 	return normalized.length > 0 ? normalized : null;
 }
 
+/**
+ * Returns the first non-empty, trimmed string from the provided values.
+ * Each value is normalized (trimmed and checked for non-empty).
+ * Returns null if all values are null, undefined, or empty after normalization.
+ *
+ * @param values - List of string, null, or undefined values to check.
+ * @returns The first normalized string, or null if none found.
+ */
 function firstNormalizedString(
 	...values: Array<string | null | undefined>
 ): string | null {
@@ -260,9 +247,10 @@ function getFirstStringValue(value: unknown): string | null {
 
 function getPageElementField(
 	tasks: Array<{ id?: string; data?: unknown }>,
+	taskId: string,
 	fieldName: string
 ): string | null {
-	const data = getStoredTaskData<unknown>(tasks, "video-info");
+	const data = getStoredTaskData<unknown>(tasks, taskId);
 
 	if (typeof data === "object" && data !== null && !Array.isArray(data)) {
 		const value = (data as Record<string, unknown>)[fieldName];
@@ -360,7 +348,6 @@ async function buildUpsertInput(params: {
 	url: string;
 	tasksToSave: Array<{ id?: string; data?: unknown }>;
 	existingArticle: ArticleWithTasks | null;
-	tasksJson: string;
 	title?: string | null;
 	thumbnail?: string | null;
 	content?: string | null;
@@ -405,7 +392,7 @@ async function buildUpsertInput(params: {
 	);
 	const profile = firstNormalizedString(
 		params.profile,
-		getPageElementField(params.tasksToSave, "profile"),
+		getPageElementField(params.tasksToSave, "video-info", "profile"),
 		getArticleStringField(params.existingArticle, "profile")
 	);
 	const searchRows = await buildSearchRows(content, keywords);
@@ -423,31 +410,20 @@ async function buildUpsertInput(params: {
 		directory,
 		mainColor,
 		profile,
-		tasksJson: params.tasksJson,
+		tasksJson: JSON.stringify(params.tasksToSave),
 		embeddingSourceText,
 		searchRows,
 	};
 }
+
 function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 	const tasksJson = row.tasksJson ?? "[]";
 	const mainColor =
 		typeof row.mainColor === "string" ? row.mainColor : row.primaryColor;
 
 	return {
-		id: row.id,
-		url: row.url,
-		title: row.title,
-		thumbnail: row.thumbnail,
-		content: row.content,
-		mediaDirectory: row.mediaDirectory,
-		profile: row.profile,
-		directory: row.directory,
+		...row,
 		mainColor,
-		primaryColor: mainColor,
-		articleUid: row.articleUid,
-		updatedAt: row.updatedAt,
-		embeddingSourceText: row.embeddingSourceText,
-		tasks: parseStoredTasks(tasksJson),
 		persistedTasks: parsePersistedTaskStates(tasksJson),
 	};
 }
@@ -457,12 +433,7 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
 
 		console.log("Queried articles from database:", result);
-		return result
-			.map((row) => mapStoredArticle(row))
-			.sort(
-				(left, right) =>
-					Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0)
-			);
+		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
 		console.error("Error querying LanceDB articles", error);
 		return [];
@@ -475,23 +446,7 @@ export async function getProfiles(): Promise<ArticleProfile[]> {
 			"list_stored_article_profiles"
 		);
 
-		return result
-			.map((row) => ({
-				id:
-					typeof row.id === "string" && row.id.trim()
-						? row.id.trim()
-						: UNKNOWN_PROFILE_ID,
-				name:
-					typeof row.name === "string" && row.name.trim()
-						? row.name.trim()
-						: UNKNOWN_PROFILE_LABEL,
-				count: Number(row.count ?? 0),
-			}))
-			.filter((row) => row.count > 0)
-			.sort(
-				(left, right) =>
-					right.count - left.count || left.name.localeCompare(right.name)
-			);
+		return result;
 	} catch (error) {
 		console.error("Error querying article profiles", error);
 		return [];
@@ -504,15 +459,12 @@ export async function getArticlesByProfile(
 	try {
 		const result = await invoke<StoredArticleRecord[]>(
 			"list_stored_articles_by_profile",
-			{ profileId }
+			{ profileId, fields: ["id", "url", "title", "thumbnail"] }
 		);
 
-		return result
-			.map((row) => mapStoredArticle(row))
-			.sort(
-				(left, right) =>
-					Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0)
-			);
+		console.log(`Queried articles for profile "${profileId}":`, result);
+
+		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
 		console.error("Error querying profile articles", error);
 		return [];
@@ -545,15 +497,11 @@ export async function saveTasks<TMap extends TaskMapBase>(
 ): Promise<void> {
 	const existingArticle = await getArticleWithTasksByUrl(url);
 	const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
-	const tasksJson = JSON.stringify(tasksToSave);
 	const input = await buildUpsertInput({
 		url,
 		tasksToSave,
 		existingArticle,
-		tasksJson,
 	});
-
-	console.log("Saving article with input:", input);
 
 	await invoke("upsert_stored_article", { input });
 }

@@ -55,6 +55,7 @@ export enum TaskNames {
 	VIDEO_INFO = "video-info",
 	TTS = "tts",
 	TITLE_SUMMARY = "title-summary",
+	EXTRACT_PROFILE = "extract-profile",
 }
 
 export type YouTubeTaskState = {
@@ -73,6 +74,7 @@ export type YouTubeTaskState = {
 	[TaskNames.KEYPOINTS]: string;
 	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.TITLE_SUMMARY]: string;
+	[TaskNames.EXTRACT_PROFILE]: unknown;
 } & Record<`chapter-summary-${number}`, string>;
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;

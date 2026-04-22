@@ -10,6 +10,7 @@ use lancedb::index::Index;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::{connect, Connection, Table};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
 
@@ -397,6 +398,29 @@ fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
     }
 }
 
+fn filter_record_to_json(record: &StoredArticleRecord, fields: &Option<Vec<String>>) -> Value {
+    match fields {
+        None => {
+            // Return all fields as JSON
+            serde_json::to_value(record).unwrap_or(Value::Null)
+        }
+        Some(field_list) => {
+            // Build a JSON object with only selected fields
+            let mut obj = serde_json::Map::new();
+            let all_fields = serde_json::to_value(record)
+                .and_then(|v| Ok(v.as_object().unwrap().clone()))
+                .unwrap_or_default();
+
+            for field in field_list {
+                if let Some(value) = all_fields.get(field) {
+                    obj.insert(field.clone(), value.clone());
+                }
+            }
+            Value::Object(obj)
+        }
+    }
+}
+
 fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticleProfileRecord> {
     let mut aggregated = HashMap::<String, StoredArticleProfileRecord>::new();
 
@@ -568,10 +592,17 @@ async fn adjust_profile_count(
 }
 
 #[tauri::command]
-pub async fn list_stored_articles(app: AppHandle) -> Result<Vec<StoredArticleRecord>, String> {
+pub async fn list_stored_articles(
+    app: AppHandle,
+    fields: Option<Vec<String>>,
+) -> Result<Vec<Value>, String> {
     let db = connection(&app).await?;
     let table = open_articles_table(&db).await?;
-    query_articles(&table, None).await
+    let records = query_articles(&table, None).await?;
+    Ok(records
+        .iter()
+        .map(|record| filter_record_to_json(record, &fields))
+        .collect())
 }
 
 #[tauri::command]
@@ -604,23 +635,29 @@ pub async fn list_stored_article_profiles(
 pub async fn list_stored_articles_by_profile(
     app: AppHandle,
     profile_id: String,
-) -> Result<Vec<StoredArticleRecord>, String> {
+    fields: Option<Vec<String>>,
+) -> Result<Vec<Value>, String> {
     let db = connection(&app).await?;
     let table = open_articles_table(&db).await?;
     let normalized_profile_id = profile_id.trim();
 
-    if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
-        let records = query_articles(&table, None).await?;
-        return Ok(records
+    let records = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+        let all_records = query_articles(&table, None).await?;
+        all_records
             .into_iter()
             .filter(|record| {
                 normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
             })
-            .collect::<Vec<_>>());
-    }
+            .collect::<Vec<_>>()
+    } else {
+        let filter = format!("profile = {}", sql_string(normalized_profile_id));
+        query_articles(&table, Some(filter)).await?
+    };
 
-    let filter = format!("profile = {}", sql_string(normalized_profile_id));
-    query_articles(&table, Some(filter)).await
+    Ok(records
+        .iter()
+        .map(|record| filter_record_to_json(record, &fields))
+        .collect())
 }
 
 #[tauri::command]

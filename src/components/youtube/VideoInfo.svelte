@@ -16,7 +16,6 @@ void runId;
 void componentProps;
 
 function getDataContent(key: string): string | null {
-	console.log("Task data:", task?.data);
 	const data = task?.data as Record<string, unknown> | null | undefined;
 	if (!data) return null;
 	const value = data[key];

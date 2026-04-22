@@ -17,8 +17,13 @@ onMount(async () => {
 	loading = true;
 	const normalizedCategoryId =
 		typeof categoryId === "string" ? categoryId : String(categoryId);
-	console.log("Fetching articles for categoryId:", normalizedCategoryId);
 	articles = await getArticlesByProfile(normalizedCategoryId);
+	console.log(
+		"Fetching articles for categoryId:",
+		normalizedCategoryId,
+		"Articles:",
+		articles
+	);
 	loading = false;
 });
 

@@ -15,7 +15,8 @@ type CrawlTaskIds =
 	| TaskNames.VIDEO_INFO
 	| TaskNames.CHAPTERS
 	| TaskNames.TIMED_CAPTIONS
-	| TaskNames.CONTENT;
+	| TaskNames.CONTENT
+	| TaskNames.EXTRACT_PROFILE;
 
 export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.VIDEO_INFO]: () => ({
@@ -42,6 +43,28 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 			});
 
 			return videoInfo;
+		},
+	}),
+	[TaskNames.EXTRACT_PROFILE]: () => ({
+		id: TaskNames.EXTRACT_PROFILE,
+		dependencies: [TaskNames.INIT],
+		type: "script",
+		run: async ({ state }) => {
+			const context = getRequiredTaskState(state, TaskNames.INIT);
+
+			const result = await invoke<PageElementItem[]>("get_page_elements", {
+				...buildVideoPageParams(context.url),
+				selectors: [
+					{
+						name: "profile",
+						selector: "div.ytPageHeaderViewModelHeadline",
+					},
+				],
+				attempts: 5,
+				intervalMs: 200,
+			});
+
+			return result.profile[1];
 		},
 	}),
 	[TaskNames.CHAPTERS]: () => ({

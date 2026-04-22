@@ -13,6 +13,7 @@ import {
 
 const profileTasks: TaskNames[] = [
 	TaskNames.INIT,
+	TaskNames.EXTRACT_PROFILE,
 	TaskNames.GET_CHANNEL_VIDEOS,
 	TaskNames.EXTRACT_CHANNEL_VIDEOS,
 ];

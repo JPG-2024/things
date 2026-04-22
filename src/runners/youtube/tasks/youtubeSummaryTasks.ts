@@ -35,7 +35,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		dependencies: [TaskNames.CONTENT],
 		component: "taskBase",
 		type: "ia",
-		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Limit to 20 words maximum. Avoid words like summary, video, etc. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
+		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Avoid words like summary, video, etc. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
 		userMessage: `Generate a short summary for this video. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
