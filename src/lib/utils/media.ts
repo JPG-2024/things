@@ -35,6 +35,7 @@ export async function downloadMediaAssets(
 				const fileName = await invoke<string>("download_and_save_image", {
 					url,
 					folderName: mediaDirectory,
+					reductionMagnitud: 2,
 				})
 
 				return { key, value: fileName }

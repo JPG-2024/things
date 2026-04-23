@@ -78,6 +78,7 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 			const thumbnailImage = await invoke<string>("download_and_save_image", {
 				url: imageUrl,
 				folderName: mediaDirectory,
+				reductionMagnitud: 2,
 			});
 			const thumbnailImageSrc = await getImageSrc(
 				mediaDirectory,

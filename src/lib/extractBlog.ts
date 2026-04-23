@@ -22,6 +22,7 @@ export async function extractBlog(
 			const _mainImage = await invoke<string>("download_and_save_image", {
 				url: response.metadata["og:image"],
 				folderName: _mediaDir,
+				reductionMagnitud: 2,
 			});
 			viewState.mainImage = _mainImage;
 			viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage);

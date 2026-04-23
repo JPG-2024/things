@@ -15,18 +15,26 @@ export const getImageDir = async (): Promise<string> => {
 	return mediaDir;
 };
 
-export const getImageSrc = async (mediaDirectory: string, imgName: string): Promise<string> => {
+export const getImageSrc = async (
+	mediaDirectory: string,
+	imgName: string
+): Promise<string> => {
 	const mediaDir = await getImageDir();
 	const filePath = await join(mediaDir, mediaDirectory, imgName);
 	return convertFileSrc(filePath);
 };
 
-export async function downloadImageUrl(url: string): Promise<DownloadedImageResult> {
-	const mediaDirectory = await invoke<string>("url_to_folder_name", { url: url });
+export async function downloadImageUrl(
+	url: string
+): Promise<DownloadedImageResult> {
+	const mediaDirectory = await invoke<string>("url_to_folder_name", {
+		url: url,
+	});
 
 	const fileName = await invoke<string>("download_and_save_image", {
 		url: url,
 		folderName: mediaDirectory,
+		reductionMagnitud: 2,
 	});
 
 	const imageSrc = await getImageSrc(mediaDirectory, fileName);

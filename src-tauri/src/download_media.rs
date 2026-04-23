@@ -1,3 +1,5 @@
+use image::imageops::FilterType;
+use image::ImageFormat;
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_http::reqwest;
@@ -17,10 +19,15 @@ pub async fn download_and_save_image(
     app: AppHandle,
     url: String,
     folder_name: String,
+    reduction_magnitud: u32,
 ) -> Result<String, String> {
     // Validate URL is not empty
     if url.is_empty() {
         return Ok(String::new());
+    }
+
+    if reduction_magnitud == 0 {
+        return Err(String::from("reduction_magnitud must be greater than 0"));
     }
 
     println!("[Image] Downloading image from: {}", url);
@@ -62,8 +69,18 @@ pub async fn download_and_save_image(
         return Ok(filename);
     }
 
-    std::fs::write(&filepath, bytes)
-        .map_err(|e| format!("Failed to save image: {}", e))?;
+    let image = image::load_from_memory(&bytes)
+        .map_err(|e| format!("Failed to decode image: {}", e))?;
+
+    let resized_image = image.resize_exact(
+        (image.width() / reduction_magnitud).max(1),
+        (image.height() / reduction_magnitud).max(1),
+        FilterType::Lanczos3,
+    );
+
+    resized_image
+        .save_with_format(&filepath, ImageFormat::Jpeg)
+        .map_err(|e| format!("Failed to save resized image: {}", e))?;
 
     println!("[Image] Successfully saved image to: media/{}", filename);
 
