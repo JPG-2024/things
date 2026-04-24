@@ -41,11 +41,12 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT, TaskNames.EXTRACT_PROFILE],
 		type: "script",
 		component: "player",
 		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
+			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
 			if (!urlData.videoId) {
 				throw new Error("Video ID not found in URL");
@@ -57,7 +58,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				mediaDirectory,
 				fileName: thumbnailImage,
 				imageSrc: thumbnailImageSrc,
-			} = await downloadImageUrl(ytThumbnailUrl);
+			} = await downloadImageUrl(ytThumbnailUrl, profile);
 
 			return {
 				mediaDirectory,
@@ -138,7 +139,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
-			const urlsToProcess = fullUrls.slice(0, 5);
+			const urlsToProcess = fullUrls.slice(0, 3);
 			const existingArticles = await getArticlesByUrls(urlsToProcess);
 
 			console.log(fullUrls, existingArticles);

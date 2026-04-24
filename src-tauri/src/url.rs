@@ -1,11 +1,6 @@
-use sha2::{Sha256, Digest};
+const THUMBNAILS_FOLDER_NAME: &str = "thumbnails";
 
 #[tauri::command]
-pub fn url_to_folder_name(url: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(url.as_bytes());
-    let result = hasher.finalize();
-    format!("{:x}", result)[..16].to_string()
+pub fn url_to_folder_name(_url: &str, _profile: Option<String>) -> String {
+    THUMBNAILS_FOLDER_NAME.to_string()
 }
-
-// Ejemplo: "https://example.com/article" -> "a1b2c3d4e5f6g7h8"

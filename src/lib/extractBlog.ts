@@ -4,7 +4,7 @@ import {
 	DOCS_SUMMARY_SYSTEM_PROMPT,
 } from "@/constants";
 import { viewState } from "@/stores/viewStore.svelte";
-import { getImageSrc } from "./utils/files";
+import { getImageSrc, resolveMediaDirectory } from "./utils/files";
 import { compactMarkdown } from "./utils/splitter";
 
 export async function extractBlog(
@@ -17,7 +17,12 @@ export async function extractBlog(
 		}>("extract_blog", { url, selectors: ["#primary-inner", "article"] });
 
 		if (response.metadata["og:image"]) {
-			const _mediaDir = await invoke<string>("url_to_folder_name", { url });
+			const profile =
+				response.metadata.author ||
+				response.metadata["og:site_name"] ||
+				response.metadata["twitter:site"] ||
+				null;
+			const _mediaDir = await resolveMediaDirectory(url, profile);
 			viewState.mediaDirectory = _mediaDir;
 			const _mainImage = await invoke<string>("download_and_save_image", {
 				url: response.metadata["og:image"],

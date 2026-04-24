@@ -1,5 +1,5 @@
 import { compactMarkdown } from "@/lib/utils/splitter";
-import { getImageSrc } from "@/lib/utils/files";
+import { getImageSrc, resolveMediaDirectory } from "@/lib/utils/files";
 import { invoke } from "@tauri-apps/api/core";
 import {
 	getRequiredTaskState,
@@ -61,6 +61,11 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 			const init = getRequiredTaskState(state, WebTaskNames.INIT);
 			const metadata = getRequiredTaskState(state, WebTaskNames.METADATA);
 			const imageUrl = metadata["og:image"] || metadata["twitter:image"];
+			const profile =
+				metadata.author ||
+				metadata["og:site_name"] ||
+				metadata["twitter:site"] ||
+				null;
 
 			console.log("Extracted image URL:", imageUrl); // Debug log for image URL
 
@@ -72,9 +77,7 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 				};
 			}
 
-			const mediaDirectory = await invoke<string>("url_to_folder_name", {
-				url: init.url,
-			});
+			const mediaDirectory = await resolveMediaDirectory(init.url, profile);
 			const thumbnailImage = await invoke<string>("download_and_save_image", {
 				url: imageUrl,
 				folderName: mediaDirectory,

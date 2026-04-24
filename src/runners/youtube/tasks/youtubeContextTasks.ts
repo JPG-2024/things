@@ -13,6 +13,26 @@ type ContextTaskIds =
 	| TaskNames.THUMBNAIL
 	| TaskNames.MAIN_COLOR;
 
+function getProfileFromVideoInfo(videoInfo: unknown): string | null {
+	if (typeof videoInfo !== "object" || videoInfo === null) {
+		return null;
+	}
+
+	const profile = (videoInfo as Record<string, unknown>).profile;
+	if (typeof profile === "string" && profile.trim()) {
+		return profile;
+	}
+
+	if (Array.isArray(profile)) {
+		const firstProfile = profile.find(
+			(value): value is string => typeof value === "string" && value.trim().length > 0
+		);
+		return firstProfile ?? null;
+	}
+
+	return null;
+}
+
 export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 	[TaskNames.INIT]: (runnerOptions) => ({
 		id: TaskNames.INIT,
@@ -35,23 +55,25 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT, TaskNames.VIDEO_INFO],
 		type: "script",
 		component: "player",
 		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
+			const videoInfo = getRequiredTaskState(state, TaskNames.VIDEO_INFO);
 
 			if (!urlData.videoId) {
 				throw new Error("Video ID not found in URL");
 			}
 
 			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, "default");
+			const profile = getProfileFromVideoInfo(videoInfo);
 
 			const {
 				mediaDirectory,
 				fileName: thumbnailImage,
 				imageSrc: thumbnailImageSrc,
-			} = await downloadImageUrl(ytThumbnailUrl);
+			} = await downloadImageUrl(ytThumbnailUrl, profile);
 
 			return {
 				mediaDirectory,

@@ -77,6 +77,11 @@ type StoredArticleProfileRecord = {
 	count: number;
 };
 
+type DeleteStoredArticleProfileResult = {
+	success: boolean;
+	deletedCount: number;
+};
+
 type UpsertStoredArticleInput = {
 	url: string;
 	title: string | null;
@@ -171,6 +176,103 @@ function getArticleStringField(
 ): string {
 	const fieldValue = article?.[fieldName];
 	return typeof fieldValue === "string" ? fieldValue : "";
+}
+
+function getArticleMediaDirectory(article: ArticleWithTasks | null): string | null {
+	return firstNormalizedString(
+		getArticleStringField(article, "mediaDirectory"),
+		getArticleStringField(article, "directory")
+	);
+}
+
+function normalizeOwnedMediaFileName(value: unknown): string | null {
+	if (typeof value !== "string") {
+		return null;
+	}
+
+	const normalized = value.trim();
+	if (!normalized || normalized.includes("/") || normalized.includes("\\")) {
+		return null;
+	}
+
+	return normalized;
+}
+
+function collectOwnedMediaFiles(
+	tasks: PersistedTaskState[] | undefined
+): string[] {
+	const ownedFiles = new Set<string>();
+
+	for (const task of tasks ?? []) {
+		if (
+			typeof task.data !== "object" ||
+			task.data === null ||
+			Array.isArray(task.data)
+		) {
+			continue;
+		}
+
+		const data = task.data as Record<string, unknown>;
+		for (const fileValue of [data.thumbnailImage, data.fileName]) {
+			const fileName = normalizeOwnedMediaFileName(fileValue);
+			if (fileName) {
+				ownedFiles.add(fileName);
+			}
+		}
+
+		if (Array.isArray(data.mediaFiles)) {
+			for (const fileValue of data.mediaFiles) {
+				const fileName = normalizeOwnedMediaFileName(fileValue);
+				if (fileName) {
+					ownedFiles.add(fileName);
+				}
+			}
+		}
+	}
+
+	return Array.from(ownedFiles);
+}
+
+function isLegacyArticleMediaDirectory(directory: string): boolean {
+	return /^[a-f0-9]{16}$/i.test(directory.trim());
+}
+
+async function deleteArticleMedia(article: ArticleWithTasks | null): Promise<void> {
+	const directory = getArticleMediaDirectory(article);
+	if (!directory) {
+		return;
+	}
+
+	const ownedFiles = collectOwnedMediaFiles(article?.persistedTasks);
+	if (ownedFiles.length === 0) {
+		if (!isLegacyArticleMediaDirectory(directory)) {
+			return;
+		}
+
+		const mediaPath = `media/${directory}`;
+		try {
+			await remove(mediaPath, {
+				baseDir: BaseDirectory.AppData,
+				recursive: true,
+			});
+			console.log(`[Media] Deleted legacy media directory: ${mediaPath}`);
+		} catch (error) {
+			console.error(`[Media] Error deleting legacy media directory: ${error}`);
+		}
+		return;
+	}
+
+	for (const fileName of ownedFiles) {
+		const mediaPath = `media/${directory}/${fileName}`;
+		try {
+			await remove(mediaPath, {
+				baseDir: BaseDirectory.AppData,
+			});
+			console.log(`[Media] Deleted media file: ${mediaPath}`);
+		} catch (error) {
+			console.error(`[Media] Error deleting media file: ${error}`);
+		}
+	}
 }
 
 function normalizeNullableString(
@@ -424,6 +526,16 @@ function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 	};
 }
 
+async function fetchStoredArticlesByProfile(
+	profileId: string,
+	fields?: string[]
+): Promise<StoredArticleRecord[]> {
+	return invoke<StoredArticleRecord[]>(
+		"list_stored_articles_by_profile",
+		fields ? { profileId, fields } : { profileId }
+	);
+}
+
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
@@ -453,10 +565,12 @@ export async function getArticlesByProfile(
 	profileId: string
 ): Promise<ArticleWithTasks[]> {
 	try {
-		const result = await invoke<StoredArticleRecord[]>(
-			"list_stored_articles_by_profile",
-			{ profileId, fields: ["id", "url", "title", "thumbnail"] }
-		);
+		const result = await fetchStoredArticlesByProfile(profileId, [
+			"id",
+			"url",
+			"title",
+			"thumbnail",
+		]);
 
 		console.log(`Queried articles for profile "${profileId}":`, result);
 
@@ -529,24 +643,7 @@ export async function deleteArticleByUrl(
 ): Promise<{ success: boolean }> {
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
-		const directory =
-			typeof existingArticle?.mediaDirectory === "string"
-				? existingArticle.mediaDirectory
-				: typeof existingArticle?.directory === "string"
-					? existingArticle.directory
-					: null;
-		if (typeof directory === "string" && directory.trim()) {
-			const mediaPath = `media/${directory}`;
-			try {
-				await remove(mediaPath, {
-					baseDir: BaseDirectory.AppData,
-					recursive: true,
-				});
-				console.log(`[Media] Deleted media directory: ${mediaPath}`);
-			} catch (error) {
-				console.error(`[Media] Error deleting media directory: ${error}`);
-			}
-		}
+		await deleteArticleMedia(existingArticle);
 
 		await invoke("delete_stored_article_by_url", { url });
 
@@ -554,5 +651,24 @@ export async function deleteArticleByUrl(
 	} catch (error) {
 		console.error("Error deleting article from database:", error);
 		return { success: false };
+	}
+}
+
+export async function deleteProfileById(
+	profileId: string
+): Promise<DeleteStoredArticleProfileResult> {
+	try {
+		const articles = await fetchStoredArticlesByProfile(profileId);
+		for (const article of articles) {
+			await deleteArticleMedia(mapStoredArticle(article));
+		}
+
+		return await invoke<DeleteStoredArticleProfileResult>(
+			"delete_stored_article_profile",
+			{ profileId }
+		);
+	} catch (error) {
+		console.error("Error deleting article profile:", error);
+		return { success: false, deletedCount: 0 };
 	}
 }

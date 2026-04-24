@@ -50,6 +50,13 @@ pub struct StoredArticleProfileRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DeleteStoredArticleProfileResult {
+    pub success: bool,
+    pub deleted_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StoredArticleSearchRowInput {
     pub row_id: String,
     pub kind: String,
@@ -502,6 +509,26 @@ async fn query_articles(table: &Table, filter: Option<String>) -> Result<Vec<Sto
     records_from_batches(batches)
 }
 
+async fn query_articles_by_profile_id(
+    table: &Table,
+    profile_id: &str,
+) -> Result<Vec<StoredArticleRecord>, String> {
+    let normalized_profile_id = profile_id.trim();
+
+    if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+        let all_records = query_articles(table, None).await?;
+        return Ok(all_records
+            .into_iter()
+            .filter(|record| {
+                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
+            })
+            .collect::<Vec<_>>());
+    }
+
+    let filter = format!("profile = {}", sql_string(normalized_profile_id));
+    query_articles(table, Some(filter)).await
+}
+
 async fn query_profiles(
     table: &Table,
     filter: Option<String>,
@@ -639,20 +666,7 @@ pub async fn list_stored_articles_by_profile(
 ) -> Result<Vec<Value>, String> {
     let db = connection(&app).await?;
     let table = open_articles_table(&db).await?;
-    let normalized_profile_id = profile_id.trim();
-
-    let records = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
-        let all_records = query_articles(&table, None).await?;
-        all_records
-            .into_iter()
-            .filter(|record| {
-                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
-            })
-            .collect::<Vec<_>>()
-    } else {
-        let filter = format!("profile = {}", sql_string(normalized_profile_id));
-        query_articles(&table, Some(filter)).await?
-    };
+    let records = query_articles_by_profile_id(&table, &profile_id).await?;
 
     Ok(records
         .iter()
@@ -839,4 +853,38 @@ pub async fn delete_stored_article_by_url(
     adjust_profile_count(&profile_table, &profile_id, &profile_name, -1).await?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn delete_stored_article_profile(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<DeleteStoredArticleProfileResult, String> {
+    let db = connection(&app).await?;
+    let articles_table = open_articles_table(&db).await?;
+    let articles = query_articles_by_profile_id(&articles_table, &profile_id).await?;
+
+    if articles.is_empty() {
+        return Ok(DeleteStoredArticleProfileResult {
+            success: true,
+            deleted_count: 0,
+        });
+    }
+
+    let mut deleted_count = 0;
+
+    for article in articles {
+        let Some(url) = article.url else {
+            continue;
+        };
+
+        if delete_stored_article_by_url(app.clone(), url).await? {
+            deleted_count += 1;
+        }
+    }
+
+    Ok(DeleteStoredArticleProfileResult {
+        success: true,
+        deleted_count,
+    })
 }

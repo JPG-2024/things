@@ -8,6 +8,22 @@ export interface DownloadedImageResult {
 	imageSrc: string;
 }
 
+export async function resolveMediaDirectory(
+	url: string,
+	profile?: string | null
+): Promise<string> {
+	console.log(
+		"Resolving media directory for URL:",
+		url,
+		"with profile:",
+		profile
+	);
+	return invoke<string>("url_to_folder_name", {
+		url,
+		profile: profile ?? "",
+	});
+}
+
 export const getImageDir = async (): Promise<string> => {
 	const appData = await appDataDir();
 	const mediaDir = await join(appData, "media");
@@ -25,11 +41,10 @@ export const getImageSrc = async (
 };
 
 export async function downloadImageUrl(
-	url: string
+	url: string,
+	profile?: string | null
 ): Promise<DownloadedImageResult> {
-	const mediaDirectory = await invoke<string>("url_to_folder_name", {
-		url: url,
-	});
+	const mediaDirectory = await resolveMediaDirectory(url, profile);
 
 	const fileName = await invoke<string>("download_and_save_image", {
 		url: url,

@@ -32,6 +32,7 @@ pub use crate::url::url_to_folder_name;
 
 mod article_store;
 pub use crate::article_store::{
+    delete_stored_article_profile,
     delete_stored_article_by_url,
     get_stored_article_by_url,
     list_stored_article_profiles,
@@ -106,6 +107,7 @@ pub fn run() {
             get_stored_article_by_url,
             upsert_stored_article,
             delete_stored_article_by_url,
+            delete_stored_article_profile,
             extract_markdown,
             extract_metadata,
             extract_blog,

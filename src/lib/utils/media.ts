@@ -2,12 +2,12 @@ type MediaAssetRequest = { key: string; url?: string | null };
 type MediaAssetResult = { key: string; value: string | null };
 
 import { invoke } from "@tauri-apps/api/core";
-import { getImageSrc } from "@/lib/utils/dirs";
-import { viewState } from "@/stores/viewStore.svelte";
+import { resolveMediaDirectory } from "@/lib/utils/files";
 
 export async function downloadMediaAssets(
 	pageUrl: string,
-	assets: MediaAssetRequest[]
+	assets: MediaAssetRequest[],
+	profile?: string | null
 ): Promise<{ mediaDirectory: string | null; results: MediaAssetResult[] }> {
 	if (!assets.length) {
 		return { mediaDirectory: null, results: [] };
@@ -16,9 +16,7 @@ export async function downloadMediaAssets(
 	let mediaDirectory: string | null = null;
 
 	try {
-		mediaDirectory = await invoke<string>("url_to_folder_name", {
-			url: pageUrl,
-		});
+		mediaDirectory = await resolveMediaDirectory(pageUrl, profile);
 	} catch (err) {
 		console.error("downloadMediaAssets: url_to_folder_name failed", err);
 		return {

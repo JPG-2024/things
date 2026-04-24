@@ -25,6 +25,24 @@ const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 let processingUrl = $state(false);
 let profileCategories = $state<ArticleProfile[]>([]);
 
+async function loadProfiles() {
+	const profiles = await getProfiles();
+	console.log("Fetched profiles:", profiles);
+	profileCategories = profiles.length
+		? profiles
+		: [
+				{
+					id: UNKNOWN_PROFILE_ID,
+					name: UNKNOWN_PROFILE_LABEL,
+					count: 0,
+				},
+			];
+}
+
+async function handleProfileDeleted(_profileId: string) {
+	await loadProfiles();
+}
+
 function extractValidUrl(value: string): string | null {
 	const trimmedValue = value.trim();
 
@@ -79,17 +97,7 @@ async function handlePasteUrl(url: string) {
 
 onMount(() => {
 	void (async () => {
-		const profiles = await getProfiles();
-		console.log("Fetched profiles:", profiles);
-		profileCategories = profiles.length
-			? profiles
-			: [
-					{
-						id: UNKNOWN_PROFILE_ID,
-						name: UNKNOWN_PROFILE_LABEL,
-						count: 0,
-					},
-				];
+		await loadProfiles();
 	})();
 
 	const pollClipboard = async () => {
@@ -146,7 +154,12 @@ onMount(() => {
 
   <div class="flex-squares">
 		{#each profileCategories as profile (profile.id)}
-			<CategoryWidget categoryId={profile.id} name={profile.name} showTitle />
+			<CategoryWidget
+				categoryId={profile.id}
+				name={profile.name}
+				showTitle
+				onDeleted={handleProfileDeleted}
+			/>
     {/each}
   </div>
 </div>
