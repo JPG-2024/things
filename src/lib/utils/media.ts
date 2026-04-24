@@ -1,34 +1,36 @@
-type MediaAssetRequest = { key: string; url?: string | null }
-type MediaAssetResult = { key: string; value: string | null }
+type MediaAssetRequest = { key: string; url?: string | null };
+type MediaAssetResult = { key: string; value: string | null };
 
-import { invoke } from "@tauri-apps/api/core"
-import { getImageSrc } from "@/lib/utils/dirs"
-import { viewState } from "@/stores/viewStore.svelte"
+import { invoke } from "@tauri-apps/api/core";
+import { getImageSrc } from "@/lib/utils/dirs";
+import { viewState } from "@/stores/viewStore.svelte";
 
 export async function downloadMediaAssets(
 	pageUrl: string,
-	assets: MediaAssetRequest[],
+	assets: MediaAssetRequest[]
 ): Promise<{ mediaDirectory: string | null; results: MediaAssetResult[] }> {
 	if (!assets.length) {
-		return { mediaDirectory: null, results: [] }
+		return { mediaDirectory: null, results: [] };
 	}
 
-	let mediaDirectory: string | null = null
+	let mediaDirectory: string | null = null;
 
 	try {
-		mediaDirectory = await invoke<string>("url_to_folder_name", { url: pageUrl })
+		mediaDirectory = await invoke<string>("url_to_folder_name", {
+			url: pageUrl,
+		});
 	} catch (err) {
-		console.error("downloadMediaAssets: url_to_folder_name failed", err)
+		console.error("downloadMediaAssets: url_to_folder_name failed", err);
 		return {
 			mediaDirectory: null,
 			results: assets.map(({ key }) => ({ key, value: null })),
-		}
+		};
 	}
 
 	const results = await Promise.all(
 		assets.map(async ({ key, url }) => {
 			if (!url || !mediaDirectory) {
-				return { key, value: null }
+				return { key, value: null };
 			}
 
 			try {
@@ -36,15 +38,15 @@ export async function downloadMediaAssets(
 					url,
 					folderName: mediaDirectory,
 					reductionMagnitud: 2,
-				})
+				});
 
-				return { key, value: fileName }
+				return { key, value: fileName };
 			} catch (err) {
-				console.error(`downloadMediaAssets: failed to download ${key}`, err)
-				return { key, value: null }
+				console.error(`downloadMediaAssets: failed to download ${key}`, err);
+				return { key, value: null };
 			}
-		}),
-	)
+		})
+	);
 
-	return { mediaDirectory, results }
+	return { mediaDirectory, results };
 }

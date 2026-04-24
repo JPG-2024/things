@@ -125,17 +125,13 @@ async function handleSubmit(prompt: string) {
 </script>
 
 <div class="ask-task">
-	<div class="ask-input">
+	<div class="ask-input" class:is-loading={loading}>
 		<Input
 			placeholder="Ask about this content..."
 			disabled={loading}
 			onEnter={handleSubmit}
 		/>
 	</div>
-
-	{#if loading}
-		<div class="ask-status">Generating response...</div>
-	{/if}
 
 	{#if error}
 		<div class="ask-error">Error: {error}</div>
@@ -158,8 +154,36 @@ async function handleSubmit(prompt: string) {
 
 	.ask-input {
 		width: 100%;
-        border: 1px solid var(--primary-color);
-        border-radius: 8px;
+		border-radius: 8px;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.ask-input::after {
+		content: "";
+		position: absolute;
+		bottom: 0;
+		left: -100%;
+		width: 100%;
+		height: 2px;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			var(--primary-color, #7c6af7),
+			transparent
+		);
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	.ask-input.is-loading::after {
+		opacity: 1;
+		animation: ask-progress 1.2s linear infinite;
+	}
+
+	@keyframes ask-progress {
+		from { left: -100%; }
+		to { left: 100%; }
 	}
 
 	.ask-status {
@@ -176,9 +200,6 @@ async function handleSubmit(prompt: string) {
 	}
 
 	.ask-response {
-		padding: 0.75rem;
-		border-radius: 8px;
-		background-color: rgba(154, 154, 154, 0.18);
-		border: 1px solid rgba(154, 154, 154, 0.3);
+		
 	}
 </style>

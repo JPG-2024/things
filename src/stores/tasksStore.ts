@@ -348,20 +348,15 @@ async function buildUpsertInput(params: {
 	url: string;
 	tasksToSave: Array<{ id?: string; data?: unknown }>;
 	existingArticle: ArticleWithTasks | null;
-	title?: string | null;
-	thumbnail?: string | null;
-	content?: string | null;
-	directory?: string | null;
-	mainColor?: string | null;
-	profile?: string | null;
+	valuesToOverride?: Partial<Record<string, unknown>> | undefined;
 }): Promise<UpsertStoredArticleInput> {
 	const title = firstNormalizedString(
-		params.title,
+		params.valuesToOverride?.title as string | undefined,
 		getStoredTaskData<string>(params.tasksToSave, "title"),
-		params.existingArticle?.title ?? null
+		params.existingArticle?.title
 	);
 	const content = firstNormalizedString(
-		params.content,
+		params.valuesToOverride?.content as string | undefined,
 		getStoredTaskData<string>(params.tasksToSave, "content"),
 		getArticleStringField(params.existingArticle, "content")
 	);
@@ -370,19 +365,20 @@ async function buildUpsertInput(params: {
 			thumbnailImageSrc?: string;
 			mediaDirectory?: string;
 		}>(params.tasksToSave, "thumbnail") ?? {};
+
 	const thumbnail = firstNormalizedString(
-		params.thumbnail,
+		params.valuesToOverride?.thumbnail as string | undefined,
 		thumbnailTaskData.thumbnailImageSrc,
-		params.existingArticle?.thumbnail ?? null
+		params.existingArticle?.thumbnail
 	);
 	const directory = firstNormalizedString(
-		params.directory,
+		params.valuesToOverride?.directory as string | undefined,
 		thumbnailTaskData.mediaDirectory,
 		getArticleStringField(params.existingArticle, "mediaDirectory"),
 		getArticleStringField(params.existingArticle, "directory")
 	);
 	const mainColor = firstNormalizedString(
-		params.mainColor,
+		params.valuesToOverride?.mainColor as string | undefined,
 		getStoredTaskData<string>(params.tasksToSave, "main-color"),
 		params.existingArticle?.mainColor ?? null,
 		params.existingArticle?.primaryColor ?? null
@@ -391,7 +387,7 @@ async function buildUpsertInput(params: {
 		getStoredTaskData<unknown>(params.tasksToSave, "keywords")
 	);
 	const profile = firstNormalizedString(
-		params.profile,
+		params.valuesToOverride?.profile as string | undefined,
 		getPageElementField(params.tasksToSave, "video-info", "profile"),
 		getArticleStringField(params.existingArticle, "profile")
 	);
@@ -491,9 +487,30 @@ export async function getArticleWithTasksByUrl(
 	}
 }
 
+export async function getArticlesByUrls(
+	urls: string[]
+): Promise<ArticleWithTasks[]> {
+	if (urls.length === 0) {
+		return [];
+	}
+
+	try {
+		const result = await invoke<StoredArticleRecord[]>(
+			"list_stored_articles_by_urls",
+			{ urls }
+		);
+
+		return result.map((row) => mapStoredArticle(row));
+	} catch (error) {
+		console.error("Error querying LanceDB articles by URL", error);
+		return [];
+	}
+}
+
 export async function saveTasks<TMap extends TaskMapBase>(
 	url: string,
-	tasks: Task<TMap>[]
+	tasks: Task<TMap>[],
+	valuesToOverride?: Partial<Record<string, unknown>> | undefined
 ): Promise<void> {
 	const existingArticle = await getArticleWithTasksByUrl(url);
 	const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
@@ -501,6 +518,7 @@ export async function saveTasks<TMap extends TaskMapBase>(
 		url,
 		tasksToSave,
 		existingArticle,
+		valuesToOverride,
 	});
 
 	await invoke("upsert_stored_article", { input });

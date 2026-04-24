@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { downloadImageUrl } from "@/lib/utils/files";
+import { getArticlesByUrls } from "@/stores/tasksStore";
 import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
 
 import {
+	buildVideoPageParams,
 	getRequiredTaskState,
 	TaskNames,
 	type GetChannelVideosContext,
@@ -14,7 +16,8 @@ type ProfileTaskIds =
 	| TaskNames.INIT
 	| TaskNames.THUMBNAIL
 	| TaskNames.GET_CHANNEL_VIDEOS
-	| TaskNames.EXTRACT_CHANNEL_VIDEOS;
+	| TaskNames.EXTRACT_CHANNEL_VIDEOS
+	| TaskNames.EXTRACT_PROFILE;
 
 export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 	[TaskNames.INIT]: (runnerOptions) => ({
@@ -65,6 +68,29 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		},
 	}),
 
+	[TaskNames.EXTRACT_PROFILE]: () => ({
+		id: TaskNames.EXTRACT_PROFILE,
+		dependencies: [TaskNames.INIT],
+		type: "script",
+		run: async ({ state }) => {
+			const context = getRequiredTaskState(state, TaskNames.INIT);
+
+			const result = await invoke<{ profile: string[] }>("get_page_elements", {
+				...buildVideoPageParams(context.url),
+				selectors: [
+					{
+						name: "profile",
+						selector: "div.ytPageHeaderViewModelHeadline",
+					},
+				],
+				attempts: 5,
+				intervalMs: 200,
+			});
+
+			return result.profile[1];
+		},
+	}),
+
 	[TaskNames.GET_CHANNEL_VIDEOS]: () => ({
 		id: TaskNames.GET_CHANNEL_VIDEOS,
 		name: "Get channel videos",
@@ -108,16 +134,36 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				state,
 				TaskNames.GET_CHANNEL_VIDEOS
 			);
+
+			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
+
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
+			const urlsToProcess = fullUrls.slice(0, 5);
+			const existingArticles = await getArticlesByUrls(urlsToProcess);
+
+			console.log(fullUrls, existingArticles);
+
+			const existingArticlesByUrl = new Map(
+				existingArticles
+					.filter((article) => typeof article.url === "string")
+					.map((article) => [article.url as string, article])
+			);
+
+			console.log("Existing articles by URL:", existingArticlesByUrl);
 
 			const results = [];
 
-			for (const url of fullUrls.slice(0, 6)) {
+			for (const url of urlsToProcess) {
+				if (existingArticlesByUrl.has(url)) {
+					continue;
+				}
+
 				results.push(
-					await youTubeRunner(url, undefined, {
+					await youTubeRunner(url, null, {
 						makeActive: false,
 						parentRunId: runId,
 						routine: "videoItem",
+						profile,
 					})
 				);
 			}

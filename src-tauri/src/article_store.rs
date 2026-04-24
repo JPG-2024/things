@@ -672,6 +672,35 @@ pub async fn get_stored_article_by_url(
     Ok(records.pop())
 }
 
+#[tauri::command]
+pub async fn list_stored_articles_by_urls(
+    app: AppHandle,
+    urls: Vec<String>,
+) -> Result<Vec<StoredArticleRecord>, String> {
+    let normalized_urls = urls
+        .into_iter()
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty())
+        .collect::<Vec<_>>();
+
+    if normalized_urls.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let db = connection(&app).await?;
+    let table = open_articles_table(&db).await?;
+    let filter = format!(
+        "url IN ({})",
+        normalized_urls
+            .iter()
+            .map(|url| sql_string(url))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    query_articles(&table, Some(filter)).await
+}
+
 async fn merge_article_row(
     table: &Table,
     input: &UpsertStoredArticleInput,

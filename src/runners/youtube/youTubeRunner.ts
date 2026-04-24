@@ -35,6 +35,7 @@ type YouTubeRunnerOptions = {
 	routine?: keyof typeof routine;
 	Rebuild?: boolean;
 	stream?: boolean;
+	profile?: string;
 };
 
 export async function youTubeRunner(
@@ -64,6 +65,6 @@ export async function youTubeRunner(
 		stream: options.stream,
 	});
 
-	await saveTasks(url, runResult.tasks);
+	await saveTasks(url, runResult.tasks, { profile: options.profile });
 	return runResult.tasks as Task[];
 }

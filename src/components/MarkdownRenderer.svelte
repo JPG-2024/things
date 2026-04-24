@@ -61,8 +61,14 @@ function preprocessContent(text: string): string {
     font-size: 1em;
     line-height: 1.6;
     overflow-wrap: break-word;
+
+
   }
 
+  .markdown-container :global(thead th) {
+    background-color: color-mix(in srgb, var(--primary-color) 80%, transparent);
+    color: #1a1a1a;
+  }
   /* Styles for thought process */
   .markdown-container :global(.thought-process) {
     margin-bottom: em;

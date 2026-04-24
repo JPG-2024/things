@@ -122,7 +122,7 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
   }
 
   .mini-img {
-    width: 55px;
+    width: 80px;
     height: 55px;
     object-fit: cover;
     display: block;
