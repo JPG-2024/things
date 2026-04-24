@@ -1,17 +1,32 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
+import Icon from "@/components/Icon.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
 import {
+  deleteProfileById,
 	getArticlesByProfile,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
 
-let { categoryId, name = "", showTitle = false } = $props();
+interface Props {
+  categoryId: string;
+  name?: string;
+  showTitle?: boolean;
+  onDeleted?: (profileId: string) => void | Promise<void>;
+}
+
+let {
+  categoryId,
+  name = "",
+  showTitle = false,
+  onDeleted,
+}: Props = $props();
 
 let articles = $state<ArticleWithTasks[]>([]);
 let loading = $state<boolean>(false);
+let deleting = $state<boolean>(false);
 
 onMount(async () => {
 	loading = true;
@@ -32,15 +47,45 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
 	navigate(`/youtube/${encodeURIComponent(article.url)}`);
 	await urlRouter(article.url);
 }
+
+async function handleDeleteProfile() {
+  if (deleting) return;
+
+  const normalizedCategoryId =
+    typeof categoryId === "string" ? categoryId : String(categoryId);
+
+  deleting = true;
+  try {
+    const result = await deleteProfileById(normalizedCategoryId);
+    if (result.success) {
+      articles = [];
+      await onDeleted?.(normalizedCategoryId);
+    }
+  } catch (error) {
+    console.error("Error deleting profile", error);
+  } finally {
+    deleting = false;
+  }
+}
 </script>
 
 <div class="category-widget">
-
-
   <Card>
     {#if name && showTitle}
-    <h2 class="category-title">{name}</h2>
-  {/if}
+      <div class="title-row">
+        <h2 class="category-title">{name}</h2>
+        <button
+          type="button"
+          class="delete-btn"
+          onclick={handleDeleteProfile}
+          disabled={deleting}
+          aria-label={`Delete ${name}`}
+          title="Delete profile"
+        >
+          <Icon name="Trash" />
+        </button>
+      </div>
+    {/if}
     {#if articles?.length}
       <div class="img-flex">
         {#each articles as article (article.url)}
@@ -75,18 +120,28 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
   }
 
   .delete-btn {
-        all: unset;
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    border-radius: 8px;
-    padding: 6px 10px;
-    color: white;
-    font-size: 18px;
-    line-height: 1;
+    border-radius: 999px;
+    padding: 0.3rem;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding-inline: 20px;
   }
 
   .category-title {
     transform: translateY(10px);
-    padding-left: 20px;;
+    padding-left: 0;
     color: var(--primary-color);
     font-weight: 600;
     font-size: 0.9rem;
