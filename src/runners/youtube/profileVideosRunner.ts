@@ -25,6 +25,7 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 			url,
 			language: viewState.language,
 		});
+
 		const runResult = await workflowManager.run(runId, tasks, {
 			makeActive: true,
 			stream: true,

@@ -2,13 +2,13 @@ import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 import type { Task } from "@/types/taskRunner.types";
 import {
+	deleteArticleByUrl,
 	getArticleWithTasksByUrl,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
 import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
 import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
 import { webRunner } from "@/runners/web/webRunner";
-import { deleteArticleByUrl } from "@/stores/tasksStore";
 import { workflowManager } from "@/runners/workflowManager.svelte";
 
 // Router response payload built from the persisted article snapshot and current run

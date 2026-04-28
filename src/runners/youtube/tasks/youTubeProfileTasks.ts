@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { downloadImageUrl } from "@/lib/utils/files";
-import { getArticlesByUrls } from "@/stores/tasksStore";
+import { getArticlesByProfile } from "@/stores/tasksStore";
 import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
+import { removeYTPpParam } from "@/lib/utils/youtube/helpers";
 
 import {
 	buildVideoPageParams,
@@ -139,23 +140,29 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
-			const urlsToProcess = fullUrls.slice(0, 3);
-			const existingArticles = await getArticlesByUrls(urlsToProcess);
+			const urlsToProcess = fullUrls.slice(0, 4).reverse(); // Process in reverse order to prioritize newer videos
+			urlsToProcess.forEach((url, index, arr) => {
+				arr[index] = removeYTPpParam(url);
+			});
 
-			console.log(fullUrls, existingArticles);
+			/* 
+			const existingArticles = await getArticlesByProfile(profile, {
+				limit: 50,
+				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30, // last 30 days
+			});
 
 			const existingArticlesByUrl = new Map(
 				existingArticles
 					.filter((article) => typeof article.url === "string")
 					.map((article) => [article.url as string, article])
-			);
-
-			console.log("Existing articles by URL:", existingArticlesByUrl);
+			); */
 
 			const results = [];
 
 			for (const url of urlsToProcess) {
-				if (existingArticlesByUrl.has(url)) {
+				const row = await invoke("get_stored_article_by_url", { url });
+
+				if (row) {
 					continue;
 				}
 

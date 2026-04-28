@@ -22,7 +22,11 @@ const videoPage: TaskNames[] = [
 	//TaskNames.TTS,
 ];
 
-const videoItem: TaskNames[] = [TaskNames.THUMBNAIL, TaskNames.TITLE_SUMMARY];
+const videoItem: TaskNames[] = [
+	TaskNames.THUMBNAIL,
+	TaskNames.TITLE_SUMMARY,
+	TaskNames.TITLE,
+];
 
 const routine = {
 	videoPage,

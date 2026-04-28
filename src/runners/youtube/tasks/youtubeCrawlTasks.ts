@@ -76,7 +76,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.CONTENT]: () => ({
 		id: TaskNames.CONTENT,
 		dependencies: [TaskNames.TIMED_CAPTIONS],
-		component: "ask",
+		// component: "ask",
 		type: "script",
 		persist: true,
 		run: async ({ state }) => {

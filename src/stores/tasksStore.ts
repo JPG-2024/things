@@ -51,6 +51,7 @@ type StoredArticleRecord = {
 	id: number;
 	url: string | null;
 	articleUid: string;
+	createdAt: number;
 	title: string | null;
 	thumbnail: string | null;
 	content: string | null;
@@ -178,7 +179,9 @@ function getArticleStringField(
 	return typeof fieldValue === "string" ? fieldValue : "";
 }
 
-function getArticleMediaDirectory(article: ArticleWithTasks | null): string | null {
+function getArticleMediaDirectory(
+	article: ArticleWithTasks | null
+): string | null {
 	return firstNormalizedString(
 		getArticleStringField(article, "mediaDirectory"),
 		getArticleStringField(article, "directory")
@@ -237,7 +240,9 @@ function isLegacyArticleMediaDirectory(directory: string): boolean {
 	return /^[a-f0-9]{16}$/i.test(directory.trim());
 }
 
-async function deleteArticleMedia(article: ArticleWithTasks | null): Promise<void> {
+async function deleteArticleMedia(
+	article: ArticleWithTasks | null
+): Promise<void> {
 	const directory = getArticleMediaDirectory(article);
 	if (!directory) {
 		return;
@@ -528,11 +533,32 @@ function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 
 async function fetchStoredArticlesByProfile(
 	profileId: string,
-	fields?: string[]
+	fields?: string[],
+	createdAtFrom?: number,
+	limit?: number
 ): Promise<StoredArticleRecord[]> {
+	const payload: {
+		profileId: string;
+		fields?: string[];
+		createdAtFrom?: number;
+		limit?: number;
+	} = { profileId };
+
+	if (fields) {
+		payload.fields = fields;
+	}
+
+	if (typeof createdAtFrom === "number") {
+		payload.createdAtFrom = createdAtFrom;
+	}
+
+	if (typeof limit === "number") {
+		payload.limit = limit;
+	}
+
 	return invoke<StoredArticleRecord[]>(
 		"list_stored_articles_by_profile",
-		fields ? { profileId, fields } : { profileId }
+		payload
 	);
 }
 
@@ -562,17 +588,24 @@ export async function getProfiles(): Promise<ArticleProfile[]> {
 }
 
 export async function getArticlesByProfile(
-	profileId: string
+	profileId: string,
+	options?: {
+		createdAtFrom?: number;
+		limit?: number;
+	}
 ): Promise<ArticleWithTasks[]> {
 	try {
-		const result = await fetchStoredArticlesByProfile(profileId, [
-			"id",
-			"url",
-			"title",
-			"thumbnail",
-		]);
+		const result = await fetchStoredArticlesByProfile(
+			profileId,
+			["id", "url", "title", "thumbnail"],
+			options?.createdAtFrom,
+			options?.limit
+		);
 
-		console.log(`Queried articles for profile "${profileId}":`, result);
+		console.log(
+			`Queried articles for profile "${profileId}" from database:`,
+			result
+		);
 
 		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
@@ -598,26 +631,6 @@ export async function getArticleWithTasksByUrl(
 	} catch (error) {
 		console.error("Error querying LanceDB article", error);
 		return null;
-	}
-}
-
-export async function getArticlesByUrls(
-	urls: string[]
-): Promise<ArticleWithTasks[]> {
-	if (urls.length === 0) {
-		return [];
-	}
-
-	try {
-		const result = await invoke<StoredArticleRecord[]>(
-			"list_stored_articles_by_urls",
-			{ urls }
-		);
-
-		return result.map((row) => mapStoredArticle(row));
-	} catch (error) {
-		console.error("Error querying LanceDB articles by URL", error);
-		return [];
 	}
 }
 

@@ -8,9 +8,10 @@ use futures_util::TryStreamExt;
 use lancedb::index::scalar::FtsIndexBuilder;
 use lancedb::index::Index;
 use lancedb::query::{ExecutableQuery, QueryBase};
+use lancedb::table::NewColumnTransform;
 use lancedb::{connect, Connection, Table};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
 
@@ -27,6 +28,7 @@ pub struct StoredArticleRecord {
     pub id: i64,
     pub url: Option<String>,
     pub article_uid: String,
+    pub created_at: i64,
     pub title: Option<String>,
     pub thumbnail: Option<String>,
     pub content: Option<String>,
@@ -105,6 +107,13 @@ fn sql_string(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
+fn sql_optional_string(value: Option<&str>) -> String {
+    match value {
+        Some(value) => sql_string(value),
+        None => "NULL".to_string(),
+    }
+}
+
 fn database_path(app: &AppHandle) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
@@ -128,6 +137,7 @@ fn articles_schema() -> SchemaRef {
         Field::new("id", DataType::Int64, false),
         Field::new("url", DataType::Utf8, false),
         Field::new("article_uid", DataType::Utf8, false),
+        Field::new("created_at", DataType::Int64, false),
         Field::new("title", DataType::Utf8, true),
         Field::new("thumbnail", DataType::Utf8, true),
         Field::new("content", DataType::Utf8, true),
@@ -183,8 +193,31 @@ async fn open_or_create_table(
         .map_err(|error| error.to_string())
 }
 
+async fn ensure_articles_table_schema(table: &Table) -> Result<(), String> {
+    let schema = table.schema().await.map_err(|error| error.to_string())?;
+
+    if schema.field_with_name("created_at").is_ok() {
+        return Ok(());
+    }
+
+    table
+        .add_columns(
+            NewColumnTransform::SqlExpressions(vec![(
+                "created_at".to_string(),
+                "updated_at".to_string(),
+            )]),
+            Some(vec!["updated_at".to_string()]),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 async fn open_articles_table(db: &Connection) -> Result<Table, String> {
-    open_or_create_table(db, ARTICLES_TABLE, articles_schema()).await
+    let table = open_or_create_table(db, ARTICLES_TABLE, articles_schema()).await?;
+    ensure_articles_table_schema(&table).await?;
+    Ok(table)
 }
 
 async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
@@ -214,7 +247,7 @@ async fn ensure_search_indices(table: &Table) -> Result<(), String> {
     Ok(())
 }
 
-fn article_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String> {
+fn article_batch(input: &UpsertStoredArticleInput, created_at: i64) -> Result<RecordBatch, String> {
     let article_uid = article_uid_from_url(&input.url);
     let id = article_numeric_id(&article_uid);
     let updated_at = chrono_like_now();
@@ -224,6 +257,7 @@ fn article_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String
         Arc::new(Int64Array::from(vec![id])),
         Arc::new(StringArray::from(vec![input.url.as_str()])),
         Arc::new(StringArray::from(vec![article_uid.as_str()])),
+        Arc::new(Int64Array::from(vec![created_at])),
         Arc::new(StringArray::from(vec![input.title.as_deref()])),
         Arc::new(StringArray::from(vec![input.thumbnail.as_deref()])),
         Arc::new(StringArray::from(vec![input.content.as_deref()])),
@@ -378,6 +412,21 @@ fn int64_column<'a>(batch: &'a RecordBatch, name: &str) -> Result<&'a Int64Array
         .ok_or_else(|| format!("Column '{name}' is not Int64"))
 }
 
+fn optional_int64_column<'a>(
+    batch: &'a RecordBatch,
+    name: &str,
+) -> Result<Option<&'a Int64Array>, String> {
+    let Some(column) = batch.column_by_name(name) else {
+        return Ok(None);
+    };
+
+    column
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .map(Some)
+        .ok_or_else(|| format!("Column '{name}' is not Int64"))
+}
+
 fn read_optional_string(array: &StringArray, row: usize) -> Option<String> {
     if array.is_null(row) {
         None
@@ -388,6 +437,18 @@ fn read_optional_string(array: &StringArray, row: usize) -> Option<String> {
 
 fn read_optional_string_from_column(array: Option<&StringArray>, row: usize) -> Option<String> {
     array.and_then(|value| read_optional_string(value, row))
+}
+
+fn read_optional_int64(array: &Int64Array, row: usize) -> Option<i64> {
+    if array.is_null(row) {
+        None
+    } else {
+        Some(array.value(row))
+    }
+}
+
+fn read_optional_int64_from_column(array: Option<&Int64Array>, row: usize) -> Option<i64> {
+    array.and_then(|value| read_optional_int64(value, row))
 }
 
 fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
@@ -449,6 +510,10 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
     profiles
 }
 
+fn sort_articles_by_created_at_desc(records: &mut [StoredArticleRecord]) {
+	records.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+}
+
 fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRecord>, String> {
     let mut records = Vec::new();
 
@@ -456,6 +521,7 @@ fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRe
         let ids = int64_column(&batch, "id")?;
         let urls = string_column(&batch, "url")?;
         let article_uids = string_column(&batch, "article_uid")?;
+        let created_ats = optional_int64_column(&batch, "created_at")?;
         let titles = optional_string_column(&batch, "title")?;
         let thumbnails = optional_string_column(&batch, "thumbnail")?;
         let contents = optional_string_column(&batch, "content")?;
@@ -474,6 +540,8 @@ fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRe
                 id: ids.value(row),
                 url: read_optional_string(urls, row),
                 article_uid: article_uids.value(row).to_string(),
+                created_at: read_optional_int64_from_column(created_ats, row)
+                    .unwrap_or_else(|| updated_ats.value(row)),
                 title: read_optional_string_from_column(titles, row),
                 thumbnail: read_optional_string_from_column(thumbnails, row),
                 content: read_optional_string_from_column(contents, row),
@@ -506,7 +574,9 @@ async fn query_articles(table: &Table, filter: Option<String>) -> Result<Vec<Sto
         .await
         .map_err(|error| error.to_string())?;
 
-    records_from_batches(batches)
+    let mut records = records_from_batches(batches)?;
+    sort_articles_by_created_at_desc(&mut records);
+    Ok(records)
 }
 
 async fn query_articles_by_profile_id(
@@ -527,6 +597,74 @@ async fn query_articles_by_profile_id(
 
     let filter = format!("profile = {}", sql_string(normalized_profile_id));
     query_articles(table, Some(filter)).await
+}
+
+async fn query_articles_by_profile_and_date(
+    table: &Table,
+    profile_id: Option<&str>,
+    created_at_from: Option<i64>,
+    limit: Option<usize>,
+) -> Result<Vec<StoredArticleRecord>, String> {
+    let normalized_profile_id = profile_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let mut filters = Vec::new();
+
+    if let Some(value) = created_at_from {
+        filters.push(format!("created_at >= {value}"));
+    }
+
+    match normalized_profile_id {
+        Some(value) if value == UNKNOWN_PROFILE_ID => {
+            let query = match filters.is_empty() {
+                true => table.query(),
+                false => table.query().only_if(filters.join(" AND ")),
+            };
+
+            let batches = query
+                .execute()
+                .await
+                .map_err(|error| error.to_string())?
+                .try_collect::<Vec<_>>()
+                .await
+                .map_err(|error| error.to_string())?;
+
+            let mut records = records_from_batches(batches)?;
+            sort_articles_by_created_at_desc(&mut records);
+
+            return Ok(records
+                .into_iter()
+                .filter(|record| {
+                    normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
+                })
+                .take(limit.unwrap_or(usize::MAX))
+                .collect::<Vec<_>>());
+        }
+        Some(value) => filters.push(format!("profile = {}", sql_string(value))),
+        None => {}
+    }
+
+    let query = match filters.is_empty() {
+        true => table.query(),
+        false => table.query().only_if(filters.join(" AND ")),
+    };
+
+    let batches = query
+        .execute()
+        .await
+        .map_err(|error| error.to_string())?
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let mut records = records_from_batches(batches)?;
+    sort_articles_by_created_at_desc(&mut records);
+
+    if let Some(limit) = limit {
+        records.truncate(limit);
+    }
+
+    Ok(records)
 }
 
 async fn query_profiles(
@@ -662,11 +800,19 @@ pub async fn list_stored_article_profiles(
 pub async fn list_stored_articles_by_profile(
     app: AppHandle,
     profile_id: String,
+    created_at_from: Option<i64>,
+    limit: Option<usize>,
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
     let db = connection(&app).await?;
     let table = open_articles_table(&db).await?;
-    let records = query_articles_by_profile_id(&table, &profile_id).await?;
+    let records = query_articles_by_profile_and_date(
+        &table,
+        Some(profile_id.as_str()),
+        created_at_from,
+        limit,
+    )
+    .await?;
 
     Ok(records
         .iter()
@@ -686,48 +832,38 @@ pub async fn get_stored_article_by_url(
     Ok(records.pop())
 }
 
-#[tauri::command]
-pub async fn list_stored_articles_by_urls(
-    app: AppHandle,
-    urls: Vec<String>,
-) -> Result<Vec<StoredArticleRecord>, String> {
-    let normalized_urls = urls
-        .into_iter()
-        .map(|url| url.trim().to_string())
-        .filter(|url| !url.is_empty())
-        .collect::<Vec<_>>();
 
-    if normalized_urls.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let db = connection(&app).await?;
-    let table = open_articles_table(&db).await?;
-    let filter = format!(
-        "url IN ({})",
-        normalized_urls
-            .iter()
-            .map(|url| sql_string(url))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-
-    query_articles(&table, Some(filter)).await
-}
-
-async fn merge_article_row(
+async fn insert_article_row(
     table: &Table,
     input: &UpsertStoredArticleInput,
+    created_at: i64,
 ) -> Result<(), String> {
-    let schema = articles_schema();
-    let mut article_merge = table.merge_insert(&["url"]);
-    article_merge.when_matched_update_all(None);
-    article_merge.when_not_matched_insert_all();
-    article_merge
-        .execute(Box::new(RecordBatchIterator::new(
-            vec![Ok(article_batch(input)?)],
-            schema,
-        )))
+    table
+        .add(article_batch(input, created_at)?)
+        .execute()
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+async fn update_article_row(table: &Table, input: &UpsertStoredArticleInput) -> Result<(), String> {
+    let updated_at = chrono_like_now();
+    table
+        .update()
+        .only_if(format!("url = {}", sql_string(&input.url)))
+        .column("title", sql_optional_string(input.title.as_deref()))
+        .column("thumbnail", sql_optional_string(input.thumbnail.as_deref()))
+        .column("content", sql_optional_string(input.content.as_deref()))
+        .column("directory", sql_optional_string(input.directory.as_deref()))
+        .column("main_color", sql_optional_string(input.main_color.as_deref()))
+        .column("profile", sql_optional_string(input.profile.as_deref()))
+        .column("tasks_json", sql_string(&input.tasks_json))
+        .column(
+            "embedding_source_text",
+            sql_optional_string(input.embedding_source_text.as_deref()),
+        )
+        .column("updated_at", updated_at.to_string())
+        .execute()
         .await
         .map(|_| ())
         .map_err(|error| error.to_string())
@@ -751,10 +887,13 @@ pub async fn upsert_stored_article(
         .as_ref()
         .map(|article| normalize_profile_bucket(article.profile.as_deref()));
     let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
-
     let db = connection(&app).await?;
     let articles_table = open_articles_table(&db).await?;
-    merge_article_row(&articles_table, &input).await?;
+    if previous_article.is_some() {
+        update_article_row(&articles_table, &input).await?;
+    } else {
+		insert_article_row(&articles_table, &input, chrono_like_now()).await?;
+	}
 
     let profile_table = open_article_profiles_table(&db).await?;
     match previous_profile_bucket {

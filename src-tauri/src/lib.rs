@@ -37,7 +37,6 @@ pub use crate::article_store::{
     get_stored_article_by_url,
     list_stored_article_profiles,
     list_stored_articles_by_profile,
-    list_stored_articles_by_urls,
     list_stored_articles,
     upsert_stored_article,
 };
@@ -103,7 +102,6 @@ pub fn run() {
             list_stored_articles,
             list_stored_article_profiles,
             list_stored_articles_by_profile,
-            list_stored_articles_by_urls,
             get_stored_article_by_url,
             upsert_stored_article,
             delete_stored_article_by_url,

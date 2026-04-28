@@ -9,6 +9,7 @@ import {
 type SummaryTaskIds =
 	| TaskNames.SUMMARY
 	| TaskNames.TITLE_SUMMARY
+	| TaskNames.TITLE
 	| TaskNames.KEYWORDS
 	| TaskNames.KEYPOINTS;
 
@@ -22,7 +23,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 			autoplayTTS: freshRun,
 		},
 		type: "ia",
-		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Limit to 60 words maximum. Maintain a formal tone. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
+		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
 		userMessage:
 			"Summarize the context clearly in a single paragraph with a short conclusion.",
@@ -38,6 +39,26 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Avoid words like summary, video, etc. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
 		userMessage: `Generate a short summary for this video. Answer in ${language === "es" ? "Spanish" : "English"}.`,
+		completionOptions: defaultCompletionOptions,
+	}),
+
+	[TaskNames.TITLE]: ({ language }) => ({
+		id: TaskNames.TITLE,
+		name: "Title",
+		dependencies: [TaskNames.TITLE_SUMMARY],
+		component: "taskBase",
+		type: "ia",
+		systemMessage: ``,
+		run: ({ state }) => {
+			const titleSummary = state[TaskNames.TITLE_SUMMARY];
+
+			if (typeof titleSummary !== "string") {
+				throw new Error("TITLE_SUMMARY is missing or invalid");
+			}
+
+			return titleSummary;
+		},
+		userMessage: `Generate a short title for this context. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
 	}),
 

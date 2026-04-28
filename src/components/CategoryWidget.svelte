@@ -5,24 +5,19 @@ import Icon from "@/components/Icon.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate, toVTName } from "@/lib/utils/url";
 import {
-  deleteProfileById,
+	deleteProfileById,
 	getArticlesByProfile,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
 
 interface Props {
-  categoryId: string;
-  name?: string;
-  showTitle?: boolean;
-  onDeleted?: (profileId: string) => void | Promise<void>;
+	categoryId: string;
+	name?: string;
+	showTitle?: boolean;
+	onDeleted?: (profileId: string) => void | Promise<void>;
 }
 
-let {
-  categoryId,
-  name = "",
-  showTitle = false,
-  onDeleted,
-}: Props = $props();
+let { categoryId, name = "", showTitle = false, onDeleted }: Props = $props();
 
 let articles = $state<ArticleWithTasks[]>([]);
 let loading = $state<boolean>(false);
@@ -32,13 +27,10 @@ onMount(async () => {
 	loading = true;
 	const normalizedCategoryId =
 		typeof categoryId === "string" ? categoryId : String(categoryId);
-	articles = await getArticlesByProfile(normalizedCategoryId);
-	console.log(
-		"Fetching articles for categoryId:",
-		normalizedCategoryId,
-		"Articles:",
-		articles
-	);
+	articles = await getArticlesByProfile(normalizedCategoryId, {
+		limit: 20,
+		createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30, // last 30 days
+	});
 	loading = false;
 });
 
@@ -49,23 +41,23 @@ async function handleNavigateToArticle(article: ArticleWithTasks) {
 }
 
 async function handleDeleteProfile() {
-  if (deleting) return;
+	if (deleting) return;
 
-  const normalizedCategoryId =
-    typeof categoryId === "string" ? categoryId : String(categoryId);
+	const normalizedCategoryId =
+		typeof categoryId === "string" ? categoryId : String(categoryId);
 
-  deleting = true;
-  try {
-    const result = await deleteProfileById(normalizedCategoryId);
-    if (result.success) {
-      articles = [];
-      await onDeleted?.(normalizedCategoryId);
-    }
-  } catch (error) {
-    console.error("Error deleting profile", error);
-  } finally {
-    deleting = false;
-  }
+	deleting = true;
+	try {
+		const result = await deleteProfileById(normalizedCategoryId);
+		if (result.success) {
+			articles = [];
+			await onDeleted?.(normalizedCategoryId);
+		}
+	} catch (error) {
+		console.error("Error deleting profile", error);
+	} finally {
+		deleting = false;
+	}
 }
 </script>
 
