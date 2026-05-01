@@ -23,10 +23,9 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 			autoplayTTS: freshRun,
 		},
 		type: "ia",
-		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
+		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone.`,
 		run: getContentFromState,
-		userMessage:
-			"Summarize the context clearly in a single paragraph with a short conclusion.",
+		userMessage: `Summarize the context clearly in a single paragraph, with a short conclusion. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
 	}),
 
@@ -125,8 +124,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 			return content;
 		},
-		userMessage:
-			"extract 5 key points titles in one line. add representative emoji at start.",
+		userMessage: `extract 5 key points titles in one line. add representative emoji at start. Response in language: ${viewState.language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,

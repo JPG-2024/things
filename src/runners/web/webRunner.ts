@@ -13,8 +13,6 @@ const webPage: WebTaskNames[] = [
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
 	WebTaskNames.SUMMARY,
-	WebTaskNames.KEYWORDS,
-	WebTaskNames.KEYPOINTS,
 ];
 
 const quickArticle: WebTaskNames[] = [

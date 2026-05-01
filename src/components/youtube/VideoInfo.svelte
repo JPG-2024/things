@@ -32,11 +32,14 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 
 {#if task?.data && getDataContent("title") && getDataContent("profile") && getDataContent("views") && getDataContent("uploadDate")}
     <div class="video-info">
-        <h3>{getDataContent("title")}</h3>
+        <!-- <h3>{getDataContent("title")}</h3> -->
+        <div class="title-container">
+            <StringReveal message={getDataContent("title") || ""} />
+        </div>
 
         <div class="info-row">
             <div class="pill">
-                <Icon name="User" />
+                <!-- <Icon name="User" /> -->
                 <p class="channel-name">{getDataContent("profile")?.slice(2, 50)}</p>
             </div>
             <div class="pill">
@@ -55,7 +58,13 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 <style>
 h3 {
     color: var(--primary-color);
-    font-family: Noto Sans Mono;
+    font-family: Noto Sans CJK SC Thin;
+    font-size: 1.6rem;
+    letter-spacing: 3px;
+}
+
+.title-container {
+    height: 80px;
 }
 
 .video-info {
@@ -64,18 +73,20 @@ h3 {
 }
 
 :global(.revealer) {
-    font-size: 24px;
-    font-weight: bold;
+    font-family: Noto Sans CJK SC Thin;
+    font-size: 1.6rem;
     color: var(--primary-color);
+    letter-spacing: 3px;
 }
 
 .channel-name {
-    font-size: 1rem;
-    font-weight: bold;
+    font-family: Noto Sans CJK SC Thin;
+    font-weight: semi-bold;
+    font-size: 1.4rem;
 }
 
 .pill {
-    font-size: 0.8rem;
+    font-size: 1.1rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -87,5 +98,6 @@ h3 {
     gap: 1rem;
     margin-top: 0.5rem;
     justify-content: start;
+    align-items: center;
 }
 </style>

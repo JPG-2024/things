@@ -2,8 +2,8 @@
 let {
 	message = "Esto es un prueba",
 	loading = false,
-	CHANGE_PERIOD = 8,
-	TIMEOUT_SECONDS = 0.1,
+	CHANGE_PERIOD = 10,
+	TIMEOUT_SECONDS = 500,
 	text = "!@#$%^&*()_+-=[]{}|;:,.<>/?`~",
 } = $props();
 
@@ -12,7 +12,7 @@ let revealedCount = $state(0);
 let isRevealing = $state(false);
 
 function getRandomChar() {
-	return text[Math.floor(Math.random() * text.length)];
+	return message[Math.floor(Math.random() * message.length)];
 }
 
 function updateChars() {
@@ -66,10 +66,7 @@ $effect(() => {
   .revealer {
     display: flex;
     flex-wrap: wrap;
-    width: 90%;
-    font-weight: bold;
-    font-size: 0.9rem;
-    font-family: monospace;
+    width: 100%;
     text-align: left;
   }
 

@@ -101,7 +101,7 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 		name: "Extract title",
 		dependencies: [WebTaskNames.METADATA],
 		type: "script",
-		component: "base",
+		component: "taskBase",
 		persist: true,
 		run: ({ state }) => {
 			const metadata = getRequiredTaskState(state, WebTaskNames.METADATA);

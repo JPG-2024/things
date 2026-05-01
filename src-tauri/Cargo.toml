@@ -48,7 +48,7 @@ lancedb = "0.27.2"
 arrow-array = "57.3.0"
 arrow-schema = "57.3.0"
 
-image = { version = "0.24", default-features = false, features = ["jpeg"] }
+image = { version = "0.24", default-features = false, features = ["jpeg", "webp"] }
 
 # ONNX Runtime
 ort = "2.0.0-rc.7"

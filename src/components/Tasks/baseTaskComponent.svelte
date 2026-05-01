@@ -80,7 +80,7 @@ const resolvedAutoplayTTS = $derived(
 
 		.title {
 			font-family: "Bitstream Vera Sans";
-			font-size: 1.3em;
+			font-size: 1.1rem;
 			margin-right: auto;
 			color: var(--primary-color)
 		}
@@ -105,6 +105,7 @@ const resolvedAutoplayTTS = $derived(
 	.task-content {
 		min-width: 0;
 		width: 100%;
+		font-size: 1.2rem;
 	}
 
 	.wrapped-output {

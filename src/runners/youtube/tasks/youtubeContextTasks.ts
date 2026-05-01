@@ -25,7 +25,8 @@ function getProfileFromVideoInfo(videoInfo: unknown): string | null {
 
 	if (Array.isArray(profile)) {
 		const firstProfile = profile.find(
-			(value): value is string => typeof value === "string" && value.trim().length > 0
+			(value): value is string =>
+				typeof value === "string" && value.trim().length > 0
 		);
 		return firstProfile ?? null;
 	}
