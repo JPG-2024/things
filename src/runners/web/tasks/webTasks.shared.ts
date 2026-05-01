@@ -30,7 +30,6 @@ export enum WebTaskNames {
 	SUMMARY = "summary",
 	KEYWORDS = "keywords",
 	KEYPOINTS = "key-points",
-	TTS = "tts",
 }
 
 export type WebTaskState = {
@@ -42,7 +41,6 @@ export type WebTaskState = {
 	[WebTaskNames.SUMMARY]: string;
 	[WebTaskNames.KEYWORDS]: string;
 	[WebTaskNames.KEYPOINTS]: string;
-	[WebTaskNames.TTS]: TTSResult | null;
 };
 
 export type WebTaskId = keyof WebTaskState & string;

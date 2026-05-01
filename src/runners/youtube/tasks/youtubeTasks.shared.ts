@@ -73,7 +73,6 @@ export type YouTubeTaskState = {
 	[TaskNames.SUMMARY]: string;
 	[TaskNames.KEYWORDS]: string;
 	[TaskNames.KEYPOINTS]: string;
-	[TaskNames.TTS]: TTSResult | null;
 	[TaskNames.TITLE_SUMMARY]: string;
 	[TaskNames.TITLE]: string;
 	[TaskNames.EXTRACT_PROFILE]: string;

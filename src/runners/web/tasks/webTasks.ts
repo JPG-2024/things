@@ -1,4 +1,3 @@
-import { audioTaskRegistry } from "./webAudioTasks";
 import { contextTaskRegistry } from "./webContextTasks";
 import { crawlTaskRegistry } from "./webCrawlTasks";
 import { summaryTaskRegistry } from "./webSummaryTasks";
@@ -10,5 +9,4 @@ export const webTaskRegistry = {
 	...contextTaskRegistry,
 	...crawlTaskRegistry,
 	...summaryTaskRegistry,
-	...audioTaskRegistry,
 } satisfies Record<WebTaskId, WebTaskFactory>;
