@@ -1,5 +1,4 @@
 <script lang="ts">
-import { invoke } from "@tauri-apps/api/core";
 import type { Snippet } from "svelte";
 import { viewState } from "@/stores/viewStore.svelte";
 
@@ -8,21 +7,12 @@ interface Props {
 }
 
 let { children }: Props = $props();
-
-async function stopTTSPlayback() {
-	try {
-		await invoke("stop_tts_playback");
-	} catch (err) {
-		console.error("Failed to stop TTS playback", err);
-	}
-}
 </script>
 
 <div class="top-bar">
   <button onclick={() => history.back()} class="back-navigation">⬅</button>
-  <!-- <button title="Stop TTS" onclick={stopTTSPlayback} class="tts-stop">[]</button> -->
   {#if viewState.domainUrl}
-    <button type="button" onclick={stopTTSPlayback} class="favicon-btn" aria-label="Stop TTS playback">
+    <button type="button" class="favicon-btn" aria-label="Navigate back">
       <img
         class="favicon"
         src="https://www.google.com/s2/favicons?sz=64&domain={viewState.domainUrl}"
@@ -96,10 +86,5 @@ async function stopTTSPlayback() {
     border-radius: 8px;
     width: 32px;
     height: 32px;
-  }
-
-  .tts-stop {
-    all: unset;
-    cursor: pointer;
   }
 </style>

@@ -3,7 +3,7 @@ import type {
 	TaskGlobalState,
 	TaskRuntime,
 } from "@/types/taskRunner.types";
-import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
+import type { TTSLanguage } from "$lib/utils/tts";
 
 export type WebInitContext = {
 	url: string;

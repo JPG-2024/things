@@ -8,7 +8,7 @@ import type {
 	TaskGlobalState,
 	TaskRuntime,
 } from "@/types/taskRunner.types";
-import type { TTSLanguage, TTSResult } from "$lib/utils/tts";
+import type { TTSLanguage } from "$lib/utils/tts";
 
 export type PageElementItem = {
 	name: string;
@@ -53,7 +53,6 @@ export enum TaskNames {
 	TIMED_CAPTIONS = "timed-captions",
 	CONTENT = "content",
 	VIDEO_INFO = "video-info",
-	TTS = "tts",
 	TITLE_SUMMARY = "title-summary",
 	TITLE = "title",
 	EXTRACT_PROFILE = "extract-profile",

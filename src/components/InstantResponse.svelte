@@ -1,11 +1,9 @@
 <script lang="ts">
-import { invoke } from "@tauri-apps/api/core"
 import type {
 	LlamaChatCompletionsRequest,
 	LlamaChatCompletionsResponse,
 } from "@/lib/utils/llama-completions"
 import { chatCompletions } from "@/lib/utils/llama-completions"
-import { synthesizeSpeech } from "$lib/utils/tts"
 import Input from "./inputs/Input.component.svelte"
 
 const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
@@ -59,24 +57,6 @@ async function handleSubmit(prompt: string) {
 
 		streamedText = result.choices[0]?.message?.content ?? ""
 		console.log("Final completion result:", result)
-
-		const speech = await synthesizeSpeech(
-			streamedText,
-			"es",
-			"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/voice_styles/F1.json",
-			{
-				speed: 1.3,
-				onnx_dir:
-					"/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/onnx/",
-				total_step: 5,
-			},
-		)
-
-		console.log("TTS result:", speech)
-
-		invoke("play_tts_file", { filePath: speech.file_path }).catch((err) => {
-			console.error("Error playing TTS:", err)
-		})
 	} catch (err) {
 		error = err instanceof Error ? err.message : "Unknown error occurred"
 		console.error("Completion error:", err)

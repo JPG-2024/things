@@ -44,15 +44,12 @@ pub use crate::article_store::{
 mod llama_server;
 pub use crate::llama_server::launch_llama_server;
 use crate::llama_server::{stop_llama_server, LlamaServerState};
-
-
-mod tts_helpers;
-
-mod tts;
-pub use crate::tts::{synthesize_speech, synthesize_speech_batch, cleanup_tts_file, play_tts_file, stop_tts_playback};
-use tauri::RunEvent;
 use tauri::Manager;
+use tauri::RunEvent;
 use tauri_plugin_clipboard_manager::ClipboardExt;
+
+
+
 
 #[tauri::command]
 async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
@@ -119,11 +116,6 @@ pub fn run() {
             launch_llama_server,
             split_text_command,
             read_clipboard_text,
-            synthesize_speech,
-            synthesize_speech_batch,
-            cleanup_tts_file,
-            play_tts_file,
-            stop_tts_playback
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
