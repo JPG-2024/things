@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import { invoke } from "@tauri-apps/api/core";
+import { useQueryClient } from "@tanstack/svelte-query";
 
 import CategoryWidget from "@/components/CategoryWidget.svelte";
 import Icon from "@/components/Icon.svelte";
@@ -95,9 +96,12 @@ async function handlePasteUrl(url: string) {
 	}
 }
 
+const queryClient = useQueryClient();
+
 onMount(() => {
 	void (async () => {
 		await loadProfiles();
+		queryClient.invalidateQueries({ queryKey: ["articles"] });
 	})();
 
 	const pollClipboard = async () => {

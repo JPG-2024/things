@@ -1,5 +1,7 @@
 # AGENTS.md
 
+dont run `biome check`
+
 ## Purpose
 - This file is for coding agents working inside this repository.
 - Prefer small, local changes that preserve existing behavior and structure.

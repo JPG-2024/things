@@ -2,8 +2,17 @@
 import { viewState } from "@/stores/viewStore.svelte";
 import { primaryColor } from "@/stores/uiStore";
 import { onMount } from "svelte";
+import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 
 let { children } = $props();
+
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 1000 * 60 * 5,
+		},
+	},
+});
 
 let flashy = $state(false);
 
@@ -71,15 +80,17 @@ onMount(() => {
   }) */
 </script>
 
-<main
-  id="layout-main"
-  bind:this={mainElement}
-  class="container"
-  class:flashy={flashy}
-  class:loaded={viewState.loaded}
->
-  {@render children()}
-</main>
+<QueryClientProvider client={queryClient}>
+  <main
+    id="layout-main"
+    bind:this={mainElement}
+    class="container"
+    class:flashy={flashy}
+    class:loaded={viewState.loaded}
+  >
+    {@render children()}
+  </main>
+</QueryClientProvider>
 
 <style>
   :global(body) {

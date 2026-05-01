@@ -1,5 +1,4 @@
 <script lang="ts">
-import { onMount } from "svelte";
 import Card from "@/components/Card.svelte";
 import Icon from "@/components/Icon.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
@@ -9,6 +8,7 @@ import {
 	getArticlesByProfile,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
+import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
 
 interface Props {
 	categoryId: string;
@@ -19,45 +19,45 @@ interface Props {
 
 let { categoryId, name = "", showTitle = false, onDeleted }: Props = $props();
 
-let articles = $state<ArticleWithTasks[]>([]);
-let loading = $state<boolean>(false);
-let deleting = $state<boolean>(false);
+const queryClient = useQueryClient();
 
-onMount(async () => {
-	loading = true;
-	const normalizedCategoryId =
-		typeof categoryId === "string" ? categoryId : String(categoryId);
-	articles = await getArticlesByProfile(normalizedCategoryId, {
-		limit: 20,
-		createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30, // last 30 days
-	});
-	loading = false;
+const query = createQuery({
+	queryKey: ["articles", categoryId],
+	queryFn: () =>
+		getArticlesByProfile(categoryId, {
+			limit: 20,
+			createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30,
+		}),
+	refetchOnWindowFocus: "always",
 });
 
-async function handleNavigateToArticle(article: ArticleWithTasks) {
-	if (!article.url) return;
-	navigate(`/youtube/${encodeURIComponent(article.url)}`);
-	await urlRouter(article.url);
+function handleRefresh() {
+	$query.refetch();
 }
 
-async function handleDeleteProfile() {
-	if (deleting) return;
-
-	const normalizedCategoryId =
-		typeof categoryId === "string" ? categoryId : String(categoryId);
-
-	deleting = true;
-	try {
-		const result = await deleteProfileById(normalizedCategoryId);
-		if (result.success) {
-			articles = [];
-			await onDeleted?.(normalizedCategoryId);
+const mutation = createMutation({
+	mutationFn: async (profileId: string) => {
+		const result = await deleteProfileById(profileId);
+		if (!result.success) {
+			throw new Error("Failed to delete profile");
 		}
-	} catch (error) {
-		console.error("Error deleting profile", error);
-	} finally {
-		deleting = false;
-	}
+		return result;
+	},
+	onSuccess: async (_, profileId) => {
+		queryClient.invalidateQueries({ queryKey: ["articles", profileId] });
+		await onDeleted?.(profileId);
+	},
+});
+
+function handleNavigateToArticle(article: ArticleWithTasks) {
+	if (!article.url) return;
+	navigate(`/youtube/${encodeURIComponent(article.url)}`);
+	urlRouter(article.url);
+}
+
+function handleDeleteProfile() {
+	if ($mutation.status === "pending") return;
+	$mutation.mutate(categoryId);
 }
 </script>
 
@@ -66,21 +66,33 @@ async function handleDeleteProfile() {
     {#if name && showTitle}
       <div class="title-row">
         <h2 class="category-title">{name}</h2>
-        <button
-          type="button"
-          class="delete-btn"
-          onclick={handleDeleteProfile}
-          disabled={deleting}
-          aria-label={`Delete ${name}`}
-          title="Delete profile"
-        >
-          <Icon name="Trash" />
-        </button>
+        <div class="actions">
+          <button
+            type="button"
+            class="refresh-btn"
+            onclick={handleRefresh}
+            disabled={$query.isFetching}
+            aria-label={`Refresh ${name}`}
+            title="Refresh"
+          >
+            <Icon name="RefreshCw" />
+          </button>
+          <button
+            type="button"
+            class="delete-btn"
+            onclick={handleDeleteProfile}
+            disabled={$mutation.status === "pending"}
+            aria-label={`Delete ${name}`}
+            title="Delete profile"
+          >
+            <Icon name="Trash" />
+          </button>
+        </div>
       </div>
     {/if}
-    {#if articles?.length}
+    {#if $query.data?.length}
       <div class="img-flex">
-        {#each articles as article (article.url)}
+        {#each $query.data as article (article.url)}
           <button
             type="button"
             class="img-button"
@@ -96,7 +108,7 @@ async function handleDeleteProfile() {
           </button>
         {/each}
       </div>
-    {:else if loading}
+    {:else if $query.isLoading}
       <span>Loading articles...</span>
     {/if}
   </Card>
@@ -131,18 +143,37 @@ async function handleDeleteProfile() {
     padding-inline: 20px;
   }
 
-  .category-title {
-    transform: translateY(10px);
-    padding-left: 0;
-    color: var(--primary-color);
-    font-weight: 600;
-    font-size: 0.9rem;
-    opacity: 0.7;
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  .error {
-    color: red;
-    font-size: 0.9rem;
+  .refresh-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 999px;
+    padding: 0.3rem;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .delete-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 999px;
+    padding: 0.3rem;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .img-flex {
