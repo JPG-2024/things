@@ -1,72 +1,18 @@
 <script lang="ts">
-import { onDestroy } from "svelte";
-import Icon from "./Icon.svelte";
+	import { onDestroy } from "svelte";
+	import Icon from "./Icon.svelte";
+	import { ttsState } from "@/stores/ttsStore.svelte";
 
-type Props = {
-	id: string;
-	text: string;
-	autoplay?: boolean;
-	disabled?: boolean;
-	instruct?: string;
-	refAudio?: string;
-	refAudioFilename?: string;
-	refText?: string;
-	numStep?: number;
-	guidanceScale?: number;
-	tShift?: number;
-	positionTemperature?: number;
-	classTemperature?: number;
-	layerPenaltyFactor?: number;
-	duration?: number;
-	speed?: number;
-	denoise?: boolean;
-	preprocessPrompt?: boolean;
-	postprocessOutput?: boolean;
-	audioChunkDuration?: number;
-	audioChunkThreshold?: number;
-};
+	type Props = {
+		id: string;
+		text: string;
+		autoplay?: boolean;
+		disabled?: boolean;
+		instruct?: string;
+	};
 
-let {
-	id,
-	text,
-	autoplay = false,
-	disabled = false,
-	instruct,
-	refAudio,
-	//refAudioFilename = "jhernandez1.wav",
-	//refText = "tenemos un monton de noticias mas no relacionadas solo con estos nuevos modelos, pero sobre todo lo que tenemos es dipsic dipsic la gran",
-	//refAudioFilename = "freddy1.wav",
-	//refText = "De hecho tim cooc es el ciio que ah creado mas valor corporatico en la historia de la humanidad hasta ahora.",
-	//refAudioFilename = "midu1.wav",
-	//refText = "ahora mismo aunque ah pasado una semana todavia no te puedes registrar a githab copilot en el plan pro pro plus ni estudiante",
-	//refAudioFilename = "cam3.wav",
-	//refText = "Ymmm nada hoy se la tengo que llevar porque se va de viaje y se la quiere llevar asique por un tiempito no voy a poder",
-	//refAudioFilename = "cam4.wav",
-	//refText = "Ah si boludo es una paja si no andas revisando te terminar cobrando un monton",
-	refAudioFilename = "scarlet1.wav",
-	refText = "any products that had any kind of oil in them and I think it wasnt I really was at that sort of breaking point of like this is something that i'm gonna have to deal for the rest of my life that I thought well",
-	//refAudioFilename = "taylor1.wav",
-	//refText = "I rather just spend like those hours doing something else or planning something fun for the fans for for the way we´re going to put out this album or baking or like I have a lot of hobbies",
-	numStep = 16,
-	guidanceScale = 2.0,
-	tShift,
-	positionTemperature,
-	classTemperature,
-	layerPenaltyFactor,
-	duration,
-	speed = 1.0,
-	denoise = true,
-	preprocessPrompt = true,
-	postprocessOutput = true,
-	audioChunkDuration,
-	audioChunkThreshold,
-}: Props = $props();
+	let { id, text, autoplay = false, disabled = false, instruct }: Props = $props();
 
-let isLoading = $state(false);
-let isPlaying = $state(false);
-let errorMessage = $state("");
-let audioSrc = $state<string | null>(null);
-let durationSeconds = $state<number | null>(null);
 let audioElement = $state<HTMLAudioElement | null>(null);
 let lastAutoplayInputKey = $state("");
 
@@ -75,22 +21,26 @@ function getInputKey() {
 }
 
 onDestroy(() => {
-	if (audioSrc) {
-		URL.revokeObjectURL(audioSrc);
+	if (ttsState.audioSrc) {
+		URL.revokeObjectURL(ttsState.audioSrc);
+	}
+	if (ttsState.activeId === id) {
+		ttsState.activeId = null;
 	}
 });
 
 async function handlePlay() {
-	if (disabled || isLoading) {
+	if (disabled || ttsState.isLoading) {
 		return;
 	}
 
-	isLoading = true;
-	errorMessage = "";
+	ttsState.isLoading = true;
+	ttsState.errorMessage = "";
+	ttsState.activeId = id;
 
-	if (audioSrc) {
-		URL.revokeObjectURL(audioSrc);
-		audioSrc = null;
+	if (ttsState.audioSrc) {
+		URL.revokeObjectURL(ttsState.audioSrc);
+		ttsState.audioSrc = null;
 	}
 
 	try {
@@ -102,21 +52,22 @@ async function handlePlay() {
 				body: JSON.stringify({
 					text,
 					instruct,
-					ref_audio: refAudio ?? refAudioFilename,
-					ref_text: refText,
-					num_step: numStep,
-					denoise,
-					guidance_scale: guidanceScale,
-					t_shift: tShift,
-					position_temperature: positionTemperature,
-					class_temperature: classTemperature,
-					layer_penalty_factor: layerPenaltyFactor,
-					duration,
-					speed,
-					preprocess_prompt: preprocessPrompt,
-					postprocess_output: postprocessOutput,
-					audio_chunk_duration: audioChunkDuration,
-					audio_chunk_threshold: audioChunkThreshold,
+					lang: ttsState.language,
+					ref_audio: ttsState.config.refAudioFilename,
+					ref_text: ttsState.config.refText,
+					num_step: ttsState.config.numStep,
+					denoise: ttsState.config.denoise,
+					guidance_scale: ttsState.config.guidanceScale,
+					t_shift: ttsState.config.tShift,
+					position_temperature: ttsState.config.positionTemperature,
+					class_temperature: ttsState.config.classTemperature,
+					layer_penalty_factor: ttsState.config.layerPenaltyFactor,
+					duration: ttsState.config.duration,
+					speed: ttsState.config.speed,
+					preprocess_prompt: ttsState.config.preprocessPrompt,
+					postprocess_output: ttsState.config.postprocessOutput,
+					audio_chunk_duration: ttsState.config.audioChunkDuration,
+					audio_chunk_threshold: ttsState.config.audioChunkThreshold,
 				}),
 			}
 		);
@@ -136,19 +87,19 @@ async function handlePlay() {
 		const durationHeader = response.headers.get("X-Duration-Seconds");
 		console.log("Duration header:", durationHeader);
 		if (durationHeader) {
-			durationSeconds = Number.parseFloat(durationHeader);
+			ttsState.durationSeconds = Number.parseFloat(durationHeader);
 		}
 
 		const blob = await response.blob();
-		audioSrc = URL.createObjectURL(blob);
+		ttsState.audioSrc = URL.createObjectURL(blob);
 	} catch (playbackError) {
-		errorMessage =
+		ttsState.errorMessage =
 			playbackError instanceof Error
 				? playbackError.message
 				: "Failed to generate TTS audio";
 		console.error("Error playing TTS:", playbackError);
 	} finally {
-		isLoading = false;
+		ttsState.isLoading = false;
 	}
 }
 
@@ -159,10 +110,10 @@ function handleStop() {
 }
 
 $effect(() => {
-	if (audioSrc && audioElement) {
+	if (ttsState.audioSrc && audioElement && ttsState.activeId === id) {
 		audioElement.play().catch((err: unknown) => {
 			if (err instanceof Error && err.name !== "AbortError") {
-				errorMessage = "Playback was blocked by the browser.";
+				ttsState.errorMessage = "Playback was blocked by the browser.";
 			}
 		});
 	}
@@ -194,37 +145,37 @@ $effect(() => {
 	<button
 		type="button"
 		class="tts-playback"
-		onclick={isPlaying ? handleStop : handlePlay}
-		disabled={disabled || isLoading}
-		aria-label={isPlaying ? "Stop TTS playback" : "Play TTS audio"}
+		onclick={ttsState.isPlaying ? handleStop : handlePlay}
+		disabled={disabled || ttsState.isLoading}
+		aria-label={ttsState.isPlaying ? "Stop TTS playback" : "Play TTS audio"}
 	>
-		{#if isLoading}
+		{#if ttsState.isLoading}
 			<Icon name="Loader" size={18} />
-		{:else if isPlaying}
+		{:else if ttsState.isPlaying}
 			<Icon name="Square" size={18} />
 		{:else}
 			<Icon name="AudioLines" size={18} />
 		{/if}
 
-		<span class="time">{durationSeconds != null ? `${durationSeconds.toFixed(1)}s` : "—"}</span>
+		<span class="time">{ttsState.durationSeconds != null ? `${ttsState.durationSeconds.toFixed(1)}s` : "—"}</span>
 	</button>
 
 	<!-- svelte-ignore a11y_media_has_caption -->
  	<audio
 		bind:this={audioElement}
-		src={audioSrc ?? undefined}
-		onplay={() => { isPlaying = true; }}
-		onpause={() => { isPlaying = false; }}
-		onended={() => { isPlaying = false; }}
-		onerror={() => { errorMessage = "Playback error"; isPlaying = false; }}
+		src={ttsState.audioSrc ?? undefined}
+		onplay={() => { ttsState.isPlaying = true; }}
+		onpause={() => { ttsState.isPlaying = false; }}
+		onended={() => { ttsState.isPlaying = false; }}
+		onerror={() => { ttsState.errorMessage = "Playback error"; ttsState.isPlaying = false; }}
 		controls
 		class="audio-bar"
 		class:hidden={true}
 	></audio>
 </div>
 
-{#if errorMessage}
-	<p class="error">{errorMessage}</p>
+{#if ttsState.errorMessage}
+	<p class="error">{ttsState.errorMessage}</p>
 {/if}
 
 <style>
