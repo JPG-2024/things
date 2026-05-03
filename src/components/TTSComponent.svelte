@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onDestroy } from "svelte";
-	import Icon from "./Icon.svelte";
-	import { ttsState } from "@/stores/ttsStore.svelte";
+import { onDestroy } from "svelte";
+import Icon from "./Icon.svelte";
+import { ttsState } from "@/stores/ttsStore.svelte";
+import { generateSpeech } from "@/lib/utils/ttsService";
 
 	type Props = {
 		id: string;
@@ -44,53 +45,28 @@ async function handlePlay() {
 	}
 
 	try {
-		const response = await fetch(
-			`${import.meta.env.VITE_TTS_API_URL}/tts/mp3`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					text,
-					instruct,
-					lang: ttsState.language,
-					ref_audio: ttsState.config.refAudioFilename,
-					ref_text: ttsState.config.refText,
-					num_step: ttsState.config.numStep,
-					denoise: ttsState.config.denoise,
-					guidance_scale: ttsState.config.guidanceScale,
-					t_shift: ttsState.config.tShift,
-					position_temperature: ttsState.config.positionTemperature,
-					class_temperature: ttsState.config.classTemperature,
-					layer_penalty_factor: ttsState.config.layerPenaltyFactor,
-					duration: ttsState.config.duration,
-					speed: ttsState.config.speed,
-					preprocess_prompt: ttsState.config.preprocessPrompt,
-					postprocess_output: ttsState.config.postprocessOutput,
-					audio_chunk_duration: ttsState.config.audioChunkDuration,
-					audio_chunk_threshold: ttsState.config.audioChunkThreshold,
-				}),
-			}
-		);
+		const { blob, durationSeconds } = await generateSpeech({
+			text,
+			instruct,
+			lang: ttsState.language,
+			ref_audio: ttsState.config.refAudioFilename,
+			ref_text: ttsState.config.refText,
+			num_step: ttsState.config.numStep,
+			denoise: ttsState.config.denoise,
+			guidance_scale: ttsState.config.guidanceScale,
+			t_shift: ttsState.config.tShift,
+			position_temperature: ttsState.config.positionTemperature,
+			class_temperature: ttsState.config.classTemperature,
+			layer_penalty_factor: ttsState.config.layerPenaltyFactor,
+			duration: ttsState.config.duration,
+			speed: ttsState.config.speed,
+			preprocess_prompt: ttsState.config.preprocessPrompt,
+			postprocess_output: ttsState.config.postprocessOutput,
+			audio_chunk_duration: ttsState.config.audioChunkDuration,
+			audio_chunk_threshold: ttsState.config.audioChunkThreshold,
+		});
 
-		if (!response.ok) {
-			const err = await response.json().catch(() => ({}));
-			const detail = (err as { detail?: unknown }).detail;
-			const detailStr =
-				detail == null
-					? `Error ${response.status}`
-					: typeof detail === "string"
-						? detail
-						: JSON.stringify(detail);
-			throw new Error(detailStr);
-		}
-
-		const durationHeader = response.headers.get("X-Duration-Seconds");
-		console.log("Duration header:", durationHeader);
-		if (durationHeader) {
-			ttsState.durationSeconds = Number.parseFloat(durationHeader);
-		}
-
-		const blob = await response.blob();
+		ttsState.durationSeconds = durationSeconds;
 		ttsState.audioSrc = URL.createObjectURL(blob);
 	} catch (playbackError) {
 		ttsState.errorMessage =
