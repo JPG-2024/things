@@ -2,6 +2,7 @@
 import Modal from "../Modal.svelte";
 import Dropdown from "../inputs/Dropdown.component.svelte";
 import { viewState } from "../../stores/viewStore.svelte";
+import TTSSettings from "./TTSSettings.svelte";
 
 let { show = false, onClose = () => {} } = $props();
 
@@ -21,6 +22,7 @@ function closeModal() {
 				]}
 				bind:value={viewState.language}
 			/>
+			<TTSSettings />
 		</div>
 	{/snippet}
 </Modal>

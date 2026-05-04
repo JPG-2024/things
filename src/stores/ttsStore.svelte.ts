@@ -30,11 +30,9 @@ class TTSState {
 	activeId = $state<string | null>(null);
 
 	language = $derived(viewState.language);
-
 	config = $state<TTSConfig>({
-		refAudioFilename: "scarlet1.wav",
-		refText:
-			"any products that had any kind of oil in them and I think it wasnt I really was at that sort of breaking point of like this is something that i'm gonna have to deal for the rest of my life that I thought well",
+		refAudioFilename: "",
+		refText: "",
 		numStep: 16,
 		denoise: true,
 		guidanceScale: 2.0,

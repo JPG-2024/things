@@ -10,7 +10,7 @@
 		"check": "biome check .",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"tauri": "tauri",
-		"linux": "WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
+		"linux": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
 		"lint": "biome lint .",
 		"format": "biome format . --write"
 	},
