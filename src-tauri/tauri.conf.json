@@ -14,7 +14,13 @@
 		"security": {
 			"csp": "default-src 'self'; connect-src 'self' ipc: http://127.0.0.1:* http://127.0.0.1:8080/* http://127.0.0.1:3000/* http://localhost:* http://localhost:3008/*; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self'; media-src 'self' asset: http://asset.localhost;",
 			"assetProtocol": {
-				"scope": ["$HOME/**", "$APPDATA/media/**", "$TEMP/**", "$TMP/**", "/tmp/**"],
+				"scope": [
+					"$HOME/**",
+					"$APPDATA/media/**",
+					"$TEMP/**",
+					"$TMP/**",
+					"/tmp/**"
+				],
 				"enable": true
 			},
 			"capabilities": ["default", "fs-custom"]

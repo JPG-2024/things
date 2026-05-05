@@ -8,7 +8,11 @@ import {
 	getArticlesByProfile,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
-import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
+import {
+	createQuery,
+	createMutation,
+	useQueryClient,
+} from "@tanstack/svelte-query";
 
 interface Props {
 	categoryId: string;

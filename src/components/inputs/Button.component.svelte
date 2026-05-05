@@ -1,16 +1,16 @@
 <script lang="ts">
 interface Props {
-	label: string
-	disabled?: boolean
-	onClick?: () => void
-	type?: "button" | "submit" | "reset"
+	label: string;
+	disabled?: boolean;
+	onClick?: () => void;
+	type?: "button" | "submit" | "reset";
 }
 
-let { label, disabled = false, onClick, type = "button" }: Props = $props()
+let { label, disabled = false, onClick, type = "button" }: Props = $props();
 
 function handleClick() {
 	if (onClick && !disabled) {
-		onClick()
+		onClick();
 	}
 }
 </script>

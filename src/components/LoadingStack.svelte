@@ -1,41 +1,51 @@
 <script lang="ts">
-import { listen } from "@tauri-apps/api/event"
-import type { FlowStatusEvent, MetadataPayload } from "@/lib/types/flowStatus"
+import { listen } from "@tauri-apps/api/event";
+import type { FlowStatusEvent, MetadataPayload } from "@/lib/types/flowStatus";
 
 type FlowPayload = {
-	key: string
-	status: string
+	key: string;
+	status: string;
 	// ...any other fields...
-}
+};
 
-type Pill = { key: string; status: string }
+type Pill = { key: string; status: string };
 
-let pills = $state<Pill[]>([])
+let pills = $state<Pill[]>([]);
 
 function upsertPill(payload: FlowPayload) {
-	const idx = pills.findIndex((p) => p.key === payload.key)
+	const idx = pills.findIndex((p) => p.key === payload.key);
 	if (idx === -1) {
-		pills = [...pills, { key: payload.key, status: payload.status }]
+		pills = [...pills, { key: payload.key, status: payload.status }];
 	} else {
-		pills = pills.map((p, i) => (i === idx ? { ...p, status: payload.status } : p))
+		pills = pills.map((p, i) =>
+			i === idx ? { ...p, status: payload.status } : p
+		);
 	}
 }
 
 export function resetStack() {
-	pills = []
+	pills = [];
 }
 
 $effect.pre(() => {
-	const unlisten = listen<FlowStatusEvent<FlowPayload>>("flow-status", (event) => {
-		const payload = event?.payload as FlowPayload
-		if (!payload || typeof payload.key !== "string" || typeof payload.status !== "string") return
-		upsertPill(payload)
-	})
+	const unlisten = listen<FlowStatusEvent<FlowPayload>>(
+		"flow-status",
+		(event) => {
+			const payload = event?.payload as FlowPayload;
+			if (
+				!payload ||
+				typeof payload.key !== "string" ||
+				typeof payload.status !== "string"
+			)
+				return;
+			upsertPill(payload);
+		}
+	);
 
 	return () => {
-		unlisten.then((fn) => fn())
-	}
-})
+		unlisten.then((fn) => fn());
+	};
+});
 </script>
 
 <div class="stack">

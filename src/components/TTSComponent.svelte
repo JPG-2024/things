@@ -4,15 +4,21 @@ import Icon from "./Icon.svelte";
 import { ttsState } from "@/stores/ttsStore.svelte";
 import { generateSpeech } from "@/lib/utils/ttsService";
 
-	type Props = {
-		id: string;
-		text: string;
-		autoplay?: boolean;
-		disabled?: boolean;
-		instruct?: string;
-	};
+type Props = {
+	id: string;
+	text: string;
+	autoplay?: boolean;
+	disabled?: boolean;
+	instruct?: string;
+};
 
-	let { id, text, autoplay = false, disabled = false, instruct }: Props = $props();
+let {
+	id,
+	text,
+	autoplay = false,
+	disabled = false,
+	instruct,
+}: Props = $props();
 
 let audioElement = $state<HTMLAudioElement | null>(null);
 let lastAutoplayInputKey = $state("");
@@ -45,7 +51,7 @@ async function handlePlay() {
 	}
 
 	try {
-		const { blob, durationSeconds } = await generateSpeech({
+		const res = await generateSpeech({
 			text,
 			instruct,
 			lang: ttsState.language,
@@ -66,8 +72,8 @@ async function handlePlay() {
 			audio_chunk_threshold: ttsState.config.audioChunkThreshold,
 		});
 
-		ttsState.durationSeconds = durationSeconds;
-		ttsState.audioSrc = URL.createObjectURL(blob);
+		ttsState.durationSeconds = res.durationSeconds;
+		ttsState.audioSrc = URL.createObjectURL(res.blob);
 	} catch (playbackError) {
 		ttsState.errorMessage =
 			playbackError instanceof Error

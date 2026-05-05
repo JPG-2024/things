@@ -1,12 +1,14 @@
 <script lang="ts">
-import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions"
+import type { LlamaChatCompletionsRequest } from "@/lib/utils/llama-completions";
 
-interface CompletionParams extends Omit<LlamaChatCompletionsRequest, "model" | "messages"> {}
+interface CompletionParams
+	extends Omit<LlamaChatCompletionsRequest, "model" | "messages"> {}
 
 let {
 	model = "llama-2",
 	onParametersChange = (params: CompletionParams) => {},
-}: { model?: string; onParametersChange?: (params: CompletionParams) => void } = $props()
+}: { model?: string; onParametersChange?: (params: CompletionParams) => void } =
+	$props();
 
 let params = $state<CompletionParams>({
 	temperature: 0.7,
@@ -17,11 +19,11 @@ let params = $state<CompletionParams>({
 	presence_penalty: 0,
 	repeat_penalty: 1.1,
 	stream: false,
-})
+});
 
 $effect(() => {
-	onParametersChange(params)
-})
+	onParametersChange(params);
+});
 </script>
 
 <div class="panel">

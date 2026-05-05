@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import OpenAI from "openai"
-import type { Completion, CompletionCreateParams } from "openai/resources/completions"
+import OpenAI from "openai";
+import type {
+	Completion,
+	CompletionCreateParams,
+} from "openai/resources/completions";
 
 /**
  * Llama-server specific fields that extend OpenAI's CompletionCreateParams.
@@ -8,101 +11,101 @@ import type { Completion, CompletionCreateParams } from "openai/resources/comple
  */
 export interface LlamaExtraBody {
 	/** System prompt to prepend to the prompt. */
-	system_prompt?: string
+	system_prompt?: string;
 
 	// === Token Prediction & Context ===
 	/** Minimum line indentation (whitespace chars) for generation. */
-	n_indent?: number
+	n_indent?: number;
 	/** Tokens from prompt to keep when context is exceeded (-1 keeps all). */
-	n_keep?: number
+	n_keep?: number;
 	/** Number of completions to generate per prompt. */
-	n_cmpl?: number
+	n_cmpl?: number;
 	/** Ignore EOS and continue generating. */
-	ignore_eos?: boolean
+	ignore_eos?: boolean;
 
 	// === Advanced Sampling ===
 	/** Top-k sampling (0 disables). */
-	top_k?: number
+	top_k?: number;
 	/** Min-p sampling (0 disables). */
-	min_p?: number
+	min_p?: number;
 	/** Locally typical sampling parameter (1 disables). */
-	typical_p?: number
+	typical_p?: number;
 	/** Dynamic temperature range (0 disables). Final temp in [t-d; t+d]. */
-	dynatemp_range?: number
+	dynatemp_range?: number;
 	/** Dynamic temperature exponent. */
-	dynatemp_exponent?: number
+	dynatemp_exponent?: number;
 
 	// === Repetition Penalties ===
 	/** Consider last N tokens for repetition penalty (0 disables; -1 = ctx size). */
-	repeat_last_n?: number
+	repeat_last_n?: number;
 	/** Repetition penalty (1 disables). */
-	repeat_penalty?: number
+	repeat_penalty?: number;
 
 	// === DRY (Don't Repeat Yourself) Sampling ===
 	/** DRY sampling multiplier (0 disables). */
-	dry_multiplier?: number
+	dry_multiplier?: number;
 	/** DRY sampling base value. */
-	dry_base?: number
+	dry_base?: number;
 	/** DRY allowed repetition length before penalties apply. */
-	dry_allowed_length?: number
+	dry_allowed_length?: number;
 	/** DRY scan window (0 disables; -1 = context size). */
-	dry_penalty_last_n?: number
+	dry_penalty_last_n?: number;
 	/** DRY sequence breakers (strings). */
-	dry_sequence_breakers?: string[]
+	dry_sequence_breakers?: string[];
 
 	// === XTC Sampling ===
 	/** XTC token removal probability (0 disables). */
-	xtc_probability?: number
+	xtc_probability?: number;
 	/** XTC probability threshold (>0.5 disables XTC). */
-	xtc_threshold?: number
+	xtc_threshold?: number;
 
 	// === Mirostat ===
 	/** Mirostat mode (0 off, 1, 2). */
-	mirostat?: 0 | 1 | 2
+	mirostat?: 0 | 1 | 2;
 	/** Mirostat target entropy (tau). */
-	mirostat_tau?: number
+	mirostat_tau?: number;
 	/** Mirostat learning rate (eta). */
-	mirostat_eta?: number
+	mirostat_eta?: number;
 
 	// === Grammar-Based Sampling ===
 	/** Grammar string for grammar-based sampling. */
-	grammar?: string
+	grammar?: string;
 	/** JSON schema for grammar-based sampling. */
-	json_schema?: any
+	json_schema?: any;
 
 	// === Probability/Token Return ===
 	/** If >0, return top-N token probabilities for each generated token. */
-	n_probs?: number
+	n_probs?: number;
 	/** Force samplers to return at least N tokens. */
-	min_keep?: number
+	min_keep?: number;
 	/** Return token ids in `tokens` field (otherwise empty). */
-	return_tokens?: boolean
+	return_tokens?: boolean;
 	/** Return probabilities after applying sampling chain. */
-	post_sampling_probs?: boolean
+	post_sampling_probs?: boolean;
 
 	// === Cache & Slot Control ===
 	/** Enable KV reuse by shifting if possible (server default: true). */
-	cache_prompt?: boolean
+	cache_prompt?: boolean;
 	/** Min chunk size to attempt reusing from cache via KV shifting (0 disables). */
-	n_cache_reuse?: number
+	n_cache_reuse?: number;
 	/** Assign request to specific slot (-1 auto). */
-	id_slot?: number
+	id_slot?: number;
 
 	// === Timing & Progress ===
 	/** Time limit (ms) for generation phase (0 disables). */
-	t_max_predict_ms?: number
+	t_max_predict_ms?: number;
 	/** Include prompt+gen speed per token in response. */
-	timings_per_token?: boolean
+	timings_per_token?: boolean;
 	/** In stream mode: include prompt processing progress in `prompt_progress`. */
-	return_progress?: boolean
+	return_progress?: boolean;
 
 	// === Advanced Configuration ===
 	/** Sampling chain order (array of sampler names). */
-	samplers?: string[]
+	samplers?: string[];
 	/** Select response fields (paths) to include. */
-	response_fields?: string[]
+	response_fields?: string[];
 	/** Per-request LoRA configuration. */
-	lora?: Array<{ id: number; scale: number }>
+	lora?: Array<{ id: number; scale: number }>;
 }
 
 /**
@@ -110,18 +113,23 @@ export interface LlamaExtraBody {
  */
 export interface CompletionResponse extends Completion {
 	/** Llama-server specific timing information. */
-	timings?: Record<string, any>
+	timings?: Record<string, any>;
 	/** Llama-server specific cached tokens info. */
-	tokens_cached?: number
-	tokens_evaluated?: number
-	truncated?: boolean
+	tokens_cached?: number;
+	tokens_evaluated?: number;
+	truncated?: boolean;
 	/** Token probabilities if requested. */
-	probs?: any
+	probs?: any;
 	/** Prompt processing progress in stream mode. */
-	prompt_progress?: { total: number; cache: number; processed: number; time_ms: number }
+	prompt_progress?: {
+		total: number;
+		cache: number;
+		processed: number;
+		time_ms: number;
+	};
 }
 
-const DEFAULT_BASE_URL = "http://localhost:8080/v1"
+const DEFAULT_BASE_URL = "http://localhost:8080/v1";
 
 /**
  * Create an OpenAI client configured for llama-server.
@@ -131,15 +139,17 @@ function createClient(baseUrl?: string): OpenAI {
 		baseURL: baseUrl || DEFAULT_BASE_URL,
 		apiKey: "not-needed",
 		dangerouslyAllowBrowser: true,
-	})
+	});
 }
 
 /**
  * Split OpenAI CompletionCreateParams and llama-specific extra fields.
  */
-function splitParams(params: CompletionCreateParams & Partial<LlamaExtraBody>): {
-	openaiParams: Partial<CompletionCreateParams>
-	extraBody: LlamaExtraBody
+function splitParams(
+	params: CompletionCreateParams & Partial<LlamaExtraBody>
+): {
+	openaiParams: Partial<CompletionCreateParams>;
+	extraBody: LlamaExtraBody;
 } {
 	// Standard OpenAI fields
 	const openaiParams: Partial<CompletionCreateParams> = {
@@ -157,14 +167,14 @@ function splitParams(params: CompletionCreateParams & Partial<LlamaExtraBody>): 
 		n: params.n,
 		suffix: params.suffix,
 		user: params.user,
-	}
+	};
 
 	// Remove undefined values
 	Object.keys(openaiParams).forEach((key) => {
 		if (openaiParams[key as keyof typeof openaiParams] === undefined) {
-			delete openaiParams[key as keyof typeof openaiParams]
+			delete openaiParams[key as keyof typeof openaiParams];
 		}
-	})
+	});
 
 	// Llama-server specific fields
 	const extraBody: LlamaExtraBody = {
@@ -205,23 +215,23 @@ function splitParams(params: CompletionCreateParams & Partial<LlamaExtraBody>): 
 		samplers: params.samplers,
 		response_fields: params.response_fields,
 		lora: params.lora as any,
-	}
+	};
 
 	// Remove undefined values from extraBody
 	Object.keys(extraBody).forEach((key) => {
 		if (extraBody[key as keyof LlamaExtraBody] === undefined) {
-			delete extraBody[key as keyof LlamaExtraBody]
+			delete extraBody[key as keyof LlamaExtraBody];
 		}
-	})
+	});
 
-	return { openaiParams, extraBody }
+	return { openaiParams, extraBody };
 }
 
 export interface CompletionOptions {
 	/** AbortSignal for request cancellation. */
-	signal?: AbortSignal
+	signal?: AbortSignal;
 	/** Additional headers to send with the request. */
-	headers?: Record<string, string>
+	headers?: Record<string, string>;
 }
 
 /**
@@ -236,14 +246,14 @@ export async function completion(
 	params: CompletionCreateParams & Partial<LlamaExtraBody>,
 	baseUrl: string = DEFAULT_BASE_URL,
 	onToken?: (tokenText: string) => void,
-	options?: CompletionOptions,
+	options?: CompletionOptions
 ): Promise<CompletionResponse> {
-	const client = createClient(baseUrl)
-	const streamEnabled = params.stream === true || typeof onToken === "function"
+	const client = createClient(baseUrl);
+	const streamEnabled = params.stream === true || typeof onToken === "function";
 
-	const { openaiParams, extraBody } = splitParams(params)
+	const { openaiParams, extraBody } = splitParams(params);
 
-	console.log("Completion called with params:", { openaiParams, extraBody })
+	console.log("Completion called with params:", { openaiParams, extraBody });
 
 	if (!streamEnabled) {
 		const response = (await client.completions.create(
@@ -255,10 +265,10 @@ export async function completion(
 			{
 				signal: options?.signal,
 				headers: options?.headers,
-			},
-		)) as CompletionResponse
+			}
+		)) as CompletionResponse;
 
-		return response
+		return response;
 	}
 
 	// Streaming mode
@@ -271,23 +281,23 @@ export async function completion(
 		{
 			signal: options?.signal,
 			headers: options?.headers,
-		},
-	)
+		}
+	);
 
-	let aggregated = ""
-	let lastChunk: CompletionResponse | null = null
+	let aggregated = "";
+	let lastChunk: CompletionResponse | null = null;
 
 	for await (const chunk of stream as AsyncIterable<CompletionResponse>) {
-		if (options?.signal?.aborted) break
+		if (options?.signal?.aborted) break;
 		// console.log('Received chunk:', chunk);
-		const text = chunk.content ?? ""
-		console.log("Received text chunk:", text)
+		const text = chunk.content ?? "";
+		console.log("Received text chunk:", text);
 		if (text) {
-			aggregated += text
-			onToken?.(text)
+			aggregated += text;
+			onToken?.(text);
 		}
 
-		lastChunk = chunk
+		lastChunk = chunk;
 	}
 
 	return {
@@ -304,5 +314,5 @@ export async function completion(
 			},
 		],
 		usage: lastChunk?.usage,
-	} as CompletionResponse
+	} as CompletionResponse;
 }

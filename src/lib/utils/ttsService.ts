@@ -16,6 +16,30 @@ export async function fetchVoices(): Promise<Voice[]> {
 	return data.chunks;
 }
 
+export async function addVoice(params: {
+	url: string;
+	segment?: string;
+	name_prefix?: string;
+	chunk_count?: number;
+}): Promise<{ taskId: string; source: EventSource }> {
+	const res = await fetch(`${WHISPER_API_URL}/transcribe-chunks`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			url: params.url,
+			segment: params.segment ?? "*00:00-01:00",
+			name_prefix: params.name_prefix ?? "chunk",
+			chunk_count: params.chunk_count ?? 5,
+		}),
+	});
+	if (!res.ok) throw new Error(`Failed to start transcription: ${res.status}`);
+	const { task_id } = (await res.json()) as { task_id: string };
+	const source = new EventSource(
+		`${WHISPER_API_URL}/transcribe-chunks/events/${task_id}`
+	);
+	return { taskId: task_id, source };
+}
+
 export async function generateSpeech(params: {
 	text: string;
 	instruct?: string;
@@ -41,6 +65,7 @@ export async function generateSpeech(params: {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
 	});
+
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({}));
 		const detail = (err as { detail?: unknown }).detail;

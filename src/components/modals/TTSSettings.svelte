@@ -3,7 +3,12 @@ import { onMount } from "svelte";
 import { ttsState } from "@/stores/ttsStore.svelte";
 import { viewState } from "@/stores/viewStore.svelte";
 import { fetchVoices, type Voice } from "@/lib/utils/ttsService";
+import Button from "../inputs/Button.component.svelte";
 import Dropdown from "../inputs/Dropdown.component.svelte";
+import Input from "../inputs/Input.component.svelte";
+import LoadingLine from "@/components/LoadingLine.svelte";
+import RangeSelector from "../inputs/RangeSelector.svelte";
+import Checkbox from "../inputs/Checkbox.component.svelte";
 
 let voices = $state<Voice[]>([]);
 let voicesLoading = $state(false);
@@ -49,6 +54,13 @@ function handleVoiceChange(audioFile: string) {
 	ttsState.config.refText = voice.text_reference;
 	viewState.language = voice.language as "en" | "es";
 }
+
+async function handleAddVoice() {
+	await ttsState.startAddVoice();
+	if (ttsState.addVoiceStatus === "done") {
+		await loadVoices();
+	}
+}
 </script>
 
 <div class="panel">
@@ -74,145 +86,174 @@ function handleVoiceChange(audioFile: string) {
 	</div>
 
 	<div class="control-group">
-		<label for="numStep">Num Steps: <span>{ttsState.config.numStep}</span></label>
-		<input
+		<RangeSelector
 			id="numStep"
-			type="range"
-			min="1"
-			max="64"
-			step="1"
-			bind:value={ttsState.config.numStep}
+			label="Num Steps"
+			value={ttsState.config.numStep}
+			min={1}
+			max={64}
+			step={1}
+			format={(v) => v.toString()}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="guidanceScale">Guidance Scale: <span>{ttsState.config.guidanceScale.toFixed(1)}</span></label>
-		<input
+		<RangeSelector
 			id="guidanceScale"
-			type="range"
-			min="0"
-			max="10"
-			step="0.1"
-			bind:value={ttsState.config.guidanceScale}
+			label="Guidance Scale"
+			value={ttsState.config.guidanceScale}
+			min={0}
+			max={10}
+			step={0.1}
+			format={(v) => v.toFixed(1)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="speed">Speed: <span>{ttsState.config.speed.toFixed(2)}</span></label>
-		<input
+		<RangeSelector
 			id="speed"
-			type="range"
-			min="0.25"
-			max="2"
-			step="0.05"
-			bind:value={ttsState.config.speed}
+			label="Speed"
+			value={ttsState.config.speed}
+			min={0.25}
+			max={2}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="tShift">T Shift: <span>{ttsState.config.tShift?.toFixed(2) ?? "—"}</span></label>
-		<input
+		<RangeSelector
 			id="tShift"
-			type="range"
-			min="0"
-			max="2"
-			step="0.05"
-			bind:value={ttsState.config.tShift}
+			label="T Shift"
+			value={ttsState.config.tShift ?? 0}
+			min={0}
+			max={2}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="positionTemperature">Position Temperature: <span>{ttsState.config.positionTemperature?.toFixed(2) ?? "—"}</span></label>
-		<input
+		<RangeSelector
 			id="positionTemperature"
-			type="range"
-			min="0"
-			max="2"
-			step="0.05"
-			bind:value={ttsState.config.positionTemperature}
+			label="Position Temperature"
+			value={ttsState.config.positionTemperature ?? 0}
+			min={0}
+			max={2}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="classTemperature">Class Temperature: <span>{ttsState.config.classTemperature?.toFixed(2) ?? "—"}</span></label>
-		<input
+		<RangeSelector
 			id="classTemperature"
-			type="range"
-			min="0"
-			max="2"
-			step="0.05"
-			bind:value={ttsState.config.classTemperature}
+			label="Class Temperature"
+			value={ttsState.config.classTemperature ?? 0}
+			min={0}
+			max={2}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="layerPenaltyFactor">Layer Penalty Factor: <span>{ttsState.config.layerPenaltyFactor?.toFixed(2) ?? "—"}</span></label>
-		<input
+		<RangeSelector
 			id="layerPenaltyFactor"
-			type="range"
-			min="0"
-			max="2"
-			step="0.05"
-			bind:value={ttsState.config.layerPenaltyFactor}
+			label="Layer Penalty Factor"
+			value={ttsState.config.layerPenaltyFactor ?? 0}
+			min={0}
+			max={2}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="duration">Duration: <span>{ttsState.config.duration?.toFixed(0) ?? "—"}s</span></label>
-		<input
+		<RangeSelector
 			id="duration"
-			type="range"
-			min="0"
-			max="60"
-			step="1"
-			bind:value={ttsState.config.duration}
+			label="Duration"
+			value={ttsState.config.duration ?? 0}
+			min={0}
+			max={60}
+			step={1}
+			format={(v) => `${v.toFixed(0)}s`}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="audioChunkDuration">Audio Chunk Duration: <span>{ttsState.config.audioChunkDuration?.toFixed(1) ?? "—"}s</span></label>
-		<input
+		<RangeSelector
 			id="audioChunkDuration"
-			type="range"
-			min="0"
-			max="30"
-			step="0.5"
-			bind:value={ttsState.config.audioChunkDuration}
+			label="Audio Chunk Duration"
+			value={ttsState.config.audioChunkDuration ?? 0}
+			min={0}
+			max={30}
+			step={0.5}
+			format={(v) => `${v.toFixed(1)}s`}
 		/>
 	</div>
 
 	<div class="control-group">
-		<label for="audioChunkThreshold">Audio Chunk Threshold: <span>{ttsState.config.audioChunkThreshold?.toFixed(2) ?? "—"}</span></label>
-		<input
+		<RangeSelector
 			id="audioChunkThreshold"
-			type="range"
-			min="1.05"
-			max="5"
-			step="0.05"
-			bind:value={ttsState.config.audioChunkThreshold}
+			label="Audio Chunk Threshold"
+			value={ttsState.config.audioChunkThreshold ?? 0}
+			min={1.05}
+			max={5}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
 		/>
 	</div>
 
-	<div class="control-group checkbox">
-		<label for="denoise">
-			<input id="denoise" type="checkbox" bind:checked={ttsState.config.denoise} />
-			Denoise
-		</label>
+	<div class="control-group">
+		<Checkbox id="denoise" label="Denoise" checked={ttsState.config.denoise} />
 	</div>
 
-	<div class="control-group checkbox">
-		<label for="preprocessPrompt">
-			<input id="preprocessPrompt" type="checkbox" bind:checked={ttsState.config.preprocessPrompt} />
-			Preprocess Prompt
-		</label>
+	<div class="control-group">
+		<Checkbox id="preprocessPrompt" label="Preprocess Prompt" checked={ttsState.config.preprocessPrompt} />
 	</div>
 
-	<div class="control-group checkbox">
-		<label for="postprocessOutput">
-			<input id="postprocessOutput" type="checkbox" bind:checked={ttsState.config.postprocessOutput} />
-			Postprocess Output
-		</label>
+	<div class="control-group">
+		<Checkbox id="postprocessOutput" label="Postprocess Output" checked={ttsState.config.postprocessOutput} />
 	</div>
+
+	<hr />
+
+	<h2>Add Voice from Video</h2>
+
+	<div class="control-group">
+		<label for="videoUrl">Video URL</label>
+		<Input id="videoUrl" bind:value={ttsState.videoUrl} placeholder="https://..." />
+	</div>
+
+	<div class="control-group">
+		<label for="segment">Segment</label>
+		<Input id="segment" bind:value={ttsState.segment} />
+	</div>
+
+	<div class="control-group">
+		<label for="namePrefix">Name Prefix</label>
+		<Input id="namePrefix" bind:value={ttsState.namePrefix} />
+	</div>
+
+	<div class="control-group">
+		<label for="chunkCount">Chunk Count</label>
+		<Input id="chunkCount" type="number" min="1" bind:value={ttsState.chunkCount} />
+	</div>
+
+	<Button
+		label={ttsState.addVoiceLoading ? "Processing..." : "Add Voice"}
+		disabled={ttsState.addVoiceLoading}
+		onClick={handleAddVoice}
+	/>
+	<LoadingLine loading={ttsState.addVoiceLoading} />
+
+	{#if ttsState.addVoiceStatus}
+		<p class="status" class:error={ttsState.addVoiceStatus === "error"} class:done={ttsState.addVoiceStatus === "done"}>
+			{ttsState.addVoiceStatus === "done" ? "✓ " : ""}{ttsState.addVoiceMessage || ttsState.addVoiceStatus}
+		</p>
+	{/if}
+
 </div>
 
 <style>
@@ -222,7 +263,6 @@ function handleVoiceChange(audioFile: string) {
 		flex-direction: column;
 		gap: 1rem;
 		padding: 1.5rem;
-		border: 1px solid var(--primary-color, #ccc);
 		border-radius: 8px;
 		background-color: rgba(255, 255, 255, 0.02);
 	}
@@ -251,12 +291,7 @@ function handleVoiceChange(audioFile: string) {
 		color: inherit;
 	}
 
-	label span {
-		font-weight: bold;
-		color: var(--primary-color, #000);
-	}
 
-	input[type='range'],
 	input[type='number'] {
 		width: 100%;
 		padding: 0.5rem;
@@ -274,6 +309,10 @@ function handleVoiceChange(audioFile: string) {
 		margin: 0;
 		color: #ff7b72;
 		font-size: 0.85rem;
+	}
+
+	.done {
+		color: #7dff7d;
 	}
 
 	.loading {

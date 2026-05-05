@@ -20,14 +20,19 @@ type ImageTaskData = {
 let { runId = undefined, task, componentProps = {} }: Props = $props();
 
 const imageData = $derived((task.data ?? {}) as Partial<ImageTaskData>);
-const imageSrc = $derived(imageData.thumbnailImageSrc ?? imageData.imageSrc ?? "");
+const imageSrc = $derived(
+	imageData.thumbnailImageSrc ?? imageData.imageSrc ?? ""
+);
 const altText = $derived(
 	typeof componentProps.alt === "string"
 		? componentProps.alt
 		: imageData.alt || task.name || "Image"
 );
 const transitionKey = $derived(
-	imageData.videoId ?? imageData.thumbnailImage ?? imageData.mediaDirectory ?? task.id
+	imageData.videoId ??
+		imageData.thumbnailImage ??
+		imageData.mediaDirectory ??
+		task.id
 );
 
 void runId;

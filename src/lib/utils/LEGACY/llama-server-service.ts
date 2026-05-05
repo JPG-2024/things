@@ -2,13 +2,13 @@
 
 export type LlamaLogitBias =
 	| Array<[number | string, number | false]>
-	| Record<string, number | false>
+	| Record<string, number | false>;
 
 export interface LlamaLoraSpec {
 	/** LoRA adapter id (from GET /lora-adapters). */
-	id: number
+	id: number;
 	/** LoRA scale to apply for this request. */
-	scale: number
+	scale: number;
 }
 
 /**
@@ -29,195 +29,200 @@ export interface LlamaCompletionParams {
 				| number[]
 				| Array<number | string>
 				| { prompt_string: string; multimodal_data?: string[] }
-		  >
+		  >;
 
 	/** Optional system prompt to prepend to the prompt. */
-	system_prompt?: string
+	system_prompt?: string;
 
 	/** Sampling temperature (default server-side: 0.8). */
-	temperature?: number
+	temperature?: number;
 
 	/** Dynamic temperature range (0 disables). Final temp in [t-d; t+d]. */
-	dynatemp_range?: number
+	dynatemp_range?: number;
 
 	/** Dynamic temperature exponent. */
-	dynatemp_exponent?: number
+	dynatemp_exponent?: number;
 
 	/** Top-k sampling (0 disables). */
-	top_k?: number
+	top_k?: number;
 
 	/** Top-p nucleus sampling (1 disables). */
-	top_p?: number
+	top_p?: number;
 
 	/** Min-p sampling (0 disables). */
-	min_p?: number
+	min_p?: number;
 
 	/** Locally typical sampling parameter (1 disables). */
-	typical_p?: number
+	typical_p?: number;
 
 	/** RNG seed (-1/random supported by server; server may map to uint32). */
-	seed?: number
+	seed?: number;
 
 	/** Ignore EOS and continue generating. */
-	ignore_eos?: boolean
+	ignore_eos?: boolean;
 
 	/** Max tokens to predict (-1 = infinity). */
-	n_predict?: number
+	n_predict?: number;
 
 	/** Minimum line indentation (whitespace chars) for generation. */
-	n_indent?: number
+	n_indent?: number;
 
 	/** Tokens from prompt to keep when context is exceeded (-1 keeps all). */
-	n_keep?: number
+	n_keep?: number;
 
 	/** Number of completions to generate per prompt. */
-	n_cmpl?: number
+	n_cmpl?: number;
 
 	/** Stop strings (not included in output). */
-	stop?: string[]
+	stop?: string[];
 
 	/** Consider last N tokens for repetition penalty (0 disables; -1 = ctx size). */
-	repeat_last_n?: number
+	repeat_last_n?: number;
 
 	/** Repetition penalty (1 disables). */
-	repeat_penalty?: number
+	repeat_penalty?: number;
 
 	/** Presence penalty (0 disables). */
-	presence_penalty?: number
+	presence_penalty?: number;
 
 	/** Frequency penalty (0 disables). */
-	frequency_penalty?: number
+	frequency_penalty?: number;
 
 	/** DRY sampling multiplier (0 disables). */
-	dry_multiplier?: number
+	dry_multiplier?: number;
 
 	/** DRY sampling base value. */
-	dry_base?: number
+	dry_base?: number;
 
 	/** DRY allowed repetition length before penalties apply. */
-	dry_allowed_length?: number
+	dry_allowed_length?: number;
 
 	/** DRY scan window (0 disables; -1 = context size). */
-	dry_penalty_last_n?: number
+	dry_penalty_last_n?: number;
 
 	/** DRY sequence breakers (strings). */
-	dry_sequence_breakers?: string[]
+	dry_sequence_breakers?: string[];
 
 	/** XTC token removal probability (0 disables). */
-	xtc_probability?: number
+	xtc_probability?: number;
 
 	/** XTC probability threshold (>0.5 disables XTC). */
-	xtc_threshold?: number
+	xtc_threshold?: number;
 
 	/** Mirostat mode (0 off, 1, 2). */
-	mirostat?: 0 | 1 | 2
+	mirostat?: 0 | 1 | 2;
 
 	/** Mirostat target entropy (tau). */
-	mirostat_tau?: number
+	mirostat_tau?: number;
 
 	/** Mirostat learning rate (eta). */
-	mirostat_eta?: number
+	mirostat_eta?: number;
 
 	/** Grammar string for grammar-based sampling. */
-	grammar?: string
+	grammar?: string;
 
 	/** JSON schema for grammar-based sampling. */
-	json_schema?: any
+	json_schema?: any;
 
 	/** Logit bias configuration (array or OpenAI-style object). */
-	logit_bias?: LlamaLogitBias
+	logit_bias?: LlamaLogitBias;
 
 	/** If >0, return top-N token probabilities for each generated token. */
-	n_probs?: number
+	n_probs?: number;
 
 	/** Force samplers to return at least N tokens. */
-	min_keep?: number
+	min_keep?: number;
 
 	/** Time limit (ms) for generation phase (0 disables). */
-	t_max_predict_ms?: number
+	t_max_predict_ms?: number;
 
 	/** Assign request to specific slot (-1 auto). */
-	id_slot?: number
+	id_slot?: number;
 
 	/** Enable KV reuse by shifting if possible (server default: true). */
-	cache_prompt?: boolean
+	cache_prompt?: boolean;
 
 	/** Min chunk size to attempt reusing from cache via KV shifting (0 disables). */
-	n_cache_reuse?: number
+	n_cache_reuse?: number;
 
 	/** Return token ids in `tokens` field (otherwise empty). */
-	return_tokens?: boolean
+	return_tokens?: boolean;
 
 	/** Stream tokens via SSE. */
-	stream?: boolean
+	stream?: boolean;
 
 	/**
 	 * Sampling chain order (array of sampler names).
 	 * If set, overrides server defaults.
 	 */
-	samplers?: string[]
+	samplers?: string[];
 
 	/** Include prompt+gen speed per token in response. */
-	timings_per_token?: boolean
+	timings_per_token?: boolean;
 
 	/** In stream mode: include prompt processing progress in `prompt_progress`. */
-	return_progress?: boolean
+	return_progress?: boolean;
 
 	/** Return probabilities after applying sampling chain (uses prob/top_probs instead of logprob/top_logprobs). */
-	post_sampling_probs?: boolean
+	post_sampling_probs?: boolean;
 
 	/**
 	 * Select response fields (paths) to include; supports unnesting via `/`.
 	 * Example: ["content", "generation_settings/n_predict"].
 	 */
-	response_fields?: string[]
+	response_fields?: string[];
 
 	/** Per-request LoRA configuration (disables batching across different LoRA configs). */
-	lora?: LlamaLoraSpec[]
+	lora?: LlamaLoraSpec[];
 }
 
 export interface LlamaCompletionResponse {
 	/** Generated text (in stream mode: next token text per event). */
-	content: string
+	content: string;
 	/** Generated token ids (only if return_tokens or stream is true). */
-	tokens?: number[]
+	tokens?: number[];
 	/** Stream mode stop flag (true when finished). */
-	stop?: boolean
+	stop?: boolean;
 
 	/** Model alias/id. */
-	model?: string
+	model?: string;
 
 	/** Processed prompt (special tokens may be added). */
-	prompt?: any
+	prompt?: any;
 
 	/** Why generation stopped: none|eos|limit|word. */
-	stop_type?: "none" | "eos" | "limit" | "word"
+	stop_type?: "none" | "eos" | "limit" | "word";
 	/** Stopping word encountered (if stop_type=word). */
-	stopping_word?: string
+	stopping_word?: string;
 
 	/** Generation settings echoed back by server (may be normalized). */
-	generation_settings?: Record<string, any>
+	generation_settings?: Record<string, any>;
 
 	/** Timing/perf information. */
-	timings?: Record<string, any>
+	timings?: Record<string, any>;
 
 	/** KV reuse info. */
-	tokens_cached?: number
-	tokens_evaluated?: number
-	truncated?: boolean
+	tokens_cached?: number;
+	tokens_evaluated?: number;
+	truncated?: boolean;
 
 	/** Token probabilities, if requested. */
-	probs?: any
+	probs?: any;
 
 	/** Present when return_progress=true in stream mode. */
-	prompt_progress?: { total: number; cache: number; processed: number; time_ms: number }
+	prompt_progress?: {
+		total: number;
+		cache: number;
+		processed: number;
+		time_ms: number;
+	};
 
 	/** Any other server fields. */
-	[k: string]: any
+	[k: string]: any;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
-	return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`
+	return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 function extractSseDataLines(eventBlock: string): string[] {
@@ -227,170 +232,177 @@ function extractSseDataLines(eventBlock: string): string[] {
 		.map((l) => l.trimEnd())
 		.filter((l) => l.startsWith("data:"))
 		.map((l) => l.slice("data:".length).trimStart())
-		.filter(Boolean)
+		.filter(Boolean);
 }
 
-function findSseSeparatorIndex(buffer: string): { index: number; length: number } | null {
-	const idx = buffer.search(/\r?\n\r?\n/)
-	if (idx === -1) return null
-	const m = buffer.slice(idx).match(/^\r?\n\r?\n/)
-	return { index: idx, length: m?.[0].length ?? 2 }
+function findSseSeparatorIndex(
+	buffer: string
+): { index: number; length: number } | null {
+	const idx = buffer.search(/\r?\n\r?\n/);
+	if (idx === -1) return null;
+	const m = buffer.slice(idx).match(/^\r?\n\r?\n/);
+	return { index: idx, length: m?.[0].length ?? 2 };
 }
 
 async function readSseJson(
 	res: Response,
 	onEvent: (json: any) => void,
-	signal?: AbortSignal,
+	signal?: AbortSignal
 ): Promise<void> {
-	if (!res.body) return
+	if (!res.body) return;
 
-	const reader = res.body.getReader()
-	const decoder = new TextDecoder("utf-8")
-	let buffer = ""
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder("utf-8");
+	let buffer = "";
 
 	while (true) {
 		if (signal?.aborted) {
 			try {
-				await reader.cancel()
+				await reader.cancel();
 			} catch {
 				// ignore
 			}
-			return
+			return;
 		}
 
-		const { value, done } = await reader.read()
-		if (done) break
+		const { value, done } = await reader.read();
+		if (done) break;
 
-		buffer += decoder.decode(value, { stream: true })
+		buffer += decoder.decode(value, { stream: true });
 
 		// Events separated by blank line (LF or CRLF)
 		while (true) {
-			const sep = findSseSeparatorIndex(buffer)
-			if (!sep) break
+			const sep = findSseSeparatorIndex(buffer);
+			if (!sep) break;
 
-			const rawEvent = buffer.slice(0, sep.index)
-			buffer = buffer.slice(sep.index + sep.length)
+			const rawEvent = buffer.slice(0, sep.index);
+			buffer = buffer.slice(sep.index + sep.length);
 
-			const dataLines = extractSseDataLines(rawEvent)
+			const dataLines = extractSseDataLines(rawEvent);
 			for (const data of dataLines) {
-				if (data === "[DONE]") continue
-				onEvent(JSON.parse(data))
+				if (data === "[DONE]") continue;
+				onEvent(JSON.parse(data));
 			}
 		}
 	}
 
 	// Flush any trailing complete event (rare, but handle if ends without \n\n)
-	const trailing = buffer.trim()
+	const trailing = buffer.trim();
 	if (trailing) {
-		const dataLines = extractSseDataLines(trailing)
+		const dataLines = extractSseDataLines(trailing);
 		for (const data of dataLines) {
-			if (data === "[DONE]") continue
-			onEvent(JSON.parse(data))
+			if (data === "[DONE]") continue;
+			onEvent(JSON.parse(data));
 		}
 	}
 }
 
 function promptToOpenAI(
 	prompt: LlamaCompletionParams["prompt"],
-	systemPrompt?: string,
+	systemPrompt?: string
 ): OpenAICompletionPrompt {
-	const sys = (systemPrompt ?? "").trim()
-	const prefix = sys ? `${sys}\n` : ""
+	const sys = (systemPrompt ?? "").trim();
+	const prefix = sys ? `${sys}\n` : "";
 
 	const toSingleString = (p: any): string => {
-		if (typeof p === "string") return p
-		if (Array.isArray(p) && p.every((x) => typeof x === "number")) return p.join(" ") // best-effort stringify
-		if (Array.isArray(p)) return p.map((x) => (typeof x === "string" ? x : String(x))).join("")
-		if (p && typeof p === "object" && typeof p.prompt_string === "string") return p.prompt_string
-		return String(p ?? "")
-	}
+		if (typeof p === "string") return p;
+		if (Array.isArray(p) && p.every((x) => typeof x === "number"))
+			return p.join(" "); // best-effort stringify
+		if (Array.isArray(p))
+			return p.map((x) => (typeof x === "string" ? x : String(x))).join("");
+		if (p && typeof p === "object" && typeof p.prompt_string === "string")
+			return p.prompt_string;
+		return String(p ?? "");
+	};
 
 	// If system prompt exists, we always return string or string[] so we can prepend safely.
 	if (Array.isArray(prompt)) {
 		// token array vs array of prompts
 		if (prompt.every((x) => typeof x === "number")) {
-			const asStr = (prompt as number[]).join(" ")
-			return prefix ? `${prefix}${asStr}` : asStr
+			const asStr = (prompt as number[]).join(" ");
+			return prefix ? `${prefix}${asStr}` : asStr;
 		}
-		return (prompt as any[]).map((p) => `${prefix}${toSingleString(p)}`)
+		return (prompt as any[]).map((p) => `${prefix}${toSingleString(p)}`);
 	}
 
-	const s = toSingleString(prompt)
-	return prefix ? `${prefix}${s}` : s
+	const s = toSingleString(prompt);
+	return prefix ? `${prefix}${s}` : s;
 }
 
 function logitBiasToOpenAI(
-	logit_bias: LlamaLogitBias | undefined,
+	logit_bias: LlamaLogitBias | undefined
 ): Record<string, number> | undefined {
-	if (!logit_bias) return undefined
+	if (!logit_bias) return undefined;
 
 	// OpenAI expects: { "token_id_as_string": bias_number }
 	if (Array.isArray(logit_bias)) {
-		const out: Record<string, number> = {}
+		const out: Record<string, number> = {};
 		for (const [tok, bias] of logit_bias) {
 			if (bias === false) {
-				out[String(tok)] = -100 // "ban" equivalent
+				out[String(tok)] = -100; // "ban" equivalent
 			} else if (typeof bias === "number") {
-				out[String(tok)] = bias
+				out[String(tok)] = bias;
 			}
 		}
-		return out
+		return out;
 	}
 
-	const out: Record<string, number> = {}
+	const out: Record<string, number> = {};
 	for (const [tok, bias] of Object.entries(logit_bias)) {
-		if (bias === false) out[String(tok)] = -100
-		else if (typeof bias === "number") out[String(tok)] = bias
+		if (bias === false) out[String(tok)] = -100;
+		else if (typeof bias === "number") out[String(tok)] = bias;
 	}
-	return out
+	return out;
 }
 
-function finishReasonToStopType(r?: string | null): LlamaCompletionResponse["stop_type"] {
+function finishReasonToStopType(
+	r?: string | null
+): LlamaCompletionResponse["stop_type"] {
 	// OpenAI: "stop" | "length" | "content_filter" | null
-	if (!r) return "none"
-	if (r === "stop") return "word"
-	if (r === "length") return "limit"
-	return "none"
+	if (!r) return "none";
+	if (r === "stop") return "word";
+	if (r === "length") return "limit";
+	return "none";
 }
 
 /**
  * OpenAI-compatible v1 /completions request/response (minimal fields used here).
  */
-type OpenAICompletionPrompt = string | string[] | number[] | number[][]
+type OpenAICompletionPrompt = string | string[] | number[] | number[][];
 
 interface OpenAICompletionRequest {
-	model: string
-	prompt: OpenAICompletionPrompt
-	max_tokens?: number
-	temperature?: number
-	top_p?: number
-	stop?: string | string[]
-	presence_penalty?: number
-	frequency_penalty?: number
-	logit_bias?: Record<string, number>
-	stream?: boolean
+	model: string;
+	prompt: OpenAICompletionPrompt;
+	max_tokens?: number;
+	temperature?: number;
+	top_p?: number;
+	stop?: string | string[];
+	presence_penalty?: number;
+	frequency_penalty?: number;
+	logit_bias?: Record<string, number>;
+	stream?: boolean;
 	// allow llama-server extensions without fighting TS
-	[k: string]: any
+	[k: string]: any;
 }
 
 interface OpenAICompletionChoice {
-	text?: string
-	finish_reason?: string | null
+	text?: string;
+	finish_reason?: string | null;
 }
 
 interface OpenAICompletionResponse {
-	id?: string
-	model?: string
-	choices: OpenAICompletionChoice[]
-	usage?: any
-	[k: string]: any
+	id?: string;
+	model?: string;
+	choices: OpenAICompletionChoice[];
+	usage?: any;
+	[k: string]: any;
 }
 
 interface OpenAICompletionChunk {
-	id?: string
-	model?: string
-	choices: OpenAICompletionChoice[]
-	[k: string]: any
+	id?: string;
+	model?: string;
+	choices: OpenAICompletionChoice[];
+	[k: string]: any;
 }
 
 /**
@@ -405,14 +417,14 @@ export async function completion(
 	baseUrl: string = "http://localhost:8080",
 	params: LlamaCompletionParams,
 	onToken?: (tokenText: string, event: LlamaCompletionResponse) => void,
-	options?: Omit<RequestInit, "method" | "body">,
+	options?: Omit<RequestInit, "method" | "body">
 ): Promise<LlamaCompletionResponse> {
-	const url = joinUrl(baseUrl, "/v1/completions")
+	const url = joinUrl(baseUrl, "/v1/completions");
 
-	const streamEnabled = params.stream === true || typeof onToken === "function"
+	const streamEnabled = params.stream === true || typeof onToken === "function";
 
 	// llama-server typically requires `model` for OpenAI routes; allow caller to pass via (params as any).model
-	const model = params.model ?? "default"
+	const model = params.model ?? "default";
 
 	const payload: OpenAICompletionRequest = {
 		model,
@@ -430,7 +442,7 @@ export async function completion(
 
 		// optional pass-through for servers that accept it as an extension field
 		system_prompt: params.system_prompt,
-	}
+	};
 
 	const res = await fetch(url, {
 		method: "POST",
@@ -440,37 +452,39 @@ export async function completion(
 		},
 		body: JSON.stringify(payload),
 		...options,
-	})
+	});
 
 	if (!res.ok) {
-		const text = await res.text().catch(() => "")
+		const text = await res.text().catch(() => "");
 		// try to surface OpenAI-style error.message if present
 		try {
-			const j = text ? JSON.parse(text) : null
-			const msg = j?.error?.message
+			const j = text ? JSON.parse(text) : null;
+			const msg = j?.error?.message;
 			if (msg)
 				throw new Error(
-					`llama-server /v1/completions failed: ${res.status} ${res.statusText} - ${msg}`,
-				)
+					`llama-server /v1/completions failed: ${res.status} ${res.statusText} - ${msg}`
+				);
 		} catch {
 			// ignore parse errors
 		}
 		throw new Error(
-			`llama-server /v1/completions failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`,
-		)
+			`llama-server /v1/completions failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`
+		);
 	}
 
 	// Prepare the system prompt prefix that was included in the prompt
-	const sysPrefixToRemove = params.system_prompt ? `${params.system_prompt.trim()}\n` : ""
+	const sysPrefixToRemove = params.system_prompt
+		? `${params.system_prompt.trim()}\n`
+		: "";
 
 	if (!streamEnabled) {
-		const j = (await res.json()) as OpenAICompletionResponse
-		const choice0 = j.choices?.[0]
-		let text = choice0?.text ?? ""
+		const j = (await res.json()) as OpenAICompletionResponse;
+		const choice0 = j.choices?.[0];
+		let text = choice0?.text ?? "";
 
 		// Remove system prompt if it was prepended to the response
 		if (sysPrefixToRemove && text.startsWith(sysPrefixToRemove)) {
-			text = text.slice(sysPrefixToRemove.length)
+			text = text.slice(sysPrefixToRemove.length);
 		}
 
 		return {
@@ -481,34 +495,34 @@ export async function completion(
 			// keep original raw for callers that relied on extra fields
 			choices: j.choices,
 			usage: j.usage,
-		} as any
+		} as any;
 	}
 
-	let aggregated = ""
-	let lastChunk: OpenAICompletionChunk | null = null
+	let aggregated = "";
+	let lastChunk: OpenAICompletionChunk | null = null;
 
 	await readSseJson(
 		res,
 		(evt) => {
-			const chunk = evt as OpenAICompletionChunk
-			lastChunk = chunk
+			const chunk = evt as OpenAICompletionChunk;
+			lastChunk = chunk;
 
-			const t = chunk.choices?.[0]?.text ?? ""
+			const t = chunk.choices?.[0]?.text ?? "";
 			if (t) {
-				aggregated += t
-				onToken?.(t, { content: t } as any)
+				aggregated += t;
+				onToken?.(t, { content: t } as any);
 			}
 		},
-		options?.signal,
-	)
+		options?.signal
+	);
 
 	// Remove system prompt from aggregated response if it was prepended
-	let finalContent = aggregated
+	let finalContent = aggregated;
 	if (sysPrefixToRemove && finalContent.startsWith(sysPrefixToRemove)) {
-		finalContent = finalContent.slice(sysPrefixToRemove.length)
+		finalContent = finalContent.slice(sysPrefixToRemove.length);
 	}
 
-	const finishReason = lastChunk?.choices?.[0]?.finish_reason ?? null
+	const finishReason = lastChunk?.choices?.[0]?.finish_reason ?? null;
 
 	return {
 		content: finalContent,
@@ -516,5 +530,5 @@ export async function completion(
 		stop: Boolean(finishReason),
 		stop_type: finishReasonToStopType(finishReason),
 		choices: lastChunk?.choices,
-	} as any
+	} as any;
 }

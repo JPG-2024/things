@@ -1,23 +1,23 @@
 <script lang="ts">
-import { createEventDispatcher } from "svelte"
+import { createEventDispatcher } from "svelte";
 
-type Props = { label?: string; initial?: boolean }
-let { label = "", initial = false }: Props = $props()
+type Props = { label?: string; initial?: boolean };
+let { label = "", initial = false }: Props = $props();
 
 // component state
-let isOn = $state<boolean>(initial)
+let isOn = $state<boolean>(initial);
 
-const dispatch = createEventDispatcher()
+const dispatch = createEventDispatcher();
 
 function toggle() {
-	isOn = !isOn
-	dispatch("change", { checked: isOn })
+	isOn = !isOn;
+	dispatch("change", { checked: isOn });
 }
 
 function onKey(e: KeyboardEvent) {
 	if (e.key === " " || e.key === "Enter") {
-		e.preventDefault()
-		toggle()
+		e.preventDefault();
+		toggle();
 	}
 }
 </script>

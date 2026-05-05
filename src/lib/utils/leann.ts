@@ -10,9 +10,9 @@
  */
 export interface LeannDocument {
 	/** The document content to index */
-	text: string
+	text: string;
 	/** Optional metadata associated with the document */
-	metadata?: Record<string, unknown>
+	metadata?: Record<string, unknown>;
 }
 
 /**
@@ -20,27 +20,27 @@ export interface LeannDocument {
  */
 export interface SaveDocumentsParams {
 	/** Array of documents to save */
-	documents: LeannDocument[]
+	documents: LeannDocument[];
 }
 
 /**
  * Response from saving documents
  */
 export interface SaveDocumentsResponse {
-	status: "success" | "error"
-	action: "created" | "appended"
-	count: number
-	index_path: string
+	status: "success" | "error";
+	action: "created" | "appended";
+	count: number;
+	index_path: string;
 }
 
 /**
  * Search result from Leann
  */
 export interface LeannSearchResult {
-	id: string
-	text: string
-	score: number
-	metadata: Record<string, unknown>
+	id: string;
+	text: string;
+	score: number;
+	metadata: Record<string, unknown>;
 }
 
 /**
@@ -48,29 +48,29 @@ export interface LeannSearchResult {
  */
 export interface SearchDocumentsParams {
 	/** The search query */
-	query: string
+	query: string;
 	/** Number of results to return (default: 5) */
-	top_k?: number
+	top_k?: number;
 	/** Search complexity (default: 64) */
-	complexity?: number
+	complexity?: number;
 	/** Parallel search paths per iteration (default: 1) */
-	beam_width?: number
+	beam_width?: number;
 	/** Ratio of neighbors to prune (default: 0.0) */
-	prune_ratio?: number
+	prune_ratio?: number;
 	/** Fetch fresh embeddings vs use stored codes (default: true) */
-	recompute_embeddings?: boolean
+	recompute_embeddings?: boolean;
 	/** Pruning strategy: "global", "local", or "proportional" (default: "global") */
-	pruning_strategy?: "global" | "local" | "proportional"
+	pruning_strategy?: "global" | "local" | "proportional";
 	/** ZMQ server port for embedding recomputation (default: 5557) */
-	expected_zmq_port?: number
+	expected_zmq_port?: number;
 	/** Post-search metadata filters (default: null) */
-	metadata_filters?: Record<string, unknown> | null
+	metadata_filters?: Record<string, unknown> | null;
 	/** Batch size for embedding computation (default: 0) */
-	batch_size?: number
+	batch_size?: number;
 	/** Use regex text matching instead of vector search (default: false) */
-	use_grep?: boolean
+	use_grep?: boolean;
 	/** Embedding provider options (default: null) */
-	provider_options?: Record<string, unknown> | null
+	provider_options?: Record<string, unknown> | null;
 }
 
 /**
@@ -78,9 +78,9 @@ export interface SearchDocumentsParams {
  */
 function getLeannBaseUrl(): string {
 	if (typeof window !== "undefined" && import.meta.env.VITE_LEANN_API_URL) {
-		return import.meta.env.VITE_LEANN_API_URL
+		return import.meta.env.VITE_LEANN_API_URL;
 	}
-	return "http://localhost:3008"
+	return "http://localhost:3008";
 }
 
 /**
@@ -102,15 +102,15 @@ function getLeannBaseUrl(): string {
  */
 export async function saveDocumentsToLeann(
 	documents: Array<{ text: string; metadata?: Record<string, unknown> }>,
-	metadata?: Record<string, unknown>,
+	metadata?: Record<string, unknown>
 ): Promise<SaveDocumentsResponse> {
-	const baseUrl = getLeannBaseUrl()
+	const baseUrl = getLeannBaseUrl();
 
 	// Merge document-level and call-level metadata
 	const formattedDocuments: LeannDocument[] = documents.map((doc) => ({
 		text: doc.text,
 		metadata: { ...metadata, ...doc.metadata },
-	}))
+	}));
 
 	const response = await fetch(`${baseUrl}/save_documents`, {
 		method: "POST",
@@ -118,14 +118,16 @@ export async function saveDocumentsToLeann(
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({ documents: formattedDocuments }),
-	})
+	});
 
 	if (!response.ok) {
-		const error = await response.text()
-		throw new Error(`Failed to save documents to Leann: ${response.status} - ${error}`)
+		const error = await response.text();
+		throw new Error(
+			`Failed to save documents to Leann: ${response.status} - ${error}`
+		);
 	}
 
-	return response.json()
+	return response.json();
 }
 
 /**
@@ -148,9 +150,9 @@ export async function saveDocumentsToLeann(
  * ```
  */
 export async function searchDocumentsInLeann(
-	params: SearchDocumentsParams,
+	params: SearchDocumentsParams
 ): Promise<LeannSearchResult[]> {
-	const baseUrl = getLeannBaseUrl()
+	const baseUrl = getLeannBaseUrl();
 
 	const searchPayload = {
 		query: params.query,
@@ -165,7 +167,7 @@ export async function searchDocumentsInLeann(
 		batch_size: params.batch_size ?? 0,
 		use_grep: params.use_grep ?? false,
 		provider_options: params.provider_options ?? null,
-	}
+	};
 
 	const response = await fetch(`${baseUrl}/search_documents`, {
 		method: "POST",
@@ -173,14 +175,16 @@ export async function searchDocumentsInLeann(
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(searchPayload),
-	})
+	});
 
 	if (!response.ok) {
-		const error = await response.text()
-		throw new Error(`Failed to search documents in Leann: ${response.status} - ${error}`)
+		const error = await response.text();
+		throw new Error(
+			`Failed to search documents in Leann: ${response.status} - ${error}`
+		);
 	}
 
-	return response.json()
+	return response.json();
 }
 
 /**
@@ -190,18 +194,18 @@ export async function searchDocumentsInLeann(
  * @throws Error if the server is not reachable
  */
 export async function checkLeannHealth(): Promise<void> {
-	const baseUrl = getLeannBaseUrl()
+	const baseUrl = getLeannBaseUrl();
 
 	try {
 		const response = await fetch(`${baseUrl}/docs`, {
 			method: "HEAD",
-		})
+		});
 
 		if (!response.ok && response.status !== 404) {
-			throw new Error(`Leann server returned status ${response.status}`)
+			throw new Error(`Leann server returned status ${response.status}`);
 		}
 	} catch (error) {
-		throw new Error(`Leann server is not reachable at ${baseUrl}: ${error}`)
+		throw new Error(`Leann server is not reachable at ${baseUrl}: ${error}`);
 	}
 }
 
@@ -210,25 +214,25 @@ export async function checkLeannHealth(): Promise<void> {
  * Converts Leann search results to the format expected by existing code
  */
 export interface SimilaritySearchParams {
-	query: string
-	nResults?: number
-	whereMetadata?: Record<string, unknown>
-	collectionName?: string
-	includeDocuments?: boolean
-	includeEmbeddings?: boolean
-	model?: string
-	ollamaUrl?: string
+	query: string;
+	nResults?: number;
+	whereMetadata?: Record<string, unknown>;
+	collectionName?: string;
+	includeDocuments?: boolean;
+	includeEmbeddings?: boolean;
+	model?: string;
+	ollamaUrl?: string;
 }
 
 /**
  * ChromaDB-compatible search result format
  */
 export interface SimilaritySearchResult {
-	ids: string[][]
-	distances: number[][]
-	documents: string[][]
-	metadatas: Record<string, unknown>[][]
-	embeddings?: number[][][]
+	ids: string[][];
+	distances: number[][];
+	documents: string[][];
+	metadatas: Record<string, unknown>[][];
+	embeddings?: number[][][];
 }
 
 /**
@@ -236,20 +240,20 @@ export interface SimilaritySearchResult {
  * Adapts Leann results to ChromaDB format for backward compatibility
  */
 export async function similaritySearchCompat(
-	params: SimilaritySearchParams,
+	params: SimilaritySearchParams
 ): Promise<SimilaritySearchResult> {
 	try {
 		const results = await searchDocumentsInLeann({
 			query: params.query,
 			top_k: params.nResults ?? 5,
-		})
+		});
 
 		// Convert Leann results to ChromaDB format
 		// ChromaDB returns results grouped by query (hence the nested arrays)
-		const ids = results.map((r) => r.id)
-		const distances = results.map((r) => 1 - r.score) // Convert score to distance
-		const documents = results.map((r) => r.text)
-		const metadatas = results.map((r) => r.metadata)
+		const ids = results.map((r) => r.id);
+		const distances = results.map((r) => 1 - r.score); // Convert score to distance
+		const documents = results.map((r) => r.text);
+		const metadatas = results.map((r) => r.metadata);
 
 		return {
 			ids: [ids],
@@ -257,8 +261,8 @@ export async function similaritySearchCompat(
 			documents: [documents],
 			metadatas: [metadatas],
 			embeddings: params.includeEmbeddings ? [[]] : undefined,
-		}
+		};
 	} catch (error) {
-		throw new Error(`Failed to search documents: ${error}`)
+		throw new Error(`Failed to search documents: ${error}`);
 	}
 }

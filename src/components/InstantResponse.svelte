@@ -2,9 +2,9 @@
 import type {
 	LlamaChatCompletionsRequest,
 	LlamaChatCompletionsResponse,
-} from "@/lib/utils/llama-completions"
-import { chatCompletions } from "@/lib/utils/llama-completions"
-import Input from "./inputs/Input.component.svelte"
+} from "@/lib/utils/llama-completions";
+import { chatCompletions } from "@/lib/utils/llama-completions";
+import Input from "./inputs/Input.component.svelte";
 
 const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
 	model: "ggml-alpaca-7b-q4.bin",
@@ -16,52 +16,58 @@ const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {
 				"Eres un asistente encargado de resolver dudas. sé conciso y claro en tus respuestas.",
 		},
 	],
-}
+};
 
 interface Props {
-	model?: string
-	maxTokens?: number
-	content?: string
-	completionParameters?: LlamaChatCompletionsRequest
+	model?: string;
+	maxTokens?: number;
+	content?: string;
+	completionParameters?: LlamaChatCompletionsRequest;
 }
 
-let { completionParameters = DEFAULT_COMPLETION_PARAMETERS, content = "" }: Props = $props()
+let {
+	completionParameters = DEFAULT_COMPLETION_PARAMETERS,
+	content = "",
+}: Props = $props();
 
-let response = $state<LlamaChatCompletionsResponse | null>(null)
-let loading = $state(false)
-let error = $state<string | null>(null)
-let streamedText = $state("")
+let response = $state<LlamaChatCompletionsResponse | null>(null);
+let loading = $state(false);
+let error = $state<string | null>(null);
+let streamedText = $state("");
 
 async function handleSubmit(prompt: string) {
-	if (!prompt.trim()) return
+	if (!prompt.trim()) return;
 
-	loading = true
-	error = null
-	streamedText = ""
-	response = null
+	loading = true;
+	error = null;
+	streamedText = "";
+	response = null;
 
 	try {
 		const completionRequest: LlamaChatCompletionsRequest = {
 			...completionParameters,
 			messages: [
 				...completionParameters.messages,
-				{ role: "user", content: `CONTEXT: ${content} \n\n PROMPT: ${prompt}.` },
+				{
+					role: "user",
+					content: `CONTEXT: ${content} \n\n PROMPT: ${prompt}.`,
+				},
 			],
-		}
+		};
 
 		const result = await chatCompletions(completionRequest, {
 			onToken: (token) => {
-				streamedText += token
+				streamedText += token;
 			},
-		})
+		});
 
-		streamedText = result.choices[0]?.message?.content ?? ""
-		console.log("Final completion result:", result)
+		streamedText = result.choices[0]?.message?.content ?? "";
+		console.log("Final completion result:", result);
 	} catch (err) {
-		error = err instanceof Error ? err.message : "Unknown error occurred"
-		console.error("Completion error:", err)
+		error = err instanceof Error ? err.message : "Unknown error occurred";
+		console.error("Completion error:", err);
 	} finally {
-		loading = false
+		loading = false;
 	}
 }
 </script>

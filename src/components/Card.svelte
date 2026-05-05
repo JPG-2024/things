@@ -3,16 +3,16 @@ import type { Snippet } from "svelte"; // Optional, for TypeScript
 export type CardProps = {
 	children?: Snippet;
 	title?: string;
-  showBorders?: boolean;
+	showBorders?: boolean;
 };
 let {
 	children,
 	title = "",
-  showBorders = false,
+	showBorders = false,
 }: {
 	children?: Snippet;
 	title?: string;
-  showBorders?: boolean;
+	showBorders?: boolean;
 } = $props();
 </script>
 

@@ -24,4 +24,4 @@ export const CONTENT_EXTRACTION_SCHEMA = {
 			required: ["keywords", "category"],
 		},
 	},
-}
+};

@@ -1,15 +1,15 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "@tauri-apps/api/core";
 
 export interface YoutubeResult {
-	channel: string
-	duration: string
-	title: string
-	url: string
+	channel: string;
+	duration: string;
+	title: string;
+	url: string;
 }
 
 export function getYouTubeThumbnailUrl(
 	videoId: string,
-	quality: "default" | "medium" | "high" | "standard" | "maxres" = "maxres",
+	quality: "default" | "medium" | "high" | "standard" | "maxres" = "maxres"
 ) {
 	const qualityMap = {
 		default: "default.jpg",
@@ -17,8 +17,8 @@ export function getYouTubeThumbnailUrl(
 		high: "hqdefault.jpg",
 		standard: "sddefault.jpg",
 		maxres: "maxresdefault.jpg",
-	}
-	return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}`
+	};
+	return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}`;
 }
 
 export async function handleYoutubeQuestion(query: string) {
@@ -42,21 +42,25 @@ export async function handleYoutubeQuestion(query: string) {
 
       console.log('Possible YouTube queries:', posibleQuerys) */
 
-		const [search, question] = query.split("|").map((str: string) => str.trim())
+		const [search, question] = query
+			.split("|")
+			.map((str: string) => str.trim());
 
-		console.log("YouTube search term:", search)
-		console.log("YouTube question:", question)
+		console.log("YouTube search term:", search);
+		console.log("YouTube question:", question);
 
-		const answers: string[] = []
-		const results: YoutubeResult[] = await invoke("search_youtube", { query: search })
+		const answers: string[] = [];
+		const results: YoutubeResult[] = await invoke("search_youtube", {
+			query: search,
+		});
 
-		const firstResults = results.slice(0, 3)
+		const firstResults = results.slice(0, 3);
 
 		for (const result of firstResults) {
 			const _transcript = await invoke<string>("get_youtube_transcript", {
 				id: result.url.split("v=")[1],
 				languages: ["en", "es"],
-			})
+			});
 
 			const answer = await invoke<string>("generate_response", {
 				prompt: `Using the following video transcript: \n\n${_transcript}, provide a concise answer to the question: ${question} Answer:`,
@@ -64,25 +68,25 @@ export async function handleYoutubeQuestion(query: string) {
 				options: {
 					system_prompt: `You are an assistant specialized in answering questions based on YouTube video transcripts. avoid title description and final questions.`,
 				},
-			})
-			answers.push(answer)
+			});
+			answers.push(answer);
 		}
 
 		const finalAnswer = await invoke<string>("generate_response", {
 			prompt: `Based on the following answers from different YouTube videos: \n\n${answers.join(
-				"\n\n",
+				"\n\n"
 			)} \n\n Provide a comprehensive and concise answer to the question: ${question} Answer:`,
 			stream: false,
 			options: {
 				system_prompt: `You are an assistant specialized in synthesizing answers from multiple YouTube video transcripts.`,
 			},
-		})
+		});
 
-		console.log("YouTube search results:", results)
-		console.log("YouTube answers:", answers)
-		console.log("Final synthesized answer:", finalAnswer)
+		console.log("YouTube search results:", results);
+		console.log("YouTube answers:", answers);
+		console.log("Final synthesized answer:", finalAnswer);
 	} catch (error) {
-		console.error("Failed to search YouTube:", error)
+		console.error("Failed to search YouTube:", error);
 	}
 	// navigate(`/search/${encodeURIComponent(query)}`)
 }
