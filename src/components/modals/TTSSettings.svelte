@@ -16,6 +16,7 @@ let voicesLoading = $state(false);
 let voicesError = $state("");
 
 let selectedVoiceValue = $state("");
+let selectedNamePrefix = $state("");
 
 onMount(() => {
 	loadVoices();
@@ -31,6 +32,7 @@ async function loadVoices() {
 		);
 		if (match) {
 			selectedVoiceValue = match.audio_file;
+			selectedNamePrefix = match.name_prefix;
 		}
 	} catch (err) {
 		voicesError = err instanceof Error ? err.message : "Failed to load voices";
@@ -39,12 +41,27 @@ async function loadVoices() {
 	}
 }
 
-const voiceOptions = $derived(
-	voices.map((v) => ({
-		label: `${v.name} (${v.name_prefix})`,
-		value: v.audio_file,
+const namePrefixOptions = $derived(
+	[...new Set(voices.map((v) => v.name_prefix))].map((p) => ({
+		label: p,
+		value: p,
 	}))
 );
+
+const voicesForPrefix = $derived(
+	voices.filter((v) => v.name_prefix === selectedNamePrefix)
+);
+
+function handleNamePrefixChange(prefix: string) {
+	selectedNamePrefix = prefix;
+}
+
+function selectVoiceByIndex(index: number) {
+	const voice = voicesForPrefix[index];
+	if (!voice) return;
+	selectedVoiceValue = voice.audio_file;
+	handleVoiceChange(voice.audio_file);
+}
 
 function handleVoiceChange(audioFile: string) {
 	const voice = voices.find((v) => v.audio_file === audioFile);
@@ -205,14 +222,24 @@ async function handleAddVoice() {
 	<Spacer size={25} />
 
 	<Spacer title="Voices">
-		<Dropdown
-			id="voice"
-			label="Voice"
-			options={voiceOptions}
-			bind:value={selectedVoiceValue}
-			onChange={handleVoiceChange}
-			placeholder="Select a voice..."
-		/>
+		<div class="voice-selector">
+			<Dropdown
+				label="Voice"
+				options={namePrefixOptions}
+				bind:value={selectedNamePrefix}
+				onChange={handleNamePrefixChange}
+				placeholder="Select a voice..."
+			/>
+
+			<div class="voice-buttons">
+				{#each voicesForPrefix as _, i}
+					<Button
+						label={`${i + 1}`}
+						onClick={() => selectVoiceByIndex(i)}
+					/>
+				{/each}
+			</div>
+		</div>
 
 		<Input
 			id="videoUrl"
@@ -279,5 +306,29 @@ async function handleAddVoice() {
 		display: grid;
 		grid-template-columns: 1fr 1fr 1fr;
 		gap: 1rem;
+	}
+
+	.voice-selector {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-end;
+	}
+
+	.voice-selector :global(.dropdown-input) {
+		flex: 0 0 auto;
+		width: auto;
+		min-width: 150px;
+	}
+
+	.voice-buttons {
+		display: flex;
+		gap: 0.25rem;
+		flex: 1;
+	}
+
+	.voice-buttons :global(.btn) {
+		flex: 1;
+		padding: 0.5rem 0.5rem;
+		font-size: 1rem;
 	}
 </style>

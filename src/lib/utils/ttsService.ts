@@ -13,6 +13,7 @@ export async function fetchVoices(): Promise<Voice[]> {
 	const res = await fetch(`${WHISPER_API_URL}/voices`);
 	if (!res.ok) throw new Error(`Failed to fetch voices: ${res.status}`);
 	const data: { chunks: Voice[] } = await res.json();
+	console.log(data)
 	return data.chunks;
 }
 
