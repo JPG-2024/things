@@ -3,20 +3,52 @@ import { viewState } from "@/stores/viewStore.svelte";
 import { primaryColor } from "@/stores/uiStore";
 import { onMount } from "svelte";
 import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
+import { invoke } from "@tauri-apps/api/core";
+import { urlRouter } from "@/lib/urlRouter/urlRouter";
+import { navigate } from "@/lib/utils/url";
+
+const CLIPBOARD_POLL_INTERVAL_MS = 5000;
+const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 let { children } = $props();
 
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			staleTime: 1000 * 60 * 5,
-		},
-	},
-});
-
 let flashy = $state(false);
-
 let mainElement: HTMLElement | undefined = $state();
+let processingUrl = $state(false);
+
+function extractValidUrl(value: string): string | null {
+	const trimmedValue = value.trim();
+
+	if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
+		return null;
+	}
+
+	try {
+		const parsedUrl = new URL(trimmedValue);
+		if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+			return null;
+		}
+
+		return parsedUrl.toString();
+	} catch {
+		return null;
+	}
+}
+
+async function handlePasteUrl(url: string) {
+	const validUrl = extractValidUrl(url);
+	if (!validUrl || processingUrl) return;
+
+	processingUrl = true;
+
+	try {
+		viewState.lastHandledClipboardUrl = validUrl;
+		navigate(`/youtube/${encodeURIComponent(validUrl)}`);
+		await urlRouter(validUrl);
+	} finally {
+		processingUrl = false;
+	}
+}
 
 $effect(() => {
 	if (mainElement) {
@@ -40,10 +72,40 @@ $effect(() => {
     }
   }) */
 
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 1000 * 60 * 5,
+		},
+	},
+});
+
 onMount(() => {
 	let stopFlow: undefined | (() => void);
 	viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop));
 	viewState.initMediaBasePath();
+
+	const pollClipboard = async () => {
+		if (!viewState.clipboardPollingEnabled || processingUrl) return;
+
+		try {
+			const clipboardText = await invoke<string>("read_clipboard_text");
+			const validUrl = extractValidUrl(clipboardText ?? "");
+
+			if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
+				return;
+			}
+
+			await handlePasteUrl(validUrl);
+		} catch {
+			viewState.clipboardPollingEnabled = false;
+		}
+	};
+
+	void pollClipboard();
+	const clipboardInterval = setInterval(() => {
+		void pollClipboard();
+	}, CLIPBOARD_POLL_INTERVAL_MS);
 
 	const flashyInterval = setInterval(() => {
 		if (viewState.loading) return;
@@ -51,12 +113,13 @@ onMount(() => {
 		flashy = true;
 		setTimeout(() => {
 			flashy = false;
-		}, 2000); // Duración de la animación
+		}, 2000);
 	}, 40000);
 
 	return () => {
 		stopFlow?.();
 		clearInterval(flashyInterval);
+		clearInterval(clipboardInterval);
 	};
 });
 

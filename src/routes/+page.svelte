@@ -1,6 +1,5 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/svelte-query";
 
 import CategoryWidget from "@/components/CategoryWidget.svelte";
@@ -18,9 +17,6 @@ import {
 import { primaryColor } from "@/stores/uiStore";
 import { viewState } from "@/stores/viewStore.svelte";
 
-// Data provided by +page.ts load
-
-const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 let processingUrl = $state(false);
@@ -63,24 +59,6 @@ function extractValidUrl(value: string): string | null {
 	}
 }
 
-$effect(() => {
-	// generate random svg
-	// Generate a random light color (avoid dark tones)
-	const randomColor = `rgb(${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)}, ${200 + Math.floor(Math.random() * 56)})`;
-
-	primaryColor.set(randomColor);
-});
-
-/* onMount(async () => {
-	try {
-		console.debug("Attempting to launch llama-server...");
-		await invoke("launch_llama_server");
-		console.debug("llama-server launch invoked successfully.");
-	} catch (error) {
-		console.warn("llama-server launch skipped:", error);
-	}
-}); */
-
 async function handlePasteUrl(url: string) {
 	const validUrl = extractValidUrl(url);
 	if (!validUrl || processingUrl) return;
@@ -103,32 +81,6 @@ onMount(() => {
 		await loadProfiles();
 		queryClient.invalidateQueries({ queryKey: ["articles"] });
 	})();
-
-	const pollClipboard = async () => {
-		if (!viewState.clipboardPollingEnabled || processingUrl) return;
-
-		try {
-			const clipboardText = await invoke<string>("read_clipboard_text");
-			const validUrl = extractValidUrl(clipboardText ?? "");
-
-			if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
-				return;
-			}
-
-			await handlePasteUrl(validUrl);
-		} catch {
-			viewState.clipboardPollingEnabled = false;
-		}
-	};
-
-	void pollClipboard();
-	const clipboardInterval = setInterval(() => {
-		void pollClipboard();
-	}, CLIPBOARD_POLL_INTERVAL_MS);
-
-	return () => {
-		clearInterval(clipboardInterval);
-	};
 });
 </script>
 
@@ -161,7 +113,6 @@ onMount(() => {
 			<CategoryWidget
 				categoryId={profile.id}
 				name={profile.name}
-				showTitle
 				onDeleted={handleProfileDeleted}
 			/>
     {/each}

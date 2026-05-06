@@ -122,7 +122,7 @@ function handleDeleteProfile() {
   .category-widget {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    width: max-content;
     align-items: center;
     box-sizing: border-box;
   }
@@ -186,7 +186,7 @@ function handleDeleteProfile() {
     gap: 1rem;
     justify-content: center;
     width: 100%;
-    padding: 12px;
+    padding: 5px;
   }
 
   .img-button {

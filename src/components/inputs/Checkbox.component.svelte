@@ -1,12 +1,21 @@
 <script lang="ts">
+import Label from "./Label.component.svelte";
+
 type Props = {
 	id: string;
-	label: string;
+	label?: string;
+	labelPosition?: "top" | "inline";
 	checked: boolean;
 	onChange?: (v: boolean) => void;
 };
 
-let { id, label, checked, onChange }: Props = $props();
+let {
+	id,
+	label,
+	labelPosition = "inline",
+	checked,
+	onChange,
+}: Props = $props();
 
 function onInput(e: Event) {
 	const target = e.target as HTMLInputElement;
@@ -15,21 +24,38 @@ function onInput(e: Event) {
 }
 </script>
 
-<div class="control-group">
-	<label for={id}>
-		<span>{label}</span>
+{#if label}
+	{#if labelPosition === "inline"}
+		<div class="control-group inline">
+			<label for={id}>{label}</label>
+			<input {id} type="checkbox" {checked} oninput={onInput} />
+		</div>
+	{:else}
+		<Label text={label} htmlFor={id} position={labelPosition}>
+			<input {id} type="checkbox" {checked} oninput={onInput} />
+		</Label>
+	{/if}
+{:else}
+	<div class="control-group" class:inline={labelPosition === "inline"}>
 		<input {id} type="checkbox" {checked} oninput={onInput} />
-	</label>
-</div>
+	</div>
+{/if}
 
 <style>
 	.control-group {
+		padding: 10px 0px;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 	}
 
-	label {
+	.control-group.inline {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.control-group label {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -42,7 +68,9 @@ function onInput(e: Event) {
 		cursor: pointer;
 	}
 
-	label span {
+	.control-group.inline label {
+		background: transparent;
+		padding: 0;
 		font-weight: bold;
 		color: var(--primary-color, #000);
 	}
@@ -58,6 +86,7 @@ function onInput(e: Event) {
 		cursor: pointer;
 		position: relative;
 		transition: all 150ms ease;
+		flex-shrink: 0;
 	}
 
 	input[type="checkbox"]:hover {
@@ -80,13 +109,5 @@ function onInput(e: Event) {
 		border: solid white;
 		border-width: 0 2px 2px 0;
 		transform: rotate(45deg);
-	}
-
-	input[type="checkbox"]::-webkit-slider-thumb {
-		appearance: none;
-		width: 18px;
-		height: 18px;
-		border-radius: 4px;
-		cursor: pointer;
 	}
 </style>

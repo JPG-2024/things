@@ -1,7 +1,10 @@
 <script lang="ts">
+import Label from "./Label.component.svelte";
+
 type Props = {
 	id: string;
-	label: string;
+	label?: string;
+	labelPosition?: "top" | "inline";
 	value: number;
 	min: number;
 	max: number;
@@ -13,6 +16,7 @@ type Props = {
 let {
 	id,
 	label,
+	labelPosition = "top",
 	value,
 	min,
 	max,
@@ -31,11 +35,21 @@ function onInput(e: Event) {
 }
 </script>
 
-<div class="control-group">
-	<label for={id}>
-		{label}
-		<span>{displayValue}</span>
-	</label>
+{#if label}
+	<Label text={label} htmlFor={id} position={labelPosition} value={displayValue}>
+		<div class="range-wrapper">
+			<input
+				{id}
+				type="range"
+				{min}
+				{max}
+				{step}
+				{value}
+				oninput={onInput}
+			/>
+		</div>
+	</Label>
+{:else}
 	<div class="range-wrapper">
 		<input
 			{id}
@@ -47,31 +61,13 @@ function onInput(e: Event) {
 			oninput={onInput}
 		/>
 	</div>
-</div>
+{/if}
 
 <style>
-	.control-group {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	label {
-		display: flex;
-		justify-content: space-between;
-		font-size: 0.9rem;
-		color: inherit;
-	}
-
-	label span {
-		font-weight: bold;
-		color: var(--primary-color, #000);
-	}
-
 	.range-wrapper {
 		position: relative;
 		width: 100%;
-		padding: 8px 12px;
+		padding-bottom: 10px;
 		border-radius: 8px;
 		background-color: rgba(255, 255, 255, 0.02);
 		backdrop-filter: blur(4px);

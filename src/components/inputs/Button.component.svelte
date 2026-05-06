@@ -21,23 +21,27 @@ function handleClick() {
 
 <style>
   .btn {
+    width: 100%;
     transition: all 0.2s ease;
     cursor: pointer;
     box-sizing: border-box;
     outline: none;
-    box-shadow: inset 0 2px 5px var(--primary-color);
-    border: none;
-    border-radius: 20px;
+    box-shadow: inset 0 0px 5px var(--primary-color);
+    border: 2px solid var(--primary-color);
+    border-radius: 15px;
     background: rgba(154, 154, 154, 0.1);
+    background: var(--primary-color);
     padding: 0.5rem 4rem;
-    color: inherit;
-    font-weight: 500;
-    font-size: inherit;
+    color: black;
+    font-weight: bold;
+    font-size: 1.2rem;
+    opacity: 0.8;
   }
 
   .btn:hover:not(:disabled) {
     box-shadow: 0 0 0 1px rgba(154, 154, 154, 0.4);
     background: rgba(154, 154, 154, 0.3);
+    color: var(--primary-color);
   }
 
   .btn:active:not(:disabled) {

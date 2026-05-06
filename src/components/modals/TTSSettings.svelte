@@ -9,6 +9,7 @@ import Input from "../inputs/Input.component.svelte";
 import LoadingLine from "@/components/LoadingLine.svelte";
 import RangeSelector from "../inputs/RangeSelector.svelte";
 import Checkbox from "../inputs/Checkbox.component.svelte";
+import Spacer from "@/components/Spacer.component.svelte";
 
 let voices = $state<Voice[]>([]);
 let voicesLoading = $state(false);
@@ -25,7 +26,6 @@ async function loadVoices() {
 	voicesError = "";
 	try {
 		voices = await fetchVoices();
-		// Try to pre-select the voice that matches current config
 		const match = voices.find(
 			(v) => v.audio_file === ttsState.config.refAudioFilename
 		);
@@ -70,22 +70,11 @@ async function handleAddVoice() {
 		<p class="error">{voicesError}</p>
 	{/if}
 
-	<div class="control-group">
-		<label for="voice">Voice</label>
-		{#if voicesLoading}
-			<p class="loading">Loading voices...</p>
-		{:else}
-			<Dropdown
-				id="voice"
-				options={voiceOptions}
-				bind:value={selectedVoiceValue}
-				onChange={handleVoiceChange}
-				placeholder="Select a voice..."
-			/>
-		{/if}
-	</div>
+	{#if voicesLoading}
+		<p class="loading">Loading voices...</p>
+	{/if}
 
-	<div class="control-group">
+	<Spacer title="Synthetize params" defaultOpen={false}>
 		<RangeSelector
 			id="numStep"
 			label="Num Steps"
@@ -94,10 +83,9 @@ async function handleAddVoice() {
 			max={64}
 			step={1}
 			format={(v) => v.toString()}
+			onChange={(v) => (ttsState.config.numStep = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="guidanceScale"
 			label="Guidance Scale"
@@ -106,10 +94,9 @@ async function handleAddVoice() {
 			max={10}
 			step={0.1}
 			format={(v) => v.toFixed(1)}
+			onChange={(v) => (ttsState.config.guidanceScale = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="speed"
 			label="Speed"
@@ -118,10 +105,9 @@ async function handleAddVoice() {
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.speed = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="tShift"
 			label="T Shift"
@@ -130,10 +116,9 @@ async function handleAddVoice() {
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.tShift = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="positionTemperature"
 			label="Position Temperature"
@@ -142,10 +127,9 @@ async function handleAddVoice() {
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.positionTemperature = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="classTemperature"
 			label="Class Temperature"
@@ -154,10 +138,9 @@ async function handleAddVoice() {
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.classTemperature = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="layerPenaltyFactor"
 			label="Layer Penalty Factor"
@@ -166,10 +149,9 @@ async function handleAddVoice() {
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.layerPenaltyFactor = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="duration"
 			label="Duration"
@@ -178,10 +160,9 @@ async function handleAddVoice() {
 			max={60}
 			step={1}
 			format={(v) => `${v.toFixed(0)}s`}
+			onChange={(v) => (ttsState.config.duration = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="audioChunkDuration"
 			label="Audio Chunk Duration"
@@ -190,10 +171,9 @@ async function handleAddVoice() {
 			max={30}
 			step={0.5}
 			format={(v) => `${v.toFixed(1)}s`}
+			onChange={(v) => (ttsState.config.audioChunkDuration = v)}
 		/>
-	</div>
 
-	<div class="control-group">
 		<RangeSelector
 			id="audioChunkThreshold"
 			label="Audio Chunk Threshold"
@@ -202,58 +182,80 @@ async function handleAddVoice() {
 			max={5}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
+			onChange={(v) => (ttsState.config.audioChunkThreshold = v)}
 		/>
-	</div>
 
-	<div class="control-group">
-		<Checkbox id="denoise" label="Denoise" checked={ttsState.config.denoise} />
-	</div>
+		<Checkbox id="denoise" label="Denoise" checked={ttsState.config.denoise} onChange={(v) => (ttsState.config.denoise = v)} />
 
-	<div class="control-group">
-		<Checkbox id="preprocessPrompt" label="Preprocess Prompt" checked={ttsState.config.preprocessPrompt} />
-	</div>
+		<Checkbox
+			id="preprocessPrompt"
+			label="Preprocess Prompt"
+			checked={ttsState.config.preprocessPrompt}
+			onChange={(v) => (ttsState.config.preprocessPrompt = v)}
+		/>
 
-	<div class="control-group">
-		<Checkbox id="postprocessOutput" label="Postprocess Output" checked={ttsState.config.postprocessOutput} />
-	</div>
+		<Checkbox
+			id="postprocessOutput"
+			label="Postprocess Output"
+			checked={ttsState.config.postprocessOutput}
+			onChange={(v) => (ttsState.config.postprocessOutput = v)}
+		/>
+	</Spacer>
 
-	<hr />
+	<Spacer size={25} />
 
-	<h2>Add Voice from Video</h2>
+	<Spacer title="Voices">
+		<Dropdown
+			id="voice"
+			label="Voice"
+			options={voiceOptions}
+			bind:value={selectedVoiceValue}
+			onChange={handleVoiceChange}
+			placeholder="Select a voice..."
+		/>
 
-	<div class="control-group">
-		<label for="videoUrl">Video URL</label>
-		<Input id="videoUrl" bind:value={ttsState.videoUrl} placeholder="https://..." />
-	</div>
+		<Input
+			id="videoUrl"
+			label="Video URL"
+			bind:value={ttsState.videoUrl}
+			placeholder="https://..."
+		/>
 
-	<div class="control-group">
-		<label for="segment">Segment</label>
-		<Input id="segment" bind:value={ttsState.segment} />
-	</div>
+		<div class="inline-grid">
+			<Input id="segment" label="Segment" bind:value={ttsState.segment} />
+			<Input id="namePrefix" label="Name Prefix" bind:value={ttsState.namePrefix} />
+			<Input
+				id="chunkCount"
+				label="Chunk Count"
+				type="number"
+				min="1"
+				bind:value={ttsState.chunkCount}
+			/>
+		</div>
 
-	<div class="control-group">
-		<label for="namePrefix">Name Prefix</label>
-		<Input id="namePrefix" bind:value={ttsState.namePrefix} />
-	</div>
+		<Spacer size={25} />
 
-	<div class="control-group">
-		<label for="chunkCount">Chunk Count</label>
-		<Input id="chunkCount" type="number" min="1" bind:value={ttsState.chunkCount} />
-	</div>
+		<Button
+			label={ttsState.addVoiceLoading ? "Processing..." : "Add Voice"}
+			disabled={ttsState.addVoiceLoading}
+			onClick={handleAddVoice}
+		/>
 
-	<Button
-		label={ttsState.addVoiceLoading ? "Processing..." : "Add Voice"}
-		disabled={ttsState.addVoiceLoading}
-		onClick={handleAddVoice}
-	/>
-	<LoadingLine loading={ttsState.addVoiceLoading} />
+		<Spacer size={25} />
 
-	{#if ttsState.addVoiceStatus}
-		<p class="status" class:error={ttsState.addVoiceStatus === "error"} class:done={ttsState.addVoiceStatus === "done"}>
-			{ttsState.addVoiceStatus === "done" ? "✓ " : ""}{ttsState.addVoiceMessage || ttsState.addVoiceStatus}
-		</p>
-	{/if}
+		<LoadingLine loading={ttsState.addVoiceLoading} />
 
+		{#if ttsState.addVoiceStatus}
+			<p
+				class="status"
+				class:error={ttsState.addVoiceStatus === "error"}
+				class:done={ttsState.addVoiceStatus === "done"}
+			>
+				{ttsState.addVoiceStatus === "done" ? "✓ " : ""}{ttsState.addVoiceMessage ||
+					ttsState.addVoiceStatus}
+			</p>
+		{/if}
+	</Spacer>
 </div>
 
 <style>
@@ -273,51 +275,9 @@ async function handleAddVoice() {
 		color: var(--primary-color, #000);
 	}
 
-	.control-group {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.control-group.checkbox {
-		flex-direction: row;
-		align-items: center;
-	}
-
-	label {
-		display: flex;
-		justify-content: space-between;
-		font-size: 0.9rem;
-		color: inherit;
-	}
-
-
-	input[type='number'] {
-		width: 100%;
-		padding: 0.5rem;
-		border: 1px solid var(--primary-color, #ccc);
-		border-radius: 4px;
-		font-size: 0.9rem;
-	}
-
-	input[type='checkbox'] {
-		margin-right: 0.5rem;
-		cursor: pointer;
-	}
-
-	.error {
-		margin: 0;
-		color: #ff7b72;
-		font-size: 0.85rem;
-	}
-
-	.done {
-		color: #7dff7d;
-	}
-
-	.loading {
-		margin: 0;
-		font-size: 0.85rem;
-		opacity: 0.7;
+	.inline-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 1rem;
 	}
 </style>

@@ -42,15 +42,15 @@ let {
     max-width: 100%;
     max-height: 100%;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.09);
     backdrop-filter: blur(20px);
-    border-radius: 30px;
-    padding: 15px;
+    border-radius: 12px;
+    padding: 7px;
     overflow: hidden;
   }
 
   .widget-title {
-    padding: 12px;
+    padding: 5px;
     
     line-height: 1;
     font-size: 1rem;

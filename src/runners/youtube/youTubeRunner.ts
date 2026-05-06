@@ -15,7 +15,7 @@ const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.SUMMARY,
-	TaskNames.MAIN_COLOR,
+	//TaskNames.MAIN_COLOR,
 	//TaskNames.KEYWORDS,
 	//TaskNames.KEYPOINTS,
 	//TaskNames.CHAPTERS_SUMMARY,
