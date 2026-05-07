@@ -118,7 +118,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 						},
 					],
 					attempts: 5,
-					intervalMs: 5000,
+					intervalMs: 500,
 				}
 			);
 

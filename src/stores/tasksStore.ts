@@ -566,7 +566,6 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
 
-		console.log("Queried articles from database:", result);
 		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
 		console.error("Error querying LanceDB articles", error);
