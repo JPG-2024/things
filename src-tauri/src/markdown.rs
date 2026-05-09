@@ -142,26 +142,59 @@ pub async fn extract_blog(
     app: AppHandle,
     url: String,
     selectors: Vec<String>,
+    keep_page_open: Option<bool>,
 ) -> Result<BlogContent, String> {
-    // Obtener documento una sola vez
-    let (html, document) = crate::browser::get_document(app.clone(), url).await?;
+    let page = crate::browser::get_ready_page()
+        .await
+        .map_err(|e| e.to_string())?;
 
-    // Extraer metadatos
-    let metadata = extract_metadata_from_document(&app, &document)?;
-
-    // Emitir evento de progreso
     app.emit(
         "flow-status",
-        json!({"key": "metadata", "status": "done", "data": metadata.clone()}),
+        json!({"key": "page", "status": "Loading Page", "data": null}),
     )
-    .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+    .map_err(|e| e.to_string())?;
 
-    // Extraer markdown
-    let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
+    page.goto(&url).await.map_err(|e| e.to_string())?;
+    page.wait_for_navigation()
+        .await
+        .map_err(|e| e.to_string())?;
 
-    println!("<< ✅ Blog extraído completamente >>");
+    let html: String = page.content().await.map_err(|e| e.to_string())?;
 
-    println!("Metadatos extraídos: {} elementos", markdown);
+    println!("✅ Página cargada: {}", url);
 
-    Ok(BlogContent { metadata, markdown })
+    app.emit(
+        "flow-status",
+        json!({"key": "page", "status": "done", "data": null}),
+    )
+    .map_err(|e| e.to_string())?;
+
+    let result = {
+        let document = Html::parse_document(&html);
+
+        // Extraer metadatos
+        let metadata = extract_metadata_from_document(&app, &document)?;
+
+        // Emitir evento de progreso
+        app.emit(
+            "flow-status",
+            json!({"key": "metadata", "status": "done", "data": metadata.clone()}),
+        )
+        .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
+
+        // Extraer markdown
+        let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
+
+        println!("<< ✅ Blog extraído completamente >>");
+
+        println!("Metadatos extraídos: {} elementos", markdown);
+
+        BlogContent { metadata, markdown }
+    };
+
+    if !keep_page_open.unwrap_or(false) {
+        crate::browser::close_ready_page(page).await;
+    }
+
+    Ok(result)
 }

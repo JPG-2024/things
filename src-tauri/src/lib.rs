@@ -1,5 +1,5 @@
 mod browser;
-pub use crate::browser::init_browser;
+pub use crate::browser::{get_browser_profile, init_browser};
 
 /* mod inference_openrouter;
 pub use crate::inference_openrouter::inference; */
@@ -116,6 +116,8 @@ pub fn run() {
             launch_llama_server,
             split_text_command,
             read_clipboard_text,
+            init_browser,
+            get_browser_profile,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -28,12 +28,14 @@ struct BrowserState {
     page_semaphore: Arc<Semaphore>,
     user_data_dir: String,
     idle_generation: u64,
+    cleanup_on_exit: bool,
 }
 
 #[derive(Clone)]
 struct BrowserContext {
     browser: Arc<Mutex<Browser>>,
     page_semaphore: Arc<Semaphore>,
+    user_data_dir: String,
 }
 
 pub struct ReadyPage {
@@ -77,15 +79,47 @@ fn load_browser_config() -> Result<Vec<String>> {
     Ok(args)
 }
 */
-fn build_user_data_dir() -> String {
-    format!(
-        "/tmp/chromium-profile-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_millis())
-            .unwrap_or_default()
-    )
+fn resolve_user_data_dir() -> Result<(String, bool), String> {
+    if let Ok(custom_dir) = std::env::var("BROWSER_USER_DATA_DIR") {
+        let path = std::path::Path::new(&custom_dir);
+        if !path.exists() {
+            std::fs::create_dir_all(&custom_dir)
+                .map_err(|e| format!("Failed to create custom user data dir '{}': {}", custom_dir, e))?;
+        }
+        println!("📁 Using custom browser profile: {}", custom_dir);
+        Ok((custom_dir, false))
+    } else {
+        let temp_dir = format!(
+            "/tmp/chromium-profile-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_millis())
+                .unwrap_or_default()
+        );
+        std::fs::create_dir_all(&temp_dir)
+            .map_err(|e| format!("Failed to create temp user data dir: {}", e))?;
+        Ok((temp_dir, true))
+    }
+}
+
+fn check_profile_lock(user_data_dir: &str) {
+    let lock_files = ["SingletonLock", "lockfile", "SingletonCookie", "SingletonSocket"];
+    for lock_name in lock_files {
+        let lock_path = std::path::Path::new(user_data_dir).join(lock_name);
+        if lock_path.exists() {
+            if let Err(e) = std::fs::remove_file(&lock_path) {
+                if let Ok(content) = std::fs::read_to_string(&lock_path) {
+                    println!("⚠️  Browser profile lock detected: {} (content: {})", lock_path.display(), content.trim());
+                } else {
+                    println!("⚠️  Browser profile lock detected: {}", lock_path.display());
+                }
+                eprintln!("⚠️  Failed to remove stale lock: {}", e);
+            } else {
+                println!("🧹 Removed stale lock: {}", lock_path.display());
+            }
+        }
+    }
 }
 
 fn cleanup_user_data_dir(user_data_dir: &str) {
@@ -101,12 +135,23 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
     config = config.chrome_executable(&chrome_path);
     println!("🌐 Using browser: {}", chrome_path);
 
-    let user_data_dir = build_user_data_dir();
-    std::fs::create_dir_all(&user_data_dir)
-        .map_err(|e| format!("Failed to create user data dir: {}", e))?;
+    let headless = std::env::var("BROWSER_HEADLESS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(true);
+
+    if !headless {
+        config = config.with_head();
+    }
+    println!("🖥️  Browser mode: {}", if headless { "headless" } else { "visible" });
+
+    let (user_data_dir, cleanup_on_exit) = resolve_user_data_dir()?;
+    if !cleanup_on_exit {
+        check_profile_lock(&user_data_dir);
+    }
 
     config = config
-        .arg(format!("--user-data-dir={}", user_data_dir))
+        .user_data_dir(&user_data_dir)
+        .no_sandbox()
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--disable-sync");
@@ -140,6 +185,7 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
         page_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_PAGES)),
         user_data_dir,
         idle_generation: 0,
+        cleanup_on_exit,
     })
 }
 
@@ -161,14 +207,23 @@ async fn ensure_browser() -> Result<BrowserContext, String> {
     Ok(BrowserContext {
         browser: state.browser.clone(),
         page_semaphore: state.page_semaphore.clone(),
+        user_data_dir: state.user_data_dir.clone(),
     })
 }
 
 /// Inicializa el browser globalmente si aún no está inicializado
 #[tauri::command]
 pub async fn init_browser() -> Result<(), String> {
-    let _ = ensure_browser().await?;
+    let ctx = ensure_browser().await?;
+    println!("📂 Browser profile loaded: {}", ctx.user_data_dir);
     Ok(())
+}
+
+/// Retorna la ruta del perfil del navegador actualmente en uso
+#[tauri::command]
+pub async fn get_browser_profile() -> Result<String, String> {
+    let ctx = ensure_browser().await?;
+    Ok(ctx.user_data_dir)
 }
 
 pub async fn shutdown_browser() -> Result<(), String> {
@@ -183,7 +238,9 @@ pub async fn shutdown_browser() -> Result<(), String> {
         }
 
         state.handler_task.abort();
-        cleanup_user_data_dir(&state.user_data_dir);
+        if state.cleanup_on_exit {
+            cleanup_user_data_dir(&state.user_data_dir);
+        }
     }
 
     Ok(())
@@ -221,7 +278,9 @@ fn schedule_idle_browser_shutdown() {
             }
 
             state.handler_task.abort();
-            cleanup_user_data_dir(&state.user_data_dir);
+            if state.cleanup_on_exit {
+                cleanup_user_data_dir(&state.user_data_dir);
+            }
             println!("🧹 Browser cerrado por inactividad");
         }
     });

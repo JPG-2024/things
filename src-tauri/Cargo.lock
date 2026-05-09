@@ -3405,6 +3405,7 @@ dependencies = [
  "color_quant",
  "jpeg-decoder",
  "num-traits",
+ "png 0.17.16",
 ]
 
 [[package]]
