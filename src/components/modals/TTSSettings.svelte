@@ -91,7 +91,7 @@ async function handleAddVoice() {
 		<p class="loading">Loading voices...</p>
 	{/if}
 
-	<Spacer title="Synthetize params" defaultOpen={false}>
+	<Spacer title="Synthetize params" defaultOpen>
 		<RangeSelector
 			id="numStep"
 			label="Num Steps"
@@ -221,7 +221,7 @@ async function handleAddVoice() {
 
 	<Spacer size={25} />
 
-	<Spacer title="Voices">
+	<Spacer title="Voices" defaultOpen>
 		<div class="voice-selector">
 			<Dropdown
 				label="Voice"

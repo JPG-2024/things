@@ -142,9 +142,11 @@ function handleDeleteProfile() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.rem;
     width: 100%;
-    padding-inline: 20px;
+    padding-inline: 10px;
+    font-size: 0.5rem;
+    color:rgba(255, 255, 255, 0.068)
   }
 
   .actions {

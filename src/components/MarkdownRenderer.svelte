@@ -45,7 +45,7 @@ function preprocessContent(text: string): string {
 
 {#if content}
   <!-- apply computed font size -->
-  <div class="markdown-container" style="font-size: {fontSize}em;">
+  <div class="markdown-container" style="font-size: {fontSize}rem;">
     {@html md.render(preprocessContent(content))}
   </div>
 {/if}
@@ -59,7 +59,6 @@ function preprocessContent(text: string): string {
     text-align: left;
     word-wrap: break-word;
     font-size: 1em;
-    line-height: 1.6;
     overflow-wrap: break-word;
 
 
@@ -71,17 +70,17 @@ function preprocessContent(text: string): string {
   }
   /* Styles for thought process */
   .markdown-container :global(.thought-process) {
-    margin-bottom: em;
+    margin-bottom: 1rem;
     border: 1px solid #333;
     border-radius: 6px;
     background-color: #1a1a1a;
   }
 
   .markdown-container :global(.thought-process summary) {
-    padding: 0.5em 1em;
+    padding: 0.5rem 1rem;
     cursor: pointer;
     color: #888;
-    font-size: em;
+    font-size: 1rem;
     user-select: none;
   }
 
@@ -91,15 +90,11 @@ function preprocessContent(text: string): string {
   }
 
   .markdown-container :global(.thought-content) {
-    padding: 1em;
+    padding: 1rem;
     border-top: 1px solid #333;
     color: #aaa;
-    font-size: 0.85em;
+    font-size: 1rem;
     font-style: italic;
-  }
-
-  .markdown-container :global(h3) {
-    font-size: 1.1em;
   }
 
   .markdown-container :global(h1),
@@ -109,24 +104,13 @@ function preprocessContent(text: string): string {
   .markdown-container :global(h5),
   .markdown-container :global(h6) {
     font-weight: bold;
+    font-size: 1rem;
   }
 
-  .markdown-container :global(h1) {
-    font-size: 1.8em;
-  }
-
-  .markdown-container :global(h2) {
-    font-size: 1.5em;
-  }
-
-  .markdown-container :global(h3) {
-    font-size: 1.3em;
-  }
-
-  .markdown-container :global(p) {
-    font-size: 1em;
-    margin: 0.8em 0;
-    line-height: 1.8;
+.markdown-container :global(p) {
+    font-size: 1rem;
+    margin: 0.8rem 0;
+    line-height: 1.9;
   }
 
   .markdown-container :global(code) {
@@ -134,7 +118,92 @@ function preprocessContent(text: string): string {
     
     padding: 2px 6px;
     color: #fafafa;
-    font-size: 1em;
+    font-size: 1rem;
+  }
+
+  .markdown-container :global(pre) {
+    margin: 1rem 0;
+    
+    border-radius: 8px;
+    
+    padding: 15px;
+    overflow-x: auto;
+  }
+
+  .markdown-container :global(pre code) {
+    border-radius: 0;
+    background-color: transparent;
+    padding: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .markdown-container :global(a) {
+    text-decoration: underline;
+  }
+
+  .markdown-container :global(ul),
+  .markdown-container :global(ol) {
+    margin: 1rem 0 1rem 2rem;
+    padding: 0;
+  }
+
+  .markdown-container :global(ul) {
+    margin-left: 1.714rem;
+  }
+
+  .markdown-container :global(li) {
+    margin: 0.5rem 0;
+  }
+
+  .markdown-container :global(blockquote) {
+    margin: 1rem 0;
+    padding-left: 1rem;
+    color: #d0d0d0;
+    font-style: italic;
+  }
+
+  .markdown-container :global(strong) {
+    font-weight: bold;
+    font-size: 1rem;
+    color: var(--primary-color);
+  }
+
+  .markdown-container :global(em) {
+    font-style: italic;
+  }
+
+  .markdown-container :global(img) {
+    margin: 1rem 0;
+    border-radius: 8px;
+    height: auto;
+  }
+
+  .markdown-container :global(table) {
+    margin: 1rem 0;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .markdown-container :global(th),
+  .markdown-container :global(td) {
+    border: 1px solid var(--primary-color);
+    padding: 0.714rem;
+    text-align: left;
+  }
+
+  .markdown-container :global(th) {
+    background-color: rgba(33, 207, 117, 0.1);
+    font-weight: bold;
+  }
+
+  .markdown-container :global(code) {
+    border-radius: 4px;
+    
+    padding: 2px 6px;
+    color: #fafafa;
+    font-size: 1rem;
   }
 
   .markdown-container :global(pre) {

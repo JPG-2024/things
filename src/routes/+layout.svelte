@@ -166,6 +166,9 @@ onMount(() => {
   *::before,
   *::after {
     box-sizing: border-box;
+    @view-transition {
+      navigation: auto;
+    }
   }
   
 

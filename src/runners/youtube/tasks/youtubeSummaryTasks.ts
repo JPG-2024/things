@@ -25,7 +25,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		type: "ia",
 		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone. maximum 60 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
-		userMessage: `Summarize the context clearly in a single paragraph, with a short conclusion. Answer in ${language === "es" ? "Spanish" : "English"}.`,
+		userMessage: `Summarize the context clearly in a single paragraph. no more than 100 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
 	}),
 
@@ -35,7 +35,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		dependencies: [TaskNames.CONTENT],
 		component: "taskBase",
 		type: "ia",
-		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Avoid words like summary, video, etc. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
+		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Avoid words like summary, video, context. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
 		userMessage: `Generate a short summary for this video. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
