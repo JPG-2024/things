@@ -6,6 +6,8 @@ use serde::Deserialize;
 use serde_json::json;
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
@@ -13,6 +15,7 @@ use tokio::time::{sleep, Duration};
 
 const MAX_CONCURRENT_PAGES: usize = 2;
 const IDLE_BROWSER_SHUTDOWN_DELAY_SECS: u64 = 5;
+pub const PAGE_OP_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Deserialize)]
 struct AntiDetectConfig {
@@ -21,6 +24,11 @@ struct AntiDetectConfig {
     platform: String,
     script: String,
 }
+
+static ANTI_DETECT_CONFIG: LazyLock<AntiDetectConfig> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../antidetect.json"))
+        .expect("Failed to load antidetect.json")
+});
 
 struct BrowserState {
     browser: Arc<Mutex<Browser>>,
@@ -58,12 +66,9 @@ impl ReadyPage {
 }
 
 pub static BROWSER_STATE: Mutex<Option<BrowserState>> = Mutex::const_new(None);
+static SHUTDOWN_PENDING: AtomicBool = AtomicBool::new(false);
 
-/// Carga la configuración de anti-detección desde el archivo JSON
-fn load_antidetect_config() -> Result<AntiDetectConfig> {
-    let config_str = include_str!("../antidetect.json");
-    serde_json::from_str(config_str).map_err(|e| anyhow::anyhow!("Error cargando config: {}", e))
-}
+// Anti-detect config se carga estáticamente en ANTI_DETECT_CONFIG (LazyLock)
 
 /// Carga la configuración del navegador desde el archivo JSON
 /*
@@ -190,6 +195,8 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
 }
 
 async fn ensure_browser() -> Result<BrowserContext, String> {
+    SHUTDOWN_PENDING.store(false, Ordering::Release);
+
     let mut state = BROWSER_STATE.lock().await;
 
     if state.is_none() {
@@ -247,6 +254,10 @@ pub async fn shutdown_browser() -> Result<(), String> {
 }
 
 fn schedule_idle_browser_shutdown() {
+    if SHUTDOWN_PENDING.swap(true, Ordering::AcqRel) {
+        return; // ya hay una tarea de shutdown pendiente
+    }
+
     tokio::spawn(async move {
         let generation = {
             let mut state = BROWSER_STATE.lock().await;
@@ -257,7 +268,10 @@ fn schedule_idle_browser_shutdown() {
                     state.idle_generation = state.idle_generation.wrapping_add(1);
                     state.idle_generation
                 }
-                _ => return,
+                _ => {
+                    SHUTDOWN_PENDING.store(false, Ordering::Release);
+                    return;
+                }
             }
         };
 
@@ -283,17 +297,19 @@ fn schedule_idle_browser_shutdown() {
             }
             println!("🧹 Browser cerrado por inactividad");
         }
+
+        SHUTDOWN_PENDING.store(false, Ordering::Release);
     });
 }
 
 /// Configura una página con anti-detección y user agent
 pub async fn configure_page(page: &chromiumoxide::Page) -> Result<()> {
-    let config = load_antidetect_config()?;
+    let config = &ANTI_DETECT_CONFIG;
     page.execute(
         chromiumoxide::cdp::browser_protocol::emulation::SetUserAgentOverrideParams {
-            user_agent: config.user_agent,
-            accept_language: Some(config.accept_language),
-            platform: Some(config.platform),
+            user_agent: config.user_agent.clone(),
+            accept_language: Some(config.accept_language.clone()),
+            platform: Some(config.platform.clone()),
             user_agent_metadata: None,
         },
     )
@@ -354,9 +370,8 @@ where
 	let page = get_ready_page()
 		.await
 		.map_err(|e| format!("Failed to get browser page: {}", e))?;
-	let page_handle = page.page.clone();
 
-	let result = work(page_handle.clone()).await;
+	let result = work(page.page.clone()).await;
 	close_ready_page(page).await;
 
 	result
@@ -370,12 +385,15 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
     ).map_err(|e| e.to_string())?;
 
     let html = with_ready_page(|page| async move {
-        page.goto(&url).await.map_err(|e| e.to_string())?;
-        page.wait_for_navigation()
+        tokio::time::timeout(PAGE_OP_TIMEOUT, page.goto(&url))
             .await
+            .map_err(|_| "Page navigation timed out".to_string())?
             .map_err(|e| e.to_string())?;
 
-        let html: String = page.content().await.map_err(|e| e.to_string())?;
+        let html: String = tokio::time::timeout(PAGE_OP_TIMEOUT, page.content())
+            .await
+            .map_err(|_| "Page content extraction timed out".to_string())?
+            .map_err(|e| e.to_string())?;
 
         println!("✅ Página cargada: {}", url);
 
