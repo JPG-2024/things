@@ -1,89 +1,103 @@
 <script lang="ts">
-import { onDestroy } from "svelte";
-import Icon from "./Icon.svelte";
-import { ttsState } from "@/stores/ttsStore.svelte";
-import { generateSpeech } from "@/lib/utils/ttsService";
+	import { onDestroy } from "svelte";
+	import Icon from "./Icon.svelte";
+	import { ttsState } from "@/stores/ttsStore.svelte";
+	import { generateSpeech } from "@/lib/utils/ttsService";
 
-type Props = {
-	id: string;
-	text: string;
-	autoplay?: boolean;
-	disabled?: boolean;
-	instruct?: string;
-};
+	type Props = {
+		id: string;
+		text: string;
+		autoplay?: boolean;
+		disabled?: boolean;
+		instruct?: string;
+	};
 
-let {
-	id,
-	text,
-	autoplay = false,
-	disabled = false,
-	instruct,
-}: Props = $props();
+	let {
+		id,
+		text,
+		autoplay = false,
+		disabled = false,
+		instruct,
+	}: Props = $props();
 
-let audioElement = $state<HTMLAudioElement | null>(null);
-let lastAutoplayInputKey = $state("");
+	let audioElement = $state<HTMLAudioElement | null>(null);
+	let lastAutoplayInputKey = $state("");
+	let isGenerating = $state(false);
 
-function getInputKey() {
-	return JSON.stringify([id, text]);
-}
-
-onDestroy(() => {
-	if (ttsState.audioSrc) {
-		URL.revokeObjectURL(ttsState.audioSrc);
-	}
-	if (ttsState.activeId === id) {
-		ttsState.activeId = null;
-	}
-});
-
-async function handlePlay() {
-	if (disabled || ttsState.isLoading) {
-		return;
+	function getInputKey() {
+		return JSON.stringify([id, text]);
 	}
 
-	ttsState.isLoading = true;
-	ttsState.errorMessage = "";
-	ttsState.activeId = id;
+	onDestroy(() => {
+		if (ttsState.audioSrc) {
+			URL.revokeObjectURL(ttsState.audioSrc);
+		}
+		if (ttsState.activeId === id) {
+			ttsState.activeId = null;
+		}
+	});
 
-	if (ttsState.audioSrc) {
-		URL.revokeObjectURL(ttsState.audioSrc);
-		ttsState.audioSrc = null;
+	async function handlePlay() {
+		if (disabled || ttsState.isLoading || isGenerating) {
+			return;
+		}
+
+		isGenerating = true;
+		ttsState.isLoading = true;
+		ttsState.errorMessage = "";
+		ttsState.activeId = id;
+
+		if (ttsState.audioSrc) {
+			URL.revokeObjectURL(ttsState.audioSrc);
+			ttsState.audioSrc = null;
+		}
+
+		try {
+			const res = await generateSpeech({
+				text,
+				instruct,
+				lang: ttsState.language,
+				ref_audio: ttsState.config.refAudioFilename,
+				ref_text: ttsState.config.refText,
+				num_step: ttsState.config.numStep,
+				denoise: ttsState.config.denoise,
+				guidance_scale: ttsState.config.guidanceScale,
+				t_shift: ttsState.config.tShift,
+				position_temperature: ttsState.config.positionTemperature,
+				class_temperature: ttsState.config.classTemperature,
+				layer_penalty_factor: ttsState.config.layerPenaltyFactor,
+				duration: ttsState.config.duration,
+				speed: ttsState.config.speed,
+				preprocess_prompt: ttsState.config.preprocessPrompt,
+				postprocess_output: ttsState.config.postprocessOutput,
+				audio_chunk_duration: ttsState.config.audioChunkDuration,
+				audio_chunk_threshold: ttsState.config.audioChunkThreshold,
+			});
+
+			ttsState.durationSeconds = res.durationSeconds;
+
+			if (res.blob.size === 0) {
+				throw new Error("Generated audio is empty (0 bytes)");
+			}
+
+			console.debug("[TTS] Generated blob:", {
+				size: res.blob.size,
+				type: res.blob.type,
+				duration: res.durationSeconds,
+			});
+
+			ttsState.audioSrc = URL.createObjectURL(res.blob);
+		} catch (generationError) {
+			ttsState.errorMessage =
+				generationError instanceof Error
+					? generationError.message
+					: "Failed to generate TTS audio";
+			console.error("[TTS] Generation error:", generationError);
+		} finally {
+			isGenerating = false;
+			ttsState.isLoading = false;
+		}
 	}
-
-	try {
-		const res = await generateSpeech({
-			text,
-			instruct,
-			lang: ttsState.language,
-			ref_audio: ttsState.config.refAudioFilename,
-			ref_text: ttsState.config.refText,
-			num_step: ttsState.config.numStep,
-			denoise: ttsState.config.denoise,
-			guidance_scale: ttsState.config.guidanceScale,
-			t_shift: ttsState.config.tShift,
-			position_temperature: ttsState.config.positionTemperature,
-			class_temperature: ttsState.config.classTemperature,
-			layer_penalty_factor: ttsState.config.layerPenaltyFactor,
-			duration: ttsState.config.duration,
-			speed: ttsState.config.speed,
-			preprocess_prompt: ttsState.config.preprocessPrompt,
-			postprocess_output: ttsState.config.postprocessOutput,
-			audio_chunk_duration: ttsState.config.audioChunkDuration,
-			audio_chunk_threshold: ttsState.config.audioChunkThreshold,
-		});
-
-		ttsState.durationSeconds = res.durationSeconds;
-		ttsState.audioSrc = URL.createObjectURL(res.blob);
-	} catch (playbackError) {
-		ttsState.errorMessage =
-			playbackError instanceof Error
-				? playbackError.message
-				: "Failed to generate TTS audio";
-		console.error("Error playing TTS:", playbackError);
-	} finally {
-		ttsState.isLoading = false;
-	}
-}
 
 function handleStop() {
 	if (!audioElement) return;
@@ -133,6 +147,8 @@ $effect(() => {
 	>
 		{#if ttsState.isLoading}
 			<Icon name="Loader" size={18} />
+		{:else if isGenerating}
+			<Icon name="Loader" size={18} />
 		{:else if ttsState.isPlaying}
 			<Icon name="Square" size={18} />
 		{:else}
@@ -149,7 +165,18 @@ $effect(() => {
 		onplay={() => { ttsState.isPlaying = true; }}
 		onpause={() => { ttsState.isPlaying = false; }}
 		onended={() => { ttsState.isPlaying = false; }}
-		onerror={() => { ttsState.errorMessage = "Playback error"; ttsState.isPlaying = false; }}
+		onerror={(e) => {
+			const target = e.target as HTMLAudioElement;
+			ttsState.errorMessage = `Playback error (${target.error?.code ?? "unknown"})`;
+			ttsState.isPlaying = false;
+			console.error("[TTS] Audio error:", target.error);
+		}}
+		onloadeddata={() => {
+			console.debug("[TTS] Audio loaded, duration:", audioElement?.duration);
+		}}
+		oncanplay={() => {
+			console.debug("[TTS] Audio can play");
+		}}
 		controls
 		class="audio-bar"
 		class:hidden={true}
@@ -158,6 +185,10 @@ $effect(() => {
 
 {#if ttsState.errorMessage}
 	<p class="error">{ttsState.errorMessage}</p>
+{/if}
+
+{#if isGenerating}
+	<p class="debug">Generating...</p>
 {/if}
 
 <style>
@@ -205,6 +236,12 @@ $effect(() => {
 	.error {
 		margin: 0.35rem 0 0;
 		color: #ff7b72;
+		font-size: 0.85rem;
+	}
+
+	.debug {
+		margin: 0.35rem 0 0;
+		color: #d2a8ff;
 		font-size: 0.85rem;
 	}
 </style>

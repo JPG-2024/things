@@ -9,7 +9,7 @@ import Input from "@/components/inputs/Input.component.svelte";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate } from "@/lib/utils/url";
 import {
-	getProfiles,
+	getProfilesWithArticlesAfter,
 	UNKNOWN_PROFILE_ID,
 	UNKNOWN_PROFILE_LABEL,
 	type ArticleProfile,
@@ -23,10 +23,13 @@ let processingUrl = $state(false);
 let profileCategories = $state<ArticleProfile[]>([]);
 
 async function loadProfiles() {
-	const profiles = await getProfiles();
-	console.log("Fetched profiles:", profiles);
+	const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+	const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
+
+	console.log(profiles)
+
 	profileCategories = profiles.length
-		? profiles
+		? profiles.map((p) => ({ id: p.id, name: p.name, count: 0 }))
 		: [
 				{
 					id: UNKNOWN_PROFILE_ID,
@@ -74,6 +77,18 @@ async function handlePasteUrl(url: string) {
 	}
 }
 
+function handleEnter(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) return;
+
+	const validUrl = extractValidUrl(trimmed);
+	if (validUrl) {
+		void handlePasteUrl(trimmed);
+	} else {
+		navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
+	}
+}
+
 const queryClient = useQueryClient();
 
 onMount(() => {
@@ -101,7 +116,7 @@ onMount(() => {
   </div> 
 
   <div class="inputs-container">
-    <Input onChange={(url) => handlePasteUrl(url)} placeholder="Paste URL here..." />
+    <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
     <!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
     <!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
@@ -183,6 +198,7 @@ onMount(() => {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+	margin-bottom: 2rem;
     width: 100%;
     max-width: 800px;
   }

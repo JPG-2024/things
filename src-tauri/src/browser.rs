@@ -7,14 +7,12 @@ use serde_json::json;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::LazyLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
-use tokio::time::{sleep, Duration};
+use tokio::time::Duration;
 
 const MAX_CONCURRENT_PAGES: usize = 2;
-const IDLE_BROWSER_SHUTDOWN_DELAY_SECS: u64 = 5;
 pub const PAGE_OP_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Deserialize)]
@@ -35,7 +33,6 @@ struct BrowserState {
     handler_task: JoinHandle<()>,
     page_semaphore: Arc<Semaphore>,
     user_data_dir: String,
-    idle_generation: u64,
     cleanup_on_exit: bool,
 }
 
@@ -66,7 +63,6 @@ impl ReadyPage {
 }
 
 pub static BROWSER_STATE: Mutex<Option<BrowserState>> = Mutex::const_new(None);
-static SHUTDOWN_PENDING: AtomicBool = AtomicBool::new(false);
 
 // Anti-detect config se carga estáticamente en ANTI_DETECT_CONFIG (LazyLock)
 
@@ -189,22 +185,15 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
         handler_task,
         page_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_PAGES)),
         user_data_dir,
-        idle_generation: 0,
         cleanup_on_exit,
     })
 }
 
 async fn ensure_browser() -> Result<BrowserContext, String> {
-    SHUTDOWN_PENDING.store(false, Ordering::Release);
-
     let mut state = BROWSER_STATE.lock().await;
 
     if state.is_none() {
         *state = Some(launch_browser_state().await?);
-    }
-
-    if let Some(state) = state.as_mut() {
-        state.idle_generation = state.idle_generation.wrapping_add(1);
     }
 
     let state = state
@@ -251,55 +240,6 @@ pub async fn shutdown_browser() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn schedule_idle_browser_shutdown() {
-    if SHUTDOWN_PENDING.swap(true, Ordering::AcqRel) {
-        return; // ya hay una tarea de shutdown pendiente
-    }
-
-    tokio::spawn(async move {
-        let generation = {
-            let mut state = BROWSER_STATE.lock().await;
-            match state.as_mut() {
-                Some(state)
-                    if state.page_semaphore.available_permits() == MAX_CONCURRENT_PAGES =>
-                {
-                    state.idle_generation = state.idle_generation.wrapping_add(1);
-                    state.idle_generation
-                }
-                _ => {
-                    SHUTDOWN_PENDING.store(false, Ordering::Release);
-                    return;
-                }
-            }
-        };
-
-        sleep(Duration::from_secs(IDLE_BROWSER_SHUTDOWN_DELAY_SECS)).await;
-
-        let state = {
-            let mut state = BROWSER_STATE.lock().await;
-            let should_take = state.as_ref().map_or(false, |s| {
-                s.idle_generation == generation
-                    && s.page_semaphore.available_permits() == MAX_CONCURRENT_PAGES
-            });
-            if should_take { state.take() } else { None }
-        };
-
-        if let Some(state) = state {
-            if let Err(error) = state.browser.lock().await.close().await {
-                eprintln!("Failed to close idle browser: {}", error);
-            }
-
-            state.handler_task.abort();
-            if state.cleanup_on_exit {
-                cleanup_user_data_dir(&state.user_data_dir);
-            }
-            println!("🧹 Browser cerrado por inactividad");
-        }
-
-        SHUTDOWN_PENDING.store(false, Ordering::Release);
-    });
 }
 
 /// Configura una página con anti-detección y user agent
@@ -359,7 +299,6 @@ pub async fn close_ready_page(page: ReadyPage) {
     let page_handle = page.page.clone();
     close_page(page_handle).await;
     drop(page);
-    schedule_idle_browser_shutdown();
 }
 
 pub async fn with_ready_page<T, F, Fut>(work: F) -> Result<T, String>

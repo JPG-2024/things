@@ -35,6 +35,7 @@ pub use crate::article_store::{
     delete_stored_article_profile,
     delete_stored_article_by_url,
     get_stored_article_by_url,
+    list_profiles_with_articles_after,
     list_stored_article_profiles,
     list_stored_articles_by_profile,
     list_stored_articles,
@@ -98,6 +99,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_stored_articles,
             list_stored_article_profiles,
+            list_profiles_with_articles_after,
             list_stored_articles_by_profile,
             get_stored_article_by_url,
             upsert_stored_article,
@@ -119,6 +121,14 @@ pub fn run() {
             init_browser,
             get_browser_profile,
         ])
+        .setup(|_app| {
+            tauri::async_runtime::spawn(async {
+                if let Err(error) = init_browser().await {
+                    eprintln!("Failed to initialize browser at startup: {}", error);
+                }
+            });
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

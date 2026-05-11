@@ -263,13 +263,10 @@ pub async fn get_page_elements(
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
     let result = crate::browser::with_ready_page(|page| async move {
-        page.goto(&url)
+        tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
             .await
+            .map_err(|_| "Page navigation timed out".to_string())?
             .map_err(|e| format!("Failed to navigate to page: {}", e))?;
-
-        page.wait_for_navigation()
-            .await
-            .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
         let mut result: HashMap<String, Value> = HashMap::new();
 

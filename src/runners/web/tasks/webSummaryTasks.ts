@@ -19,9 +19,9 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 			autoplayTTS: freshRun,
 		},
 		type: "ia",
-		systemMessage: `You are a professional article summarizer. Write a concise and clear summary in ${language === "es" ? "Spanish" : "English"}. Keep the response under 80 words and include a short conclusion sentence.`,
+		systemMessage: `You are a professional article summarizer. Write a concise and clear summary . Keep the response under 80 words.`,
 		run: getContentFromState,
-		userMessage: "Summarize the article context in one paragraph.",
+		userMessage: `Summarize the article context in one paragraph. start with a short keywords summary. Answer in in ${language === "es" ? "Spanish" : "English"}`,
 		completionOptions: defaultCompletionOptions,
 	}),
 

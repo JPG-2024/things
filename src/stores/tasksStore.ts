@@ -30,6 +30,7 @@ export interface ArticleWithTasks {
 	content?: string | null;
 	mediaDirectory?: string | null;
 	profile?: string | null;
+	profilePicture?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
 	persistedTasks?: PersistedTaskState[];
@@ -43,6 +44,7 @@ export interface ArticleProfile {
 	id: string;
 	name: string;
 	count: number;
+	picture?: string | null;
 }
 
 type SearchRowKind = "content_chunk" | "keyword_bundle";
@@ -63,6 +65,7 @@ type StoredArticleRecord = {
 	tasksJson: string | null;
 	updatedAt: number;
 	embeddingSourceText: string | null;
+	profilePicture: string | null;
 };
 
 type StoredArticleSearchRowInput = {
@@ -76,11 +79,19 @@ type StoredArticleProfileRecord = {
 	id: string;
 	name: string;
 	count: number;
+	profilePicture?: string | null;
 };
 
 type DeleteStoredArticleProfileResult = {
 	success: boolean;
 	deletedCount: number;
+};
+
+type ProfileWithMostRecentArticle = {
+	id: string;
+	name: string;
+	mostRecentCreatedAt: number;
+	profilePicture?: string;
 };
 
 type UpsertStoredArticleInput = {
@@ -91,6 +102,7 @@ type UpsertStoredArticleInput = {
 	directory: string | null;
 	mainColor: string | null;
 	profile: string | null;
+	profilePicture: string | null;
 	tasksJson: string;
 	embeddingSourceText: string | null;
 	searchRows: StoredArticleSearchRowInput[];
@@ -498,6 +510,13 @@ async function buildUpsertInput(params: {
 		getPageElementField(params.tasksToSave, "video-info", "profile"),
 		getArticleStringField(params.existingArticle, "profile")
 	);
+	const profilePicture = firstNormalizedString(
+		params.valuesToOverride?.profilePicture as string | undefined,
+		getPageElementField(params.tasksToSave, "video-info", "profilePicture")
+	);
+
+	print 
+
 	const searchRows = await buildSearchRows(content, keywords);
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
@@ -513,6 +532,7 @@ async function buildUpsertInput(params: {
 		directory,
 		mainColor,
 		profile,
+		profilePicture,
 		tasksJson: JSON.stringify(params.tasksToSave),
 		embeddingSourceText,
 		searchRows,
@@ -527,6 +547,7 @@ function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
 	return {
 		...row,
 		mainColor,
+		profilePicture: row.profilePicture,
 		persistedTasks: parsePersistedTaskStates(tasksJson),
 	};
 }
@@ -586,6 +607,22 @@ export async function getProfiles(): Promise<ArticleProfile[]> {
 	}
 }
 
+export async function getProfilesWithArticlesAfter(
+	createdAtFrom: number
+): Promise<ProfileWithMostRecentArticle[]> {
+	try {
+		const result = await invoke<ProfileWithMostRecentArticle[]>(
+			"list_profiles_with_articles_after",
+			{ createdAtFrom }
+		);
+
+		return result;
+	} catch (error) {
+		console.error("Error querying profiles with articles after date", error);
+		return [];
+	}
+}
+
 export async function getArticlesByProfile(
 	profileId: string,
 	options?: {
@@ -599,11 +636,6 @@ export async function getArticlesByProfile(
 			["id", "url", "title", "thumbnail"],
 			options?.createdAtFrom,
 			options?.limit
-		);
-
-		console.log(
-			`Queried articles for profile "${profileId}" from database:`,
-			result
 		);
 
 		return result.map((row) => mapStoredArticle(row));
@@ -646,6 +678,8 @@ export async function saveTasks<TMap extends TaskMapBase>(
 		existingArticle,
 		valuesToOverride,
 	});
+
+	console.log(">>>> Tasl tp save", tasksToSave)
 
 	await invoke("upsert_stored_article", { input });
 }

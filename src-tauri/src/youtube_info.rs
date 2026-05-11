@@ -30,13 +30,10 @@ async fn wait_retry_interval(interval_ms: u64) {
 }
 
 async fn prepare_page_for_url(page: &chromiumoxide::Page, url: &str) -> Result<(), String> {
-	page.goto(url)
+	tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(url))
 		.await
+		.map_err(|_| "Page navigation timed out".to_string())?
 		.map_err(|e| format!("Failed to navigate to page: {}", e))?;
-
-	page.wait_for_navigation()
-		.await
-		.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
 	Ok(())
 }

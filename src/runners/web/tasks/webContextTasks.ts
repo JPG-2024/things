@@ -26,7 +26,7 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 			}>("extract_blog", {
 				url,
 				selectors: ["body"],
-				keepPageOpen: true,
+				keepPageOpen: false,
 			});
 
 			return {

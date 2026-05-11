@@ -48,6 +48,7 @@ pub struct StoredArticleProfileRecord {
     pub id: String,
     pub name: String,
     pub count: i64,
+    pub profile_picture: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +56,15 @@ pub struct StoredArticleProfileRecord {
 pub struct DeleteStoredArticleProfileResult {
     pub success: bool,
     pub deleted_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileWithMostRecentArticle {
+    pub id: String,
+    pub name: String,
+    pub most_recent_created_at: i64,
+    pub profile_picture: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +86,7 @@ pub struct UpsertStoredArticleInput {
     pub directory: Option<String>,
     pub main_color: Option<String>,
     pub profile: Option<String>,
+    pub profile_picture: Option<String>,
     pub tasks_json: String,
     pub embedding_source_text: Option<String>,
     pub search_rows: Vec<StoredArticleSearchRowInput>,
@@ -168,6 +179,7 @@ fn article_profiles_schema() -> SchemaRef {
         Field::new("id", DataType::Utf8, false),
         Field::new("name", DataType::Utf8, false),
         Field::new("count", DataType::Int64, false),
+        Field::new("profile_picture", DataType::Utf8, true),
         Field::new("updated_at", DataType::Int64, false),
     ]))
 }
@@ -196,20 +208,28 @@ async fn open_or_create_table(
 async fn ensure_articles_table_schema(table: &Table) -> Result<(), String> {
     let schema = table.schema().await.map_err(|error| error.to_string())?;
 
-    if schema.field_with_name("created_at").is_ok() {
-        return Ok(());
-    }
+    let mut migrations: Vec<(String, NewColumnTransform)> = Vec::new();
 
-    table
-        .add_columns(
+    if schema.field_with_name("created_at").is_err() {
+        migrations.push((
+            "created_at".to_string(),
             NewColumnTransform::SqlExpressions(vec![(
                 "created_at".to_string(),
                 "updated_at".to_string(),
             )]),
-            Some(vec!["updated_at".to_string()]),
-        )
-        .await
-        .map_err(|error| error.to_string())?;
+        ));
+    }
+
+    if migrations.is_empty() {
+        return Ok(());
+    }
+
+    for (name, transform) in migrations {
+        table
+            .add_columns(transform, Some(vec![name.clone()]))
+            .await
+            .map_err(|error| error.to_string())?;
+    }
 
     Ok(())
 }
@@ -227,7 +247,37 @@ async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
 }
 
 async fn open_article_profiles_table(db: &Connection) -> Result<Table, String> {
-    open_or_create_table(db, ARTICLE_PROFILES_TABLE, article_profiles_schema()).await
+    let table = open_or_create_table(db, ARTICLE_PROFILES_TABLE, article_profiles_schema()).await?;
+    ensure_article_profiles_schema(&table).await?;
+    Ok(table)
+}
+
+async fn ensure_article_profiles_schema(table: &Table) -> Result<(), String> {
+    let schema = table.schema().await.map_err(|error| error.to_string())?;
+    let mut migrations: Vec<(String, NewColumnTransform)> = Vec::new();
+
+    if schema.field_with_name("profile_picture").is_err() {
+        migrations.push((
+            "profile_picture".to_string(),
+            NewColumnTransform::SqlExpressions(vec![(
+                "profile_picture".to_string(),
+                "NULL".to_string(),
+            )]),
+        ));
+    }
+
+    if migrations.is_empty() {
+        return Ok(());
+    }
+
+    for (name, transform) in migrations {
+        table
+            .add_columns(transform, Some(vec![name.clone()]))
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
 }
 
 async fn ensure_search_indices(table: &Table) -> Result<(), String> {
@@ -355,6 +405,10 @@ fn article_profiles_batch(profiles: &[StoredArticleProfileRecord]) -> Result<Rec
         .iter()
         .map(|profile| profile.count)
         .collect::<Vec<_>>();
+    let profile_pictures = profiles
+        .iter()
+        .map(|profile| profile.profile_picture.as_deref())
+        .collect::<Vec<_>>();
     let updated_ats = profiles
         .iter()
         .map(|_| updated_at)
@@ -366,6 +420,7 @@ fn article_profiles_batch(profiles: &[StoredArticleProfileRecord]) -> Result<Rec
             Arc::new(StringArray::from(ids)),
             Arc::new(StringArray::from(names)),
             Arc::new(Int64Array::from(counts)),
+            Arc::new(StringArray::from(profile_pictures)),
             Arc::new(Int64Array::from(updated_ats)),
         ],
     )
@@ -395,6 +450,10 @@ fn optional_string_column<'a>(
     let Some(column) = batch.column_by_name(name) else {
         return Ok(None);
     };
+
+    if column.data_type() == &DataType::Null {
+        return Ok(None);
+    }
 
     column
         .as_any()
@@ -496,8 +555,15 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
         let (id, name) = normalize_profile_bucket(record.profile.as_deref());
         aggregated
             .entry(id.clone())
-            .and_modify(|profile| profile.count += 1)
-            .or_insert(StoredArticleProfileRecord { id, name, count: 1 });
+            .and_modify(|profile| {
+                profile.count += 1;
+            })
+            .or_insert(StoredArticleProfileRecord {
+                id,
+                name,
+                count: 1,
+                profile_picture: None,
+            });
     }
 
     let mut profiles = aggregated.into_values().collect::<Vec<_>>();
@@ -690,12 +756,14 @@ async fn query_profiles(
         let ids = string_column(&batch, "id")?;
         let names = string_column(&batch, "name")?;
         let counts = int64_column(&batch, "count")?;
+        let profile_pictures = optional_string_column(&batch, "profile_picture")?;
 
         for row in 0..batch.num_rows() {
             profiles.push(StoredArticleProfileRecord {
                 id: ids.value(row).to_string(),
                 name: names.value(row).to_string(),
                 count: counts.value(row),
+                profile_picture: read_optional_string_from_column(profile_pictures, row),
             });
         }
     }
@@ -725,35 +793,42 @@ async fn upsert_profile_rows(
     Ok(())
 }
 
-async fn adjust_profile_count(
-    table: &Table,
-    profile_id: &str,
-    profile_name: &str,
-    delta: i64,
+async fn rebuild_profiles_from_articles(
+	articles_table: &Table,
+	profile_table: &Table,
+	profile_picture_input: Option<(String, String)>,
 ) -> Result<(), String> {
-    if delta == 0 {
-        return Ok(());
-    }
+	let existing_profiles = query_profiles(profile_table, None).await?;
+	let existing_pictures: HashMap<String, Option<String>> = existing_profiles
+		.into_iter()
+		.map(|p| (p.id, p.profile_picture))
+		.collect();
 
-    let filter = format!("id = {}", sql_string(profile_id));
-    let existing = query_profiles(table, Some(filter.clone())).await?;
-    let current_count = existing.first().map(|item| item.count).unwrap_or(0);
-    let next_count = current_count + delta;
+	let all_articles = query_articles(articles_table, None).await?;
+	let mut aggregated = aggregate_profiles(all_articles);
 
-    if next_count <= 0 {
-        table.delete(&filter).await.map_err(|error| error.to_string())?;
-        return Ok(());
-    }
+	for profile in &mut aggregated {
+		if profile.profile_picture.is_none() {
+			if let Some(existing_picture) = existing_pictures.get(&profile.id) {
+				profile.profile_picture = existing_picture.clone();
+			}
+		}
+	}
 
-    upsert_profile_rows(
-        table,
-        &[StoredArticleProfileRecord {
-            id: profile_id.to_string(),
-            name: profile_name.to_string(),
-            count: next_count,
-        }],
-    )
-    .await
+	if let Some((profile_id, picture)) = profile_picture_input {
+		if let Some(profile) = aggregated.iter_mut().find(|p| p.id == profile_id) {
+			profile.profile_picture = Some(picture);
+		} else {
+			aggregated.push(StoredArticleProfileRecord {
+				id: profile_id,
+				name: String::new(),
+				count: 0,
+				profile_picture: Some(picture),
+			});
+		}
+	}
+
+	upsert_profile_rows(profile_table, &aggregated).await
 }
 
 #[tauri::command]
@@ -821,6 +896,56 @@ pub async fn list_stored_articles_by_profile(
 }
 
 #[tauri::command]
+pub async fn list_profiles_with_articles_after(
+    app: AppHandle,
+    created_at_from: i64,
+) -> Result<Vec<ProfileWithMostRecentArticle>, String> {
+    let db = connection(&app).await?;
+    let table = open_articles_table(&db).await?;
+
+    let filter = format!("created_at >= {created_at_from}");
+    let records = query_articles(&table, Some(filter)).await?;
+
+    let mut profile_map: std::collections::HashMap<String, (String, i64)> =
+        std::collections::HashMap::new();
+
+    for record in records {
+        let (id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let most_recent = record.created_at;
+        profile_map
+            .entry(id.clone())
+            .and_modify(|(_, existing)| {
+                if most_recent > *existing {
+                    *existing = most_recent;
+                }
+            })
+            .or_insert((name, most_recent));
+    }
+
+    let profile_table = open_article_profiles_table(&db).await?;
+    let profile_pictures: std::collections::HashMap<String, Option<String>> =
+        query_profiles(&profile_table, None)
+            .await?
+            .into_iter()
+            .map(|profile| (profile.id, profile.profile_picture))
+            .collect();
+
+    let mut profiles: Vec<ProfileWithMostRecentArticle> = profile_map
+        .into_iter()
+        .map(|(id, (name, most_recent_created_at))| ProfileWithMostRecentArticle {
+            id: id.clone(),
+            name,
+            most_recent_created_at,
+            profile_picture: profile_pictures.get(&id).cloned().flatten(),
+        })
+        .collect();
+
+    profiles.sort_by(|a, b| b.most_recent_created_at.cmp(&a.most_recent_created_at));
+
+    Ok(profiles)
+}
+
+#[tauri::command]
 pub async fn get_stored_article_by_url(
     app: AppHandle,
     url: String,
@@ -882,13 +1007,9 @@ pub async fn upsert_stored_article(
     input.profile = normalize_optional_string(input.profile);
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
 
-    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
-    let previous_profile_bucket = previous_article
-        .as_ref()
-        .map(|article| normalize_profile_bucket(article.profile.as_deref()));
-    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
     let db = connection(&app).await?;
     let articles_table = open_articles_table(&db).await?;
+    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
     if previous_article.is_some() {
         update_article_row(&articles_table, &input).await?;
     } else {
@@ -896,43 +1017,9 @@ pub async fn upsert_stored_article(
 	}
 
     let profile_table = open_article_profiles_table(&db).await?;
-    match previous_profile_bucket {
-        Some((previous_id, previous_name)) => {
-            if previous_id != next_profile_bucket.0 {
-                adjust_profile_count(&profile_table, &previous_id, &previous_name, -1).await?;
-                adjust_profile_count(
-                    &profile_table,
-                    &next_profile_bucket.0,
-                    &next_profile_bucket.1,
-                    1,
-                )
-                .await?;
-            } else {
-                let filter = format!("id = {}", sql_string(&next_profile_bucket.0));
-                let existing = query_profiles(&profile_table, Some(filter)).await?;
-                if existing.is_empty() {
-                    upsert_profile_rows(
-                        &profile_table,
-                        &[StoredArticleProfileRecord {
-                            id: next_profile_bucket.0.clone(),
-                            name: next_profile_bucket.1.clone(),
-                            count: 1,
-                        }],
-                    )
-                    .await?;
-                }
-            }
-        }
-        None => {
-            adjust_profile_count(
-                &profile_table,
-                &next_profile_bucket.0,
-                &next_profile_bucket.1,
-                1,
-            )
-            .await?;
-        }
-    }
+    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
+    let profile_picture_input = input.profile_picture.clone().map(|picture| (next_profile_bucket.0, picture));
+    rebuild_profiles_from_articles(&articles_table, &profile_table, profile_picture_input).await?;
 
     let article_search_table = open_article_search_table(&db).await?;
     let article_uid = article_uid_from_url(&input.url);
@@ -988,8 +1075,7 @@ pub async fn delete_stored_article_by_url(
         .map_err(|error| error.to_string())?;
 
     let profile_table = open_article_profiles_table(&db).await?;
-    let (profile_id, profile_name) = normalize_profile_bucket(article.profile.as_deref());
-    adjust_profile_count(&profile_table, &profile_id, &profile_name, -1).await?;
+    rebuild_profiles_from_articles(&articles_table, &profile_table, None).await?;
 
     Ok(true)
 }

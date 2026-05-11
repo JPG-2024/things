@@ -154,12 +154,15 @@ pub async fn extract_blog(
     )
     .map_err(|e| e.to_string())?;
 
-    page.goto(&url).await.map_err(|e| e.to_string())?;
-    page.wait_for_navigation()
+    tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
         .await
+        .map_err(|_| "Page navigation timed out".to_string())?
         .map_err(|e| e.to_string())?;
 
-    let html: String = page.content().await.map_err(|e| e.to_string())?;
+    let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
+        .await
+        .map_err(|_| "Page content extraction timed out".to_string())?
+        .map_err(|e| e.to_string())?;
 
     println!("✅ Página cargada: {}", url);
 
@@ -169,7 +172,7 @@ pub async fn extract_blog(
     )
     .map_err(|e| e.to_string())?;
 
-    let result = {
+    let result: Result<BlogContent, String> = async {
         let document = Html::parse_document(&html);
 
         // Extraer metadatos
@@ -189,12 +192,13 @@ pub async fn extract_blog(
 
         println!("Metadatos extraídos: {} elementos", markdown);
 
-        BlogContent { metadata, markdown }
-    };
+        Ok(BlogContent { metadata, markdown })
+    }
+    .await;
 
     if !keep_page_open.unwrap_or(false) {
         crate::browser::close_ready_page(page).await;
     }
 
-    Ok(result)
+    result
 }

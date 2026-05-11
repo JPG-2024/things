@@ -6,6 +6,7 @@ import { navigate, toVTName } from "@/lib/utils/url";
 import {
 	deleteProfileById,
 	getArticlesByProfile,
+	getProfiles,
 	type ArticleWithTasks,
 } from "@/stores/tasksStore";
 import {
@@ -34,6 +35,13 @@ const query = createQuery({
 		}),
 	refetchOnWindowFocus: "always",
 });
+
+const profilesQuery = createQuery({
+	queryKey: ["profiles"],
+	queryFn: getProfiles,
+});
+
+const profile = $derived($profilesQuery.data?.find((p) => p.id === categoryId));
 
 function handleRefresh() {
 	$query.refetch();
@@ -96,6 +104,14 @@ function handleDeleteProfile() {
     {/if}
     {#if $query.data?.length}
       <div class="img-flex">
+        {#if profile?.picture}
+          <img
+            src={profile.picture}
+            alt={name}
+            class="profile-avatar"
+            style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
+          />
+        {/if}
         {#each $query.data as article (article.url)}
           <button
             type="button"
@@ -210,5 +226,14 @@ function handleDeleteProfile() {
     height: 55px;
     object-fit: cover;
     display: block;
+  }
+
+  .profile-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 100%;
+    object-fit: cover;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
   }
 </style>

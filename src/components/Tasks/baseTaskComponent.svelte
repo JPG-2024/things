@@ -89,6 +89,9 @@ const resolvedAutoplayTTS = $derived(
 	
 
 	.toolbar {
+		  display: flex;
+		  align-items: center;
+		  gap: 1rem;
 		  visibility: hidden;
 	}
 

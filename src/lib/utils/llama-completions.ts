@@ -411,7 +411,7 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
-	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8083";
+	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8080";
 	const url = joinUrl(baseUrl, "/v1/chat/completions");
 	const streamEnabled =
 		request.stream === true ||

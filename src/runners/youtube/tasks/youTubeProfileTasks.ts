@@ -113,7 +113,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 						},
 						{
 							name: "videoIds",
-							selector: "a#video-title-link",
+							selector: "a.ytLockupViewModelContentImage",
 							attribute: "href",
 						},
 					],

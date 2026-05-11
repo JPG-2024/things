@@ -31,8 +31,6 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 			stream: true,
 		});
 
-		console.log("All tasks completed:", runResult);
-
 		return runResult.tasks as unknown as Task[];
 	} catch (invokeErr) {
 		throw new Error(`Error: ${invokeErr}`);

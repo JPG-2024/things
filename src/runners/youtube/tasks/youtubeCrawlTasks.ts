@@ -36,11 +36,14 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 						selector: "div#info-strings yt-formatted-string",
 					},
 					{ name: "profile", selector: "#channel-name a", attribute: "href" },
+					{ name: "profilePicture", selector: "#img ", attribute: "src" },
 				],
 				attempts: 5,
 				intervalMs: 200,
 			});
 
+
+			console.log(">>>> CRAwl", videoInfo)
 			videoInfo.profile = videoInfo.profile.slice(1);
 
 			return videoInfo;

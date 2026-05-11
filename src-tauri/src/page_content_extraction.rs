@@ -31,13 +31,10 @@ pub async fn get_youtube_info(
 	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
 	let results = crate::browser::with_ready_page(|page| async move {
-		page.goto(&url)
+		tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
 			.await
+			.map_err(|_| "Page navigation timed out".to_string())?
 			.map_err(|e| format!("Failed to navigate to page: {}", e))?;
-
-		page.wait_for_navigation()
-			.await
-			.map_err(|e| format!("Failed to wait for navigation: {}", e))?;
 
 		let mut results: Vec<YoutubeInfoResult> = Vec::with_capacity(selectors.len());
 

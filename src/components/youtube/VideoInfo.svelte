@@ -40,7 +40,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
         <div class="info-row">
             <div class="pill">
                 <!-- <Icon name="User" /> -->
-                <p class="channel-name">{getDataContent("profile")?.slice(2, 50)}</p>
+                <p class="channel-name">{getDataContent("profile")}</p>
             </div>
             <div class="pill">
                 <Icon name="Eye" />

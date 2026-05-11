@@ -23,9 +23,9 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 			autoplayTTS: freshRun,
 		},
 		type: "ia",
-		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone. maximum 60 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
+		systemMessage: `You are a professional summarizer. Your task is to extract the main ideas from the provided text. Maintain a formal tone. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		run: getContentFromState,
-		userMessage: `Summarize the context clearly in a single paragraph. no more than 100 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
+		userMessage: `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
 		completionOptions: defaultCompletionOptions,
 	}),
 

@@ -63,15 +63,18 @@ pub async fn download_images(app: tauri::AppHandle, url: String) -> Result<Vec<S
         .await
         .map_err(|e| e.to_string())?;
 
-    page.goto(&url).await.map_err(|e| e.to_string())?;
-    page.wait_for_navigation()
+    tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
         .await
+        .map_err(|_| "Page navigation timed out".to_string())?
         .map_err(|e| e.to_string())?;
 
     app.emit("flow-status", "images - extracting image...")
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    let html: String = page.content().await.map_err(|e| e.to_string())?;
+    let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
+        .await
+        .map_err(|_| "Page content extraction timed out".to_string())?
+        .map_err(|e| e.to_string())?;
 
     // Extraer imagen del meta tag og:image:url o og:image
     let image_url = extract_og_image(&html).ok_or("❌ No se encontró og:image:url en la página")?;
