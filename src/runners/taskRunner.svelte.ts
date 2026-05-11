@@ -500,8 +500,6 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				: undefined
 		);
 
-		console.log("IA task response:", response);
-
 		const message = response.choices?.[0]?.message;
 		const text = collectAssistantText(message?.content ?? null);
 		this.setTaskFields(task.id, { data: text as TMap[keyof TMap & string] });

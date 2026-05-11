@@ -10,6 +10,7 @@ import {
 	TaskNames,
 	youtubeTaskRegistry,
 } from "@/runners/youtube/tasks/youtubeTasks";
+import { removeYTTimeParam } from "@/lib/utils/youtube/helpers";
 
 const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
@@ -39,6 +40,7 @@ type YouTubeRunnerOptions = {
 	Rebuild?: boolean;
 	stream?: boolean;
 	profile?: string;
+	profilePicture?: string
 };
 
 export async function youTubeRunner(
@@ -46,6 +48,7 @@ export async function youTubeRunner(
 	cachedArticle?: ArticleWithTasks | null,
 	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
+	url = removeYTTimeParam(url);
 	const runId = buildWorkflowRunId("youtube-video", url);
 	const freshRun =
 		options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
@@ -68,6 +71,6 @@ export async function youTubeRunner(
 		stream: options.stream,
 	});
 
-	await saveTasks(url, runResult.tasks, { profile: options.profile });
+	await saveTasks(url, runResult.tasks, { profile: options.profile, profilePicture: options.profilePicture });
 	return runResult.tasks as Task[];
 }

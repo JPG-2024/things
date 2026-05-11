@@ -2,7 +2,7 @@
 import { onMount } from "svelte";
 import { useQueryClient } from "@tanstack/svelte-query";
 
-import CategoryWidget from "@/components/CategoryWidget.svelte";
+import ProfileWidget from "@/components/ProfileWidget.svelte";
 import Icon from "@/components/Icon.svelte";
 import SettingsModal from "@/components/modals/SettingsModal.svelte";
 import Input from "@/components/inputs/Input.component.svelte";
@@ -29,7 +29,7 @@ async function loadProfiles() {
 	console.log(profiles)
 
 	profileCategories = profiles.length
-		? profiles.map((p) => ({ id: p.id, name: p.name, count: 0 }))
+		? profiles
 		: [
 				{
 					id: UNKNOWN_PROFILE_ID,
@@ -124,13 +124,13 @@ onMount(() => {
   </div>
 
   <div class="flex-squares">
-		{#each profileCategories as profile (profile.id)}
-			<CategoryWidget
-				categoryId={profile.id}
-				name={profile.name}
+{#each profileCategories as profile (profile.id)}
+			<ProfileWidget
+				{profile}
+				showTitle={false}
 				onDeleted={handleProfileDeleted}
 			/>
-    {/each}
+		{/each}
   </div>
 </div>
 

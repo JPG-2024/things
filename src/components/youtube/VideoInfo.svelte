@@ -34,7 +34,8 @@ let title = $derived(task?.data ? getDataContent("title") : null);
     <div class="video-info">
         <!-- <h3>{getDataContent("title")}</h3> -->
         <div class="title-container">
-            <StringReveal message={getDataContent("title") || ""} />
+            <!-- <StringReveal message={getDataContent("title") || ""} /> -->
+             <h3 class="title">{getDataContent("title") || ""}</h3>
         </div>
 
         <div class="info-row">
@@ -56,11 +57,12 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 
 
 <style>
-h3 {
+.title {
     color: var(--primary-color);
-    font-family: Noto Sans CJK SC Thin;
+    font-family: Oswald;
     font-size: 1.6rem;
     letter-spacing: 3px;
+    margin: 0;
 }
 
 .title-container {

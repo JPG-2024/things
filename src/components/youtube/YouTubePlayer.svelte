@@ -38,7 +38,6 @@ void componentProps;
         src={playerData.thumbnailImageSrc}
         alt="YouTube thumbnail"
         class="yt-thumbnail"
-        style={`view-transition-name: vt-main-image-${toVTName(playerData.videoId || '')}`}
       />
     </button>
 

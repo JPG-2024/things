@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
+
 use tauri::{AppHandle, Manager};
 
 const DB_FILE: &str = "notian.db";
@@ -14,9 +14,8 @@ pub const UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredArticleRecord {
-    pub id: i64,
+    pub id: String,
     pub url: Option<String>,
-    pub article_uid: String,
     pub created_at: i64,
     pub title: Option<String>,
     pub thumbnail: Option<String>,
@@ -92,17 +91,6 @@ fn normalize_optional_string(value: Option<String>) -> Option<String> {
     })
 }
 
-fn article_uid_from_url(url: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(url.as_bytes());
-    format!("{:x}", hasher.finalize())
-}
-
-fn article_numeric_id(article_uid: &str) -> i64 {
-    let prefix = &article_uid[..16.min(article_uid.len())];
-    i64::from_str_radix(prefix, 16).unwrap_or(i64::MAX)
-}
-
 fn database_path(app: &AppHandle) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
@@ -125,9 +113,8 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
 fn init_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS articles (
-            id INTEGER PRIMARY KEY,
+            id TEXT PRIMARY KEY,
             url TEXT NOT NULL,
-            article_uid TEXT NOT NULL UNIQUE,
             created_at INTEGER NOT NULL DEFAULT 0,
             title TEXT,
             thumbnail TEXT,
@@ -230,24 +217,22 @@ fn sort_articles_by_created_at_desc(records: &mut [StoredArticleRecord]) {
 }
 
 fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<StoredArticleRecord, rusqlite::Error> {
-    let id: i64 = row.get(0)?;
+    let id: String = row.get(0)?;
     let url: String = row.get(1)?;
-    let article_uid: String = row.get(2)?;
-    let created_at: i64 = row.get(3)?;
-    let title: Option<String> = row.get(4)?;
-    let thumbnail: Option<String> = row.get(5)?;
-    let content: Option<String> = row.get(6)?;
-    let media_directory: Option<String> = row.get(7)?;
-    let main_color: Option<String> = row.get(8)?;
-    let profile: Option<String> = row.get(9)?;
-    let tasks_json: String = row.get(10)?;
-    let embedding_source_text: Option<String> = row.get(11)?;
-    let updated_at: i64 = row.get(12)?;
+    let created_at: i64 = row.get(2)?;
+    let title: Option<String> = row.get(3)?;
+    let thumbnail: Option<String> = row.get(4)?;
+    let content: Option<String> = row.get(5)?;
+    let media_directory: Option<String> = row.get(6)?;
+    let main_color: Option<String> = row.get(7)?;
+    let profile: Option<String> = row.get(8)?;
+    let tasks_json: String = row.get(9)?;
+    let embedding_source_text: Option<String> = row.get(10)?;
+    let updated_at: i64 = row.get(11)?;
 
     Ok(StoredArticleRecord {
         id,
         url: Some(url),
-        article_uid,
         created_at,
         title,
         thumbnail,
@@ -269,7 +254,7 @@ fn query_articles(
     limit: Option<usize>,
 ) -> Result<Vec<StoredArticleRecord>, String> {
     let mut sql = String::from(
-        "SELECT id, url, article_uid, created_at, title, thumbnail, content, 
+        "SELECT id, url, created_at, title, thumbnail, content, 
                 media_directory, main_color, profile, tasks_json, embedding_source_text, updated_at 
          FROM articles"
     );
@@ -537,8 +522,6 @@ pub async fn upsert_stored_article(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let article_uid = article_uid_from_url(&input.url);
-    let id = article_numeric_id(&article_uid);
     let now = chrono_like_now();
 
     let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
@@ -566,14 +549,13 @@ pub async fn upsert_stored_article(
         .map_err(|error| error.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO articles (id, url, article_uid, created_at, title, thumbnail, content, 
+            "INSERT INTO articles (id, url, created_at, title, thumbnail, content, 
                                    media_directory, main_color, profile, tasks_json, 
                                    embedding_source_text, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                id,
                 input.url,
-                article_uid,
+                input.url,
                 now,
                 input.title,
                 input.thumbnail,

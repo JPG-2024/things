@@ -162,6 +162,14 @@ onMount(() => {
     font-family: 'CaskaydiaCove NFM Light', monospace;
   }
 
+  @font-face {
+    font-family: 'Oswald'; /* Give it any name you want */
+    src: url('static/Oswald-VariableFont_wght.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+
   *,
   *::before,
   *::after {

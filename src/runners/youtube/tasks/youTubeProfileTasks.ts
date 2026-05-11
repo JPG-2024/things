@@ -107,8 +107,8 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					selectors: [
 						{ name: "channelName", selector: "h1 > span" },
 						{
-							name: "channelPicSrc",
-							selector: "yt-avatar-shape img",
+							name: "profilePicture",
+							selector: "div#page-header img",
 							attribute: "src",
 						},
 						{
@@ -121,8 +121,6 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					intervalMs: 500,
 				}
 			);
-
-			console.log(profileInfo);
 
 			return profileInfo;
 		},
@@ -140,6 +138,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			);
 
 			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
+
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
 			const urlsToProcess = fullUrls.slice(0, 4).reverse(); // Process in reverse order to prioritize newer videos
@@ -159,14 +158,16 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					.map((article) => [article.url as string, article])
 			); */
 
+			
 			const results = [];
-
+			
 			for (const url of urlsToProcess) {
 				const row = await invoke("get_stored_article_by_url", { url });
-
+				
 				if (row) {
 					continue;
 				}
+
 
 				results.push(
 					await youTubeRunner(url, null, {
@@ -177,6 +178,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					})
 				);
 			}
+
 
 			return { fullUrls, results };
 		},

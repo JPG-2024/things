@@ -50,9 +50,8 @@ export interface ArticleProfile {
 type SearchRowKind = "content_chunk" | "keyword_bundle";
 
 type StoredArticleRecord = {
-	id: number;
+	id: string;
 	url: string | null;
-	articleUid: string;
 	createdAt: number;
 	title: string | null;
 	thumbnail: string | null;
@@ -589,7 +588,7 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 
 		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
-		console.error("Error querying LanceDB articles", error);
+		console.error("Error querying DB articles", error);
 		return [];
 	}
 }
@@ -670,18 +669,20 @@ export async function saveTasks<TMap extends TaskMapBase>(
 	tasks: Task<TMap>[],
 	valuesToOverride?: Partial<Record<string, unknown>> | undefined
 ): Promise<void> {
-	const existingArticle = await getArticleWithTasksByUrl(url);
-	const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
-	const input = await buildUpsertInput({
-		url,
-		tasksToSave,
-		existingArticle,
-		valuesToOverride,
-	});
+	try {
+		const existingArticle = await getArticleWithTasksByUrl(url);
+		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
+		const input = await buildUpsertInput({
+			url,
+			tasksToSave,
+			existingArticle,
+			valuesToOverride,
+		});
 
-	console.log(">>>> Tasl tp save", tasksToSave)
-
-	await invoke("upsert_stored_article", { input });
+		await invoke("upsert_stored_article", { input });
+	} catch (error) {
+		console.error("Error saving tasks:", error);
+	}
 }
 
 export async function deleteArticleByUrl(
