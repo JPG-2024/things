@@ -1,24 +1,13 @@
 use std::fs;
-use std::sync::Arc;
 use std::collections::HashMap;
 
-use arrow_array::{Array, Int32Array, Int64Array, RecordBatch, RecordBatchIterator, StringArray};
-use arrow_schema::{DataType, Field, Schema, SchemaRef};
-use futures_util::TryStreamExt;
-use lancedb::index::scalar::FtsIndexBuilder;
-use lancedb::index::Index;
-use lancedb::query::{ExecutableQuery, QueryBase};
-use lancedb::table::NewColumnTransform;
-use lancedb::{connect, Connection, Table};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
 
-const ARTICLES_TABLE: &str = "articles";
-const ARTICLE_SEARCH_TABLE: &str = "article_search";
-const ARTICLE_PROFILES_TABLE: &str = "article_profiles";
-const DB_DIRECTORY: &str = "lancedb";
+const DB_FILE: &str = "notian.db";
 pub const UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
@@ -114,317 +103,55 @@ fn article_numeric_id(article_uid: &str) -> i64 {
     i64::from_str_radix(prefix, 16).unwrap_or(i64::MAX)
 }
 
-fn sql_string(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
-}
-
-fn sql_optional_string(value: Option<&str>) -> String {
-    match value {
-        Some(value) => sql_string(value),
-        None => "NULL".to_string(),
-    }
-}
-
 fn database_path(app: &AppHandle) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
-
-    let db_dir = app_data_dir.join(DB_DIRECTORY);
-    fs::create_dir_all(&db_dir).map_err(|error| error.to_string())?;
-
-    Ok(db_dir.to_string_lossy().to_string())
+    Ok(app_data_dir.join(DB_FILE).to_string_lossy().to_string())
 }
 
-async fn connection(app: &AppHandle) -> Result<Connection, String> {
+fn get_db(app: &AppHandle) -> Result<Connection, String> {
     let path = database_path(app)?;
-    connect(&path)
-        .execute()
-        .await
-        .map_err(|error| error.to_string())
+    let conn = Connection::open(&path).map_err(|error| error.to_string())?;
+    
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA foreign_keys = ON;"
+    ).map_err(|error| error.to_string())?;
+    
+    Ok(conn)
 }
 
-fn articles_schema() -> SchemaRef {
-    Arc::new(Schema::new(vec![
-        Field::new("id", DataType::Int64, false),
-        Field::new("url", DataType::Utf8, false),
-        Field::new("article_uid", DataType::Utf8, false),
-        Field::new("created_at", DataType::Int64, false),
-        Field::new("title", DataType::Utf8, true),
-        Field::new("thumbnail", DataType::Utf8, true),
-        Field::new("content", DataType::Utf8, true),
-        Field::new("directory", DataType::Utf8, true),
-        Field::new("main_color", DataType::Utf8, true),
-        Field::new("profile", DataType::Utf8, true),
-        Field::new("tasks_json", DataType::Utf8, false),
-        Field::new("embedding_source_text", DataType::Utf8, true),
-        Field::new("updated_at", DataType::Int64, false),
-    ]))
-}
+fn init_schema(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS articles (
+            id INTEGER PRIMARY KEY,
+            url TEXT NOT NULL,
+            article_uid TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL DEFAULT 0,
+            title TEXT,
+            thumbnail TEXT,
+            content TEXT,
+            media_directory TEXT,
+            main_color TEXT,
+            profile TEXT,
+            tasks_json TEXT NOT NULL DEFAULT '[]',
+            embedding_source_text TEXT,
+            updated_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
+        CREATE INDEX IF NOT EXISTS idx_articles_profile ON articles(profile);
 
-fn article_search_schema() -> SchemaRef {
-    Arc::new(Schema::new(vec![
-        Field::new("row_id", DataType::Utf8, false),
-        Field::new("article_uid", DataType::Utf8, false),
-        Field::new("url", DataType::Utf8, false),
-        Field::new("kind", DataType::Utf8, false),
-        Field::new("ordinal", DataType::Int32, false),
-        Field::new("text", DataType::Utf8, false),
-        Field::new("title", DataType::Utf8, true),
-        Field::new("updated_at", DataType::Int64, false),
-    ]))
-}
-
-fn article_profiles_schema() -> SchemaRef {
-    Arc::new(Schema::new(vec![
-        Field::new("id", DataType::Utf8, false),
-        Field::new("name", DataType::Utf8, false),
-        Field::new("count", DataType::Int64, false),
-        Field::new("profile_picture", DataType::Utf8, true),
-        Field::new("updated_at", DataType::Int64, false),
-    ]))
-}
-
-async fn open_or_create_table(
-    db: &Connection,
-    table_name: &str,
-    schema: SchemaRef,
-) -> Result<Table, String> {
-    let table_names = db.table_names().execute().await.map_err(|error| error.to_string())?;
-
-    if table_names.iter().any(|name| name == table_name) {
-        return db
-            .open_table(table_name)
-            .execute()
-            .await
-            .map_err(|error| error.to_string());
-    }
-
-    db.create_empty_table(table_name, schema)
-        .execute()
-        .await
-        .map_err(|error| error.to_string())
-}
-
-async fn ensure_articles_table_schema(table: &Table) -> Result<(), String> {
-    let schema = table.schema().await.map_err(|error| error.to_string())?;
-
-    let mut migrations: Vec<(String, NewColumnTransform)> = Vec::new();
-
-    if schema.field_with_name("created_at").is_err() {
-        migrations.push((
-            "created_at".to_string(),
-            NewColumnTransform::SqlExpressions(vec![(
-                "created_at".to_string(),
-                "updated_at".to_string(),
-            )]),
-        ));
-    }
-
-    if migrations.is_empty() {
-        return Ok(());
-    }
-
-    for (name, transform) in migrations {
-        table
-            .add_columns(transform, Some(vec![name.clone()]))
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-
+        CREATE TABLE IF NOT EXISTS profiles (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            profile_picture TEXT,
+            updated_at INTEGER NOT NULL
+        );"
+    ).map_err(|error| error.to_string())?;
+    
     Ok(())
-}
-
-async fn open_articles_table(db: &Connection) -> Result<Table, String> {
-    let table = open_or_create_table(db, ARTICLES_TABLE, articles_schema()).await?;
-    ensure_articles_table_schema(&table).await?;
-    Ok(table)
-}
-
-async fn open_article_search_table(db: &Connection) -> Result<Table, String> {
-    let table = open_or_create_table(db, ARTICLE_SEARCH_TABLE, article_search_schema()).await?;
-    //ensure_search_indices(&table).await?;
-    Ok(table)
-}
-
-async fn open_article_profiles_table(db: &Connection) -> Result<Table, String> {
-    let table = open_or_create_table(db, ARTICLE_PROFILES_TABLE, article_profiles_schema()).await?;
-    ensure_article_profiles_schema(&table).await?;
-    Ok(table)
-}
-
-async fn ensure_article_profiles_schema(table: &Table) -> Result<(), String> {
-    let schema = table.schema().await.map_err(|error| error.to_string())?;
-    let mut migrations: Vec<(String, NewColumnTransform)> = Vec::new();
-
-    if schema.field_with_name("profile_picture").is_err() {
-        migrations.push((
-            "profile_picture".to_string(),
-            NewColumnTransform::SqlExpressions(vec![(
-                "profile_picture".to_string(),
-                "NULL".to_string(),
-            )]),
-        ));
-    }
-
-    if migrations.is_empty() {
-        return Ok(());
-    }
-
-    for (name, transform) in migrations {
-        table
-            .add_columns(transform, Some(vec![name.clone()]))
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
-}
-
-async fn ensure_search_indices(table: &Table) -> Result<(), String> {
-    let indices = table.list_indices().await.map_err(|error| error.to_string())?;
-    let has_text_index = indices
-        .iter()
-        .any(|index| index.columns == vec!["text".to_string()]);
-
-    if !has_text_index {
-        table
-            .create_index(&["text"], Index::FTS(FtsIndexBuilder::default()))
-            .execute()
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
-}
-
-fn article_batch(input: &UpsertStoredArticleInput, created_at: i64) -> Result<RecordBatch, String> {
-    let article_uid = article_uid_from_url(&input.url);
-    let id = article_numeric_id(&article_uid);
-    let updated_at = chrono_like_now();
-    let schema = articles_schema();
-
-    let columns: Vec<Arc<dyn Array>> = vec![
-        Arc::new(Int64Array::from(vec![id])),
-        Arc::new(StringArray::from(vec![input.url.as_str()])),
-        Arc::new(StringArray::from(vec![article_uid.as_str()])),
-        Arc::new(Int64Array::from(vec![created_at])),
-        Arc::new(StringArray::from(vec![input.title.as_deref()])),
-        Arc::new(StringArray::from(vec![input.thumbnail.as_deref()])),
-        Arc::new(StringArray::from(vec![input.content.as_deref()])),
-        Arc::new(StringArray::from(vec![input.directory.as_deref()])),
-        Arc::new(StringArray::from(vec![input.main_color.as_deref()])),
-        Arc::new(StringArray::from(vec![input.profile.as_deref()])),
-        Arc::new(StringArray::from(vec![Some(input.tasks_json.as_str())])),
-        Arc::new(StringArray::from(vec![input.embedding_source_text.as_deref()])),
-        Arc::new(Int64Array::from(vec![updated_at])),
-    ];
-
-    RecordBatch::try_new(schema, columns)
-        .map_err(|error| error.to_string())
-}
-
-fn article_search_batch(input: &UpsertStoredArticleInput) -> Result<RecordBatch, String> {
-    let article_uid = article_uid_from_url(&input.url);
-    let updated_at = chrono_like_now();
-    let schema = article_search_schema();
-
-    let row_ids = input
-        .search_rows
-        .iter()
-        .map(|row| Some(format!("{}:{}", article_uid, row.row_id)))
-        .collect::<Vec<_>>();
-    let article_uids = input
-        .search_rows
-        .iter()
-        .map(|_| Some(article_uid.as_str()))
-        .collect::<Vec<_>>();
-    let urls = input
-        .search_rows
-        .iter()
-        .map(|_| Some(input.url.as_str()))
-        .collect::<Vec<_>>();
-    let kinds = input
-        .search_rows
-        .iter()
-        .map(|row| Some(row.kind.as_str()))
-        .collect::<Vec<_>>();
-    let ordinals = input
-        .search_rows
-        .iter()
-        .map(|row| row.ordinal)
-        .collect::<Vec<_>>();
-    let texts = input
-        .search_rows
-        .iter()
-        .map(|row| Some(row.text.as_str()))
-        .collect::<Vec<_>>();
-    let titles = input
-        .search_rows
-        .iter()
-        .map(|_| input.title.as_deref())
-        .collect::<Vec<_>>();
-    let updated_ats = input
-        .search_rows
-        .iter()
-        .map(|_| updated_at)
-        .collect::<Vec<_>>();
-
-    RecordBatch::try_new(
-        schema,
-        vec![
-            Arc::new(StringArray::from(row_ids)),
-            Arc::new(StringArray::from(article_uids)),
-            Arc::new(StringArray::from(urls)),
-            Arc::new(StringArray::from(kinds)),
-            Arc::new(Int32Array::from(ordinals)),
-            Arc::new(StringArray::from(texts)),
-            Arc::new(StringArray::from(titles)),
-            Arc::new(Int64Array::from(updated_ats)),
-        ],
-    )
-    .map_err(|error| error.to_string())
-}
-
-fn article_profiles_batch(profiles: &[StoredArticleProfileRecord]) -> Result<RecordBatch, String> {
-    if profiles.is_empty() {
-        return Err("Cannot create profile batch from empty profile list".to_string());
-    }
-
-    let updated_at = chrono_like_now();
-    let schema = article_profiles_schema();
-
-    let ids = profiles
-        .iter()
-        .map(|profile| Some(profile.id.as_str()))
-        .collect::<Vec<_>>();
-    let names = profiles
-        .iter()
-        .map(|profile| Some(profile.name.as_str()))
-        .collect::<Vec<_>>();
-    let counts = profiles
-        .iter()
-        .map(|profile| profile.count)
-        .collect::<Vec<_>>();
-    let profile_pictures = profiles
-        .iter()
-        .map(|profile| profile.profile_picture.as_deref())
-        .collect::<Vec<_>>();
-    let updated_ats = profiles
-        .iter()
-        .map(|_| updated_at)
-        .collect::<Vec<_>>();
-
-    RecordBatch::try_new(
-        schema,
-        vec![
-            Arc::new(StringArray::from(ids)),
-            Arc::new(StringArray::from(names)),
-            Arc::new(Int64Array::from(counts)),
-            Arc::new(StringArray::from(profile_pictures)),
-            Arc::new(Int64Array::from(updated_ats)),
-        ],
-    )
-    .map_err(|error| error.to_string())
 }
 
 fn chrono_like_now() -> i64 {
@@ -432,82 +159,6 @@ fn chrono_like_now() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_millis() as i64)
         .unwrap_or_default()
-}
-
-fn string_column<'a>(batch: &'a RecordBatch, name: &str) -> Result<&'a StringArray, String> {
-    batch
-        .column_by_name(name)
-        .ok_or_else(|| format!("Missing column '{name}'"))?
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .ok_or_else(|| format!("Column '{name}' is not Utf8"))
-}
-
-fn optional_string_column<'a>(
-    batch: &'a RecordBatch,
-    name: &str,
-) -> Result<Option<&'a StringArray>, String> {
-    let Some(column) = batch.column_by_name(name) else {
-        return Ok(None);
-    };
-
-    if column.data_type() == &DataType::Null {
-        return Ok(None);
-    }
-
-    column
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .map(Some)
-        .ok_or_else(|| format!("Column '{name}' is not Utf8"))
-}
-
-fn int64_column<'a>(batch: &'a RecordBatch, name: &str) -> Result<&'a Int64Array, String> {
-    batch
-        .column_by_name(name)
-        .ok_or_else(|| format!("Missing column '{name}'"))?
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .ok_or_else(|| format!("Column '{name}' is not Int64"))
-}
-
-fn optional_int64_column<'a>(
-    batch: &'a RecordBatch,
-    name: &str,
-) -> Result<Option<&'a Int64Array>, String> {
-    let Some(column) = batch.column_by_name(name) else {
-        return Ok(None);
-    };
-
-    column
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .map(Some)
-        .ok_or_else(|| format!("Column '{name}' is not Int64"))
-}
-
-fn read_optional_string(array: &StringArray, row: usize) -> Option<String> {
-    if array.is_null(row) {
-        None
-    } else {
-        Some(array.value(row).to_string())
-    }
-}
-
-fn read_optional_string_from_column(array: Option<&StringArray>, row: usize) -> Option<String> {
-    array.and_then(|value| read_optional_string(value, row))
-}
-
-fn read_optional_int64(array: &Int64Array, row: usize) -> Option<i64> {
-    if array.is_null(row) {
-        None
-    } else {
-        Some(array.value(row))
-    }
-}
-
-fn read_optional_int64_from_column(array: Option<&Int64Array>, row: usize) -> Option<i64> {
-    array.and_then(|value| read_optional_int64(value, row))
 }
 
 fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
@@ -528,11 +179,9 @@ fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
 fn filter_record_to_json(record: &StoredArticleRecord, fields: &Option<Vec<String>>) -> Value {
     match fields {
         None => {
-            // Return all fields as JSON
             serde_json::to_value(record).unwrap_or(Value::Null)
         }
         Some(field_list) => {
-            // Build a JSON object with only selected fields
             let mut obj = serde_json::Map::new();
             let all_fields = serde_json::to_value(record)
                 .and_then(|v| Ok(v.as_object().unwrap().clone()))
@@ -577,258 +226,161 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
 }
 
 fn sort_articles_by_created_at_desc(records: &mut [StoredArticleRecord]) {
-	records.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    records.sort_by(|left, right| right.created_at.cmp(&left.created_at));
 }
 
-fn records_from_batches(batches: Vec<RecordBatch>) -> Result<Vec<StoredArticleRecord>, String> {
-    let mut records = Vec::new();
+fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<StoredArticleRecord, rusqlite::Error> {
+    let id: i64 = row.get(0)?;
+    let url: String = row.get(1)?;
+    let article_uid: String = row.get(2)?;
+    let created_at: i64 = row.get(3)?;
+    let title: Option<String> = row.get(4)?;
+    let thumbnail: Option<String> = row.get(5)?;
+    let content: Option<String> = row.get(6)?;
+    let media_directory: Option<String> = row.get(7)?;
+    let main_color: Option<String> = row.get(8)?;
+    let profile: Option<String> = row.get(9)?;
+    let tasks_json: String = row.get(10)?;
+    let embedding_source_text: Option<String> = row.get(11)?;
+    let updated_at: i64 = row.get(12)?;
 
-    for batch in batches {
-        let ids = int64_column(&batch, "id")?;
-        let urls = string_column(&batch, "url")?;
-        let article_uids = string_column(&batch, "article_uid")?;
-        let created_ats = optional_int64_column(&batch, "created_at")?;
-        let titles = optional_string_column(&batch, "title")?;
-        let thumbnails = optional_string_column(&batch, "thumbnail")?;
-        let contents = optional_string_column(&batch, "content")?;
-        let directories = optional_string_column(&batch, "directory")?;
-        let main_colors = optional_string_column(&batch, "main_color")?;
-        let profiles = optional_string_column(&batch, "profile")?;
-        let tasks_json = optional_string_column(&batch, "tasks_json")?;
-        let embedding_source_texts = optional_string_column(&batch, "embedding_source_text")?;
-        let updated_ats = int64_column(&batch, "updated_at")?;
-
-        for row in 0..batch.num_rows() {
-            let directory = read_optional_string_from_column(directories, row);
-            let main_color = read_optional_string_from_column(main_colors, row);
-
-            records.push(StoredArticleRecord {
-                id: ids.value(row),
-                url: read_optional_string(urls, row),
-                article_uid: article_uids.value(row).to_string(),
-                created_at: read_optional_int64_from_column(created_ats, row)
-                    .unwrap_or_else(|| updated_ats.value(row)),
-                title: read_optional_string_from_column(titles, row),
-                thumbnail: read_optional_string_from_column(thumbnails, row),
-                content: read_optional_string_from_column(contents, row),
-                media_directory: directory.clone(),
-                directory,
-                main_color: main_color.clone(),
-                profile: read_optional_string_from_column(profiles, row),
-                primary_color: main_color,
-                tasks_json: read_optional_string_from_column(tasks_json, row),
-                updated_at: updated_ats.value(row),
-                embedding_source_text: read_optional_string_from_column(embedding_source_texts, row),
-            });
-        }
-    }
-
-    Ok(records)
+    Ok(StoredArticleRecord {
+        id,
+        url: Some(url),
+        article_uid,
+        created_at,
+        title,
+        thumbnail,
+        content,
+        media_directory: media_directory.clone(),
+        directory: media_directory,
+        main_color: main_color.clone(),
+        profile,
+        primary_color: main_color,
+        tasks_json: Some(tasks_json),
+        updated_at,
+        embedding_source_text,
+    })
 }
 
-async fn query_articles(table: &Table, filter: Option<String>) -> Result<Vec<StoredArticleRecord>, String> {
-    let query = match filter {
-        Some(filter) => table.query().only_if(filter),
-        None => table.query(),
-    };
-
-    let batches = query
-        .execute()
-        .await
-        .map_err(|error| error.to_string())?
-        .try_collect::<Vec<_>>()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    let mut records = records_from_batches(batches)?;
-    sort_articles_by_created_at_desc(&mut records);
-    Ok(records)
-}
-
-async fn query_articles_by_profile_id(
-    table: &Table,
-    profile_id: &str,
-) -> Result<Vec<StoredArticleRecord>, String> {
-    let normalized_profile_id = profile_id.trim();
-
-    if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
-        let all_records = query_articles(table, None).await?;
-        return Ok(all_records
-            .into_iter()
-            .filter(|record| {
-                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
-            })
-            .collect::<Vec<_>>());
-    }
-
-    let filter = format!("profile = {}", sql_string(normalized_profile_id));
-    query_articles(table, Some(filter)).await
-}
-
-async fn query_articles_by_profile_and_date(
-    table: &Table,
-    profile_id: Option<&str>,
-    created_at_from: Option<i64>,
+fn query_articles(
+    conn: &Connection,
+    filter: Option<&str>,
     limit: Option<usize>,
 ) -> Result<Vec<StoredArticleRecord>, String> {
-    let normalized_profile_id = profile_id
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let mut filters = Vec::new();
-
-    if let Some(value) = created_at_from {
-        filters.push(format!("created_at >= {value}"));
+    let mut sql = String::from(
+        "SELECT id, url, article_uid, created_at, title, thumbnail, content, 
+                media_directory, main_color, profile, tasks_json, embedding_source_text, updated_at 
+         FROM articles"
+    );
+    
+    if let Some(f) = filter {
+        sql.push_str(" WHERE ");
+        sql.push_str(f);
+    }
+    
+    sql.push_str(" ORDER BY created_at DESC");
+    
+    if let Some(lim) = limit {
+        sql.push_str(&format!(" LIMIT {}", lim));
     }
 
-    match normalized_profile_id {
-        Some(value) if value == UNKNOWN_PROFILE_ID => {
-            let query = match filters.is_empty() {
-                true => table.query(),
-                false => table.query().only_if(filters.join(" AND ")),
-            };
-
-            let batches = query
-                .execute()
-                .await
-                .map_err(|error| error.to_string())?
-                .try_collect::<Vec<_>>()
-                .await
-                .map_err(|error| error.to_string())?;
-
-            let mut records = records_from_batches(batches)?;
-            sort_articles_by_created_at_desc(&mut records);
-
-            return Ok(records
-                .into_iter()
-                .filter(|record| {
-                    normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
-                })
-                .take(limit.unwrap_or(usize::MAX))
-                .collect::<Vec<_>>());
-        }
-        Some(value) => filters.push(format!("profile = {}", sql_string(value))),
-        None => {}
-    }
-
-    let query = match filters.is_empty() {
-        true => table.query(),
-        false => table.query().only_if(filters.join(" AND ")),
-    };
-
-    let batches = query
-        .execute()
-        .await
-        .map_err(|error| error.to_string())?
-        .try_collect::<Vec<_>>()
-        .await
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let article_iter = stmt
+        .query_map([], row_to_stored_article)
         .map_err(|error| error.to_string())?;
 
-    let mut records = records_from_batches(batches)?;
-    sort_articles_by_created_at_desc(&mut records);
-
-    if let Some(limit) = limit {
-        records.truncate(limit);
+    let mut records = Vec::new();
+    for article_result in article_iter {
+        records.push(article_result.map_err(|error| error.to_string())?);
     }
 
     Ok(records)
 }
 
-async fn query_profiles(
-    table: &Table,
-    filter: Option<String>,
-) -> Result<Vec<StoredArticleProfileRecord>, String> {
-    let query = match filter {
-        Some(filter) => table.query().only_if(filter),
-        None => table.query(),
-    };
+fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, name, count, profile_picture FROM profiles ORDER BY count DESC, name ASC")
+        .map_err(|error| error.to_string())?;
 
-    let batches = query
-        .execute()
-        .await
-        .map_err(|error| error.to_string())?
-        .try_collect::<Vec<_>>()
-        .await
+    let profile_iter = stmt
+        .query_map([], |row| {
+            Ok(StoredArticleProfileRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                count: row.get(2)?,
+                profile_picture: row.get(3)?,
+            })
+        })
         .map_err(|error| error.to_string())?;
 
     let mut profiles = Vec::new();
-
-    for batch in batches {
-        let ids = string_column(&batch, "id")?;
-        let names = string_column(&batch, "name")?;
-        let counts = int64_column(&batch, "count")?;
-        let profile_pictures = optional_string_column(&batch, "profile_picture")?;
-
-        for row in 0..batch.num_rows() {
-            profiles.push(StoredArticleProfileRecord {
-                id: ids.value(row).to_string(),
-                name: names.value(row).to_string(),
-                count: counts.value(row),
-                profile_picture: read_optional_string_from_column(profile_pictures, row),
-            });
-        }
+    for profile_result in profile_iter {
+        profiles.push(profile_result.map_err(|error| error.to_string())?);
     }
 
     Ok(profiles)
 }
 
-async fn upsert_profile_rows(
-    table: &Table,
-    profiles: &[StoredArticleProfileRecord],
+fn upsert_profile(
+    conn: &Connection,
+    profile: &StoredArticleProfileRecord,
 ) -> Result<(), String> {
-    if profiles.is_empty() {
-        return Ok(());
-    }
-
-    let mut profile_merge = table.merge_insert(&["id"]);
-    profile_merge.when_matched_update_all(None);
-    profile_merge.when_not_matched_insert_all();
-    profile_merge
-        .execute(Box::new(RecordBatchIterator::new(
-            vec![Ok(article_profiles_batch(profiles)?)],
-            article_profiles_schema(),
-        )))
-        .await
-        .map_err(|error| error.to_string())?;
-
+    let updated_at = chrono_like_now();
+    conn.execute(
+        "INSERT OR REPLACE INTO profiles (id, name, count, profile_picture, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            profile.id,
+            profile.name,
+            profile.count,
+            profile.profile_picture,
+            updated_at
+        ],
+    )
+    .map_err(|error| error.to_string())?;
     Ok(())
 }
 
-async fn rebuild_profiles_from_articles(
-	articles_table: &Table,
-	profile_table: &Table,
-	profile_picture_input: Option<(String, String)>,
+fn rebuild_profiles_from_articles(
+    conn: &Connection,
+    profile_picture_input: Option<(String, String)>,
 ) -> Result<(), String> {
-	let existing_profiles = query_profiles(profile_table, None).await?;
-	let existing_pictures: HashMap<String, Option<String>> = existing_profiles
-		.into_iter()
-		.map(|p| (p.id, p.profile_picture))
-		.collect();
+    let existing_profiles = query_profiles(conn)?;
+    let existing_pictures: HashMap<String, Option<String>> = existing_profiles
+        .into_iter()
+        .map(|p| (p.id, p.profile_picture))
+        .collect();
 
-	let all_articles = query_articles(articles_table, None).await?;
-	let mut aggregated = aggregate_profiles(all_articles);
+    let all_articles = query_articles(conn, None, None)?;
+    let mut aggregated = aggregate_profiles(all_articles);
 
-	for profile in &mut aggregated {
-		if profile.profile_picture.is_none() {
-			if let Some(existing_picture) = existing_pictures.get(&profile.id) {
-				profile.profile_picture = existing_picture.clone();
-			}
-		}
-	}
+    for profile in &mut aggregated {
+        if profile.profile_picture.is_none() {
+            if let Some(existing_picture) = existing_pictures.get(&profile.id) {
+                profile.profile_picture = existing_picture.clone();
+            }
+        }
+    }
 
-	if let Some((profile_id, picture)) = profile_picture_input {
-		if let Some(profile) = aggregated.iter_mut().find(|p| p.id == profile_id) {
-			profile.profile_picture = Some(picture);
-		} else {
-			aggregated.push(StoredArticleProfileRecord {
-				id: profile_id,
-				name: String::new(),
-				count: 0,
-				profile_picture: Some(picture),
-			});
-		}
-	}
+    if let Some((profile_id, picture)) = profile_picture_input {
+        if let Some(profile) = aggregated.iter_mut().find(|p| p.id == profile_id) {
+            profile.profile_picture = Some(picture);
+        } else {
+            aggregated.push(StoredArticleProfileRecord {
+                id: profile_id,
+                name: String::new(),
+                count: 0,
+                profile_picture: Some(picture),
+            });
+        }
+    }
 
-	upsert_profile_rows(profile_table, &aggregated).await
+    for profile in &aggregated {
+        upsert_profile(conn, profile)?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -836,9 +388,9 @@ pub async fn list_stored_articles(
     app: AppHandle,
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
-    let db = connection(&app).await?;
-    let table = open_articles_table(&db).await?;
-    let records = query_articles(&table, None).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    let records = query_articles(&conn, None, None)?;
     Ok(records
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
@@ -849,24 +401,17 @@ pub async fn list_stored_articles(
 pub async fn list_stored_article_profiles(
     app: AppHandle,
 ) -> Result<Vec<StoredArticleProfileRecord>, String> {
-    let db = connection(&app).await?;
-    let profile_table = open_article_profiles_table(&db).await?;
-    let mut profiles = query_profiles(&profile_table, None).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    let mut profiles = query_profiles(&conn)?;
 
     if profiles.is_empty() {
-        let article_table = open_articles_table(&db).await?;
-        let records = query_articles(&article_table, None).await?;
-        let aggregated = aggregate_profiles(records);
-        upsert_profile_rows(&profile_table, &aggregated).await?;
+        let aggregated = aggregate_profiles(query_articles(&conn, None, None)?);
+        for profile in &aggregated {
+            upsert_profile(&conn, profile)?;
+        }
         profiles = aggregated;
     }
-
-    profiles.sort_by(|left, right| {
-        right
-            .count
-            .cmp(&left.count)
-            .then_with(|| left.name.cmp(&right.name))
-    });
 
     Ok(profiles)
 }
@@ -879,17 +424,40 @@ pub async fn list_stored_articles_by_profile(
     limit: Option<usize>,
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
-    let db = connection(&app).await?;
-    let table = open_articles_table(&db).await?;
-    let records = query_articles_by_profile_and_date(
-        &table,
-        Some(profile_id.as_str()),
-        created_at_from,
-        limit,
-    )
-    .await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
 
-    Ok(records
+    let normalized_profile_id = profile_id.trim();
+
+    let filter = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+        None
+    } else {
+        Some(format!("profile = '{}'", normalized_profile_id.replace('\'', "''")))
+    };
+
+    let records = if let Some(from) = created_at_from {
+        let base_filter = format!("created_at >= {}", from);
+        let combined_filter = match filter {
+            Some(f) => format!("{} AND {}", base_filter, f),
+            None => base_filter,
+        };
+        query_articles(&conn, Some(&combined_filter), limit)?
+    } else {
+        query_articles(&conn, filter.as_deref(), limit)?
+    };
+
+    let filtered_records = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+        records
+            .into_iter()
+            .filter(|record| {
+                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
+            })
+            .collect()
+    } else {
+        records
+    };
+
+    Ok(filtered_records
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
         .collect())
@@ -900,14 +468,13 @@ pub async fn list_profiles_with_articles_after(
     app: AppHandle,
     created_at_from: i64,
 ) -> Result<Vec<ProfileWithMostRecentArticle>, String> {
-    let db = connection(&app).await?;
-    let table = open_articles_table(&db).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
 
-    let filter = format!("created_at >= {created_at_from}");
-    let records = query_articles(&table, Some(filter)).await?;
+    let filter = format!("created_at >= {}", created_at_from);
+    let records = query_articles(&conn, Some(&filter), None)?;
 
-    let mut profile_map: std::collections::HashMap<String, (String, i64)> =
-        std::collections::HashMap::new();
+    let mut profile_map: HashMap<String, (String, i64)> = HashMap::new();
 
     for record in records {
         let (id, name) = normalize_profile_bucket(record.profile.as_deref());
@@ -922,13 +489,10 @@ pub async fn list_profiles_with_articles_after(
             .or_insert((name, most_recent));
     }
 
-    let profile_table = open_article_profiles_table(&db).await?;
-    let profile_pictures: std::collections::HashMap<String, Option<String>> =
-        query_profiles(&profile_table, None)
-            .await?
-            .into_iter()
-            .map(|profile| (profile.id, profile.profile_picture))
-            .collect();
+    let profile_pictures: HashMap<String, Option<String>> = query_profiles(&conn)?
+        .into_iter()
+        .map(|profile| (profile.id, profile.profile_picture))
+        .collect();
 
     let mut profiles: Vec<ProfileWithMostRecentArticle> = profile_map
         .into_iter()
@@ -950,48 +514,11 @@ pub async fn get_stored_article_by_url(
     app: AppHandle,
     url: String,
 ) -> Result<Option<StoredArticleRecord>, String> {
-    let db = connection(&app).await?;
-    let table = open_articles_table(&db).await?;
-    let filter = format!("url = {}", sql_string(&url));
-    let mut records = query_articles(&table, Some(filter)).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    let filter = format!("url = '{}'", url.replace('\'', "''"));
+    let mut records = query_articles(&conn, Some(&filter), Some(1))?;
     Ok(records.pop())
-}
-
-
-async fn insert_article_row(
-    table: &Table,
-    input: &UpsertStoredArticleInput,
-    created_at: i64,
-) -> Result<(), String> {
-    table
-        .add(article_batch(input, created_at)?)
-        .execute()
-        .await
-        .map(|_| ())
-        .map_err(|error| error.to_string())
-}
-
-async fn update_article_row(table: &Table, input: &UpsertStoredArticleInput) -> Result<(), String> {
-    let updated_at = chrono_like_now();
-    table
-        .update()
-        .only_if(format!("url = {}", sql_string(&input.url)))
-        .column("title", sql_optional_string(input.title.as_deref()))
-        .column("thumbnail", sql_optional_string(input.thumbnail.as_deref()))
-        .column("content", sql_optional_string(input.content.as_deref()))
-        .column("directory", sql_optional_string(input.directory.as_deref()))
-        .column("main_color", sql_optional_string(input.main_color.as_deref()))
-        .column("profile", sql_optional_string(input.profile.as_deref()))
-        .column("tasks_json", sql_string(&input.tasks_json))
-        .column(
-            "embedding_source_text",
-            sql_optional_string(input.embedding_source_text.as_deref()),
-        )
-        .column("updated_at", updated_at.to_string())
-        .execute()
-        .await
-        .map(|_| ())
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1007,43 +534,64 @@ pub async fn upsert_stored_article(
     input.profile = normalize_optional_string(input.profile);
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
 
-    let db = connection(&app).await?;
-    let articles_table = open_articles_table(&db).await?;
-    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
-    if previous_article.is_some() {
-        update_article_row(&articles_table, &input).await?;
-    } else {
-		insert_article_row(&articles_table, &input, chrono_like_now()).await?;
-	}
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
 
-    let profile_table = open_article_profiles_table(&db).await?;
-    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
-    let profile_picture_input = input.profile_picture.clone().map(|picture| (next_profile_bucket.0, picture));
-    rebuild_profiles_from_articles(&articles_table, &profile_table, profile_picture_input).await?;
-
-    let article_search_table = open_article_search_table(&db).await?;
     let article_uid = article_uid_from_url(&input.url);
-    let delete_filter = format!("article_uid = {}", sql_string(&article_uid));
+    let id = article_numeric_id(&article_uid);
+    let now = chrono_like_now();
 
-    if input.search_rows.is_empty() {
-        article_search_table
-            .delete(&delete_filter)
-            .await
-            .map_err(|error| error.to_string())?;
-        return Ok(());
+    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
+    
+    if previous_article.is_some() {
+        conn.execute(
+            "UPDATE articles SET 
+                title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
+                main_color = ?5, profile = ?6, tasks_json = ?7, 
+                embedding_source_text = ?8, updated_at = ?9 
+             WHERE url = ?10",
+            params![
+                input.title,
+                input.thumbnail,
+                input.content,
+                input.directory,
+                input.main_color,
+                input.profile,
+                input.tasks_json,
+                input.embedding_source_text,
+                now,
+                input.url
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    } else {
+        conn.execute(
+            "INSERT INTO articles (id, url, article_uid, created_at, title, thumbnail, content, 
+                                   media_directory, main_color, profile, tasks_json, 
+                                   embedding_source_text, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![
+                id,
+                input.url,
+                article_uid,
+                now,
+                input.title,
+                input.thumbnail,
+                input.content,
+                input.directory,
+                input.main_color,
+                input.profile,
+                input.tasks_json,
+                input.embedding_source_text,
+                now
+            ],
+        )
+        .map_err(|error| error.to_string())?;
     }
 
-    let mut search_merge = article_search_table.merge_insert(&["row_id"]);
-    search_merge.when_matched_update_all(None);
-    search_merge.when_not_matched_insert_all();
-    search_merge.when_not_matched_by_source_delete(Some(delete_filter));
-    search_merge
-        .execute(Box::new(RecordBatchIterator::new(
-            vec![Ok(article_search_batch(&input)?)],
-            article_search_schema(),
-        )))
-        .await
-        .map_err(|error| error.to_string())?;
+    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
+    let profile_picture_input = input.profile_picture.clone().map(|picture| (next_profile_bucket.0, picture));
+    rebuild_profiles_from_articles(&conn, profile_picture_input)?;
 
     Ok(())
 }
@@ -1053,29 +601,19 @@ pub async fn delete_stored_article_by_url(
     app: AppHandle,
     url: String,
 ) -> Result<bool, String> {
-    let db = connection(&app).await?;
-    let articles_table = open_articles_table(&db).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
     let article = get_stored_article_by_url(app.clone(), url.clone()).await?;
 
-    let Some(article) = article else {
+    let Some(_article) = article else {
         return Ok(false);
     };
 
-    let article_filter = format!("url = {}", sql_string(&url));
-    articles_table
-        .delete(&article_filter)
-        .await
+    conn.execute("DELETE FROM articles WHERE url = ?1", params![url])
         .map_err(|error| error.to_string())?;
 
-    let search_table = open_article_search_table(&db).await?;
-    let search_filter = format!("article_uid = {}", sql_string(&article.article_uid));
-    search_table
-        .delete(&search_filter)
-        .await
-        .map_err(|error| error.to_string())?;
-
-    let profile_table = open_article_profiles_table(&db).await?;
-    rebuild_profiles_from_articles(&articles_table, &profile_table, None).await?;
+    rebuild_profiles_from_articles(&conn, None)?;
 
     Ok(true)
 }
@@ -1085,9 +623,17 @@ pub async fn delete_stored_article_profile(
     app: AppHandle,
     profile_id: String,
 ) -> Result<DeleteStoredArticleProfileResult, String> {
-    let db = connection(&app).await?;
-    let articles_table = open_articles_table(&db).await?;
-    let articles = query_articles_by_profile_id(&articles_table, &profile_id).await?;
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let articles = list_stored_articles_by_profile(
+        app.clone(),
+        profile_id.clone(),
+        None,
+        None,
+        None,
+    )
+    .await?;
 
     if articles.is_empty() {
         return Ok(DeleteStoredArticleProfileResult {
@@ -1098,13 +644,11 @@ pub async fn delete_stored_article_profile(
 
     let mut deleted_count = 0;
 
-    for article in articles {
-        let Some(url) = article.url else {
-            continue;
-        };
-
-        if delete_stored_article_by_url(app.clone(), url).await? {
-            deleted_count += 1;
+    for article_value in articles {
+        if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
+            if delete_stored_article_by_url(app.clone(), url.to_string()).await? {
+                deleted_count += 1;
+            }
         }
     }
 

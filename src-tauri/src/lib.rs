@@ -63,27 +63,7 @@ async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
     .map_err(|error| error.to_string())?
 }
 
-fn cleanup_legacy_sqlite_files(app: &tauri::AppHandle) -> Result<(), String> {
-    let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
-    std::fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
 
-    for file_name in [
-        "notian.db",
-        "notian.db-shm",
-        "notian.db-wal",
-        "notian.db-journal",
-    ] {
-        let path = app_data_dir.join(file_name);
-
-        match std::fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.to_string()),
-        }
-    }
-
-    Ok(())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -132,10 +112,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    let app_handle = app.handle().clone();
-    if let Err(error) = cleanup_legacy_sqlite_files(&app_handle) {
-        eprintln!("Unable to remove legacy SQLite files: {error}");
-    }
+    let _app_handle = app.handle().clone();
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {

@@ -44,9 +44,7 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 quick-xml = "0.31"
 base64 = "0.21"  # Para decodificar si es necesario
 futures-util = "0.3"
-lancedb = "0.27.2"
-arrow-array = "57.3.0"
-arrow-schema = "57.3.0"
+rusqlite = { version = "0.33", features = ["bundled"] }
 
 image = { version = "0.24", default-features = false, features = ["jpeg", "webp", "png"] }
 

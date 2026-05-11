@@ -44,7 +44,7 @@ export interface ArticleProfile {
 	id: string;
 	name: string;
 	count: number;
-	picture?: string | null;
+	profilePicture?: string | null;
 }
 
 type SearchRowKind = "content_chunk" | "keyword_bundle";
