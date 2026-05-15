@@ -67,6 +67,9 @@ export async function webRunner(
 		Rebuild: options.Rebuild,
 	});
 
-	await saveTasks(url, runResult.tasks);
+	await saveTasks(url, runResult.tasks, {
+		profile: viewState.domainUrl,
+		profilePicture: `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`,
+	});
 	return runResult.tasks as Task[];
 }
