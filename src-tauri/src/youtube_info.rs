@@ -155,10 +155,10 @@ async fn extract_chapters_from_page(
 
 #[tauri::command]
 pub async fn extract_chapters(
-	app: AppHandle,
-	url: String,
-	interval_ms: u64,
-	attempts: u32,
+    app: AppHandle,
+    url: String,
+    interval_ms: u64,
+    attempts: u32,
 ) -> Result<Vec<YoutubeDetail>, String> {
 	if attempts == 0 {
 		return Err("attempts must be greater than 0".to_string());
@@ -170,7 +170,7 @@ pub async fn extract_chapters(
 	)
 	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-	let chapters = crate::browser::with_ready_page(|page| async move {
+	let chapters = crate::browser::with_shared_page(|page| async move {
 		prepare_page_for_url(&page, &url).await?;
 		extract_chapters_from_page(&page, interval_ms, attempts).await
 	})

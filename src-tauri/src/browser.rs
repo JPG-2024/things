@@ -32,6 +32,7 @@ struct BrowserState {
     browser: Arc<Mutex<Browser>>,
     handler_task: JoinHandle<()>,
     page_semaphore: Arc<Semaphore>,
+    shared_page: Arc<Mutex<Option<chromiumoxide::Page>>>,
     user_data_dir: String,
     cleanup_on_exit: bool,
 }
@@ -40,6 +41,7 @@ struct BrowserState {
 struct BrowserContext {
     browser: Arc<Mutex<Browser>>,
     page_semaphore: Arc<Semaphore>,
+    shared_page: Arc<Mutex<Option<chromiumoxide::Page>>>,
     user_data_dir: String,
 }
 
@@ -184,6 +186,7 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
         browser: Arc::new(Mutex::new(browser)),
         handler_task,
         page_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_PAGES)),
+        shared_page: Arc::new(Mutex::new(None)),
         user_data_dir,
         cleanup_on_exit,
     })
@@ -203,6 +206,7 @@ async fn ensure_browser() -> Result<BrowserContext, String> {
     Ok(BrowserContext {
         browser: state.browser.clone(),
         page_semaphore: state.page_semaphore.clone(),
+        shared_page: state.shared_page.clone(),
         user_data_dir: state.user_data_dir.clone(),
     })
 }
@@ -229,6 +233,12 @@ pub async fn shutdown_browser() -> Result<(), String> {
     };
 
     if let Some(state) = state {
+        if let Some(shared_page) = state.shared_page.lock().await.take() {
+            if let Err(error) = shared_page.close().await {
+                eprintln!("Failed to close shared page: {}", error);
+            }
+        }
+
         if let Err(error) = state.browser.lock().await.close().await {
             eprintln!("Failed to close browser: {}", error);
         }
@@ -301,7 +311,37 @@ pub async fn close_ready_page(page: ReadyPage) {
     drop(page);
 }
 
-pub async fn with_ready_page<T, F, Fut>(work: F) -> Result<T, String>
+pub async fn with_shared_page<T, F, Fut>(work: F) -> Result<T, String>
+where
+    F: FnOnce(chromiumoxide::Page) -> Fut,
+    Fut: Future<Output = Result<T, String>>,
+    T: Send + 'static,
+{
+    let ctx = ensure_browser().await?;
+
+    let page = {
+        let mut guard = ctx.shared_page.lock().await;
+        if guard.is_none() {
+            let new_page = ctx.browser.lock().await.new_page("about:blank").await.map_err(|e| e.to_string())?;
+            configure_page(&new_page).await.map_err(|e| e.to_string())?;
+            *guard = Some(new_page);
+        }
+        guard.as_ref().unwrap().clone()
+    };
+
+    let result = work(page).await;
+
+    if result.is_err() {
+        let mut guard = ctx.shared_page.lock().await;
+        if let Some(p) = guard.take() {
+            close_page(p).await;
+        }
+    }
+
+    result
+}
+
+pub async fn with_ready_page<T, F, Fut>(work: F, close_page: bool) -> Result<T, String>
 where
     F: FnOnce(chromiumoxide::Page) -> Fut,
     Fut: Future<Output = Result<T, String>>,
@@ -311,13 +351,15 @@ where
 		.map_err(|e| format!("Failed to get browser page: {}", e))?;
 
 	let result = work(page.page.clone()).await;
-	close_ready_page(page).await;
+	if close_page {
+		close_ready_page(page).await;
+	}
 
 	result
 }
 
 /// Navega a una URL y retorna el HTML y documento parseado
-pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html), String> {
+pub async fn get_document(app: AppHandle, url: String, close_page: bool) -> Result<(String, Html), String> {
     app.emit(
         "flow-status",
         json!({"key": "page", "status": "Loading Page", "data": null}),
@@ -337,7 +379,7 @@ pub async fn get_document(app: AppHandle, url: String) -> Result<(String, Html),
         println!("✅ Página cargada: {}", url);
 
         Ok(html)
-    })
+    }, close_page)
     .await?;
 
     let document = Html::parse_document(&html);

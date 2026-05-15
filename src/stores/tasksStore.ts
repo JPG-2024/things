@@ -719,3 +719,21 @@ export async function deleteProfileById(
 		return { success: false, deletedCount: 0 };
 	}
 }
+
+export async function saveProfile(
+	name: string,
+	profilePicture: string | null
+): Promise<void> {
+	try {
+		const profileId = name.toLowerCase().replace(/\s+/g, "-");
+		await invoke("upsert_stored_article_profile", {
+			input: {
+				id: profileId,
+				name,
+				profilePicture,
+			},
+		});
+	} catch (error) {
+		console.error("Error saving profile:", error);
+	}
+}

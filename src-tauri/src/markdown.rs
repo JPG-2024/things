@@ -13,10 +13,37 @@ pub async fn extract_metadata(
     url: String,
 ) -> Result<HashMap<String, String>, String> {
     let app_clone = app.clone();
-    let (_html, document) = crate::browser::get_document(app_clone, url).await?;
-    let metadata = extract_metadata_from_document(&app, &document)?;
+    let result = crate::browser::with_shared_page(|page| async move {
+        app_clone.emit(
+            "flow-status",
+            json!({"key": "page", "status": "Loading Page", "data": null}),
+        )
+        .map_err(|e| e.to_string())?;
 
-    Ok(metadata)
+        tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
+            .await
+            .map_err(|_| "Page navigation timed out".to_string())?
+            .map_err(|e| e.to_string())?;
+
+        let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
+            .await
+            .map_err(|_| "Page content extraction timed out".to_string())?
+            .map_err(|e| e.to_string())?;
+
+        let document = Html::parse_document(&html);
+        let metadata = extract_metadata_from_document(&app_clone, &document)?;
+
+        app_clone.emit(
+            "flow-status",
+            json!({"key": "page", "status": "done", "data": null}),
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(metadata)
+    })
+    .await?;
+
+    Ok(result)
 }
 
 /// Función interna que extrae metadatos de un documento HTML parseado
@@ -75,8 +102,36 @@ pub async fn extract_markdown(
     url: String,
     selectors: Vec<String>,
 ) -> Result<String, String> {
-    let (html, document) = crate::browser::get_document(app.clone(), url).await?;
-    let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
+    let app_clone = app.clone();
+    let markdown = crate::browser::with_shared_page(|page| async move {
+        app_clone.emit(
+            "flow-status",
+            json!({"key": "page", "status": "Loading Page", "data": null}),
+        )
+        .map_err(|e| e.to_string())?;
+
+        tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
+            .await
+            .map_err(|_| "Page navigation timed out".to_string())?
+            .map_err(|e| e.to_string())?;
+
+        let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
+            .await
+            .map_err(|_| "Page content extraction timed out".to_string())?
+            .map_err(|e| e.to_string())?;
+
+        let document = Html::parse_document(&html);
+        let markdown = extract_markdown_from_html(&app_clone, &html, &document, selectors)?;
+
+        app_clone.emit(
+            "flow-status",
+            json!({"key": "page", "status": "done", "data": null}),
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(markdown)
+    })
+    .await?;
 
     Ok(markdown)
 }
@@ -142,63 +197,53 @@ pub async fn extract_blog(
     app: AppHandle,
     url: String,
     selectors: Vec<String>,
-    keep_page_open: Option<bool>,
 ) -> Result<BlogContent, String> {
-    let page = crate::browser::get_ready_page()
-        .await
+    let app_for_metadata = app.clone();
+    let app_for_markdown = app.clone();
+
+    let result = crate::browser::with_shared_page(|page| async move {
+        app_for_metadata.emit(
+            "flow-status",
+            json!({"key": "page", "status": "Loading Page", "data": null}),
+        )
         .map_err(|e| e.to_string())?;
 
-    app.emit(
-        "flow-status",
-        json!({"key": "page", "status": "Loading Page", "data": null}),
-    )
-    .map_err(|e| e.to_string())?;
+        tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
+            .await
+            .map_err(|_| "Page navigation timed out".to_string())?
+            .map_err(|e| e.to_string())?;
 
-    tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
-        .await
-        .map_err(|_| "Page navigation timed out".to_string())?
+        let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
+            .await
+            .map_err(|_| "Page content extraction timed out".to_string())?
+            .map_err(|e| e.to_string())?;
+
+        println!("✅ Página cargada: {}", url);
+
+        app_for_metadata.emit(
+            "flow-status",
+            json!({"key": "page", "status": "done", "data": null}),
+        )
         .map_err(|e| e.to_string())?;
 
-    let html: String = tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.content())
-        .await
-        .map_err(|_| "Page content extraction timed out".to_string())?
-        .map_err(|e| e.to_string())?;
-
-    println!("✅ Página cargada: {}", url);
-
-    app.emit(
-        "flow-status",
-        json!({"key": "page", "status": "done", "data": null}),
-    )
-    .map_err(|e| e.to_string())?;
-
-    let result: Result<BlogContent, String> = async {
         let document = Html::parse_document(&html);
 
-        // Extraer metadatos
-        let metadata = extract_metadata_from_document(&app, &document)?;
+        let metadata = extract_metadata_from_document(&app_for_metadata, &document)?;
 
-        // Emitir evento de progreso
-        app.emit(
+        app_for_metadata.emit(
             "flow-status",
             json!({"key": "metadata", "status": "done", "data": metadata.clone()}),
         )
         .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-        // Extraer markdown
-        let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
+        let markdown = extract_markdown_from_html(&app_for_markdown, &html, &document, selectors)?;
 
         println!("<< ✅ Blog extraído completamente >>");
-
         println!("Metadatos extraídos: {} elementos", markdown);
 
         Ok(BlogContent { metadata, markdown })
-    }
-    .await;
+    })
+    .await?;
 
-    if !keep_page_open.unwrap_or(false) {
-        crate::browser::close_ready_page(page).await;
-    }
-
-    result
+    Ok(result)
 }

@@ -16,9 +16,9 @@ import { youTubeRunner } from "../youTubeRunner";
 type ProfileTaskIds =
 	| TaskNames.INIT
 	| TaskNames.THUMBNAIL
-	| TaskNames.GET_CHANNEL_VIDEOS
+	| TaskNames.EXTRACT_PROFILE
 	| TaskNames.EXTRACT_CHANNEL_VIDEOS
-	| TaskNames.EXTRACT_PROFILE;
+	| TaskNames.GET_CHANNEL_VIDEOS;
 
 export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 	[TaskNames.INIT]: (runnerOptions) => ({
@@ -40,7 +40,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		},
 	}),
 
-	[TaskNames.THUMBNAIL]: () => ({
+/* 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
 		dependencies: [TaskNames.INIT, TaskNames.EXTRACT_PROFILE],
 		type: "script",
@@ -59,7 +59,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				mediaDirectory,
 				fileName: thumbnailImage,
 				imageSrc: thumbnailImageSrc,
-			} = await downloadImageUrl(ytThumbnailUrl, profile);
+			} = await downloadImageUrl(ytThumbnailUrl, profile.name);
 
 			return {
 				mediaDirectory,
@@ -68,7 +68,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				videoId: urlData.videoId,
 			};
 		},
-	}),
+	}), */
 
 	[TaskNames.EXTRACT_PROFILE]: () => ({
 		id: TaskNames.EXTRACT_PROFILE,
@@ -77,19 +77,30 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
-			const result = await invoke<{ profile: string[] }>("get_page_elements", {
+			const result = await invoke<{ profile: string[], profilePicture: string[] }>("get_page_elements", {
 				...buildVideoPageParams(context.url),
 				selectors: [
 					{
 						name: "profile",
 						selector: "div.ytPageHeaderViewModelHeadline",
 					},
+					{
+						name: "profilePicture",
+						selector: "div#contentContainer img[src]",
+						attribute: "src"
+					},
 				],
 				attempts: 5,
-				intervalMs: 200,
+				intervalMs: 500
 			});
 
-			return result.profile[1];
+			console.log(result)
+			const profile = {
+				name: result.profile[1],
+				profilePicture: result.profilePicture[1]
+			}
+			
+			return profile
 		},
 	}),
 
@@ -118,7 +129,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 						},
 					],
 					attempts: 5,
-					intervalMs: 500,
+					intervalMs: 2000
 				}
 			);
 
@@ -139,25 +150,24 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 
 			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
-
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
-			const urlsToProcess = fullUrls.slice(0, 4).reverse(); // Process in reverse order to prioritize newer videos
+			const urlsToProcess = fullUrls.slice(0, 2).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
 				arr[index] = removeYTPpParam(url);
 			});
 
 			/* 
-			const existingArticles = await getArticlesByProfile(profile, {
-				limit: 50,
-				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30, // last 30 days
-			});
+				const existingArticles = await getArticlesByProfile(profile, {
+					limit: 50,
+					createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30, // last 30 days
+				});
 
-			const existingArticlesByUrl = new Map(
-				existingArticles
-					.filter((article) => typeof article.url === "string")
-					.map((article) => [article.url as string, article])
-			); */
-
+				const existingArticlesByUrl = new Map(
+					existingArticles
+						.filter((article) => typeof article.url === "string")
+						.map((article) => [article.url as string, article])
+				);
+			*/
 			
 			const results = [];
 			
@@ -174,7 +184,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 						makeActive: false,
 						parentRunId: runId,
 						routine: "videoItem",
-						profile,
+						profile: profile.name,
 					})
 				);
 			}

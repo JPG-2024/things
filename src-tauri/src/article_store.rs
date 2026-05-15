@@ -600,6 +600,33 @@ pub async fn delete_stored_article_by_url(
     Ok(true)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertStoredArticleProfileInput {
+    pub id: String,
+    pub name: String,
+    pub profile_picture: Option<String>,
+}
+
+#[tauri::command]
+pub async fn upsert_stored_article_profile(
+    app: AppHandle,
+    input: UpsertStoredArticleProfileInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let profile = StoredArticleProfileRecord {
+        id: input.id,
+        name: input.name,
+        count: 0,
+        profile_picture: input.profile_picture,
+    };
+
+    upsert_profile(&conn, &profile)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn delete_stored_article_profile(
     app: AppHandle,

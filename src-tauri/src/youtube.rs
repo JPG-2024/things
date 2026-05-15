@@ -262,7 +262,7 @@ pub async fn get_page_elements(
     )
     .map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-    let result = crate::browser::with_ready_page(|page| async move {
+    let result = crate::browser::with_shared_page(|page| async move {
         tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
             .await
             .map_err(|_| "Page navigation timed out".to_string())?
@@ -360,7 +360,7 @@ pub async fn search_youtube(
     );
     let app_for_page = app.clone();
 
-    let results = crate::browser::with_ready_page(|page| async move {
+    let results = crate::browser::with_shared_page(|page| async move {
         println!("🔍 Buscando en YouTube: {}", query);
 
         page.goto(&search_url)

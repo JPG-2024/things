@@ -18,11 +18,11 @@ pub struct YoutubeInfoResult {
 
 #[tauri::command]
 pub async fn get_youtube_info(
-	app: AppHandle,
-	url: String,
-	selectors: Vec<YoutubeInfoSelector>,
-	interval_time: u64,
-	max_attempts: u32,
+    app: AppHandle,
+    url: String,
+    selectors: Vec<YoutubeInfoSelector>,
+    interval_time: u64,
+    max_attempts: u32,
 ) -> Result<Vec<YoutubeInfoResult>, String> {
 	app.emit(
 		"flow-status",
@@ -30,7 +30,7 @@ pub async fn get_youtube_info(
 	)
 	.map_err(|e| format!("Failed to emit flow-status event: {}", e))?;
 
-	let results = crate::browser::with_ready_page(|page| async move {
+	let results = crate::browser::with_shared_page(|page| async move {
 		tokio::time::timeout(crate::browser::PAGE_OP_TIMEOUT, page.goto(&url))
 			.await
 			.map_err(|_| "Page navigation timed out".to_string())?

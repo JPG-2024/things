@@ -40,6 +40,7 @@ pub use crate::article_store::{
     list_stored_articles_by_profile,
     list_stored_articles,
     upsert_stored_article,
+    upsert_stored_article_profile,
 };
 
 mod llama_server;
@@ -83,6 +84,7 @@ pub fn run() {
             list_stored_articles_by_profile,
             get_stored_article_by_url,
             upsert_stored_article,
+            upsert_stored_article_profile,
             delete_stored_article_by_url,
             delete_stored_article_profile,
             extract_markdown,
