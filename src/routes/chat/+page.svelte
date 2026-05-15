@@ -1,10 +1,10 @@
 <script lang="ts">
-import { onMount, tick } from "svelte";
-import { page } from "$app/state";
-import Input from "@/components/inputs/Input.component.svelte";
-import MarkdownRenderer from "@/components/MarkdownRenderer.svelte";
-import TTSComponent from "@/components/TTSComponent.svelte";
-import Icon from "@/components/Icon.svelte";
+	import { onMount, tick } from "svelte";
+	import { page } from "$app/state";
+	import Input from "@/components/inputs/Input.component.svelte";
+	import MarkdownRenderer from "@/components/MarkdownRenderer.svelte";
+	import Icon from "@/components/Icon.svelte";
+	import { ttsState } from "@/stores/ttsStore.svelte";
 import {
 	chatCompletions,
 	type LlamaChatCompletionsRequest,
@@ -95,6 +95,8 @@ async function streamResponse(userPrompt: string) {
 		const idx = messages.findIndex((m) => m.id === assistantId);
 		if (idx !== -1) {
 			messages[idx] = { ...messages[idx], content: streamedText, done: true };
+			ttsState.addTextContent(streamedText);
+			void ttsState.generateTTS();
 		}
 	} catch (err) {
 		error = err instanceof Error ? err.message : "Unknown error occurred";
@@ -154,9 +156,6 @@ onMount(() => {
 						{/if}
 					</div>
 					{#if msg.done && msg.content.trim()}
-						<div class="tts-row">
-							<TTSComponent id={msg.id} text={msg.content} autoplay={true} />
-						</div>
 					{/if}
 				{/if}
 			</div>

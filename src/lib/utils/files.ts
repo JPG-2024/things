@@ -43,7 +43,7 @@ export async function downloadImageUrl(
 	const fileName = await invoke<string>("download_and_save_image", {
 		url: url,
 		folderName: mediaDirectory,
-		reductionMagnitud: 2,
+		reductionMagnitud: 1,
 	});
 
 	const imageSrc = await getImageSrc(mediaDirectory, fileName);

@@ -6,6 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 import { invoke } from "@tauri-apps/api/core";
 import { urlRouter } from "@/lib/urlRouter/urlRouter";
 import { navigate } from "@/lib/utils/url";
+import { afterNavigate } from "$app/navigation";
+import TTSPlayer from "@/components/TTSPlayer.svelte";
+import { ttsState } from "@/stores/ttsStore.svelte";
 
 const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -78,6 +81,10 @@ const queryClient = new QueryClient({
 			staleTime: 1000 * 60 * 5,
 		},
 	},
+});
+
+afterNavigate(() => {
+	ttsState.clearPlaylist();
 });
 
 onMount(() => {
@@ -153,6 +160,7 @@ onMount(() => {
   >
     {@render children()}
   </main>
+  <TTSPlayer />
 </QueryClientProvider>
 
 <style>

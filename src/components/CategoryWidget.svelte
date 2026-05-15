@@ -222,8 +222,8 @@ function handleDeleteProfile() {
   }
 
   .mini-img {
-    width: 80px;
-    height: 55px;
+    width: 100px;
+    height: 75px;
     object-fit: cover;
     display: block;
   }

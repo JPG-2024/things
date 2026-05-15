@@ -125,7 +125,7 @@ onMount(() => {
 {#each profileCategories as profile (profile.id)}
 			<ProfileWidget
 				{profile}
-				showTitle={false}
+				showTitle={true}
 				onDeleted={handleProfileDeleted}
 			/>
 		{/each}

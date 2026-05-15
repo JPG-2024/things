@@ -23,7 +23,7 @@ export type PersistedTaskState = {
 };
 
 export interface ArticleWithTasks {
-	id: number;
+	id: string;
 	url: string | null;
 	title: string | null;
 	thumbnail: string | null;

@@ -5,10 +5,13 @@
 	import { navigate, toVTName } from "@/lib/utils/url";
 	import {
 		deleteProfileById,
+		getArticleWithTasksByUrl,
 		getArticlesByProfile,
 		type ArticleProfile,
 		type ArticleWithTasks,
 	} from "@/stores/tasksStore";
+	import { ttsState } from "@/stores/ttsStore.svelte";
+	import { createHotkey } from "@tanstack/svelte-hotkeys";
 	import {
 		createMutation,
 		createQuery,
@@ -23,6 +26,32 @@ interface Props {
 
 let { profile, showTitle = false, onDeleted }: Props = $props();
 
+let hoveredArticleUrl = $state<string | null>(null);
+
+$effect(() => {
+	const cleanup = createHotkey(
+		"S",
+		async () => {
+			if (!hoveredArticleUrl) return;
+			const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
+			const titleSummaryTask = article?.persistedTasks?.find(
+				(t) => t.id === "title-summary",
+			);
+			if (!titleSummaryTask?.data) {
+				throw new Error("No title-summary data found for this article");
+			}
+
+			ttsState.setTextContents([titleSummaryTask.data as string]);
+			await ttsState.generateTTS();
+		},
+		() => ({
+			enabled: hoveredArticleUrl !== null,
+			ignoreInputs: true,
+		}),
+	);
+	return cleanup;
+});
+
 const queryClient = useQueryClient();
 
 const query = createQuery({
@@ -34,6 +63,7 @@ const query = createQuery({
 		}),
 	refetchOnWindowFocus: "always",
 });
+
 
 function handleRefresh() {
 	$query.refetch();
@@ -109,6 +139,8 @@ function handleDeleteProfile() {
 						type="button"
 						class="img-button"
 						onclick={() => handleNavigateToArticle(article)}
+						onmouseenter={() => (hoveredArticleUrl = article.url ?? null)}
+						onmouseleave={() => (hoveredArticleUrl = null)}
 						aria-label="View article"
 					>
 						<img
@@ -199,7 +231,8 @@ function handleDeleteProfile() {
 	}
 
 	.img-button:hover {
-		transform: scale(1.05);
+		transform: scale(1.2);
+		z-index: 20;
 	}
 
 	.mini-img {
