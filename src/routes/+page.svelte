@@ -26,8 +26,6 @@ async function loadProfiles() {
 	const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
 	const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
 
-	console.log(profiles)
-
 	profileCategories = profiles.length
 		? profiles
 		: [

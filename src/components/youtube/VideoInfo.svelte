@@ -66,7 +66,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 }
 
 .title-container {
-    height: 80px;
+    
 }
 
 .video-info {
@@ -85,6 +85,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
     font-family: Noto Sans CJK SC Thin;
     font-weight: semi-bold;
     font-size: 1.4rem;
+    padding-bottom: 5px;
 }
 
 .pill {
@@ -97,6 +98,7 @@ let title = $derived(task?.data ? getDataContent("title") : null);
 .info-row {
     font-size: 0.9rem;
     display: flex;
+    align-items: center;
     gap: 1rem;
     margin-top: 0.5rem;
     justify-content: start;

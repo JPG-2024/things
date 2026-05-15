@@ -114,7 +114,7 @@ onMount(() => {
 		setTimeout(() => {
 			flashy = false;
 		}, 2000);
-	}, 40000);
+	}, 18000);
 
 	return () => {
 		stopFlow?.();
@@ -164,7 +164,7 @@ onMount(() => {
 
   @font-face {
     font-family: 'Oswald'; /* Give it any name you want */
-    src: url('static/Oswald-VariableFont_wght.ttf') format('truetype');
+    src: url('/Oswald-VariableFont_wght.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
   }
@@ -226,7 +226,7 @@ onMount(() => {
       0deg,
       rgba(255, 255, 255, 0) 0%,
       rgba(255, 255, 255, 0) 20%,
-      rgba(255,255,255, 0.275) 50%,
+      rgba(140, 0, 255, 0.368)0%,
       rgba(255, 255, 255, 0) 70%,
       rgba(255, 255, 255, 0) 100%
         );

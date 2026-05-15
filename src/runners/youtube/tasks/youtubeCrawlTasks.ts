@@ -43,7 +43,6 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 			});
 
 
-			console.log(">>>> CRAwl", videoInfo)
 			videoInfo.profile = videoInfo.profile.slice(1);
 
 			return videoInfo;

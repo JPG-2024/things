@@ -7,13 +7,25 @@ type SegmentState<T> = {
 	error: any;
 	last: number;
 };
-// JS Doc comments
-/**
- * Creates a segmented cache store.
- * Each segment can be loaded and invalidated independently.
- * @param fetcher - Async function to fetch data for a given segment (key-space) and params.
- * @returns An object with subscribe, load, and invalidate methods.
- */
+
+const MAX_SEGMENTS = 100;
+
+function evictOldSegments(
+	segments: Record<string, SegmentState<unknown>>
+): Record<string, SegmentState<unknown>> {
+	const entries = Object.entries(segments);
+	if (entries.length <= MAX_SEGMENTS) {
+		return segments;
+	}
+	const sorted = entries.sort((a, b) => {
+		const aTime = (a[1] as SegmentState<unknown>).last ?? 0;
+		const bTime = (b[1] as SegmentState<unknown>).last ?? 0;
+		return aTime - bTime;
+	});
+	const toKeep = sorted.slice(-MAX_SEGMENTS);
+	return Object.fromEntries(toKeep);
+}
+
 export function storeCacheWrapper<T, Tparams>(
 	fetcher: (segment: string, params: Tparams) => Promise<T>
 ) {
@@ -24,7 +36,7 @@ export function storeCacheWrapper<T, Tparams>(
 	async function load<T>(
 		segment: string,
 		params: Tparams,
-		force = false
+		_force = false
 	): Promise<void> {
 		const key = `${segment}-${JSON.stringify(params)}`;
 
@@ -47,9 +59,8 @@ export function storeCacheWrapper<T, Tparams>(
 		try {
 			const data = await fetcher(segment, params);
 
-			update((state) => ({
-				...state,
-				segments: {
+			update((state) => {
+				const newSegments = {
 					...state.segments,
 					[key]: {
 						data,
@@ -57,12 +68,15 @@ export function storeCacheWrapper<T, Tparams>(
 						error: null,
 						last: Date.now(),
 					},
-				},
-			}));
+				};
+				return {
+					...state,
+					segments: evictOldSegments(newSegments),
+				};
+			});
 		} catch (err) {
-			update((state) => ({
-				...state,
-				segments: {
+			update((state) => {
+				const newSegments = {
 					...state.segments,
 					[key]: {
 						data: null,
@@ -70,8 +84,12 @@ export function storeCacheWrapper<T, Tparams>(
 						error: err,
 						last: Date.now(),
 					},
-				},
-			}));
+				};
+				return {
+					...state,
+					segments: evictOldSegments(newSegments),
+				};
+			});
 			throw err;
 		}
 	}

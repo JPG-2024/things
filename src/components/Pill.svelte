@@ -17,7 +17,7 @@ let { status, text, tag = false }: Props = $props();
 <style>
 	.pill {
 		color: var(--primary-color);
-		border-radius: 999px;
+		border-radius: 12px;
 		background-color: rgb(154, 154, 154, 0.1);
 		background-size: 200% 200%;
 		font-size: 0.88rem;

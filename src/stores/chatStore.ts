@@ -1,25 +1,29 @@
 import { derived, writable } from "svelte/store";
 import type { ChatMessageUI } from "@/types/chat.types";
 
-// Store para los mensajes en UI
+const MAX_MESSAGES = 200;
+
 export const messages = writable<ChatMessageUI[]>([]);
 
-// Store para el contenido que se está streameando
 export const streamingContent = writable<string>("");
 
-// Store para saber si está cargando
 export const isStreaming = writable<boolean>(false);
 
-// Store para invalidar lista de chats
 export const chatsRefresh = writable(0);
 
 export function invalidateChats() {
 	chatsRefresh.update((n) => n + 1);
 }
 
-// Helper functions
+function trimMessages(msgs: ChatMessageUI[]): ChatMessageUI[] {
+	if (msgs.length <= MAX_MESSAGES) {
+		return msgs;
+	}
+	return msgs.slice(-MAX_MESSAGES);
+}
+
 export function addMessage(message: ChatMessageUI) {
-	messages.update((msgs) => [...msgs, message]);
+	messages.update((msgs) => trimMessages([...msgs, message]));
 }
 
 export function clearMessages() {

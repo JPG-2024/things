@@ -44,8 +44,6 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 			const urlObj = new URL(runnerOptions.url);
 			const videoId = urlObj.searchParams.get("v");
 
-			console.log("INIT task - URL:", runnerOptions);
-
 			return {
 				url: runnerOptions.url,
 				videoId,
@@ -67,7 +65,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 				throw new Error("Video ID not found in URL");
 			}
 
-			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, "default");
+			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, "high");
 			const profile = getProfileFromVideoInfo(videoInfo);
 
 			const {

@@ -12,12 +12,6 @@ export async function resolveMediaDirectory(
 	url: string,
 	profile?: string | null
 ): Promise<string> {
-	console.log(
-		"Resolving media directory for URL:",
-		url,
-		"with profile:",
-		profile
-	);
 	return invoke<string>("url_to_folder_name", {
 		url,
 		profile: profile ?? "",

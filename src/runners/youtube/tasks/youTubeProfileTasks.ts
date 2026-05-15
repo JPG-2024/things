@@ -30,8 +30,6 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const urlObj = new URL(runnerOptions.url);
 			const videoId = urlObj.searchParams.get("v");
 
-			console.log("INIT task - URL:", runnerOptions);
-
 			return {
 				url: runnerOptions.url,
 				videoId,
@@ -94,10 +92,9 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				intervalMs: 500
 			});
 
-			console.log(result)
 			const profile = {
 				name: result.profile[1],
-				profilePicture: result.profilePicture[1]
+				profilePicture: result.profilePicture
 			}
 			
 			return profile
@@ -148,10 +145,10 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				TaskNames.GET_CHANNEL_VIDEOS
 			);
 
-			const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
+			
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
-			const urlsToProcess = fullUrls.slice(0, 2).reverse(); // Process in reverse order to prioritize newer videos
+			const urlsToProcess = fullUrls.slice(0, 5).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
 				arr[index] = removeYTPpParam(url);
 			});
@@ -178,13 +175,16 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					continue;
 				}
 
+				const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
+				
 				results.push(
 					await youTubeRunner(url, null, {
 						makeActive: false,
 						parentRunId: runId,
 						routine: "videoItem",
 						profile: profile.name,
+						profilePicture: profile.profilePicture
 					})
 				);
 			}

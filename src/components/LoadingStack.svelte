@@ -28,7 +28,9 @@ export function resetStack() {
 }
 
 $effect.pre(() => {
-	const unlisten = listen<FlowStatusEvent<FlowPayload>>(
+	let unlistenFn: (() => void) | undefined;
+
+	const unlistenPromise = listen<FlowStatusEvent<FlowPayload>>(
 		"flow-status",
 		(event) => {
 			const payload = event?.payload as FlowPayload;
@@ -42,8 +44,12 @@ $effect.pre(() => {
 		}
 	);
 
+	unlistenPromise.then((fn) => {
+		unlistenFn = fn;
+	});
+
 	return () => {
-		unlisten.then((fn) => fn());
+		unlistenFn?.();
 	};
 });
 </script>

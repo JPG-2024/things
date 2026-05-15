@@ -49,6 +49,26 @@ export class WorkflowManager {
 	private stackRunIds = $state<string[]>([]);
 	private runs = new Map<string, WorkflowRunRecord<TaskMapBase>>();
 
+	private static readonly MAX_RUNS = 20;
+
+	private evictOldRunsIfNeeded() {
+		if (this.runs.size <= WorkflowManager.MAX_RUNS) {
+			return;
+		}
+		const completedRuns = [...this.runs.entries()].filter(
+			([id]) => !this.stackRunIds.includes(id)
+		);
+		const sorted = completedRuns.sort((a, b) => {
+			const aTime = a[1].endedAt ?? a[1].startedAt ?? 0;
+			const bTime = b[1].endedAt ?? b[1].startedAt ?? 0;
+			return aTime - bTime;
+		});
+		const toRemove = sorted.slice(0, this.runs.size - WorkflowManager.MAX_RUNS);
+		for (const [id] of toRemove) {
+			this.runs.delete(id);
+		}
+	}
+
 	get activeRunner(): TaskRunnerStore | undefined {
 		return this.activeRunId ? this.getRunner(this.activeRunId) : undefined;
 	}
@@ -207,6 +227,8 @@ export class WorkflowManager {
 		if (existing) {
 			return existing;
 		}
+
+		this.evictOldRunsIfNeeded();
 
 		const record: WorkflowRunRecord<TMap> = {
 			id,

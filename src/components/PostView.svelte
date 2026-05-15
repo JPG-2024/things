@@ -50,6 +50,7 @@ async function handleDelete() {
 		isDeleting = false;
 	}
 }
+
 </script>
 
 <article>

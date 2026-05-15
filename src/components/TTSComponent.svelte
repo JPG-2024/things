@@ -23,6 +23,7 @@
 	let audioElement = $state<HTMLAudioElement | null>(null);
 	let lastAutoplayInputKey = $state("");
 	let isGenerating = $state(false);
+	let abortController: AbortController | null = null;
 
 	function getInputKey() {
 		return JSON.stringify([id, text]);
@@ -37,8 +38,12 @@
 		}
 	});
 
-	async function handlePlay() {
+	async function handlePlay(signal?: AbortSignal) {
 		if (disabled || ttsState.isLoading || isGenerating) {
+			return;
+		}
+
+		if (signal?.aborted) {
 			return;
 		}
 
@@ -74,6 +79,10 @@
 				audio_chunk_threshold: ttsState.config.audioChunkThreshold,
 			});
 
+			if (signal?.aborted) {
+				return;
+			}
+
 			ttsState.durationSeconds = res.durationSeconds;
 
 			if (res.blob.size === 0) {
@@ -88,14 +97,19 @@
 
 			ttsState.audioSrc = URL.createObjectURL(res.blob);
 		} catch (generationError) {
+			if (signal?.aborted) {
+				return;
+			}
 			ttsState.errorMessage =
 				generationError instanceof Error
 					? generationError.message
 					: "Failed to generate TTS audio";
 			console.error("[TTS] Generation error:", generationError);
 		} finally {
-			isGenerating = false;
-			ttsState.isLoading = false;
+			if (!signal?.aborted) {
+				isGenerating = false;
+				ttsState.isLoading = false;
+			}
 		}
 	}
 
@@ -116,25 +130,27 @@ $effect(() => {
 });
 
 $effect(() => {
-	if (!autoplay) {
-		lastAutoplayInputKey = "";
-		return;
-	}
+		if (!autoplay) {
+			lastAutoplayInputKey = "";
+			return;
+		}
 
-	const trimmedText = text?.trim();
-	if (!trimmedText) {
-		return;
-	}
+		const trimmedText = text?.trim();
+		if (!trimmedText) {
+			return;
+		}
 
-	const nextInputKey = getInputKey();
-	if (lastAutoplayInputKey === nextInputKey) {
-		return;
-	}
+		const nextInputKey = getInputKey();
+		if (lastAutoplayInputKey === nextInputKey) {
+			return;
+		}
 
-	lastAutoplayInputKey = nextInputKey;
+		lastAutoplayInputKey = nextInputKey;
 
-	handlePlay();
-});
+		abortController?.abort();
+		abortController = new AbortController();
+		handlePlay(abortController.signal);
+	});
 </script>
 
 <div class="tts-wrapper">

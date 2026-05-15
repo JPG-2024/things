@@ -9,7 +9,7 @@ import { workflowManager } from "@/runners/workflowManager.svelte";
 const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
 
 let bottomAnchor: HTMLDivElement | undefined = $state();
-let previousFinishedCount = $state(0);
+let previousFinishedCount = 0;
 
 async function scrollToBottom() {
 	await tick();
@@ -19,7 +19,7 @@ async function scrollToBottom() {
 	});
 }
 
-$effect(() => {
+$effect.pre(() => {
 	const finishedCount = stackedTasks.filter(
 		({ task }) =>
 			task.status === "done" ||
