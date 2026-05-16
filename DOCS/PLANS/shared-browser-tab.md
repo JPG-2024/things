@@ -46,16 +46,19 @@ Stays unchanged. Currently unused by any migrated caller after the rewrite.
 ### 1. `browser.rs`
 
 **Add to `BrowserState`:**
+
 ```rust
 shared_page: Arc<Mutex<Option<Page>>>
 ```
 
 **Add to `BrowserContext`:**
+
 ```rust
 shared_page: Arc<Mutex<Option<Page>>>
 ```
 
 **Add function:**
+
 ```rust
 pub async fn with_shared_page<F, Fut>(work: F) -> Result<T, String>
 where
@@ -123,15 +126,15 @@ where
 
 ## Tauri Commands Affected (signature changes)
 
-| Command | Parameter Removed |
-|---------|-------------------|
-| `get_page_elements` | `close_page` |
-| `search_youtube` | `close_page` |
-| `extract_chapters` | `close_page` |
-| `get_youtube_info` | `close_page` |
-| `extract_metadata` | `close_page` |
-| `extract_markdown` | `close_page` |
-| `extract_blog` | `close_page` |
+| Command             | Parameter Removed |
+| ------------------- | ----------------- |
+| `get_page_elements` | `close_page`      |
+| `search_youtube`    | `close_page`      |
+| `extract_chapters`  | `close_page`      |
+| `get_youtube_info`  | `close_page`      |
+| `extract_metadata`  | `close_page`      |
+| `extract_markdown`  | `close_page`      |
+| `extract_blog`      | `close_page`      |
 
 ---
 

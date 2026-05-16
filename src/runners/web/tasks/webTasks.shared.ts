@@ -1,9 +1,5 @@
-import type {
-	Task,
-	TaskGlobalState,
-	TaskRuntime,
-} from "@/types/taskRunner.types";
-import type { TTSLanguage } from "$lib/utils/tts";
+import type { Task, TaskGlobalState, TaskRuntime } from '@/types/taskRunner.types';
+import type { TTSLanguage } from '$lib/utils/tts';
 
 export type WebInitContext = {
 	url: string;
@@ -21,15 +17,15 @@ export type WebThumbnailContext = {
 };
 
 export enum WebTaskNames {
-	INIT = "init",
-	METADATA = "metadata",
-	THUMBNAIL = "thumbnail",
-	MAIN_COLOR = "main-color",
-	TITLE = "title",
-	CONTENT = "content",
-	SUMMARY = "summary",
-	KEYWORDS = "keywords",
-	KEYPOINTS = "key-points",
+	INIT = 'init',
+	METADATA = 'metadata',
+	THUMBNAIL = 'thumbnail',
+	MAIN_COLOR = 'main-color',
+	TITLE = 'title',
+	CONTENT = 'content',
+	SUMMARY = 'summary',
+	KEYWORDS = 'keywords',
+	KEYPOINTS = 'key-points'
 }
 
 export type WebTaskState = {
@@ -51,9 +47,7 @@ export type WebTaskFactoryContext = {
 	freshRun: boolean;
 };
 
-export type WebTaskFactory = (
-	context: WebTaskFactoryContext
-) => Task<WebTaskState>;
+export type WebTaskFactory = (context: WebTaskFactoryContext) => Task<WebTaskState>;
 
 export type WebTaskRegistrySubset<TIds extends WebTaskId> = Pick<
 	Record<WebTaskId, WebTaskFactory>,
@@ -61,20 +55,18 @@ export type WebTaskRegistrySubset<TIds extends WebTaskId> = Pick<
 >;
 
 export const defaultCompletionOptions = {
-	model: "llama-server",
+	model: 'llama-server',
 	temperature: 0.7,
 	top_p: 0.8,
 	top_k: 20,
 	min_p: 0.0,
 	presence_penalty: 1.5,
 	repetition_penalty: 1.0,
-	stream: true,
+	stream: true
 } as const;
 
-export function getContentFromState(
-	runtime: Pick<TaskRuntime<WebTaskState>, "state">
-): string {
-	return String(runtime.state[WebTaskNames.CONTENT] || "");
+export function getContentFromState(runtime: Pick<TaskRuntime<WebTaskState>, 'state'>): string {
+	return String(runtime.state[WebTaskNames.CONTENT] || '');
 }
 
 export function getRequiredTaskState<TId extends WebTaskId>(

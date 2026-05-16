@@ -20,20 +20,24 @@ The **cacheStore** (implemented as `storeCacheWrapper`) is a Svelte store utilit
 Creates a segmented cache store.
 
 **Parameters:**
+
 - `fetcher: (segment: string, params: Tparams) => Promise<T>` - Async function to fetch data for a given segment and parameters
 
 **Returns:**
 An object with the following methods:
 
 #### `subscribe(callback)`
+
 Standard Svelte store subscription method. Callback receives the current state:
+
 ```typescript
 {
-  segments: Record<string, SegmentState<T>>
+	segments: Record<string, SegmentState<T>>;
 }
 ```
 
 #### `load(segment, params, force?)`
+
 Loads data for a specific segment with given parameters.
 
 - `segment: string` - Segment identifier (key-space)
@@ -43,6 +47,7 @@ Loads data for a specific segment with given parameters.
 Sets `loading: true` during fetch, then updates with data or error.
 
 #### `invalidate(segment, params)`
+
 Invalidates a cache segment and triggers a fresh reload.
 
 - `segment: string` - Segment identifier
@@ -67,20 +72,18 @@ Each cached segment contains:
 
 ```typescript
 // Create a cache store for fetching article data
-const articleCache = storeCacheWrapper<Article, { url: string }>(
-  async (segment, params) => {
-    const response = await fetch(`/api/articles?url=${params.url}`);
-    return response.json();
-  }
-);
+const articleCache = storeCacheWrapper<Article, { url: string }>(async (segment, params) => {
+	const response = await fetch(`/api/articles?url=${params.url}`);
+	return response.json();
+});
 
 // Load data for a segment
 await articleCache.load('article', { url: 'example.com/post' });
 
 // Subscribe to cache updates
-articleCache.subscribe(cache => {
-  const state = cache.segments['article-{"url":"example.com/post"}'];
-  console.log(state.data, state.loading, state.error);
+articleCache.subscribe((cache) => {
+	const state = cache.segments['article-{"url":"example.com/post"}'];
+	console.log(state.data, state.loading, state.error);
 });
 
 // Invalidate and refresh specific cache entry

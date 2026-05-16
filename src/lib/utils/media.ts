@@ -1,8 +1,8 @@
 type MediaAssetRequest = { key: string; url?: string | null };
 type MediaAssetResult = { key: string; value: string | null };
 
-import { invoke } from "@tauri-apps/api/core";
-import { resolveMediaDirectory } from "@/lib/utils/files";
+import { invoke } from '@tauri-apps/api/core';
+import { resolveMediaDirectory } from '@/lib/utils/files';
 
 export async function downloadMediaAssets(
 	pageUrl: string,
@@ -18,10 +18,10 @@ export async function downloadMediaAssets(
 	try {
 		mediaDirectory = await resolveMediaDirectory(pageUrl, profile);
 	} catch (err) {
-		console.error("downloadMediaAssets: url_to_folder_name failed", err);
+		console.error('downloadMediaAssets: url_to_folder_name failed', err);
 		return {
 			mediaDirectory: null,
-			results: assets.map(({ key }) => ({ key, value: null })),
+			results: assets.map(({ key }) => ({ key, value: null }))
 		};
 	}
 
@@ -32,10 +32,10 @@ export async function downloadMediaAssets(
 			}
 
 			try {
-				const fileName = await invoke<string>("download_and_save_image", {
+				const fileName = await invoke<string>('download_and_save_image', {
 					url,
 					folderName: mediaDirectory,
-					reductionMagnitud: 2,
+					reductionMagnitud: 2
 				});
 
 				return { key, value: fileName };

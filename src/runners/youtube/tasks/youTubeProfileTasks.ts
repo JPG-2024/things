@@ -1,17 +1,17 @@
-import { invoke } from "@tauri-apps/api/core";
-import { downloadImageUrl } from "@/lib/utils/files";
-import { getArticlesByProfile } from "@/stores/tasksStore";
-import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
-import { removeYTPpParam } from "@/lib/utils/youtube/helpers";
+import { invoke } from '@tauri-apps/api/core';
+import { downloadImageUrl } from '@/lib/utils/files';
+import { getArticlesByProfile } from '@/stores/tasksStore';
+import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 
 import {
 	buildVideoPageParams,
 	getRequiredTaskState,
 	TaskNames,
 	type GetChannelVideosContext,
-	type YouTubeTaskRegistrySubset,
-} from "./youtubeTasks.shared";
-import { youTubeRunner } from "../youTubeRunner";
+	type YouTubeTaskRegistrySubset
+} from './youtubeTasks.shared';
+import { youTubeRunner } from '../youTubeRunner';
 
 type ProfileTaskIds =
 	| TaskNames.INIT
@@ -23,22 +23,22 @@ type ProfileTaskIds =
 export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 	[TaskNames.INIT]: (runnerOptions) => ({
 		id: TaskNames.INIT,
-		name: "Initialize YouTube Context",
+		name: 'Initialize YouTube Context',
 		dependencies: [],
-		type: "script",
+		type: 'script',
 		run: () => {
 			const urlObj = new URL(runnerOptions.url);
-			const videoId = urlObj.searchParams.get("v");
+			const videoId = urlObj.searchParams.get('v');
 
 			return {
 				url: runnerOptions.url,
 				videoId,
-				language: runnerOptions.language,
+				language: runnerOptions.language
 			};
-		},
+		}
 	}),
 
-/* 	[TaskNames.THUMBNAIL]: () => ({
+	/* 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
 		dependencies: [TaskNames.INIT, TaskNames.EXTRACT_PROFILE],
 		type: "script",
@@ -71,81 +71,76 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 	[TaskNames.EXTRACT_PROFILE]: () => ({
 		id: TaskNames.EXTRACT_PROFILE,
 		dependencies: [TaskNames.INIT],
-		type: "script",
+		type: 'script',
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);
 
-			const result = await invoke<{ profile: string[], profilePicture: string[] }>("get_page_elements", {
-				...buildVideoPageParams(context.url),
-				selectors: [
-					{
-						name: "profile",
-						selector: "div.ytPageHeaderViewModelHeadline",
-					},
-					{
-						name: "profilePicture",
-						selector: "div#contentContainer img[src]",
-						attribute: "src"
-					},
-				],
-				attempts: 5,
-				intervalMs: 500
-			});
+			const result = await invoke<{ profile: string[]; profilePicture: string[] }>(
+				'get_page_elements',
+				{
+					...buildVideoPageParams(context.url),
+					selectors: [
+						{
+							name: 'profile',
+							selector: 'div.ytPageHeaderViewModelHeadline'
+						},
+						{
+							name: 'profilePicture',
+							selector: 'div#contentContainer img[src]',
+							attribute: 'src'
+						}
+					],
+					attempts: 5,
+					intervalMs: 500
+				}
+			);
 
 			const profile = {
 				name: result.profile[1],
 				profilePicture: result.profilePicture
-			}
-			
-			return profile
-		},
+			};
+
+			return profile;
+		}
 	}),
 
 	[TaskNames.GET_CHANNEL_VIDEOS]: () => ({
 		id: TaskNames.GET_CHANNEL_VIDEOS,
-		name: "Get channel videos",
+		name: 'Get channel videos',
 		dependencies: [TaskNames.INIT],
-		type: "script",
+		type: 'script',
 		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
-			const profileInfo = await invoke<GetChannelVideosContext>(
-				"get_page_elements",
-				{
-					url: String(urlData.url),
-					selectors: [
-						{ name: "channelName", selector: "h1 > span" },
-						{
-							name: "profilePicture",
-							selector: "div#page-header img",
-							attribute: "src",
-						},
-						{
-							name: "videoIds",
-							selector: "a.ytLockupViewModelContentImage",
-							attribute: "href",
-						},
-					],
-					attempts: 5,
-					intervalMs: 2000
-				}
-			);
+			const profileInfo = await invoke<GetChannelVideosContext>('get_page_elements', {
+				url: String(urlData.url),
+				selectors: [
+					{ name: 'channelName', selector: 'h1 > span' },
+					{
+						name: 'profilePicture',
+						selector: 'div#page-header img',
+						attribute: 'src'
+					},
+					{
+						name: 'videoIds',
+						selector: 'a.ytLockupViewModelContentImage',
+						attribute: 'href'
+					}
+				],
+				attempts: 5,
+				intervalMs: 2000
+			});
 
 			return profileInfo;
-		},
+		}
 	}),
 
 	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: () => ({
 		id: TaskNames.EXTRACT_CHANNEL_VIDEOS,
-		name: "Extract channel videos",
+		name: 'Extract channel videos',
 		dependencies: [TaskNames.GET_CHANNEL_VIDEOS],
-		type: "script",
+		type: 'script',
 		run: async ({ runId, state }) => {
-			const { videoIds } = getRequiredTaskState(
-				state,
-				TaskNames.GET_CHANNEL_VIDEOS
-			);
-
-			
+			const { videoIds } = getRequiredTaskState(state, TaskNames.GET_CHANNEL_VIDEOS);
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
 			const urlsToProcess = fullUrls.slice(0, 5).reverse(); // Process in reverse order to prioritize newer videos
@@ -165,32 +160,30 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 						.map((article) => [article.url as string, article])
 				);
 			*/
-			
+
 			const results = [];
-			
+
 			for (const url of urlsToProcess) {
-				const row = await invoke("get_stored_article_by_url", { url });
-				
+				const row = await invoke('get_stored_article_by_url', { url });
+
 				if (row) {
 					continue;
 				}
 
 				const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
 
-				
 				results.push(
 					await youTubeRunner(url, null, {
 						makeActive: false,
 						parentRunId: runId,
-						routine: "videoItem",
+						routine: 'videoItem',
 						profile: profile.name,
 						profilePicture: profile.profilePicture
 					})
 				);
 			}
 
-
 			return { fullUrls, results };
-		},
-	}),
+		}
+	})
 };

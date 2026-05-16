@@ -1,83 +1,83 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { ttsState } from "@/stores/ttsStore.svelte";
-import { viewState } from "@/stores/viewStore.svelte";
-import { fetchVoices, type Voice } from "@/lib/utils/ttsService";
-import Button from "../inputs/Button.component.svelte";
-import Dropdown from "../inputs/Dropdown.component.svelte";
-import Input from "../inputs/Input.component.svelte";
-import LoadingLine from "@/components/LoadingLine.svelte";
-import RangeSelector from "../inputs/RangeSelector.svelte";
-import Checkbox from "../inputs/Checkbox.component.svelte";
-import Spacer from "@/components/Spacer.component.svelte";
+	import { onMount } from 'svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { fetchVoices, type Voice } from '@/lib/utils/ttsService';
+	import Button from '../inputs/Button.component.svelte';
+	import Dropdown from '../inputs/Dropdown.component.svelte';
+	import Input from '../inputs/Input.component.svelte';
+	import LoadingLine from '@/components/LoadingLine.svelte';
+	import RangeSelector from '../inputs/RangeSelector.svelte';
+	import Checkbox from '../inputs/Checkbox.component.svelte';
+	import Spacer from '@/components/Spacer.component.svelte';
 
-let voices = $state<Voice[]>([]);
-let voicesLoading = $state(false);
-let voicesError = $state("");
+	let voices = $state<Voice[]>([]);
+	let voicesLoading = $state(false);
+	let voicesError = $state('');
 
-let selectedVoiceValue = $state("");
-let selectedNamePrefix = $state("");
+	let selectedVoiceValue = $state('');
+	let selectedNamePrefix = $state('');
 
-onMount(() => {
-	loadVoices();
-});
+	onMount(() => {
+		loadVoices();
+	});
 
-async function loadVoices() {
-	voicesLoading = true;
-	voicesError = "";
-	try {
-		voices = await fetchVoices();
-		const match = voices.find(
-			(v) => v.audio_file === ttsState.config.refAudioFilename
-		);
-		if (match) {
-			selectedVoiceValue = match.audio_file;
-			selectedNamePrefix = match.name_prefix;
+	async function loadVoices() {
+		voicesLoading = true;
+		voicesError = '';
+		try {
+			voices = await fetchVoices();
+			const match = voices.find((v) => v.audio_file === ttsState.config.refAudioFilename);
+			if (match) {
+				selectedVoiceValue = match.audio_file;
+				selectedNamePrefix = match.name_prefix;
+			}
+		} catch (err) {
+			voicesError = err instanceof Error ? err.message : 'Failed to load voices';
+		} finally {
+			voicesLoading = false;
 		}
-	} catch (err) {
-		voicesError = err instanceof Error ? err.message : "Failed to load voices";
-	} finally {
-		voicesLoading = false;
 	}
-}
 
-const namePrefixOptions = $derived(
-	[...new Set(voices.map((v) => v.name_prefix))].map((p) => ({
-		label: p,
-		value: p,
-	}))
-);
+	const namePrefixOptions = $derived(
+		[...new Set(voices.map((v) => v.name_prefix))].map((p) => ({
+			label: p,
+			value: p
+		}))
+	);
 
-const voicesForPrefix = $derived(
-	voices.filter((v) => v.name_prefix === selectedNamePrefix)
-);
+	const voicesForPrefix = $derived(voices.filter((v) => v.name_prefix === selectedNamePrefix));
 
-function handleNamePrefixChange(prefix: string) {
-	selectedNamePrefix = prefix;
-}
-
-function selectVoiceByIndex(index: number) {
-	const voice = voicesForPrefix[index];
-	if (!voice) return;
-	selectedVoiceValue = voice.audio_file;
-	handleVoiceChange(voice.audio_file);
-}
-
-function handleVoiceChange(audioFile: string) {
-	const voice = voices.find((v) => v.audio_file === audioFile);
-	if (!voice) return;
-
-	ttsState.config.refAudioFilename = voice.audio_file;
-	ttsState.config.refText = voice.text_reference;
-	viewState.language = voice.language as "en" | "es";
-}
-
-async function handleAddVoice() {
-	await ttsState.startAddVoice();
-	if (ttsState.addVoiceStatus === "done") {
-		await loadVoices();
+	function handleNamePrefixChange(prefix: string) {
+		selectedNamePrefix = prefix;
 	}
-}
+
+	function selectVoiceByIndex(index: number) {
+		const voice = voicesForPrefix[index];
+
+		if (!voice) return;
+		selectedVoiceValue = voice.audio_file;
+		handleVoiceChange(voice.audio_file);
+	}
+
+	function handleVoiceChange(audioFile: string) {
+		const voice = voices.find((v) => v.audio_file === audioFile);
+		if (!voice) return;
+
+		ttsState.config.refAudioFilename = voice.audio_file;
+		ttsState.config.refText = voice.text_reference;
+
+		console.log(voice.audio_file, voice.text_reference);
+
+		viewState.language = voice.language as 'en' | 'es';
+	}
+
+	async function handleAddVoice() {
+		await ttsState.startAddVoice();
+		if (ttsState.addVoiceStatus === 'done') {
+			await loadVoices();
+		}
+	}
 </script>
 
 <div class="panel">
@@ -202,7 +202,12 @@ async function handleAddVoice() {
 			onChange={(v) => (ttsState.config.audioChunkThreshold = v)}
 		/>
 
-		<Checkbox id="denoise" label="Denoise" checked={ttsState.config.denoise} onChange={(v) => (ttsState.config.denoise = v)} />
+		<Checkbox
+			id="denoise"
+			label="Denoise"
+			checked={ttsState.config.denoise}
+			onChange={(v) => (ttsState.config.denoise = v)}
+		/>
 
 		<Checkbox
 			id="preprocessPrompt"
@@ -233,10 +238,7 @@ async function handleAddVoice() {
 
 			<div class="voice-buttons">
 				{#each voicesForPrefix as _, i}
-					<Button
-						label={`${i + 1}`}
-						onClick={() => selectVoiceByIndex(i)}
-					/>
+					<Button label={`${i + 1}`} onClick={() => selectVoiceByIndex(i)} />
 				{/each}
 			</div>
 		</div>
@@ -263,7 +265,7 @@ async function handleAddVoice() {
 		<Spacer size={25} />
 
 		<Button
-			label={ttsState.addVoiceLoading ? "Processing..." : "Add Voice"}
+			label={ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
 			disabled={ttsState.addVoiceLoading}
 			onClick={handleAddVoice}
 		/>
@@ -275,10 +277,10 @@ async function handleAddVoice() {
 		{#if ttsState.addVoiceStatus}
 			<p
 				class="status"
-				class:error={ttsState.addVoiceStatus === "error"}
-				class:done={ttsState.addVoiceStatus === "done"}
+				class:error={ttsState.addVoiceStatus === 'error'}
+				class:done={ttsState.addVoiceStatus === 'done'}
 			>
-				{ttsState.addVoiceStatus === "done" ? "✓ " : ""}{ttsState.addVoiceMessage ||
+				{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
 					ttsState.addVoiceStatus}
 			</p>
 		{/if}

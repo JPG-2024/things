@@ -1,4 +1,3 @@
-
 # Notian Project Analysis
 
 This document provides an overview of the Notian project's architecture, organization, and security model.

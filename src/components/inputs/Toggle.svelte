@@ -1,41 +1,36 @@
 <script lang="ts">
-import { createEventDispatcher } from "svelte";
-import Label from "./Label.component.svelte";
+	import { createEventDispatcher } from 'svelte';
+	import Label from './Label.component.svelte';
 
-type Props = {
-	label?: string;
-	labelPosition?: "top" | "inline";
-	initial?: boolean;
-	onChange?: (checked: boolean) => void;
-};
+	type Props = {
+		label?: string;
+		labelPosition?: 'top' | 'inline';
+		initial?: boolean;
+		onChange?: (checked: boolean) => void;
+	};
 
-let {
-	label,
-	labelPosition = "inline",
-	initial = false,
-	onChange,
-}: Props = $props();
+	let { label, labelPosition = 'inline', initial = false, onChange }: Props = $props();
 
-let isOn = $state<boolean>(initial);
+	let isOn = $state<boolean>(initial);
 
-const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher();
 
-function toggle() {
-	isOn = !isOn;
-	dispatch("change", { checked: isOn });
-	onChange?.(isOn);
-}
-
-function onKey(e: KeyboardEvent) {
-	if (e.key === " " || e.key === "Enter") {
-		e.preventDefault();
-		toggle();
+	function toggle() {
+		isOn = !isOn;
+		dispatch('change', { checked: isOn });
+		onChange?.(isOn);
 	}
-}
 
-const toggleSwitch = $derived(
-	`<div role="switch" aria-checked={isOn} tabindex="0" class="switch {isOn ? 'on' : ''}" onclick={toggle} onkeydown={onKey}><div class="radial" aria-hidden="true"></div><div class="knob {isOn ? 'move' : ''}"></div></div>`
-);
+	function onKey(e: KeyboardEvent) {
+		if (e.key === ' ' || e.key === 'Enter') {
+			e.preventDefault();
+			toggle();
+		}
+	}
+
+	const toggleSwitch = $derived(
+		`<div role="switch" aria-checked={isOn} tabindex="0" class="switch {isOn ? 'on' : ''}" onclick={toggle} onkeydown={onKey}><div class="radial" aria-hidden="true"></div><div class="knob {isOn ? 'move' : ''}"></div></div>`
+	);
 </script>
 
 {#if label}

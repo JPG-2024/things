@@ -1,18 +1,18 @@
 <script lang="ts">
-import type { Snippet } from "svelte";
+	import type { Snippet } from 'svelte';
 
-interface Props {
-	text: string;
-	htmlFor?: string;
-	position?: "top" | "inline";
-	value?: string;
-	children: Snippet;
-}
+	interface Props {
+		text: string;
+		htmlFor?: string;
+		position?: 'top' | 'inline';
+		value?: string;
+		children: Snippet;
+	}
 
-let { text, htmlFor, position = "top", value, children }: Props = $props();
+	let { text, htmlFor, position = 'top', value, children }: Props = $props();
 </script>
 
-<div class="label-wrapper" class:inline={position === "inline"}>
+<div class="label-wrapper" class:inline={position === 'inline'}>
 	<label for={htmlFor}>
 		<span class="label-text">{text}</span>
 		{#if value}
@@ -49,7 +49,6 @@ let { text, htmlFor, position = "top", value, children }: Props = $props();
 	}
 
 	.label-text {
-		
 		color: var(--primary-color, #000);
 	}
 

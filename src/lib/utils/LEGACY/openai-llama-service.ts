@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import OpenAI from "openai";
-import type {
-	Completion,
-	CompletionCreateParams,
-} from "openai/resources/completions";
+import OpenAI from 'openai';
+import type { Completion, CompletionCreateParams } from 'openai/resources/completions';
 
 /**
  * Llama-server specific fields that extend OpenAI's CompletionCreateParams.
@@ -129,7 +126,7 @@ export interface CompletionResponse extends Completion {
 	};
 }
 
-const DEFAULT_BASE_URL = "http://localhost:8080/v1";
+const DEFAULT_BASE_URL = 'http://localhost:8080/v1';
 
 /**
  * Create an OpenAI client configured for llama-server.
@@ -137,17 +134,15 @@ const DEFAULT_BASE_URL = "http://localhost:8080/v1";
 function createClient(baseUrl?: string): OpenAI {
 	return new OpenAI({
 		baseURL: baseUrl || DEFAULT_BASE_URL,
-		apiKey: "not-needed",
-		dangerouslyAllowBrowser: true,
+		apiKey: 'not-needed',
+		dangerouslyAllowBrowser: true
 	});
 }
 
 /**
  * Split OpenAI CompletionCreateParams and llama-specific extra fields.
  */
-function splitParams(
-	params: CompletionCreateParams & Partial<LlamaExtraBody>
-): {
+function splitParams(params: CompletionCreateParams & Partial<LlamaExtraBody>): {
 	openaiParams: Partial<CompletionCreateParams>;
 	extraBody: LlamaExtraBody;
 } {
@@ -166,7 +161,7 @@ function splitParams(
 		echo: params.echo,
 		n: params.n,
 		suffix: params.suffix,
-		user: params.user,
+		user: params.user
 	};
 
 	// Remove undefined values
@@ -214,7 +209,7 @@ function splitParams(
 		return_progress: params.return_progress,
 		samplers: params.samplers,
 		response_fields: params.response_fields,
-		lora: params.lora as any,
+		lora: params.lora as any
 	};
 
 	// Remove undefined values from extraBody
@@ -249,22 +244,22 @@ export async function completion(
 	options?: CompletionOptions
 ): Promise<CompletionResponse> {
 	const client = createClient(baseUrl);
-	const streamEnabled = params.stream === true || typeof onToken === "function";
+	const streamEnabled = params.stream === true || typeof onToken === 'function';
 
 	const { openaiParams, extraBody } = splitParams(params);
 
-	console.log("Completion called with params:", { openaiParams, extraBody });
+	console.log('Completion called with params:', { openaiParams, extraBody });
 
 	if (!streamEnabled) {
 		const response = (await client.completions.create(
 			{
 				...openaiParams,
 				stream: false,
-				...extraBody,
+				...extraBody
 			} as any,
 			{
 				signal: options?.signal,
-				headers: options?.headers,
+				headers: options?.headers
 			}
 		)) as CompletionResponse;
 
@@ -276,22 +271,22 @@ export async function completion(
 		{
 			...openaiParams,
 			stream: true,
-			...extraBody,
+			...extraBody
 		} as CompletionCreateParams & { stream: true } & LlamaExtraBody,
 		{
 			signal: options?.signal,
-			headers: options?.headers,
+			headers: options?.headers
 		}
 	);
 
-	let aggregated = "";
+	let aggregated = '';
 	let lastChunk: CompletionResponse | null = null;
 
 	for await (const chunk of stream as AsyncIterable<CompletionResponse>) {
 		if (options?.signal?.aborted) break;
 		// console.log('Received chunk:', chunk);
-		const text = chunk.content ?? "";
-		console.log("Received text chunk:", text);
+		const text = chunk.content ?? '';
+		console.log('Received text chunk:', text);
 		if (text) {
 			aggregated += text;
 			onToken?.(text);
@@ -301,18 +296,18 @@ export async function completion(
 	}
 
 	return {
-		id: lastChunk?.id ?? "",
-		object: "text_completion",
+		id: lastChunk?.id ?? '',
+		object: 'text_completion',
 		created: lastChunk?.created ?? Math.floor(Date.now() / 1000),
-		model: lastChunk?.model ?? openaiParams.model ?? "",
+		model: lastChunk?.model ?? openaiParams.model ?? '',
 		choices: [
 			{
 				text: aggregated,
 				index: 0,
 				finish_reason: lastChunk?.choices?.[0]?.finish_reason ?? null,
-				logprobs: null,
-			},
+				logprobs: null
+			}
 		],
-		usage: lastChunk?.usage,
+		usage: lastChunk?.usage
 	} as CompletionResponse;
 }

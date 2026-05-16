@@ -1,128 +1,125 @@
 <script lang="ts">
-	import { onMount, tick } from "svelte";
-	import { page } from "$app/state";
-	import Input from "@/components/inputs/Input.component.svelte";
-	import MarkdownRenderer from "@/components/MarkdownRenderer.svelte";
-	import Icon from "@/components/Icon.svelte";
-	import { ttsState } from "@/stores/ttsStore.svelte";
-import {
-	chatCompletions,
-	type LlamaChatCompletionsRequest,
-} from "@/lib/utils/llama-completions";
+	import { onMount, tick } from 'svelte';
+	import { page } from '$app/state';
+	import Input from '@/components/inputs/Input.component.svelte';
+	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
+	import Icon from '@/components/Icon.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { chatCompletions, type LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions';
 
-interface ChatMessage {
-	id: string;
-	role: "user" | "assistant";
-	content: string;
-	done: boolean;
-}
-
-const DEFAULT_SYSTEM_PROMPT =
-	"You are a concise assistant. Answer clearly and helpfully. no more than 40 words. Use Markdown formatting when appropriate.";
-
-let messages = $state<ChatMessage[]>([]);
-let streamedText = $state("");
-let streaming = $state(false);
-let error = $state<string | null>(null);
-let activeAssistantId = $state<string | null>(null);
-let messagesContainer = $state<HTMLDivElement | null>(null);
-
-function generateId(): string {
-	return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-async function scrollToBottom() {
-	await tick();
-	if (messagesContainer) {
-		messagesContainer.scrollTop = messagesContainer.scrollHeight;
+	interface ChatMessage {
+		id: string;
+		role: 'user' | 'assistant';
+		content: string;
+		done: boolean;
 	}
-}
 
-async function streamResponse(userPrompt: string) {
-	const userMsg: ChatMessage = {
-		id: generateId(),
-		role: "user",
-		content: userPrompt,
-		done: true,
-	};
-	messages.push(userMsg);
+	const DEFAULT_SYSTEM_PROMPT =
+		'You are a concise assistant. Answer clearly and helpfully. no more than 40 words. Use Markdown formatting when appropriate.';
 
-	const assistantId = generateId();
-	const assistantMsg: ChatMessage = {
-		id: assistantId,
-		role: "assistant",
-		content: "",
-		done: false,
-	};
-	messages.push(assistantMsg);
+	let messages = $state<ChatMessage[]>([]);
+	let streamedText = $state('');
+	let streaming = $state(false);
+	let error = $state<string | null>(null);
+	let activeAssistantId = $state<string | null>(null);
+	let messagesContainer = $state<HTMLDivElement | null>(null);
 
-	streamedText = "";
-	activeAssistantId = assistantId;
-	streaming = true;
-	error = null;
-	await scrollToBottom();
+	function generateId(): string {
+		return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	}
 
-	const historyForApi: { role: "system" | "user" | "assistant"; content: string }[] = [
-		{ role: "system", content: DEFAULT_SYSTEM_PROMPT },
-	];
-	for (const m of messages) {
-		if (m.id === assistantId) break;
-		if (m.role === "user" || (m.role === "assistant" && m.done)) {
-			historyForApi.push({ role: m.role, content: m.content });
+	async function scrollToBottom() {
+		await tick();
+		if (messagesContainer) {
+			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
 	}
 
-	const request: LlamaChatCompletionsRequest = {
-		model: "llama-server",
-		messages: historyForApi,
-		temperature: 0.7,
-		max_completion_tokens: 1024,
-	};
+	async function streamResponse(userPrompt: string) {
+		const userMsg: ChatMessage = {
+			id: generateId(),
+			role: 'user',
+			content: userPrompt,
+			done: true
+		};
+		messages.push(userMsg);
 
-	try {
-		const response = await chatCompletions(request, {
-			onToken: (token) => {
-				streamedText += token;
-				void scrollToBottom();
-			},
-		});
+		const assistantId = generateId();
+		const assistantMsg: ChatMessage = {
+			id: assistantId,
+			role: 'assistant',
+			content: '',
+			done: false
+		};
+		messages.push(assistantMsg);
 
-		const finalText = response.choices?.[0]?.message?.content;
-		if (typeof finalText === "string" && finalText.trim()) {
-			streamedText = finalText;
-		}
-
-		const idx = messages.findIndex((m) => m.id === assistantId);
-		if (idx !== -1) {
-			messages[idx] = { ...messages[idx], content: streamedText, done: true };
-			ttsState.addTextContent(streamedText);
-			void ttsState.generateTTS();
-		}
-	} catch (err) {
-		error = err instanceof Error ? err.message : "Unknown error occurred";
-		const idx = messages.findIndex((m) => m.id === assistantId);
-		if (idx !== -1) {
-			messages[idx] = { ...messages[idx], done: true };
-		}
-	} finally {
-		streaming = false;
-		activeAssistantId = null;
+		streamedText = '';
+		activeAssistantId = assistantId;
+		streaming = true;
+		error = null;
 		await scrollToBottom();
-	}
-}
 
-function handleEnter(value: string) {
-	const trimmed = value.trim();
-	if (!trimmed || streaming) return;
-	void streamResponse(trimmed);
-}
+		const historyForApi: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+			{ role: 'system', content: DEFAULT_SYSTEM_PROMPT }
+		];
+		for (const m of messages) {
+			if (m.id === assistantId) break;
+			if (m.role === 'user' || (m.role === 'assistant' && m.done)) {
+				historyForApi.push({ role: m.role, content: m.content });
+			}
+		}
 
-onMount(() => {
-	const prompt = page.url.searchParams.get("prompt");
-	if (prompt?.trim()) {
-		void streamResponse(prompt.trim());
+		const request: LlamaChatCompletionsRequest = {
+			model: 'llama-server',
+			messages: historyForApi,
+			temperature: 0.7,
+			max_completion_tokens: 1024
+		};
+
+		try {
+			const response = await chatCompletions(request, {
+				onToken: (token) => {
+					streamedText += token;
+					void scrollToBottom();
+				}
+			});
+
+			const finalText = response.choices?.[0]?.message?.content;
+			if (typeof finalText === 'string' && finalText.trim()) {
+				streamedText = finalText;
+			}
+
+			const idx = messages.findIndex((m) => m.id === assistantId);
+			if (idx !== -1) {
+				messages[idx] = { ...messages[idx], content: streamedText, done: true };
+				ttsState.addTextContent(streamedText);
+				void ttsState.generateTTS();
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Unknown error occurred';
+			const idx = messages.findIndex((m) => m.id === assistantId);
+			if (idx !== -1) {
+				messages[idx] = { ...messages[idx], done: true };
+			}
+		} finally {
+			streaming = false;
+			activeAssistantId = null;
+			await scrollToBottom();
+		}
 	}
-});
+
+	function handleEnter(value: string) {
+		const trimmed = value.trim();
+		if (!trimmed || streaming) return;
+		void streamResponse(trimmed);
+	}
+
+	onMount(() => {
+		const prompt = page.url.searchParams.get('prompt');
+		if (prompt?.trim()) {
+			void streamResponse(prompt.trim());
+		}
+	});
 </script>
 
 <div class="chat-page">
@@ -142,8 +139,12 @@ onMount(() => {
 		{/if}
 
 		{#each messages as msg (msg.id)}
-			<div class="message" class:user={msg.role === "user"} class:assistant={msg.role === "assistant"}>
-				{#if msg.role === "user"}
+			<div
+				class="message"
+				class:user={msg.role === 'user'}
+				class:assistant={msg.role === 'assistant'}
+			>
+				{#if msg.role === 'user'}
 					<p class="user-text">{msg.content}</p>
 				{:else}
 					<div class="assistant-content">
@@ -155,8 +156,7 @@ onMount(() => {
 							<span class="thinking">Thinking...</span>
 						{/if}
 					</div>
-					{#if msg.done && msg.content.trim()}
-					{/if}
+					{#if msg.done && msg.content.trim()}{/if}
 				{/if}
 			</div>
 		{/each}

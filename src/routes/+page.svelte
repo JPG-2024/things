@@ -1,100 +1,100 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { useQueryClient } from "@tanstack/svelte-query";
+	import { onMount } from 'svelte';
+	import { useQueryClient } from '@tanstack/svelte-query';
 
-import ProfileWidget from "@/components/ProfileWidget.svelte";
-import Icon from "@/components/Icon.svelte";
-import SettingsModal from "@/components/modals/SettingsModal.svelte";
-import Input from "@/components/inputs/Input.component.svelte";
-import { urlRouter } from "@/lib/urlRouter/urlRouter";
-import { navigate } from "@/lib/utils/url";
-import {
-	getProfilesWithArticlesAfter,
-	UNKNOWN_PROFILE_ID,
-	UNKNOWN_PROFILE_LABEL,
-	type ArticleProfile,
-} from "@/stores/tasksStore";
-import { primaryColor } from "@/stores/uiStore";
-import { viewState } from "@/stores/viewStore.svelte";
+	import ProfileWidget from '@/components/ProfileWidget.svelte';
+	import Icon from '@/components/Icon.svelte';
+	import SettingsModal from '@/components/modals/SettingsModal.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
+	import { urlRouter } from '@/lib/urlRouter/urlRouter';
+	import { navigate } from '@/lib/utils/url';
+	import {
+		getProfilesWithArticlesAfter,
+		UNKNOWN_PROFILE_ID,
+		UNKNOWN_PROFILE_LABEL,
+		type ArticleProfile
+	} from '@/stores/tasksStore';
+	import { primaryColor } from '@/stores/uiStore';
+	import { viewState } from '@/stores/viewStore.svelte';
 
-const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
+	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
-let processingUrl = $state(false);
-let profileCategories = $state<ArticleProfile[]>([]);
+	let processingUrl = $state(false);
+	let profileCategories = $state<ArticleProfile[]>([]);
 
-async function loadProfiles() {
-	const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
-	const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
+	async function loadProfiles() {
+		const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+		const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
 
-	profileCategories = profiles.length
-		? profiles
-		: [
-				{
-					id: UNKNOWN_PROFILE_ID,
-					name: UNKNOWN_PROFILE_LABEL,
-					count: 0,
-				},
-			];
-}
-
-async function handleProfileDeleted(_profileId: string) {
-	await loadProfiles();
-}
-
-function extractValidUrl(value: string): string | null {
-	const trimmedValue = value.trim();
-
-	if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
-		return null;
+		profileCategories = profiles.length
+			? profiles
+			: [
+					{
+						id: UNKNOWN_PROFILE_ID,
+						name: UNKNOWN_PROFILE_LABEL,
+						count: 0
+					}
+				];
 	}
 
-	try {
-		const parsedUrl = new URL(trimmedValue);
-		if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+	async function handleProfileDeleted(_profileId: string) {
+		await loadProfiles();
+	}
+
+	function extractValidUrl(value: string): string | null {
+		const trimmedValue = value.trim();
+
+		if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
 			return null;
 		}
 
-		return parsedUrl.toString();
-	} catch {
-		return null;
+		try {
+			const parsedUrl = new URL(trimmedValue);
+			if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+				return null;
+			}
+
+			return parsedUrl.toString();
+		} catch {
+			return null;
+		}
 	}
-}
 
-async function handlePasteUrl(url: string) {
-	const validUrl = extractValidUrl(url);
-	if (!validUrl || processingUrl) return;
+	async function handlePasteUrl(url: string) {
+		const validUrl = extractValidUrl(url);
+		if (!validUrl || processingUrl) return;
 
-	processingUrl = true;
+		processingUrl = true;
 
-	try {
-		viewState.lastHandledClipboardUrl = validUrl;
-		navigate(`/youtube/${encodeURIComponent(validUrl)}`);
-		await urlRouter(validUrl);
-	} finally {
-		processingUrl = false;
+		try {
+			viewState.lastHandledClipboardUrl = validUrl;
+			navigate(`/youtube/${encodeURIComponent(validUrl)}`);
+			await urlRouter(validUrl);
+		} finally {
+			processingUrl = false;
+		}
 	}
-}
 
-function handleEnter(value: string) {
-	const trimmed = value.trim();
-	if (!trimmed) return;
+	function handleEnter(value: string) {
+		const trimmed = value.trim();
+		if (!trimmed) return;
 
-	const validUrl = extractValidUrl(trimmed);
-	if (validUrl) {
-		void handlePasteUrl(trimmed);
-	} else {
-		navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
+		const validUrl = extractValidUrl(trimmed);
+		if (validUrl) {
+			void handlePasteUrl(trimmed);
+		} else {
+			navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
+		}
 	}
-}
 
-const queryClient = useQueryClient();
+	const queryClient = useQueryClient();
 
-onMount(() => {
-	void (async () => {
-		await loadProfiles();
-		queryClient.invalidateQueries({ queryKey: ["articles"] });
-	})();
-});
+	onMount(() => {
+		void (async () => {
+			await loadProfiles();
+			queryClient.invalidateQueries({ queryKey: ['articles'] });
+		})();
+	});
 </script>
 
 <div class="page-topbar">
@@ -109,27 +109,23 @@ onMount(() => {
 </div>
 
 <div class="dashboard-container">
-   <div class="title-row">
-    <span class="dashboard-title">Things</span>
-  </div> 
+	<div class="title-row">
+		<span class="dashboard-title">Things</span>
+	</div>
 
-  <div class="inputs-container">
-    <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
-    <!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
+	<div class="inputs-container">
+		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
+		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
-    <!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
-    <!-- <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
-  </div>
+		<!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
+		<!-- <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
+	</div>
 
-  <div class="flex-squares">
-{#each profileCategories as profile (profile.id)}
-			<ProfileWidget
-				{profile}
-				showTitle={true}
-				onDeleted={handleProfileDeleted}
-			/>
+	<div class="flex-squares">
+		{#each profileCategories as profile (profile.id)}
+			<ProfileWidget {profile} showTitle={true} onDeleted={handleProfileDeleted} />
 		{/each}
-  </div>
+	</div>
 </div>
 
 <SettingsModal
@@ -165,50 +161,49 @@ onMount(() => {
 		background: rgba(255, 255, 255, 0.06);
 	}
 
-  .dashboard-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.4rem;
-    align-items: center;
-    box-sizing: border-box;
+	.dashboard-container {
+		display: flex;
+		flex-direction: column;
+		gap: 1.4rem;
+		align-items: center;
+		box-sizing: border-box;
 		padding: 76px 20px 20px;
-    width: 100%;
-  }
+		width: 100%;
+	}
 
-  .dashboard-title {
-    color: var(--primary-color);
-    font-size: 2.2rem;
-    padding: 0.1rem 1rem;
-    
-  }
+	.dashboard-title {
+		color: var(--primary-color);
+		font-size: 2.2rem;
+		padding: 0.1rem 1rem;
+	}
 
-  .flex-squares {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 2rem;
-    width: 100%;
-  }
+	.flex-squares {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 2rem;
+		width: 100%;
+	}
 
-  .inputs-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-	margin-bottom: 2rem;
-    width: 100%;
-    max-width: 800px;
-  }
+	.inputs-container {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin-bottom: 2rem;
+		width: 100%;
+		max-width: 800px;
+	}
 
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    justify-content: center;
-    padding: 10px;
-  }
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		width: 100%;
+		justify-content: center;
+		padding: 10px;
+	}
 
-  /* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
+	/* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
 </style>

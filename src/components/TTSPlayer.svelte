@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Icon from "./Icon.svelte";
-	import { ttsState } from "@/stores/ttsStore.svelte";
+	import Icon from './Icon.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	let audioElement = $state<HTMLAudioElement | null>(null);
 
@@ -29,8 +29,8 @@
 			audioElement.src = ttsState.audioSrc;
 			if (ttsState.isPlaying) {
 				audioElement.play().catch((err: unknown) => {
-					if (err instanceof Error && err.name !== "AbortError") {
-						ttsState.errorMessage = "Playback was blocked by the browser.";
+					if (err instanceof Error && err.name !== 'AbortError') {
+						ttsState.errorMessage = 'Playback was blocked by the browser.';
 					}
 				});
 			}
@@ -54,7 +54,7 @@
 				type="button"
 				onclick={ttsState.isPlaying ? handleStop : togglePlay}
 				disabled={ttsState.isGenerating}
-				aria-label={ttsState.isPlaying ? "Stop" : "Play"}
+				aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
 			>
 				{#if ttsState.isGenerating}
 					<Icon name="Loader" size={18} />
@@ -88,12 +88,16 @@
 		<audio
 			bind:this={audioElement}
 			src={ttsState.audioSrc ?? undefined}
-			onplay={() => { ttsState.isPlaying = true; }}
-			onpause={() => { ttsState.isPlaying = false; }}
+			onplay={() => {
+				ttsState.isPlaying = true;
+			}}
+			onpause={() => {
+				ttsState.isPlaying = false;
+			}}
 			onended={handleEnded}
 			onerror={(e) => {
 				const target = e.target as HTMLAudioElement;
-				ttsState.errorMessage = `Playback error (${target.error?.code ?? "unknown"})`;
+				ttsState.errorMessage = `Playback error (${target.error?.code ?? 'unknown'})`;
 				ttsState.isPlaying = false;
 			}}
 		></audio>
@@ -102,7 +106,7 @@
 	{#if ttsState.errorMessage}
 		<div class="error-bar">
 			<span>{ttsState.errorMessage}</span>
-			<button type="button" onclick={() => ttsState.errorMessage = ""}>×</button>
+			<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
 		</div>
 	{/if}
 {/if}

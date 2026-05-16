@@ -1,15 +1,15 @@
-import { primaryColor } from "@/stores/uiStore";
-import { viewState } from "@/stores/viewStore.svelte";
-import type { Task } from "@/types/taskRunner.types";
+import { primaryColor } from '@/stores/uiStore';
+import { viewState } from '@/stores/viewStore.svelte';
+import type { Task } from '@/types/taskRunner.types';
 import {
 	deleteArticleByUrl,
 	getArticleWithTasksByUrl,
-	type ArticleWithTasks,
-} from "@/stores/tasksStore";
-import { youTubeRunner } from "@/runners/youtube/youTubeRunner";
-import { extractProfileRunner } from "@/runners/youtube/profileVideosRunner";
-import { webRunner } from "@/runners/web/webRunner";
-import { workflowManager } from "@/runners/workflowManager.svelte";
+	type ArticleWithTasks
+} from '@/stores/tasksStore';
+import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
+import { extractProfileRunner } from '@/runners/youtube/profileVideosRunner';
+import { webRunner } from '@/runners/web/webRunner';
+import { workflowManager } from '@/runners/workflowManager.svelte';
 
 // Router response payload built from the persisted article snapshot and current run
 type RouterCachedArticle = {
@@ -49,20 +49,20 @@ function matchesRoute(url: string, condition: UrlRouteCondition): boolean {
 
 const routeDefinitions: UrlRoute[] = [
 	{
-		name: "youtubeVideo",
+		name: 'youtubeVideo',
 		condition: YOUTUBE_URL_REGEX,
-		handler: (url, context) => youTubeRunner(url, context?.cachedArticle),
+		handler: (url, context) => youTubeRunner(url, context?.cachedArticle)
 	},
 	{
-		name: "toubeProfileVideos",
+		name: 'toubeProfileVideos',
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
-		handler: extractProfileRunner,
+		handler: extractProfileRunner
 	},
 	{
-		name: "defaultBlog",
+		name: 'defaultBlog',
 		condition: () => true,
-		handler: (url, context) => webRunner(url, context?.cachedArticle),
-	},
+		handler: (url, context) => webRunner(url, context?.cachedArticle)
+	}
 ];
 
 function findRoute(url: string): UrlRoute | undefined {
@@ -76,7 +76,7 @@ export function addUrlRoute(route: UrlRoute) {
 
 function applyCachedArticle(cached: ArticleWithTasks) {
 	viewState.cleanAllState();
-	viewState.url = cached.url ?? "";
+	viewState.url = cached.url ?? '';
 	viewState.setAllValues(cached as unknown as Article);
 	viewState.loaded = true;
 	viewState.loading = false;
@@ -106,12 +106,8 @@ export async function urlRouter(
 			const matchingRoute = findRoute(url);
 
 			if (!matchingRoute) {
-				const supportedRoutes = routeDefinitions
-					.map((route) => route.name)
-					.join(", ");
-				throw new Error(
-					`Unsupported URL. Supported routes: ${supportedRoutes}.`
-				);
+				const supportedRoutes = routeDefinitions.map((route) => route.name).join(', ');
+				throw new Error(`Unsupported URL. Supported routes: ${supportedRoutes}.`);
 			}
 
 			if (forceRunTasks) {
@@ -134,7 +130,7 @@ export async function urlRouter(
 			const freshData: RouterCachedArticle = {
 				...viewState.getAllValues(),
 				url,
-				tasks,
+				tasks
 			};
 
 			viewState.loaded = true;
@@ -142,7 +138,7 @@ export async function urlRouter(
 
 			return { data: freshData, cached: Boolean(cachedArticle) };
 		} catch (err) {
-			console.error("Error while routing URL:", err);
+			console.error('Error while routing URL:', err);
 			viewState.loading = false;
 			viewState.loaded = false;
 			throw err;

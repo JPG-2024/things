@@ -1,0 +1,31 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Tauri/Rust
+target/
+src-tauri/target/
+Cargo.lock
+*.rs.bk
+
+# Frontend
+dist/
+build/
+node_modules/
+coverage/
+
+# Config
+.prettierrc
+.eslintrc
+.prettierignore
+.eslintignore
+pnpm-lock.yaml
+
+# Git
+.gitignore

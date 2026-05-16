@@ -1,12 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
-import { BaseDirectory, remove } from "@tauri-apps/plugin-fs";
-import { splitText } from "@/lib/utils/splitter";
-import type { Task, TaskMapBase } from "@/types/taskRunner.types";
+import { invoke } from '@tauri-apps/api/core';
+import { BaseDirectory, remove } from '@tauri-apps/plugin-fs';
+import { splitText } from '@/lib/utils/splitter';
+import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 type StoredTask = {
 	id?: string;
 	data?: unknown;
-	status?: Task["status"];
+	status?: Task['status'];
 	component?: string;
 };
 
@@ -18,7 +18,7 @@ type LegacyPageElementItem = {
 export type PersistedTaskState = {
 	id: string;
 	data?: unknown;
-	status?: Task["status"];
+	status?: Task['status'];
 	component?: string;
 };
 
@@ -37,8 +37,8 @@ export interface ArticleWithTasks {
 	[key: string]: unknown;
 }
 
-export const UNKNOWN_PROFILE_ID = "__unknown_profile__";
-export const UNKNOWN_PROFILE_LABEL = "Unknown profile";
+export const UNKNOWN_PROFILE_ID = '__unknown_profile__';
+export const UNKNOWN_PROFILE_LABEL = 'Unknown profile';
 
 export interface ArticleProfile {
 	id: string;
@@ -47,7 +47,7 @@ export interface ArticleProfile {
 	profilePicture?: string | null;
 }
 
-type SearchRowKind = "content_chunk" | "keyword_bundle";
+type SearchRowKind = 'content_chunk' | 'keyword_bundle';
 
 type StoredArticleRecord = {
 	id: string;
@@ -116,27 +116,21 @@ function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 		const parsed = JSON.parse(raw) as StoredTask[];
 		if (Array.isArray(parsed)) {
 			return parsed.map((task, index) => ({
-				id:
-					typeof task?.id === "string" && task.id.trim()
-						? task.id
-						: `cached-${index}`,
+				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
 				data: task?.data,
-				status: task?.status ?? "done",
-				component: task?.component,
+				status: task?.status ?? 'done',
+				component: task?.component
 			}));
 		}
 	} catch (error) {
-		console.warn("Unable to parse stored tasks JSON", error);
+		console.warn('Unable to parse stored tasks JSON', error);
 	}
 
 	return [];
 }
 
-function shouldPersistTask<TMap extends TaskMapBase>(
-	task: Task<TMap>
-): boolean {
-	const hasComponent =
-		typeof task.component === "string" && task.component.trim().length > 0;
+function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): boolean {
+	const hasComponent = typeof task.component === 'string' && task.component.trim().length > 0;
 	return hasComponent || task.persist === true;
 }
 
@@ -145,7 +139,7 @@ function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): StoredTask {
 		id: task.id,
 		data: task.data,
 		status: task.status,
-		component: task.component,
+		component: task.component
 	};
 }
 
@@ -160,7 +154,7 @@ function mergeStoredTasks<TMap extends TaskMapBase>(
 			id: task.id,
 			data: task.data,
 			status: task.status,
-			component: task.component,
+			component: task.component
 		});
 	}
 
@@ -184,45 +178,37 @@ function getStoredTaskData<T>(
 
 function getArticleStringField(
 	article: ArticleWithTasks | null,
-	fieldName: "content" | "profile" | "mediaDirectory" | "directory"
+	fieldName: 'content' | 'profile' | 'mediaDirectory' | 'directory'
 ): string {
 	const fieldValue = article?.[fieldName];
-	return typeof fieldValue === "string" ? fieldValue : "";
+	return typeof fieldValue === 'string' ? fieldValue : '';
 }
 
-function getArticleMediaDirectory(
-	article: ArticleWithTasks | null
-): string | null {
+function getArticleMediaDirectory(article: ArticleWithTasks | null): string | null {
 	return firstNormalizedString(
-		getArticleStringField(article, "mediaDirectory"),
-		getArticleStringField(article, "directory")
+		getArticleStringField(article, 'mediaDirectory'),
+		getArticleStringField(article, 'directory')
 	);
 }
 
 function normalizeOwnedMediaFileName(value: unknown): string | null {
-	if (typeof value !== "string") {
+	if (typeof value !== 'string') {
 		return null;
 	}
 
 	const normalized = value.trim();
-	if (!normalized || normalized.includes("/") || normalized.includes("\\")) {
+	if (!normalized || normalized.includes('/') || normalized.includes('\\')) {
 		return null;
 	}
 
 	return normalized;
 }
 
-function collectOwnedMediaFiles(
-	tasks: PersistedTaskState[] | undefined
-): string[] {
+function collectOwnedMediaFiles(tasks: PersistedTaskState[] | undefined): string[] {
 	const ownedFiles = new Set<string>();
 
 	for (const task of tasks ?? []) {
-		if (
-			typeof task.data !== "object" ||
-			task.data === null ||
-			Array.isArray(task.data)
-		) {
+		if (typeof task.data !== 'object' || task.data === null || Array.isArray(task.data)) {
 			continue;
 		}
 
@@ -251,9 +237,7 @@ function isLegacyArticleMediaDirectory(directory: string): boolean {
 	return /^[a-f0-9]{16}$/i.test(directory.trim());
 }
 
-async function deleteArticleMedia(
-	article: ArticleWithTasks | null
-): Promise<void> {
+async function deleteArticleMedia(article: ArticleWithTasks | null): Promise<void> {
 	const directory = getArticleMediaDirectory(article);
 	if (!directory) {
 		return;
@@ -269,7 +253,7 @@ async function deleteArticleMedia(
 		try {
 			await remove(mediaPath, {
 				baseDir: BaseDirectory.AppData,
-				recursive: true,
+				recursive: true
 			});
 			console.log(`[Media] Deleted legacy media directory: ${mediaPath}`);
 		} catch (error) {
@@ -282,7 +266,7 @@ async function deleteArticleMedia(
 		const mediaPath = `media/${directory}/${fileName}`;
 		try {
 			await remove(mediaPath, {
-				baseDir: BaseDirectory.AppData,
+				baseDir: BaseDirectory.AppData
 			});
 			console.log(`[Media] Deleted media file: ${mediaPath}`);
 		} catch (error) {
@@ -291,10 +275,8 @@ async function deleteArticleMedia(
 	}
 }
 
-function normalizeNullableString(
-	value: string | null | undefined
-): string | null {
-	if (typeof value !== "string") {
+function normalizeNullableString(value: string | null | undefined): string | null {
+	if (typeof value !== 'string') {
 		return null;
 	}
 
@@ -310,9 +292,7 @@ function normalizeNullableString(
  * @param values - List of string, null, or undefined values to check.
  * @returns The first normalized string, or null if none found.
  */
-function firstNormalizedString(
-	...values: Array<string | null | undefined>
-): string | null {
+function firstNormalizedString(...values: Array<string | null | undefined>): string | null {
 	for (const value of values) {
 		const normalized = normalizeNullableString(value);
 		if (normalized) {
@@ -328,14 +308,14 @@ function parseKeywords(data: unknown): string[] {
 		return data.map((keyword) => String(keyword).trim()).filter(Boolean);
 	}
 
-	if (typeof data === "object" && data !== null && "keywords" in data) {
+	if (typeof data === 'object' && data !== null && 'keywords' in data) {
 		const value = data.keywords;
 		return Array.isArray(value)
 			? value.map((keyword) => String(keyword).trim()).filter(Boolean)
 			: [];
 	}
 
-	if (typeof data === "string") {
+	if (typeof data === 'string') {
 		try {
 			const parsed = JSON.parse(data) as { keywords?: unknown };
 			return parseKeywords(parsed);
@@ -348,13 +328,13 @@ function parseKeywords(data: unknown): string[] {
 }
 
 function getFirstStringValue(value: unknown): string | null {
-	if (typeof value === "string") {
+	if (typeof value === 'string') {
 		return value;
 	}
 
 	if (Array.isArray(value)) {
 		for (const item of value) {
-			if (typeof item === "string") {
+			if (typeof item === 'string') {
 				return item;
 			}
 		}
@@ -370,14 +350,14 @@ function getPageElementField(
 ): string | null {
 	const data = getStoredTaskData<unknown>(tasks, taskId);
 
-	if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+	if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
 		const value = (data as Record<string, unknown>)[fieldName];
 		return getFirstStringValue(value);
 	}
 
 	if (Array.isArray(data)) {
 		const item = data.find((entry) => {
-			if (typeof entry !== "object" || entry === null) {
+			if (typeof entry !== 'object' || entry === null) {
 				return false;
 			}
 
@@ -385,7 +365,7 @@ function getPageElementField(
 			return candidate.name === fieldName;
 		});
 
-		if (typeof item === "object" && item !== null) {
+		if (typeof item === 'object' && item !== null) {
 			return getFirstStringValue((item as LegacyPageElementItem).textContent);
 		}
 	}
@@ -401,9 +381,7 @@ async function buildSearchRows(
 	const normalizedContent = normalizeNullableString(content);
 
 	if (normalizedContent) {
-		const mode = /(^|\n)#{1,6}\s|```/.test(normalizedContent)
-			? "markdown"
-			: "podcast";
+		const mode = /(^|\n)#{1,6}\s|```/.test(normalizedContent) ? 'markdown' : 'podcast';
 		let chunks: string[] = [];
 
 		try {
@@ -411,10 +389,10 @@ async function buildSearchRows(
 				mode,
 				text: normalizedContent,
 				capacityChars: 1200,
-				overlapChars: 120,
+				overlapChars: 120
 			});
 		} catch (error) {
-			console.warn("Unable to split content for LanceDB indexing", error);
+			console.warn('Unable to split content for LanceDB indexing', error);
 			chunks = [normalizedContent];
 		}
 
@@ -426,20 +404,20 @@ async function buildSearchRows(
 
 			searchRows.push({
 				rowId: `content_chunk:${index}`,
-				kind: "content_chunk",
+				kind: 'content_chunk',
 				ordinal: index,
-				text,
+				text
 			});
 		}
 	}
 
-	const keywordText = normalizeNullableString(keywords.join("\n"));
+	const keywordText = normalizeNullableString(keywords.join('\n'));
 	if (keywordText) {
 		searchRows.push({
-			rowId: "keyword_bundle:0",
-			kind: "keyword_bundle",
+			rowId: 'keyword_bundle:0',
+			kind: 'keyword_bundle',
 			ordinal: 0,
-			text: keywordText,
+			text: keywordText
 		});
 	}
 
@@ -453,13 +431,11 @@ function buildEmbeddingSourceText(input: {
 }): string | null {
 	const parts = [
 		normalizeNullableString(input.title),
-		input.keywords.length > 0
-			? `Keywords:\n${input.keywords.join("\n")}`
-			: null,
-		normalizeNullableString(input.content),
+		input.keywords.length > 0 ? `Keywords:\n${input.keywords.join('\n')}` : null,
+		normalizeNullableString(input.content)
 	].filter((value): value is string => Boolean(value));
 
-	return parts.length > 0 ? parts.join("\n\n") : null;
+	return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
 async function buildUpsertInput(params: {
@@ -470,19 +446,19 @@ async function buildUpsertInput(params: {
 }): Promise<UpsertStoredArticleInput> {
 	const title = firstNormalizedString(
 		params.valuesToOverride?.title as string | undefined,
-		getStoredTaskData<string>(params.tasksToSave, "title"),
+		getStoredTaskData<string>(params.tasksToSave, 'title'),
 		params.existingArticle?.title
 	);
 	const content = firstNormalizedString(
 		params.valuesToOverride?.content as string | undefined,
-		getStoredTaskData<string>(params.tasksToSave, "content"),
-		getArticleStringField(params.existingArticle, "content")
+		getStoredTaskData<string>(params.tasksToSave, 'content'),
+		getArticleStringField(params.existingArticle, 'content')
 	);
 	const thumbnailTaskData =
 		getStoredTaskData<{
 			thumbnailImageSrc?: string;
 			mediaDirectory?: string;
-		}>(params.tasksToSave, "thumbnail") ?? {};
+		}>(params.tasksToSave, 'thumbnail') ?? {};
 
 	const thumbnail = firstNormalizedString(
 		params.valuesToOverride?.thumbnail as string | undefined,
@@ -492,35 +468,33 @@ async function buildUpsertInput(params: {
 	const directory = firstNormalizedString(
 		params.valuesToOverride?.directory as string | undefined,
 		thumbnailTaskData.mediaDirectory,
-		getArticleStringField(params.existingArticle, "mediaDirectory"),
-		getArticleStringField(params.existingArticle, "directory")
+		getArticleStringField(params.existingArticle, 'mediaDirectory'),
+		getArticleStringField(params.existingArticle, 'directory')
 	);
 	const mainColor = firstNormalizedString(
 		params.valuesToOverride?.mainColor as string | undefined,
-		getStoredTaskData<string>(params.tasksToSave, "main-color"),
+		getStoredTaskData<string>(params.tasksToSave, 'main-color'),
 		params.existingArticle?.mainColor ?? null,
 		params.existingArticle?.primaryColor ?? null
 	);
-	const keywords = parseKeywords(
-		getStoredTaskData<unknown>(params.tasksToSave, "keywords")
-	);
+	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'keywords'));
 	const profile = firstNormalizedString(
 		params.valuesToOverride?.profile as string | undefined,
-		getPageElementField(params.tasksToSave, "video-info", "profile"),
-		getArticleStringField(params.existingArticle, "profile")
+		getPageElementField(params.tasksToSave, 'video-info', 'profile'),
+		getArticleStringField(params.existingArticle, 'profile')
 	);
 	const profilePicture = firstNormalizedString(
 		params.valuesToOverride?.profilePicture as string | undefined,
-		getPageElementField(params.tasksToSave, "video-info", "profilePicture")
+		getPageElementField(params.tasksToSave, 'video-info', 'profilePicture')
 	);
 
-	print 
+	print;
 
 	const searchRows = await buildSearchRows(content, keywords);
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
 		content,
-		keywords,
+		keywords
 	});
 
 	return {
@@ -534,20 +508,19 @@ async function buildUpsertInput(params: {
 		profilePicture,
 		tasksJson: JSON.stringify(params.tasksToSave),
 		embeddingSourceText,
-		searchRows,
+		searchRows
 	};
 }
 
 function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
-	const tasksJson = row.tasksJson ?? "[]";
-	const mainColor =
-		typeof row.mainColor === "string" ? row.mainColor : row.primaryColor;
+	const tasksJson = row.tasksJson ?? '[]';
+	const mainColor = typeof row.mainColor === 'string' ? row.mainColor : row.primaryColor;
 
 	return {
 		...row,
 		mainColor,
 		profilePicture: row.profilePicture,
-		persistedTasks: parsePersistedTaskStates(tasksJson),
+		persistedTasks: parsePersistedTaskStates(tasksJson)
 	};
 }
 
@@ -568,40 +541,35 @@ async function fetchStoredArticlesByProfile(
 		payload.fields = fields;
 	}
 
-	if (typeof createdAtFrom === "number") {
+	if (typeof createdAtFrom === 'number') {
 		payload.createdAtFrom = createdAtFrom;
 	}
 
-	if (typeof limit === "number") {
+	if (typeof limit === 'number') {
 		payload.limit = limit;
 	}
 
-	return invoke<StoredArticleRecord[]>(
-		"list_stored_articles_by_profile",
-		payload
-	);
+	return invoke<StoredArticleRecord[]>('list_stored_articles_by_profile', payload);
 }
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
-		const result = await invoke<StoredArticleRecord[]>("list_stored_articles");
+		const result = await invoke<StoredArticleRecord[]>('list_stored_articles');
 
 		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
-		console.error("Error querying DB articles", error);
+		console.error('Error querying DB articles', error);
 		return [];
 	}
 }
 
 export async function getProfiles(): Promise<ArticleProfile[]> {
 	try {
-		const result = await invoke<StoredArticleProfileRecord[]>(
-			"list_stored_article_profiles"
-		);
+		const result = await invoke<StoredArticleProfileRecord[]>('list_stored_article_profiles');
 
 		return result;
 	} catch (error) {
-		console.error("Error querying article profiles", error);
+		console.error('Error querying article profiles', error);
 		return [];
 	}
 }
@@ -611,13 +579,13 @@ export async function getProfilesWithArticlesAfter(
 ): Promise<ProfileWithMostRecentArticle[]> {
 	try {
 		const result = await invoke<ProfileWithMostRecentArticle[]>(
-			"list_profiles_with_articles_after",
+			'list_profiles_with_articles_after',
 			{ createdAtFrom }
 		);
 
 		return result;
 	} catch (error) {
-		console.error("Error querying profiles with articles after date", error);
+		console.error('Error querying profiles with articles after date', error);
 		return [];
 	}
 }
@@ -632,26 +600,21 @@ export async function getArticlesByProfile(
 	try {
 		const result = await fetchStoredArticlesByProfile(
 			profileId,
-			["id", "url", "title", "thumbnail"],
+			['id', 'url', 'title', 'thumbnail'],
 			options?.createdAtFrom,
 			options?.limit
 		);
 
 		return result.map((row) => mapStoredArticle(row));
 	} catch (error) {
-		console.error("Error querying profile articles", error);
+		console.error('Error querying profile articles', error);
 		return [];
 	}
 }
 
-export async function getArticleWithTasksByUrl(
-	url: string
-): Promise<ArticleWithTasks | null> {
+export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
 	try {
-		const row = await invoke<StoredArticleRecord | null>(
-			"get_stored_article_by_url",
-			{ url }
-		);
+		const row = await invoke<StoredArticleRecord | null>('get_stored_article_by_url', { url });
 
 		if (!row) {
 			return null;
@@ -659,7 +622,7 @@ export async function getArticleWithTasksByUrl(
 
 		return mapStoredArticle(row);
 	} catch (error) {
-		console.error("Error querying LanceDB article", error);
+		console.error('Error querying LanceDB article', error);
 		return null;
 	}
 }
@@ -676,27 +639,25 @@ export async function saveTasks<TMap extends TaskMapBase>(
 			url,
 			tasksToSave,
 			existingArticle,
-			valuesToOverride,
+			valuesToOverride
 		});
 
-		await invoke("upsert_stored_article", { input });
+		await invoke('upsert_stored_article', { input });
 	} catch (error) {
-		console.error("Error saving tasks:", error);
+		console.error('Error saving tasks:', error);
 	}
 }
 
-export async function deleteArticleByUrl(
-	url: string
-): Promise<{ success: boolean }> {
+export async function deleteArticleByUrl(url: string): Promise<{ success: boolean }> {
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
 		await deleteArticleMedia(existingArticle);
 
-		await invoke("delete_stored_article_by_url", { url });
+		await invoke('delete_stored_article_by_url', { url });
 
 		return { success: true };
 	} catch (error) {
-		console.error("Error deleting article from database:", error);
+		console.error('Error deleting article from database:', error);
 		return { success: false };
 	}
 }
@@ -710,30 +671,26 @@ export async function deleteProfileById(
 			await deleteArticleMedia(mapStoredArticle(article));
 		}
 
-		return await invoke<DeleteStoredArticleProfileResult>(
-			"delete_stored_article_profile",
-			{ profileId }
-		);
+		return await invoke<DeleteStoredArticleProfileResult>('delete_stored_article_profile', {
+			profileId
+		});
 	} catch (error) {
-		console.error("Error deleting article profile:", error);
+		console.error('Error deleting article profile:', error);
 		return { success: false, deletedCount: 0 };
 	}
 }
 
-export async function saveProfile(
-	name: string,
-	profilePicture: string | null
-): Promise<void> {
+export async function saveProfile(name: string, profilePicture: string | null): Promise<void> {
 	try {
-		const profileId = name.toLowerCase().replace(/\s+/g, "-");
-		await invoke("upsert_stored_article_profile", {
+		const profileId = name.toLowerCase().replace(/\s+/g, '-');
+		await invoke('upsert_stored_article_profile', {
 			input: {
 				id: profileId,
 				name,
-				profilePicture,
-			},
+				profilePicture
+			}
 		});
 	} catch (error) {
-		console.error("Error saving profile:", error);
+		console.error('Error saving profile:', error);
 	}
 }

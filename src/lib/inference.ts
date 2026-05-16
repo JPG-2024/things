@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
 interface GenerateResponseParams {
 	prompt: string;
@@ -9,15 +9,15 @@ interface GenerateResponseParams {
 export async function generateResponse({
 	prompt,
 	systemPrompt,
-	temperature = 0.2,
+	temperature = 0.2
 }: GenerateResponseParams): Promise<string> {
-	const response = await invoke<string>("generate_response", {
+	const response = await invoke<string>('generate_response', {
 		prompt: prompt,
 		stream: true,
 		options: {
 			system_prompt: systemPrompt,
-			temperature: temperature,
-		},
+			temperature: temperature
+		}
 	});
 
 	return response;

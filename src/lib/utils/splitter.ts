@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
 export interface SplitTextParams {
 	/** The splitting mode: markdown for documents, podcast for audio transcripts, code_ts for TypeScript code */
-	mode: "markdown" | "podcast" | "code_ts";
+	mode: 'markdown' | 'podcast' | 'code_ts';
 	/** The text content to split */
 	text: string;
 	/** Maximum number of characters per chunk */
@@ -19,11 +19,11 @@ export interface SplitTextParams {
  */
 export async function splitText(params: SplitTextParams): Promise<string[]> {
 	try {
-		const result = await invoke<string[]>("split_text_command", {
+		const result = await invoke<string[]>('split_text_command', {
 			mode: params.mode,
 			text: params.text,
 			capacityChars: params.capacityChars || 512,
-			overlapChars: params.overlapChars || 64,
+			overlapChars: params.overlapChars || 64
 		});
 		return result;
 	} catch (error) {
@@ -42,9 +42,9 @@ export function compactMarkdown(md: string): string {
 	// 2. Limpia espacios y saltos fuera de los bloques
 	md = md
 		// Colapsa espacios múltiples y tabs en uno solo
-		.replace(/[ \t]+/g, " ")
+		.replace(/[ \t]+/g, ' ')
 		// Reemplaza más de 2 saltos de línea seguidos por 2
-		.replace(/\n{3,}/g, "\n\n")
+		.replace(/\n{3,}/g, '\n\n')
 		// Quita espacios al inicio y fin del texto
 		.trim();
 

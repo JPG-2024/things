@@ -1,31 +1,25 @@
 <script lang="ts">
-import Label from "./Label.component.svelte";
+	import Label from './Label.component.svelte';
 
-type Props = {
-	id: string;
-	label?: string;
-	labelPosition?: "top" | "inline";
-	checked: boolean;
-	onChange?: (v: boolean) => void;
-};
+	type Props = {
+		id: string;
+		label?: string;
+		labelPosition?: 'top' | 'inline';
+		checked: boolean;
+		onChange?: (v: boolean) => void;
+	};
 
-let {
-	id,
-	label,
-	labelPosition = "inline",
-	checked,
-	onChange,
-}: Props = $props();
+	let { id, label, labelPosition = 'inline', checked, onChange }: Props = $props();
 
-function onInput(e: Event) {
-	const target = e.target as HTMLInputElement;
-	checked = target.checked;
-	onChange?.(checked);
-}
+	function onInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		checked = target.checked;
+		onChange?.(checked);
+	}
 </script>
 
 {#if label}
-	{#if labelPosition === "inline"}
+	{#if labelPosition === 'inline'}
 		<div class="control-group inline">
 			<label for={id}>{label}</label>
 			<input {id} type="checkbox" {checked} oninput={onInput} />
@@ -36,7 +30,7 @@ function onInput(e: Event) {
 		</Label>
 	{/if}
 {:else}
-	<div class="control-group" class:inline={labelPosition === "inline"}>
+	<div class="control-group" class:inline={labelPosition === 'inline'}>
 		<input {id} type="checkbox" {checked} oninput={onInput} />
 	</div>
 {/if}
@@ -75,7 +69,7 @@ function onInput(e: Event) {
 		color: var(--primary-color, #000);
 	}
 
-	input[type="checkbox"] {
+	input[type='checkbox'] {
 		appearance: none;
 		-webkit-appearance: none;
 		width: 18px;
@@ -89,18 +83,18 @@ function onInput(e: Event) {
 		flex-shrink: 0;
 	}
 
-	input[type="checkbox"]:hover {
+	input[type='checkbox']:hover {
 		border-color: var(--primary-color, #7c6af7);
 		background: rgba(124, 106, 247, 0.1);
 	}
 
-	input[type="checkbox"]:checked {
+	input[type='checkbox']:checked {
 		background: var(--primary-color, #7c6af7);
 		border-color: var(--primary-color, #7c6af7);
 	}
 
-	input[type="checkbox"]:checked::after {
-		content: "";
+	input[type='checkbox']:checked::after {
+		content: '';
 		position: absolute;
 		left: 5px;
 		top: 2px;

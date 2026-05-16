@@ -1,24 +1,18 @@
 import type {
 	LlamaChatCompletionsRequest,
-	LlamaChatCompletionsResponse,
-} from "@/lib/utils/llama-completions";
+	LlamaChatCompletionsResponse
+} from '@/lib/utils/llama-completions';
 
 export enum TaskTypesEnum {
-	SCRIPT = "script",
-	IA = "ia",
+	SCRIPT = 'script',
+	IA = 'ia'
 }
 
-export type TaskType = "script" | "ia";
+export type TaskType = 'script' | 'ia';
 
-export type TaskStatus = "pending" | "running" | "done" | "failed" | "blocked";
+export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 
-export type WorkflowRunStatus =
-	| "idle"
-	| "pending"
-	| "running"
-	| "done"
-	| "failed"
-	| "blocked";
+export type WorkflowRunStatus = 'idle' | 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 
 export type TaskMapBase = Record<string, unknown>;
 export type TaskComponentProps = Record<string, unknown>;
@@ -34,16 +28,14 @@ export type TaskStatusUpdater = (update: TaskStateUpdate) => void;
 
 export interface TaskRuntime<
 	TMap extends TaskMapBase = TaskMapBase,
-	TId extends keyof TMap & string = keyof TMap & string,
+	TId extends keyof TMap & string = keyof TMap & string
 > {
 	runId: string;
 	taskId: TId;
 	state: Readonly<TaskGlobalState<TMap>>;
 	update: TaskStatusUpdater;
 	enqueueTasks: (tasks: Task<TMap>[], options?: { restart?: boolean }) => void;
-	getTaskData: <TTaskId extends keyof TMap & string>(
-		taskId: TTaskId
-	) => TMap[TTaskId] | undefined;
+	getTaskData: <TTaskId extends keyof TMap & string>(taskId: TTaskId) => TMap[TTaskId] | undefined;
 }
 
 export interface TaskRunOptions {
@@ -54,16 +46,16 @@ export interface TaskRunOptions {
 export type TaskRerunPatch<TMap extends TaskMapBase = TaskMapBase> = Partial<
 	Omit<
 		Task<TMap>,
-		| "id"
-		| "dependencies"
-		| "type"
-		| "run"
-		| "data"
-		| "status"
-		| "error"
-		| "debug"
-		| "startedAt"
-		| "endedAt"
+		| 'id'
+		| 'dependencies'
+		| 'type'
+		| 'run'
+		| 'data'
+		| 'status'
+		| 'error'
+		| 'debug'
+		| 'startedAt'
+		| 'endedAt'
 	>
 >;
 
@@ -88,9 +80,9 @@ interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 
 export interface ScriptTask<
 	TMap extends TaskMapBase = TaskMapBase,
-	TId extends keyof TMap & string = keyof TMap & string,
+	TId extends keyof TMap & string = keyof TMap & string
 > extends TaskBase<TMap, TId> {
-	type: "script";
+	type: 'script';
 	run(runtime: TaskRuntime<TMap, TId>): Promise<TMap[TId]> | TMap[TId];
 	systemMessage?: never;
 	userMessage?: never;
@@ -100,21 +92,19 @@ export interface ScriptTask<
 
 export interface IaTask<
 	TMap extends TaskMapBase = TaskMapBase,
-	TId extends keyof TMap & string = keyof TMap & string,
+	TId extends keyof TMap & string = keyof TMap & string
 > extends TaskBase<TMap, TId> {
-	type: "ia";
+	type: 'ia';
 	systemMessage: string;
 	userMessage: string;
-	completionOptions: Omit<LlamaChatCompletionsRequest, "messages" | "model"> & {
+	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & {
 		model: string;
 	};
 	baseUrl?: string;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 }
 
-export type Task<TMap extends TaskMapBase = TaskMapBase> =
-	| ScriptTask<TMap>
-	| IaTask<TMap>;
+export type Task<TMap extends TaskMapBase = TaskMapBase> = ScriptTask<TMap> | IaTask<TMap>;
 
 export interface TaskRunSummary<TMap extends TaskMapBase = TaskMapBase> {
 	startedAt: number;

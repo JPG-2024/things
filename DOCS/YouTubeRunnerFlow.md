@@ -23,21 +23,21 @@ youTubeRunner(url, cachedArticle?, options?)
 
 ### Pasos que ejecuta
 
-| # | Acción |
-|---|--------|
-| 1 | Construye el `runId` con `buildWorkflowRunId("youtube-video", url)` → `"youtube-video:<url>"` |
-| 2 | Decide si es `freshRun` (`Rebuild === true` o no hay tareas persistidas) |
-| 3 | Llama a `buildTaskSubroutine()` para crear el array de tareas |
-| 4 | Pasa las tareas a `workflowManager.run()` |
-| 5 | Al terminar llama a `saveTasks(url, runResult.tasks)` para persistir resultados |
+| #   | Acción                                                                                        |
+| --- | --------------------------------------------------------------------------------------------- |
+| 1   | Construye el `runId` con `buildWorkflowRunId("youtube-video", url)` → `"youtube-video:<url>"` |
+| 2   | Decide si es `freshRun` (`Rebuild === true` o no hay tareas persistidas)                      |
+| 3   | Llama a `buildTaskSubroutine()` para crear el array de tareas                                 |
+| 4   | Pasa las tareas a `workflowManager.run()`                                                     |
+| 5   | Al terminar llama a `saveTasks(url, runResult.tasks)` para persistir resultados               |
 
 ### Rutinas disponibles
 
 ```ts
 const routine = {
-  videoPage: [THUMBNAIL, VIDEO_INFO, CHAPTERS_SUMMARY, KEYWORDS, KEYPOINTS, SUMMARY],
-  videoItem:  [THUMBNAIL, VIDEO_INFO, TITLE_SUMMARY],
-}
+	videoPage: [THUMBNAIL, VIDEO_INFO, CHAPTERS_SUMMARY, KEYWORDS, KEYPOINTS, SUMMARY],
+	videoItem: [THUMBNAIL, VIDEO_INFO, TITLE_SUMMARY]
+};
 ```
 
 La rutina por defecto es `videoPage`.
@@ -66,14 +66,14 @@ for each taskId in selectedTaskIds:
 
 El `youtubeTaskRegistry` agrupa sub-registros:
 
-| Sub-registro | Tareas que contiene |
-|---|---|
-| `contextTaskRegistry` | `init`, `thumbnail`, `main-color` |
-| `crawlTaskRegistry` | `video-info`, `chapters`, `timed-captions`, `content` |
+| Sub-registro          | Tareas que contiene                                             |
+| --------------------- | --------------------------------------------------------------- |
+| `contextTaskRegistry` | `init`, `thumbnail`, `main-color`                               |
+| `crawlTaskRegistry`   | `video-info`, `chapters`, `timed-captions`, `content`           |
 | `chapterTaskRegistry` | `chapters-summary` (+ genera `chapter-summary-N` dinámicamente) |
-| `summaryTaskRegistry` | `summary`, `title-summary`, `keywords`, `key-points` |
-| `audioTaskRegistry` | `tts` |
-| `profileTaskRegistry` | `getting-channel-videos`, `extract-channel-videos` |
+| `summaryTaskRegistry` | `summary`, `title-summary`, `keywords`, `key-points`            |
+| `audioTaskRegistry`   | `tts`                                                           |
+| `profileTaskRegistry` | `getting-channel-videos`, `extract-channel-videos`              |
 
 ---
 
@@ -149,21 +149,21 @@ Es el motor central. Usa estado reactivo Svelte 5 (`$state`).
 ```
 while (true):
   flushQueuedTasks()        ← incorpora tareas encoladas dinámicamente
-  
+
   if restartRequested:
     resetStatuses({ Rebuild: true })
     continue
-  
+
   ready = getReadyTasks()   ← pending + todas sus deps en "done"
   if ready.length === 0: break
-  
+
   # Script tasks → se ejecutan en paralelo (Promise.allSettled)
   readyScripts = ready.filter(type === "script")
   if readyScripts.length > 0:
     await Promise.allSettled(readyScripts.map(executeTask))
     si alguno falla → markDescendantsBlocked(failedId) + break
     continue
-  
+
   # IA tasks → una a la vez (secuencial)
   nextIa = ready.find(type === "ia")
   await executeTask(nextIa)
@@ -188,11 +188,12 @@ while (true):
 ### Script task
 
 ```ts
-result = await task.run(runtime)
-task.data = result
+result = await task.run(runtime);
+task.data = result;
 ```
 
 Recibe el `runtime` que expone:
+
 - `state` → snapshot de datos de todas las tareas hasta ese momento
 - `update(patch)` → actualiza `data` o `debug` parcialmente
 - `enqueueTasks(tasks)` → agrega nuevas tareas al pipeline en caliente
@@ -218,12 +219,12 @@ Recibe el `runtime` que expone:
 
 ```ts
 interface TaskRuntime<TMap, TId> {
-  runId: string          // ID del workflow
-  taskId: TId            // ID de esta tarea
-  state: TaskGlobalState // datos de TODAS las tareas (snapshot)
-  update(patch)          // actualiza data/debug de esta tarea
-  enqueueTasks(tasks)    // añade tareas al pipeline en caliente
-  getTaskData(taskId)    // acceso tipado a datos de otra tarea
+	runId: string; // ID del workflow
+	taskId: TId; // ID de esta tarea
+	state: TaskGlobalState; // datos de TODAS las tareas (snapshot)
+	update(patch); // actualiza data/debug de esta tarea
+	enqueueTasks(tasks); // añade tareas al pipeline en caliente
+	getTaskData(taskId); // acceso tipado a datos de otra tarea
 }
 ```
 
@@ -246,7 +247,7 @@ pending → running → done
 Al finalizar el workflow:
 
 ```ts
-await saveTasks(url, runResult.tasks)
+await saveTasks(url, runResult.tasks);
 ```
 
 Las tareas con `persist: true` (como `content`, `chapters-summary`) guardan su `data` en la base de datos local. En la próxima invocación, `buildTaskSubroutine` restaura el estado con `applyPersistedTaskState()`, permitiendo saltar tareas costosas como la descarga de transcripción.

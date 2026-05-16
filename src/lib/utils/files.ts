@@ -1,6 +1,6 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { appDataDir, join } from "@tauri-apps/api/path";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { appDataDir, join } from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface DownloadedImageResult {
 	mediaDirectory: string;
@@ -8,27 +8,21 @@ export interface DownloadedImageResult {
 	imageSrc: string;
 }
 
-export async function resolveMediaDirectory(
-	url: string,
-	profile?: string | null
-): Promise<string> {
-	return invoke<string>("url_to_folder_name", {
+export async function resolveMediaDirectory(url: string, profile?: string | null): Promise<string> {
+	return invoke<string>('url_to_folder_name', {
 		url,
-		profile: profile ?? "",
+		profile: profile ?? ''
 	});
 }
 
 export const getImageDir = async (): Promise<string> => {
 	const appData = await appDataDir();
-	const mediaDir = await join(appData, "media");
+	const mediaDir = await join(appData, 'media');
 
 	return mediaDir;
 };
 
-export const getImageSrc = async (
-	mediaDirectory: string,
-	imgName: string
-): Promise<string> => {
+export const getImageSrc = async (mediaDirectory: string, imgName: string): Promise<string> => {
 	const mediaDir = await getImageDir();
 	const filePath = await join(mediaDir, mediaDirectory, imgName);
 	return convertFileSrc(filePath);
@@ -40,10 +34,10 @@ export async function downloadImageUrl(
 ): Promise<DownloadedImageResult> {
 	const mediaDirectory = await resolveMediaDirectory(url, profile);
 
-	const fileName = await invoke<string>("download_and_save_image", {
+	const fileName = await invoke<string>('download_and_save_image', {
 		url: url,
 		folderName: mediaDirectory,
-		reductionMagnitud: 1,
+		reductionMagnitud: 1
 	});
 
 	const imageSrc = await getImageSrc(mediaDirectory, fileName);

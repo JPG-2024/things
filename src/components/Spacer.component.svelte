@@ -1,22 +1,22 @@
 <script lang="ts">
-import type { Snippet } from "svelte";
-import Icon from "@/components/Icon.svelte";
+	import type { Snippet } from 'svelte';
+	import Icon from '@/components/Icon.svelte';
 
-type Props = {
-	size?: number | string;
-	title?: string;
-	defaultOpen?: boolean;
-	children?: Snippet;
-};
+	type Props = {
+		size?: number | string;
+		title?: string;
+		defaultOpen?: boolean;
+		children?: Snippet;
+	};
 
-let { size = 16, title, defaultOpen = false, children }: Props = $props();
+	let { size = 16, title, defaultOpen = false, children }: Props = $props();
 
-let open = $state(defaultOpen);
-let resolvedSize = $derived(typeof size === "number" ? `${size}px` : size);
+	let open = $state(defaultOpen);
+	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
 
-function toggle() {
-	open = !open;
-}
+	function toggle() {
+		open = !open;
+	}
 </script>
 
 {#if title}
@@ -27,7 +27,9 @@ function toggle() {
 				size={14}
 				color="rgba(255, 255, 255, 0.6)"
 				class="chevron"
-				style={open ? "transform: rotate(90deg); transition: transform 0.2s" : "transition: transform 0.2s"}
+				style={open
+					? 'transform: rotate(90deg); transition: transform 0.2s'
+					: 'transition: transform 0.2s'}
 			/>
 			<span class="spacer-title">{title}</span>
 		</button>

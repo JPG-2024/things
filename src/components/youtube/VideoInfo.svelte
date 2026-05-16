@@ -1,107 +1,103 @@
 <script lang="ts">
-import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
-import Icon from "../Icon.svelte";
-import StringReveal from "../StringReveal.svelte";
-import { calculateDaysAgo } from "@/lib/utils/date";
+	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import Icon from '../Icon.svelte';
+	import StringReveal from '../StringReveal.svelte';
+	import { calculateDaysAgo } from '@/lib/utils/date';
 
-type Props = {
-	runId?: string;
-	task: Task;
-	componentProps?: TaskComponentProps;
-};
+	type Props = {
+		runId?: string;
+		task: Task;
+		componentProps?: TaskComponentProps;
+	};
 
-let { runId = undefined, task, componentProps = {} }: Props = $props();
+	let { runId = undefined, task, componentProps = {} }: Props = $props();
 
-void runId;
-void componentProps;
+	void runId;
+	void componentProps;
 
-function getDataContent(key: string): string | null {
-	const data = task?.data as Record<string, unknown> | null | undefined;
-	if (!data) return null;
-	const value = data[key];
-	if (typeof value === "string" && value.trim()) {
-		return value;
+	function getDataContent(key: string): string | null {
+		const data = task?.data as Record<string, unknown> | null | undefined;
+		if (!data) return null;
+		const value = data[key];
+		if (typeof value === 'string' && value.trim()) {
+			return value;
+		}
+		return null;
 	}
-	return null;
-}
 
-let title = $derived(task?.data ? getDataContent("title") : null);
+	let title = $derived(task?.data ? getDataContent('title') : null);
 </script>
 
+{#if task?.data && getDataContent('title') && getDataContent('profile') && getDataContent('views') && getDataContent('uploadDate')}
+	<div class="video-info">
+		<!-- <h3>{getDataContent("title")}</h3> -->
+		<div class="title-container">
+			<!-- <StringReveal message={getDataContent("title") || ""} /> -->
+			<h3 class="title">{getDataContent('title') || ''}</h3>
+		</div>
 
-
-{#if task?.data && getDataContent("title") && getDataContent("profile") && getDataContent("views") && getDataContent("uploadDate")}
-    <div class="video-info">
-        <!-- <h3>{getDataContent("title")}</h3> -->
-        <div class="title-container">
-            <!-- <StringReveal message={getDataContent("title") || ""} /> -->
-             <h3 class="title">{getDataContent("title") || ""}</h3>
-        </div>
-
-        <div class="info-row">
-            <div class="pill">
-                <!-- <Icon name="User" /> -->
-                <p class="channel-name">{getDataContent("profile")}</p>
-            </div>
-            <div class="pill">
-                <Icon name="Eye" />
-                <p>{getDataContent("views")}</p>
-            </div>
-            <div class="pill">
-                <Icon name="Calendar" />
-                <p>{calculateDaysAgo(getDataContent("uploadDate") || "")}</p>
-            </div>
-        </div>
-    </div>
+		<div class="info-row">
+			<div class="pill">
+				<!-- <Icon name="User" /> -->
+				<p class="channel-name">{getDataContent('profile')}</p>
+			</div>
+			<div class="pill">
+				<Icon name="Eye" />
+				<p>{getDataContent('views')}</p>
+			</div>
+			<div class="pill">
+				<Icon name="Calendar" />
+				<p>{calculateDaysAgo(getDataContent('uploadDate') || '')}</p>
+			</div>
+		</div>
+	</div>
 {/if}
 
-
 <style>
-.title {
-    color: var(--primary-color);
-    font-family: Oswald;
-    font-size: 1.6rem;
-    letter-spacing: 3px;
-    margin: 0;
-}
+	.title {
+		color: var(--primary-color);
+		font-family: Oswald;
+		font-size: 1.6rem;
+		letter-spacing: 3px;
+		margin: 0;
+	}
 
-.title-container {
-    
-}
+	.title-container {
+	}
 
-.video-info {
-  width: 100%;
-  color: white;
-}
+	.video-info {
+		width: 100%;
+		color: white;
+	}
 
-:global(.revealer) {
-    font-family: Noto Sans CJK SC Thin;
-    font-size: 1.6rem;
-    color: var(--primary-color);
-    letter-spacing: 3px;
-}
+	:global(.revealer) {
+		font-family: Noto Sans CJK SC Thin;
+		font-size: 1.6rem;
+		color: var(--primary-color);
+		letter-spacing: 3px;
+	}
 
-.channel-name {
-    font-family: Noto Sans CJK SC Thin;
-    font-weight: semi-bold;
-    font-size: 1.4rem;
-    padding-bottom: 5px;
-}
+	.channel-name {
+		font-family: Noto Sans CJK SC Thin;
+		font-weight: semi-bold;
+		font-size: 1.4rem;
+		padding-bottom: 5px;
+	}
 
-.pill {
-    font-size: 1.1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+	.pill {
+		font-size: 1.1rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
 
-.info-row {
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 0.5rem;
-    justify-content: start;
-    align-items: center;
-}
+	.info-row {
+		font-size: 0.9rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		margin-top: 0.5rem;
+		justify-content: start;
+		align-items: center;
+	}
 </style>

@@ -1,5 +1,5 @@
-import { viewState } from "./viewStore.svelte";
-import { addVoice, generateSpeech } from "@/lib/utils/ttsService";
+import { viewState } from './viewStore.svelte';
+import { addVoice, generateSpeech } from '@/lib/utils/ttsService';
 
 export interface TTSRefConfig {
 	refAudioFilename: string;
@@ -25,7 +25,7 @@ export interface TTSConfig extends TTSRefConfig {
 class TTSState {
 	isLoading = $state(false);
 	isPlaying = $state(false);
-	errorMessage = $state("");
+	errorMessage = $state('');
 	audioSrc = $state<string | null>(null);
 	durationSeconds = $state<number | null>(null);
 
@@ -36,24 +36,23 @@ class TTSState {
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
-		refAudioFilename: "",
-		refText: "",
+		refAudioFilename: '920d866c-fdc3-4e22-ab7a-838ef0d3fc7b_1.mp3',
+		refText:
+			'Vas a ver los ejercicios que hago, las series, las repeticiones, los kilos que levanto y lo más importante, como ajusto a la intensidad para poder recuperarme y entrenar de forma inteligente.  Hola chicas y chicos, bienvenidos a un nuevo vídeo del canal.',
 		numStep: 16,
 		denoise: true,
 		guidanceScale: 1.0,
 		speed: 1.0,
 		preprocessPrompt: true,
-		postprocessOutput: true,
+		postprocessOutput: true
 	});
 
-	videoUrl = $state("");
-	segment = $state("00:00-01:00");
-	namePrefix = $state("chunk");
-	chunkCount = $state(5);
-	addVoiceStatus = $state<
-		"" | "downloading" | "transcribing" | "chunking" | "done" | "error"
-	>("");
-	addVoiceMessage = $state("");
+	videoUrl = $state('');
+	segment = $state('00:00-01:00');
+	namePrefix = $state('jessica_martin');
+	chunkCount = $state(1);
+	addVoiceStatus = $state<'' | 'downloading' | 'transcribing' | 'chunking' | 'done' | 'error'>('');
+	addVoiceMessage = $state('');
 	addVoiceLoading = $state(false);
 
 	setTextContents(contents: string[]): void {
@@ -79,15 +78,12 @@ class TTSState {
 		}
 
 		this.isGenerating = true;
-		this.errorMessage = "";
+		this.errorMessage = '';
 		this.playlist = [];
 		this.currentIndex = 0;
 
-
-		
 		try {
 			for (const text of this.textContents) {
-
 				const res = await generateSpeech({
 					text,
 					lang: this.language,
@@ -105,11 +101,11 @@ class TTSState {
 					preprocess_prompt: this.config.preprocessPrompt,
 					postprocess_output: this.config.postprocessOutput,
 					audio_chunk_duration: this.config.audioChunkDuration,
-					audio_chunk_threshold: this.config.audioChunkThreshold,
+					audio_chunk_threshold: this.config.audioChunkThreshold
 				});
 
 				if (res.blob.size === 0) {
-					throw new Error("Generated audio is empty (0 bytes)");
+					throw new Error('Generated audio is empty (0 bytes)');
 				}
 
 				const url = URL.createObjectURL(res.blob);
@@ -122,9 +118,8 @@ class TTSState {
 				this.durationSeconds = null;
 			}
 		} catch (err) {
-			this.errorMessage =
-				err instanceof Error ? err.message : "Failed to generate TTS audio";
-			console.error("[TTS] Generation error:", err);
+			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
+			console.error('[TTS] Generation error:', err);
 		} finally {
 			this.isGenerating = false;
 		}
@@ -146,14 +141,14 @@ class TTSState {
 
 	async startAddVoice(): Promise<void> {
 		this.addVoiceLoading = true;
-		this.addVoiceStatus = "";
-		this.addVoiceMessage = "";
+		this.addVoiceStatus = '';
+		this.addVoiceMessage = '';
 		try {
 			const { taskId, source } = await addVoice({
 				url: this.videoUrl,
 				segment: this.segment,
 				name_prefix: this.namePrefix,
-				chunk_count: this.chunkCount,
+				chunk_count: this.chunkCount
 			});
 
 			console.log(source);
@@ -163,12 +158,12 @@ class TTSState {
 					const data = JSON.parse(e.data);
 					const eventName = e.type || data.status;
 					this.addVoiceStatus = eventName;
-					if (eventName === "chunking") {
+					if (eventName === 'chunking') {
 						this.addVoiceMessage = `Processing chunk ${data.current} of ${data.total}`;
 					} else {
 						this.addVoiceMessage = data.message ?? eventName;
 					}
-					if (eventName === "done" || eventName === "error") {
+					if (eventName === 'done' || eventName === 'error') {
 						source.close();
 						this.addVoiceLoading = false;
 						resolve();
@@ -177,16 +172,15 @@ class TTSState {
 				source.onerror = () => {
 					source.close();
 					this.addVoiceLoading = false;
-					this.addVoiceStatus = "error";
-					this.addVoiceMessage = "Connection lost";
+					this.addVoiceStatus = 'error';
+					this.addVoiceMessage = 'Connection lost';
 					resolve();
 				};
 			});
 		} catch (err) {
 			this.addVoiceLoading = false;
-			this.addVoiceStatus = "error";
-			this.addVoiceMessage =
-				err instanceof Error ? err.message : "Failed to start";
+			this.addVoiceStatus = 'error';
+			this.addVoiceMessage = err instanceof Error ? err.message : 'Failed to start';
 		}
 	}
 }

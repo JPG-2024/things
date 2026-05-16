@@ -15,10 +15,10 @@ The Task Runner is a **DAG-based** (Directed Acyclic Graph) task execution engin
 
 ### Task Types
 
-| Type     | Purpose                            | Execution      |
-|----------|------------------------------------|----------------|
-| `script` | Run arbitrary async/sync logic     | Parallel batch  |
-| `ia`     | Run LLM chat completion            | Sequential      |
+| Type     | Purpose                        | Execution      |
+| -------- | ------------------------------ | -------------- |
+| `script` | Run arbitrary async/sync logic | Parallel batch |
+| `ia`     | Run LLM chat completion        | Sequential     |
 
 ### Task Statuses
 
@@ -36,13 +36,13 @@ Define an enum for task ids and a state map type to get full type safety across 
 
 ```ts
 enum TaskNames {
-  FETCH_DATA = "fetch-data",
-  SUMMARIZE = "summarize",
+	FETCH_DATA = 'fetch-data',
+	SUMMARIZE = 'summarize'
 }
 
 type MyTaskState = {
-  [TaskNames.FETCH_DATA]: string;
-  [TaskNames.SUMMARIZE]: string;
+	[TaskNames.FETCH_DATA]: string;
+	[TaskNames.SUMMARIZE]: string;
 };
 ```
 
@@ -51,19 +51,20 @@ type MyTaskState = {
 ## Creating a Runner
 
 A runner is a function that:
+
 1. Creates an array of `Task<TStateMap>[]`
 2. Passes them to `taskRunner.setTasks()`
 3. Calls `taskRunner.run()`
 
 ```ts
-import { taskRunner } from "@/stores/taskRunner.svelte";
-import type { Task } from "@/types/taskRunner.types";
+import { taskRunner } from '@/stores/taskRunner.svelte';
+import type { Task } from '@/types/taskRunner.types';
 
 export async function myRunner(input: string): Promise<Task[]> {
-  const tasks = createMyTasks(input);
-  taskRunner.setTasks(tasks);
-  const result = await taskRunner.run();
-  return result.tasks;
+	const tasks = createMyTasks(input);
+	taskRunner.setTasks(tasks);
+	const result = await taskRunner.run();
+	return result.tasks;
 }
 ```
 
@@ -184,12 +185,12 @@ Tasks can add new tasks mid-run using `taskRunner.enqueueTasks()`. New tasks mus
 
 The `component` field is an optional string that tells the frontend which component to render for the task result. Common values:
 
-| Value        | Usage                        |
-|--------------|------------------------------|
-| `markdownTaskComponent`     | Markdown text output         |
-| `"player"`   | Media player                 |
-| `"videoInfo"` | Video metadata display      |
-| *(omitted)*  | No UI widget rendered        |
+| Value                   | Usage                  |
+| ----------------------- | ---------------------- |
+| `markdownTaskComponent` | Markdown text output   |
+| `"player"`              | Media player           |
+| `"videoInfo"`           | Video metadata display |
+| _(omitted)_             | No UI widget rendered  |
 
 Set `widget: false` on dynamically created tasks if you don't want them shown as standalone widgets.
 
@@ -198,63 +199,63 @@ Set `widget: false` on dynamically created tasks if you don't want them shown as
 ## Complete Minimal Example
 
 ```ts
-import { taskRunner } from "@/stores/taskRunner.svelte";
-import type { Task } from "@/types/taskRunner.types";
+import { taskRunner } from '@/stores/taskRunner.svelte';
+import type { Task } from '@/types/taskRunner.types';
 
 enum Steps {
-  LOAD = "load",
-  ANALYZE = "analyze",
-  SUMMARIZE = "summarize",
+	LOAD = 'load',
+	ANALYZE = 'analyze',
+	SUMMARIZE = 'summarize'
 }
 
 type StepState = {
-  [Steps.LOAD]: string;
-  [Steps.ANALYZE]: { wordCount: number; text: string };
-  [Steps.SUMMARIZE]: string;
+	[Steps.LOAD]: string;
+	[Steps.ANALYZE]: { wordCount: number; text: string };
+	[Steps.SUMMARIZE]: string;
 };
 
 function createTasks(input: string): Task<StepState>[] {
-  return [
-    {
-      id: Steps.LOAD,
-      name: "Load Content",
-      dependencies: [],
-      type: "script",
-      run: () => input,
-    },
-    {
-      id: Steps.ANALYZE,
-      name: "Analyze",
-      dependencies: [Steps.LOAD],
-      type: "script",
-      run: (state) => {
-        const text = state[Steps.LOAD] ?? "";
-        return { wordCount: text.split(" ").length, text };
-      },
-    },
-    {
-      id: Steps.SUMMARIZE,
-      name: "Summarize",
-      dependencies: [Steps.ANALYZE],
-      type: "ia",
-      component: "taskBase",
-      systemMessage: "You summarize text concisely.",
-      userMessage: "Summarize this in 2 sentences.",
-      run: (state) => state[Steps.ANALYZE]?.text ?? "",
-      completionOptions: {
-        model: "llama-server",
-        temperature: 0.7,
-        stream: true,
-      },
-    },
-  ];
+	return [
+		{
+			id: Steps.LOAD,
+			name: 'Load Content',
+			dependencies: [],
+			type: 'script',
+			run: () => input
+		},
+		{
+			id: Steps.ANALYZE,
+			name: 'Analyze',
+			dependencies: [Steps.LOAD],
+			type: 'script',
+			run: (state) => {
+				const text = state[Steps.LOAD] ?? '';
+				return { wordCount: text.split(' ').length, text };
+			}
+		},
+		{
+			id: Steps.SUMMARIZE,
+			name: 'Summarize',
+			dependencies: [Steps.ANALYZE],
+			type: 'ia',
+			component: 'taskBase',
+			systemMessage: 'You summarize text concisely.',
+			userMessage: 'Summarize this in 2 sentences.',
+			run: (state) => state[Steps.ANALYZE]?.text ?? '',
+			completionOptions: {
+				model: 'llama-server',
+				temperature: 0.7,
+				stream: true
+			}
+		}
+	];
 }
 
 export async function minimalRunner(input: string) {
-  taskRunner.setTasks(createTasks(input));
-  const result = await taskRunner.run();
-  console.log("Done:", result.done, "/", result.total);
-  return result.tasks;
+	taskRunner.setTasks(createTasks(input));
+	const result = await taskRunner.run();
+	console.log('Done:', result.done, '/', result.total);
+	return result.tasks;
 }
 ```
 

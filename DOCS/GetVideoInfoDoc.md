@@ -46,22 +46,19 @@ pub struct YoutubeDetail {
 ## Frontend Invocation
 
 ```ts
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
-const [videoMeta, chapters] = await invoke<[VideoMetaItem[], Chapter[]]>(
-    "get_youtube_info",
-    {
-        url: "https://www.youtube.com/watch?v=VIDEO_ID",
-        selectors: [
-            { name: "title",      selector: "#title h1 yt-formatted-string" },
-            { name: "channel",    selector: "#channel-name a" },
-            { name: "views",      selector: "span.view-count" },
-            { name: "uploadDate", selector: "div#info-strings yt-formatted-string" },
-        ],
-        intervalTime: 5,     // ms between retries
-        maxAttempts: 200,
-    },
-);
+const [videoMeta, chapters] = await invoke<[VideoMetaItem[], Chapter[]]>('get_youtube_info', {
+	url: 'https://www.youtube.com/watch?v=VIDEO_ID',
+	selectors: [
+		{ name: 'title', selector: '#title h1 yt-formatted-string' },
+		{ name: 'channel', selector: '#channel-name a' },
+		{ name: 'views', selector: 'span.view-count' },
+		{ name: 'uploadDate', selector: 'div#info-strings yt-formatted-string' }
+	],
+	intervalTime: 5, // ms between retries
+	maxAttempts: 200
+});
 ```
 
 > **Note:** the Rust fields `interval_time` / `max_attempts` are camelCase on the JS side (`intervalTime` / `maxAttempts`) because Tauri's invoke handler automatically converts them.
@@ -74,35 +71,35 @@ const [videoMeta, chapters] = await invoke<[VideoMetaItem[], Chapter[]]>(
 2. **Expand description** — polls `tp-yt-paper-button#expand` up to `max_attempts` times (waiting `interval_time` ms between each) and clicks it. Returns `Err` if never found.
 3. **Extract chapters** — evaluates a JS snippet that queries all `div#details` elements, pulling `h4.textContent` (title) and `div#time.textContent` (timestamp). Duplicates are removed while preserving order.
 4. **Extract selectors** — for each `YoutubeInfoSelector`, runs:
-    ```js
-    const el = document.querySelector('<selector>');
-    return el ? (el.textContent || '').trim() || null : null;
-    ```
-    Retries up to `max_attempts` times until a non-empty string is returned.  
-    Result is `None` if still empty after all attempts.
+   ```js
+   const el = document.querySelector('<selector>');
+   return el ? (el.textContent || '').trim() || null : null;
+   ```
+   Retries up to `max_attempts` times until a non-empty string is returned.  
+   Result is `None` if still empty after all attempts.
 
 ---
 
 ## Tauri Events
 
-| Event | Payload `key` | When |
-|---|---|---|
+| Event         | Payload `key`    | When                                                                                                  |
+| ------------- | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `flow-status` | `"youtube-info"` | Start (status: `"Extracting selectors"`) and end (status: `"done"`, data includes both result arrays) |
 
 Listen on the frontend:
 
 ```ts
-import { listen } from "@tauri-apps/api/event";
+import { listen } from '@tauri-apps/api/event';
 
-await listen("flow-status", (event) => {
-    const { key, status, data } = event.payload as {
-        key: string;
-        status: string;
-        data: unknown;
-    };
-    if (key === "youtube-info" && status === "done") {
-        console.log(data); // { results, time_texts }
-    }
+await listen('flow-status', (event) => {
+	const { key, status, data } = event.payload as {
+		key: string;
+		status: string;
+		data: unknown;
+	};
+	if (key === 'youtube-info' && status === 'done') {
+		console.log(data); // { results, time_texts }
+	}
 });
 ```
 

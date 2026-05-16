@@ -1,8 +1,8 @@
 import {
 	chatCompletions,
 	LlamaChatCompletionError,
-	type LlamaChatCompletionsRequest,
-} from "@/lib/utils/llama-completions";
+	type LlamaChatCompletionsRequest
+} from '@/lib/utils/llama-completions';
 import type {
 	IaTask,
 	Task,
@@ -15,8 +15,8 @@ import type {
 	TaskRuntime,
 	TaskStateUpdate,
 	TaskStatus,
-	TaskStatusUpdater,
-} from "@/types/taskRunner.types";
+	TaskStatusUpdater
+} from '@/types/taskRunner.types';
 
 /**
  * Convert various error shapes into a readable message string.
@@ -25,11 +25,11 @@ import type {
  */
 function toErrorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
-	if (typeof error === "string") return error;
+	if (typeof error === 'string') return error;
 	try {
 		return JSON.stringify(error);
 	} catch {
-		return "Unknown error";
+		return 'Unknown error';
 	}
 }
 
@@ -40,22 +40,16 @@ function formatTaskExecutionError(error: unknown): {
 	const rawMessage = toErrorMessage(error);
 
 	if (error instanceof LlamaChatCompletionError) {
-		if (
-			error.status === undefined ||
-			rawMessage.includes("not running or not reachable")
-		) {
+		if (error.status === undefined || rawMessage.includes('not running or not reachable')) {
 			return {
-				message: "Local AI service unavailable. Start llama-server and retry.",
-				debug: rawMessage,
+				message: 'Local AI service unavailable. Start llama-server and retry.',
+				debug: rawMessage
 			};
 		}
 
 		return {
-			message: rawMessage.replace(
-				/^llama-server \/v1\/chat\/completions failed:\s*/u,
-				""
-			),
-			debug: rawMessage,
+			message: rawMessage.replace(/^llama-server \/v1\/chat\/completions failed:\s*/u, ''),
+			debug: rawMessage
 		};
 	}
 
@@ -67,21 +61,21 @@ function formatTaskExecutionError(error: unknown): {
  * @param content - Task data which may be text, array chunks, or other.
  * @returns Concatenated assistant text or empty string.
  */
-function collectAssistantText(content: Task["data"]): string {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
+function collectAssistantText(content: Task['data']): string {
+	if (typeof content === 'string') return content;
+	if (!Array.isArray(content)) return '';
 
-	let text = "";
+	let text = '';
 	for (const part of content) {
 		if (
 			part &&
-			typeof part === "object" &&
-			"type" in part &&
-			part.type === "text" &&
-			"text" in part
+			typeof part === 'object' &&
+			'type' in part &&
+			part.type === 'text' &&
+			'text' in part
 		) {
 			const chunk = part.text;
-			if (typeof chunk === "string") text += chunk;
+			if (typeof chunk === 'string') text += chunk;
 		}
 	}
 
@@ -89,10 +83,7 @@ function collectAssistantText(content: Task["data"]): string {
 }
 
 function createRunId() {
-	if (
-		typeof crypto !== "undefined" &&
-		typeof crypto.randomUUID === "function"
-	) {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
 		return crypto.randomUUID();
 	}
 
@@ -131,9 +122,9 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		this.tasks = tasks.map((task) => ({
 			...task,
 			dependencies: [...(task.dependencies ?? [])],
-			status: task.status ?? "pending",
+			status: task.status ?? 'pending',
 			error: task.error,
-			debug: task.debug,
+			debug: task.debug
 		})) as Task<TMap>[];
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
@@ -150,7 +141,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const safeTasks = tasks.map((task) => ({
 			...task,
 			dependencies: [...(task.dependencies ?? [])],
-			status: task.status ?? "pending",
+			status: task.status ?? 'pending'
 		}));
 
 		this.pendingTasksQueue.push(...safeTasks);
@@ -166,7 +157,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	private snapshotTasks(): Task<TMap>[] {
 		return this.tasks.map((task) => ({
 			...task,
-			dependencies: [...(task.dependencies ?? [])],
+			dependencies: [...(task.dependencies ?? [])]
 		})) as Task<TMap>[];
 	}
 
@@ -182,8 +173,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				{
 					...task,
 					dependencies: [...(task.dependencies ?? [])],
-					status: task.status ?? "pending",
-				},
+					status: task.status ?? 'pending'
+				}
 			];
 			return;
 		}
@@ -191,7 +182,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		this.tasks[index] = {
 			...task,
 			dependencies: [...(task.dependencies ?? [])],
-			status: task.status ?? this.tasks[index].status ?? "pending",
+			status: task.status ?? this.tasks[index].status ?? 'pending'
 		};
 	}
 
@@ -225,12 +216,12 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const shouldRebuild = options?.Rebuild ?? false;
 
 		for (const task of this.tasks) {
-			if (!shouldRebuild && task.status === "done") {
+			if (!shouldRebuild && task.status === 'done') {
 				task.error = undefined;
 				continue;
 			}
 
-			task.status = "pending";
+			task.status = 'pending';
 			task.error = undefined;
 			task.startedAt = undefined;
 			task.endedAt = undefined;
@@ -248,7 +239,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			const task = this.getTaskById(taskId);
 			if (!task) continue;
 
-			task.status = "pending";
+			task.status = 'pending';
 			task.error = undefined;
 			task.startedAt = undefined;
 			task.endedAt = undefined;
@@ -342,24 +333,20 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	private statusUpdaterFor(taskId: string): TaskStatusUpdater {
 		return (update: TaskStateUpdate) => {
 			this.setTaskFields(taskId, {
-				...(update.data !== undefined
-					? { data: update.data as TMap[keyof TMap & string] }
-					: {}),
-				...(update.debug !== undefined ? { debug: update.debug } : {}),
+				...(update.data !== undefined ? { data: update.data as TMap[keyof TMap & string] } : {}),
+				...(update.debug !== undefined ? { debug: update.debug } : {})
 			});
 		};
 	}
 
-	private runtimeFor<TId extends keyof TMap & string>(
-		taskId: TId
-	): TaskRuntime<TMap, TId> {
+	private runtimeFor<TId extends keyof TMap & string>(taskId: TId): TaskRuntime<TMap, TId> {
 		return {
 			runId: this.id,
 			taskId,
 			state: this.getGlobalData(),
 			update: this.statusUpdaterFor(taskId),
 			enqueueTasks: (tasks, options) => this.enqueueTasks(tasks, options),
-			getTaskData: (dependencyTaskId) => this.getTaskData(dependencyTaskId),
+			getTaskData: (dependencyTaskId) => this.getTaskData(dependencyTaskId)
 		};
 	}
 
@@ -371,7 +358,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const idSet = new Set<string>();
 		for (const task of this.tasks) {
 			if (!task.id?.trim()) {
-				throw new Error("Task id is required.");
+				throw new Error('Task id is required.');
 			}
 			if (idSet.has(task.id)) {
 				throw new Error(`Duplicated task id: ${task.id}`);
@@ -382,9 +369,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		for (const task of this.tasks) {
 			for (const dependencyId of task.dependencies) {
 				if (!idSet.has(dependencyId)) {
-					throw new Error(
-						`Task ${task.id} has unknown dependency: ${dependencyId}`
-					);
+					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`);
 				}
 				if (dependencyId === task.id) {
 					throw new Error(`Task ${task.id} cannot depend on itself.`);
@@ -437,8 +422,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 		for (const taskId of blocked) {
 			const task = this.getTaskById(taskId);
-			if (!task || task.status !== "pending") continue;
-			task.status = "blocked";
+			if (!task || task.status !== 'pending') continue;
+			task.status = 'blocked';
 			task.error = `Blocked by failed dependency: ${failedTaskId}`;
 			task.endedAt = Date.now();
 		}
@@ -450,9 +435,9 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	private getReadyTasks(): Task<TMap>[] {
 		return this.tasks.filter((task) => {
-			if (task.status !== "pending") return false;
+			if (task.status !== 'pending') return false;
 			return task.dependencies.every(
-				(dependencyId) => this.getTaskById(dependencyId)?.status === "done"
+				(dependencyId) => this.getTaskById(dependencyId)?.status === 'done'
 			);
 		});
 	}
@@ -461,16 +446,11 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * Execute an IA task using chat completions and optionally stream tokens.
 	 * @param task - The IaTask to run.
 	 */
-	private async runIaTask(
-		task: IaTask<TMap>,
-		options?: TaskRunOptions
-	): Promise<void> {
+	private async runIaTask(task: IaTask<TMap>, options?: TaskRunOptions): Promise<void> {
 		const runtime = this.runtimeFor(task.id);
-		const runResultRaw = task.run ? await task.run(runtime) : "";
-		const runResult = String(runResultRaw ?? "").trim();
-		const userContent = runResult
-			? `context: ${runResult} ${task.userMessage}`
-			: task.userMessage;
+		const runResultRaw = task.run ? await task.run(runtime) : '';
+		const runResult = String(runResultRaw ?? '').trim();
+		const userContent = runResult ? `context: ${runResult} ${task.userMessage}` : task.userMessage;
 		const useStream =
 			options?.stream !== undefined
 				? options.stream === true
@@ -481,9 +461,9 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			think: false,
 			enable_thinking: false,
 			messages: [
-				{ role: "system", content: task.systemMessage },
-				{ role: "user", content: userContent },
-			],
+				{ role: 'system', content: task.systemMessage },
+				{ role: 'user', content: userContent }
+			]
 		};
 
 		const response = await chatCompletions(
@@ -491,11 +471,11 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			useStream
 				? {
 						onToken: (chunk: string) => {
-							const currentData = this.getTaskData(task.id) || "";
+							const currentData = this.getTaskData(task.id) || '';
 							this.setTaskFields(task.id, {
-								data: (currentData + chunk) as TMap[keyof TMap & string],
+								data: (currentData + chunk) as TMap[keyof TMap & string]
 							});
-						},
+						}
 					}
 				: undefined
 		);
@@ -510,9 +490,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @param task - Script task to execute.
 	 * @returns The task result (assigned to task.data).
 	 */
-	private async runScriptTask(
-		task: Extract<Task<TMap>, { type: "script" }>
-	): Promise<void> {
+	private async runScriptTask(task: Extract<Task<TMap>, { type: 'script' }>): Promise<void> {
 		const result = await task.run(this.runtimeFor(task.id));
 		this.setTaskFields(task.id, { data: result });
 	}
@@ -522,34 +500,31 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @param task - Task to execute.
 	 * @throws Will rethrow errors from task execution.
 	 */
-	private async executeTask(
-		task: Task<TMap>,
-		options?: TaskRunOptions
-	): Promise<void> {
+	private async executeTask(task: Task<TMap>, options?: TaskRunOptions): Promise<void> {
 		this.setTaskFields(task.id, {
-			status: "running",
+			status: 'running',
 			startedAt: Date.now(),
-			error: undefined,
+			error: undefined
 		});
 
 		try {
-			if (task.type === "ia") {
+			if (task.type === 'ia') {
 				await this.runIaTask(task, options);
 			} else {
 				await this.runScriptTask(task);
 			}
 
 			this.setTaskFields(task.id, {
-				status: "done",
-				endedAt: Date.now(),
+				status: 'done',
+				endedAt: Date.now()
 			});
 		} catch (error) {
 			const formattedError = formatTaskExecutionError(error);
 			this.setTaskFields(task.id, {
-				status: "failed",
+				status: 'failed',
 				error: formattedError.message,
 				debug: formattedError.debug,
-				endedAt: Date.now(),
+				endedAt: Date.now()
 			});
 			throw error;
 		}
@@ -569,9 +544,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @param options - Execution controls.
 	 * @returns Summary of the run.
 	 */
-	private async executeRunLoop(
-		options?: TaskRunOptions
-	): Promise<TaskRunSummary<TMap>> {
+	private async executeRunLoop(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
 		this.running = true;
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
@@ -592,14 +565,12 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				const ready = this.getReadyTasks();
 				if (ready.length === 0) break;
 
-				const readyScripts = ready.filter((task) => task.type === "script");
+				const readyScripts = ready.filter((task) => task.type === 'script');
 				if (readyScripts.length > 0) {
 					const results = await Promise.allSettled(
 						readyScripts.map((task) => this.executeTask(task, options))
 					);
-					const failedIndex = results.findIndex(
-						(result) => result.status === "rejected"
-					);
+					const failedIndex = results.findIndex((result) => result.status === 'rejected');
 
 					if (failedIndex !== -1) {
 						failedTaskId = readyScripts[failedIndex]?.id;
@@ -611,7 +582,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 					continue;
 				}
 
-				const nextIa = ready.find((task) => task.type === "ia");
+				const nextIa = ready.find((task) => task.type === 'ia');
 				if (!nextIa) break;
 
 				try {
@@ -631,11 +602,11 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				endedAt,
 				tasks: this.snapshotTasks(),
 				total: this.tasks.length,
-				done: this.countStatus("done"),
-				failed: this.countStatus("failed"),
-				blocked: this.countStatus("blocked"),
-				pending: this.countStatus("pending"),
-				...(failedTaskId ? { failedTaskId } : {}),
+				done: this.countStatus('done'),
+				failed: this.countStatus('failed'),
+				blocked: this.countStatus('blocked'),
+				pending: this.countStatus('pending'),
+				...(failedTaskId ? { failedTaskId } : {})
 			};
 		}
 
@@ -649,7 +620,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	async run(options?: TaskRunOptions): Promise<TaskRunSummary<TMap>> {
 		if (this.running) {
-			throw new Error("Task runner is already running.");
+			throw new Error('Task runner is already running.');
 		}
 
 		const runOptions = { Rebuild: false, ...options };
@@ -673,7 +644,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		options?: TaskRerunOptions
 	): Promise<TaskRunSummary<TMap>> {
 		if (this.running) {
-			throw new Error("Task runner is already running.");
+			throw new Error('Task runner is already running.');
 		}
 
 		this.validateTasks();
@@ -692,8 +663,6 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 }
 
-export function createTaskRunner<TMap extends TaskMapBase = TaskMapBase>(
-	id?: string
-) {
+export function createTaskRunner<TMap extends TaskMapBase = TaskMapBase>(id?: string) {
 	return new TaskRunnerStore<TMap>(id);
 }

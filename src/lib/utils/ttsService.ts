@@ -13,7 +13,7 @@ export async function fetchVoices(): Promise<Voice[]> {
 	const res = await fetch(`${WHISPER_API_URL}/voices`);
 	if (!res.ok) throw new Error(`Failed to fetch voices: ${res.status}`);
 	const data: { chunks: Voice[] } = await res.json();
-	console.log(data)
+	console.log(data);
 	return data.chunks;
 }
 
@@ -24,20 +24,18 @@ export async function addVoice(params: {
 	chunk_count?: number;
 }): Promise<{ taskId: string; source: EventSource }> {
 	const res = await fetch(`${WHISPER_API_URL}/transcribe-chunks`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
 			url: params.url,
-			segment: params.segment ?? "*00:00-01:00",
-			name_prefix: params.name_prefix ?? "chunk",
-			chunk_count: params.chunk_count ?? 5,
-		}),
+			segment: params.segment ?? '*00:00-01:00',
+			name_prefix: params.name_prefix ?? 'chunk',
+			chunk_count: params.chunk_count ?? 5
+		})
 	});
 	if (!res.ok) throw new Error(`Failed to start transcription: ${res.status}`);
 	const { task_id } = (await res.json()) as { task_id: string };
-	const source = new EventSource(
-		`${WHISPER_API_URL}/transcribe-chunks/events/${task_id}`
-	);
+	const source = new EventSource(`${WHISPER_API_URL}/transcribe-chunks/events/${task_id}`);
 	return { taskId: task_id, source };
 }
 
@@ -62,9 +60,9 @@ export async function generateSpeech(params: {
 	audio_chunk_threshold?: number;
 }): Promise<{ blob: Blob; durationSeconds: number | null }> {
 	const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(params),
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(params)
 	});
 
 	if (!res.ok) {
@@ -73,14 +71,12 @@ export async function generateSpeech(params: {
 		const detailStr =
 			detail == null
 				? `Error ${res.status}`
-				: typeof detail === "string"
+				: typeof detail === 'string'
 					? detail
 					: JSON.stringify(detail);
 		throw new Error(detailStr);
 	}
-	const durationSeconds = Number.parseFloat(
-		res.headers.get("X-Duration-Seconds") ?? "null"
-	);
+	const durationSeconds = Number.parseFloat(res.headers.get('X-Duration-Seconds') ?? 'null');
 	const blob = await res.blob();
 	return { blob, durationSeconds };
 }

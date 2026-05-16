@@ -1,50 +1,48 @@
 <script lang="ts">
-import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
-import Pill from "./Pill.svelte";
+	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import Pill from './Pill.svelte';
 
-interface Props {
-	task?: Task;
-	keywords?: string[];
-	componentProps?: TaskComponentProps;
-}
-
-let { task = undefined, keywords = [], componentProps = {} }: Props = $props();
-
-void componentProps;
-
-const parsedKeywords = $derived.by(() => {
-	if (keywords.length > 0) {
-		return keywords;
+	interface Props {
+		task?: Task;
+		keywords?: string[];
+		componentProps?: TaskComponentProps;
 	}
 
-	const data = task?.data;
+	let { task = undefined, keywords = [], componentProps = {} }: Props = $props();
 
-	if (Array.isArray(data)) {
-		return data.map((keyword) => String(keyword).trim()).filter(Boolean);
-	}
+	void componentProps;
 
-	if (typeof data === "object" && data !== null && "keywords" in data) {
-		const value = data.keywords;
-		return Array.isArray(value)
-			? value.map((keyword) => String(keyword).trim()).filter(Boolean)
-			: [];
-	}
-
-	if (typeof data === "string") {
-		try {
-			const parsed = JSON.parse(data) as { keywords?: unknown };
-			return Array.isArray(parsed.keywords)
-				? parsed.keywords
-						.map((keyword) => String(keyword).trim())
-						.filter(Boolean)
-				: [];
-		} catch {
-			return [];
+	const parsedKeywords = $derived.by(() => {
+		if (keywords.length > 0) {
+			return keywords;
 		}
-	}
 
-	return [];
-});
+		const data = task?.data;
+
+		if (Array.isArray(data)) {
+			return data.map((keyword) => String(keyword).trim()).filter(Boolean);
+		}
+
+		if (typeof data === 'object' && data !== null && 'keywords' in data) {
+			const value = data.keywords;
+			return Array.isArray(value)
+				? value.map((keyword) => String(keyword).trim()).filter(Boolean)
+				: [];
+		}
+
+		if (typeof data === 'string') {
+			try {
+				const parsed = JSON.parse(data) as { keywords?: unknown };
+				return Array.isArray(parsed.keywords)
+					? parsed.keywords.map((keyword) => String(keyword).trim()).filter(Boolean)
+					: [];
+			} catch {
+				return [];
+			}
+		}
+
+		return [];
+	});
 </script>
 
 <div class="keywords">

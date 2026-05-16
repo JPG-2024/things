@@ -20,7 +20,7 @@ export function calculateDaysAgo(uploadDate: string): string {
 			sep: 8,
 			oct: 9,
 			nov: 10,
-			dic: 11,
+			dic: 11
 		} as const satisfies Record<string, number>;
 		const month = months[monthStr as keyof typeof months];
 		if (month !== undefined) {
@@ -31,15 +31,15 @@ export function calculateDaysAgo(uploadDate: string): string {
 		uploadTime = new Date(uploadDate).getTime();
 	}
 	if (Number.isNaN(uploadTime)) {
-		return "Unknown";
+		return 'Unknown';
 	}
 	const now = Date.now();
 	const diffInMs = now - uploadTime;
 	const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 	if (diffInDays < 1) {
-		return "Today";
+		return 'Today';
 	} else if (diffInDays === 1) {
-		return "1 day ago";
+		return '1 day ago';
 	} else {
 		return `${diffInDays} days ago`;
 	}

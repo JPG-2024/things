@@ -17,6 +17,7 @@ Generate text completions with streaming support.
 ### Command: `generate_completion_stream`
 
 **Parameters:**
+
 - `model` (string): Model name (e.g., "llama3.2")
 - `prompt` (string): The prompt text
 - `system` (string, optional): System prompt
@@ -27,6 +28,7 @@ Generate text completions with streaming support.
 **Returns:** `Vec<i32>` - Context for next generation
 
 **Events:** Emits `ollama-rs-stream` events with:
+
 ```typescript
 {
   status: "loading" | "streaming",
@@ -46,42 +48,42 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 async function generateText() {
-  let fullResponse = '';
-  let context: number[] | undefined;
+	let fullResponse = '';
+	let context: number[] | undefined;
 
-  // Listen for streaming events
-  const unlisten = await listen('ollama-rs-stream', (event) => {
-    const payload = event.payload;
-    
-    if (payload.status === 'loading') {
-      console.log('Loading model:', payload.model);
-    } else if (payload.status === 'streaming') {
-      fullResponse += payload.tokens;
-      console.log('Chunk:', payload.tokens);
-      
-      if (payload.done) {
-        console.log('Complete response:', fullResponse);
-        context = payload.context; // Save for next request
-        unlisten(); // Stop listening
-      }
-    }
-  });
+	// Listen for streaming events
+	const unlisten = await listen('ollama-rs-stream', (event) => {
+		const payload = event.payload;
 
-  // Start generation
-  try {
-    const returnedContext = await invoke('generate_completion_stream', {
-      model: 'llama3.2',
-      prompt: 'Write a short poem about Rust programming',
-      system: 'You are a helpful assistant.',
-      context: context, // Use previous context if available
-      batch_size: 5
-    });
-    
-    console.log('Final context:', returnedContext);
-  } catch (error) {
-    console.error('Error:', error);
-    unlisten();
-  }
+		if (payload.status === 'loading') {
+			console.log('Loading model:', payload.model);
+		} else if (payload.status === 'streaming') {
+			fullResponse += payload.tokens;
+			console.log('Chunk:', payload.tokens);
+
+			if (payload.done) {
+				console.log('Complete response:', fullResponse);
+				context = payload.context; // Save for next request
+				unlisten(); // Stop listening
+			}
+		}
+	});
+
+	// Start generation
+	try {
+		const returnedContext = await invoke('generate_completion_stream', {
+			model: 'llama3.2',
+			prompt: 'Write a short poem about Rust programming',
+			system: 'You are a helpful assistant.',
+			context: context, // Use previous context if available
+			batch_size: 5
+		});
+
+		console.log('Final context:', returnedContext);
+	} catch (error) {
+		console.error('Error:', error);
+		unlisten();
+	}
 }
 ```
 
@@ -89,49 +91,49 @@ async function generateText() {
 
 ```svelte
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
-  
-  let response = $state('');
-  let loading = $state(false);
-  let context: number[] | undefined = $state();
-  
-  async function generate() {
-    loading = true;
-    response = '';
-    
-    const unlisten = await listen('ollama-rs-stream', (event) => {
-      const payload = event.payload;
-      
-      if (payload.status === 'streaming') {
-        response += payload.tokens;
-        
-        if (payload.done) {
-          context = payload.context;
-          loading = false;
-          unlisten();
-        }
-      }
-    });
-    
-    try {
-      await invoke('generate_completion_stream', {
-        model: 'llama3.2',
-        prompt: 'Tell me about Rust',
-        system: 'You are a Rust expert.',
-        context: context,
-        batch_size: 8
-      });
-    } catch (error) {
-      console.error(error);
-      loading = false;
-      unlisten();
-    }
-  }
+	import { invoke } from '@tauri-apps/api/core';
+	import { listen } from '@tauri-apps/api/event';
+
+	let response = $state('');
+	let loading = $state(false);
+	let context: number[] | undefined = $state();
+
+	async function generate() {
+		loading = true;
+		response = '';
+
+		const unlisten = await listen('ollama-rs-stream', (event) => {
+			const payload = event.payload;
+
+			if (payload.status === 'streaming') {
+				response += payload.tokens;
+
+				if (payload.done) {
+					context = payload.context;
+					loading = false;
+					unlisten();
+				}
+			}
+		});
+
+		try {
+			await invoke('generate_completion_stream', {
+				model: 'llama3.2',
+				prompt: 'Tell me about Rust',
+				system: 'You are a Rust expert.',
+				context: context,
+				batch_size: 8
+			});
+		} catch (error) {
+			console.error(error);
+			loading = false;
+			unlisten();
+		}
+	}
 </script>
 
 <button onclick={generate} disabled={loading}>
-  {loading ? 'Generating...' : 'Generate'}
+	{loading ? 'Generating...' : 'Generate'}
 </button>
 
 <pre>{response}</pre>
@@ -146,6 +148,7 @@ Generate embeddings for multiple texts.
 ### Command: `generate_embeddings_batch`
 
 **Parameters:**
+
 - `texts` (string[]): Array of texts to embed
 - `model` (string): Embedding model name
 - `ollama_url` (string, optional): Custom Ollama URL
@@ -158,24 +161,24 @@ Generate embeddings for multiple texts.
 import { invoke } from '@tauri-apps/api/core';
 
 async function generateEmbeddings() {
-  try {
-    const embeddings: number[][] = await invoke('generate_embeddings_batch', {
-      texts: [
-        'Rust is a systems programming language',
-        'TypeScript is a typed superset of JavaScript',
-        'Python is great for data science'
-      ],
-      model: 'nomic-embed-text'
-    });
-    
-    console.log('Generated embeddings:', embeddings);
-    console.log('First embedding dimension:', embeddings[0].length);
-    
-    // Use embeddings for similarity search, clustering, etc.
-    return embeddings;
-  } catch (error) {
-    console.error('Error generating embeddings:', error);
-  }
+	try {
+		const embeddings: number[][] = await invoke('generate_embeddings_batch', {
+			texts: [
+				'Rust is a systems programming language',
+				'TypeScript is a typed superset of JavaScript',
+				'Python is great for data science'
+			],
+			model: 'nomic-embed-text'
+		});
+
+		console.log('Generated embeddings:', embeddings);
+		console.log('First embedding dimension:', embeddings[0].length);
+
+		// Use embeddings for similarity search, clustering, etc.
+		return embeddings;
+	} catch (error) {
+		console.error('Error generating embeddings:', error);
+	}
 }
 ```
 
@@ -183,40 +186,40 @@ async function generateEmbeddings() {
 
 ```svelte
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  
-  let texts = $state(['', '', '']);
-  let embeddings: number[][] = $state([]);
-  let loading = $state(false);
-  
-  async function embed() {
-    loading = true;
-    try {
-      embeddings = await invoke('generate_embeddings_batch', {
-        texts: texts.filter(t => t.trim()),
-        model: 'nomic-embed-text'
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      loading = false;
-    }
-  }
+	import { invoke } from '@tauri-apps/api/core';
+
+	let texts = $state(['', '', '']);
+	let embeddings: number[][] = $state([]);
+	let loading = $state(false);
+
+	async function embed() {
+		loading = true;
+		try {
+			embeddings = await invoke('generate_embeddings_batch', {
+				texts: texts.filter((t) => t.trim()),
+				model: 'nomic-embed-text'
+			});
+		} catch (error) {
+			console.error(error);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <div>
-  {#each texts as text, i}
-    <input bind:value={texts[i]} placeholder="Text {i + 1}" />
-  {/each}
-  
-  <button onclick={embed} disabled={loading}>
-    {loading ? 'Generating...' : 'Generate Embeddings'}
-  </button>
-  
-  {#if embeddings.length > 0}
-    <p>Generated {embeddings.length} embeddings</p>
-    <p>Dimension: {embeddings[0].length}</p>
-  {/if}
+	{#each texts as text, i}
+		<input bind:value={texts[i]} placeholder="Text {i + 1}" />
+	{/each}
+
+	<button onclick={embed} disabled={loading}>
+		{loading ? 'Generating...' : 'Generate Embeddings'}
+	</button>
+
+	{#if embeddings.length > 0}
+		<p>Generated {embeddings.length} embeddings</p>
+		<p>Dimension: {embeddings[0].length}</p>
+	{/if}
 </div>
 ```
 
@@ -230,9 +233,9 @@ Both commands accept an optional `ollama_url` parameter:
 
 ```typescript
 await invoke('generate_completion_stream', {
-  model: 'llama3.2',
-  prompt: 'Hello',
-  ollamaUrl: 'http://192.168.1.100:11434'  // Custom URL
+	model: 'llama3.2',
+	prompt: 'Hello',
+	ollamaUrl: 'http://192.168.1.100:11434' // Custom URL
 });
 ```
 
@@ -242,9 +245,9 @@ Control how many tokens are accumulated before emitting an event:
 
 ```typescript
 await invoke('generate_completion_stream', {
-  model: 'llama3.2',
-  prompt: 'Tell me a story',
-  batchSize: 10  // Emit every 10 tokens (default: 5)
+	model: 'llama3.2',
+	prompt: 'Tell me a story',
+	batchSize: 10 // Emit every 10 tokens (default: 5)
 });
 ```
 
@@ -256,13 +259,13 @@ Both commands return errors as strings. Always wrap calls in try-catch:
 
 ```typescript
 try {
-  await invoke('generate_completion_stream', {
-    model: 'nonexistent-model',
-    prompt: 'test'
-  });
+	await invoke('generate_completion_stream', {
+		model: 'nonexistent-model',
+		prompt: 'test'
+	});
 } catch (error) {
-  console.error('Ollama error:', error);
-  // Error will include details like "Model not found" or "Connection failed"
+	console.error('Ollama error:', error);
+	// Error will include details like "Model not found" or "Connection failed"
 }
 ```
 

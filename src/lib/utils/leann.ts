@@ -27,8 +27,8 @@ export interface SaveDocumentsParams {
  * Response from saving documents
  */
 export interface SaveDocumentsResponse {
-	status: "success" | "error";
-	action: "created" | "appended";
+	status: 'success' | 'error';
+	action: 'created' | 'appended';
 	count: number;
 	index_path: string;
 }
@@ -60,7 +60,7 @@ export interface SearchDocumentsParams {
 	/** Fetch fresh embeddings vs use stored codes (default: true) */
 	recompute_embeddings?: boolean;
 	/** Pruning strategy: "global", "local", or "proportional" (default: "global") */
-	pruning_strategy?: "global" | "local" | "proportional";
+	pruning_strategy?: 'global' | 'local' | 'proportional';
 	/** ZMQ server port for embedding recomputation (default: 5557) */
 	expected_zmq_port?: number;
 	/** Post-search metadata filters (default: null) */
@@ -77,10 +77,10 @@ export interface SearchDocumentsParams {
  * Get the Leann API base URL from environment or default
  */
 function getLeannBaseUrl(): string {
-	if (typeof window !== "undefined" && import.meta.env.VITE_LEANN_API_URL) {
+	if (typeof window !== 'undefined' && import.meta.env.VITE_LEANN_API_URL) {
 		return import.meta.env.VITE_LEANN_API_URL;
 	}
-	return "http://localhost:3008";
+	return 'http://localhost:3008';
 }
 
 /**
@@ -109,22 +109,20 @@ export async function saveDocumentsToLeann(
 	// Merge document-level and call-level metadata
 	const formattedDocuments: LeannDocument[] = documents.map((doc) => ({
 		text: doc.text,
-		metadata: { ...metadata, ...doc.metadata },
+		metadata: { ...metadata, ...doc.metadata }
 	}));
 
 	const response = await fetch(`${baseUrl}/save_documents`, {
-		method: "POST",
+		method: 'POST',
 		headers: {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json'
 		},
-		body: JSON.stringify({ documents: formattedDocuments }),
+		body: JSON.stringify({ documents: formattedDocuments })
 	});
 
 	if (!response.ok) {
 		const error = await response.text();
-		throw new Error(
-			`Failed to save documents to Leann: ${response.status} - ${error}`
-		);
+		throw new Error(`Failed to save documents to Leann: ${response.status} - ${error}`);
 	}
 
 	return response.json();
@@ -161,27 +159,25 @@ export async function searchDocumentsInLeann(
 		beam_width: params.beam_width ?? 1,
 		prune_ratio: params.prune_ratio ?? 0.0,
 		recompute_embeddings: params.recompute_embeddings ?? true,
-		pruning_strategy: params.pruning_strategy ?? "global",
+		pruning_strategy: params.pruning_strategy ?? 'global',
 		expected_zmq_port: params.expected_zmq_port ?? 5557,
 		metadata_filters: params.metadata_filters ?? null,
 		batch_size: params.batch_size ?? 0,
 		use_grep: params.use_grep ?? false,
-		provider_options: params.provider_options ?? null,
+		provider_options: params.provider_options ?? null
 	};
 
 	const response = await fetch(`${baseUrl}/search_documents`, {
-		method: "POST",
+		method: 'POST',
 		headers: {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json'
 		},
-		body: JSON.stringify(searchPayload),
+		body: JSON.stringify(searchPayload)
 	});
 
 	if (!response.ok) {
 		const error = await response.text();
-		throw new Error(
-			`Failed to search documents in Leann: ${response.status} - ${error}`
-		);
+		throw new Error(`Failed to search documents in Leann: ${response.status} - ${error}`);
 	}
 
 	return response.json();
@@ -198,7 +194,7 @@ export async function checkLeannHealth(): Promise<void> {
 
 	try {
 		const response = await fetch(`${baseUrl}/docs`, {
-			method: "HEAD",
+			method: 'HEAD'
 		});
 
 		if (!response.ok && response.status !== 404) {
@@ -245,7 +241,7 @@ export async function similaritySearchCompat(
 	try {
 		const results = await searchDocumentsInLeann({
 			query: params.query,
-			top_k: params.nResults ?? 5,
+			top_k: params.nResults ?? 5
 		});
 
 		// Convert Leann results to ChromaDB format
@@ -260,7 +256,7 @@ export async function similaritySearchCompat(
 			distances: [distances],
 			documents: [documents],
 			metadatas: [metadatas],
-			embeddings: params.includeEmbeddings ? [[]] : undefined,
+			embeddings: params.includeEmbeddings ? [[]] : undefined
 		};
 	} catch (error) {
 		throw new Error(`Failed to search documents: ${error}`);

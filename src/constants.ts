@@ -57,7 +57,7 @@ structure is as follows:
 }
 `;
 
-const keypoints = "short titles of 5 key points discussed in the content";
+const keypoints = 'short titles of 5 key points discussed in the content';
 
 export const SIMPLE_SUMMARY_SYSTEM_PROMPT_EN2 = `You are an expert podcast summarization assistant. Given a podcast episode transcript or description, produce a clear and structured summary intended for listeners who want a fast but accurate overview.`;
 

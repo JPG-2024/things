@@ -1,8 +1,8 @@
-import { fetch } from "@tauri-apps/plugin-http";
-import { MISTRAL_MODELS } from "@/constants";
+import { fetch } from '@tauri-apps/plugin-http';
+import { MISTRAL_MODELS } from '@/constants';
 
 interface MistralChatMessage {
-	role: "system" | "user" | "assistant";
+	role: 'system' | 'user' | 'assistant';
 	content: string;
 }
 
@@ -58,7 +58,7 @@ export async function callMistralChat(
 		temperature = 0.7,
 		topP = 1.0,
 		stream = !!callback,
-		responseFormat,
+		responseFormat
 	} = params;
 
 	// Build messages array
@@ -66,14 +66,14 @@ export async function callMistralChat(
 
 	if (systemPrompt) {
 		messages.push({
-			role: "system",
-			content: systemPrompt,
+			role: 'system',
+			content: systemPrompt
 		});
 	}
 
 	messages.push({
-		role: "user",
-		content: prompt,
+		role: 'user',
+		content: prompt
 	});
 
 	// Build request payload
@@ -84,17 +84,17 @@ export async function callMistralChat(
 		temperature,
 		top_p: topP,
 		stream,
-		response_format: responseFormat,
+		response_format: responseFormat
 	};
 
 	try {
-		const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-			method: "POST",
+		const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+			method: 'POST',
 			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${API_KEY}`,
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${API_KEY}`
 			},
-			body: JSON.stringify(payload),
+			body: JSON.stringify(payload)
 		});
 
 		if (!response.ok) {
@@ -106,12 +106,12 @@ export async function callMistralChat(
 		if (stream && callback) {
 			const reader = response.body?.getReader();
 			if (!reader) {
-				throw new Error("Response body is not readable");
+				throw new Error('Response body is not readable');
 			}
 
 			const decoder = new TextDecoder();
-			let buffer = "";
-			let fullContent = "";
+			let buffer = '';
+			let fullContent = '';
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -120,19 +120,19 @@ export async function callMistralChat(
 				buffer += decoder.decode(value, { stream: true });
 
 				// Process complete lines
-				while (buffer.includes("\n")) {
-					const lineEnd = buffer.indexOf("\n");
+				while (buffer.includes('\n')) {
+					const lineEnd = buffer.indexOf('\n');
 					const line = buffer.slice(0, lineEnd).trim();
 					buffer = buffer.slice(lineEnd + 1);
 
 					// Skip empty lines and comments
-					if (!line || line === ":") continue;
+					if (!line || line === ':') continue;
 
 					// Parse Server-Sent Events format
-					if (line.startsWith("data: ")) {
+					if (line.startsWith('data: ')) {
 						const data = line.slice(6);
 
-						if (data === "[DONE]") {
+						if (data === '[DONE]') {
 							return fullContent;
 						}
 
@@ -145,7 +145,7 @@ export async function callMistralChat(
 								callback(content);
 							}
 						} catch (e) {
-							console.warn("Error parsing Mistral stream chunk:", e);
+							console.warn('Error parsing Mistral stream chunk:', e);
 						}
 					}
 				}
@@ -158,13 +158,13 @@ export async function callMistralChat(
 			const content = data.choices?.[0]?.message?.content;
 
 			if (!content) {
-				throw new Error("No content in Mistral response");
+				throw new Error('No content in Mistral response');
 			}
 
 			return content;
 		}
 	} catch (error) {
-		console.error("Mistral chat error:", error);
+		console.error('Mistral chat error:', error);
 		throw error;
 	}
 }

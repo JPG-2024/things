@@ -1,50 +1,45 @@
 <script lang="ts">
-import Label from "./Label.component.svelte";
+	import Label from './Label.component.svelte';
 
-interface Option {
-	label: string;
-	value: string;
-}
-
-interface Props {
-	options: Option[];
-	value?: string;
-	placeholder?: string;
-	disabled?: boolean;
-	label?: string;
-	labelPosition?: "top" | "inline";
-	onChange?: (value: string) => void;
-}
-
-let {
-	options = [],
-	value = $bindable(""),
-	placeholder = "Select option...",
-	disabled = false,
-	label,
-	labelPosition = "top",
-	onChange,
-}: Props = $props();
-
-function handleChange(event: Event) {
-	const target = event.target as HTMLSelectElement;
-	const newValue = target.value;
-	value = newValue;
-
-	if (onChange) {
-		onChange(newValue);
+	interface Option {
+		label: string;
+		value: string;
 	}
-}
+
+	interface Props {
+		options: Option[];
+		value?: string;
+		placeholder?: string;
+		disabled?: boolean;
+		label?: string;
+		labelPosition?: 'top' | 'inline';
+		onChange?: (value: string) => void;
+	}
+
+	let {
+		options = [],
+		value = $bindable(''),
+		placeholder = 'Select option...',
+		disabled = false,
+		label,
+		labelPosition = 'top',
+		onChange
+	}: Props = $props();
+
+	function handleChange(event: Event) {
+		const target = event.target as HTMLSelectElement;
+		const newValue = target.value;
+		value = newValue;
+
+		if (onChange) {
+			onChange(newValue);
+		}
+	}
 </script>
 
 {#if label}
 	<Label text={label} position={labelPosition}>
-		<select
-			class="dropdown-input"
-			bind:value
-			{disabled}
-			onchange={handleChange}
-		>
+		<select class="dropdown-input" bind:value {disabled} onchange={handleChange}>
 			{#if placeholder}
 				<option value="" disabled selected hidden>{placeholder}</option>
 			{/if}
@@ -54,12 +49,7 @@ function handleChange(event: Event) {
 		</select>
 	</Label>
 {:else}
-	<select
-		class="dropdown-input"
-		bind:value
-		{disabled}
-		onchange={handleChange}
-	>
+	<select class="dropdown-input" bind:value {disabled} onchange={handleChange}>
 		{#if placeholder}
 			<option value="" disabled selected hidden>{placeholder}</option>
 		{/if}

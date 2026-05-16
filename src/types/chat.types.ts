@@ -9,7 +9,7 @@ export interface Chat {
 export interface DBChatMessage {
 	id?: number;
 	chatId?: number;
-	sender: "user" | "assistant" | "system";
+	sender: 'user' | 'assistant' | 'system';
 	content: string;
 	createdAt?: string;
 	toolCalls?: string; // JSON stringificado de tool_calls si existe
@@ -17,7 +17,7 @@ export interface DBChatMessage {
 
 // Tipo para usar en memoria (compatible con Ollama)
 export interface ChatMessageUI {
-	role: "user" | "assistant" | "system";
+	role: 'user' | 'assistant' | 'system';
 	content: string;
 	tool_calls?: Array<{
 		id: string;

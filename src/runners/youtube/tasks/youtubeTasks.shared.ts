@@ -1,14 +1,10 @@
 import type {
 	Chapter,
 	ChapterCaption,
-	TimedCaption,
-} from "@/lib/utils/youtube/joinCaptionsByChapters";
-import type {
-	Task,
-	TaskGlobalState,
-	TaskRuntime,
-} from "@/types/taskRunner.types";
-import type { TTSLanguage } from "$lib/utils/tts";
+	TimedCaption
+} from '@/lib/utils/youtube/joinCaptionsByChapters';
+import type { Task, TaskGlobalState, TaskRuntime } from '@/types/taskRunner.types';
+import type { TTSLanguage } from '$lib/utils/tts';
 
 export type PageElementItem = {
 	name: string;
@@ -40,22 +36,22 @@ export type GetChannelVideosContext = {
 };
 
 export enum TaskNames {
-	INIT = "init",
-	THUMBNAIL = "thumbnail",
-	MAIN_COLOR = "main-color",
-	SUMMARY = "summary",
-	GET_CHANNEL_VIDEOS = "getting-channel-videos",
-	EXTRACT_CHANNEL_VIDEOS = "extract-channel-videos",
-	KEYWORDS = "keywords",
-	KEYPOINTS = "key-points",
-	CHAPTERS = "chapters",
-	CHAPTERS_SUMMARY = "chapters-summary",
-	TIMED_CAPTIONS = "timed-captions",
-	CONTENT = "content",
-	VIDEO_INFO = "video-info",
-	TITLE_SUMMARY = "title-summary",
-	TITLE = "title",
-	EXTRACT_PROFILE = "extract-profile",
+	INIT = 'init',
+	THUMBNAIL = 'thumbnail',
+	MAIN_COLOR = 'main-color',
+	SUMMARY = 'summary',
+	GET_CHANNEL_VIDEOS = 'getting-channel-videos',
+	EXTRACT_CHANNEL_VIDEOS = 'extract-channel-videos',
+	KEYWORDS = 'keywords',
+	KEYPOINTS = 'key-points',
+	CHAPTERS = 'chapters',
+	CHAPTERS_SUMMARY = 'chapters-summary',
+	TIMED_CAPTIONS = 'timed-captions',
+	CONTENT = 'content',
+	VIDEO_INFO = 'video-info',
+	TITLE_SUMMARY = 'title-summary',
+	TITLE = 'title',
+	EXTRACT_PROFILE = 'extract-profile'
 }
 
 export type YouTubeTaskState = {
@@ -74,7 +70,7 @@ export type YouTubeTaskState = {
 	[TaskNames.KEYPOINTS]: string;
 	[TaskNames.TITLE_SUMMARY]: string;
 	[TaskNames.TITLE]: string;
-	[TaskNames.EXTRACT_PROFILE]: {name: string, profilePicture: string};
+	[TaskNames.EXTRACT_PROFILE]: { name: string; profilePicture: string };
 } & Record<`chapter-summary-${number}`, string>;
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;
@@ -85,9 +81,7 @@ export type YouTubeTaskFactoryContext = {
 	freshRun: boolean;
 };
 
-export type YouTubeTaskFactory = (
-	context: YouTubeTaskFactoryContext
-) => Task<YouTubeTaskState>;
+export type YouTubeTaskFactory = (context: YouTubeTaskFactoryContext) => Task<YouTubeTaskState>;
 
 export type YouTubeTaskRegistrySubset<TIds extends YouTubeTaskId> = Pick<
 	Record<YouTubeTaskId, YouTubeTaskFactory>,
@@ -95,18 +89,16 @@ export type YouTubeTaskRegistrySubset<TIds extends YouTubeTaskId> = Pick<
 >;
 
 export const defaultCompletionOptions = {
-	model: "llama-server",
+	model: 'llama-server',
 	temperature: 0.8,
 	min_p: 0.0,
 	presence_penalty: 1.5,
 	repetition_penalty: 1.0,
-	stream: true,
+	stream: true
 } as const;
 
-export function getContentFromState(
-	runtime: Pick<TaskRuntime<YouTubeTaskState>, "state">
-): string {
-	return String(runtime.state[TaskNames.CONTENT] || "");
+export function getContentFromState(runtime: Pick<TaskRuntime<YouTubeTaskState>, 'state'>): string {
+	return String(runtime.state[TaskNames.CONTENT] || '');
 }
 
 export function getRequiredTaskState<TId extends YouTubeTaskId>(
@@ -126,6 +118,6 @@ export function buildVideoPageParams(url: string) {
 	return {
 		url,
 		attempts: 5,
-		intervalMs: 2000,
+		intervalMs: 2000
 	};
 }

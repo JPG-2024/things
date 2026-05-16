@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export interface JsonObject {
@@ -7,10 +5,10 @@ export interface JsonObject {
 }
 
 export type LlamaResponseFormat =
-	| { type: "text" }
-	| { type: "json_object" }
+	| { type: 'text' }
+	| { type: 'json_object' }
 	| {
-			type: "json_schema";
+			type: 'json_schema';
 			json_schema: {
 				name: string;
 				description?: string;
@@ -20,18 +18,18 @@ export type LlamaResponseFormat =
 	  };
 
 export type LlamaToolChoice =
-	| "none"
-	| "auto"
-	| "required"
+	| 'none'
+	| 'auto'
+	| 'required'
 	| {
-			type: "function";
+			type: 'function';
 			function: {
 				name: string;
 			};
 	  };
 
 export interface LlamaTool {
-	type: "function";
+	type: 'function';
 	function: {
 		name: string;
 		description?: string;
@@ -42,29 +40,29 @@ export interface LlamaTool {
 
 export type LlamaChatMessageContentPart =
 	| {
-			type: "text";
+			type: 'text';
 			text: string;
 	  }
 	| {
-			type: "image_url";
+			type: 'image_url';
 			image_url: {
 				url: string;
-				detail?: "auto" | "low" | "high";
+				detail?: 'auto' | 'low' | 'high';
 			};
 	  }
 	| {
-			type: "input_text";
+			type: 'input_text';
 			text: string;
 	  }
 	| {
-			type: "input_image";
+			type: 'input_image';
 			image_url?: string;
 			image_base64?: string;
 	  };
 
 export interface LlamaChatToolCall {
 	id?: string | null;
-	type?: "function";
+	type?: 'function';
 	index?: number;
 	function: {
 		name: string;
@@ -78,7 +76,7 @@ export interface LlamaStreamOptions {
 }
 
 export interface LlamaChatMessage {
-	role: "system" | "user" | "assistant" | "tool";
+	role: 'system' | 'user' | 'assistant' | 'tool';
 	content?: string | LlamaChatMessageContentPart[] | null;
 	name?: string;
 	tool_call_id?: string;
@@ -150,19 +148,13 @@ export interface LlamaChatCompletionsUsage {
 export interface LlamaChatCompletionsChoice {
 	index: number;
 	message: LlamaChatMessage;
-	finish_reason:
-		| "stop"
-		| "length"
-		| "content_filter"
-		| "tool_calls"
-		| "tool"
-		| null;
+	finish_reason: 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'tool' | null;
 	logprobs?: unknown;
 }
 
 export interface LlamaChatCompletionsResponse {
 	id: string;
-	object: "chat.completion";
+	object: 'chat.completion';
 	created: number;
 	model: string;
 	choices: LlamaChatCompletionsChoice[];
@@ -175,14 +167,14 @@ export interface LlamaChatCompletionsResponse {
 export interface LlamaEmbeddingsRequest {
 	model: string;
 	input: string | string[];
-	encoding_format?: "float" | "base64";
+	encoding_format?: 'float' | 'base64';
 	user?: string;
 	dimensions?: number;
 	[key: string]: unknown;
 }
 
 export interface LlamaEmbedding {
-	object: "embedding";
+	object: 'embedding';
 	embedding: number[];
 	index: number;
 }
@@ -193,7 +185,7 @@ export interface LlamaEmbeddingsUsage {
 }
 
 export interface LlamaEmbeddingsResponse {
-	object: "list";
+	object: 'list';
 	data: LlamaEmbedding[];
 	model: string;
 	usage?: LlamaEmbeddingsUsage;
@@ -201,7 +193,7 @@ export interface LlamaEmbeddingsResponse {
 }
 
 export interface LlamaChatCompletionsDelta {
-	role?: "assistant";
+	role?: 'assistant';
 	content?: string | null;
 	reasoning_content?: string | null; // <- add
 	tool_calls?: LlamaChatToolCall[];
@@ -215,19 +207,13 @@ export interface LlamaChatCompletionsDelta {
 export interface LlamaChatCompletionsChunkChoice {
 	index: number;
 	delta: LlamaChatCompletionsDelta;
-	finish_reason:
-		| "stop"
-		| "length"
-		| "content_filter"
-		| "tool_calls"
-		| "tool"
-		| null;
+	finish_reason: 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'tool' | null;
 	logprobs?: unknown;
 }
 
 export interface LlamaChatCompletionsChunk {
 	id: string;
-	object: "chat.completion.chunk";
+	object: 'chat.completion.chunk';
 	created: number;
 	model: string;
 	choices: LlamaChatCompletionsChunkChoice[];
@@ -240,10 +226,7 @@ export interface LlamaChatCompletionOptions {
 	signal?: AbortSignal;
 	onToken?: (tokenText: string, chunk: LlamaChatCompletionsChunk) => void;
 	onChunk?: (chunk: LlamaChatCompletionsChunk) => void;
-	onReasoningToken?: (
-		tokenText: string,
-		chunk: LlamaChatCompletionsChunk
-	) => void; // <- add
+	onReasoningToken?: (tokenText: string, chunk: LlamaChatCompletionsChunk) => void; // <- add
 }
 
 export interface LlamaEmbeddingsOptions {
@@ -258,7 +241,7 @@ export class LlamaChatCompletionError extends Error {
 		public payload?: unknown
 	) {
 		super(message);
-		this.name = "LlamaChatCompletionError";
+		this.name = 'LlamaChatCompletionError';
 	}
 }
 
@@ -269,32 +252,30 @@ export class LlamaEmbeddingsError extends Error {
 		public payload?: unknown
 	) {
 		super(message);
-		this.name = "LlamaEmbeddingsError";
+		this.name = 'LlamaEmbeddingsError';
 	}
 }
 
 function isAbortError(error: unknown): boolean {
 	return error instanceof DOMException
-		? error.name === "AbortError"
-		: error instanceof Error && error.name === "AbortError";
+		? error.name === 'AbortError'
+		: error instanceof Error && error.name === 'AbortError';
 }
 
 function joinUrl(baseUrl: string, path: string): string {
-	return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+	return `${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
 function extractSseDataLines(eventBlock: string): string[] {
 	return eventBlock
 		.split(/\r?\n/)
 		.map((line) => line.trimEnd())
-		.filter((line) => line.startsWith("data:"))
-		.map((line) => line.slice("data:".length).trimStart())
+		.filter((line) => line.startsWith('data:'))
+		.map((line) => line.slice('data:'.length).trimStart())
 		.filter(Boolean);
 }
 
-function findSseSeparator(
-	buffer: string
-): { index: number; length: number } | null {
+function findSseSeparator(buffer: string): { index: number; length: number } | null {
 	const index = buffer.search(/\r?\n\r?\n/);
 	if (index === -1) return null;
 	const match = buffer.slice(index).match(/^\r?\n\r?\n/);
@@ -309,8 +290,8 @@ async function parseSse(
 	if (!res.body) return;
 
 	const reader = res.body.getReader();
-	const decoder = new TextDecoder("utf-8");
-	let buffer = "";
+	const decoder = new TextDecoder('utf-8');
+	let buffer = '';
 
 	while (true) {
 		if (signal?.aborted) {
@@ -335,7 +316,7 @@ async function parseSse(
 			buffer = buffer.slice(sep.index + sep.length);
 
 			for (const data of extractSseDataLines(rawEvent)) {
-				if (data === "[DONE]") continue;
+				if (data === '[DONE]') continue;
 				onChunk(JSON.parse(data) as LlamaChatCompletionsChunk);
 			}
 		}
@@ -345,7 +326,7 @@ async function parseSse(
 	if (!trailing) return;
 
 	for (const data of extractSseDataLines(trailing)) {
-		if (data === "[DONE]") continue;
+		if (data === '[DONE]') continue;
 		onChunk(JSON.parse(data) as LlamaChatCompletionsChunk);
 	}
 }
@@ -359,15 +340,13 @@ function mergeToolCallDelta(
 		type: delta.type ?? target.type,
 		index: delta.index ?? target.index,
 		function: {
-			name: delta.function?.name ?? target.function?.name ?? "",
-			arguments: `${target.function?.arguments ?? ""}${delta.function?.arguments ?? ""}`,
-		},
+			name: delta.function?.name ?? target.function?.name ?? '',
+			arguments: `${target.function?.arguments ?? ''}${delta.function?.arguments ?? ''}`
+		}
 	};
 }
 
-function normalizeToolCalls(
-	toolCalls: Record<number, LlamaChatToolCall>
-): LlamaChatToolCall[] {
+function normalizeToolCalls(toolCalls: Record<number, LlamaChatToolCall>): LlamaChatToolCall[] {
 	return Object.keys(toolCalls)
 		.map((i) => Number(i))
 		.sort((a, b) => a - b)
@@ -375,10 +354,10 @@ function normalizeToolCalls(
 }
 
 interface ChoiceAccumulator {
-	role?: "assistant";
+	role?: 'assistant';
 	content: string;
 	reasoningContent: string; // <- add
-	finish_reason: LlamaChatCompletionsChoice["finish_reason"];
+	finish_reason: LlamaChatCompletionsChoice['finish_reason'];
 	toolCalls: Record<number, LlamaChatToolCall>;
 	functionCallName: string;
 	functionCallArguments: string;
@@ -390,20 +369,18 @@ function toMessage(acc: ChoiceAccumulator): LlamaChatMessage {
 	const hasFunctionCall = acc.functionCallName || acc.functionCallArguments;
 
 	return {
-		role: acc.role ?? "assistant",
+		role: acc.role ?? 'assistant',
 		content: acc.content || null,
-		...(acc.reasoningContent
-			? { reasoning_content: acc.reasoningContent }
-			: {}), // <- add
+		...(acc.reasoningContent ? { reasoning_content: acc.reasoningContent } : {}), // <- add
 		...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
 		...(hasFunctionCall
 			? {
 					function_call: {
 						name: acc.functionCallName,
-						arguments: acc.functionCallArguments,
-					},
+						arguments: acc.functionCallArguments
+					}
 				}
-			: {}),
+			: {})
 	};
 }
 
@@ -411,27 +388,27 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
-	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8080";
-	const url = joinUrl(baseUrl, "/v1/chat/completions");
+	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8080';
+	const url = joinUrl(baseUrl, '/v1/chat/completions');
 	const streamEnabled =
 		request.stream === true ||
-		typeof options?.onToken === "function" ||
-		typeof options?.onReasoningToken === "function"; // <- update
+		typeof options?.onToken === 'function' ||
+		typeof options?.onReasoningToken === 'function'; // <- update
 	const body: LlamaChatCompletionsRequest = {
 		...request,
-		stream: streamEnabled,
+		stream: streamEnabled
 	};
 
 	let res: Response;
 	try {
 		res = await fetch(url, {
-			method: "POST",
+			method: 'POST',
 			headers: {
-				"Content-Type": "application/json",
-				...(options?.headers ?? {}),
+				'Content-Type': 'application/json',
+				...(options?.headers ?? {})
 			},
 			body: JSON.stringify(body),
-			signal: options?.signal,
+			signal: options?.signal
 		});
 	} catch (error) {
 		if (isAbortError(error)) {
@@ -441,7 +418,7 @@ export async function chatCompletions(
 		const detail =
 			error instanceof Error && error.message.trim()
 				? error.message.trim()
-				: "Unknown network error";
+				: 'Unknown network error';
 
 		throw new LlamaChatCompletionError(
 			`llama-server is not running or not reachable at ${baseUrl}. Start it and retry. (${detail})`,
@@ -451,7 +428,7 @@ export async function chatCompletions(
 	}
 
 	if (!res.ok) {
-		const text = await res.text().catch(() => "");
+		const text = await res.text().catch(() => '');
 		let payload: unknown;
 		try {
 			payload = text ? JSON.parse(text) : undefined;
@@ -460,9 +437,9 @@ export async function chatCompletions(
 		}
 
 		const message =
-			typeof payload === "object" && payload !== null && "error" in payload
+			typeof payload === 'object' && payload !== null && 'error' in payload
 				? `${res.status} ${res.statusText} - ${JSON.stringify((payload as Record<string, unknown>).error)}`
-				: `${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`;
+				: `${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`;
 
 		throw new LlamaChatCompletionError(
 			`llama-server /v1/chat/completions failed: ${message}`,
@@ -495,34 +472,31 @@ export async function chatCompletions(
 					accumulators.get(index) ??
 					({
 						role: undefined,
-						content: "",
-						reasoningContent: "", // <- add
+						content: '',
+						reasoningContent: '', // <- add
 						finish_reason: null,
 						toolCalls: {},
-						functionCallName: "",
-						functionCallArguments: "",
+						functionCallName: '',
+						functionCallArguments: ''
 					} satisfies ChoiceAccumulator);
 
 				if (delta.role) current.role = delta.role;
 
 				const reasoningToken =
-					typeof delta.reasoning_content === "string"
-						? delta.reasoning_content
-						: "";
+					typeof delta.reasoning_content === 'string' ? delta.reasoning_content : '';
 				if (reasoningToken) {
 					current.reasoningContent += reasoningToken;
 					options?.onReasoningToken?.(reasoningToken, chunk);
 				}
 
-				const token = typeof delta.content === "string" ? delta.content : "";
+				const token = typeof delta.content === 'string' ? delta.content : '';
 				if (token) {
 					current.content += token;
 					options?.onToken?.(token, chunk);
 				}
 
 				if (delta.function_call) {
-					if (delta.function_call.name)
-						current.functionCallName = delta.function_call.name;
+					if (delta.function_call.name) current.functionCallName = delta.function_call.name;
 					if (delta.function_call.arguments) {
 						current.functionCallArguments += delta.function_call.arguments;
 					}
@@ -535,29 +509,26 @@ export async function chatCompletions(
 							current.toolCalls[tcIndex] ??
 							({
 								id: deltaTc.id ?? null,
-								type: deltaTc.type ?? "function",
+								type: deltaTc.type ?? 'function',
 								index: tcIndex,
 								function: {
-									name: deltaTc.function?.name ?? "",
-									arguments: "",
-								},
+									name: deltaTc.function?.name ?? '',
+									arguments: ''
+								}
 							} satisfies LlamaChatToolCall);
 
 						current.toolCalls[tcIndex] = mergeToolCallDelta(prev, {
 							...deltaTc,
 							index: tcIndex,
 							function: {
-								name: deltaTc.function?.name ?? "",
-								arguments: deltaTc.function?.arguments ?? "",
-							},
+								name: deltaTc.function?.name ?? '',
+								arguments: deltaTc.function?.arguments ?? ''
+							}
 						});
 					}
 				}
 
-				if (
-					choice.finish_reason !== null &&
-					choice.finish_reason !== undefined
-				) {
+				if (choice.finish_reason !== null && choice.finish_reason !== undefined) {
 					current.finish_reason = choice.finish_reason;
 				}
 
@@ -570,32 +541,26 @@ export async function chatCompletions(
 	);
 
 	const created =
-		(lastChunk as LlamaChatCompletionsChunk | null)?.created ??
-		Math.floor(Date.now() / 1000);
-	const model =
-		(lastChunk as LlamaChatCompletionsChunk | null)?.model ?? request.model;
-	const id =
-		(lastChunk as LlamaChatCompletionsChunk | null)?.id ??
-		`chatcmpl-local-${created}`;
+		(lastChunk as LlamaChatCompletionsChunk | null)?.created ?? Math.floor(Date.now() / 1000);
+	const model = (lastChunk as LlamaChatCompletionsChunk | null)?.model ?? request.model;
+	const id = (lastChunk as LlamaChatCompletionsChunk | null)?.id ?? `chatcmpl-local-${created}`;
 
-	const choices: LlamaChatCompletionsChoice[] = Array.from(
-		accumulators.entries()
-	)
+	const choices: LlamaChatCompletionsChoice[] = Array.from(accumulators.entries())
 		.sort(([a], [b]) => a - b)
 		.map(([index, acc]) => ({
 			index,
 			message: toMessage(acc),
 			finish_reason: acc.finish_reason,
-			...(acc.logprobs !== undefined ? { logprobs: acc.logprobs } : {}),
+			...(acc.logprobs !== undefined ? { logprobs: acc.logprobs } : {})
 		}));
 
 	return {
 		id,
-		object: "chat.completion",
+		object: 'chat.completion',
 		created,
 		model,
 		choices,
-		...(usage ? { usage } : {}),
+		...(usage ? { usage } : {})
 	};
 }
 
@@ -603,19 +568,19 @@ export async function createEmbeddings(
 	request: LlamaEmbeddingsRequest,
 	options?: LlamaEmbeddingsOptions
 ): Promise<LlamaEmbeddingsResponse> {
-	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? "http://localhost:8083";
-	const url = joinUrl(baseUrl, "/v1/embeddings");
+	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8083';
+	const url = joinUrl(baseUrl, '/v1/embeddings');
 
 	let res: Response;
 	try {
 		res = await fetch(url, {
-			method: "POST",
+			method: 'POST',
 			headers: {
-				"Content-Type": "application/json",
-				...(options?.headers ?? {}),
+				'Content-Type': 'application/json',
+				...(options?.headers ?? {})
 			},
 			body: JSON.stringify(request),
-			signal: options?.signal,
+			signal: options?.signal
 		});
 	} catch (error) {
 		if (isAbortError(error)) {
@@ -625,7 +590,7 @@ export async function createEmbeddings(
 		const detail =
 			error instanceof Error && error.message.trim()
 				? error.message.trim()
-				: "Unknown network error";
+				: 'Unknown network error';
 
 		throw new LlamaEmbeddingsError(
 			`llama-server is not running or not reachable at ${baseUrl}. Start it and retry. (${detail})`,
@@ -635,7 +600,7 @@ export async function createEmbeddings(
 	}
 
 	if (!res.ok) {
-		const text = await res.text().catch(() => "");
+		const text = await res.text().catch(() => '');
 		let payload: unknown;
 		try {
 			payload = text ? JSON.parse(text) : undefined;
@@ -644,9 +609,9 @@ export async function createEmbeddings(
 		}
 
 		const message =
-			typeof payload === "object" && payload !== null && "error" in payload
+			typeof payload === 'object' && payload !== null && 'error' in payload
 				? `${res.status} ${res.statusText} - ${JSON.stringify((payload as Record<string, unknown>).error)}`
-				: `${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`;
+				: `${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`;
 
 		throw new LlamaEmbeddingsError(
 			`llama-server /v1/embeddings failed: ${message}`,

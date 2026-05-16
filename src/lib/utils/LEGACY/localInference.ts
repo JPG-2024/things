@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { fetch } from '@tauri-apps/plugin-http';
 
 export type LocalStreamCallback = (chunk: string) => void;
 
@@ -31,8 +31,8 @@ export interface RunLocalLlamaOptions {
 	messages?: Array<{ role: string; content: string }>;
 }
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:8080";
-const DEFAULT_MODEL = "llama";
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080';
+const DEFAULT_MODEL = 'llama';
 
 export async function runLocalLlamaPrompt(
 	prompt: string,
@@ -48,54 +48,54 @@ export async function runLocalLlamaPrompt(
 		onChunk,
 		signal,
 		extraBody,
-		messages: additionalMessages,
+		messages: additionalMessages
 	} = options;
 
 	const messages: Array<Record<string, unknown>> = [];
 
 	if (systemPrompt) {
-		messages.push({ role: "system", content: systemPrompt });
+		messages.push({ role: 'system', content: systemPrompt });
 	}
 
 	if (additionalMessages && Array.isArray(additionalMessages)) {
 		messages.push(...additionalMessages);
 	}
 
-	messages.push({ role: "user", content: prompt });
+	messages.push({ role: 'user', content: prompt });
 
 	const requestBody: Record<string, unknown> = {
 		model,
 		messages,
-		stream: true,
+		stream: true
 	};
 
-	if (typeof temperature === "number") {
+	if (typeof temperature === 'number') {
 		requestBody.temperature = temperature;
 	}
 
-	if (typeof maxTokens === "number") {
+	if (typeof maxTokens === 'number') {
 		requestBody.max_tokens = maxTokens;
 	}
 
-	if (typeof topP === "number") {
+	if (typeof topP === 'number') {
 		requestBody.top_p = topP;
 	}
 
-	if (extraBody && typeof extraBody === "object") {
+	if (extraBody && typeof extraBody === 'object') {
 		Object.assign(requestBody, extraBody);
 	}
 
 	const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-		method: "POST",
+		method: 'POST',
 		headers: {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify(requestBody),
-		signal,
+		signal
 	});
 
 	if (!response.ok) {
-		const errorText = await response.text().catch(() => "");
+		const errorText = await response.text().catch(() => '');
 		throw new Error(
 			`llama-server returned ${response.status} ${response.statusText} ${errorText}`.trim()
 		);
@@ -104,27 +104,27 @@ export async function runLocalLlamaPrompt(
 	const reader = response.body?.getReader();
 
 	if (!reader) {
-		throw new Error("llama-server response does not support streaming");
+		throw new Error('llama-server response does not support streaming');
 	}
 
 	const decoder = new TextDecoder();
 	const aggregatedChunks: string[] = [];
-	let buffer = "";
+	let buffer = '';
 
 	const flushEvent = (rawEvent: string) => {
 		const lines = rawEvent
-			.split("\n")
+			.split('\n')
 			.map((line) => line.trim())
 			.filter(Boolean);
 
 		for (const line of lines) {
-			if (!line.startsWith("data:")) {
+			if (!line.startsWith('data:')) {
 				continue;
 			}
 
 			const payloadText = line.slice(5).trim();
 
-			if (!payloadText || payloadText === "[DONE]") {
+			if (!payloadText || payloadText === '[DONE]') {
 				continue;
 			}
 
@@ -159,13 +159,13 @@ export async function runLocalLlamaPrompt(
 
 		buffer += decoder.decode(value, { stream: true });
 
-		let boundary = buffer.indexOf("\n\n");
+		let boundary = buffer.indexOf('\n\n');
 
 		while (boundary !== -1) {
 			const rawEvent = buffer.slice(0, boundary);
 			buffer = buffer.slice(boundary + 2);
 			flushEvent(rawEvent);
-			boundary = buffer.indexOf("\n\n");
+			boundary = buffer.indexOf('\n\n');
 		}
 	}
 
@@ -175,15 +175,15 @@ export async function runLocalLlamaPrompt(
 		flushEvent(buffer);
 	}
 
-	return aggregatedChunks.join("");
+	return aggregatedChunks.join('');
 }
 
 function extractFromChatChunk(payload: unknown): {
 	chunkText: string;
 	metadata: unknown;
 } {
-	if (!payload || typeof payload !== "object") {
-		return { chunkText: "", metadata: null };
+	if (!payload || typeof payload !== 'object') {
+		return { chunkText: '', metadata: null };
 	}
 
 	const value = payload as Record<string, unknown>;
@@ -191,10 +191,10 @@ function extractFromChatChunk(payload: unknown): {
 	const firstChoice = choices[0] as Record<string, unknown> | undefined;
 	const delta = firstChoice?.delta as Record<string, unknown> | undefined;
 	const content = delta?.content;
-	const chunkText = typeof content === "string" ? content : "";
+	const chunkText = typeof content === 'string' ? content : '';
 
 	return {
 		chunkText,
-		metadata: value,
+		metadata: value
 	};
 }

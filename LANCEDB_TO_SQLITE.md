@@ -18,14 +18,17 @@
 ### Cargo.toml
 
 **Remove:**
+
 - `lancedb = "0.27.2"`
 - `arrow-array = "57.3.0"`
 - `arrow-schema = "57.3.0"`
 
 **Keep:**
+
 - `futures-util = "0.3"` — still used in `browser.rs`
 
 **Add:**
+
 - `rusqlite = { version = "0.33", features = ["bundled"] }`
 
 ### Cargo.lock
@@ -36,8 +39,8 @@ Auto-regenerated on next `cargo build`.
 
 ## Database File
 
-| Before | After |
-|--------|-------|
+| Before                                               | After                                           |
+| ---------------------------------------------------- | ----------------------------------------------- |
 | `{app_data_dir}/lancedb/` (directory of Arrow files) | `{app_data_dir}/notian.db` (single SQLite file) |
 
 The file name matches what `cleanup_legacy_sqlite_files` in `lib.rs` used to delete.
@@ -88,23 +91,24 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ## Column Mapping
 
-| Old Arrow field | New SQLite column | Notes |
-|-----------------|-------------------|-------|
-| `id` | `id` | |
-| `url` | `url` | |
-| `article_uid` | `article_uid` | UNIQUE |
-| `created_at` | `created_at` | |
-| `title` | `title` | |
-| `thumbnail` | `thumbnail` | |
-| `content` | `content` | |
-| `directory` | `media_directory` | Renamed; `directory` still populated in Rust struct for API compat |
-| `main_color` | `main_color` | |
-| `profile` | `profile` | |
-| `tasks_json` | `tasks_json` | |
-| `embedding_source_text` | `embedding_source_text` | |
-| `updated_at` | `updated_at` | |
+| Old Arrow field         | New SQLite column       | Notes                                                              |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `id`                    | `id`                    |                                                                    |
+| `url`                   | `url`                   |                                                                    |
+| `article_uid`           | `article_uid`           | UNIQUE                                                             |
+| `created_at`            | `created_at`            |                                                                    |
+| `title`                 | `title`                 |                                                                    |
+| `thumbnail`             | `thumbnail`             |                                                                    |
+| `content`               | `content`               |                                                                    |
+| `directory`             | `media_directory`       | Renamed; `directory` still populated in Rust struct for API compat |
+| `main_color`            | `main_color`            |                                                                    |
+| `profile`               | `profile`               |                                                                    |
+| `tasks_json`            | `tasks_json`            |                                                                    |
+| `embedding_source_text` | `embedding_source_text` |                                                                    |
+| `updated_at`            | `updated_at`            |                                                                    |
 
 **Alias fields (unchanged API):**
+
 - `directory` → set to same value as `media_directory`
 - `primary_color` → set to same value as `main_color`
 
@@ -147,13 +151,13 @@ These aliases are populated in the Rust `StoredArticleRecord` constructor so the
 
 ### Design decisions
 
-| Decision | Choice |
-|----------|--------|
-| Connection management | `get_db()` opens a new `rusqlite::Connection` per call with `PRAGMA` optimizations. SQLite is cheap to open on local disk |
-| Async wrapper | Tauri commands are `async fn` by default; they open the connection synchronously inside — no `spawn_blocking` needed since SQLite queries on a local file are sub-millisecond latency |
-| Parameter binding | All user data goes through `?` params (rusqlite `params![]`), never string interpolation — SQL injection safe |
-| Upsert | `INSERT OR REPLACE INTO` for merge-like behavior |
-| Error handling | `.map_err(|e| e.to_string())?` consistently |
+| Decision              | Choice                                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------- |
+| Connection management | `get_db()` opens a new `rusqlite::Connection` per call with `PRAGMA` optimizations. SQLite is cheap to open on local disk                                                             |
+| Async wrapper         | Tauri commands are `async fn` by default; they open the connection synchronously inside — no `spawn_blocking` needed since SQLite queries on a local file are sub-millisecond latency |
+| Parameter binding     | All user data goes through `?` params (rusqlite `params![]`), never string interpolation — SQL injection safe                                                                         |
+| Upsert                | `INSERT OR REPLACE INTO` for merge-like behavior                                                                                                                                      |
+| Error handling        | `.map_err(                                                                                                                                                                            | e   | e.to_string())?` consistently |
 
 ---
 
@@ -175,9 +179,9 @@ These aliases are populated in the Rust `StoredArticleRecord` constructor so the
 
 ## Files Summary
 
-| File | Action |
-|------|--------|
-| `src-tauri/Cargo.toml` | Edit: remove lancedb/arrow deps, add rusqlite |
-| `src-tauri/src/article_store.rs` | Full rewrite (~1100 → ~400 lines) |
-| `src-tauri/src/lib.rs` | Edit: remove `cleanup_legacy_sqlite_files` call |
-| All other files | No changes |
+| File                             | Action                                          |
+| -------------------------------- | ----------------------------------------------- |
+| `src-tauri/Cargo.toml`           | Edit: remove lancedb/arrow deps, add rusqlite   |
+| `src-tauri/src/article_store.rs` | Full rewrite (~1100 → ~400 lines)               |
+| `src-tauri/src/lib.rs`           | Edit: remove `cleanup_legacy_sqlite_files` call |
+| All other files                  | No changes                                      |

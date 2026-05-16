@@ -1,11 +1,11 @@
-import { derived, writable } from "svelte/store";
-import type { ChatMessageUI } from "@/types/chat.types";
+import { derived, writable } from 'svelte/store';
+import type { ChatMessageUI } from '@/types/chat.types';
 
 const MAX_MESSAGES = 200;
 
 export const messages = writable<ChatMessageUI[]>([]);
 
-export const streamingContent = writable<string>("");
+export const streamingContent = writable<string>('');
 
 export const isStreaming = writable<boolean>(false);
 
@@ -28,7 +28,7 @@ export function addMessage(message: ChatMessageUI) {
 
 export function clearMessages() {
 	messages.set([]);
-	streamingContent.set("");
+	streamingContent.set('');
 }
 
 export function setMessages(newMessages: ChatMessageUI[]) {
@@ -45,7 +45,7 @@ export function startStreaming() {
 
 export function stopStreaming() {
 	isStreaming.set(false);
-	streamingContent.set("");
+	streamingContent.set('');
 }
 
 // Derived store para combinar mensajes + streaming
@@ -53,10 +53,7 @@ export const allMessages = derived(
 	[messages, streamingContent],
 	([$messages, $streamingContent]) => {
 		if ($streamingContent) {
-			return [
-				...$messages,
-				{ role: "assistant" as const, content: $streamingContent },
-			];
+			return [...$messages, { role: 'assistant' as const, content: $streamingContent }];
 		}
 		return $messages;
 	}

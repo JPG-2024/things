@@ -1,98 +1,91 @@
 <script lang="ts">
-	import Card from "@/components/Card.svelte";
-	import Icon from "@/components/Icon.svelte";
-	import { urlRouter } from "@/lib/urlRouter/urlRouter";
-	import { navigate, toVTName } from "@/lib/utils/url";
+	import Card from '@/components/Card.svelte';
+	import Icon from '@/components/Icon.svelte';
+	import { urlRouter } from '@/lib/urlRouter/urlRouter';
+	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
 		deleteProfileById,
 		getArticleWithTasksByUrl,
 		getArticlesByProfile,
 		type ArticleProfile,
-		type ArticleWithTasks,
-	} from "@/stores/tasksStore";
-	import { ttsState } from "@/stores/ttsStore.svelte";
-	import { createHotkey } from "@tanstack/svelte-hotkeys";
-	import {
-		createMutation,
-		createQuery,
-		useQueryClient,
-	} from "@tanstack/svelte-query";
+		type ArticleWithTasks
+	} from '@/stores/tasksStore';
+	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 
-interface Props {
-	profile: ArticleProfile;
-	showTitle?: boolean;
-	onDeleted?: (profileId: string) => void | Promise<void>;
-}
+	interface Props {
+		profile: ArticleProfile;
+		showTitle?: boolean;
+		onDeleted?: (profileId: string) => void | Promise<void>;
+	}
 
-let { profile, showTitle = false, onDeleted }: Props = $props();
+	let { profile, showTitle = false, onDeleted }: Props = $props();
 
-let hoveredArticleUrl = $state<string | null>(null);
+	let hoveredArticleUrl = $state<string | null>(null);
 
-$effect(() => {
-	const cleanup = createHotkey(
-		"S",
-		async () => {
-			if (!hoveredArticleUrl) return;
-			const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
-			const titleSummaryTask = article?.persistedTasks?.find(
-				(t) => t.id === "title-summary",
-			);
-			if (!titleSummaryTask?.data) {
-				throw new Error("No title-summary data found for this article");
+	$effect(() => {
+		const cleanup = createHotkey(
+			'S',
+			async () => {
+				if (!hoveredArticleUrl) return;
+				const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
+				const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
+				if (!titleSummaryTask?.data) {
+					throw new Error('No title-summary data found for this article');
+				}
+
+				ttsState.setTextContents([titleSummaryTask.data as string]);
+				await ttsState.generateTTS();
+			},
+			() => ({
+				enabled: hoveredArticleUrl !== null,
+				ignoreInputs: true
+			})
+		);
+		return cleanup;
+	});
+
+	const queryClient = useQueryClient();
+
+	const query = createQuery({
+		queryKey: ['articles', profile.id],
+		queryFn: () =>
+			getArticlesByProfile(profile.id, {
+				limit: 20,
+				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30
+			}),
+		refetchOnWindowFocus: 'always'
+	});
+
+	function handleRefresh() {
+		$query.refetch();
+	}
+
+	const mutation = createMutation({
+		mutationFn: async (profileId: string) => {
+			const result = await deleteProfileById(profileId);
+			if (!result.success) {
+				throw new Error('Failed to delete profile');
 			}
-
-			ttsState.setTextContents([titleSummaryTask.data as string]);
-			await ttsState.generateTTS();
+			return result;
 		},
-		() => ({
-			enabled: hoveredArticleUrl !== null,
-			ignoreInputs: true,
-		}),
-	);
-	return cleanup;
-});
-
-const queryClient = useQueryClient();
-
-const query = createQuery({
-	queryKey: ["articles", profile.id],
-	queryFn: () =>
-		getArticlesByProfile(profile.id, {
-			limit: 20,
-			createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30,
-		}),
-	refetchOnWindowFocus: "always",
-});
-
-
-function handleRefresh() {
-	$query.refetch();
-}
-
-const mutation = createMutation({
-	mutationFn: async (profileId: string) => {
-		const result = await deleteProfileById(profileId);
-		if (!result.success) {
-			throw new Error("Failed to delete profile");
+		onSuccess: async (_, profileId) => {
+			queryClient.invalidateQueries({ queryKey: ['articles', profileId] });
+			await onDeleted?.(profileId);
 		}
-		return result;
-	},
-	onSuccess: async (_, profileId) => {
-		queryClient.invalidateQueries({ queryKey: ["articles", profileId] });
-		await onDeleted?.(profileId);
-	},
-});
+	});
 
-function handleNavigateToArticle(article: ArticleWithTasks) {
-	if (!article.url) return;
-	navigate(`/youtube/${encodeURIComponent(article.url)}`);
-	urlRouter(article.url);
-}
+	function handleNavigateToArticle(article: ArticleWithTasks) {
+		if (!article.url) return;
+		navigate(`/youtube/${encodeURIComponent(article.url)}`);
+		urlRouter(article.url);
+	}
 
-function handleDeleteProfile() {
-	if ($mutation.status === "pending") return;
-	$mutation.mutate(profile.id);
-}
+	function handleDeleteProfile() {
+		if ($mutation.status === 'pending') return;
+		$mutation.mutate(profile.id);
+	}
 </script>
 
 <div class="category-widget">
@@ -115,7 +108,7 @@ function handleDeleteProfile() {
 						type="button"
 						class="delete-btn"
 						onclick={handleDeleteProfile}
-						disabled={$mutation.status === "pending"}
+						disabled={$mutation.status === 'pending'}
 						aria-label={`Delete ${profile.name}`}
 						title="Delete profile"
 					>
@@ -147,7 +140,7 @@ function handleDeleteProfile() {
 							src={article.thumbnail}
 							alt="Article"
 							class="mini-img"
-							style={`view-transition-name: vt-main-image-${toVTName(article.url ?? "")}`}
+							style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
 						/>
 					</button>
 				{/each}

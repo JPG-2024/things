@@ -191,7 +191,7 @@ export interface LlamaCompletionResponse {
 	prompt?: any;
 
 	/** Why generation stopped: none|eos|limit|word. */
-	stop_type?: "none" | "eos" | "limit" | "word";
+	stop_type?: 'none' | 'eos' | 'limit' | 'word';
 	/** Stopping word encountered (if stop_type=word). */
 	stopping_word?: string;
 
@@ -222,7 +222,7 @@ export interface LlamaCompletionResponse {
 }
 
 function joinUrl(baseUrl: string, path: string): string {
-	return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+	return `${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
 function extractSseDataLines(eventBlock: string): string[] {
@@ -230,14 +230,12 @@ function extractSseDataLines(eventBlock: string): string[] {
 	return eventBlock
 		.split(/\r?\n/)
 		.map((l) => l.trimEnd())
-		.filter((l) => l.startsWith("data:"))
-		.map((l) => l.slice("data:".length).trimStart())
+		.filter((l) => l.startsWith('data:'))
+		.map((l) => l.slice('data:'.length).trimStart())
 		.filter(Boolean);
 }
 
-function findSseSeparatorIndex(
-	buffer: string
-): { index: number; length: number } | null {
+function findSseSeparatorIndex(buffer: string): { index: number; length: number } | null {
 	const idx = buffer.search(/\r?\n\r?\n/);
 	if (idx === -1) return null;
 	const m = buffer.slice(idx).match(/^\r?\n\r?\n/);
@@ -252,8 +250,8 @@ async function readSseJson(
 	if (!res.body) return;
 
 	const reader = res.body.getReader();
-	const decoder = new TextDecoder("utf-8");
-	let buffer = "";
+	const decoder = new TextDecoder('utf-8');
+	let buffer = '';
 
 	while (true) {
 		if (signal?.aborted) {
@@ -280,7 +278,7 @@ async function readSseJson(
 
 			const dataLines = extractSseDataLines(rawEvent);
 			for (const data of dataLines) {
-				if (data === "[DONE]") continue;
+				if (data === '[DONE]') continue;
 				onEvent(JSON.parse(data));
 			}
 		}
@@ -291,35 +289,32 @@ async function readSseJson(
 	if (trailing) {
 		const dataLines = extractSseDataLines(trailing);
 		for (const data of dataLines) {
-			if (data === "[DONE]") continue;
+			if (data === '[DONE]') continue;
 			onEvent(JSON.parse(data));
 		}
 	}
 }
 
 function promptToOpenAI(
-	prompt: LlamaCompletionParams["prompt"],
+	prompt: LlamaCompletionParams['prompt'],
 	systemPrompt?: string
 ): OpenAICompletionPrompt {
-	const sys = (systemPrompt ?? "").trim();
-	const prefix = sys ? `${sys}\n` : "";
+	const sys = (systemPrompt ?? '').trim();
+	const prefix = sys ? `${sys}\n` : '';
 
 	const toSingleString = (p: any): string => {
-		if (typeof p === "string") return p;
-		if (Array.isArray(p) && p.every((x) => typeof x === "number"))
-			return p.join(" "); // best-effort stringify
-		if (Array.isArray(p))
-			return p.map((x) => (typeof x === "string" ? x : String(x))).join("");
-		if (p && typeof p === "object" && typeof p.prompt_string === "string")
-			return p.prompt_string;
-		return String(p ?? "");
+		if (typeof p === 'string') return p;
+		if (Array.isArray(p) && p.every((x) => typeof x === 'number')) return p.join(' '); // best-effort stringify
+		if (Array.isArray(p)) return p.map((x) => (typeof x === 'string' ? x : String(x))).join('');
+		if (p && typeof p === 'object' && typeof p.prompt_string === 'string') return p.prompt_string;
+		return String(p ?? '');
 	};
 
 	// If system prompt exists, we always return string or string[] so we can prepend safely.
 	if (Array.isArray(prompt)) {
 		// token array vs array of prompts
-		if (prompt.every((x) => typeof x === "number")) {
-			const asStr = (prompt as number[]).join(" ");
+		if (prompt.every((x) => typeof x === 'number')) {
+			const asStr = (prompt as number[]).join(' ');
 			return prefix ? `${prefix}${asStr}` : asStr;
 		}
 		return (prompt as any[]).map((p) => `${prefix}${toSingleString(p)}`);
@@ -340,7 +335,7 @@ function logitBiasToOpenAI(
 		for (const [tok, bias] of logit_bias) {
 			if (bias === false) {
 				out[String(tok)] = -100; // "ban" equivalent
-			} else if (typeof bias === "number") {
+			} else if (typeof bias === 'number') {
 				out[String(tok)] = bias;
 			}
 		}
@@ -350,19 +345,17 @@ function logitBiasToOpenAI(
 	const out: Record<string, number> = {};
 	for (const [tok, bias] of Object.entries(logit_bias)) {
 		if (bias === false) out[String(tok)] = -100;
-		else if (typeof bias === "number") out[String(tok)] = bias;
+		else if (typeof bias === 'number') out[String(tok)] = bias;
 	}
 	return out;
 }
 
-function finishReasonToStopType(
-	r?: string | null
-): LlamaCompletionResponse["stop_type"] {
+function finishReasonToStopType(r?: string | null): LlamaCompletionResponse['stop_type'] {
 	// OpenAI: "stop" | "length" | "content_filter" | null
-	if (!r) return "none";
-	if (r === "stop") return "word";
-	if (r === "length") return "limit";
-	return "none";
+	if (!r) return 'none';
+	if (r === 'stop') return 'word';
+	if (r === 'length') return 'limit';
+	return 'none';
 }
 
 /**
@@ -414,17 +407,17 @@ interface OpenAICompletionChunk {
  * @param options optional fetch options (headers, signal, etc.)
  */
 export async function completion(
-	baseUrl: string = "http://localhost:8080",
+	baseUrl: string = 'http://localhost:8080',
 	params: LlamaCompletionParams,
 	onToken?: (tokenText: string, event: LlamaCompletionResponse) => void,
-	options?: Omit<RequestInit, "method" | "body">
+	options?: Omit<RequestInit, 'method' | 'body'>
 ): Promise<LlamaCompletionResponse> {
-	const url = joinUrl(baseUrl, "/v1/completions");
+	const url = joinUrl(baseUrl, '/v1/completions');
 
-	const streamEnabled = params.stream === true || typeof onToken === "function";
+	const streamEnabled = params.stream === true || typeof onToken === 'function';
 
 	// llama-server typically requires `model` for OpenAI routes; allow caller to pass via (params as any).model
-	const model = params.model ?? "default";
+	const model = params.model ?? 'default';
 
 	const payload: OpenAICompletionRequest = {
 		model,
@@ -441,21 +434,21 @@ export async function completion(
 		seed: params.seed,
 
 		// optional pass-through for servers that accept it as an extension field
-		system_prompt: params.system_prompt,
+		system_prompt: params.system_prompt
 	};
 
 	const res = await fetch(url, {
-		method: "POST",
+		method: 'POST',
 		headers: {
-			"Content-Type": "application/json",
-			...(options?.headers ?? {}),
+			'Content-Type': 'application/json',
+			...(options?.headers ?? {})
 		},
 		body: JSON.stringify(payload),
-		...options,
+		...options
 	});
 
 	if (!res.ok) {
-		const text = await res.text().catch(() => "");
+		const text = await res.text().catch(() => '');
 		// try to surface OpenAI-style error.message if present
 		try {
 			const j = text ? JSON.parse(text) : null;
@@ -468,19 +461,17 @@ export async function completion(
 			// ignore parse errors
 		}
 		throw new Error(
-			`llama-server /v1/completions failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`
+			`llama-server /v1/completions failed: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`
 		);
 	}
 
 	// Prepare the system prompt prefix that was included in the prompt
-	const sysPrefixToRemove = params.system_prompt
-		? `${params.system_prompt.trim()}\n`
-		: "";
+	const sysPrefixToRemove = params.system_prompt ? `${params.system_prompt.trim()}\n` : '';
 
 	if (!streamEnabled) {
 		const j = (await res.json()) as OpenAICompletionResponse;
 		const choice0 = j.choices?.[0];
-		let text = choice0?.text ?? "";
+		let text = choice0?.text ?? '';
 
 		// Remove system prompt if it was prepended to the response
 		if (sysPrefixToRemove && text.startsWith(sysPrefixToRemove)) {
@@ -494,11 +485,11 @@ export async function completion(
 			stop_type: finishReasonToStopType(choice0?.finish_reason),
 			// keep original raw for callers that relied on extra fields
 			choices: j.choices,
-			usage: j.usage,
+			usage: j.usage
 		} as any;
 	}
 
-	let aggregated = "";
+	let aggregated = '';
 	let lastChunk: OpenAICompletionChunk | null = null;
 
 	await readSseJson(
@@ -507,7 +498,7 @@ export async function completion(
 			const chunk = evt as OpenAICompletionChunk;
 			lastChunk = chunk;
 
-			const t = chunk.choices?.[0]?.text ?? "";
+			const t = chunk.choices?.[0]?.text ?? '';
 			if (t) {
 				aggregated += t;
 				onToken?.(t, { content: t } as any);
@@ -529,6 +520,6 @@ export async function completion(
 		model: lastChunk?.model ?? model,
 		stop: Boolean(finishReason),
 		stop_type: finishReasonToStopType(finishReason),
-		choices: lastChunk?.choices,
+		choices: lastChunk?.choices
 	} as any;
 }

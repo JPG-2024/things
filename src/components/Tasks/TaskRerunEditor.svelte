@@ -1,144 +1,141 @@
 <script lang="ts">
-import Modal from "@/components/Modal.svelte";
-import { workflowManager } from "@/runners/workflowManager.svelte";
-import type { IaTask, Task, TaskRerunPatch } from "@/types/taskRunner.types";
-import Icon from "../Icon.svelte";
+	import Modal from '@/components/Modal.svelte';
+	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import type { IaTask, Task, TaskRerunPatch } from '@/types/taskRunner.types';
+	import Icon from '../Icon.svelte';
 
-type Props = {
-	runId?: string;
-	task: Task;
-};
+	type Props = {
+		runId?: string;
+		task: Task;
+	};
 
-let { runId = undefined, task }: Props = $props();
+	let { runId = undefined, task }: Props = $props();
 
-let showModal = $state(false);
-let errorMessage = $state("");
-let name = $state("");
-let component = $state("");
-let persist = $state(false);
-let userMessage = $state("");
-let systemMessage = $state("");
-let completionOptionsJson = $state("{}");
+	let showModal = $state(false);
+	let errorMessage = $state('');
+	let name = $state('');
+	let component = $state('');
+	let persist = $state(false);
+	let userMessage = $state('');
+	let systemMessage = $state('');
+	let completionOptionsJson = $state('{}');
 
-const targetRunId = $derived(runId ?? workflowManager.activeRunId);
-const isIaTask = $derived(task.type === "ia");
+	const targetRunId = $derived(runId ?? workflowManager.activeRunId);
+	const isIaTask = $derived(task.type === 'ia');
 
-function toErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	if (typeof error === "string") return error;
-	try {
-		return JSON.stringify(error);
-	} catch {
-		return "Unknown error";
-	}
-}
-
-function getIaTask(currentTask: Task): IaTask | undefined {
-	return currentTask.type === "ia" ? currentTask : undefined;
-}
-
-function syncFormFromTask() {
-	const iaTask = getIaTask(task);
-
-	name = task.name;
-	component = task.component ?? "";
-	persist = task.persist ?? false;
-	userMessage = iaTask?.userMessage ?? "";
-	systemMessage = iaTask?.systemMessage ?? "";
-	completionOptionsJson = JSON.stringify(
-		iaTask?.completionOptions ?? {},
-		null,
-		2
-	);
-	errorMessage = "";
-}
-
-function openEditor() {
-	syncFormFromTask();
-	showModal = true;
-}
-
-function buildPatch(): TaskRerunPatch {
-	const iaTask = getIaTask(task);
-	const patch: Record<string, unknown> = {};
-	const normalizedComponent = component.trim();
-
-	if (name !== task.name) {
-		patch.name = name;
+	function toErrorMessage(error: unknown): string {
+		if (error instanceof Error) return error.message;
+		if (typeof error === 'string') return error;
+		try {
+			return JSON.stringify(error);
+		} catch {
+			return 'Unknown error';
+		}
 	}
 
-	if (normalizedComponent !== (task.component ?? "")) {
-		patch.component = normalizedComponent || undefined;
+	function getIaTask(currentTask: Task): IaTask | undefined {
+		return currentTask.type === 'ia' ? currentTask : undefined;
 	}
 
-	if (persist !== (task.persist ?? false)) {
-		patch.persist = persist;
+	function syncFormFromTask() {
+		const iaTask = getIaTask(task);
+
+		name = task.name;
+		component = task.component ?? '';
+		persist = task.persist ?? false;
+		userMessage = iaTask?.userMessage ?? '';
+		systemMessage = iaTask?.systemMessage ?? '';
+		completionOptionsJson = JSON.stringify(iaTask?.completionOptions ?? {}, null, 2);
+		errorMessage = '';
 	}
 
-	if (!iaTask) {
+	function openEditor() {
+		syncFormFromTask();
+		showModal = true;
+	}
+
+	function buildPatch(): TaskRerunPatch {
+		const iaTask = getIaTask(task);
+		const patch: Record<string, unknown> = {};
+		const normalizedComponent = component.trim();
+
+		if (name !== task.name) {
+			patch.name = name;
+		}
+
+		if (normalizedComponent !== (task.component ?? '')) {
+			patch.component = normalizedComponent || undefined;
+		}
+
+		if (persist !== (task.persist ?? false)) {
+			patch.persist = persist;
+		}
+
+		if (!iaTask) {
+			return patch as TaskRerunPatch;
+		}
+
+		if (userMessage !== iaTask.userMessage) {
+			patch.userMessage = userMessage;
+		}
+
+		if (systemMessage !== iaTask.systemMessage) {
+			patch.systemMessage = systemMessage;
+		}
+
+		const parsedCompletionOptions = JSON.parse(completionOptionsJson) as Record<string, unknown>;
+		if (JSON.stringify(parsedCompletionOptions) !== JSON.stringify(iaTask.completionOptions)) {
+			patch.completionOptions = parsedCompletionOptions;
+		}
+
 		return patch as TaskRerunPatch;
 	}
 
-	if (userMessage !== iaTask.userMessage) {
-		patch.userMessage = userMessage;
+	function hasPatchChanges(patch: TaskRerunPatch): boolean {
+		return Object.keys(patch).length > 0;
 	}
 
-	if (systemMessage !== iaTask.systemMessage) {
-		patch.systemMessage = systemMessage;
-	}
+	async function closeEditor() {
+		let patch: TaskRerunPatch;
 
-	const parsedCompletionOptions = JSON.parse(completionOptionsJson) as Record<
-		string,
-		unknown
-	>;
-	if (
-		JSON.stringify(parsedCompletionOptions) !==
-		JSON.stringify(iaTask.completionOptions)
-	) {
-		patch.completionOptions = parsedCompletionOptions;
-	}
+		try {
+			patch = buildPatch();
+		} catch (error) {
+			errorMessage = toErrorMessage(error);
+			return;
+		}
 
-	return patch as TaskRerunPatch;
-}
+		if (!hasPatchChanges(patch)) {
+			errorMessage = '';
+			showModal = false;
+			return;
+		}
 
-function hasPatchChanges(patch: TaskRerunPatch): boolean {
-	return Object.keys(patch).length > 0;
-}
+		if (!targetRunId) {
+			errorMessage = 'No active workflow found for this task.';
+			return;
+		}
 
-async function closeEditor() {
-	let patch: TaskRerunPatch;
-
-	try {
-		patch = buildPatch();
-	} catch (error) {
-		errorMessage = toErrorMessage(error);
-		return;
-	}
-
-	if (!hasPatchChanges(patch)) {
-		errorMessage = "";
+		errorMessage = '';
 		showModal = false;
-		return;
+		void workflowManager.rerunTask(targetRunId, task.id, patch).catch((error) => {
+			console.error('Task rerun failed', error);
+		});
 	}
 
-	if (!targetRunId) {
-		errorMessage = "No active workflow found for this task.";
-		return;
-	}
-
-	errorMessage = "";
-	showModal = false;
-	void workflowManager.rerunTask(targetRunId, task.id, patch).catch((error) => {
-		console.error("Task rerun failed", error);
-	});
-}
-
-void workflowManager;
-void targetRunId;
-void isIaTask;
+	void workflowManager;
+	void targetRunId;
+	void isIaTask;
 </script>
 
-<Icon name="Settings2" onClick={openEditor} size={18} color="var(--primary-color)" title="Edit and rerun task" class="task-action" />
+<Icon
+	name="Settings2"
+	onClick={openEditor}
+	size={18}
+	color="var(--primary-color)"
+	title="Edit and rerun task"
+	class="task-action"
+/>
 
 <Modal show={showModal} onClose={closeEditor}>
 	<div class="editor-shell">
@@ -149,7 +146,7 @@ void isIaTask;
 			</div>
 			<p class="task-meta">
 				<span>{task.type}</span>
-				<span>{task.status ?? "pending"}</span>
+				<span>{task.status ?? 'pending'}</span>
 			</p>
 		</div>
 
@@ -186,7 +183,8 @@ void isIaTask;
 				</label>
 			{:else}
 				<p class="hint">
-					This script task has no editable prompt fields. You can still rerun it with the current runtime state.
+					This script task has no editable prompt fields. You can still rerun it with the current
+					runtime state.
 				</p>
 			{/if}
 		</div>
@@ -301,7 +299,7 @@ void isIaTask;
 	textarea {
 		resize: vertical;
 		min-height: 8rem;
-		font-family: "CaskaydiaCove NFM Light", monospace;
+		font-family: 'CaskaydiaCove NFM Light', monospace;
 		line-height: 1.45;
 	}
 
@@ -345,7 +343,7 @@ void isIaTask;
 		padding: 1rem;
 		max-height: 22rem;
 		overflow: auto;
-		font-family: "CaskaydiaCove NFM Light", monospace;
+		font-family: 'CaskaydiaCove NFM Light', monospace;
 	}
 
 	@media (max-width: 720px) {

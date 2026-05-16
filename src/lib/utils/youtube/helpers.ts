@@ -6,7 +6,7 @@
 export function removeYTPpParam(url: string): string {
 	try {
 		const urlObj = new URL(url);
-		urlObj.searchParams.delete("pp");
+		urlObj.searchParams.delete('pp');
 		return urlObj.toString();
 	} catch {
 		return url;
@@ -16,7 +16,7 @@ export function removeYTPpParam(url: string): string {
 export function removeYTTimeParam(url: string): string {
 	try {
 		const urlObj = new URL(url);
-		urlObj.searchParams.delete("t");
+		urlObj.searchParams.delete('t');
 		return urlObj.toString();
 	} catch {
 		return url;

@@ -1,14 +1,14 @@
 export const SITES_ROUTES: Record<string, string> = {
-	"www.youtube.com": "youtube",
+	'www.youtube.com': 'youtube'
 };
 
 // Create a valid CSS ident for view-transition-name from a URL/string
-import { goto } from "$app/navigation";
+import { goto } from '$app/navigation';
 
 export function toVTName(input: string): string {
 	// ensure it starts with letters to be a safe ident
-	const base = "vt-" + input.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-	return base || "vt-default";
+	const base = 'vt-' + input.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+	return base || 'vt-default';
 }
 
 // Programmatic navigation. The global onNavigate hook coordinates view transitions.
@@ -19,10 +19,10 @@ export function navigate(route: string) {
 export function getRouteForDomain(domainUrl: string): string {
 	// Ensure the domainUrl has a protocol for URL parsing
 	const urlObj =
-		domainUrl.startsWith("http://") || domainUrl.startsWith("https://")
+		domainUrl.startsWith('http://') || domainUrl.startsWith('https://')
 			? new URL(domainUrl)
-			: new URL("https://" + domainUrl);
+			: new URL('https://' + domainUrl);
 	const domain = urlObj.hostname;
 
-	return SITES_ROUTES[domain] || "article";
+	return SITES_ROUTES[domain] || 'article';
 }

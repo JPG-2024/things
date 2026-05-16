@@ -1,50 +1,50 @@
 <script lang="ts">
-import type { Task, TaskComponentProps } from "@/types/taskRunner.types";
+	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 
-interface Props {
-	task?: Task;
-	items?: string[];
-	componentProps?: TaskComponentProps;
-}
-
-let { task = undefined, items = [], componentProps = {} }: Props = $props();
-
-void componentProps;
-
-const parsedItems = $derived.by(() => {
-	if (items.length > 0) {
-		return items;
+	interface Props {
+		task?: Task;
+		items?: string[];
+		componentProps?: TaskComponentProps;
 	}
 
-	let data = task?.data;
+	let { task = undefined, items = [], componentProps = {} }: Props = $props();
 
-	// Parse stringified JSON if needed
-	if (typeof data === "string") {
-		try {
-			data = JSON.parse(data);
-		} catch {
-			// If parse fails, treat as regular string
-			return [];
+	void componentProps;
+
+	const parsedItems = $derived.by(() => {
+		if (items.length > 0) {
+			return items;
 		}
-	}
 
-	if (Array.isArray(data)) {
-		return data.map((item) => String(item).trim()).filter(Boolean);
-	}
+		let data = task?.data;
 
-	// Handle object with random key containing array of strings
-	if (typeof data === "object" && data !== null) {
-		// Get the first value that is an array of strings
-		for (const key in data) {
-			const value = (data as Record<string, unknown>)[key];
-			if (Array.isArray(value)) {
-				return value.map((item) => String(item).trim()).filter(Boolean);
+		// Parse stringified JSON if needed
+		if (typeof data === 'string') {
+			try {
+				data = JSON.parse(data);
+			} catch {
+				// If parse fails, treat as regular string
+				return [];
 			}
 		}
-	}
 
-	return [];
-});
+		if (Array.isArray(data)) {
+			return data.map((item) => String(item).trim()).filter(Boolean);
+		}
+
+		// Handle object with random key containing array of strings
+		if (typeof data === 'object' && data !== null) {
+			// Get the first value that is an array of strings
+			for (const key in data) {
+				const value = (data as Record<string, unknown>)[key];
+				if (Array.isArray(value)) {
+					return value.map((item) => String(item).trim()).filter(Boolean);
+				}
+			}
+		}
+
+		return [];
+	});
 </script>
 
 {#if parsedItems.length > 0}
@@ -64,7 +64,6 @@ const parsedItems = $derived.by(() => {
 		flex-direction: column;
 		gap: 0.5rem;
 		font-weight: bold;
-		
 	}
 
 	li {
@@ -75,7 +74,7 @@ const parsedItems = $derived.by(() => {
 	}
 
 	li::before {
-		content: "• ";
+		content: '• ';
 		margin-right: 0.5rem;
 		color: var(--primary-color);
 	}

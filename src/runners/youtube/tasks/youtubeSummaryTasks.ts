@@ -1,10 +1,10 @@
-import { viewState } from "@/stores/viewStore.svelte";
+import { viewState } from '@/stores/viewStore.svelte';
 import {
 	defaultCompletionOptions,
 	getContentFromState,
 	TaskNames,
-	type YouTubeTaskRegistrySubset,
-} from "./youtubeTasks.shared";
+	type YouTubeTaskRegistrySubset
+} from './youtubeTasks.shared';
 
 type SummaryTaskIds =
 	| TaskNames.SUMMARY
@@ -16,13 +16,13 @@ type SummaryTaskIds =
 export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 	[TaskNames.SUMMARY]: ({ language, freshRun }) => ({
 		id: TaskNames.SUMMARY,
-		name: "Summary",
+		name: 'Summary',
 		dependencies: [TaskNames.CONTENT],
-		component: "taskBase",
+		component: 'taskBase',
 		componentProps: {
-			autoplayTTS: freshRun,
+			autoplayTTS: freshRun
 		},
-		type: "ia",
+		type: 'ia',
 		systemMessage: `Focus on extracting:
 - core ideas
 - workflows
@@ -31,60 +31,68 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 - practical advice
 - mistakes and lessons learned
 
-Avoid summarizing small talk unless it adds context.. Answer in ${language === "es" ? "Spanish" : "English"}.`,
+Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
 		run: getContentFromState,
-		userMessage: `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${language === "es" ? "Spanish" : "English"}.`,
-		completionOptions: defaultCompletionOptions,
+		userMessage: `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
+		completionOptions: defaultCompletionOptions
 	}),
 
 	[TaskNames.TITLE_SUMMARY]: ({ language }) => ({
 		id: TaskNames.TITLE_SUMMARY,
-		name: "Title Summary",
+		name: 'Title Summary',
 		dependencies: [TaskNames.CONTENT],
-		component: "taskBase",
-		type: "ia",
-		systemMessage: `Generate a short, catchy, and relevant summary for this YouTube video. Avoid words like summary, video, context. CRITICAL answer in ${language === "es" ? "Spanish" : "English"}.`,
+		component: 'taskBase',
+		type: 'ia',
+		systemMessage: `Focus on extracting:
+- core ideas
+- workflows
+- technical concepts
+- mindset shifts
+- practical advice
+- mistakes and lessons learned
+
+Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}. got right to rhe point, no intros`,
 		run: getContentFromState,
-		userMessage: `Generate a short summary for this video. Answer in ${language === "es" ? "Spanish" : "English"}.`,
-		completionOptions: defaultCompletionOptions,
+		userMessage: `Generate a short summary for this video. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
+		completionOptions: defaultCompletionOptions
 	}),
 
 	[TaskNames.TITLE]: ({ language }) => ({
 		id: TaskNames.TITLE,
-		name: "Title",
+		name: 'Title',
 		dependencies: [TaskNames.TITLE_SUMMARY],
-		component: "taskBase",
-		type: "ia",
+		component: 'taskBase',
+		type: 'ia',
 		systemMessage: ``,
 		run: ({ state }) => {
 			const titleSummary = state[TaskNames.TITLE_SUMMARY];
 
-			if (typeof titleSummary !== "string") {
-				throw new Error("TITLE_SUMMARY is missing or invalid");
+			if (typeof titleSummary !== 'string') {
+				throw new Error('TITLE_SUMMARY is missing or invalid');
 			}
 
 			return titleSummary;
 		},
-		userMessage: `Generate a short title for this context. Answer in ${language === "es" ? "Spanish" : "English"}.`,
-		completionOptions: defaultCompletionOptions,
+		userMessage: `Generate a short title for this context. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
+		completionOptions: defaultCompletionOptions
 	}),
 
 	[TaskNames.KEYWORDS]: () => ({
 		id: TaskNames.KEYWORDS,
 		dependencies: [TaskNames.CONTENT],
-		component: "keywords",
-		type: "ia",
-		systemMessage: "Return only valid JSON that matches the provided schema.",
+		component: 'keywords',
+		type: 'ia',
+		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
 
-			if (typeof content !== "string") {
-				throw new Error("Content is missing or invalid");
+			if (typeof content !== 'string') {
+				throw new Error('Content is missing or invalid');
 			}
 
 			return content;
 		},
-		userMessage: "extract 5 keywords. add representative emoji at start.",
+		userMessage: 'extract 5 keywords. add representative emoji at start.',
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,
@@ -94,45 +102,45 @@ Avoid summarizing small talk unless it adds context.. Answer in ${language === "
 			presence_penalty: 1.5,
 			repeat_penalty: 1.0,
 			response_format: {
-				type: "json_schema",
+				type: 'json_schema',
 				json_schema: {
-					name: "keywords",
+					name: 'keywords',
 					strict: true,
 					schema: {
-						type: "object",
+						type: 'object',
 						properties: {
 							keywords: {
-								type: "array",
-								items: { type: "string" },
+								type: 'array',
+								items: { type: 'string' },
 								minItems: 5,
-								maxItems: 5,
-							},
+								maxItems: 5
+							}
 						},
-						required: ["keywords"],
-						additionalProperties: false,
-					},
-				},
-			},
-		},
+						required: ['keywords'],
+						additionalProperties: false
+					}
+				}
+			}
+		}
 	}),
 
 	[TaskNames.KEYPOINTS]: () => ({
 		id: TaskNames.KEYPOINTS,
-		name: "Key points",
+		name: 'Key points',
 		dependencies: [TaskNames.CONTENT],
-		component: "listItems",
-		type: "ia",
-		systemMessage: `Return only valid JSON that matches the provided schema. Response in language: ${viewState.language === "es" ? "Spanish" : "English"}.`,
+		component: 'listItems',
+		type: 'ia',
+		systemMessage: `Return only valid JSON that matches the provided schema. Response in language: ${viewState.language === 'es' ? 'Spanish' : 'English'}.`,
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
 
-			if (typeof content !== "string") {
-				throw new Error("Content is missing or invalid");
+			if (typeof content !== 'string') {
+				throw new Error('Content is missing or invalid');
 			}
 
 			return content;
 		},
-		userMessage: `extract 5 key points titles in one line. add representative emoji at start. Response in language: ${viewState.language === "es" ? "Spanish" : "English"}.`,
+		userMessage: `extract 5 key points titles in one line. add representative emoji at start. Response in language: ${viewState.language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,
@@ -142,25 +150,25 @@ Avoid summarizing small talk unless it adds context.. Answer in ${language === "
 			presence_penalty: 1.5,
 			repeat_penalty: 1.0,
 			response_format: {
-				type: "json_schema",
+				type: 'json_schema',
 				json_schema: {
-					name: "keypointsTitles",
+					name: 'keypointsTitles',
 					strict: true,
 					schema: {
-						type: "object",
+						type: 'object',
 						properties: {
 							keypointsTitles: {
-								type: "array",
-								items: { type: "string" },
+								type: 'array',
+								items: { type: 'string' },
 								minItems: 5,
-								maxItems: 5,
-							},
+								maxItems: 5
+							}
 						},
-						required: ["keypointsTitles"],
-						additionalProperties: false,
-					},
-				},
-			},
-		},
-	}),
+						required: ['keypointsTitles'],
+						additionalProperties: false
+					}
+				}
+			}
+		}
+	})
 };

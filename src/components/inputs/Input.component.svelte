@@ -1,49 +1,49 @@
 <script lang="ts">
-import Label from "./Label.component.svelte";
+	import Label from './Label.component.svelte';
 
-interface Props {
-	id?: string;
-	value?: string;
-	placeholder?: string;
-	disabled?: boolean;
-	type?: string;
-	min?: string;
-	label?: string;
-	labelPosition?: "top" | "inline";
-	onChange?: (value: string) => void;
-	onEnter?: (value: string) => void;
-}
-
-let {
-	id,
-	value = $bindable(""),
-	placeholder = "",
-	disabled = false,
-	type = "text",
-	min,
-	label,
-	labelPosition = "top",
-	onChange,
-	onEnter,
-}: Props = $props();
-
-function handleInput(event: Event) {
-	const target = event.target as HTMLInputElement;
-	const newValue = target.value;
-	value = newValue;
-
-	if (onChange) {
-		onChange(newValue);
+	interface Props {
+		id?: string;
+		value?: string;
+		placeholder?: string;
+		disabled?: boolean;
+		type?: string;
+		min?: string;
+		label?: string;
+		labelPosition?: 'top' | 'inline';
+		onChange?: (value: string) => void;
+		onEnter?: (value: string) => void;
 	}
-}
 
-function handleKeydown(event: KeyboardEvent) {
-	if (event.key === "Enter" && onEnter) {
-		event.preventDefault();
-		onEnter(value);
-		value = "";
+	let {
+		id,
+		value = $bindable(''),
+		placeholder = '',
+		disabled = false,
+		type = 'text',
+		min,
+		label,
+		labelPosition = 'top',
+		onChange,
+		onEnter
+	}: Props = $props();
+
+	function handleInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const newValue = target.value;
+		value = newValue;
+
+		if (onChange) {
+			onChange(newValue);
+		}
 	}
-}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && onEnter) {
+			event.preventDefault();
+			onEnter(value);
+			value = '';
+		}
+	}
 </script>
 
 {#if label}

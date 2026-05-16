@@ -19,7 +19,7 @@ export type ChapterCaption = {
 
 function parseChapterTimeToSeconds(value: string): number {
 	const parts = value
-		.split(":")
+		.split(':')
 		.map(Number)
 		.filter((n) => !Number.isNaN(n));
 	if (parts.length === 2) {
@@ -40,14 +40,10 @@ export function joinCaptionsByChapters(
 	if (!captions.length || !chapters.length) return [];
 
 	const sortedChapters = [...chapters].sort(
-		(a, b) =>
-			parseChapterTimeToSeconds(a.time) - parseChapterTimeToSeconds(b.time)
+		(a, b) => parseChapterTimeToSeconds(a.time) - parseChapterTimeToSeconds(b.time)
 	);
 
-	const maxCaptionEnd = captions.reduce(
-		(max, c) => Math.max(max, c.end_time),
-		0
-	);
+	const maxCaptionEnd = captions.reduce((max, c) => Math.max(max, c.end_time), 0);
 
 	return sortedChapters.map((chapter, index) => {
 		const startTime = parseChapterTimeToSeconds(chapter.time);
@@ -66,9 +62,9 @@ export function joinCaptionsByChapters(
 			endTime,
 			content: chapterCaptions
 				.map((c) => c.caption)
-				.join(" ")
+				.join(' ')
 				.trim(),
-			captions: chapterCaptions,
+			captions: chapterCaptions
 		};
 	});
 }

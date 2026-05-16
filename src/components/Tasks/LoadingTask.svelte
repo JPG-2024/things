@@ -1,35 +1,35 @@
 <script lang="ts">
-import { fade, fly } from "svelte/transition";
-import Modal from "@/components/Modal.svelte";
-import Pill from "@/components/Pill.svelte";
-import { viewState } from "@/stores/viewStore.svelte";
-import type { Task } from "@/types/taskRunner.types";
+	import { fade, fly } from 'svelte/transition';
+	import Modal from '@/components/Modal.svelte';
+	import Pill from '@/components/Pill.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import type { Task } from '@/types/taskRunner.types';
 
-type Props = {
-	runId?: string;
-	task: Task;
-};
+	type Props = {
+		runId?: string;
+		task: Task;
+	};
 
-let { runId = undefined, task }: Props = $props();
+	let { runId = undefined, task }: Props = $props();
 
-let showModal = $state(false);
+	let showModal = $state(false);
 
-void runId;
+	void runId;
 
-type PillStatus = "loading" | "error" | "idle" | "done";
+	type PillStatus = 'loading' | 'error' | 'idle' | 'done';
 
-const getPillStatus = (status?: Task["status"]): PillStatus => {
-	if (status === "running") return "loading";
-	if (status === "failed" || status === "blocked") return "error";
-	if (status === "done") return "done";
-	return "idle";
-};
+	const getPillStatus = (status?: Task['status']): PillStatus => {
+		if (status === 'running') return 'loading';
+		if (status === 'failed' || status === 'blocked') return 'error';
+		if (status === 'done') return 'done';
+		return 'idle';
+	};
 
-const shouldShowTask = $derived(
-	getPillStatus(task.status) === "loading" ||
-		getPillStatus(task.status) === "error" ||
-		viewState.showAllTasks
-);
+	const shouldShowTask = $derived(
+		getPillStatus(task.status) === 'loading' ||
+			getPillStatus(task.status) === 'error' ||
+			viewState.showAllTasks
+	);
 </script>
 
 {#if shouldShowTask}

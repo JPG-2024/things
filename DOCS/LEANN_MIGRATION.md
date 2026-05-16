@@ -5,6 +5,7 @@ This document summarizes the complete migration from using ChromaDB for embeddin
 ## Overview
 
 The application has been refactored to use the **Leann vector database** with a **FastAPI wrapper** instead of ChromaDB. This provides:
+
 - Better storage optimization (97% reduction with embedding recomputation)
 - Modern vector search with HNSW backend
 - OpenAI-compatible embedding endpoints
@@ -19,7 +20,6 @@ The application has been refactored to use the **Leann vector database** with a 
 - **`saveDocumentsToLeann(documents, metadata?)`** - Save documents with metadata to the Leann index
   - Replaces the old `storeEmbeddings` Tauri command
   - Documents can have individual metadata that gets merged with call-level metadata
-  
 - **`searchDocumentsInLeann(params)`** - Search the Leann index with semantic queries
   - Supports all Leann search parameters (complexity, beam_width, pruning, etc.)
   - Returns array of `LeannSearchResult` objects with id, text, score, and metadata
@@ -27,12 +27,12 @@ The application has been refactored to use the **Leann vector database** with a 
 - **`similaritySearchCompat(params)`** - ChromaDB-compatible search adapter
   - Converts Leann results to ChromaDB format for backward compatibility
   - Used by existing code that expects ChromaDB response structure
-  
 - **`checkLeannHealth()`** - Health check for the Leann API server
 
 #### Environment Configuration
 
 The Leann API URL can be configured via:
+
 ```
 VITE_LEANN_API_URL=http://your-leann-server:3008
 ```
@@ -55,28 +55,29 @@ Defaults to `http://localhost:3008` if not set.
 ```typescript
 // Before:
 await storeEmbeddings({
-  texts: docs,
-  metadata: { category, articleId },
-  articleId,
-  collectionName: "articles"
+	texts: docs,
+	metadata: { category, articleId },
+	articleId,
+	collectionName: 'articles'
 });
 
 // After:
-const documents = docs.map(text => ({
-  text,
-  metadata: { 
-    source: isYouTube ? 'youtube' : 'article',
-    category,
-    articleId: String(newArticle.id),
-    url,
-    title
-  }
+const documents = docs.map((text) => ({
+	text,
+	metadata: {
+		source: isYouTube ? 'youtube' : 'article',
+		category,
+		articleId: String(newArticle.id),
+		url,
+		title
+	}
 }));
 
 await storeEmbeddings({ documents });
 ```
 
 Changes:
+
 - Transforms text chunks into document objects with metadata
 - Adds richer metadata (source, url, title)
 - Error handling for embedding storage doesn't block article save
@@ -84,6 +85,7 @@ Changes:
 ### 4. Updated YouTube Transcript Handler (`src/lib/getYouTubeTranscript.ts`)
 
 **Removed ChromaDB import:**
+
 - Removed unused `storeEmbeddings` and `similaritySearch` imports
 - The embedding storage now happens in `urlRouter.ts` with unified handling
 
@@ -110,6 +112,7 @@ The Rust ChromaDB module (`src-tauri/src/chromadb.rs`) is not compiled but kept 
 ## API Differences
 
 ### ChromaDB API (Old)
+
 ```typescript
 // Save embeddings
 await invoke('store_embeddings', {
@@ -130,6 +133,7 @@ const results = await invoke('similarity_search', {
 ```
 
 ### Leann API (New)
+
 ```typescript
 // Save documents
 await saveDocumentsToLeann({
@@ -208,10 +212,10 @@ Both APIs now properly handle errors:
 
 ```typescript
 try {
-  await storeEmbeddings({ documents });
+	await storeEmbeddings({ documents });
 } catch (error) {
-  console.error('Failed to store embeddings:', error);
-  // Continues without blocking article save
+	console.error('Failed to store embeddings:', error);
+	// Continues without blocking article save
 }
 ```
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-type PillStatus = "loading" | "error" | "idle" | "done";
+	type PillStatus = 'loading' | 'error' | 'idle' | 'done';
 
-type Props = {
-	status: PillStatus;
-	text: string;
-	tag?: boolean;
-};
+	type Props = {
+		status: PillStatus;
+		text: string;
+		tag?: boolean;
+	};
 
-let { status, text, tag = false }: Props = $props();
+	let { status, text, tag = false }: Props = $props();
 </script>
 
 <span class={`pill ${status} ${tag ? 'tag' : ''}`}>

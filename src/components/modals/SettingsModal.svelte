@@ -1,29 +1,29 @@
 <script lang="ts">
-import Modal from "../Modal.svelte";
-import Dropdown from "../inputs/Dropdown.component.svelte";
-import { viewState } from "../../stores/viewStore.svelte";
-import TTSSettings from "./TTSSettings.svelte";
-import { invoke } from "@tauri-apps/api/core";
+	import Modal from '../Modal.svelte';
+	import Dropdown from '../inputs/Dropdown.component.svelte';
+	import { viewState } from '../../stores/viewStore.svelte';
+	import TTSSettings from './TTSSettings.svelte';
+	import { invoke } from '@tauri-apps/api/core';
 
-let { show = false, onClose = () => {} } = $props();
+	let { show = false, onClose = () => {} } = $props();
 
-let browserProfile = $state<string>("Not loaded");
+	let browserProfile = $state<string>('Not loaded');
 
-$effect(() => {
-	if (show) {
-		invoke<string>("get_browser_profile")
-			.then((path) => {
-				browserProfile = path;
-			})
-			.catch((error) => {
-				browserProfile = `Error: ${error}`;
-			});
+	$effect(() => {
+		if (show) {
+			invoke<string>('get_browser_profile')
+				.then((path) => {
+					browserProfile = path;
+				})
+				.catch((error) => {
+					browserProfile = `Error: ${error}`;
+				});
+		}
+	});
+
+	function closeModal() {
+		onClose();
 	}
-});
-
-function closeModal() {
-	onClose();
-}
 </script>
 
 <Modal {show} onClose={closeModal}>
@@ -32,8 +32,8 @@ function closeModal() {
 			<h2>Settings</h2>
 			<Dropdown
 				options={[
-					{ label: "Spanish", value: "es" },
-					{ label: "English", value: "en" },
+					{ label: 'Spanish', value: 'es' },
+					{ label: 'English', value: 'en' }
 				]}
 				bind:value={viewState.language}
 			/>

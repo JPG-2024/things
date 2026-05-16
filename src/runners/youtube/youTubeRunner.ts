@@ -1,16 +1,10 @@
-import { buildTaskSubroutine } from "@/runners/taskBuilder";
-import {
-	buildWorkflowRunId,
-	workflowManager,
-} from "@/runners/workflowManager.svelte";
-import type { Task } from "@/types/taskRunner.types";
-import { saveTasks, type ArticleWithTasks } from "@/stores/tasksStore";
-import { viewState } from "@/stores/viewStore.svelte";
-import {
-	TaskNames,
-	youtubeTaskRegistry,
-} from "@/runners/youtube/tasks/youtubeTasks";
-import { removeYTTimeParam } from "@/lib/utils/youtube/helpers";
+import { buildTaskSubroutine } from '@/runners/taskBuilder';
+import { buildWorkflowRunId, workflowManager } from '@/runners/workflowManager.svelte';
+import type { Task } from '@/types/taskRunner.types';
+import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
+import { viewState } from '@/stores/viewStore.svelte';
+import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
+import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 
 const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
@@ -23,15 +17,11 @@ const videoPage: TaskNames[] = [
 	//TaskNames.CHAPTERS_SUMMARY,
 ];
 
-const videoItem: TaskNames[] = [
-	TaskNames.THUMBNAIL,
-	TaskNames.TITLE_SUMMARY,
-	TaskNames.TITLE,
-];
+const videoItem: TaskNames[] = [TaskNames.THUMBNAIL, TaskNames.TITLE_SUMMARY, TaskNames.TITLE];
 
 const routine = {
 	videoPage,
-	videoItem,
+	videoItem
 };
 
 type YouTubeRunnerOptions = {
@@ -41,7 +31,7 @@ type YouTubeRunnerOptions = {
 	Rebuild?: boolean;
 	stream?: boolean;
 	profile?: string;
-	profilePicture?: string
+	profilePicture?: string;
 };
 
 export async function youTubeRunner(
@@ -50,18 +40,17 @@ export async function youTubeRunner(
 	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
 	url = removeYTTimeParam(url);
-	const runId = buildWorkflowRunId("youtube-video", url);
-	const freshRun =
-		options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
+	const runId = buildWorkflowRunId('youtube-video', url);
+	const freshRun = options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
 
 	// Build the task list based on the selected routine and registry, incorporating persisted task states if available, and marking the run as fresh if Rebuild is true or no persisted tasks are found
 	const tasks = await buildTaskSubroutine(
-		routine[options.routine ?? "videoPage"],
+		routine[options.routine ?? 'videoPage'],
 		youtubeTaskRegistry,
 		{ url, language: viewState.language, freshRun },
 		{
 			persistedTasks: cachedArticle?.persistedTasks,
-			Rebuild: options.Rebuild,
+			Rebuild: options.Rebuild
 		}
 	);
 
@@ -69,9 +58,12 @@ export async function youTubeRunner(
 		makeActive: options.makeActive ?? true,
 		parentRunId: options.parentRunId,
 		Rebuild: options.Rebuild,
-		stream: options.stream,
+		stream: options.stream
 	});
 
-	await saveTasks(url, runResult.tasks, { profile: options.profile, profilePicture: options.profilePicture });
+	await saveTasks(url, runResult.tasks, {
+		profile: options.profile,
+		profilePicture: options.profilePicture
+	});
 	return runResult.tasks as Task[];
 }

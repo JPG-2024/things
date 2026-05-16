@@ -1,29 +1,15 @@
-import type { PersistedTaskState } from "@/stores/tasksStore";
-import type {
-	Task,
-	TaskMapBase,
-	TaskRerunPatch,
-} from "@/types/taskRunner.types";
+import type { PersistedTaskState } from '@/stores/tasksStore';
+import type { Task, TaskMapBase, TaskRerunPatch } from '@/types/taskRunner.types';
 
 type NoInfer<T> = [T][T extends unknown ? 0 : never];
 
-export type TaskFactory<TState extends TaskMapBase, TContext> = (
-	context: TContext
-) => Task<TState>;
+export type TaskFactory<TState extends TaskMapBase, TContext> = (context: TContext) => Task<TState>;
 
 type TaskFactoryState<TFactory> =
-	TFactory extends TaskFactory<
-		infer TState extends TaskMapBase,
-		infer _TContext
-	>
-		? TState
-		: never;
+	TFactory extends TaskFactory<infer TState extends TaskMapBase, infer _TContext> ? TState : never;
 
 type TaskFactoryContext<TFactory> =
-	TFactory extends TaskFactory<
-		infer _TState extends TaskMapBase,
-		infer TContext
-	>
+	TFactory extends TaskFactory<infer _TState extends TaskMapBase, infer TContext>
 		? TContext
 		: never;
 
@@ -31,10 +17,9 @@ type TaskRegistryBase = Record<string, unknown>;
 
 export type TaskOverride<TState extends TaskMapBase> = TaskRerunPatch<TState>;
 
-export type TaskSelection<
-	TState extends TaskMapBase,
-	TTaskId extends keyof TState & string,
-> = TTaskId | readonly [taskId: TTaskId, overrides: TaskOverride<TState>];
+export type TaskSelection<TState extends TaskMapBase, TTaskId extends keyof TState & string> =
+	| TTaskId
+	| readonly [taskId: TTaskId, overrides: TaskOverride<TState>];
 
 export function createPersistedTaskStateMap(
 	persistedTasks: PersistedTaskState[] | undefined
@@ -57,7 +42,7 @@ export function applyPersistedTaskState<TState extends TaskMapBase>(
 	}
 
 	if (persistedTask.data !== undefined) {
-		task.data = persistedTask.data as Task<TState>["data"];
+		task.data = persistedTask.data as Task<TState>['data'];
 	}
 
 	if (persistedTask.status) {
@@ -84,10 +69,7 @@ export function applyTaskOverrides<TState extends TaskMapBase>(
 	return task;
 }
 
-function normalizeTaskSelections<
-	TState extends TaskMapBase,
-	TTaskId extends keyof TState & string,
->(
+function normalizeTaskSelections<TState extends TaskMapBase, TTaskId extends keyof TState & string>(
 	selectedTaskIds: ReadonlyArray<TaskSelection<TState, TTaskId>>
 ): {
 	orderedTaskIds: TTaskId[];
@@ -119,7 +101,7 @@ export async function buildTaskSubroutine<
 	TRegistry extends TaskRegistryBase,
 	TTaskId extends keyof TRegistry & string,
 	TState extends TaskMapBase = TaskFactoryState<TRegistry[TTaskId]>,
-	TContext = TaskFactoryContext<TRegistry[TTaskId]>,
+	TContext = TaskFactoryContext<TRegistry[TTaskId]>
 >(
 	selectedTaskIds: ReadonlyArray<TaskSelection<NoInfer<TState>, TTaskId>>,
 	taskRegistry: TRegistry,
@@ -128,8 +110,7 @@ export async function buildTaskSubroutine<
 ): Promise<Task<TState>[]> {
 	const persistedTaskMap = createPersistedTaskStateMap(options?.persistedTasks);
 	const shouldRebuild = options?.Rebuild ?? false;
-	const { orderedTaskIds, taskOverrides } =
-		normalizeTaskSelections(selectedTaskIds);
+	const { orderedTaskIds, taskOverrides } = normalizeTaskSelections(selectedTaskIds);
 	const visited = new Set<TTaskId>();
 	const orderedTasks: Task<TState>[] = [];
 
@@ -138,26 +119,21 @@ export async function buildTaskSubroutine<
 			return;
 		}
 
-		const factory = taskRegistry[taskId] as
-			| TaskFactory<TState, TContext>
-			| undefined;
+		const factory = taskRegistry[taskId] as TaskFactory<TState, TContext> | undefined;
 		if (!factory) {
 			throw new Error(`Unknown task: ${taskId}`);
 		}
 
 		const task = applyTaskOverrides(
-			applyPersistedTaskState(
-				factory(context as TContext),
-				persistedTaskMap.get(taskId)
-			),
+			applyPersistedTaskState(factory(context as TContext), persistedTaskMap.get(taskId)),
 			taskOverrides.get(taskId)
 		);
 
-		if (!shouldRebuild && task.status === "done") {
+		if (!shouldRebuild && task.status === 'done') {
 			visited.add(taskId);
 			orderedTasks.push({
 				...task,
-				dependencies: [],
+				dependencies: []
 			});
 			return;
 		}

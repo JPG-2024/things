@@ -1,19 +1,12 @@
-import { appDataDir, join } from "@tauri-apps/api/path";
-import { listenMarkdownFlowStatus } from "@/lib/listeners/markdownListener";
-import { listenMetadataFlowStatus } from "@/lib/listeners/metadataListener";
-import type {
-	FlowStatusEvent,
-	MarkdownPayload,
-	MetadataPayload,
-} from "@/lib/types/flowStatus";
-import { getYouTubeThumbnailUrl } from "@/lib/utils/youtube";
-import type {
-	Chapter,
-	ChapterCaption,
-} from "@/lib/utils/youtube/joinCaptionsByChapters";
-import type { ChapterSummaryItem } from "@/lib/utils/youtube/summarizeChapters";
+import { appDataDir, join } from '@tauri-apps/api/path';
+import { listenMarkdownFlowStatus } from '@/lib/listeners/markdownListener';
+import { listenMetadataFlowStatus } from '@/lib/listeners/metadataListener';
+import type { FlowStatusEvent, MarkdownPayload, MetadataPayload } from '@/lib/types/flowStatus';
+import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import type { Chapter, ChapterCaption } from '@/lib/utils/youtube/joinCaptionsByChapters';
+import type { ChapterSummaryItem } from '@/lib/utils/youtube/summarizeChapters';
 
-type language = "en" | "es";
+type language = 'en' | 'es';
 
 export interface Message {
 	id?: number;
@@ -42,12 +35,12 @@ export interface YoutubeVideoInfo {
 
 class ViewState {
 	// Primitive state
-	language = $state<language>("es");
-	primaryColor = $state<string>("");
+	language = $state<language>('es');
+	primaryColor = $state<string>('');
 	loading = $state(false);
 	loaded = $state(false);
 	showAllTasks = $state(false);
-	lastHandledClipboardUrl = $state("");
+	lastHandledClipboardUrl = $state('');
 	clipboardPollingEnabled = $state(true);
 
 	// Unified modal state
@@ -58,15 +51,15 @@ class ViewState {
 
 	articleId = $state<number | null>(null);
 	mediaDirectory = $state<string | null>(null);
-	mediaBasePath = $state<string>("");
-	mainImage = $state<string>("");
-	mainImageSrc = $state<string>("");
+	mediaBasePath = $state<string>('');
+	mainImage = $state<string>('');
+	mainImageSrc = $state<string>('');
 	metadataStatus = $state<FlowStatusEvent<MetadataPayload> | null>(null);
 	markdownStatus = $state<FlowStatusEvent<MarkdownPayload> | null>(null);
 
 	youtubeInfo = $state<YoutubeVideoInfo | null>(null);
 
-	content = $state<string>("");
+	content = $state<string>('');
 	summary = $state<string | null>(null);
 	category = $state<string | null>(null);
 	keypoints = $state<string[] | null>(null);
@@ -76,37 +69,29 @@ class ViewState {
 	messages = $state<Message[]>([]);
 
 	// Derived state (computed values)
-	markdownContent = $derived(this.markdownStatus?.data || "");
+	markdownContent = $derived(this.markdownStatus?.data || '');
 	metadataContent = $derived(this.metadataStatus?.data || {});
 
 	domainUrl = $derived(this.url ? new URL(this.url).hostname : null);
 
-	isYouTube = $derived(
-		this.url ? new URL(this.url).hostname.includes("youtube.com") : false
-	);
+	isYouTube = $derived(this.url ? new URL(this.url).hostname.includes('youtube.com') : false);
 
-	ytVideoId = $derived(
-		this.url ? new URL(this.url).searchParams.get("v") : null
-	);
+	ytVideoId = $derived(this.url ? new URL(this.url).searchParams.get('v') : null);
 
-	ytThumbnailUrl = $derived(
-		this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, "high") : ""
-	);
+	ytThumbnailUrl = $derived(this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, 'high') : '');
 
-	title = $derived(
-		this.youtubeInfo?.title || this.metadataStatus?.data?.["og:title"] || ""
-	);
+	title = $derived(this.youtubeInfo?.title || this.metadataStatus?.data?.['og:title'] || '');
 
-	description = $derived(this.metadataStatus?.data?.["description"] || "");
+	description = $derived(this.metadataStatus?.data?.['description'] || '');
 
 	async initMediaBasePath(): Promise<string | null> {
 		try {
 			const appData = await appDataDir();
-			const mediaDir = await join(appData, "media");
+			const mediaDir = await join(appData, 'media');
 			this.mediaBasePath = mediaDir;
 			return mediaDir;
 		} catch (err) {
-			console.error("initMediaBasePath error", err);
+			console.error('initMediaBasePath error', err);
 			return null;
 		}
 	}
@@ -116,25 +101,25 @@ class ViewState {
 		this.url = null;
 		this.metadataStatus = null;
 		this.markdownStatus = null;
-		this.content = "";
+		this.content = '';
 		this.articleId = null;
-		this.summary = "";
+		this.summary = '';
 		this.keypoints = [];
 		this.questions = [];
 		this.messages = [];
-		this.mainImage = "";
-		this.mainImageSrc = "";
+		this.mainImage = '';
+		this.mainImageSrc = '';
 		this.mediaDirectory = null;
-		this.primaryColor = "";
+		this.primaryColor = '';
 		this.embeddings = false;
 		this.youtubeInfo = {
-			title: "",
-			channel: "",
+			title: '',
+			channel: '',
 			withChapters: false,
 			chapters: [],
 			chapterCaptions: [],
 			chapterSummaries: [],
-			transcript: "",
+			transcript: ''
 		};
 	}
 
@@ -152,7 +137,7 @@ class ViewState {
 
 		const un2 = await listenMarkdownFlowStatus((event) => {
 			this.markdownStatus = event;
-			if (event.status === "done") {
+			if (event.status === 'done') {
 				this.content = event.data;
 			}
 		});
@@ -190,7 +175,7 @@ class ViewState {
 			category: this.category,
 			mediaDirectory: this.mediaDirectory,
 			primaryColor: this.primaryColor,
-			embeddings: this.embeddings,
+			embeddings: this.embeddings
 		};
 	}
 
@@ -208,7 +193,7 @@ class ViewState {
 			metadataContent,
 			markdownContent,
 			primaryColor,
-			embeddings,
+			embeddings
 		} = article;
 
 		this.url = url ?? this.url;
@@ -224,12 +209,12 @@ class ViewState {
 
 		if (metadataContent) {
 			this.metadataStatus = {
-				data: metadataContent,
+				data: metadataContent
 			} as FlowStatusEvent<MetadataPayload>;
 		}
 		if (markdownContent) {
 			this.markdownStatus = {
-				data: markdownContent,
+				data: markdownContent
 			} as FlowStatusEvent<MarkdownPayload>;
 		}
 	}

@@ -1,18 +1,17 @@
 // Browser-based fallback method
-const lighten = (value: number, amount = 0.2) =>
-	Math.round(value + (255 - value) * amount);
+const lighten = (value: number, amount = 0.2) => Math.round(value + (255 - value) * amount);
 
 export async function getImageColor(imageUrl: string): Promise<string> {
 	return new Promise((resolve) => {
 		const img = new Image();
-		img.crossOrigin = "Anonymous";
+		img.crossOrigin = 'Anonymous';
 		img.onload = () => {
-			const canvas = document.createElement("canvas");
+			const canvas = document.createElement('canvas');
 			canvas.width = img.width;
 			canvas.height = img.height;
-			const ctx = canvas.getContext("2d");
+			const ctx = canvas.getContext('2d');
 			if (!ctx) {
-				resolve("rgb(100, 100, 100)"); // Color por defecto en caso de error
+				resolve('rgb(100, 100, 100)'); // Color por defecto en caso de error
 				return;
 			}
 			// Resize canvas to max 200x200 for faster processing
@@ -35,7 +34,7 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 				imageData = ctx.getImageData(0, 0, scaledWidth, scaledHeight);
 			} catch {
 				// Puede fallar por canvas tainted (CORS). Mantén el fallback.
-				resolve("rgb(100, 100, 100)");
+				resolve('rgb(100, 100, 100)');
 				return;
 			}
 
@@ -48,10 +47,7 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 			// Histograma cuantizado: agrupa colores cercanos y elige el bucket más frecuente
 			// 4 bits por canal => 16 niveles => 4096 buckets
 			const shift = 4;
-			const buckets = new Map<
-				number,
-				{ count: number; r: number; g: number; b: number }
-			>();
+			const buckets = new Map<number, { count: number; r: number; g: number; b: number }>();
 
 			const BLACK_THRESHOLD = 120; // sube/baja según qué tan agresivo quieras el filtro
 			const isNearBlack = (r: number, g: number, b: number) =>
@@ -88,7 +84,7 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 			}
 
 			if (buckets.size === 0) {
-				resolve("rgb(100, 100, 100)");
+				resolve('rgb(100, 100, 100)');
 				return;
 			}
 
@@ -111,7 +107,7 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 
 			// Si todos caen en “casi negro” por algún motivo, fallback
 			if (bestKey === null) {
-				resolve("rgb(100, 100, 100)");
+				resolve('rgb(100, 100, 100)');
 				return;
 			}
 
@@ -121,14 +117,12 @@ export async function getImageColor(imageUrl: string): Promise<string> {
 			const g = lighten(Math.round(best.g / divisor));
 			const b = lighten(Math.round(best.b / divisor));
 
-			resolve(
-				`rgb(${lighten(r, 0.4)}, ${lighten(g, 0.4)}, ${lighten(b, 0.4)})`
-			);
+			resolve(`rgb(${lighten(r, 0.4)}, ${lighten(g, 0.4)}, ${lighten(b, 0.4)})`);
 		};
 
 		img.onerror = () => {
 			// Ignora errores de CORS y retorna color por defecto
-			resolve("rgb(100, 100, 100)");
+			resolve('rgb(100, 100, 100)');
 		};
 		img.src = imageUrl;
 	});

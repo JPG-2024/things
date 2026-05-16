@@ -1,5 +1,5 @@
 // src/stores/segmentedCache.ts
-import { writable } from "svelte/store";
+import { writable } from 'svelte/store';
 
 type SegmentState<T> = {
 	data: T | null;
@@ -30,14 +30,10 @@ export function storeCacheWrapper<T, Tparams>(
 	fetcher: (segment: string, params: Tparams) => Promise<T>
 ) {
 	const { subscribe, set, update } = writable({
-		segments: {} as Record<string, SegmentState<T>>,
+		segments: {} as Record<string, SegmentState<T>>
 	});
 
-	async function load<T>(
-		segment: string,
-		params: Tparams,
-		_force = false
-	): Promise<void> {
+	async function load<T>(segment: string, params: Tparams, _force = false): Promise<void> {
 		const key = `${segment}-${JSON.stringify(params)}`;
 
 		update((state) => {
@@ -45,14 +41,14 @@ export function storeCacheWrapper<T, Tparams>(
 				data: null,
 				loading: false,
 				error: null,
-				last: 0,
+				last: 0
 			};
 			return {
 				...state,
 				segments: {
 					...state.segments,
-					[key]: { ...seg, loading: true },
-				},
+					[key]: { ...seg, loading: true }
+				}
 			};
 		});
 
@@ -66,12 +62,12 @@ export function storeCacheWrapper<T, Tparams>(
 						data,
 						loading: false,
 						error: null,
-						last: Date.now(),
-					},
+						last: Date.now()
+					}
 				};
 				return {
 					...state,
-					segments: evictOldSegments(newSegments),
+					segments: evictOldSegments(newSegments)
 				};
 			});
 		} catch (err) {
@@ -82,12 +78,12 @@ export function storeCacheWrapper<T, Tparams>(
 						data: null,
 						loading: false,
 						error: err,
-						last: Date.now(),
-					},
+						last: Date.now()
+					}
 				};
 				return {
 					...state,
-					segments: evictOldSegments(newSegments),
+					segments: evictOldSegments(newSegments)
 				};
 			});
 			throw err;
@@ -103,8 +99,8 @@ export function storeCacheWrapper<T, Tparams>(
 				...state,
 				segments: {
 					...state.segments,
-					[key]: { ...seg, data: null },
-				},
+					[key]: { ...seg, data: null }
+				}
 			};
 		});
 

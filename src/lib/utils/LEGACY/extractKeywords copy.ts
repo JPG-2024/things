@@ -1,5 +1,5 @@
-import ollama from "ollama";
-import z from "zod";
+import ollama from 'ollama';
+import z from 'zod';
 
 interface KeywordResult {
 	keywords: Array<{
@@ -18,16 +18,16 @@ export async function extractKeywords(
 
 	try {
 		const response = await ollama.chat({
-			model: "gpt-oss",
-			format: "json",
+			model: 'gpt-oss',
+			format: 'json',
 			messages: [
 				{
-					role: "system",
+					role: 'system',
 					content: `You are an expert keyword extraction assistant. Extract keywords from text with precision.
-You MUST respond with ONLY valid JSON, no additional text.`,
+You MUST respond with ONLY valid JSON, no additional text.`
 				},
 				{
-					role: "user",
+					role: 'user',
 					content: `Extract the top ${maxKeywords} keywords from this text. Analyze frequency and relevance.
 Return ONLY this JSON structure:
 {
@@ -38,27 +38,25 @@ Return ONLY this JSON structure:
 }
 
 TEXT:
-${content}`,
-				},
-			],
+${content}`
+				}
+			]
 		});
 
 		// Extract and clean the response content
 		let content_text = response.message.content.trim();
 
 		// Remove any markdown code blocks if present
-		if (content_text.includes("```json")) {
-			content_text = content_text
-				.replace(/```json\n?/g, "")
-				.replace(/```\n?/g, "");
-		} else if (content_text.includes("```")) {
-			content_text = content_text.replace(/```\n?/g, "");
+		if (content_text.includes('```json')) {
+			content_text = content_text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+		} else if (content_text.includes('```')) {
+			content_text = content_text.replace(/```\n?/g, '');
 		}
 
 		const result: KeywordResult = JSON.parse(content_text);
 		return result;
 	} catch (error) {
-		console.error("Error extracting keywords:", error);
+		console.error('Error extracting keywords:', error);
 		throw new Error(`Failed to extract keywords: ${error}`);
 	}
 }

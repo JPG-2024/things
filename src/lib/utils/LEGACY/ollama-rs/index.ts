@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 /**
  * Parameters matching the Rust `generate_completion_stream` command.
@@ -23,16 +23,16 @@ async function generateStream(
 	params: GenerateCompletionStreamParams,
 	callback?: (chunk: string) => void
 ): Promise<number[]> {
-	let fullResponse = "";
+	let fullResponse = '';
 	let unlisten: () => void;
 
 	// Listen for streaming events
-	unlisten = await listen("ollama-rs-stream", (event: any) => {
+	unlisten = await listen('ollama-rs-stream', (event: any) => {
 		const payload = event.payload;
 
-		if (payload.status === "loading") {
-			console.log("Loading model:", payload.model);
-		} else if (payload.status === "streaming") {
+		if (payload.status === 'loading') {
+			console.log('Loading model:', payload.model);
+		} else if (payload.status === 'streaming') {
 			fullResponse += payload.tokens;
 
 			if (callback) {
@@ -40,8 +40,8 @@ async function generateStream(
 			}
 
 			if (payload.done) {
-				console.log("Streaming complete!");
-				console.log("Full response:", fullResponse);
+				console.log('Streaming complete!');
+				console.log('Full response:', fullResponse);
 				unlisten(); // Stop listening
 			}
 		}
@@ -50,19 +50,19 @@ async function generateStream(
 	try {
 		// Forward parameters to the Rust command. Use snake_case keys to match Rust
 		// signature: model, prompt, system, context, ollama_url, batch_size
-		const context = await invoke<number[]>("generate_completion_stream", {
+		const context = await invoke<number[]>('generate_completion_stream', {
 			model: params.model,
 			prompt: params.prompt,
 			system: params.system,
 			context: params.context,
 			ollamaUrl: params.ollamaUrl,
-			batchSize: params.batchSize,
+			batchSize: params.batchSize
 		});
 
-		console.log("Returned context:", context);
+		console.log('Returned context:', context);
 		return context;
 	} catch (error) {
-		console.error("Error:", error);
+		console.error('Error:', error);
 		unlisten();
 		throw error;
 	}
@@ -82,9 +82,7 @@ export interface GenerateEmbeddingsBatchParams {
  * @param GenerateEmbeddingsBatchParams - The parameters for embedding generation
  * @returns A promise resolving to a 2D array of embeddings
  */
-async function generateEmbeddingsBatch(
-	params: GenerateEmbeddingsBatchParams
-): Promise<number[][]> {
+async function generateEmbeddingsBatch(params: GenerateEmbeddingsBatchParams): Promise<number[][]> {
 	const BATCH_SIZE = 10; // Process 10 chunks at a time to avoid crashing the runner
 	const allEmbeddings: number[][] = [];
 
@@ -95,21 +93,18 @@ async function generateEmbeddingsBatch(
 				`Generating embeddings for batch ${i / BATCH_SIZE + 1}/${Math.ceil(params.texts.length / BATCH_SIZE)}`
 			);
 
-			const batchEmbeddings = await invoke<number[][]>(
-				"generate_embeddings_batch",
-				{
-					texts: batch,
-					model: params.model || "nomic-embed-text",
-					ollama_url: params.ollama_url,
-				}
-			);
+			const batchEmbeddings = await invoke<number[][]>('generate_embeddings_batch', {
+				texts: batch,
+				model: params.model || 'nomic-embed-text',
+				ollama_url: params.ollama_url
+			});
 
 			allEmbeddings.push(...batchEmbeddings);
 		}
 
 		return allEmbeddings;
 	} catch (error) {
-		console.error("Error generating embeddings:", error);
+		console.error('Error generating embeddings:', error);
 		throw error;
 	}
 }
