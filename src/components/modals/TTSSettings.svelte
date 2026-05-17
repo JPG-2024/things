@@ -125,7 +125,7 @@
 			onChange={(v) => (ttsState.config.speed = v)}
 		/>
 
-		<RangeSelector
+		<!-- 		<RangeSelector
 			id="tShift"
 			label="T Shift"
 			value={ttsState.config.tShift ?? 0}
@@ -221,7 +221,7 @@
 			label="Postprocess Output"
 			checked={ttsState.config.postprocessOutput}
 			onChange={(v) => (ttsState.config.postprocessOutput = v)}
-		/>
+		/> -->
 	</Spacer>
 
 	<Spacer size={25} />

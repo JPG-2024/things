@@ -32,7 +32,7 @@ export async function downloadImageUrl(
 	url: string,
 	profile?: string | null
 ): Promise<DownloadedImageResult> {
-	const mediaDirectory = await resolveMediaDirectory(url, profile);
+	const mediaDirectory = await resolveMediaDirectory(url);
 
 	const fileName = await invoke<string>('download_and_save_image', {
 		url: url,

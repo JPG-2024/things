@@ -270,6 +270,8 @@ pub async fn get_page_elements(
 
         let mut result: HashMap<String, Value> = HashMap::new();
 
+        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
         for item in selectors {
             let name = item.name.clone();
             let selector = item.selector.clone();
@@ -285,8 +287,8 @@ pub async fn get_page_elements(
                     .unwrap_or_default()
             );
 
-            let attempts = attempts.unwrap_or(5);
-            let interval_ms = interval_ms.unwrap_or(500);
+            let attempts = attempts.unwrap_or(20);
+            let interval_ms = interval_ms.unwrap_or(1000);
 
             match wait_for_element_spa(
                 &page,

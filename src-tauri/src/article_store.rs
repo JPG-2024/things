@@ -327,6 +327,12 @@ fn upsert_profile(
     Ok(())
 }
 
+fn delete_profile(conn: &Connection, profile_id: &str) -> Result<(), String> {
+    conn.execute("DELETE FROM profiles WHERE id = ?1", params![profile_id])
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn rebuild_profiles_from_articles(
     conn: &Connection,
     profile_picture_input: Option<(String, String)>,
@@ -644,13 +650,6 @@ pub async fn delete_stored_article_profile(
     )
     .await?;
 
-    if articles.is_empty() {
-        return Ok(DeleteStoredArticleProfileResult {
-            success: true,
-            deleted_count: 0,
-        });
-    }
-
     let mut deleted_count = 0;
 
     for article_value in articles {
@@ -660,6 +659,8 @@ pub async fn delete_stored_article_profile(
             }
         }
     }
+
+    delete_profile(&conn, &profile_id)?;
 
     Ok(DeleteStoredArticleProfileResult {
         success: true,

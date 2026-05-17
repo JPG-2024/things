@@ -82,7 +82,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					selectors: [
 						{
 							name: 'profile',
-							selector: 'div.ytPageHeaderViewModelHeadline'
+							selector: 'yt-content-metadata-view-model'
 						},
 						{
 							name: 'profilePicture',
@@ -95,9 +95,11 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				}
 			);
 
+			debugger;
+
 			const profile = {
-				name: result.profile[1],
-				profilePicture: result.profilePicture
+				name: result.profile[0],
+				profilePicture: result.profilePicture[1]
 			};
 
 			return profile;

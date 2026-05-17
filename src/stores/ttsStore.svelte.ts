@@ -33,6 +33,8 @@ class TTSState {
 	playlist = $state<string[]>([]);
 	currentIndex = $state(0);
 	isGenerating = $state(false);
+	blobUrls = $state<string[]>([]);
+	durations = $state<number[]>([]);
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -67,8 +69,17 @@ class TTSState {
 		this.textContents = [];
 	}
 
+	private revokeAllBlobUrls(): void {
+		for (const url of this.blobUrls) {
+			URL.revokeObjectURL(url);
+		}
+		this.blobUrls = [];
+	}
+
 	clearPlaylist(): void {
+		this.revokeAllBlobUrls();
 		this.playlist = [];
+		this.durations = [];
 		this.currentIndex = 0;
 	}
 
@@ -79,10 +90,16 @@ class TTSState {
 
 		this.isGenerating = true;
 		this.errorMessage = '';
+		this.isPlaying = false;
 		this.playlist = [];
+		this.durations = [];
 		this.currentIndex = 0;
 
 		try {
+			const newBlobUrls: string[] = [];
+			const newPlaylist: string[] = [];
+			const newDurations: number[] = [];
+
 			for (const text of this.textContents) {
 				const res = await generateSpeech({
 					text,
@@ -108,14 +125,31 @@ class TTSState {
 					throw new Error('Generated audio is empty (0 bytes)');
 				}
 
+				const contentType = res.blob.type || 'audio/mpeg';
+				if (!contentType.startsWith('audio/')) {
+					console.warn('[TTS] Unexpected blob MIME type:', contentType);
+				}
+
 				const url = URL.createObjectURL(res.blob);
-				this.playlist = [...this.playlist, url];
+				console.log('[TTS] Created blob URL:', {
+					url,
+					size: res.blob.size,
+					type: contentType,
+					duration: res.durationSeconds
+				});
+				newBlobUrls.push(url);
+				newPlaylist.push(url);
+				newDurations.push(res.durationSeconds ?? 0);
 			}
+
+			//this.revokeAllBlobUrls();
+			this.blobUrls = newBlobUrls;
+			this.playlist = newPlaylist;
+			this.durations = newDurations;
 
 			if (this.playlist.length > 0) {
 				this.audioSrc = this.playlist[0];
 				this.isPlaying = true;
-				this.durationSeconds = null;
 			}
 		} catch (err) {
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
@@ -129,6 +163,8 @@ class TTSState {
 		if (this.currentIndex < this.playlist.length - 1) {
 			this.currentIndex++;
 			this.audioSrc = this.playlist[this.currentIndex];
+		} else {
+			this.isPlaying = false;
 		}
 	}
 

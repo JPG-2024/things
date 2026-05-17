@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { untrack } from 'svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	let audioElement = $state<HTMLAudioElement | null>(null);
@@ -9,7 +10,11 @@
 		if (ttsState.isPlaying) {
 			audioElement.pause();
 		} else {
-			audioElement.play();
+			audioElement.play().catch((err: unknown) => {
+				if (err instanceof Error && err.name !== 'AbortError') {
+					ttsState.errorMessage = 'Playback was blocked by the browser.';
+				}
+			});
 		}
 	}
 
@@ -25,9 +30,11 @@
 	}
 
 	$effect(() => {
-		if (audioElement && ttsState.audioSrc) {
+		if (audioElement && ttsState.audioSrc && !ttsState.isGenerating) {
+			const shouldPlay = untrack(() => ttsState.isPlaying);
 			audioElement.src = ttsState.audioSrc;
-			if (ttsState.isPlaying) {
+			audioElement.load();
+			if (shouldPlay) {
 				audioElement.play().catch((err: unknown) => {
 					if (err instanceof Error && err.name !== 'AbortError') {
 						ttsState.errorMessage = 'Playback was blocked by the browser.';
@@ -36,79 +43,93 @@
 			}
 		}
 	});
+
+	$effect(() => {
+		if (ttsState.isGenerating) {
+			audioElement?.pause();
+		}
+	});
 </script>
 
-{#if ttsState.playlist.length > 0}
-	<div class="tts-player">
-		<div class="controls">
-			<button
-				type="button"
-				onclick={() => ttsState.previousTrack()}
-				disabled={ttsState.currentIndex === 0}
-				aria-label="Previous track"
-			>
-				<Icon name="SkipBack" size={18} />
-			</button>
+<div class="tts-player">
+	<div class="controls">
+		<button
+			type="button"
+			onclick={() => ttsState.previousTrack()}
+			disabled={ttsState.currentIndex === 0}
+			aria-label="Previous track"
+		>
+			<Icon name="SkipBack" size={18} />
+		</button>
 
-			<button
-				type="button"
-				onclick={ttsState.isPlaying ? handleStop : togglePlay}
-				disabled={ttsState.isGenerating}
-				aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
-			>
-				{#if ttsState.isGenerating}
-					<Icon name="Loader" size={18} />
-				{:else if ttsState.isPlaying}
-					<Icon name="Square" size={18} />
-				{:else}
-					<Icon name="Play" size={18} />
-				{/if}
-			</button>
+		<button
+			type="button"
+			onclick={ttsState.isPlaying ? handleStop : togglePlay}
+			disabled={ttsState.isGenerating}
+			aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
+		>
+			{#if ttsState.isGenerating}
+				<Icon name="Loader" size={18} />
+			{:else if ttsState.isPlaying}
+				<Icon name="Square" size={18} />
+			{:else}
+				<Icon name="Play" size={18} />
+			{/if}
+		</button>
 
-			<button
-				type="button"
-				onclick={() => ttsState.nextTrack()}
-				disabled={ttsState.currentIndex >= ttsState.playlist.length - 1}
-				aria-label="Next track"
-			>
-				<Icon name="SkipForward" size={18} />
-			</button>
-		</div>
-
-		<div class="track-info">
-			<span class="counter">
-				{ttsState.currentIndex + 1} / {ttsState.playlist.length}
-			</span>
-		</div>
-
-		{#if ttsState.isGenerating}
-			<span class="status">Generating...</span>
-		{/if}
-
-		<audio
-			bind:this={audioElement}
-			src={ttsState.audioSrc ?? undefined}
-			onplay={() => {
-				ttsState.isPlaying = true;
-			}}
-			onpause={() => {
-				ttsState.isPlaying = false;
-			}}
-			onended={handleEnded}
-			onerror={(e) => {
-				const target = e.target as HTMLAudioElement;
-				ttsState.errorMessage = `Playback error (${target.error?.code ?? 'unknown'})`;
-				ttsState.isPlaying = false;
-			}}
-		></audio>
+		<button
+			type="button"
+			onclick={() => ttsState.nextTrack()}
+			disabled={ttsState.currentIndex >= ttsState.playlist.length - 1}
+			aria-label="Next track"
+		>
+			<Icon name="SkipForward" size={18} />
+		</button>
 	</div>
 
-	{#if ttsState.errorMessage}
-		<div class="error-bar">
-			<span>{ttsState.errorMessage}</span>
-			<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
-		</div>
+	<div class="track-info">
+		<span class="counter">
+			{ttsState.currentIndex + 1} / {ttsState.playlist.length}
+		</span>
+	</div>
+
+	{#if ttsState.isGenerating}
+		<span class="status">Generating...</span>
 	{/if}
+
+	<audio
+		bind:this={audioElement}
+		onplay={() => {
+			ttsState.isPlaying = true;
+		}}
+		onpause={() => {
+			ttsState.isPlaying = false;
+		}}
+		onended={handleEnded}
+		onloadeddata={() => {
+			console.log('[TTS] Audio loaded successfully:', audioElement?.src);
+		}}
+		onerror={(e) => {
+			const target = e.target as HTMLAudioElement;
+			const error = target.error;
+			console.error('[TTS] Audio error:', {
+				src: target.src,
+				code: error?.code,
+				message: error?.message,
+				networkState: target.networkState,
+				readyState: target.readyState
+			});
+			ttsState.errorMessage = `Playback error (${error?.code ?? 'unknown'})`;
+			ttsState.isPlaying = false;
+		}}
+	></audio>
+</div>
+
+{#if ttsState.errorMessage}
+	<div class="error-bar">
+		<span>{ttsState.errorMessage}</span>
+		<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+	</div>
 {/if}
 
 <style>

@@ -50,25 +50,23 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		dependencies: [TaskNames.INIT, TaskNames.VIDEO_INFO],
+		dependencies: [TaskNames.INIT],
 		type: 'script',
 		component: 'player',
 		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
-			const videoInfo = getRequiredTaskState(state, TaskNames.VIDEO_INFO);
 
 			if (!urlData.videoId) {
 				throw new Error('Video ID not found in URL');
 			}
 
 			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, 'high');
-			const profile = getProfileFromVideoInfo(videoInfo);
 
 			const {
 				mediaDirectory,
 				fileName: thumbnailImage,
 				imageSrc: thumbnailImageSrc
-			} = await downloadImageUrl(ytThumbnailUrl, profile);
+			} = await downloadImageUrl(ytThumbnailUrl);
 
 			return {
 				mediaDirectory,

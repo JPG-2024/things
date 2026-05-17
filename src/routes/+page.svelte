@@ -21,7 +21,7 @@
 
 	let processingUrl = $state(false);
 	let profileCategories = $state<ArticleProfile[]>([]);
-
+	$inspect(profileCategories);
 	async function loadProfiles() {
 		const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
 		const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
@@ -123,7 +123,7 @@
 
 	<div class="flex-squares">
 		{#each profileCategories as profile (profile.id)}
-			<ProfileWidget {profile} showTitle={true} onDeleted={handleProfileDeleted} />
+			<ProfileWidget {profile} showTitle={false} onDeleted={handleProfileDeleted} />
 		{/each}
 	</div>
 </div>

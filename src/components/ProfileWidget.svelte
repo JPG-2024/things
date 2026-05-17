@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Tooltip from '@/components/Tooltip.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
@@ -24,27 +25,24 @@
 
 	let hoveredArticleUrl = $state<string | null>(null);
 
-	$effect(() => {
-		const cleanup = createHotkey(
-			'S',
-			async () => {
-				if (!hoveredArticleUrl) return;
-				const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
-				const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
-				if (!titleSummaryTask?.data) {
-					throw new Error('No title-summary data found for this article');
-				}
+	const cleanup = createHotkey(
+		'S',
+		async () => {
+			if (!hoveredArticleUrl) return;
+			const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
+			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
+			if (!titleSummaryTask?.data) {
+				throw new Error('No title-summary data found for this article');
+			}
 
-				ttsState.setTextContents([titleSummaryTask.data as string]);
-				await ttsState.generateTTS();
-			},
-			() => ({
-				enabled: hoveredArticleUrl !== null,
-				ignoreInputs: true
-			})
-		);
-		return cleanup;
-	});
+			ttsState.setTextContents([titleSummaryTask.data as string]);
+			await ttsState.generateTTS();
+		},
+		() => ({
+			enabled: hoveredArticleUrl !== null,
+			ignoreInputs: true
+		})
+	);
 
 	const queryClient = useQueryClient();
 
@@ -136,12 +134,14 @@
 						onmouseleave={() => (hoveredArticleUrl = null)}
 						aria-label="View article"
 					>
-						<img
-							src={article.thumbnail}
-							alt="Article"
-							class="mini-img"
-							style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-						/>
+						<Tooltip content={article.title ?? ''}>
+							<img
+								src={article.thumbnail}
+								alt="Article"
+								class="mini-img"
+								style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+							/>
+						</Tooltip>
 					</button>
 				{/each}
 			</div>
@@ -219,7 +219,6 @@
 		padding: 0;
 		cursor: pointer;
 		border-radius: 0.5rem;
-		overflow: hidden;
 		transition: transform 0.2s;
 	}
 

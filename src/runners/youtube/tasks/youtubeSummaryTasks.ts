@@ -51,7 +51,7 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 - practical advice
 - mistakes and lessons learned
 
-Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}. got right to rhe point, no intros`,
+Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}. got right to rhe point, no intros. dont use markdown. one paragraph.`,
 		run: getContentFromState,
 		userMessage: `Generate a short summary for this video. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: defaultCompletionOptions

@@ -78,5 +78,6 @@ export async function generateSpeech(params: {
 	}
 	const durationSeconds = Number.parseFloat(res.headers.get('X-Duration-Seconds') ?? 'null');
 	const blob = await res.blob();
+
 	return { blob, durationSeconds };
 }
