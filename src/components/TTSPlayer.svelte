@@ -1,67 +1,141 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import { untrack } from 'svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
-	let audioElement = $state<HTMLAudioElement | null>(null);
+	let audioContext: AudioContext | null = $state(null);
+	let currentSource: AudioBufferSourceNode | null = $state(null);
+	let combinedBuffer: AudioBuffer | null = $state(null);
+	let isSettingUp = false;
 
-	function togglePlay() {
-		if (!audioElement) return;
-		if (ttsState.isPlaying) {
-			audioElement.pause();
-		} else {
-			audioElement.play().catch((err: unknown) => {
-				if (err instanceof Error && err.name !== 'AbortError') {
-					ttsState.errorMessage = 'Playback was blocked by the browser.';
-				}
-			});
+	function getAudioContext(): AudioContext {
+		if (!audioContext) {
+			audioContext = new AudioContext();
+		}
+		return audioContext;
+	}
+
+	async function ensureResumed() {
+		const ctx = getAudioContext();
+		if (ctx.state === 'suspended') {
+			await ctx.resume();
 		}
 	}
 
-	function handleStop() {
-		if (!audioElement) return;
-		audioElement.pause();
-		audioElement.currentTime = 0;
+	async function decodeBlob(blob: Blob): Promise<AudioBuffer> {
+		const ctx = getAudioContext();
+		const arrayBuffer = await blob.arrayBuffer();
+		return ctx.decodeAudioData(arrayBuffer);
+	}
+
+	async function concatenateBlobs(blobs: Blob[]): Promise<AudioBuffer> {
+		const ctx = getAudioContext();
+		const decoded = await Promise.all(blobs.map((b) => decodeBlob(b)));
+
+		if (decoded.length === 0) {
+			throw new Error('No blobs to concatenate');
+		}
+
+		const sampleRate = decoded[0].sampleRate;
+		const channels = decoded[0].numberOfChannels;
+		const totalLength = decoded.reduce((acc, buf) => acc + buf.length, 0);
+
+		const combined = ctx.createBuffer(channels, totalLength, sampleRate);
+
+		let offset = 0;
+		for (const buf of decoded) {
+			for (let ch = 0; ch < channels; ch++) {
+				combined.copyToChannel(buf.getChannelData(ch), ch, offset);
+			}
+			offset += buf.length;
+		}
+
+		return combined;
+	}
+
+	async function playBuffer() {
+		if (isSettingUp || !combinedBuffer) return;
+		isSettingUp = true;
+
+		await ensureResumed();
+
+		if (currentSource) {
+			currentSource.onended = null;
+			currentSource.stop();
+			currentSource.disconnect();
+			currentSource = null;
+		}
+
+		const ctx = getAudioContext();
+		const source = ctx.createBufferSource();
+		source.buffer = combinedBuffer;
+		source.connect(ctx.destination);
+
+		source.onended = () => {
+			if (currentSource === source) {
+				currentSource.disconnect();
+				currentSource = null;
+				ttsState.isPlaying = false;
+			}
+		};
+
+		source.start(0);
+		currentSource = source;
+		ttsState.isPlaying = true;
+		isSettingUp = false;
+	}
+
+	function stopPlayback() {
+		if (currentSource) {
+			currentSource.onended = null;
+			currentSource.stop();
+			currentSource.disconnect();
+			currentSource = null;
+		}
 		ttsState.isPlaying = false;
 	}
 
-	function handleEnded() {
-		ttsState.nextTrack();
+	async function togglePlay() {
+		if (ttsState.isPlaying) {
+			stopPlayback();
+			return;
+		}
+
+		if (ttsState.blobs.length === 0) return;
+
+		if (!audioContext) {
+			getAudioContext();
+		}
+		await ensureResumed();
+
+		const buf = await concatenateBlobs(ttsState.blobs);
+		combinedBuffer = buf;
+		await playBuffer();
+	}
+
+	function handleStop() {
+		stopPlayback();
 	}
 
 	$effect(() => {
-		if (audioElement && ttsState.audioSrc && !ttsState.isGenerating) {
-			const shouldPlay = untrack(() => ttsState.isPlaying);
-			audioElement.src = ttsState.audioSrc;
-			audioElement.load();
-			if (shouldPlay) {
-				audioElement.play().catch((err: unknown) => {
-					if (err instanceof Error && err.name !== 'AbortError') {
-						ttsState.errorMessage = 'Playback was blocked by the browser.';
-					}
-				});
-			}
+		if (ttsState.blobs.length > 0 && ttsState.isPlaying) {
+			concatenateBlobs(ttsState.blobs).then((buf) => {
+				combinedBuffer = buf;
+				playBuffer();
+			});
+		} else if (ttsState.blobs.length === 0) {
+			combinedBuffer = null;
 		}
 	});
 
 	$effect(() => {
 		if (ttsState.isGenerating) {
-			audioElement?.pause();
+			stopPlayback();
 		}
 	});
 </script>
 
 <div class="tts-player">
 	<div class="controls">
-		<button
-			type="button"
-			onclick={() => ttsState.previousTrack()}
-			disabled={ttsState.currentIndex === 0}
-			aria-label="Previous track"
-		>
-			<Icon name="SkipBack" size={18} />
-		</button>
-
 		<button
 			type="button"
 			onclick={ttsState.isPlaying ? handleStop : togglePlay}
@@ -76,53 +150,17 @@
 				<Icon name="Play" size={18} />
 			{/if}
 		</button>
-
-		<button
-			type="button"
-			onclick={() => ttsState.nextTrack()}
-			disabled={ttsState.currentIndex >= ttsState.playlist.length - 1}
-			aria-label="Next track"
-		>
-			<Icon name="SkipForward" size={18} />
-		</button>
 	</div>
 
 	<div class="track-info">
 		<span class="counter">
-			{ttsState.currentIndex + 1} / {ttsState.playlist.length}
+			{ttsState.blobs.length} track{ttsState.blobs.length !== 1 ? 's' : ''}
 		</span>
 	</div>
 
 	{#if ttsState.isGenerating}
 		<span class="status">Generating...</span>
 	{/if}
-
-	<audio
-		bind:this={audioElement}
-		onplay={() => {
-			ttsState.isPlaying = true;
-		}}
-		onpause={() => {
-			ttsState.isPlaying = false;
-		}}
-		onended={handleEnded}
-		onloadeddata={() => {
-			console.log('[TTS] Audio loaded successfully:', audioElement?.src);
-		}}
-		onerror={(e) => {
-			const target = e.target as HTMLAudioElement;
-			const error = target.error;
-			console.error('[TTS] Audio error:', {
-				src: target.src,
-				code: error?.code,
-				message: error?.message,
-				networkState: target.networkState,
-				readyState: target.readyState
-			});
-			ttsState.errorMessage = `Playback error (${error?.code ?? 'unknown'})`;
-			ttsState.isPlaying = false;
-		}}
-	></audio>
 </div>
 
 {#if ttsState.errorMessage}

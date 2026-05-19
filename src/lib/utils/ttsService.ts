@@ -42,7 +42,6 @@ export async function addVoice(params: {
 export async function generateSpeech(params: {
 	text: string;
 	instruct?: string;
-	lang: string;
 	ref_audio: string;
 	ref_text: string;
 	num_step: number;

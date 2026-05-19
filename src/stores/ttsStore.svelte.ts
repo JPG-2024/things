@@ -26,14 +26,11 @@ class TTSState {
 	isLoading = $state(false);
 	isPlaying = $state(false);
 	errorMessage = $state('');
-	audioSrc = $state<string | null>(null);
 	durationSeconds = $state<number | null>(null);
 
 	textContents = $state<string[]>([]);
-	playlist = $state<string[]>([]);
-	currentIndex = $state(0);
 	isGenerating = $state(false);
-	blobUrls = $state<string[]>([]);
+	blobs = $state<Blob[]>([]);
 	durations = $state<number[]>([]);
 
 	language = $derived(viewState.language);
@@ -69,18 +66,10 @@ class TTSState {
 		this.textContents = [];
 	}
 
-	private revokeAllBlobUrls(): void {
-		for (const url of this.blobUrls) {
-			URL.revokeObjectURL(url);
-		}
-		this.blobUrls = [];
-	}
-
 	clearPlaylist(): void {
-		this.revokeAllBlobUrls();
-		this.playlist = [];
 		this.durations = [];
-		this.currentIndex = 0;
+		this.isPlaying = false;
+		this.blobs = [];
 	}
 
 	async generateTTS(): Promise<void> {
@@ -91,19 +80,17 @@ class TTSState {
 		this.isGenerating = true;
 		this.errorMessage = '';
 		this.isPlaying = false;
-		this.playlist = [];
+		this.durationSeconds = null;
 		this.durations = [];
-		this.currentIndex = 0;
+		this.blobs = [];
 
 		try {
-			const newBlobUrls: string[] = [];
-			const newPlaylist: string[] = [];
+			const newBlobs: Blob[] = [];
 			const newDurations: number[] = [];
 
 			for (const text of this.textContents) {
 				const res = await generateSpeech({
 					text,
-					lang: this.language,
 					ref_audio: this.config.refAudioFilename,
 					ref_text: this.config.refText,
 					num_step: this.config.numStep,
@@ -125,30 +112,14 @@ class TTSState {
 					throw new Error('Generated audio is empty (0 bytes)');
 				}
 
-				const contentType = res.blob.type || 'audio/mpeg';
-				if (!contentType.startsWith('audio/')) {
-					console.warn('[TTS] Unexpected blob MIME type:', contentType);
-				}
-
-				const url = URL.createObjectURL(res.blob);
-				console.log('[TTS] Created blob URL:', {
-					url,
-					size: res.blob.size,
-					type: contentType,
-					duration: res.durationSeconds
-				});
-				newBlobUrls.push(url);
-				newPlaylist.push(url);
+				newBlobs.push(res.blob);
 				newDurations.push(res.durationSeconds ?? 0);
 			}
 
-			//this.revokeAllBlobUrls();
-			this.blobUrls = newBlobUrls;
-			this.playlist = newPlaylist;
+			this.blobs = newBlobs;
 			this.durations = newDurations;
 
-			if (this.playlist.length > 0) {
-				this.audioSrc = this.playlist[0];
+			if (this.blobs.length > 0) {
 				this.isPlaying = true;
 			}
 		} catch (err) {
@@ -156,22 +127,6 @@ class TTSState {
 			console.error('[TTS] Generation error:', err);
 		} finally {
 			this.isGenerating = false;
-		}
-	}
-
-	nextTrack(): void {
-		if (this.currentIndex < this.playlist.length - 1) {
-			this.currentIndex++;
-			this.audioSrc = this.playlist[this.currentIndex];
-		} else {
-			this.isPlaying = false;
-		}
-	}
-
-	previousTrack(): void {
-		if (this.currentIndex > 0) {
-			this.currentIndex--;
-			this.audioSrc = this.playlist[this.currentIndex];
 		}
 	}
 
