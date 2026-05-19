@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
 		content: string;
@@ -20,6 +20,11 @@
 		if (tooltipEl && tooltipEl.parentElement !== document.body) {
 			document.body.appendChild(tooltipEl);
 		}
+		return () => {
+			if (tooltipEl && tooltipEl.parentElement === document.body) {
+				document.body.removeChild(tooltipEl);
+			}
+		};
 	});
 
 	function updatePosition() {
