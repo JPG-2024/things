@@ -63,7 +63,7 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'taskBase',
 		type: 'ia',
-		systemMessage: ``,
+		systemMessage: `Avoid Markdown`,
 		run: ({ state }) => {
 			const titleSummary = state[TaskNames.TITLE_SUMMARY];
 

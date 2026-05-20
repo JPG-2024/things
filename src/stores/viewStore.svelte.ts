@@ -42,6 +42,8 @@ class ViewState {
 	showAllTasks = $state(false);
 	lastHandledClipboardUrl = $state('');
 	clipboardPollingEnabled = $state(true);
+	urlQueue = $state<string[]>([]);
+	maxUrlQueueSize = $state(10);
 
 	// Unified modal state
 	modalSettingVisible = $state(false);

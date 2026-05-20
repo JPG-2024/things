@@ -118,12 +118,14 @@
 		{#if $query.data?.length}
 			<div class="img-flex">
 				{#if profile.profilePicture}
-					<img
-						src={profile.profilePicture}
-						alt={profile.name}
-						class="profile-avatar"
-						style={`view-transition-name: vt-profile-${toVTName(profile.id)}`}
-					/>
+					<Tooltip content={profile.name ?? ''}>
+						<img
+							src={profile.profilePicture}
+							alt={profile.name}
+							class="profile-avatar"
+							style={`view-transition-name: vt-profile-${toVTName(profile.id)}`}
+						/>
+					</Tooltip>
 				{/if}
 				{#each $query.data as article (article.url)}
 					<button

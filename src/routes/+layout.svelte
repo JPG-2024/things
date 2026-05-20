@@ -38,7 +38,7 @@
 		}
 	}
 
-	async function handlePasteUrl(url: string) {
+	async function handlePasteUrl(url: string, replaceState = false) {
 		const validUrl = extractValidUrl(url);
 		if (!validUrl || processingUrl) return;
 
@@ -46,10 +46,18 @@
 
 		try {
 			viewState.lastHandledClipboardUrl = validUrl;
-			navigate(`/youtube/${encodeURIComponent(validUrl)}`);
+			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
 			await urlRouter(validUrl);
 		} finally {
 			processingUrl = false;
+			await processQueue();
+		}
+	}
+
+	async function processQueue() {
+		while (viewState.urlQueue.length > 0) {
+			const nextUrl = viewState.urlQueue.shift()!;
+			await handlePasteUrl(nextUrl, true);
 		}
 	}
 
@@ -100,6 +108,13 @@
 				const validUrl = extractValidUrl(clipboardText ?? '');
 
 				if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
+					return;
+				}
+
+				if (processingUrl || viewState.loading) {
+					if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
+						viewState.urlQueue.push(validUrl);
+					}
 					return;
 				}
 

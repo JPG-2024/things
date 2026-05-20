@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { viewState } from '@/stores/viewStore.svelte';
 
 	interface Props {
@@ -10,7 +11,7 @@
 </script>
 
 <div class="top-bar">
-	<button onclick={() => history.back()} class="back-navigation">⬅</button>
+	<button onclick={() => goto('/')} class="back-navigation">⬅</button>
 	{#if viewState.domainUrl}
 		<button type="button" class="favicon-btn" aria-label="Navigate back">
 			<img

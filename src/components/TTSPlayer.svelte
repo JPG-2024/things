@@ -61,7 +61,6 @@
 		if (currentSource) {
 			currentSource.onended = null;
 			currentSource.stop();
-			currentSource.disconnect();
 			currentSource = null;
 		}
 
@@ -88,10 +87,8 @@
 		if (currentSource) {
 			currentSource.onended = null;
 			currentSource.stop();
-			currentSource.disconnect();
-			currentSource = null;
+			ttsState.isPlaying = false;
 		}
-		ttsState.isPlaying = false;
 	}
 
 	async function togglePlay() {
@@ -131,6 +128,16 @@
 		if (ttsState.isGenerating) {
 			stopPlayback();
 		}
+	});
+
+	$effect(() => {
+		return () => {
+			stopPlayback();
+			if (audioContext) {
+				audioContext.close();
+				audioContext = null;
+			}
+		};
 	});
 </script>
 

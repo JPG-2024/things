@@ -21,7 +21,6 @@
 
 	let processingUrl = $state(false);
 	let profileCategories = $state<ArticleProfile[]>([]);
-	$inspect(profileCategories);
 	async function loadProfiles() {
 		const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
 		const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);

@@ -28,10 +28,7 @@ export const getImageSrc = async (mediaDirectory: string, imgName: string): Prom
 	return convertFileSrc(filePath);
 };
 
-export async function downloadImageUrl(
-	url: string,
-	profile?: string | null
-): Promise<DownloadedImageResult> {
+export async function downloadImageUrl(url: string): Promise<DownloadedImageResult> {
 	const mediaDirectory = await resolveMediaDirectory(url);
 
 	const fileName = await invoke<string>('download_and_save_image', {

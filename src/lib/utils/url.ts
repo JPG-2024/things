@@ -12,8 +12,8 @@ export function toVTName(input: string): string {
 }
 
 // Programmatic navigation. The global onNavigate hook coordinates view transitions.
-export function navigate(route: string) {
-	return goto(route);
+export function navigate(route: string, options?: { replaceState?: boolean }) {
+	return goto(route, { replaceState: options?.replaceState ?? false });
 }
 
 export function getRouteForDomain(domainUrl: string): string {
