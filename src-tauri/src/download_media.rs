@@ -1,9 +1,13 @@
 use image::imageops::FilterType;
 use image::ImageFormat;
+use sha2::{Sha256, Digest};
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_http::reqwest;
-use uuid::Uuid;
+
+fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
+    bytes.as_ref().iter().map(|b| format!("{:02x}", b)).collect()
+}
 
 /// Downloads an image from a URL and saves it locally to the app's local data directory
 ///
@@ -59,13 +63,18 @@ pub async fn download_and_save_image(
     std::fs::create_dir_all(&media_dir)
         .map_err(|e| format!("Failed to create media directory: {}", e))?;
 
-    // Generate a unique filename using UUID
-    let filename = format!("{}.jpg", Uuid::new_v4());
+    // Generate a deterministic filename from the URL hash
+    let mut hasher = Sha256::new();
+    hasher.update(url.as_bytes());
+    let hash = hex_encode(hasher.finalize());
+    let filename = format!("{}.jpg", &hash[..16]);
 
     // Write the image file
     let filepath = media_dir.join(&filename);
 
+    // Skip download if file already exists
     if filepath.exists() {
+        println!("[Image] File already exists, skipping download: {}", filename);
         return Ok(filename);
     }
 
