@@ -53,6 +53,7 @@ class TTSState {
 	addVoiceStatus = $state<'' | 'downloading' | 'transcribing' | 'chunking' | 'done' | 'error'>('');
 	addVoiceMessage = $state('');
 	addVoiceLoading = $state(false);
+	private eventSource: EventSource | null = null;
 
 	setTextContents(contents: string[]): void {
 		this.textContents = contents;
@@ -72,17 +73,21 @@ class TTSState {
 		this.blobs = [];
 	}
 
+	releaseBlobs(): void {
+		this.blobs = [];
+		this.durations = [];
+	}
+
 	async generateTTS(): Promise<void> {
 		if (this.isGenerating || this.textContents.length === 0) {
 			return;
 		}
 
+		this.releaseBlobs();
 		this.isGenerating = true;
 		this.errorMessage = '';
 		this.isPlaying = false;
 		this.durationSeconds = null;
-		this.durations = [];
-		this.blobs = [];
 
 		try {
 			const newBlobs: Blob[] = [];
@@ -130,17 +135,31 @@ class TTSState {
 		}
 	}
 
+	cleanup(): void {
+		if (this.eventSource) {
+			this.eventSource.close();
+			this.eventSource = null;
+		}
+	}
+
 	async startAddVoice(): Promise<void> {
+		if (this.eventSource) {
+			this.eventSource.close();
+			this.eventSource = null;
+		}
+
 		this.addVoiceLoading = true;
 		this.addVoiceStatus = '';
 		this.addVoiceMessage = '';
 		try {
-			const { taskId, source } = await addVoice({
+			const { source } = await addVoice({
 				url: this.videoUrl,
 				segment: this.segment,
 				name_prefix: this.namePrefix,
 				chunk_count: this.chunkCount
 			});
+
+			this.eventSource = source;
 
 			console.log(source);
 
@@ -156,12 +175,14 @@ class TTSState {
 					}
 					if (eventName === 'done' || eventName === 'error') {
 						source.close();
+						this.eventSource = null;
 						this.addVoiceLoading = false;
 						resolve();
 					}
 				};
 				source.onerror = () => {
 					source.close();
+					this.eventSource = null;
 					this.addVoiceLoading = false;
 					this.addVoiceStatus = 'error';
 					this.addVoiceMessage = 'Connection lost';
