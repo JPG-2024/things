@@ -23,7 +23,7 @@ export enum WebTaskNames {
 	MAIN_COLOR = 'main-color',
 	TITLE = 'title',
 	CONTENT = 'content',
-	SUMMARY = 'summary',
+	TITLE_SUMMARY = 'title-summary',
 	KEYWORDS = 'keywords',
 	KEYPOINTS = 'key-points'
 }
@@ -34,7 +34,7 @@ export type WebTaskState = {
 	[WebTaskNames.THUMBNAIL]: WebThumbnailContext;
 	[WebTaskNames.TITLE]: string;
 	[WebTaskNames.CONTENT]: string;
-	[WebTaskNames.SUMMARY]: string;
+	[WebTaskNames.TITLE_SUMMARY]: string;
 	[WebTaskNames.KEYWORDS]: string;
 	[WebTaskNames.KEYPOINTS]: string;
 };

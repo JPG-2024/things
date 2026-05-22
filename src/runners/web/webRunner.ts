@@ -9,21 +9,21 @@ const webPage: WebTaskNames[] = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
-	WebTaskNames.SUMMARY
+	WebTaskNames.TITLE_SUMMARY
 ];
 
 const quickArticle: WebTaskNames[] = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
-	WebTaskNames.SUMMARY,
+	WebTaskNames.TITLE_SUMMARY,
 	WebTaskNames.KEYWORDS
 ];
 
 const minimalArticle: WebTaskNames[] = [
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
-	WebTaskNames.SUMMARY
+	WebTaskNames.TITLE_SUMMARY
 ];
 
 const routine = {

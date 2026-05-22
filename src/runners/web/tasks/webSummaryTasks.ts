@@ -5,11 +5,11 @@ import {
 	type WebTaskRegistrySubset
 } from './webTasks.shared';
 
-type SummaryTaskIds = WebTaskNames.SUMMARY | WebTaskNames.KEYWORDS | WebTaskNames.KEYPOINTS;
+type SummaryTaskIds = WebTaskNames.TITLE_SUMMARY | WebTaskNames.KEYWORDS | WebTaskNames.KEYPOINTS;
 
 export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
-	[WebTaskNames.SUMMARY]: ({ language, freshRun }) => ({
-		id: WebTaskNames.SUMMARY,
+	[WebTaskNames.TITLE_SUMMARY]: ({ language, freshRun }) => ({
+		id: WebTaskNames.TITLE_SUMMARY,
 		dependencies: [WebTaskNames.CONTENT],
 		component: 'taskBase',
 		componentProps: {
@@ -18,7 +18,7 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 		type: 'ia',
 		systemMessage: `You are a professional article summarizer. Write a concise and clear summary . Keep the response under 80 words.`,
 		run: getContentFromState,
-		userMessage: `Summarize the article context in one paragraph. start with a short keywords summary. Answer in in ${language === 'es' ? 'Spanish' : 'English'}`,
+		userMessage: `Summarize the article context in one paragraph. Answer in in ${language === 'es' ? 'Spanish' : 'English'}`,
 		completionOptions: defaultCompletionOptions
 	}),
 
