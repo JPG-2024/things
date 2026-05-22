@@ -2,17 +2,14 @@
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
 		deleteProfileById,
-		getArticleWithTasksByUrl,
 		getArticlesByProfile,
 		type ArticleProfile,
 		type ArticleWithTasks
 	} from '@/stores/tasksStore';
-	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 
 	interface Props {
@@ -22,27 +19,6 @@
 	}
 
 	let { profile, showTitle = false, onDeleted }: Props = $props();
-
-	let hoveredArticleUrl = $state<string | null>(null);
-
-	const cleanup = createHotkey(
-		'S',
-		async () => {
-			if (!hoveredArticleUrl) return;
-			const article = await getArticleWithTasksByUrl(hoveredArticleUrl);
-			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
-			if (!titleSummaryTask?.data) {
-				throw new Error('No title-summary data found for this article');
-			}
-
-			ttsState.setTextContents([titleSummaryTask.data as string]);
-			await ttsState.generateTTS();
-		},
-		() => ({
-			enabled: hoveredArticleUrl !== null,
-			ignoreInputs: true
-		})
-	);
 
 	const queryClient = useQueryClient();
 
@@ -118,22 +94,28 @@
 		{#if $query.data?.length}
 			<div class="img-flex">
 				{#if profile.profilePicture}
-					<Tooltip content={profile.name ?? ''}>
-						<img
-							src={profile.profilePicture}
-							alt={profile.name}
-							class="profile-avatar"
-							style={`view-transition-name: vt-profile-${toVTName(profile.id)}`}
-						/>
-					</Tooltip>
+					<img
+						src={profile.profilePicture}
+						alt={profile.name}
+						class="profile-avatar"
+						style={`view-transition-name: vt-profile-${toVTName(profile.id)}`}
+						onmouseenter={() => {
+							viewState.hoveredProfileName = profile.name;
+							viewState.hoveredProfileId = profile.id;
+						}}
+						onmouseleave={() => {
+							viewState.hoveredProfileName = null;
+							viewState.hoveredProfileId = null;
+						}}
+					/>
 				{/if}
 				{#each $query.data as article (article.url)}
 					<button
 						type="button"
 						class="img-button"
 						onclick={() => handleNavigateToArticle(article)}
-						onmouseenter={() => (hoveredArticleUrl = article.url ?? null)}
-						onmouseleave={() => (hoveredArticleUrl = null)}
+						onmouseenter={() => (viewState.hoveredArticleUrl = article.url ?? null)}
+						onmouseleave={() => (viewState.hoveredArticleUrl = null)}
 						aria-label="View article"
 					>
 						<Tooltip content={article.title ?? ''}>
@@ -221,7 +203,7 @@
 		padding: 0;
 		cursor: pointer;
 		border-radius: 0.5rem;
-		transition: transform 0.2s;
+		transition: transform 0.1s;
 	}
 
 	.img-button:hover {
@@ -243,5 +225,11 @@
 		object-fit: cover;
 		flex-shrink: 0;
 		margin-right: 0.5rem;
+		transition: transform 0.1s;
+	}
+
+	.profile-avatar:hover {
+		transform: scale(1.2);
+		z-index: 20;
 	}
 </style>

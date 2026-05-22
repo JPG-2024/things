@@ -8,14 +8,16 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		getProfilesWithArticlesAfter,
 		UNKNOWN_PROFILE_ID,
 		UNKNOWN_PROFILE_LABEL,
+		getArticleWithTasksByUrl,
 		type ArticleProfile
 	} from '@/stores/tasksStore';
-	import { primaryColor } from '@/stores/uiStore';
-	import { viewState } from '@/stores/viewStore.svelte';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -87,6 +89,42 @@
 	}
 
 	const queryClient = useQueryClient();
+
+	const sHotkey = createHotkey(
+		'S',
+		async () => {
+			if (!viewState.hoveredArticleUrl) return;
+			const article = await getArticleWithTasksByUrl(viewState.hoveredArticleUrl);
+			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
+			if (!titleSummaryTask?.data) {
+				throw new Error('No title-summary data found for this article');
+			}
+			ttsState.setTextContents([titleSummaryTask.data as string]);
+			await ttsState.generateTTS();
+		},
+		() => ({
+			enabled: viewState.hoveredArticleUrl !== null,
+			ignoreInputs: true
+		})
+	);
+
+	const pHotkey = createHotkey(
+		'P',
+		async () => {
+			if (!viewState.hoveredProfileName) return;
+			const profile = profileCategories.find((p) => p.name === viewState.hoveredProfileName);
+			if (!profile) return;
+			const profileUrl = `https://www.youtube.com/${viewState.hoveredProfileName}/videos`;
+			viewState.lastHandledClipboardUrl = profileUrl;
+			navigate(profileUrl);
+			await urlRouter(profileUrl);
+			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
+		},
+		() => ({
+			enabled: viewState.hoveredProfileName !== null,
+			ignoreInputs: true
+		})
+	);
 
 	onMount(() => {
 		void (async () => {
