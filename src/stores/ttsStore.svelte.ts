@@ -31,7 +31,6 @@ class TTSState {
 	textContents = $state<string[]>([]);
 	isGenerating = $state(false);
 	blobs = $state<Blob[]>([]);
-	durations = $state<number[]>([]);
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -68,14 +67,12 @@ class TTSState {
 	}
 
 	clearPlaylist(): void {
-		this.durations = [];
 		this.isPlaying = false;
 		this.blobs = [];
 	}
 
 	releaseBlobs(): void {
 		this.blobs = [];
-		this.durations = [];
 	}
 
 	async generateTTS(): Promise<void> {
@@ -87,11 +84,9 @@ class TTSState {
 		this.isGenerating = true;
 		this.errorMessage = '';
 		this.isPlaying = false;
-		this.durationSeconds = null;
 
 		try {
-			const newBlobs: Blob[] = [];
-			const newDurations: number[] = [];
+			let totalDuration = 0;
 
 			for (const text of this.textContents) {
 				const res = await generateSpeech({
@@ -117,12 +112,11 @@ class TTSState {
 					throw new Error('Generated audio is empty (0 bytes)');
 				}
 
-				newBlobs.push(res.blob);
-				newDurations.push(res.durationSeconds ?? 0);
+				this.blobs.push(res.blob);
+				totalDuration += res.durationSeconds ?? 0;
 			}
 
-			this.blobs = newBlobs;
-			this.durations = newDurations;
+			this.durationSeconds = totalDuration;
 
 			if (this.blobs.length > 0) {
 				this.isPlaying = true;

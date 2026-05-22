@@ -95,8 +95,6 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				}
 			);
 
-			debugger;
-
 			const profile = {
 				name: result.profile[0],
 				profilePicture: result.profilePicture[1]

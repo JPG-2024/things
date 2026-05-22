@@ -6,6 +6,10 @@
 	let currentSource: AudioBufferSourceNode | null = $state(null);
 	let combinedBuffer: AudioBuffer | null = $state(null);
 	let isSettingUp = false;
+	let playbackStartTime = 0;
+	let totalPlaybackDuration = 0;
+	let remainingSeconds = $state(0);
+	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
 	function getAudioContext(): AudioContext {
 		if (!audioContext) {
@@ -64,22 +68,30 @@
 			currentSource = null;
 		}
 
+		clearCountdown();
+
 		const ctx = getAudioContext();
 		const source = ctx.createBufferSource();
 		source.buffer = combinedBuffer;
 		source.connect(ctx.destination);
+
+		playbackStartTime = performance.now();
+		totalPlaybackDuration = combinedBuffer.duration;
 
 		source.onended = () => {
 			if (currentSource === source) {
 				currentSource.disconnect();
 				currentSource = null;
 				ttsState.isPlaying = false;
+				clearCountdown();
+				remainingSeconds = 0;
 			}
 		};
 
 		source.start(0);
 		currentSource = source;
 		ttsState.isPlaying = true;
+		startCountdown();
 		isSettingUp = false;
 	}
 
@@ -89,6 +101,29 @@
 			currentSource.stop();
 			ttsState.isPlaying = false;
 		}
+		clearCountdown();
+		remainingSeconds = 0;
+	}
+
+	function startCountdown() {
+		clearCountdown();
+		countdownInterval = setInterval(() => {
+			const elapsed = (performance.now() - playbackStartTime) / 1000;
+			remainingSeconds = Math.max(0, Math.ceil(totalPlaybackDuration - elapsed));
+		}, 500);
+	}
+
+	function clearCountdown() {
+		if (countdownInterval !== null) {
+			clearInterval(countdownInterval);
+			countdownInterval = null;
+		}
+	}
+
+	function formatTime(seconds: number): string {
+		const m = Math.floor(seconds / 60);
+		const s = seconds % 60;
+		return `${m}:${s.toString().padStart(2, '0')}`;
 	}
 
 	async function togglePlay() {
@@ -160,9 +195,11 @@
 	</div>
 
 	<div class="track-info">
-		<span class="counter">
-			{ttsState.blobs.length} track{ttsState.blobs.length !== 1 ? 's' : ''}
-		</span>
+		{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0}
+			<span class="remaining">
+				{ttsState.isPlaying ? '-' : ''}{formatTime(remainingSeconds)}
+			</span>
+		{/if}
 	</div>
 
 	{#if ttsState.isGenerating}
@@ -230,6 +267,12 @@
 		font-size: 0.85rem;
 		font-variant-numeric: tabular-nums;
 		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.remaining {
+		font-size: 0.85rem;
+		font-variant-numeric: tabular-nums;
+		color: rgba(255, 255, 255, 0.9);
 	}
 
 	.status {

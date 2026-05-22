@@ -50,6 +50,9 @@ class ViewState {
 
 	url = $state<string | null>(null);
 	prompt = $state<string | null>(null);
+	hoveredProfileName = $state<string | null>(null);
+	hoveredProfileId = $state<string | null>(null);
+	hoveredArticleUrl = $state<string | null>(null);
 
 	articleId = $state<number | null>(null);
 	mediaDirectory = $state<string | null>(null);

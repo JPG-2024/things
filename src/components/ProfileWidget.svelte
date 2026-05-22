@@ -2,6 +2,7 @@
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
+	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
 		deleteProfileById,
@@ -194,10 +195,11 @@
 		gap: 1rem;
 		justify-content: center;
 		width: 100%;
-		padding: 5px;
 	}
 
 	.img-button {
+		display: flex;
+		align-items: center;
 		border: none;
 		background: none;
 		padding: 0;
@@ -207,7 +209,7 @@
 	}
 
 	.img-button:hover {
-		transform: scale(1.2);
+		transform: scale(1.05);
 		z-index: 20;
 	}
 
@@ -229,7 +231,7 @@
 	}
 
 	.profile-avatar:hover {
-		transform: scale(1.2);
+		transform: scale(1.1);
 		z-index: 20;
 	}
 </style>

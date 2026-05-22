@@ -622,7 +622,7 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 
 		return mapStoredArticle(row);
 	} catch (error) {
-		console.error('Error querying LanceDB article', error);
+		console.error('Error querying article', error);
 		return null;
 	}
 }

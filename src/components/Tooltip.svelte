@@ -85,11 +85,12 @@
 		color: white;
 		padding: 0.4rem 0.7rem;
 		border-radius: 0.35rem;
-		font-size: 0.75rem;
+		font-size: 0.8rem;
 		white-space: normal;
 		z-index: 9999;
 		pointer-events: none;
-		max-width: 350px;
+		max-width: 300px;
+		min-width: 300px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		transform: translate(-50%, -100%);

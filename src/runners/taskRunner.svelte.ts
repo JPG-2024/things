@@ -460,6 +460,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			stream: useStream,
 			think: false,
 			enable_thinking: false,
+			cache_prompt: false,
 			messages: [
 				{ role: 'system', content: task.systemMessage },
 				{ role: 'user', content: userContent }
