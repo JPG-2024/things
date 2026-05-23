@@ -76,12 +76,10 @@
 		<Icon name="Settings" title="Settings" onClick={() => (viewState.modalSettingVisible = true)} />
 	</Topbar>
 
-	<div class="header-container">
-		<div class="header">
-			{#if headerContent}
-				{@render headerContent()}
-			{/if}
-		</div>
+	<div class="header">
+		{#if headerContent}
+			{@render headerContent()}
+		{/if}
 	</div>
 
 	{@render summaryContent()}
@@ -107,18 +105,9 @@
 		margin-bottom: 30px;
 	}
 
-	.header-container {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: 0.8rem;
-	}
-
 	.header {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		align-items: center;
 		gap: 15px;
 		width: 100%;
 	}

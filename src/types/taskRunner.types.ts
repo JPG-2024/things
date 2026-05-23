@@ -69,10 +69,10 @@ interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	data?: TMap[TId];
 	component?: string;
 	componentProps?: TaskComponentProps;
+	gridSpan?: 1 | 2 | 3;
 	persist?: boolean;
 	status?: TaskStatus;
 	error?: string;
-	// Optional field to store debug information about the task execution, such as intermediate results or logs
 	debug?: string;
 	startedAt?: number;
 	endedAt?: number;

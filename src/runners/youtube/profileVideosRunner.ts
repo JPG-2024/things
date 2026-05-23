@@ -21,7 +21,7 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 		});
 
 		const runResult = await workflowManager.run(runId, tasks, {
-			makeActive: true,
+			makeActive: false,
 			stream: true
 		});
 
@@ -37,8 +37,6 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 				? ((extractChannelVideosTask.data as { lastVideoDate?: string | null }).lastVideoDate ??
 					null)
 				: null;
-
-		debugger;
 
 		if (extractProfileTask?.data && typeof extractProfileTask.data === 'object') {
 			const profileData = extractProfileTask.data as { name?: string; profilePicture?: string };

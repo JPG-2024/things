@@ -94,10 +94,10 @@
 	.info-row {
 		font-size: 0.9rem;
 		display: flex;
-		align-items: center;
-		gap: 1rem;
+		flex-direction: column;
+		align-items: start;
+		gap: 0.5rem;
 		margin-top: 0.5rem;
 		justify-content: start;
-		align-items: center;
 	}
 </style>
