@@ -91,6 +91,7 @@ type ProfileWithMostRecentArticle = {
 	name: string;
 	mostRecentCreatedAt: number;
 	profilePicture?: string;
+	lastVideoDate?: string;
 };
 
 type UpsertStoredArticleInput = {
@@ -680,14 +681,19 @@ export async function deleteProfileById(
 	}
 }
 
-export async function saveProfile(name: string, profilePicture: string | null): Promise<void> {
+export async function saveProfile(
+	name: string,
+	profilePicture: string | null,
+	lastVideoDate: string | null
+): Promise<void> {
 	try {
 		const profileId = name.toLowerCase().replace(/\s+/g, '-');
 		await invoke('upsert_stored_article_profile', {
 			input: {
 				id: profileId,
 				name,
-				profilePicture
+				profilePicture,
+				lastVideoDate
 			}
 		});
 	} catch (error) {

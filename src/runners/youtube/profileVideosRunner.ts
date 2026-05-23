@@ -29,10 +29,21 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 
 		const extractProfileTask = completedTasks.find((t) => t.id === TaskNames.EXTRACT_PROFILE);
 
+		const extractChannelVideosTask = completedTasks.find(
+			(t) => t.id === TaskNames.EXTRACT_CHANNEL_VIDEOS
+		);
+		const lastVideoDate =
+			extractChannelVideosTask?.data && typeof extractChannelVideosTask.data === 'object'
+				? ((extractChannelVideosTask.data as { lastVideoDate?: string | null }).lastVideoDate ??
+					null)
+				: null;
+
+		debugger;
+
 		if (extractProfileTask?.data && typeof extractProfileTask.data === 'object') {
 			const profileData = extractProfileTask.data as { name?: string; profilePicture?: string };
 			if (profileData.name) {
-				await saveProfile(profileData.name, profileData.profilePicture ?? null);
+				await saveProfile(profileData.name, profileData.profilePicture ?? null, lastVideoDate);
 			}
 		}
 

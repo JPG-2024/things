@@ -37,6 +37,7 @@ pub struct StoredArticleProfileRecord {
     pub name: String,
     pub count: i64,
     pub profile_picture: Option<String>,
+    pub last_video_date: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +54,7 @@ pub struct ProfileWithMostRecentArticle {
     pub name: String,
     pub most_recent_created_at: i64,
     pub profile_picture: Option<String>,
+    pub last_video_date: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,10 +136,33 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             name TEXT NOT NULL,
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
+            last_video_date TEXT,
             updated_at INTEGER NOT NULL
         );"
     ).map_err(|error| error.to_string())?;
-    
+
+    migrate_add_last_video_date(conn)?;
+
+    Ok(())
+}
+
+fn migrate_add_last_video_date(conn: &Connection) -> Result<(), String> {
+    let table_sql: Result<String, _> = conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='profiles'",
+        [],
+        |row| row.get(0),
+    );
+
+    match table_sql {
+        Ok(sql) if sql.contains("last_video_date") => {
+            // Column exists, nothing to do
+        }
+        _ => {
+            conn.execute("ALTER TABLE profiles ADD COLUMN last_video_date TEXT", [])
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
     Ok(())
 }
 
@@ -199,6 +224,7 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
                 name,
                 count: 1,
                 profile_picture: None,
+                last_video_date: None,
             });
     }
 
@@ -285,7 +311,7 @@ fn query_articles(
 
 fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture FROM profiles ORDER BY count DESC, name ASC")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM profiles ORDER BY count DESC, name ASC")
         .map_err(|error| error.to_string())?;
 
     let profile_iter = stmt
@@ -295,6 +321,7 @@ fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, 
                 name: row.get(1)?,
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
+                last_video_date: row.get(4)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -313,13 +340,14 @@ fn upsert_profile(
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT OR REPLACE INTO profiles (id, name, count, profile_picture, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT OR REPLACE INTO profiles (id, name, count, profile_picture, last_video_date, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             profile.id,
             profile.name,
             profile.count,
             profile.profile_picture,
+            profile.last_video_date,
             updated_at
         ],
     )
@@ -363,6 +391,7 @@ fn rebuild_profiles_from_articles(
                 name: String::new(),
                 count: 0,
                 profile_picture: Some(picture),
+                last_video_date: None,
             });
         }
     }
@@ -480,18 +509,25 @@ pub async fn list_profiles_with_articles_after(
             .or_insert((name, most_recent));
     }
 
-    let profile_pictures: HashMap<String, Option<String>> = query_profiles(&conn)?
+    let profile_data: HashMap<String, (Option<String>, Option<String>)> = query_profiles(&conn)?
         .into_iter()
-        .map(|profile| (profile.id, profile.profile_picture))
+        .map(|profile| (profile.id, (profile.profile_picture, profile.last_video_date)))
         .collect();
 
     let mut profiles: Vec<ProfileWithMostRecentArticle> = profile_map
         .into_iter()
-        .map(|(id, (name, most_recent_created_at))| ProfileWithMostRecentArticle {
-            id: id.clone(),
-            name,
-            most_recent_created_at,
-            profile_picture: profile_pictures.get(&id).cloned().flatten(),
+        .map(|(id, (name, most_recent_created_at))| {
+            let (profile_picture, last_video_date) = profile_data
+                .get(&id)
+                .cloned()
+                .unwrap_or((None, None));
+            ProfileWithMostRecentArticle {
+                id: id.clone(),
+                name,
+                most_recent_created_at,
+                profile_picture,
+                last_video_date,
+            }
         })
         .collect();
 
@@ -612,6 +648,7 @@ pub struct UpsertStoredArticleProfileInput {
     pub id: String,
     pub name: String,
     pub profile_picture: Option<String>,
+    pub last_video_date: Option<String>,
 }
 
 #[tauri::command]
@@ -627,6 +664,7 @@ pub async fn upsert_stored_article_profile(
         name: input.name,
         count: 0,
         profile_picture: input.profile_picture,
+        last_video_date: input.last_video_date,
     };
 
     upsert_profile(&conn, &profile)?;

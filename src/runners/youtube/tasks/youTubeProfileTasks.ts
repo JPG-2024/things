@@ -13,6 +13,8 @@ import {
 } from './youtubeTasks.shared';
 import { youTubeRunner } from '../youTubeRunner';
 
+const dateRegex = /\d{1,2}\s[a-zA-Z]+\s\d{4}/i;
+
 type ProfileTaskIds =
 	| TaskNames.INIT
 	| TaskNames.THUMBNAIL
@@ -143,7 +145,25 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const { videoIds } = getRequiredTaskState(state, TaskNames.GET_CHANNEL_VIDEOS);
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
-			const urlsToProcess = fullUrls.slice(0, 5).reverse(); // Process in reverse order to prioritize newer videos
+			const firstVideoUrl = removeYTPpParam(fullUrls[0]);
+			const videoInfo = await invoke<{ uploadDate: string[] }>('get_page_elements', {
+				...buildVideoPageParams(firstVideoUrl),
+				selectors: [
+					{
+						name: 'uploadDate',
+						selector: 'div#info yt-formatted-string'
+					}
+				],
+				attempts: 5,
+				intervalMs: 200
+			});
+
+			const lastVideoDate = videoInfo.uploadDate.find((d) => dateRegex.test(d)) ?? 0;
+
+			const date = new Date(lastVideoDate);
+			const formattedDate = date.toISOString().split('T')[0];
+
+			const urlsToProcess = fullUrls.slice(0, 2).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
 				arr[index] = removeYTPpParam(url);
 			});
@@ -183,7 +203,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				);
 			}
 
-			return { fullUrls, results };
+			return { fullUrls, results, formattedDate };
 		}
 	})
 };
