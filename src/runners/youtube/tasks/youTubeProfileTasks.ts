@@ -158,10 +158,10 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				intervalMs: 200
 			});
 
-			const lastVideoDate = videoInfo.uploadDate.find((d) => dateRegex.test(d)) ?? 0;
+			let lastVideoDate = videoInfo.uploadDate.find((d) => dateRegex.test(d)) ?? 0;
 
 			const date = new Date(lastVideoDate);
-			const formattedDate = date.toISOString().split('T')[0];
+			lastVideoDate = date.toISOString().split('T')[0];
 
 			const urlsToProcess = fullUrls.slice(0, 2).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
@@ -203,7 +203,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				);
 			}
 
-			return { fullUrls, results, formattedDate };
+			return { fullUrls, results, lastVideoDate };
 		}
 	})
 };

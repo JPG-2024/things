@@ -32,6 +32,7 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 		const extractChannelVideosTask = completedTasks.find(
 			(t) => t.id === TaskNames.EXTRACT_CHANNEL_VIDEOS
 		);
+
 		const lastVideoDate =
 			extractChannelVideosTask?.data && typeof extractChannelVideosTask.data === 'object'
 				? ((extractChannelVideosTask.data as { lastVideoDate?: string | null }).lastVideoDate ??

@@ -74,7 +74,7 @@ class ViewState {
 	messages = $state<Message[]>([]);
 
 	// AI provider configuration
-	aiProvider = $state<'llama' | 'openrouter'>('llama');
+	aiProvider = $state<'llama' | 'openrouter'>('openrouter');
 	openrouterModel = $state('liquid/lfm-2.5-1.2b-instruct:free');
 
 	// Derived state (computed values)

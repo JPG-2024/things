@@ -81,11 +81,17 @@
 
 	.tooltip {
 		position: fixed;
-		background: rgba(0, 0, 0, 0.9);
-		color: white;
+		backdrop-filter: blur(8px);
+		box-sizing: border-box;
+		outline: none;
+		border: none;
+		border-radius: 12px;
+		background: rgba(21, 21, 21, 0.9);
+		box-shadow: inset 0 -1px 2px 0px var(--primary-color);
+		border: 1px solid var(--primary-color);
 		padding: 0.4rem 0.7rem;
-		border-radius: 0.35rem;
-		font-size: 0.8rem;
+		color: inherit;
+		font-size: 0.9rem;
 		white-space: normal;
 		z-index: 9999;
 		pointer-events: none;

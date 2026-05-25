@@ -4,19 +4,22 @@
 		children?: Snippet;
 		title?: string;
 		showBorders?: boolean;
+		loading?: boolean;
 	};
 	let {
 		children,
 		title = '',
-		showBorders = false
+		showBorders = false,
+		loading = false
 	}: {
 		children?: Snippet;
 		title?: string;
 		showBorders?: boolean;
+		loading?: boolean;
 	} = $props();
 </script>
 
-<div class="widget" class:no-borders={!showBorders} role="group">
+<div class="widget" class:no-borders={!showBorders} class:loading role="group">
 	{#if title}
 		<div class="widget-title">{title}</div>
 	{/if}
@@ -48,10 +51,21 @@
 		max-height: 100%;
 		box-sizing: border-box;
 		background: rgba(255, 255, 255, 0.09);
+		background-size: 200% 200%;
 		backdrop-filter: blur(20px);
 		border-radius: 12px;
 		padding: 7px;
 		overflow: hidden;
+	}
+
+	.widget.loading {
+		background-image: linear-gradient(
+			120deg,
+			rgb(from var(--primary-color) r g b / 0.08) 0%,
+			rgb(from var(--primary-color) r g b / 0.24) 50%,
+			rgb(from var(--primary-color) r g b / 0.08) 100%
+		);
+		animation: card-loading-gradient 2.4s ease-in-out infinite;
 	}
 
 	.widget-title {
@@ -165,5 +179,19 @@
 		width: 60px;
 		height: 60px;
 		pointer-events: none;
+	}
+
+	@keyframes card-loading-gradient {
+		0% {
+			background-position: 0% 50%;
+		}
+
+		50% {
+			background-position: 100% 50%;
+		}
+
+		100% {
+			background-position: 0% 50%;
+		}
 	}
 </style>

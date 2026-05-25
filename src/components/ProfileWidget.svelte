@@ -216,6 +216,7 @@
 	.mini-img {
 		width: 80px;
 		height: 55px;
+		border-radius: 12px;
 		object-fit: cover;
 		display: block;
 	}
