@@ -2,7 +2,7 @@ import {
 	chatCompletions,
 	LlamaChatCompletionError,
 	type LlamaChatCompletionsRequest
-} from '@/lib/utils/llama-completions';
+} from '@/lib/utils/chat-completions-provider';
 import type {
 	IaTask,
 	Task,

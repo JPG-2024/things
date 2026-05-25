@@ -73,6 +73,10 @@ class ViewState {
 
 	messages = $state<Message[]>([]);
 
+	// AI provider configuration
+	aiProvider = $state<'llama' | 'openrouter'>('llama');
+	openrouterModel = $state('liquid/lfm-2.5-1.2b-instruct:free');
+
 	// Derived state (computed values)
 	markdownContent = $derived(this.markdownStatus?.data || '');
 	metadataContent = $derived(this.metadataStatus?.data || {});

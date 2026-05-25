@@ -2,8 +2,8 @@
 	import type {
 		LlamaChatCompletionsRequest,
 		LlamaChatCompletionsResponse
-	} from '@/lib/utils/llama-completions';
-	import { chatCompletions } from '@/lib/utils/llama-completions';
+	} from '@/lib/utils/chat-completions-provider';
+	import { chatCompletions } from '@/lib/utils/chat-completions-provider';
 	import Input from './inputs/Input.component.svelte';
 
 	const DEFAULT_COMPLETION_PARAMETERS: LlamaChatCompletionsRequest = {

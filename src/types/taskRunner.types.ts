@@ -1,7 +1,7 @@
 import type {
 	LlamaChatCompletionsRequest,
 	LlamaChatCompletionsResponse
-} from '@/lib/utils/llama-completions';
+} from '@/lib/utils/chat-completions-provider';
 
 export enum TaskTypesEnum {
 	SCRIPT = 'script',

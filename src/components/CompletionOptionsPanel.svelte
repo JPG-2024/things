@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions';
+	import type { LlamaChatCompletionsRequest } from '@/lib/utils/chat-completions-provider';
 
 	interface CompletionParams extends Omit<LlamaChatCompletionsRequest, 'model' | 'messages'> {}
 

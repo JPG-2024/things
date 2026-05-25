@@ -1,5 +1,5 @@
 import { SIMPLE_SUMMARY_SYSTEM_PROMPT_EN, SIMPLE_SUMMARY_SYSTEM_PROMPT_ES } from '@/constants';
-import { chatCompletions } from '@/lib/utils/llama-completions';
+import { chatCompletions } from '@/lib/utils/chat-completions-provider';
 import type { ChapterCaption } from './joinCaptionsByChapters';
 
 export type ChapterSummaryItem = {

@@ -5,7 +5,7 @@
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { chatCompletions, type LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions';
+	import { chatCompletions, type LlamaChatCompletionsRequest } from '@/lib/utils/chat-completions-provider';
 
 	interface ChatMessage {
 		id: string;

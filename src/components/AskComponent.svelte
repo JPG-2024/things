@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
-	import { chatCompletions, type LlamaChatCompletionsRequest } from '@/lib/utils/llama-completions';
+	import { chatCompletions, type LlamaChatCompletionsRequest } from '@/lib/utils/chat-completions-provider';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 
 	type AskComponentProps = TaskComponentProps & {
