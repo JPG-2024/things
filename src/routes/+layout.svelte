@@ -6,7 +6,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, onNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
@@ -95,6 +95,22 @@
 		ttsState.clearPlaylist();
 	});
 
+	onNavigate((navigation) => {
+		const anyDoc: any = document;
+		if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return;
+
+		if (document.hidden) {
+			return;
+		}
+
+		return new Promise((resolve) => {
+			anyDoc.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+
 	onMount(() => {
 		let stopFlow: undefined | (() => void);
 		viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop));
@@ -144,25 +160,6 @@
 			clearInterval(clipboardInterval);
 		};
 	});
-
-	// Global View Transitions wrapper for all client navigations
-	/*   onNavigate((navigation) => {
-    const anyDoc: any = document
-    if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return
-
-    if (document.hidden) {
-      return
-    }
-
-    return new Promise((resolve) => {
-      anyDoc.startViewTransition(async () => {
-        // Allow SvelteKit to proceed with navigation
-        resolve()
-        // Wait until the new route is fully rendered so the "new" snapshot has the elements
-        await navigation.complete
-      })
-    })
-  }) */
 </script>
 
 <QueryClientProvider client={queryClient}>
