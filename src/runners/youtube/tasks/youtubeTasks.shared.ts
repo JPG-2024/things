@@ -23,6 +23,7 @@ export type YouTubePlayerContext = {
 	thumbnailImage: string;
 	thumbnailImageSrc: string;
 	videoId: string;
+	url: string;
 };
 
 export type ChapterContext = {

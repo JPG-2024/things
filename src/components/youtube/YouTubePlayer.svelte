@@ -36,7 +36,12 @@
 			}}
 			aria-label="Play video"
 		>
-			<img src={playerData.thumbnailImageSrc} alt="YouTube thumbnail" class="yt-thumbnail" />
+			<img
+				src={playerData.thumbnailImageSrc}
+				alt="YouTube thumbnail"
+				class="yt-thumbnail"
+				style={`view-transition-name: vt-main-image-${toVTName(playerData.url ?? '')}`}
+			/>
 		</button>
 
 		<button

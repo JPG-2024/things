@@ -72,7 +72,8 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 				mediaDirectory,
 				thumbnailImage,
 				thumbnailImageSrc,
-				videoId: urlData.videoId
+				videoId: urlData.videoId,
+				url: urlData.url
 			};
 		}
 	}),

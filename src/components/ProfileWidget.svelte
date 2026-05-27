@@ -129,7 +129,6 @@
 						src={profile.profilePicture}
 						alt={profile.name}
 						class="profile-avatar"
-						style={`view-transition-name: vt-profile-${toVTName(profile.id)}`}
 						onmouseenter={() => {
 							viewState.hoveredProfileName = profile.name;
 							viewState.hoveredProfileId = profile.id;
