@@ -77,9 +77,7 @@ function getOpenRouterClient(): OpenAI {
 	return openrouterClient;
 }
 
-function stripLlamaFields(
-	request: LlamaChatCompletionsRequest
-): Record<string, unknown> {
+function stripLlamaFields(request: LlamaChatCompletionsRequest): Record<string, unknown> {
 	const filtered: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(request)) {
 		if (!LLAMA_SPECIFIC_FIELDS.has(key)) {
@@ -103,17 +101,13 @@ function mapToolCalls(toolCalls: any[] | undefined): LlamaChatMessage['tool_call
 	}));
 }
 
-function mapChoice(
-	choice: ChatCompletion.Choice
-): LlamaChatCompletionsChoice {
+function mapChoice(choice: ChatCompletion.Choice): LlamaChatCompletionsChoice {
 	return {
 		index: choice.index,
 		message: {
 			role: choice.message.role as LlamaChatMessage['role'],
 			content: choice.message.content ?? null,
-			...(choice.message.tool_calls
-				? { tool_calls: mapToolCalls(choice.message.tool_calls) }
-				: {})
+			...(choice.message.tool_calls ? { tool_calls: mapToolCalls(choice.message.tool_calls) } : {})
 		},
 		finish_reason: choice.finish_reason as LlamaChatCompletionsChoice['finish_reason'],
 		...(choice.logprobs ? { logprobs: choice.logprobs } : {})
@@ -152,9 +146,7 @@ function mapChunk(chunk: ChatCompletionChunk): any {
 			delta: {
 				role: c.delta.role,
 				content: c.delta.content ?? null,
-				...(c.delta.tool_calls
-					? { tool_calls: mapToolCalls(c.delta.tool_calls) }
-					: {})
+				...(c.delta.tool_calls ? { tool_calls: mapToolCalls(c.delta.tool_calls) } : {})
 			},
 			finish_reason: c.finish_reason,
 			...(c.logprobs ? { logprobs: c.logprobs } : {})
@@ -303,12 +295,13 @@ async function openrouterChatCompletions(
 		const choices = Array.from(accumulators.entries())
 			.sort(([a], [b]) => a - b)
 			.map(([index, acc]) => {
-				const toolCalls = Object.keys(acc.toolCalls).length > 0
-					? Object.keys(acc.toolCalls)
-							.map((i) => Number(i))
-							.sort((a, b) => a - b)
-							.map((i) => acc.toolCalls[i])
-					: undefined;
+				const toolCalls =
+					Object.keys(acc.toolCalls).length > 0
+						? Object.keys(acc.toolCalls)
+								.map((i) => Number(i))
+								.sort((a, b) => a - b)
+								.map((i) => acc.toolCalls[i])
+						: undefined;
 
 				return {
 					index,

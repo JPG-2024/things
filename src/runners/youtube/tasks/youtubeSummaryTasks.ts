@@ -79,12 +79,12 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 
 	[TaskNames.KEYWORDS]: () => ({
 		id: TaskNames.KEYWORDS,
-		dependencies: [TaskNames.CONTENT],
+		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'keywords',
 		type: 'ia',
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		run: ({ state }) => {
-			const content = state[TaskNames.CONTENT];
+			const content = state[TaskNames.TITLE_SUMMARY];
 
 			if (typeof content !== 'string') {
 				throw new Error('Content is missing or invalid');
@@ -92,7 +92,7 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 
 			return content;
 		},
-		userMessage: 'extract 5 keywords. add representative emoji at start.',
+		userMessage: 'extract 5 keywords.',
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,

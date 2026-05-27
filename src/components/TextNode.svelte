@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 
 	type Props = {
 		runId?: string;
@@ -10,11 +10,11 @@
 
 	const data = $derived.by(() =>
 		runId
-			? workflowManager.getTaskData(runId, taskId)
-			: workflowManager.activeRunner?.getTaskData(taskId)
+			? workflowStore.getTaskData(runId, taskId)
+			: workflowStore.focusedRun?.runner.getTaskData(taskId)
 	);
 
-	void workflowManager;
+	void workflowStore;
 	void data;
 </script>
 

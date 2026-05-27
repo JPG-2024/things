@@ -8,6 +8,8 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
+	import { getProfileUrl } from '@/lib/utils/youtube';
+	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -114,10 +116,8 @@
 			if (!viewState.hoveredProfileName) return;
 			const profile = profileCategories.find((p) => p.name === viewState.hoveredProfileName);
 			if (!profile) return;
-			const profileUrl = `https://www.youtube.com/${viewState.hoveredProfileName}/videos`;
-			viewState.lastHandledClipboardUrl = profileUrl;
-			navigate(profileUrl);
-			await urlRouter(profileUrl);
+			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
+			await youtubeProfileRunner(profileUrl);
 			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
 		},
 		() => ({

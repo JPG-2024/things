@@ -146,3 +146,11 @@ export interface IaTaskResult {
 	text: string;
 	response: LlamaChatCompletionsResponse;
 }
+
+export interface IaTaskProgress {
+	runId: string;
+	currentIaTaskIndex: number;
+	totalIaTasks: number;
+	currentIaTaskId?: string;
+	currentIaTaskName?: string;
+}

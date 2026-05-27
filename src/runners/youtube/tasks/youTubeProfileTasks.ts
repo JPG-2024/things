@@ -163,7 +163,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const date = new Date(lastVideoDate);
 			lastVideoDate = date.toISOString().split('T')[0];
 
-			const urlsToProcess = fullUrls.slice(0, 2).reverse(); // Process in reverse order to prioritize newer videos
+			const urlsToProcess = fullUrls.slice(0, 5).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
 				arr[index] = removeYTPpParam(url);
 			});

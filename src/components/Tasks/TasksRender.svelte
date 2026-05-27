@@ -3,11 +3,11 @@
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
 	import LoadingTask from '@/components/Tasks/LoadingTask.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
-	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 
-	const stackedTasks = $derived.by(() => workflowManager.stackedTasks);
+	const stackedTasks = $derived(workflowStore.stackedTasks);
 
-	let bottomAnchor: HTMLDivElement | undefined = $state();
+/* 	let bottomAnchor: HTMLDivElement | undefined = $state();
 	let previousFinishedCount = 0;
 
 	async function scrollToBottom() {
@@ -28,11 +28,11 @@
 		}
 
 		previousFinishedCount = finishedCount;
-	});
+	});  */
 
 	void LoadingTask;
 	void taskRenderRegistry;
-	void workflowManager;
+	void workflowStore;
 	void stackedTasks;
 </script>
 
@@ -69,7 +69,7 @@
 	{/each}
 </div>
 
-<div bind:this={bottomAnchor} aria-hidden="true"></div>
+<!-- <div bind:this={bottomAnchor} aria-hidden="true"></div> -->
 
 <style>
 	.loading-pills {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from '@/components/Modal.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import type { IaTask, Task, TaskRerunPatch } from '@/types/taskRunner.types';
 	import Icon from '../Icon.svelte';
 
@@ -20,7 +21,7 @@
 	let systemMessage = $state('');
 	let completionOptionsJson = $state('{}');
 
-	const targetRunId = $derived(runId ?? workflowManager.activeRunId);
+	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 	const isIaTask = $derived(task.type === 'ia');
 
 	function toErrorMessage(error: unknown): string {

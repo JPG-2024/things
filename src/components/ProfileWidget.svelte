@@ -4,12 +4,15 @@
 	import Tooltip from '@/components/Tooltip.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
+	import { getProfileUrl } from '@/lib/utils/youtube';
+	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
 	import {
 		deleteProfileById,
 		getArticlesByProfile,
 		type ArticleProfile,
 		type ArticleWithTasks
 	} from '@/stores/tasksStore';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 
@@ -23,6 +26,13 @@
 
 	const queryClient = useQueryClient();
 
+	const profileRunId = getProfileUrl(profile.name);
+	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
+	const isProfileRunning = $derived(
+		profileRunStatus === 'running' || profileRunStatus === 'pending'
+	);
+	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
+
 	const query = createQuery({
 		queryKey: ['articles', profile.id],
 		queryFn: () =>
@@ -33,7 +43,10 @@
 		refetchOnWindowFocus: 'always'
 	});
 
-	function handleRefresh() {
+	async function handleRefresh() {
+		if (isProfileRunning) return;
+		const profileUrl = getProfileUrl(profile.name);
+		await youtubeProfileRunner(profileUrl);
 		$query.refetch();
 	}
 
@@ -61,10 +74,23 @@
 		if ($mutation.status === 'pending') return;
 		$mutation.mutate(profile.id);
 	}
+
+	$effect(() => {
+		console.log(
+			'[ProfileWidget] isProfileRunning:',
+			isProfileRunning,
+			'| profileRunStatus:',
+			profileRunStatus,
+			'| profileRunId:',
+			profileRunId,
+			'| iaTaskProgress:',
+			iaTaskProgress
+		);
+	});
 </script>
 
 <div class="category-widget">
-	<Card>
+	<Card loading={isProfileRunning}>
 		{#if showTitle}
 			<div class="title-row">
 				<h2 class="category-title">{profile.name}</h2>
@@ -73,11 +99,15 @@
 						type="button"
 						class="refresh-btn"
 						onclick={handleRefresh}
-						disabled={$query.isFetching}
+						disabled={isProfileRunning}
 						aria-label={`Refresh ${profile.name}`}
 						title="Refresh"
 					>
-						<Icon name="RefreshCw" />
+						{#if isProfileRunning}
+							<Icon name="Loader2" class="spin" />
+						{:else}
+							<Icon name="RefreshCw" />
+						{/if}
 					</button>
 					<button
 						type="button"
@@ -234,5 +264,18 @@
 	.profile-avatar:hover {
 		transform: scale(1.1);
 		z-index: 20;
+	}
+
+	.spin {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

@@ -12,17 +12,16 @@ const profileTasks: TaskNames[] = [
 	TaskNames.EXTRACT_CHANNEL_VIDEOS
 ];
 
-export async function extractProfileRunner(url: string): Promise<Task[]> {
+export async function youtubeProfileRunner(url: string): Promise<Task[]> {
 	try {
-		const runId = buildWorkflowRunId('youtube-profile', url);
 		const tasks = await buildTaskSubroutine(profileTasks, youtubeTaskRegistry, {
 			url,
 			language: viewState.language
 		});
 
-		const runResult = await workflowManager.run(runId, tasks, {
+		const runResult = await workflowManager.run(url, tasks, {
 			makeActive: false,
-			stream: true
+			stream: false
 		});
 
 		const completedTasks = runResult.tasks as unknown as Task[];
@@ -51,3 +50,5 @@ export async function extractProfileRunner(url: string): Promise<Task[]> {
 		throw new Error(`Error: ${invokeErr}`);
 	}
 }
+
+export const extractProfileRunner = youtubeProfileRunner;

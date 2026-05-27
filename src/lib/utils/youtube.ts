@@ -21,6 +21,10 @@ export function getYouTubeThumbnailUrl(
 	return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}`;
 }
 
+export function getProfileUrl(profileName: string): string {
+	return `https://www.youtube.com/${profileName}/videos`;
+}
+
 export async function handleYoutubeQuestion(query: string) {
 	try {
 		/*       const posibleQuerys = await invoke<string>('generate_response', {
