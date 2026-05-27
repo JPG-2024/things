@@ -7,7 +7,7 @@
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 
-/* 	let bottomAnchor: HTMLDivElement | undefined = $state();
+	/* 	let bottomAnchor: HTMLDivElement | undefined = $state();
 	let previousFinishedCount = 0;
 
 	async function scrollToBottom() {

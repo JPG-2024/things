@@ -43,7 +43,7 @@ export const UNKNOWN_PROFILE_LABEL = 'Unknown profile';
 export interface ArticleProfile {
 	id: string;
 	name: string;
-	count: number;
+	count?: number;
 	profilePicture?: string | null;
 }
 

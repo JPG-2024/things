@@ -3,9 +3,10 @@
 	import Icon from '@/components/Icon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { navigate, toVTName } from '@/lib/utils/url';
+	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
+	import { goto } from '$app/navigation';
 	import {
 		deleteProfileById,
 		getArticlesByProfile,
@@ -64,10 +65,10 @@
 		}
 	});
 
-	function handleNavigateToArticle(article: ArticleWithTasks) {
+	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
-		navigate(`/youtube/${encodeURIComponent(article.url)}`);
-		urlRouter(article.url);
+		await urlRouter(article.url);
+		goto(`/youtube/${encodeURIComponent(article.url)}`);
 	}
 
 	function handleDeleteProfile() {

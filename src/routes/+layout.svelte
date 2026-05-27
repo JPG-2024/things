@@ -9,6 +9,7 @@
 	import { afterNavigate, onNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -18,6 +19,14 @@
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
 	let processingUrl = $state(false);
+
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				staleTime: 1000 * 60 * 5
+			}
+		}
+	});
 
 	function extractValidUrl(value: string): string | null {
 		const trimmedValue = value.trim();
@@ -48,6 +57,9 @@
 			viewState.lastHandledClipboardUrl = validUrl;
 			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
 			await urlRouter(validUrl);
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			queryClient.invalidateQueries({ queryKey: ['articles'] });
+			await prefetchHomeData(queryClient);
 		} finally {
 			processingUrl = false;
 			await processQueue();
@@ -68,26 +80,18 @@
 	});
 
 	// scroll effect
-	/*   $effect(() => {
-    if (mainElement === undefined) return
+	$effect(() => {
+		if (mainElement === undefined) return;
 
-    mainElement.scrollTop = 100
+		mainElement.scrollTop = 100;
 
-    if (viewState.loaded && mainElement) {
-      setTimeout(() => {
-        if (mainElement === undefined) return
-        // scroll mainElement to top of page
+		if (viewState.loaded && mainElement) {
+			setTimeout(() => {
+				if (mainElement === undefined) return;
+				// scroll mainElement to top of page
 
-        mainElement.scrollTop = 0
-      }, 200) // Delay to allow the flashy animation to complete
-    }
-  }) */
-
-	const queryClient = new QueryClient({
-		defaultOptions: {
-			queries: {
-				staleTime: 1000 * 60 * 5
-			}
+				mainElement.scrollTop = 0;
+			}, 200); // Delay to allow the flashy animation to complete
 		}
 	});
 
@@ -193,9 +197,6 @@
 	*::before,
 	*::after {
 		box-sizing: border-box;
-		@view-transition {
-			navigation: auto;
-		}
 	}
 
 	:root {

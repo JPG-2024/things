@@ -57,10 +57,10 @@
 		}
 	});
 
-	function handleNavigateToArticle(article: ArticleWithTasks) {
+	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
+		await urlRouter(article.url);
 		navigate(`/youtube/${encodeURIComponent(article.url)}`);
-		urlRouter(article.url);
 	}
 
 	function handleDeleteProfile() {

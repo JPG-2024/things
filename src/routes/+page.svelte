@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { useQueryClient } from '@tanstack/svelte-query';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -20,28 +19,25 @@
 		getArticleWithTasksByUrl,
 		type ArticleProfile
 	} from '@/stores/tasksStore';
+	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 	let processingUrl = $state(false);
-	let profileCategories = $state<ArticleProfile[]>([]);
-	async function loadProfiles() {
-		const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
-		const profiles = await getProfilesWithArticlesAfter(fiveDaysAgo);
 
-		profileCategories = profiles.length
-			? profiles
-			: [
-					{
-						id: UNKNOWN_PROFILE_ID,
-						name: UNKNOWN_PROFILE_LABEL,
-						count: 0
-					}
-				];
-	}
+	const profilesQuery = createQuery({
+		queryKey: ['profiles'],
+		queryFn: () => getProfilesWithArticlesAfter(Date.now() - 5 * 24 * 60 * 60 * 1000)
+	});
+
+	const profileCategories = $derived(
+		$profilesQuery.data?.length
+			? $profilesQuery.data
+			: [{ id: UNKNOWN_PROFILE_ID, name: UNKNOWN_PROFILE_LABEL, count: 0 }]
+	);
 
 	async function handleProfileDeleted(_profileId: string) {
-		await loadProfiles();
+		queryClient.invalidateQueries({ queryKey: ['profiles'] });
 	}
 
 	function extractValidUrl(value: string): string | null {
@@ -73,6 +69,9 @@
 			viewState.lastHandledClipboardUrl = validUrl;
 			navigate(`/youtube/${encodeURIComponent(validUrl)}`);
 			await urlRouter(validUrl);
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			queryClient.invalidateQueries({ queryKey: ['articles'] });
+			await prefetchHomeData(queryClient);
 		} finally {
 			processingUrl = false;
 		}
@@ -125,13 +124,6 @@
 			ignoreInputs: true
 		})
 	);
-
-	onMount(() => {
-		void (async () => {
-			await loadProfiles();
-			queryClient.invalidateQueries({ queryKey: ['articles'] });
-		})();
-	});
 </script>
 
 <div class="page-topbar">

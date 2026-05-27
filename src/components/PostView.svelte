@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { navigate } from '@/lib/utils/url';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import Icon from './Icon.svelte';
@@ -9,6 +8,9 @@
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
 	import { deleteArticleByUrl } from '@/stores/tasksStore';
+	import { goto } from '$app/navigation';
+	import { useQueryClient } from '@tanstack/svelte-query';
+	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
 	interface Props {
 		headerContent?: any;
@@ -19,11 +21,16 @@
 	// reactive state for deletion flag (Svelte runes)
 	let isDeleting = $state(false);
 
+	const queryClient = useQueryClient();
+
 	// Add window scroll event listener on mount, remove on unload, using $effect.pre
 	$effect.pre(() => {
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
-				navigate('/');
+				window.removeEventListener('scroll', handleScroll);
+				queryClient.invalidateQueries({ queryKey: ['profiles'] });
+				queryClient.invalidateQueries({ queryKey: ['articles'] });
+				void prefetchHomeData(queryClient).then(() => goto('/'));
 			}
 		}
 		window.addEventListener('scroll', handleScroll);
@@ -39,8 +46,11 @@
 			isDeleting = true;
 			const res = await deleteArticleByUrl(viewState.url);
 			if (res?.success) {
+				queryClient.invalidateQueries({ queryKey: ['profiles'] });
+				queryClient.invalidateQueries({ queryKey: ['articles'] });
+				await prefetchHomeData(queryClient);
 				viewState.cleanAllState();
-				navigate('/');
+				goto(`/`);
 			} else {
 				console.error('Failed to delete article');
 			}

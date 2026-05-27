@@ -8,10 +8,14 @@
 	}
 
 	let { children }: Props = $props();
+
+	function handleBackNavigation() {
+		goto(`/`);
+	}
 </script>
 
 <div class="top-bar">
-	<button onclick={() => goto('/')} class="back-navigation">⬅</button>
+	<button onclick={handleBackNavigation} class="back-navigation">⬅</button>
 	{#if viewState.domainUrl}
 		<button type="button" class="favicon-btn" aria-label="Navigate back">
 			<img
