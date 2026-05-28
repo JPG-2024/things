@@ -19,6 +19,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		id: TaskNames.VIDEO_INFO,
 		dependencies: [TaskNames.INIT],
 		component: 'videoInfo',
+		gridSpan: 1,
 		type: 'script',
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT);

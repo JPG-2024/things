@@ -177,35 +177,29 @@
 </script>
 
 <div class="tts-player">
-	<div class="controls">
-		<button
-			type="button"
-			onclick={ttsState.isPlaying ? handleStop : togglePlay}
-			disabled={ttsState.isGenerating}
-			aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
-		>
-			{#if ttsState.isGenerating}
-				<Icon name="Loader" size={18} />
-			{:else if ttsState.isPlaying}
-				<Icon name="Square" size={18} />
-			{:else}
-				<Icon name="Play" size={18} />
-			{/if}
-		</button>
-	</div>
-
-	<div class="track-info">
-		{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0}
-			<span class="remaining">
-				{ttsState.isPlaying ? '-' : ''}{formatTime(remainingSeconds)}
-			</span>
+	<button
+		type="button"
+		onclick={ttsState.isPlaying ? handleStop : togglePlay}
+		disabled={ttsState.isGenerating}
+		aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
+	>
+		{#if ttsState.isGenerating}
+			<Icon name="Loader" size={20} />
+		{:else if ttsState.isPlaying}
+			<Icon name="Square" size={20} />
+		{:else}
+			<Icon name="Play" size={20} />
 		{/if}
-	</div>
-
-	{#if ttsState.isGenerating}
-		<span class="status">Generating...</span>
-	{/if}
+	</button>
 </div>
+
+{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && ttsState.isPlaying}
+	<span class="time-label">{formatTime(remainingSeconds)}</span>
+{/if}
+
+{#if ttsState.isGenerating}
+	<span class="status-label">Generating...</span>
+{/if}
 
 {#if ttsState.errorMessage}
 	<div class="error-bar">
@@ -217,67 +211,64 @@
 <style>
 	.tts-player {
 		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
+		bottom: 1.5rem;
+		right: 1.5rem;
+		width: 50px;
+		height: 50px;
+		border-radius: 50%;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: rgba(0, 0, 0, 0.95);
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
+		justify-content: center;
+		background: rgba(0, 0, 0, 0.3);
 		z-index: 1000;
 	}
 
-	.controls {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.controls button {
+	.tts-player button {
 		all: unset;
 		box-sizing: border-box;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		padding: 0.4rem;
-		border-radius: 4px;
-		background: rgba(255, 255, 255, 0.06);
+		padding: 0.5rem;
+		border-radius: 50%;
 		color: var(--primary-color);
 	}
 
-	.controls button:disabled {
+	.tts-player button:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
 
-	.controls button:not(:disabled):hover {
+	.tts-player button:not(:disabled):hover {
 		background: rgba(255, 255, 255, 0.12);
 	}
 
-	.track-info {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.counter {
-		font-size: 0.85rem;
-		font-variant-numeric: tabular-nums;
-		color: rgba(255, 255, 255, 0.7);
-	}
-
-	.remaining {
-		font-size: 0.85rem;
-		font-variant-numeric: tabular-nums;
+	.time-label {
+		position: fixed;
+		bottom: calc(1.5rem + 60px);
+		right: 1.5rem;
+		transform: translateX(50%);
+		background: rgba(0, 0, 0, 0.9);
 		color: rgba(255, 255, 255, 0.9);
+		font-size: 0.75rem;
+		font-variant-numeric: tabular-nums;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		z-index: 1000;
 	}
 
-	.status {
-		font-size: 0.85rem;
+	.status-label {
+		position: fixed;
+		bottom: calc(1.5rem + 60px);
+		right: 1.5rem;
+		transform: translateX(50%);
+		background: rgba(0, 0, 0, 0.9);
 		color: var(--primary-color);
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		z-index: 1000;
 	}
 
 	.error-bar {

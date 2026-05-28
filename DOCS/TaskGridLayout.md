@@ -10,10 +10,10 @@ TasksRender uses a **CSS Grid** layout with flexible wrapping for completed task
 
 ### Two-Zone Layout
 
-| Zone | Container | Contents |
-|------|-----------|----------|
-| Loading Pills | Flex (wrapping) | Tasks that are `pending`, `running`, `failed`, `blocked`, or done tasks without a renderer |
-| Tasks Grid | CSS Grid (auto-fill) | Completed tasks (`done`) with a registered renderer component |
+| Zone          | Container            | Contents                                                                                   |
+| ------------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| Loading Pills | Flex (wrapping)      | Tasks that are `pending`, `running`, `failed`, `blocked`, or done tasks without a renderer |
+| Tasks Grid    | CSS Grid (auto-fill) | Completed tasks (`done`) with a registered renderer component                              |
 
 ### Responsive Grid
 
@@ -31,20 +31,20 @@ Tasks wrap automatically when there's not enough horizontal space.
 
 Tasks can control their width by setting the `gridSpan` field (type `1 | 2 | 3`).
 
-| Value | Behavior | Use Case |
-|-------|----------|----------|
-| `1` (default) | Occupies 1 grid column | Small widgets: thumbnails, keywords, metadata |
-| `2` | Spans 2 columns | Medium content: video info, image galleries |
-| `3` | Spans 3 columns (full width) | Large content: markdown text, players, summaries |
+| Value         | Behavior                     | Use Case                                         |
+| ------------- | ---------------------------- | ------------------------------------------------ |
+| `1` (default) | Occupies 1 grid column       | Small widgets: thumbnails, keywords, metadata    |
+| `2`           | Spans 2 columns              | Medium content: video info, image galleries      |
+| `3`           | Spans 3 columns (full width) | Large content: markdown text, players, summaries |
 
 ### Type Definition
 
 ```ts
 interface TaskBase<TMap, TId> {
-  id: TId;
-  // ... other fields
-  gridSpan?: 1 | 2 | 3;
-  // ...
+	id: TId;
+	// ... other fields
+	gridSpan?: 1 | 2 | 3;
+	// ...
 }
 ```
 
@@ -104,13 +104,13 @@ Renderers are registered in `taskRenderRegistry.ts`:
 
 ```ts
 export const taskRenderRegistry: Record<string, Component> = {
-  ask: AskComponent,
-  taskBase: MarkdownTaskComponent,
-  image: Image,
-  player: Player,
-  videoInfo: VideoInfo,
-  keywords: Keywords,
-  listItems: ListItems
+	ask: AskComponent,
+	taskBase: MarkdownTaskComponent,
+	image: Image,
+	player: Player,
+	videoInfo: VideoInfo,
+	keywords: Keywords,
+	listItems: ListItems
 };
 ```
 
@@ -123,6 +123,7 @@ The `component` field on a task must match one of these keys. If no match is fou
 ### Loading Pills Zone
 
 A task appears as a loading pill when:
+
 - Status is `running` or `pending`
 - Status is `failed` or `blocked`
 - Status is `done` but `viewState.showAllTasks` is `true`
@@ -131,6 +132,7 @@ A task appears as a loading pill when:
 ### Tasks Grid Zone
 
 A task appears in the grid when:
+
 - Status is `done`
 - Task has a registered renderer component (`component` field matches registry key)
 
@@ -140,25 +142,25 @@ A task appears in the grid when:
 
 ```css
 .loading-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
 }
 
 .tasks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-  width: 100%;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 1rem;
+	width: 100%;
 }
 
 .task-wrapper.span-2 {
-  grid-column: span 2;
+	grid-column: span 2;
 }
 
 .task-wrapper.span-3 {
-  grid-column: span 3;
+	grid-column: span 3;
 }
 ```
 
@@ -169,11 +171,13 @@ A task appears in the grid when:
 ### Why Separate Loading Pills from Grid?
 
 Loading pills have `width: max-content` (very narrow), while completed tasks span multiple columns. Mixing them in the same grid creates:
+
 - Awkward gaps and empty spans
 - Unpredictable layout shifts
 - Visual noise
 
 By separating them:
+
 - Loading pills flow naturally as small indicators
 - Grid only contains actual content components
 - Clean visual separation between "in progress" and "done"
@@ -181,6 +185,7 @@ By separating them:
 ### Why `auto-fill` Instead of Fixed Columns?
 
 `auto-fill` adapts to screen width without media queries:
+
 - Simpler CSS, fewer breakpoints
 - Works across desktop and mobile
 - Grid items wrap automatically when space runs out

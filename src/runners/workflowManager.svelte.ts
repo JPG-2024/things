@@ -30,10 +30,6 @@ function isSuccessfulSummary(summary: Pick<TaskRunSummary, 'failed' | 'blocked'>
 	return summary.failed === 0 && summary.blocked === 0;
 }
 
-export function buildWorkflowRunId(kind: string, scope: string) {
-	return `${kind}:${scope}`;
-}
-
 export class WorkflowManager {
 	private static readonly MAX_RUNS = 20;
 

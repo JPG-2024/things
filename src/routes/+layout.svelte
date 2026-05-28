@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { primaryColor } from '@/stores/uiStore';
 	import { onMount } from 'svelte';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { invoke } from '@tauri-apps/api/core';
@@ -8,6 +7,7 @@
 	import { navigate } from '@/lib/utils/url';
 	import { afterNavigate, onNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
+	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
@@ -68,18 +68,19 @@
 
 	async function processQueue() {
 		while (viewState.urlQueue.length > 0) {
-			const nextUrl = viewState.urlQueue.shift()!;
+			const nextUrl = viewState.urlQueue.shift();
+			if (!nextUrl) break;
 			await handlePasteUrl(nextUrl, true);
 		}
 	}
 
 	$effect(() => {
+		const color = viewState.primaryColor;
 		if (mainElement) {
-			mainElement.style.setProperty('--primary-color', $primaryColor);
+			mainElement.style.setProperty('--primary-color', color);
 		}
 	});
 
-	// scroll effect
 	$effect(() => {
 		if (mainElement === undefined) return;
 
@@ -88,10 +89,8 @@
 		if (viewState.loaded && mainElement) {
 			setTimeout(() => {
 				if (mainElement === undefined) return;
-				// scroll mainElement to top of page
-
 				mainElement.scrollTop = 0;
-			}, 200); // Delay to allow the flashy animation to complete
+			}, 200);
 		}
 	});
 
@@ -99,27 +98,7 @@
 		ttsState.clearPlaylist();
 	});
 
-	onNavigate((navigation) => {
-		const anyDoc: any = document;
-		if (!anyDoc || typeof anyDoc.startViewTransition !== 'function') return;
-
-		if (document.hidden) {
-			return;
-		}
-
-		return new Promise((resolve) => {
-			anyDoc.startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
-			});
-		});
-	});
-
 	onMount(() => {
-		let stopFlow: undefined | (() => void);
-		viewState.initFlowStatusListeners().then((stop) => (stopFlow = stop));
-		viewState.initMediaBasePath();
-
 		const pollClipboard = async () => {
 			if (!viewState.clipboardPollingEnabled || processingUrl) return;
 
@@ -159,7 +138,6 @@
 		}, 18000);
 
 		return () => {
-			stopFlow?.();
 			clearInterval(flashyInterval);
 			clearInterval(clipboardInterval);
 		};
@@ -175,8 +153,9 @@
 		class:loaded={viewState.loaded}
 	>
 		{@render children()}
+		<TasksStatusBar />
+		<TTSPlayer />
 	</main>
-	<TTSPlayer />
 </QueryClientProvider>
 
 <style>
@@ -187,7 +166,7 @@
 	}
 
 	@font-face {
-		font-family: 'Oswald'; /* Give it any name you want */
+		font-family: 'Oswald';
 		src: url('/Oswald-VariableFont_wght.ttf') format('truetype');
 		font-weight: normal;
 		font-style: normal;
@@ -230,14 +209,12 @@
 		scroll-padding-top: 2rem;
 	}
 
-	/* Overlay que barre el viewport cuando .flashy está activo */
 	main.loaded::after {
 		position: fixed;
 		transform: translateY(-120%);
 		z-index: 9999;
-		/* opcional para efecto “sheen”: */
 		mix-blend-mode: screen;
-		animation: sweep-overlay 1s ease-in-out forwards; /* 5s = tu ventana de flashy */
+		animation: sweep-overlay 1s ease-in-out forwards;
 		inset: 0;
 		background: linear-gradient(
 			0deg,
@@ -247,7 +224,7 @@
 			rgba(255, 255, 255, 0) 70%,
 			rgba(255, 255, 255, 0) 100%
 		);
-		pointer-events: none; /* que no bloquee clicks */
+		pointer-events: none;
 		content: '';
 	}
 
@@ -291,19 +268,6 @@
 			background-position: 0% 0%;
 		}
 	}
-
-	/*   main::before {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    opacity: 0.4;
-    mix-blend-mode: soft-light;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='540' height='540' viewBox='0 0 240 240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 240px 240px;
-    pointer-events: none;
-    content: '';
-  } */
 
 	main > * {
 		position: relative;

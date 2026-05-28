@@ -38,7 +38,7 @@
 	}
 
 	.pill.loading::before {
-		background-color: var(--pill-indicator-loading, var(--primary-color, #3b82f6));
+		background-color: var(--pill-indicator-loading, var(--primary-color, #f8f412));
 	}
 
 	.pill.loading {

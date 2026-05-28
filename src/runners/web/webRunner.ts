@@ -1,5 +1,5 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
-import { buildWorkflowRunId, workflowManager } from '@/runners/workflowManager.svelte';
+import { workflowManager } from '@/runners/workflowManager.svelte';
 import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
@@ -44,7 +44,7 @@ export async function webRunner(
 	cachedArticle?: ArticleWithTasks | null,
 	options: WebRunnerOptions = {}
 ): Promise<Task[]> {
-	const runId = buildWorkflowRunId('web-page', url);
+	const runId = url;
 	const freshRun = options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
 
 	const tasks = await buildTaskSubroutine(

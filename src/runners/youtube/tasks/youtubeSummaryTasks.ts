@@ -22,6 +22,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 		componentProps: {
 			autoplayTTS: freshRun
 		},
+
 		type: 'ia',
 		systemMessage: `Focus on extracting:
 - core ideas
@@ -62,6 +63,7 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 		name: 'Title',
 		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'taskBase',
+		gridSpan: 1,
 		type: 'ia',
 		systemMessage: `Avoid Markdown`,
 		run: ({ state }) => {
@@ -73,18 +75,18 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 
 			return titleSummary;
 		},
-		userMessage: `Generate a short title for this context. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
+		userMessage: `Generate a short title for this context that describes the main idea in 10 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: defaultCompletionOptions
 	}),
 
 	[TaskNames.KEYWORDS]: () => ({
 		id: TaskNames.KEYWORDS,
-		dependencies: [TaskNames.TITLE_SUMMARY],
+		dependencies: [TaskNames.CONTENT],
 		component: 'keywords',
 		type: 'ia',
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		run: ({ state }) => {
-			const content = state[TaskNames.TITLE_SUMMARY];
+			const content = state[TaskNames.CONTENT];
 
 			if (typeof content !== 'string') {
 				throw new Error('Content is missing or invalid');
@@ -140,7 +142,7 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 
 			return content;
 		},
-		userMessage: `extract 5 key points titles in one line. add representative emoji at start. Response in language: ${viewState.language === 'es' ? 'Spanish' : 'English'}.`,
+		userMessage: `extract 8 keypoints describing the main information. Response in language: ${viewState.language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: {
 			...defaultCompletionOptions,
 			temperature: 1.0,
@@ -160,8 +162,8 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 							keypointsTitles: {
 								type: 'array',
 								items: { type: 'string' },
-								minItems: 5,
-								maxItems: 5
+								minItems: 8,
+								maxItems: 8
 							}
 						},
 						required: ['keypointsTitles'],

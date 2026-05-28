@@ -49,7 +49,6 @@
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
 				queryClient.invalidateQueries({ queryKey: ['articles'] });
 				await prefetchHomeData(queryClient);
-				viewState.cleanAllState();
 				goto(`/`);
 			} else {
 				console.error('Failed to delete article');

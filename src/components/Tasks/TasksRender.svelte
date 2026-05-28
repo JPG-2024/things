@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
-	import LoadingTask from '@/components/Tasks/LoadingTask.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 
@@ -28,25 +27,12 @@
 		}
 
 		previousFinishedCount = finishedCount;
-	});  */
+	}); */
 
-	void LoadingTask;
 	void taskRenderRegistry;
 	void workflowStore;
 	void stackedTasks;
 </script>
-
-<div class="loading-pills">
-	{#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
-		{@const task = entry.task}
-		{@const componentKey = task.component?.trim()}
-		{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-
-		{#if !(Renderer && task.status === 'done')}
-			<LoadingTask {task} runId={entry.runId} />
-		{/if}
-	{/each}
-</div>
 
 <div class="tasks-grid">
 	{#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
@@ -58,8 +44,8 @@
 		{#if Renderer && task.status === 'done'}
 			<div
 				class="task-wrapper"
-				class:span-2={task.gridSpan === 2}
-				class:span-3={task.gridSpan === 3}
+				class:span-2={(task.gridSpan ?? 3) === 2}
+				class:span-3={(task.gridSpan ?? 3) === 3}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 					<Renderer {task} runId={entry.runId} {componentProps} />
@@ -72,13 +58,6 @@
 <!-- <div bind:this={bottomAnchor} aria-hidden="true"></div> -->
 
 <style>
-	.loading-pills {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
 	.tasks-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -88,6 +67,8 @@
 
 	.task-wrapper {
 		min-width: 0;
+		display: flex;
+		align-items: center;
 	}
 
 	.task-wrapper.span-2 {

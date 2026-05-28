@@ -17,7 +17,7 @@
 		UNKNOWN_PROFILE_ID,
 		UNKNOWN_PROFILE_LABEL,
 		getArticleWithTasksByUrl,
-		type ArticleProfile
+		deleteProfileById
 	} from '@/stores/tasksStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
@@ -36,8 +36,11 @@
 			: [{ id: UNKNOWN_PROFILE_ID, name: UNKNOWN_PROFILE_LABEL, count: 0 }]
 	);
 
-	async function handleProfileDeleted(_profileId: string) {
-		queryClient.invalidateQueries({ queryKey: ['profiles'] });
+	async function handleDeleteProfile(profileId: string) {
+		const result = await deleteProfileById(profileId);
+		if (result.success) {
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+		}
 	}
 
 	function extractValidUrl(value: string): string | null {
@@ -124,6 +127,18 @@
 			ignoreInputs: true
 		})
 	);
+
+	const dHotkey = createHotkey(
+		'D',
+		async () => {
+			if (!viewState.hoveredProfileId) return;
+			await handleDeleteProfile(viewState.hoveredProfileId);
+		},
+		() => ({
+			enabled: viewState.hoveredProfileId !== null,
+			ignoreInputs: true
+		})
+	);
 </script>
 
 <div class="page-topbar">
@@ -152,7 +167,7 @@
 
 	<div class="flex-squares">
 		{#each profileCategories as profile (profile.id)}
-			<ProfileWidget {profile} showTitle={false} onDeleted={handleProfileDeleted} />
+			<ProfileWidget {profile} showTitle={false} />
 		{/each}
 	</div>
 </div>

@@ -1,5 +1,5 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
-import { buildWorkflowRunId, workflowManager } from '@/runners/workflowManager.svelte';
+import { workflowManager } from '@/runners/workflowManager.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
@@ -41,7 +41,7 @@ export async function youTubeRunner(
 	options: YouTubeRunnerOptions = {}
 ): Promise<Task[]> {
 	url = removeYTTimeParam(url);
-	const runId = buildWorkflowRunId('youtube-video', url);
+	const runId = url;
 	const freshRun = options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
 
 	// Build the task list based on the selected routine and registry, incorporating persisted task states if available, and marking the run as fresh if Rebuild is true or no persisted tasks are found
@@ -66,5 +66,6 @@ export async function youTubeRunner(
 		profile: options.profile,
 		profilePicture: options.profilePicture
 	});
+
 	return runResult.tasks as Task[];
 }

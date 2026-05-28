@@ -1,4 +1,3 @@
-import { primaryColor } from '@/stores/uiStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import {
@@ -11,17 +10,8 @@ import { extractProfileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 
-// Router response payload built from the persisted article snapshot and current run
-type RouterCachedArticle = {
-	url: string | null;
-	mainColor?: string | null;
-	tasks?: Task[];
-	[key: string]: unknown;
-};
+type RouterResult = { data: { url: string | null; tasks?: Task[] }; cached: boolean };
 
-type RouterResult = { data: RouterCachedArticle; cached: boolean };
-
-// Map of in-flight requests to prevent concurrent duplicate work
 const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
 const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
@@ -54,7 +44,7 @@ const routeDefinitions: UrlRoute[] = [
 		handler: (url, context) => youTubeRunner(url, context?.cachedArticle)
 	},
 	{
-		name: 'toubeProfileVideos',
+		name: 'youtubeProfileVideos',
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
 		handler: extractProfileRunner
 	},
@@ -69,21 +59,8 @@ function findRoute(url: string): UrlRoute | undefined {
 	return routeDefinitions.find((route) => matchesRoute(url, route.condition));
 }
 
-// Allows external modules to register new routes with either regex or custom condition logic.
 export function addUrlRoute(route: UrlRoute) {
 	routeDefinitions.push(route);
-}
-
-function applyCachedArticle(cached: ArticleWithTasks) {
-	viewState.cleanAllState();
-	viewState.url = cached.url ?? '';
-	viewState.setAllValues(cached as unknown as Article);
-	viewState.loaded = true;
-	viewState.loading = false;
-	if (cached.mainColor) {
-		viewState.primaryColor = cached.mainColor;
-		primaryColor.set(cached.mainColor as string);
-	}
 }
 
 type UrlRouterOptions = {
@@ -117,26 +94,19 @@ export async function urlRouter(
 			}
 
 			if (cachedArticle) {
-				applyCachedArticle(cachedArticle);
-				viewState.loading = true;
+				viewState.url = cachedArticle.url ?? '';
 			} else {
-				viewState.cleanAllState();
 				viewState.url = url;
-				viewState.loading = true;
-				viewState.loaded = false;
 			}
+			viewState.loading = true;
+			viewState.loaded = false;
 
 			const tasks = await matchingRoute.handler(url, { cachedArticle });
-			const freshData: RouterCachedArticle = {
-				...viewState.getAllValues(),
-				url,
-				tasks
-			};
 
 			viewState.loaded = true;
 			viewState.loading = false;
 
-			return { data: freshData, cached: Boolean(cachedArticle) };
+			return { data: { url, tasks }, cached: Boolean(cachedArticle) };
 		} catch (err) {
 			console.error('Error while routing URL:', err);
 			viewState.loading = false;

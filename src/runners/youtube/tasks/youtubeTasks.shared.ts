@@ -71,7 +71,7 @@ export type YouTubeTaskState = {
 	[TaskNames.KEYPOINTS]: string;
 	[TaskNames.TITLE_SUMMARY]: string;
 	[TaskNames.TITLE]: string;
-	[TaskNames.EXTRACT_PROFILE]: { name: string; profilePicture: string };
+	[TaskNames.EXTRACT_PROFILE]: { name: string; profilePicture: string | null };
 } & Record<`chapter-summary-${number}`, string>;
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;

@@ -1,5 +1,5 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
-import { buildWorkflowRunId, workflowManager } from '@/runners/workflowManager.svelte';
+import { workflowManager } from '@/runners/workflowManager.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { saveProfile } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
@@ -12,19 +12,20 @@ const profileTasks: TaskNames[] = [
 	TaskNames.EXTRACT_CHANNEL_VIDEOS
 ];
 
-export async function youtubeProfileRunner(url: string): Promise<Task[]> {
+export async function youtubeProfileRunner(url: string, videosAmount: number = 4): Promise<Task[]> {
 	try {
 		const tasks = await buildTaskSubroutine(profileTasks, youtubeTaskRegistry, {
 			url,
-			language: viewState.language
+			language: viewState.language,
+			videosAmount
 		});
 
 		const runResult = await workflowManager.run(url, tasks, {
-			makeActive: false,
+			makeActive: true,
 			stream: false
 		});
 
-		const completedTasks = runResult.tasks as unknown as Task[];
+		const completedTasks = runResult.tasks as Task[];
 
 		const extractProfileTask = completedTasks.find((t) => t.id === TaskNames.EXTRACT_PROFILE);
 

@@ -35,7 +35,8 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			return {
 				url: runnerOptions.url,
 				videoId,
-				language: runnerOptions.language
+				language: runnerOptions.language,
+				videosAmount: runnerOptions.videosAmount
 			};
 		}
 	}),
@@ -97,9 +98,15 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				}
 			);
 
+			const pictureUrl = Array.isArray(result.profilePicture)
+				? result.profilePicture[1]
+				: result.profilePicture;
+
+			const downloadedImage = await downloadImageUrl(pictureUrl);
+
 			const profile = {
 				name: result.profile[0],
-				profilePicture: result.profilePicture[1]
+				profilePicture: downloadedImage.imageSrc
 			};
 
 			return profile;
@@ -143,6 +150,8 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		type: 'script',
 		run: async ({ runId, state }) => {
 			const { videoIds } = getRequiredTaskState(state, TaskNames.GET_CHANNEL_VIDEOS);
+			const initContext = getRequiredTaskState(state, TaskNames.INIT);
+			const videosAmount = initContext.videosAmount;
 
 			const fullUrls = videoIds.map((id) => `https://www.youtube.com${id}`);
 			const firstVideoUrl = removeYTPpParam(fullUrls[0]);
@@ -163,7 +172,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 			const date = new Date(lastVideoDate);
 			lastVideoDate = date.toISOString().split('T')[0];
 
-			const urlsToProcess = fullUrls.slice(0, 5).reverse(); // Process in reverse order to prioritize newer videos
+			const urlsToProcess = fullUrls.slice(0, videosAmount).reverse(); // Process in reverse order to prioritize newer videos
 			urlsToProcess.forEach((url, index, arr) => {
 				arr[index] = removeYTPpParam(url);
 			});

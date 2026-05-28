@@ -1,7 +1,7 @@
 import { downloadImageUrl } from '@/lib/utils/files';
 import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
-import { primaryColor } from '@/stores/uiStore';
+import { viewState } from '@/stores/viewStore.svelte';
 import {
 	getRequiredTaskState,
 	TaskNames,
@@ -53,6 +53,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 		dependencies: [TaskNames.INIT],
 		type: 'script',
 		component: 'player',
+		gridSpan: 1,
 		run: async ({ state }) => {
 			const urlData = getRequiredTaskState(state, TaskNames.INIT);
 
@@ -90,7 +91,7 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 			try {
 				mainColor = await getImageColor(thumbnail.thumbnailImageSrc || '');
 				if (mainColor) {
-					primaryColor.set(mainColor);
+					viewState.primaryColor = mainColor;
 				}
 			} catch (colorError) {
 				console.error('Error extracting main color:', colorError);

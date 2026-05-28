@@ -8,24 +8,20 @@
 	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { goto } from '$app/navigation';
 	import {
-		deleteProfileById,
 		getArticlesByProfile,
 		type ArticleProfile,
 		type ArticleWithTasks
 	} from '@/stores/tasksStore';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { createQuery } from '@tanstack/svelte-query';
 
 	interface Props {
 		profile: ArticleProfile;
 		showTitle?: boolean;
-		onDeleted?: (profileId: string) => void | Promise<void>;
 	}
 
-	let { profile, showTitle = false, onDeleted }: Props = $props();
-
-	const queryClient = useQueryClient();
+	let { profile, showTitle = false }: Props = $props();
 
 	const profileRunId = getProfileUrl(profile.name);
 	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
@@ -51,29 +47,10 @@
 		$query.refetch();
 	}
 
-	const mutation = createMutation({
-		mutationFn: async (profileId: string) => {
-			const result = await deleteProfileById(profileId);
-			if (!result.success) {
-				throw new Error('Failed to delete profile');
-			}
-			return result;
-		},
-		onSuccess: async (_, profileId) => {
-			queryClient.invalidateQueries({ queryKey: ['articles', profileId] });
-			await onDeleted?.(profileId);
-		}
-	});
-
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
-		await urlRouter(article.url);
+		urlRouter(article.url);
 		goto(`/youtube/${encodeURIComponent(article.url)}`);
-	}
-
-	function handleDeleteProfile() {
-		if ($mutation.status === 'pending') return;
-		$mutation.mutate(profile.id);
 	}
 
 	$effect(() => {
@@ -109,16 +86,6 @@
 						{:else}
 							<Icon name="RefreshCw" />
 						{/if}
-					</button>
-					<button
-						type="button"
-						class="delete-btn"
-						onclick={handleDeleteProfile}
-						disabled={$mutation.status === 'pending'}
-						aria-label={`Delete ${profile.name}`}
-						title="Delete profile"
-					>
-						<Icon name="Trash" />
 					</button>
 				</div>
 			</div>
@@ -173,17 +140,6 @@
 		width: max-content;
 		align-items: center;
 		box-sizing: border-box;
-	}
-
-	.delete-btn {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		border-radius: 999px;
-		padding: 0.3rem;
-		background: rgba(255, 255, 255, 0.08);
 	}
 
 	.title-row {
