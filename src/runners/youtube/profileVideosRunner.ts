@@ -6,22 +6,26 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 
 const profileTasks: TaskNames[] = [
-	TaskNames.INIT,
+	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.EXTRACT_PROFILE,
-	TaskNames.GET_CHANNEL_VIDEOS,
 	TaskNames.EXTRACT_CHANNEL_VIDEOS
 ];
 
-export async function youtubeProfileRunner(url: string, videosAmount: number = 4): Promise<Task[]> {
+export async function youtubeProfileRunner(
+	url: string,
+	videosAmount: number = 1,
+	profileId?: string
+): Promise<Task[]> {
 	try {
 		const tasks = await buildTaskSubroutine(profileTasks, youtubeTaskRegistry, {
 			url,
 			language: viewState.language,
-			videosAmount
+			videosAmount,
+			profileId
 		});
 
 		const runResult = await workflowManager.run(url, tasks, {
-			makeActive: true,
+			makeActive: false,
 			stream: false
 		});
 

@@ -23,7 +23,7 @@
 			{@const componentKey = task.component?.trim()}
 			{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
 
-			{#if !(Renderer && task.status === 'done')}
+			{#if viewState.showAllTasks || !(Renderer && task.status === 'done')}
 				<LoadingTask {task} runId={entry.runId} />
 			{/if}
 		{/each}

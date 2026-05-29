@@ -32,7 +32,10 @@ export const summaryTaskRegistry: WebTaskRegistrySubset<SummaryTaskIds> = {
 		userMessage: 'Extract 5 representative keywords from the article.',
 		completionOptions: {
 			...defaultCompletionOptions,
-			temperature: 0.9,
+			temperature: 0,
+			top_p: 1,
+			top_k: 0,
+			min_p: 0,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {

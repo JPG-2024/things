@@ -8,7 +8,7 @@ import {
 	type YouTubeTaskRegistrySubset
 } from './youtubeTasks.shared';
 
-type ContextTaskIds = TaskNames.INIT | TaskNames.THUMBNAIL | TaskNames.MAIN_COLOR;
+type ContextTaskIds = TaskNames.INIT_YOUTUBE_VIDEO | TaskNames.THUMBNAIL | TaskNames.MAIN_COLOR;
 
 function getProfileFromVideoInfo(videoInfo: unknown): string | null {
 	if (typeof videoInfo !== 'object' || videoInfo === null) {
@@ -31,8 +31,8 @@ function getProfileFromVideoInfo(videoInfo: unknown): string | null {
 }
 
 export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
-	[TaskNames.INIT]: (runnerOptions) => ({
-		id: TaskNames.INIT,
+	[TaskNames.INIT_YOUTUBE_VIDEO]: (runnerOptions) => ({
+		id: TaskNames.INIT_YOUTUBE_VIDEO,
 		name: 'Initialize YouTube Context',
 		dependencies: [],
 		type: 'script',
@@ -50,12 +50,12 @@ export const contextTaskRegistry: YouTubeTaskRegistrySubset<ContextTaskIds> = {
 
 	[TaskNames.THUMBNAIL]: () => ({
 		id: TaskNames.THUMBNAIL,
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		type: 'script',
 		component: 'player',
 		gridSpan: 1,
 		run: async ({ state }) => {
-			const urlData = getRequiredTaskState(state, TaskNames.INIT);
+			const urlData = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
 
 			if (!urlData.videoId) {
 				throw new Error('Video ID not found in URL');

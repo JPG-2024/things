@@ -17,7 +17,8 @@ export type WebThumbnailContext = {
 };
 
 export enum WebTaskNames {
-	INIT = 'init',
+	INIT_YOUTUBE_PROFILE = 'init-youtube-profile',
+	INIT_YOUTUBE_VIDEO = 'init-youtube-video',
 	METADATA = 'metadata',
 	THUMBNAIL = 'thumbnail',
 	MAIN_COLOR = 'main-color',
@@ -29,7 +30,8 @@ export enum WebTaskNames {
 }
 
 export type WebTaskState = {
-	[WebTaskNames.INIT]: WebInitContext;
+	[WebTaskNames.INIT_YOUTUBE_VIDEO]: WebInitContext;
+	[WebTaskNames.INIT_YOUTUBE_PROFILE]: WebInitContext;
 	[WebTaskNames.METADATA]: Record<string, string>;
 	[WebTaskNames.THUMBNAIL]: WebThumbnailContext;
 	[WebTaskNames.TITLE]: string;

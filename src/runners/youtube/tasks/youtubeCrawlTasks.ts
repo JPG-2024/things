@@ -17,12 +17,12 @@ type CrawlTaskIds =
 export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.VIDEO_INFO]: () => ({
 		id: TaskNames.VIDEO_INFO,
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		component: 'videoInfo',
 		gridSpan: 1,
 		type: 'script',
 		run: async ({ state }) => {
-			const context = getRequiredTaskState(state, TaskNames.INIT);
+			const context = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
 
 			const videoInfo = await invoke<PageElementItem[]>('get_page_elements', {
 				...buildVideoPageParams(context.url),
@@ -33,24 +33,24 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 						name: 'uploadDate',
 						selector: 'div#info-strings yt-formatted-string'
 					},
-					{ name: 'profile', selector: '#channel-name a', attribute: 'href' },
+					{ name: 'profileId', selector: '#channel-name a', attribute: 'href' },
 					{ name: 'profilePicture', selector: '#img ', attribute: 'src' }
 				],
 				attempts: 5,
 				intervalMs: 200
 			});
 
-			videoInfo.profile = videoInfo.profile.slice(1);
+			videoInfo.profileId = videoInfo.profileId.slice(1);
 
 			return videoInfo;
 		}
 	}),
 	[TaskNames.CHAPTERS]: () => ({
 		id: TaskNames.CHAPTERS,
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		type: 'script',
 		run: async ({ state }) => {
-			const context = getRequiredTaskState(state, TaskNames.INIT);
+			const context = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
 
 			return invoke<Chapter[]>('extract_chapters', buildVideoPageParams(context.url));
 		}
@@ -58,10 +58,10 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.TIMED_CAPTIONS]: () => ({
 		id: TaskNames.TIMED_CAPTIONS,
 		name: 'Get timed captions',
-		dependencies: [TaskNames.INIT],
+		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		type: 'script',
 		run: async ({ state }) => {
-			const context = getRequiredTaskState(state, TaskNames.INIT);
+			const context = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
 
 			return invoke<TimedCaption[]>('get_youtube_transcript_timed', {
 				id: context.videoId,

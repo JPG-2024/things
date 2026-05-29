@@ -30,18 +30,12 @@ export type ChapterContext = {
 	chapterCaptions: ChapterCaption[];
 };
 
-export type GetChannelVideosContext = {
-	channelName: string;
-	channelPicSrc: string;
-	videoIds: string[];
-};
-
 export enum TaskNames {
-	INIT = 'init',
+	INIT_YOUTUBE_PROFILE = 'init-youtube-profile',
+	INIT_YOUTUBE_VIDEO = 'init',
 	THUMBNAIL = 'thumbnail',
 	MAIN_COLOR = 'main-color',
 	SUMMARY = 'summary',
-	GET_CHANNEL_VIDEOS = 'getting-channel-videos',
 	EXTRACT_CHANNEL_VIDEOS = 'extract-channel-videos',
 	KEYWORDS = 'keywords',
 	KEYPOINTS = 'key-points',
@@ -56,13 +50,13 @@ export enum TaskNames {
 }
 
 export type YouTubeTaskState = {
-	[TaskNames.INIT]: InitContext;
+	[TaskNames.INIT_YOUTUBE_PROFILE]: InitContext;
+	[TaskNames.INIT_YOUTUBE_VIDEO]: InitContext;
 	[TaskNames.THUMBNAIL]: YouTubePlayerContext;
 	[TaskNames.MAIN_COLOR]: string;
 	[TaskNames.VIDEO_INFO]: PageElementItem[];
 	[TaskNames.TIMED_CAPTIONS]: TimedCaption[];
 	[TaskNames.CONTENT]: string;
-	[TaskNames.GET_CHANNEL_VIDEOS]: GetChannelVideosContext;
 	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: unknown;
 	[TaskNames.CHAPTERS]: Chapter[];
 	[TaskNames.CHAPTERS_SUMMARY]: ChapterContext;
