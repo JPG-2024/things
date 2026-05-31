@@ -28,7 +28,7 @@
 	let title = $derived(task?.data ? getDataContent('title') : null);
 </script>
 
-{#if task?.data && getDataContent('title') && getDataContent('profile') && getDataContent('views') && getDataContent('uploadDate')}
+{#if task?.data && getDataContent('title') && getDataContent('profileId') && getDataContent('views') && getDataContent('uploadDate')}
 	<div class="video-info">
 		<!-- <h3>{getDataContent("title")}</h3> -->
 		<div class="title-container">
@@ -39,7 +39,7 @@
 		<div class="info-row">
 			<div class="pill">
 				<!-- <Icon name="User" /> -->
-				<p class="channel-name">{getDataContent('profile')}</p>
+				<p class="channel-name">{getDataContent('profileId')}</p>
 			</div>
 			<div class="pill">
 				<Icon name="Eye" />

@@ -17,7 +17,7 @@ export interface ArticleWithTasks {
 	thumbnail: string | null;
 	content?: string | null;
 	mediaDirectory?: string | null;
-	profile?: string | null;
+	profileId?: string | null;
 	profilePicture?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
@@ -86,14 +86,12 @@ type UpsertStoredArticleInput = {
 	url: string;
 	title: string | null;
 	thumbnail: string | null;
-	content: string | null;
 	directory: string | null;
 	mainColor: string | null;
 	profile: string | null;
 	profilePicture: string | null;
 	tasksJson: string;
 	embeddingSourceText: string | null;
-	searchRows: StoredArticleSearchRowInput[];
 };
 
 type StoredTask = {
@@ -177,10 +175,7 @@ export function getStoredTaskData<T>(
 	return tasks.find((task) => task.id === taskId)?.data as T | undefined;
 }
 
-export function getArticleStringField(
-	article: ArticleWithTasks | null,
-	fieldName: 'content' | 'profile' | 'mediaDirectory' | 'directory'
-): string {
+export function getArticleStringField(article: ArticleWithTasks | null, fieldName: any): string {
 	const fieldValue = article?.[fieldName];
 	return typeof fieldValue === 'string' ? fieldValue : '';
 }
@@ -366,66 +361,13 @@ export function getPageElementField(
 	return null;
 }
 
-export async function buildSearchRows(
-	content: string | null,
-	keywords: string[]
-): Promise<StoredArticleSearchRowInput[]> {
-	const searchRows: StoredArticleSearchRowInput[] = [];
-	const normalizedContent = normalizeNullableString(content);
-
-	if (normalizedContent) {
-		const mode = /(^|\n)#{1,6}\s|```/.test(normalizedContent) ? 'markdown' : 'podcast';
-		let chunks: string[];
-
-		try {
-			chunks = await splitText({
-				mode,
-				text: normalizedContent,
-				capacityChars: 1200,
-				overlapChars: 120
-			});
-		} catch (error) {
-			console.warn('Unable to split content for LanceDB indexing', error);
-			chunks = [normalizedContent];
-		}
-
-		for (const [index, chunk] of chunks.entries()) {
-			const text = normalizeNullableString(chunk);
-			if (!text) {
-				continue;
-			}
-
-			searchRows.push({
-				rowId: `content_chunk:${index}`,
-				kind: 'content_chunk',
-				ordinal: index,
-				text
-			});
-		}
-	}
-
-	const keywordText = normalizeNullableString(keywords.join('\n'));
-	if (keywordText) {
-		searchRows.push({
-			rowId: 'keyword_bundle:0',
-			kind: 'keyword_bundle',
-			ordinal: 0,
-			text: keywordText
-		});
-	}
-
-	return searchRows;
-}
-
 export function buildEmbeddingSourceText(input: {
 	title: string | null;
-	content: string | null;
 	keywords: string[];
 }): string | null {
 	const parts = [
 		normalizeNullableString(input.title),
-		input.keywords.length > 0 ? `Keywords:\n${input.keywords.join('\n')}` : null,
-		normalizeNullableString(input.content)
+		input.keywords.length > 0 ? `Keywords:\n${input.keywords.join('\n')}` : null
 	].filter((value): value is string => Boolean(value));
 
 	return parts.length > 0 ? parts.join('\n\n') : null;
@@ -442,11 +384,13 @@ export async function buildUpsertInput(params: {
 		getStoredTaskData<string>(params.tasksToSave, 'title'),
 		params.existingArticle?.title
 	);
-	const content = firstNormalizedString(
+
+	/* 	const content = firstNormalizedString(
 		params.valuesToOverride?.content as string | undefined,
 		getStoredTaskData<string>(params.tasksToSave, 'content'),
 		getArticleStringField(params.existingArticle, 'content')
-	);
+	); */
+
 	const thumbnailTaskData =
 		getStoredTaskData<{
 			thumbnailImageSrc?: string;
@@ -473,18 +417,16 @@ export async function buildUpsertInput(params: {
 	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'keywords'));
 	const profile = firstNormalizedString(
 		params.valuesToOverride?.profile as string | undefined,
-		getPageElementField(params.tasksToSave, 'video-info', 'profile'),
-		getArticleStringField(params.existingArticle, 'profile')
+		getPageElementField(params.tasksToSave, 'video-info', 'profileId'),
+		getArticleStringField(params.existingArticle, 'profileId')
 	);
 	const profilePicture = firstNormalizedString(
 		params.valuesToOverride?.profilePicture as string | undefined,
 		getPageElementField(params.tasksToSave, 'video-info', 'profilePicture')
 	);
 
-	const searchRows = await buildSearchRows(content, keywords);
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
-		content,
 		keywords
 	});
 
@@ -492,14 +434,12 @@ export async function buildUpsertInput(params: {
 		url: params.url,
 		title,
 		thumbnail,
-		content,
 		directory,
 		mainColor,
 		profile,
 		profilePicture,
 		tasksJson: JSON.stringify(params.tasksToSave),
-		embeddingSourceText,
-		searchRows
+		embeddingSourceText
 	};
 }
 

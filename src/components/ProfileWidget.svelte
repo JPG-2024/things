@@ -52,19 +52,6 @@
 		urlRouter(article.url);
 		goto(`/youtube/${encodeURIComponent(article.url)}`);
 	}
-
-	$effect(() => {
-		console.log(
-			'[ProfileWidget] isProfileRunning:',
-			isProfileRunning,
-			'| profileRunStatus:',
-			profileRunStatus,
-			'| profileRunId:',
-			profileRunId,
-			'| iaTaskProgress:',
-			iaTaskProgress
-		);
-	});
 </script>
 
 <div class="category-widget">

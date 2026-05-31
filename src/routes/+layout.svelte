@@ -81,7 +81,7 @@
 		}
 	});
 
-	$effect(() => {
+	/* 	$effect(() => {
 		if (mainElement === undefined) return;
 
 		mainElement.scrollTop = 100;
@@ -92,7 +92,7 @@
 				mainElement.scrollTop = 0;
 			}, 200);
 		}
-	});
+	}); */
 
 	afterNavigate(() => {
 		ttsState.clearPlaylist();

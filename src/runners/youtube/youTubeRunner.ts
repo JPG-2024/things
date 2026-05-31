@@ -5,24 +5,29 @@ import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
+import { youtubeProfileRunner } from './profileVideosRunner';
+import { getTaskData } from '@/lib/utils/helpers/tasks';
 
 const videoPage: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	//TaskNames.SUMMARY,
 	TaskNames.TITLE_SUMMARY,
-	TaskNames.TITLE,
+	TaskNames.TITLE
 	//TaskNames.MAIN_COLOR,
-	TaskNames.KEYWORDS
+	//TaskNames.KEYWORDS
 	//TaskNames.KEYPOINTS,
 	//TaskNames.CHAPTERS_SUMMARY,
 ];
 
 const videoItem: TaskNames[] = [TaskNames.THUMBNAIL, TaskNames.TITLE_SUMMARY, TaskNames.TITLE];
 
+const previewRoutine: TaskNames[] = [TaskNames.THUMBNAIL];
+
 const routine = {
 	videoPage,
-	videoItem
+	videoItem,
+	previewRoutine
 };
 
 type YouTubeRunnerOptions = {
@@ -31,8 +36,7 @@ type YouTubeRunnerOptions = {
 	routine?: keyof typeof routine;
 	Rebuild?: boolean;
 	stream?: boolean;
-	profile?: string;
-	profilePicture?: string;
+	profileId?: string;
 };
 
 export async function youTubeRunner(
@@ -48,7 +52,7 @@ export async function youTubeRunner(
 	const tasks = await buildTaskSubroutine(
 		routine[options.routine ?? 'videoPage'],
 		youtubeTaskRegistry,
-		{ url, language: viewState.language, freshRun },
+		{ url, language: viewState.language, freshRun }, // params inyected to each task
 		{
 			persistedTasks: cachedArticle?.persistedTasks,
 			Rebuild: options.Rebuild
@@ -62,9 +66,10 @@ export async function youTubeRunner(
 		stream: options.stream
 	});
 
+	const profileId = options.profileId || getTaskData(runResult.tasks, 'video-info', 'profileId');
+
 	await saveTasks(url, runResult.tasks, {
-		profile: options.profile,
-		profilePicture: options.profilePicture
+		profile: profileId
 	});
 
 	return runResult.tasks as Task[];

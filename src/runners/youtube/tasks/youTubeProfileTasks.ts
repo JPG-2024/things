@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { downloadImageUrl } from '@/lib/utils/files';
-import { getArticlesByProfile, saveProfile } from '@/stores/tasksStore';
+import { getArticlesByProfile, saveProfile, getProfile } from '@/stores/tasksStore';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 
@@ -28,13 +28,8 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		type: 'script',
 		run: () => {
 			const urlObj = new URL(runnerOptions.url);
-			let url;
-
-			if (runnerOptions.profileId) {
-				url = `https://www.youtube.com/${runnerOptions.profileId}/videos`;
-			} else {
-				const profileId = runnerOptions.profileId || urlObj.pathname.split('/')[1];
-			}
+			const profileId = runnerOptions.profileId || urlObj.pathname.split('/')[1];
+			const url = `https://www.youtube.com/${profileId}/videos`;
 
 			return {
 				...runnerOptions,
@@ -49,7 +44,7 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		dependencies: [TaskNames.INIT_YOUTUBE_PROFILE],
 		type: 'script',
 		run: async ({ state }) => {
-			const { url } = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
+			const { url, profileId } = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
 
 			const result = await invoke<any>('get_page_elements', {
 				url,
@@ -100,7 +95,10 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				intervalMs: 200
 			});
 
-			let lastVideoDate = videoInfo.uploadDate.find((d) => dateRegex.test(d)) ?? 0;
+			let lastVideoDate =
+				videoInfo.uploadDate.find((d) =>
+					d.match(/^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{4})$/i)
+				) ?? 0;
 
 			const date = new Date(lastVideoDate);
 			lastVideoDate = date.toISOString().split('T')[0];
@@ -112,7 +110,11 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				videoUrls
 			};
 
-			await saveProfile(profile.id, profile.profilePicture, lastVideoDate);
+			const existingProfile = await getProfile(profileId);
+
+			if (!existingProfile) {
+				await saveProfile(profileId, profile.profilePicture, lastVideoDate);
+			}
 
 			return profile;
 		}
@@ -125,7 +127,10 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 		type: 'script',
 		run: async ({ runId, state }) => {
 			const { videoUrls } = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE); // TODO define types
-			const { videosAmount } = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE); // TODO
+			const { videosAmount, profileId } = getRequiredTaskState(
+				state,
+				TaskNames.INIT_YOUTUBE_PROFILE
+			); // TODO
 
 			// START PROCESSING VIDEOS
 			const urlsToProcess = videoUrls.slice(0, videosAmount).reverse(); // Process in reverse order to prioritize newer videos
@@ -155,20 +160,17 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 					continue;
 				}
 
-				const profile = getRequiredTaskState(state, TaskNames.EXTRACT_PROFILE);
-
 				results.push(
 					await youTubeRunner(url, null, {
 						makeActive: false,
 						parentRunId: runId,
 						routine: 'videoItem',
-						profile: profile.name,
-						profilePicture: profile.profilePicture
+						profileId
 					})
 				);
 			}
 
-			return { videoUrls, results, lastVideoDate };
+			return { videoUrls, results };
 		}
 	})
 };

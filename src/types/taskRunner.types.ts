@@ -61,7 +61,7 @@ export type TaskRerunPatch<TMap extends TaskMapBase = TaskMapBase> = Partial<
 
 export interface TaskRerunOptions extends TaskRunOptions {}
 
-interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
+export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	id: TId;
 	name?: string;
 	dependencies: (keyof TMap & string)[];

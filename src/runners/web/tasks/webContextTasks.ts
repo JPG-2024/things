@@ -4,14 +4,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { getRequiredTaskState, WebTaskNames, type WebTaskRegistrySubset } from './webTasks.shared';
 
 type ContextTaskIds =
-	| WebTaskNames.INIT_YOUTUBE_VIDEO
+	| WebTaskNames.INIT_WEB_CONTEXT
 	| WebTaskNames.METADATA
 	| WebTaskNames.THUMBNAIL
 	| WebTaskNames.TITLE;
 
 export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
-	[WebTaskNames.INIT_YOUTUBE_VIDEO]: ({ url, language }) => ({
-		id: WebTaskNames.INIT_YOUTUBE_VIDEO,
+	[WebTaskNames.INIT_WEB_CONTEXT]: ({ url, language }) => ({
+		id: WebTaskNames.INIT_WEB_CONTEXT,
 		name: 'Initialize web context',
 		dependencies: [],
 		type: 'script',
@@ -38,23 +38,23 @@ export const contextTaskRegistry: WebTaskRegistrySubset<ContextTaskIds> = {
 	[WebTaskNames.METADATA]: () => ({
 		id: WebTaskNames.METADATA,
 		name: 'Extract metadata',
-		dependencies: [WebTaskNames.INIT_YOUTUBE_VIDEO],
+		dependencies: [WebTaskNames.INIT_WEB_CONTEXT],
 		type: 'script',
 		persist: true,
 		run: ({ state }) => {
-			const init = getRequiredTaskState(state, WebTaskNames.INIT_YOUTUBE_VIDEO);
+			const init = getRequiredTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);
 			return init.extraction.metadata;
 		}
 	}),
 
 	[WebTaskNames.THUMBNAIL]: () => ({
 		id: WebTaskNames.THUMBNAIL,
-		dependencies: [WebTaskNames.INIT_YOUTUBE_VIDEO, WebTaskNames.METADATA],
+		dependencies: [WebTaskNames.INIT_WEB_CONTEXT, WebTaskNames.METADATA],
 		type: 'script',
 		component: 'image',
 		persist: true,
 		run: async ({ state }) => {
-			const init = getRequiredTaskState(state, WebTaskNames.INIT_YOUTUBE_VIDEO);
+			const init = getRequiredTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);
 			const metadata = getRequiredTaskState(state, WebTaskNames.METADATA);
 			const imageUrl = metadata['og:image'] || metadata['twitter:image'];
 			const profile =

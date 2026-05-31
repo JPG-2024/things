@@ -58,7 +58,7 @@ interface TaskBase<TMap, TId> {
 {
   id: WebTaskNames.THUMBNAIL,
   name: 'Thumbnail',
-  dependencies: [WebTaskNames.INIT],
+  dependencies: [WebTaskNames.INIT_YOUTUBE_VIDEO],
   type: 'script',
   component: 'image',
   gridSpan: 1,  // narrow
@@ -86,7 +86,7 @@ interface TaskBase<TMap, TId> {
 {
   id: WebTaskNames.CONTENT,
   name: 'Content Summary',
-  dependencies: [WebTaskNames.INIT],
+  dependencies: [WebTaskNames.INIT_YOUTUBE_VIDEO],
   type: 'ia',
   component: 'taskBase',
   gridSpan: 3,  // full width

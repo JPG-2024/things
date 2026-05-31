@@ -108,7 +108,7 @@ where
 
 ### 7. `webContextTasks.ts`
 
-- `contextTaskRegistry[WebTaskNames.INIT]` — remove `keepPageOpen: false` from `extract_blog` call (line 29)
+- `contextTaskRegistry[WebTaskNames.INIT_YOUTUBE_VIDEO]` — remove `keepPageOpen: false` from `extract_blog` call (line 29)
 
 ---
 

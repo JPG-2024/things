@@ -23,6 +23,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		type: 'script',
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
+			debugger;
 
 			const videoInfo = await invoke<PageElementItem[]>('get_page_elements', {
 				...buildVideoPageParams(context.url),
@@ -40,11 +41,16 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 				intervalMs: 200
 			});
 
+			if (!options.profileId) {
+				youtubeProfileRunner(url, 1, profileId);
+			}
+
 			videoInfo.profileId = videoInfo.profileId.slice(1);
 
 			return videoInfo;
 		}
 	}),
+
 	[TaskNames.CHAPTERS]: () => ({
 		id: TaskNames.CHAPTERS,
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
@@ -55,6 +61,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 			return invoke<Chapter[]>('extract_chapters', buildVideoPageParams(context.url));
 		}
 	}),
+
 	[TaskNames.TIMED_CAPTIONS]: () => ({
 		id: TaskNames.TIMED_CAPTIONS,
 		name: 'Get timed captions',
@@ -69,6 +76,7 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 			});
 		}
 	}),
+
 	[TaskNames.CONTENT]: () => ({
 		id: TaskNames.CONTENT,
 		dependencies: [TaskNames.TIMED_CAPTIONS],

@@ -35,6 +35,7 @@ pub use crate::article_store::{
     delete_stored_article_profile,
     delete_stored_article_by_url,
     get_stored_article_by_url,
+    get_stored_article_profile,
     list_profiles_with_articles_after,
     list_stored_article_profiles,
     list_stored_articles_by_profile,
@@ -80,6 +81,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_stored_articles,
             list_stored_article_profiles,
+            get_stored_article_profile,
             list_profiles_with_articles_after,
             list_stored_articles_by_profile,
             get_stored_article_by_url,

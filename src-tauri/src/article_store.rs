@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use tauri::{AppHandle, Manager};
 
-const DB_FILE: &str = "notian.db";
+const DB_FILE:&str = "notian.db";
 pub const UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
@@ -59,15 +59,6 @@ pub struct ProfileWithMostRecentArticle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StoredArticleSearchRowInput {
-    pub row_id: String,
-    pub kind: String,
-    pub ordinal: i32,
-    pub text: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct UpsertStoredArticleInput {
     pub url: String,
     pub title: Option<String>,
@@ -79,7 +70,6 @@ pub struct UpsertStoredArticleInput {
     pub profile_picture: Option<String>,
     pub tasks_json: String,
     pub embedding_source_text: Option<String>,
-    pub search_rows: Vec<StoredArticleSearchRowInput>,
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -112,7 +102,7 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
     Ok(conn)
 }
 
-fn init_schema(conn: &Connection) -> Result<(), String> {
+fn init_schema(conn:&Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS articles (
             id TEXT PRIMARY KEY,
@@ -146,7 +136,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_add_last_video_date(conn: &Connection) -> Result<(), String> {
+fn migrate_add_last_video_date(conn:&Connection) -> Result<(), String> {
     let table_sql: Result<String, _> = conn.query_row(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='profiles'",
         [],
@@ -155,7 +145,6 @@ fn migrate_add_last_video_date(conn: &Connection) -> Result<(), String> {
 
     match table_sql {
         Ok(sql) if sql.contains("last_video_date") => {
-            // Column exists, nothing to do
         }
         _ => {
             conn.execute("ALTER TABLE profiles ADD COLUMN last_video_date TEXT", [])
@@ -188,7 +177,7 @@ fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
     }
 }
 
-fn filter_record_to_json(record: &StoredArticleRecord, fields: &Option<Vec<String>>) -> Value {
+fn filter_record_to_json(record:&StoredArticleRecord, fields: &Option<Vec<String>>) -> Value {
     match fields {
         None => {
             serde_json::to_value(record).unwrap_or(Value::Null)
@@ -309,6 +298,29 @@ fn query_articles(
     Ok(records)
 }
 
+fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<StoredArticleProfileRecord>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM profiles WHERE id = ?1")
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([profile_id], |row| {
+            Ok(StoredArticleProfileRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                count: row.get(2)?,
+                profile_picture: row.get(3)?,
+                last_video_date: row.get(4)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
 fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, String> {
     let mut stmt = conn
         .prepare("SELECT id, name, count, profile_picture, last_video_date FROM profiles ORDER BY count DESC, name ASC")
@@ -355,7 +367,7 @@ fn upsert_profile(
     Ok(())
 }
 
-fn delete_profile(conn: &Connection, profile_id: &str) -> Result<(), String> {
+fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM profiles WHERE id = ?1", params![profile_id])
         .map_err(|error| error.to_string())?;
     Ok(())
@@ -396,7 +408,7 @@ fn rebuild_profiles_from_articles(
         }
     }
 
-    for profile in &aggregated {
+    for profile in&aggregated {
         upsert_profile(conn, profile)?;
     }
 
@@ -434,6 +446,16 @@ pub async fn list_stored_article_profiles(
     }
 
     Ok(profiles)
+}
+
+#[tauri::command]
+pub async fn get_stored_article_profile(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<Option<StoredArticleProfileRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    query_profile_by_id(&conn, &profile_id)
 }
 
 #[tauri::command]

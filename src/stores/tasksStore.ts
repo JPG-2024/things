@@ -39,6 +39,19 @@ export async function getProfiles(): Promise<ArticleProfile[]> {
 	}
 }
 
+export async function getProfile(profileId: string): Promise<ArticleProfile | null> {
+	try {
+		const result = await invoke<ArticleProfile | null>('get_stored_article_profile', {
+			profileId
+		});
+
+		return result;
+	} catch (error) {
+		console.error('Error querying profile', error);
+		return null;
+	}
+}
+
 export async function getProfilesWithArticlesAfter(
 	createdAtFrom: number
 ): Promise<ProfileWithMostRecentArticle[]> {
@@ -149,9 +162,9 @@ export async function saveProfile(
 	profileId: string,
 	profilePicture: string | null,
 	lastVideoDate: string | null
-): Promise<void> {
+): Promise<unknown> {
 	try {
-		await invoke('upsert_stored_article_profile', {
+		const res = await invoke('upsert_stored_article_profile', {
 			input: {
 				id: profileId.toLowerCase().replace(/\s+/g, '-'),
 				name: profileId.toLowerCase().replace(/\s+/g, '-'),
@@ -159,6 +172,8 @@ export async function saveProfile(
 				lastVideoDate
 			}
 		});
+
+		return res;
 	} catch (error) {
 		console.error('Error saving profile:', error);
 	}

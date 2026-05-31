@@ -32,7 +32,7 @@ export type ChapterContext = {
 
 export enum TaskNames {
 	INIT_YOUTUBE_PROFILE = 'init-youtube-profile',
-	INIT_YOUTUBE_VIDEO = 'init',
+	INIT_YOUTUBE_VIDEO = 'init-youtube-video',
 	THUMBNAIL = 'thumbnail',
 	MAIN_COLOR = 'main-color',
 	SUMMARY = 'summary',
