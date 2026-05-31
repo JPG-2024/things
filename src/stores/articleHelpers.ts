@@ -89,7 +89,6 @@ type UpsertStoredArticleInput = {
 	directory: string | null;
 	mainColor: string | null;
 	profile: string | null;
-	profilePicture: string | null;
 	tasksJson: string;
 	embeddingSourceText: string | null;
 };
@@ -420,10 +419,6 @@ export async function buildUpsertInput(params: {
 		getPageElementField(params.tasksToSave, 'video-info', 'profileId'),
 		getArticleStringField(params.existingArticle, 'profileId')
 	);
-	const profilePicture = firstNormalizedString(
-		params.valuesToOverride?.profilePicture as string | undefined,
-		getPageElementField(params.tasksToSave, 'video-info', 'profilePicture')
-	);
 
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
@@ -437,7 +432,6 @@ export async function buildUpsertInput(params: {
 		directory,
 		mainColor,
 		profile,
-		profilePicture,
 		tasksJson: JSON.stringify(params.tasksToSave),
 		embeddingSourceText
 	};

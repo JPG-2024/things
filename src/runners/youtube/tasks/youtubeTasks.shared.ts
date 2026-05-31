@@ -46,7 +46,8 @@ export enum TaskNames {
 	VIDEO_INFO = 'video-info',
 	TITLE_SUMMARY = 'title-summary',
 	TITLE = 'title',
-	EXTRACT_PROFILE = 'extract-profile'
+	EXTRACT_PROFILE = 'extract-profile',
+	PROFILE_FROM_VIDEO = 'profile-from-video'
 }
 
 export type YouTubeTaskState = {
@@ -66,6 +67,7 @@ export type YouTubeTaskState = {
 	[TaskNames.TITLE_SUMMARY]: string;
 	[TaskNames.TITLE]: string;
 	[TaskNames.EXTRACT_PROFILE]: { name: string; profilePicture: string | null };
+	[TaskNames.PROFILE_FROM_VIDEO]: { profileId: string; runId: string };
 } & Record<`chapter-summary-${number}`, string>;
 
 export type YouTubeTaskId = keyof YouTubeTaskState & string;
@@ -74,6 +76,8 @@ export type YouTubeTaskFactoryContext = {
 	url: string;
 	language: TTSLanguage;
 	freshRun: boolean;
+	profileId?: string;
+	videosAmount?: number;
 };
 
 export type YouTubeTaskFactory = (context: YouTubeTaskFactoryContext) => Task<YouTubeTaskState>;

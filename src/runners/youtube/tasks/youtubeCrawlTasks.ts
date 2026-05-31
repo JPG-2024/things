@@ -7,12 +7,15 @@ import {
 	type PageElementItem,
 	type YouTubeTaskRegistrySubset
 } from './youtubeTasks.shared';
+import { youtubeProfileRunner } from '../profileVideosRunner';
+import { getProfile } from '@/stores/tasksStore';
 
 type CrawlTaskIds =
 	| TaskNames.VIDEO_INFO
 	| TaskNames.CHAPTERS
 	| TaskNames.TIMED_CAPTIONS
-	| TaskNames.CONTENT;
+	| TaskNames.CONTENT
+	| TaskNames.PROFILE_FROM_VIDEO;
 
 export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 	[TaskNames.VIDEO_INFO]: () => ({
@@ -23,7 +26,6 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 		type: 'script',
 		run: async ({ state }) => {
 			const context = getRequiredTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
-			debugger;
 
 			const videoInfo = await invoke<PageElementItem[]>('get_page_elements', {
 				...buildVideoPageParams(context.url),
@@ -41,13 +43,40 @@ export const crawlTaskRegistry: YouTubeTaskRegistrySubset<CrawlTaskIds> = {
 				intervalMs: 200
 			});
 
-			if (!options.profileId) {
-				youtubeProfileRunner(url, 1, profileId);
-			}
-
 			videoInfo.profileId = videoInfo.profileId.slice(1);
 
 			return videoInfo;
+		}
+	}),
+
+	[TaskNames.PROFILE_FROM_VIDEO]: () => ({
+		id: TaskNames.PROFILE_FROM_VIDEO,
+		name: 'Extract profile from video',
+		dependencies: [TaskNames.VIDEO_INFO],
+		type: 'script',
+		run: async ({ state }) => {
+			const videoInfo = getRequiredTaskState(state, TaskNames.VIDEO_INFO) as unknown as Record<
+				string,
+				string
+			>;
+			const profileId = videoInfo['profileId'];
+
+			if (!profileId) {
+				throw new Error('No profileId found in video info');
+			}
+
+			const existingProfile = await getProfile(profileId);
+
+			if (existingProfile) {
+				return { profileId };
+			}
+
+			if (!existingProfile) {
+				const profileUrl = `https://www.youtube.com/${profileId}/videos`;
+				await youtubeProfileRunner(profileUrl, 1, profileId);
+			}
+
+			return { profileId };
 		}
 	}),
 

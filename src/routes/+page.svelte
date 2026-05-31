@@ -112,6 +112,8 @@
 		})
 	);
 
+	$inspect(profileCategories);
+
 	const pHotkey = createHotkey(
 		'P',
 		async () => {

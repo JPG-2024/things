@@ -110,6 +110,8 @@ export const profileTaskRegistry: YouTubeTaskRegistrySubset<ProfileTaskIds> = {
 				videoUrls
 			};
 
+			debugger;
+
 			const existingProfile = await getProfile(profileId);
 
 			if (!existingProfile) {

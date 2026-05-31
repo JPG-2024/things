@@ -1,6 +1,10 @@
-import type { Task } from '@/types/taskRunner.types';
+import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
-export function getTaskData(tasks: Task[], id: string, key?: string) {
+export function getTaskData<TMap extends TaskMapBase = TaskMapBase>(
+	tasks: Task<TMap>[],
+	id: string,
+	key?: string
+): unknown {
 	const task = tasks.find((task) => task.id === id);
 
 	if (!task) return undefined;

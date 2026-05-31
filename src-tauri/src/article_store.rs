@@ -67,7 +67,6 @@ pub struct UpsertStoredArticleInput {
     pub directory: Option<String>,
     pub main_color: Option<String>,
     pub profile: Option<String>,
-    pub profile_picture: Option<String>,
     pub tasks_json: String,
     pub embedding_source_text: Option<String>,
 }
@@ -202,7 +201,13 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
     let mut aggregated = HashMap::<String, StoredArticleProfileRecord>::new();
 
     for record in records {
-        let (id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let id = raw_id.to_lowercase();
+        let display_name = if id == UNKNOWN_PROFILE_ID {
+            name
+        } else {
+            name.to_lowercase()
+        };
         aggregated
             .entry(id.clone())
             .and_modify(|profile| {
@@ -210,7 +215,7 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
             })
             .or_insert(StoredArticleProfileRecord {
                 id,
-                name,
+                name: display_name,
                 count: 1,
                 profile_picture: None,
                 last_video_date: None,
@@ -469,12 +474,12 @@ pub async fn list_stored_articles_by_profile(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let normalized_profile_id = profile_id.trim();
+    let normalized_profile_id = profile_id.trim().to_lowercase();
 
     let filter = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
         None
     } else {
-        Some(format!("profile = '{}'", normalized_profile_id.replace('\'', "''")))
+        Some(format!("LOWER(profile) = '{}'", normalized_profile_id.replace('\'', "''")))
     };
 
     let records = if let Some(from) = created_at_from {
@@ -492,7 +497,8 @@ pub async fn list_stored_articles_by_profile(
         records
             .into_iter()
             .filter(|record| {
-                normalize_profile_bucket(record.profile.as_deref()).0 == UNKNOWN_PROFILE_ID
+                let (raw_id, _) = normalize_profile_bucket(record.profile.as_deref());
+                raw_id.to_lowercase() == UNKNOWN_PROFILE_ID
             })
             .collect()
     } else {
@@ -519,7 +525,13 @@ pub async fn list_profiles_with_articles_after(
     let mut profile_map: HashMap<String, (String, i64)> = HashMap::new();
 
     for record in records {
-        let (id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let id = raw_id.to_lowercase();
+        let display_name = if id == UNKNOWN_PROFILE_ID {
+            name
+        } else {
+            name.to_lowercase()
+        };
         let most_recent = record.created_at;
         profile_map
             .entry(id.clone())
@@ -528,7 +540,7 @@ pub async fn list_profiles_with_articles_after(
                     *existing = most_recent;
                 }
             })
-            .or_insert((name, most_recent));
+            .or_insert((display_name, most_recent));
     }
 
     let profile_data: HashMap<String, (Option<String>, Option<String>)> = query_profiles(&conn)?
@@ -580,7 +592,7 @@ pub async fn upsert_stored_article(
     input.content = normalize_optional_string(input.content);
     input.directory = normalize_optional_string(input.directory);
     input.main_color = normalize_optional_string(input.main_color);
-    input.profile = normalize_optional_string(input.profile);
+    input.profile = normalize_optional_string(input.profile).map(|p| p.to_lowercase());
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
 
     let conn = get_db(&app)?;
@@ -634,10 +646,6 @@ pub async fn upsert_stored_article(
         )
         .map_err(|error| error.to_string())?;
     }
-
-    let next_profile_bucket = normalize_profile_bucket(input.profile.as_deref());
-    let profile_picture_input = input.profile_picture.clone().map(|picture| (next_profile_bucket.0, picture));
-    rebuild_profiles_from_articles(&conn, profile_picture_input)?;
 
     Ok(())
 }

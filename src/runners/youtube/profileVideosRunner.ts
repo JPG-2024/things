@@ -1,15 +1,10 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { saveProfile } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 
-const fromUrlRoutine: TaskNames[] = [
-	TaskNames.INIT_YOUTUBE_PROFILE,
-	TaskNames.EXTRACT_PROFILE,
-	TaskNames.EXTRACT_CHANNEL_VIDEOS
-];
+const fromUrlRoutine: TaskNames[] = [TaskNames.INIT_YOUTUBE_PROFILE, TaskNames.EXTRACT_PROFILE];
 
 export async function youtubeProfileRunner(
 	url: string,
