@@ -98,13 +98,17 @@ export async function urlRouter(
 			} else {
 				viewState.url = url;
 			}
-			viewState.loading = true;
-			viewState.loaded = false;
+			if (!cachedArticle) {
+				viewState.loading = true;
+				viewState.loaded = false;
+			}
 
 			const tasks = await matchingRoute.handler(url, { cachedArticle });
 
-			viewState.loaded = true;
-			viewState.loading = false;
+			if (!cachedArticle) {
+				viewState.loaded = true;
+				viewState.loading = false;
+			}
 
 			return { data: { url, tasks }, cached: Boolean(cachedArticle) };
 		} catch (err) {
