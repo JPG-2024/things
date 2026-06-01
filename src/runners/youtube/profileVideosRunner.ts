@@ -4,15 +4,22 @@ import type { Task } from '@/types/taskRunner.types';
 import { viewState } from '@/stores/viewStore.svelte';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 
-const fromUrlRoutine: TaskNames[] = [TaskNames.INIT_YOUTUBE_PROFILE, TaskNames.EXTRACT_PROFILE];
+const fromUrlRoutine: TaskNames[] = [
+	TaskNames.INIT_YOUTUBE_PROFILE,
+	TaskNames.EXTRACT_PROFILE,
+	TaskNames.EXTRACT_CHANNEL_VIDEOS
+];
+const fromVideoRoutine: TaskNames[] = [TaskNames.PROFILE_FROM_VIDEO, TaskNames.EXTRACT_PROFILE];
 
 export async function youtubeProfileRunner(
 	url: string,
-	videosAmount: number = 1,
+	videosAmount: number = 4,
 	profileId?: string
 ): Promise<Task[]> {
 	try {
-		const tasks = await buildTaskSubroutine(fromUrlRoutine, youtubeTaskRegistry, {
+		const routine = profileId ? fromVideoRoutine : fromUrlRoutine;
+
+		const tasks = await buildTaskSubroutine(routine, youtubeTaskRegistry, {
 			url,
 			language: viewState.language,
 			videosAmount,

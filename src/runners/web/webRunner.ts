@@ -3,28 +3,31 @@ import { workflowManager } from '@/runners/workflowManager.svelte';
 import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { WebTaskNames, webTaskRegistry } from './tasks/webTasks';
+import { WebTaskNames, webTaskRegistry } from './tasks/webWorkflow';
+import type { InferTaskState } from '@/runners/taskSchema';
 
-const webPage: WebTaskNames[] = [
+type WebTaskId = keyof typeof webTaskRegistry & string;
+
+const webPage = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
 	WebTaskNames.TITLE_SUMMARY
-];
+] as const satisfies readonly WebTaskId[];
 
-const quickArticle: WebTaskNames[] = [
+const quickArticle = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
 	WebTaskNames.TITLE_SUMMARY,
 	WebTaskNames.KEYWORDS
-];
+] as const satisfies readonly WebTaskId[];
 
-const minimalArticle: WebTaskNames[] = [
+const minimalArticle = [
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
 	WebTaskNames.TITLE_SUMMARY
-];
+] as const satisfies readonly WebTaskId[];
 
 const routine = {
 	webPage,

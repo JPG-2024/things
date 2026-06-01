@@ -20,7 +20,7 @@ class ViewState {
 	messages = $state<Message[]>([]);
 
 	aiProvider = $state<'llama' | 'openrouter'>('llama');
-	openrouterModel = $state('openai/gpt-oss-20b:free');
+	openrouterModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	clipboardPollingEnabled = $state(true);

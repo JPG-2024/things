@@ -120,8 +120,6 @@ export async function saveTasks<TMap extends TaskMapBase>(
 			valuesToOverride
 		});
 
-		debugger;
-
 		await invoke('upsert_stored_article', { input });
 	} catch (error) {
 		console.error('Error saving tasks:', error);
