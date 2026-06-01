@@ -157,7 +157,10 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
         .no_sandbox()
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
-        .arg("--disable-sync");
+        .arg("--disable-sync")
+        .arg("--disable-features=WebRTC,MediaStream")
+        .arg("--use-fake-ui-for-media-stream")
+        .arg("--disable-media-session-api");
 
     let config = config.build().map_err(|e| {
         let error_msg = e.to_string();
