@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import { BaseDirectory, remove } from '@tauri-apps/plugin-fs';
-import { splitText } from '@/lib/utils/splitter';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {

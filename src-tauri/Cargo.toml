@@ -39,8 +39,6 @@ tauri-plugin-http = "2"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10.9"
 hex = "0.4"
-text-splitter = { version = "0.28", features = ["markdown", "code"] }
-tree-sitter-typescript = "0.23"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 quick-xml = "0.31"
 base64 = "0.21"  # Para decodificar si es necesario

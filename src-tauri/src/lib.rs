@@ -18,9 +18,6 @@ pub use crate::youtube::{
 mod youtube_info;
 pub use crate::youtube_info::{extract_chapters};
 
-mod splitter;
-pub use crate::splitter::{split_text, split_text_command, SplitMode};
-
 mod markdown;
 pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 
@@ -100,7 +97,6 @@ pub fn run() {
             download_and_save_image,
             url_to_folder_name,
             launch_llama_server,
-            split_text_command,
             read_clipboard_text,
             init_browser,
             get_browser_profile,
