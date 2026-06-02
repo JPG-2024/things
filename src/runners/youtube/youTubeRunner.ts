@@ -8,26 +8,27 @@ import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { youtubeProfileRunner } from './profileVideosRunner';
 import { getTaskData } from '@/lib/utils/helpers/tasks';
 
-const videoPage: TaskNames[] = [
+const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
-	//TaskNames.SUMMARY,
 	TaskNames.TITLE_SUMMARY,
-	TaskNames.TITLE,
-	TaskNames.PROFILE_FROM_VIDEO
-	//TaskNames.MAIN_COLOR,
-	//TaskNames.KEYWORDS
-	//TaskNames.KEYPOINTS,
-	//TaskNames.CHAPTERS_SUMMARY,
+	TaskNames.TITLE
 ];
 
-const videoItem: TaskNames[] = [TaskNames.THUMBNAIL, TaskNames.TITLE_SUMMARY, TaskNames.TITLE];
+const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];
+
+const fromProfileRunner: TaskNames[] = [
+	TaskNames.THUMBNAIL,
+	TaskNames.TITLE_SUMMARY,
+	TaskNames.TITLE
+];
 
 const previewRoutine: TaskNames[] = [TaskNames.THUMBNAIL];
 
 const routine = {
-	videoPage,
-	videoItem,
+	fromUrl,
+	fromFreshUrl,
+	fromProfileRunner,
 	previewRoutine
 };
 
@@ -49,9 +50,11 @@ export async function youTubeRunner(
 	const runId = url;
 	const freshRun = options.Rebuild === true || !cachedArticle?.persistedTasks?.length;
 
+	const routineId = options.routine || (freshRun ? 'fromFreshUrl' : 'fromUrl');
+
 	// Build the task list based on the selected routine and registry, incorporating persisted task states if available, and marking the run as fresh if Rebuild is true or no persisted tasks are found
 	const tasks = await buildTaskSubroutine(
-		routine[options.routine ?? 'videoPage'],
+		routine[routineId],
 		youtubeTaskRegistry,
 		{ url, language: viewState.language, freshRun }, // params inyected to each task
 		{

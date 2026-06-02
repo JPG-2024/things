@@ -47,8 +47,6 @@
 		$query.refetch();
 	}
 
-	$inspect($query.data);
-
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
 		urlRouter(article.url);

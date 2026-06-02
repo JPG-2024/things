@@ -230,6 +230,10 @@ export function getRequiredTaskState<
 
 export function createContentGetter<TContentKey extends string>(contentTaskName: TContentKey) {
 	return function getContentFromState(state: Readonly<Record<string, unknown>>): string {
-		return String(state[contentTaskName] || '');
+		const value = state[contentTaskName];
+		if (value === undefined) {
+			throw new Error(`Missing content for task "${contentTaskName}"`);
+		}
+		return String(value);
 	};
 }

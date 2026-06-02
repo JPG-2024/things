@@ -5,7 +5,7 @@ import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
-import { getArticlesByProfile, saveProfile, getProfile } from '@/stores/tasksStore';
+import { saveProfile, getProfile } from '@/stores/tasksStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
 	defineWorkflow,
@@ -103,7 +103,11 @@ function getTaskState<TId extends keyof YouTubeTaskState & string>(
 	return getRequiredTaskState(state, taskId) as YouTubeTaskState[TId];
 }
 
-const getContentFromState = createContentGetter(TaskNames.CONTENT);
+const getContentFromState = (state: any) => {
+	const content = getTaskState(state, TaskNames.CONTENT);
+
+	return content;
+};
 
 const youtubeTasks = {
 	[TaskNames.INIT_YOUTUBE_VIDEO]: scriptTask({
@@ -183,7 +187,7 @@ const youtubeTasks = {
 					{ name: 'title', selector: '#title h1 yt-formatted-string' },
 					{ name: 'views', selector: 'span.view-count' },
 					{ name: 'uploadDate', selector: 'div#info-strings yt-formatted-string' },
-					{ name: 'profileId', selector: '#channel-name a', attribute: 'href' },
+					{ name: 'profileId', selector: 'div#upload-info a', attribute: 'href' },
 					{ name: 'profilePicture', selector: '#img ', attribute: 'src' }
 				],
 				attempts: 5,
@@ -255,7 +259,11 @@ const youtubeTasks = {
 				selectors: [
 					{ name: 'profile', selector: 'yt-content-metadata-view-model' },
 					{ name: 'channelName', selector: 'h1 > span' },
-					{ name: 'profilePicture', selector: 'div#contentContainer img[src]', attribute: 'src' },
+					{
+						name: 'profilePicture',
+						selector: 'div#page-header-container img[src]',
+						attribute: 'src'
+					},
 					{ name: 'videoIds', selector: 'a.ytLockupViewModelContentImage', attribute: 'href' },
 					{ name: 'uploadDate', selector: 'div#info yt-formatted-string' }
 				],
@@ -371,12 +379,15 @@ const youtubeTasks = {
 		dependencies: [TaskNames.CONTENT],
 		component: 'taskBase',
 		output: outputSchemas[TaskNames.TITLE_SUMMARY],
-		systemMessage: 'Focus on extracting: ...',
+		systemMessage: `Eres un profesor de jardin. Tu tarea es ayudar a los niños a entender de qué trata un video de YouTube con un pequeño resumen. Responde en el mismo idioma del video.`,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
 			return `Generate a short summary for this video. avoid markdown, only text. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
-		run: getContentFromState,
+		run: ({ state }) => {
+			const content = getTaskState(state, TaskNames.CONTENT);
+			return content;
+		},
 		completionOptions: ytCompletionOptions
 	}),
 	[TaskNames.TITLE]: iaTask({

@@ -31,7 +31,6 @@
 		border-radius: 15px;
 		background: rgba(154, 154, 154, 0.1);
 		background: var(--primary-color);
-		padding: 0.5rem 4rem;
 		color: black;
 		font-weight: bold;
 		font-size: 1.2rem;

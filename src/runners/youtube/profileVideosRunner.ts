@@ -9,7 +9,7 @@ const fromUrlRoutine: TaskNames[] = [
 	TaskNames.EXTRACT_PROFILE,
 	TaskNames.EXTRACT_CHANNEL_VIDEOS
 ];
-const fromVideoRoutine: TaskNames[] = [TaskNames.PROFILE_FROM_VIDEO, TaskNames.EXTRACT_PROFILE];
+const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
 
 export async function youtubeProfileRunner(
 	url: string,

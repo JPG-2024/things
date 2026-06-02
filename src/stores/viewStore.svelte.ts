@@ -20,7 +20,8 @@ class ViewState {
 	messages = $state<Message[]>([]);
 
 	aiProvider = $state<'llama' | 'openrouter'>('llama');
-	openrouterModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
+	aiUrl = $state<string>('');
+	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	clipboardPollingEnabled = $state(true);

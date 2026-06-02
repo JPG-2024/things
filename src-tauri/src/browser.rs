@@ -154,11 +154,10 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
 
     config = config
         .user_data_dir(&user_data_dir)
-        .no_sandbox()
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--disable-sync")
-        .arg("--disable-features=WebRTC,MediaStream")
+        .arg("--disable-features=WebRTC,MediaStream,WebRtcHideLocalIpsWithMdns")
         .arg("--use-fake-ui-for-media-stream")
         .arg("--disable-media-session-api");
 

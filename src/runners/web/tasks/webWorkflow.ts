@@ -169,7 +169,10 @@ export const webWorkflow = defineWorkflow({
 				const ctx = context as WebTaskFactoryContext;
 				return `Summarize the article context in one paragraph. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}`;
 			},
-			run: getContentFromState,
+			run: ({ state }) => {
+				const content = getTaskState(state, WebTaskNames.CONTENT);
+				return content;
+			},
 			completionOptions: defaultCompletionOptions
 		}),
 

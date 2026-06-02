@@ -168,7 +168,7 @@ async function openrouterChatCompletions(
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
 	const client = getOpenRouterClient();
-	const model = viewState.openrouterModel || DEFAULT_OPENROUTER_MODEL;
+	const model = viewState.aiModel || DEFAULT_OPENROUTER_MODEL;
 
 	const streamEnabled =
 		request.stream === true ||
