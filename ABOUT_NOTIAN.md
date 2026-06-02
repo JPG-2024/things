@@ -41,7 +41,6 @@ Notian is a privacy‑first, desktop app that turns links into structured notes 
 - Highlighting and citations: Preserve headings/links and auto‑append sources and timestamps.
 - Multilingual controls: Pick summary language, tone, and length; site‑specific prompts.
 - RAG and local search: Vector embedding of extracted notes for offline semantic search.
-- More content types: Instagram/Twitter threads, PDFs, and newsletters.
 - Rules & automations: If‑this‑then‑that actions per domain (save images, tag, route to notebook, etc.).
 
 ## How it works (high level)

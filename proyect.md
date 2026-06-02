@@ -35,7 +35,6 @@ The backend is a multi-module Rust application that exposes functions to the fro
 - `youtube.rs`: Contains logic for fetching YouTube video transcripts using the `yt-transcript-rs` crate.
 - `markdown.rs`: Handles the conversion of HTML content to Markdown.
 - `inference_openrouter.rs`: Connects to the OpenRouter API for AI-powered inference tasks.
-- `instagram.rs`: Implements logic specific to interacting with Instagram.
 
 **Backend Architecture Diagram:**
 
@@ -60,9 +59,6 @@ The backend is a multi-module Rust application that exposes functions to the fro
 |  | browser.rs  |  | youtube.rs  |  | markdown.rs |
 |  +-------------+  +-------------+  +-----------+ |
 |                                                  |
-|  +------------------------+  +---------------+   |
-|  | inference_openrouter.rs|  | instagram.rs  |   |
-|  +------------------------+  +---------------+   |
 +--------------------------------------------------+
 ```
 
