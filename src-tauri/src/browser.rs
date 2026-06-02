@@ -180,6 +180,7 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
                 break;
             }
         }
+        eprintln!("Browser handler task exited");
     });
 
     println!("✅ Browser inicializado");
@@ -229,25 +230,83 @@ pub async fn get_browser_profile() -> Result<String, String> {
 }
 
 pub async fn shutdown_browser() -> Result<(), String> {
+    const GRACEFUL_TIMEOUT: Duration = Duration::from_secs(5);
+
     let state = {
         let mut state = BROWSER_STATE.lock().await;
         state.take()
     };
 
     if let Some(state) = state {
-        if let Some(shared_page) = state.shared_page.lock().await.take() {
-            if let Err(error) = shared_page.close().await {
-                eprintln!("Failed to close shared page: {}", error);
+        let handler_task = state.handler_task;
+        let cleanup_on_exit = state.cleanup_on_exit;
+        let user_data_dir = state.user_data_dir.clone();
+        let browser = state.browser;
+        let page_semaphore = state.page_semaphore;
+        let shared_page = state.shared_page;
+
+        {
+            let mut browser_guard = browser.lock().await;
+
+            if let Some(child) = browser_guard.get_mut_child() {
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        eprintln!("Chrome child process already exited: {:?}", status);
+                    }
+                    Ok(None) => {
+                        eprintln!("Chrome child process still running, initiating graceful close...");
+                    }
+                    Err(e) => {
+                        eprintln!("Error checking child process state: {}", e);
+                    }
+                }
+            }
+
+            if let Err(error) = browser_guard.close().await {
+                eprintln!("Failed to close browser: {}", error);
+            }
+
+            match tokio::time::timeout(GRACEFUL_TIMEOUT, browser_guard.wait()).await {
+                Ok(Ok(Some(status))) => {
+                    eprintln!("Browser exited gracefully: {:?}", status);
+                }
+                Ok(Ok(None)) => {
+                    eprintln!("Browser process already terminated");
+                }
+                Ok(Err(e)) => {
+                    eprintln!("Error waiting for browser: {}", e);
+                }
+                Err(_) => {
+                    eprintln!("Browser close timed out after {:?}, forcing kill...", GRACEFUL_TIMEOUT);
+                    if let Some(result) = browser_guard.kill().await {
+                        if let Err(e) = result {
+                            eprintln!("Force kill failed: {}", e);
+                        }
+                    }
+                    if let Err(e) = browser_guard.wait().await {
+                        eprintln!("Error waiting after kill: {}", e);
+                    }
+                }
             }
         }
 
-        if let Err(error) = state.browser.lock().await.close().await {
-            eprintln!("Failed to close browser: {}", error);
+        drop(shared_page);
+        drop(page_semaphore);
+        drop(browser);
+
+        let handler_timeout = Duration::from_secs(2);
+        match tokio::time::timeout(handler_timeout, handler_task).await {
+            Ok(Ok(())) => eprintln!("Handler task exited cleanly"),
+            Ok(Err(_)) => {
+                eprintln!("Handler task panicked");
+            }
+            Err(_) => {
+                eprintln!("Handler task did not exit in {:?}, abandoning...", handler_timeout);
+            }
         }
 
-        state.handler_task.abort();
-        if state.cleanup_on_exit {
-            cleanup_user_data_dir(&state.user_data_dir);
+        if cleanup_on_exit {
+            cleanup_user_data_dir(&user_data_dir);
         }
     }
 
