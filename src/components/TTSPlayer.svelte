@@ -1,9 +1,11 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import TTSAnalyzer from './TTSAnalyzer.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	let audioContext: AudioContext | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
+	let analyserNode: AnalyserNode | null = $state(null);
 	let combinedBuffer: AudioBuffer | null = $state(null);
 	let isSettingUp = false;
 	let playbackStartTime = 0;
@@ -73,15 +75,21 @@
 		const ctx = getAudioContext();
 		const source = ctx.createBufferSource();
 		source.buffer = combinedBuffer;
-		source.connect(ctx.destination);
 
-		playbackStartTime = performance.now();
-		totalPlaybackDuration = combinedBuffer.duration;
+		const analyser = ctx.createAnalyser();
+		analyser.fftSize = 1024;
+		analyser.smoothingTimeConstant = 0.8;
+		analyser.minDecibels = -90;
+		analyser.maxDecibels = -10;
+
+		source.connect(analyser);
+		analyser.connect(ctx.destination);
 
 		source.onended = () => {
 			if (currentSource === source) {
 				currentSource.disconnect();
 				currentSource = null;
+				analyserNode = null;
 				ttsState.isPlaying = false;
 				clearCountdown();
 				remainingSeconds = 0;
@@ -90,17 +98,32 @@
 
 		source.start(0);
 		currentSource = source;
+		analyserNode = analyser;
 		ttsState.isPlaying = true;
 		startCountdown();
 		isSettingUp = false;
+	}
+
+	function cleanupAnalyser() {
+		if (analyserNode) {
+			try {
+				analyserNode.disconnect();
+			} catch {
+				// ignore disconnect errors
+			}
+			analyserNode = null;
+		}
 	}
 
 	function stopPlayback() {
 		if (currentSource) {
 			currentSource.onended = null;
 			currentSource.stop();
-			ttsState.isPlaying = false;
+			currentSource.disconnect();
+			currentSource = null;
 		}
+		cleanupAnalyser();
+		ttsState.isPlaying = false;
 		clearCountdown();
 		remainingSeconds = 0;
 	}
@@ -193,6 +216,8 @@
 	</button>
 </div>
 
+<TTSAnalyzer {analyserNode} isPlaying={ttsState.isPlaying} />
+
 {#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && ttsState.isPlaying}
 	<span class="time-label">{formatTime(remainingSeconds)}</span>
 {/if}
@@ -220,7 +245,7 @@
 		align-items: center;
 		justify-content: center;
 		background: rgba(0, 0, 0, 0.3);
-		z-index: 1000;
+		z-index: 1001;
 	}
 
 	.tts-player button {
