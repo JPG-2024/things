@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import TTSAnalyzer from './TTSAnalyzer.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { fade } from 'svelte/transition';
 
+	let canvas: HTMLCanvasElement | null = $state(null);
 	let audioContext: AudioContext | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
 	let analyserNode: AnalyserNode | null = $state(null);
@@ -12,6 +13,13 @@
 	let totalPlaybackDuration = 0;
 	let remainingSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+	let isPaused = $state(false);
+	let pausedAt = 0;
+
+	let animationFrame: number | null = null;
+	const amplitudeScale = 0.3;
+	const wavelengthScale = 100;
 
 	function getAudioContext(): AudioContext {
 		if (!audioContext) {
@@ -58,20 +66,7 @@
 		return combined;
 	}
 
-	async function playBuffer() {
-		if (isSettingUp || !combinedBuffer) return;
-		isSettingUp = true;
-
-		await ensureResumed();
-
-		if (currentSource) {
-			currentSource.onended = null;
-			currentSource.stop();
-			currentSource = null;
-		}
-
-		clearCountdown();
-
+	function startSource(offset: number) {
 		const ctx = getAudioContext();
 		const source = ctx.createBufferSource();
 		source.buffer = combinedBuffer;
@@ -90,16 +85,67 @@
 				currentSource.disconnect();
 				currentSource = null;
 				analyserNode = null;
-				ttsState.isPlaying = false;
-				clearCountdown();
-				remainingSeconds = 0;
+				if (!isPaused) {
+					ttsState.isPlaying = false;
+					clearCountdown();
+					remainingSeconds = 0;
+				}
 			}
 		};
 
-		source.start(0);
+		source.start(0, offset);
 		currentSource = source;
 		analyserNode = analyser;
+	}
+
+	async function playBuffer() {
+		if (isSettingUp || !combinedBuffer) return;
+		isSettingUp = true;
+
+		await ensureResumed();
+
+		if (currentSource) {
+			currentSource.onended = null;
+			currentSource.stop();
+			currentSource = null;
+		}
+
+		clearCountdown();
+
+		startSource(0);
 		ttsState.isPlaying = true;
+		isPaused = false;
+		startCountdown();
+		isSettingUp = false;
+	}
+
+	function pausePlayback() {
+		if (!currentSource || !ttsState.isPlaying) return;
+		pausedAt = (performance.now() - playbackStartTime) / 1000;
+		isPaused = true;
+		ttsState.isPlaying = false;
+		clearCountdown();
+		currentSource.onended = null;
+		try {
+			currentSource.stop();
+		} catch {
+			// ignore stop errors
+		}
+		currentSource.disconnect();
+		currentSource = null;
+		cleanupAnalyser();
+	}
+
+	async function resumePlayback() {
+		if (isSettingUp || !combinedBuffer || !isPaused) return;
+		isSettingUp = true;
+
+		await ensureResumed();
+
+		startSource(pausedAt);
+		playbackStartTime = performance.now() - pausedAt * 1000;
+		ttsState.isPlaying = true;
+		isPaused = false;
 		startCountdown();
 		isSettingUp = false;
 	}
@@ -124,6 +170,8 @@
 		}
 		cleanupAnalyser();
 		ttsState.isPlaying = false;
+		isPaused = false;
+		pausedAt = 0;
 		clearCountdown();
 		remainingSeconds = 0;
 	}
@@ -149,35 +197,150 @@
 		return `${m}:${s.toString().padStart(2, '0')}`;
 	}
 
-	async function togglePlay() {
-		if (ttsState.isPlaying) {
-			stopPlayback();
-			return;
-		}
-
+	async function startFresh() {
 		if (ttsState.blobs.length === 0) return;
-
 		if (!audioContext) {
 			getAudioContext();
 		}
 		await ensureResumed();
-
 		const buf = await concatenateBlobs(ttsState.blobs);
 		combinedBuffer = buf;
 		await playBuffer();
+	}
+
+	async function handlePrimaryClick() {
+		if (ttsState.isGenerating) return;
+		if (ttsState.isPlaying) {
+			pausePlayback();
+		} else if (isPaused) {
+			await resumePlayback();
+		} else {
+			await startFresh();
+		}
 	}
 
 	function handleStop() {
 		stopPlayback();
 	}
 
+	function catmullRomSpline(p0: number, p1: number, p2: number, p3: number, t: number): number {
+		const t2 = t * t;
+		const t3 = t2 * t;
+		return (
+			0.5 *
+			(2 * p1 +
+				(-p0 + p2) * t +
+				(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+				(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+		);
+	}
+
+	function resizeCanvas(ctx: CanvasRenderingContext2D, width: number, height: number) {
+		const pixelRatio = window.devicePixelRatio || 1;
+		const scaledWidth = Math.floor(width * pixelRatio);
+		const scaledHeight = Math.floor(height * pixelRatio);
+
+		if (canvas!.width !== scaledWidth || canvas!.height !== scaledHeight) {
+			canvas!.width = scaledWidth;
+			canvas!.height = scaledHeight;
+			ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+		}
+	}
+
+	function drawWaveform() {
+		if (!canvas || !analyserNode) {
+			return;
+		}
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) {
+			return;
+		}
+
+		const width = canvas.clientWidth;
+		const height = canvas.clientHeight;
+		resizeCanvas(ctx, width, height);
+
+		const bufferLength = analyserNode.frequencyBinCount;
+		const dataArray = new Uint8Array(bufferLength);
+		analyserNode.getByteTimeDomainData(dataArray);
+
+		ctx.clearRect(0, 0, width, height);
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+		ctx.fillRect(0, 0, width, height);
+
+		const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
+		const points: number[] = [];
+
+		for (let i = 0; i < bufferLength; i += sampleStep) {
+			const value = dataArray[i];
+			const normalized = (value / 255 - 0.5) * height * amplitudeScale;
+			const y = height / 2 - normalized;
+			points.push(y);
+		}
+
+		const path = new Path2D();
+		const pixelStep = width / (points.length - 1);
+
+		if (points.length >= 2) {
+			path.moveTo(0, points[0]);
+
+			for (let i = 0; i < points.length - 1; i += 1) {
+				const p0 = points[i - 1] ?? points[0];
+				const p1 = points[i];
+				const p2 = points[i + 1];
+				const p3 = points[i + 2] ?? points[points.length - 1];
+
+				for (let t = 0.1; t <= 1; t += 0.1) {
+					const y = catmullRomSpline(p0, p1, p2, p3, t);
+					const x = (i + t) * pixelStep;
+					path.lineTo(x, y);
+				}
+			}
+		}
+
+		ctx.strokeStyle = 'white';
+		ctx.lineWidth = 3;
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.stroke(path);
+	}
+
+	function startAnimation() {
+		if (animationFrame !== null) return;
+
+		const step = () => {
+			drawWaveform();
+			animationFrame = requestAnimationFrame(step);
+		};
+
+		animationFrame = requestAnimationFrame(step);
+	}
+
+	function stopAnimation() {
+		if (animationFrame !== null) {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = null;
+		}
+	}
+
 	$effect(() => {
-		if (ttsState.blobs.length > 0 && ttsState.isPlaying) {
+		if (analyserNode && ttsState.isPlaying && !isPaused) {
+			startAnimation();
+		} else {
+			stopAnimation();
+		}
+
+		return () => stopAnimation();
+	});
+
+	$effect(() => {
+		if (ttsState.blobs.length > 0 && ttsState.isPlaying && !combinedBuffer) {
 			concatenateBlobs(ttsState.blobs).then((buf) => {
 				combinedBuffer = buf;
 				playBuffer();
 			});
-		} else if (ttsState.blobs.length === 0) {
+		} else if (ttsState.blobs.length === 0 && !isPaused) {
 			combinedBuffer = null;
 		}
 	});
@@ -197,108 +360,153 @@
 			}
 		};
 	});
+
+	const panelVisible = $derived(
+		!!combinedBuffer ||
+			ttsState.isPlaying ||
+			isPaused ||
+			ttsState.isGenerating ||
+			!!ttsState.errorMessage
+	);
 </script>
 
-<div class="tts-player">
-	<button
-		type="button"
-		onclick={ttsState.isPlaying ? handleStop : togglePlay}
-		disabled={ttsState.isGenerating}
-		aria-label={ttsState.isPlaying ? 'Stop' : 'Play'}
-	>
-		{#if ttsState.isGenerating}
-			<Icon name="Loader" size={20} />
-		{:else if ttsState.isPlaying}
-			<Icon name="Square" size={20} />
-		{:else}
-			<Icon name="Play" size={20} />
+{#if panelVisible}
+	<div in:fade out:fade class="tts-player">
+		<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
+
+		<div class="tts-player__controls">
+			<button
+				type="button"
+				class="tts-player__btn"
+				onclick={handlePrimaryClick}
+				disabled={ttsState.isGenerating}
+				aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
+			>
+				{#if ttsState.isGenerating}
+					<Icon name="Loader" size={22} />
+				{:else if ttsState.isPlaying}
+					<Icon name="Pause" size={22} />
+				{:else}
+					<Icon name="Play" size={22} />
+				{/if}
+			</button>
+			{#if ttsState.isPlaying || isPaused}
+				<button
+					type="button"
+					class="tts-player__btn tts-player__btn--stop"
+					onclick={handleStop}
+					aria-label="Stop"
+				>
+					<Icon name="Square" size={18} />
+				</button>
+			{/if}
+		</div>
+
+		{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
+			<span class="tts-player__time">{formatTime(remainingSeconds)}</span>
 		{/if}
-	</button>
-</div>
 
-<TTSAnalyzer {analyserNode} isPlaying={ttsState.isPlaying} />
+		{#if ttsState.isGenerating}
+			<span class="tts-player__status">Generating...</span>
+		{/if}
 
-{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && ttsState.isPlaying}
-	<span class="time-label">{formatTime(remainingSeconds)}</span>
-{/if}
-
-{#if ttsState.isGenerating}
-	<span class="status-label">Generating...</span>
-{/if}
-
-{#if ttsState.errorMessage}
-	<div class="error-bar">
-		<span>{ttsState.errorMessage}</span>
-		<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+		{#if ttsState.errorMessage}
+			<div class="tts-player__error">
+				<span>{ttsState.errorMessage}</span>
+				<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+			</div>
+		{/if}
 	</div>
 {/if}
 
 <style>
 	.tts-player {
-		position: fixed;
-		bottom: 1.5rem;
-		right: 1.5rem;
-		width: 50px;
-		height: 50px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: rgba(0, 0, 0, 0.3);
-		z-index: 1001;
+		position: absolute;
+		inset: 0;
+		border-radius: 16px;
+		overflow: hidden;
+		background: rgba(14, 14, 14, 0.76);
+		box-shadow:
+			0 0 0 1px rgba(255, 255, 255, 0.06),
+			0 18px 48px rgba(0, 0, 0, 0.4);
+		z-index: 1000;
 	}
 
-	.tts-player button {
+	.tts-player__canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	.tts-player__controls {
+		position: absolute;
+		top: 70%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.tts-player__btn {
 		all: unset;
 		box-sizing: border-box;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		padding: 0.5rem;
+		width: 50px;
+		height: 50px;
 		border-radius: 50%;
+		background: rgba(0, 0, 0, 0.3);
 		color: var(--primary-color);
 	}
 
-	.tts-player button:disabled {
+	.tts-player__btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
 
-	.tts-player button:not(:disabled):hover {
+	.tts-player__btn:not(:disabled):hover {
 		background: rgba(255, 255, 255, 0.12);
 	}
 
-	.time-label {
-		position: fixed;
-		bottom: calc(1.5rem + 60px);
-		right: 1.5rem;
-		transform: translateX(50%);
+	.tts-player__btn--stop {
+		width: 40px;
+		height: 40px;
+		background: rgba(0, 0, 0, 0.5);
+	}
+
+	.tts-player__time {
+		position: absolute;
+		bottom: 1rem;
+		left: 50%;
+		transform: translateX(-50%);
 		background: rgba(0, 0, 0, 0.9);
 		color: rgba(255, 255, 255, 0.9);
 		font-size: 0.75rem;
 		font-variant-numeric: tabular-nums;
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
-		z-index: 1000;
 	}
 
-	.status-label {
-		position: fixed;
-		bottom: calc(1.5rem + 60px);
-		right: 1.5rem;
-		transform: translateX(50%);
+	.tts-player__status {
+		position: absolute;
+		bottom: 1rem;
+		left: 50%;
+		transform: translateX(-50%);
 		background: rgba(0, 0, 0, 0.9);
 		color: var(--primary-color);
 		font-size: 0.75rem;
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
-		z-index: 1000;
 	}
 
-	.error-bar {
-		position: fixed;
-		bottom: 4rem;
+	.tts-player__error {
+		position: absolute;
+		top: 1rem;
 		left: 50%;
 		transform: translateX(-50%);
 		display: flex;
@@ -310,10 +518,9 @@
 		border-radius: 8px;
 		color: #ff5a5a;
 		font-size: 0.85rem;
-		z-index: 1001;
 	}
 
-	.error-bar button {
+	.tts-player__error button {
 		all: unset;
 		cursor: pointer;
 		font-size: 1.2rem;
@@ -321,7 +528,7 @@
 		opacity: 0.7;
 	}
 
-	.error-bar button:hover {
+	.tts-player__error button:hover {
 		opacity: 1;
 	}
 </style>
