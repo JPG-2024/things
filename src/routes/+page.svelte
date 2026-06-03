@@ -139,16 +139,26 @@
 			ignoreInputs: true
 		})
 	);
+
+	$inspect(viewState.collapseProfiles);
 </script>
 
 <div class="page-topbar">
 	<button
 		type="button"
 		class="settings-trigger"
+		onclick={() => (viewState.collapseProfiles = !viewState.collapseProfiles)}
+		aria-label="Open settings"
+	>
+		<Icon name="ChevronRight" />
+	</button>
+	<button
+		type="button"
+		class="settings-trigger"
 		onclick={() => (viewState.modalSettingVisible = true)}
 		aria-label="Open settings"
 	>
-		<Icon name="Settings" />
+		<Icon name="ChevronRight" />
 	</button>
 </div>
 
@@ -167,7 +177,7 @@
 
 	<div class="flex-squares">
 		{#each profileCategories as profile (profile.id)}
-			<ProfileWidget {profile} showTitle={false} />
+			<ProfileWidget {profile} showTitle={false} collapsed={viewState.collapseProfiles} />
 		{/each}
 	</div>
 </div>

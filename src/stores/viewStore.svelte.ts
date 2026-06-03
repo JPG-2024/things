@@ -9,6 +9,7 @@ class ViewState {
 	loading = $state(false);
 	loaded = $state(false);
 	showAllTasks = $state(false);
+	collapseProfiles = $state(false);
 
 	modalSettingVisible = $state(false);
 

@@ -19,9 +19,19 @@
 	interface Props {
 		profile: ArticleProfile;
 		showTitle?: boolean;
+		collapsed?: boolean;
 	}
 
-	let { profile, showTitle = false }: Props = $props();
+	let { profile, showTitle = false, collapsed = false }: Props = $props();
+	let isCollapsed = $state(false);
+
+	$effect(() => {
+		isCollapsed = collapsed;
+	});
+
+	function toggleCollapse() {
+		isCollapsed = !isCollapsed;
+	}
 
 	const profileRunId = getProfileUrl(profile.name);
 	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
@@ -54,7 +64,12 @@
 	}
 </script>
 
-<div class="category-widget">
+<div
+	class="category-widget"
+	role="group"
+	onmouseenter={() => (isCollapsed = true)}
+	onmouseleave={() => (isCollapsed = false)}
+>
 	<Card loading={isProfileRunning}>
 		{#if showTitle}
 			<div class="title-row">
@@ -80,21 +95,32 @@
 		{#if $query.data?.length}
 			<div class="img-flex">
 				{#if profile.profilePicture}
-					<img
-						src={profile.profilePicture}
-						alt={profile.name}
-						class="profile-avatar"
-						onmouseenter={() => {
-							viewState.hoveredProfileName = profile.name;
-							viewState.hoveredProfileId = profile.id;
-						}}
-						onmouseleave={() => {
-							viewState.hoveredProfileName = null;
-							viewState.hoveredProfileId = null;
-						}}
-					/>
+					<div class="avatar-container">
+						<img
+							src={profile.profilePicture}
+							alt={profile.name}
+							class="profile-avatar"
+							onmouseenter={() => {
+								viewState.hoveredProfileName = profile.name;
+								viewState.hoveredProfileId = profile.id;
+							}}
+							onmouseleave={() => {
+								viewState.hoveredProfileName = null;
+								viewState.hoveredProfileId = null;
+							}}
+						/>
+						<button
+							type="button"
+							class="collapse-toggle"
+							onclick={toggleCollapse}
+							aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+							title={isCollapsed ? 'Expand' : 'Collapse'}
+						>
+							<Icon name={isCollapsed ? 'ChevronRight' : 'ChevronLeft'} />
+						</button>
+					</div>
 				{/if}
-				{#each $query.data as article (article.url)}
+				{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
 					<button
 						type="button"
 						class="img-button"
@@ -168,6 +194,13 @@
 		gap: 1rem;
 		justify-content: center;
 		width: 100%;
+		transition: all 0.25s ease;
+	}
+
+	.avatar-container {
+		position: relative;
+		display: flex;
+		align-items: center;
 	}
 
 	.img-button {
@@ -182,7 +215,7 @@
 	}
 
 	.img-button:hover {
-		transform: scale(1.05);
+		transform: scale(1.3);
 		z-index: 20;
 	}
 
@@ -207,6 +240,26 @@
 	.profile-avatar:hover {
 		transform: scale(1.1);
 		z-index: 20;
+	}
+
+	.collapse-toggle {
+		all: unset;
+		position: absolute;
+		right: -13px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border-radius: 999px;
+		padding: 0.1rem;
+		transition:
+			background-color 0.15s ease,
+			transform 0.15s ease;
+	}
+
+	.collapse-toggle:hover {
+		background: rgba(255, 255, 255, 0.2);
+		transform: scale(1.1);
 	}
 
 	.spin {
