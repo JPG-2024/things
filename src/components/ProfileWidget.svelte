@@ -64,86 +64,83 @@
 	}
 </script>
 
-<div
-	class="category-widget"
-	role="group"
-	onmouseenter={() => (isCollapsed = true)}
-	onmouseleave={() => (isCollapsed = false)}
->
-	<Card loading={isProfileRunning}>
-		{#if showTitle}
-			<div class="title-row">
-				<h2 class="category-title">{profile.name}</h2>
-				<div class="actions">
-					<button
-						type="button"
-						class="refresh-btn"
-						onclick={handleRefresh}
-						disabled={isProfileRunning}
-						aria-label={`Refresh ${profile.name}`}
-						title="Refresh"
-					>
-						{#if isProfileRunning}
-							<Icon name="Loader2" class="spin" />
-						{:else}
-							<Icon name="RefreshCw" />
-						{/if}
-					</button>
-				</div>
-			</div>
-		{/if}
-		{#if $query.data?.length}
-			<div class="img-flex">
-				{#if profile.profilePicture}
-					<div class="avatar-container">
-						<img
-							src={profile.profilePicture}
-							alt={profile.name}
-							class="profile-avatar"
-							onmouseenter={() => {
-								viewState.hoveredProfileName = profile.name;
-								viewState.hoveredProfileId = profile.id;
-							}}
-							onmouseleave={() => {
-								viewState.hoveredProfileName = null;
-								viewState.hoveredProfileId = null;
-							}}
-						/>
+<div class="categoty-container">
+	<div class="category-widget">
+		<Card loading={isProfileRunning}>
+			{#if showTitle}
+				<div class="title-row">
+					<h2 class="category-title">{profile.name}</h2>
+					<div class="actions">
 						<button
 							type="button"
-							class="collapse-toggle"
-							onclick={toggleCollapse}
-							aria-label={isCollapsed ? 'Expand' : 'Collapse'}
-							title={isCollapsed ? 'Expand' : 'Collapse'}
+							class="refresh-btn"
+							onclick={handleRefresh}
+							disabled={isProfileRunning}
+							aria-label={`Refresh ${profile.name}`}
+							title="Refresh"
 						>
-							<Icon name={isCollapsed ? 'ChevronRight' : 'ChevronLeft'} />
+							{#if isProfileRunning}
+								<Icon name="Loader2" class="spin" />
+							{:else}
+								<Icon name="RefreshCw" />
+							{/if}
 						</button>
 					</div>
-				{/if}
-				{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
-					<button
-						type="button"
-						class="img-button"
-						onclick={() => handleNavigateToArticle(article)}
-						onmouseenter={() => (viewState.hoveredArticleUrl = article.url ?? null)}
-						onmouseleave={() => (viewState.hoveredArticleUrl = null)}
-						aria-label="View article"
-					>
-						<Tooltip content={article.title ?? ''}>
+				</div>
+			{/if}
+			{#if $query.data?.length}
+				<div class="img-flex">
+					{#if profile.profilePicture}
+						<div class="avatar-container">
 							<img
-								src={article.thumbnail}
-								alt="Article"
-								class="mini-img"
-								style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+								src={profile.profilePicture}
+								alt={profile.name}
+								class="profile-avatar"
+								onmouseenter={() => {
+									viewState.hoveredProfileName = profile.name;
+									viewState.hoveredProfileId = profile.id;
+								}}
+								onmouseleave={() => {
+									viewState.hoveredProfileName = null;
+									viewState.hoveredProfileId = null;
+								}}
 							/>
-						</Tooltip>
-					</button>
-				{/each}
-			</div>
-		{:else if $query.isLoading}
-			<span>Loading articles...</span>
-		{/if}
-	</Card>
+							<button
+								type="button"
+								class="collapse-toggle"
+								onclick={toggleCollapse}
+								aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+								title={isCollapsed ? 'Expand' : 'Collapse'}
+							>
+								<Icon name={isCollapsed ? 'ChevronRight' : 'ChevronLeft'} />
+							</button>
+						</div>
+					{/if}
+					{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
+						<button
+							type="button"
+							class="img-button"
+							onclick={() => handleNavigateToArticle(article)}
+							onmouseenter={() => (viewState.hoveredArticleUrl = article.url ?? null)}
+							onmouseleave={() => (viewState.hoveredArticleUrl = null)}
+							aria-label="View article"
+						>
+							<Tooltip content={article.title ?? ''}>
+								<img
+									src={article.thumbnail}
+									alt="Article"
+									class="mini-img"
+									style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+								/>
+							</Tooltip>
+						</button>
+					{/each}
+				</div>
+			{:else if $query.isLoading}
+				<span>Loading articles...</span>
+			{/if}
+		</Card>
+	</div>
 </div>
 
 <style>
@@ -194,6 +191,7 @@
 		gap: 1rem;
 		justify-content: center;
 		width: 100%;
+		padding: 0.5rem;
 		transition: all 0.25s ease;
 	}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
+	import TaskError from '@/components/Tasks/TaskError.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 
@@ -51,6 +52,14 @@
 					<Renderer {task} runId={entry.runId} {componentProps} />
 				</BaseTaskComponent>
 			</div>
+		{:else if task.status === 'failed'}
+			<div
+				class="task-wrapper task-wrapper--error"
+				class:span-2={(task.gridSpan ?? 3) === 2}
+				class:span-3={(task.gridSpan ?? 3) === 3}
+			>
+				<TaskError {task} runId={entry.runId} />
+			</div>
 		{/if}
 	{/each}
 </div>
@@ -69,6 +78,10 @@
 		min-width: 0;
 		display: flex;
 		align-items: center;
+	}
+
+	.task-wrapper--error {
+		align-items: stretch;
 	}
 
 	.task-wrapper.span-2 {

@@ -69,6 +69,7 @@ class TTSState {
 	clearPlaylist(): void {
 		this.isPlaying = false;
 		this.blobs = [];
+		this.durationSeconds = null;
 	}
 
 	releaseBlobs(): void {
@@ -117,6 +118,7 @@ class TTSState {
 			}
 
 			this.durationSeconds = totalDuration;
+			ttsState.durationSeconds = totalDuration;
 
 			if (this.blobs.length > 0) {
 				this.isPlaying = true;

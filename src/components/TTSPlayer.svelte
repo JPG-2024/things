@@ -2,6 +2,8 @@
 	import Icon from './Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { fade } from 'svelte/transition';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let audioContext: AudioContext | null = $state(null);
@@ -20,6 +22,15 @@
 	let animationFrame: number | null = null;
 	const amplitudeScale = 0.3;
 	const wavelengthScale = 100;
+
+	const SINE_FILL_ALPHA = 0.24;
+	const WAVE_STROKE_WIDTH = 3;
+	const WAVE_STROKE_COLOR = 'white';
+
+	const SPLINE_SAMPLE_STEP = 0.1;
+	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
+
+	const MAX_WAVE_AMPLITUDE_PX = 25;
 
 	function getAudioContext(): AudioContext {
 		if (!audioContext) {
@@ -113,6 +124,8 @@
 		clearCountdown();
 
 		startSource(0);
+		playbackStartTime = performance.now();
+		totalPlaybackDuration = ttsState.durationSeconds ?? combinedBuffer?.duration ?? 0;
 		ttsState.isPlaying = true;
 		isPaused = false;
 		startCountdown();
@@ -169,11 +182,15 @@
 			currentSource = null;
 		}
 		cleanupAnalyser();
-		ttsState.isPlaying = false;
+		clearCountdown();
+
 		isPaused = false;
 		pausedAt = 0;
-		clearCountdown();
 		remainingSeconds = 0;
+		combinedBuffer = null;
+
+		ttsState.clearPlaylist();
+		ttsState.errorMessage = '';
 	}
 
 	function startCountdown() {
@@ -223,6 +240,16 @@
 		stopPlayback();
 	}
 
+	createHotkey('Escape', handleStop, {
+		stopPropagation: true,
+		preventDefault: true
+	});
+
+	createHotkey('Space', handlePrimaryClick, {
+		stopPropagation: true,
+		preventDefault: true
+	});
+
 	function catmullRomSpline(p0: number, p1: number, p2: number, p3: number, t: number): number {
 		const t2 = t * t;
 		const t3 = t2 * t;
@@ -266,7 +293,7 @@
 		analyserNode.getByteTimeDomainData(dataArray);
 
 		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
 		ctx.fillRect(0, 0, width, height);
 
 		const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
@@ -291,7 +318,8 @@
 				const p2 = points[i + 1];
 				const p3 = points[i + 2] ?? points[points.length - 1];
 
-				for (let t = 0.1; t <= 1; t += 0.1) {
+				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
+					const t = j * SPLINE_SAMPLE_STEP;
 					const y = catmullRomSpline(p0, p1, p2, p3, t);
 					const x = (i + t) * pixelStep;
 					path.lineTo(x, y);
@@ -299,8 +327,70 @@
 			}
 		}
 
-		ctx.strokeStyle = 'white';
-		ctx.lineWidth = 3;
+		ctx.strokeStyle = WAVE_STROKE_COLOR;
+		ctx.lineWidth = WAVE_STROKE_WIDTH;
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.stroke(path);
+	}
+
+	function drawGeneratingWave() {
+		if (!canvas) return;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const width = canvas.clientWidth;
+		const height = canvas.clientHeight;
+		if (width === 0 || height === 0) return;
+
+		resizeCanvas(ctx, width, height);
+
+		const config = getCurrentStyle();
+		const t = performance.now() / 1000;
+		const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
+		const pointCount = config.pointCount;
+		const phaseSpeed = config.baseSpeed;
+
+		ctx.clearRect(0, 0, width, height);
+		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
+		ctx.fillRect(0, 0, width, height);
+
+		const points: number[] = [];
+		for (let i = 0; i < pointCount; i += 1) {
+			const u = pointCount === 1 ? 0 : i / (pointCount - 1);
+			let y = height / 2;
+			for (const h of config.harmonics) {
+				y +=
+					amplitude *
+					h.amplitudeRatio *
+					Math.sin(2 * Math.PI * h.cycles * u - t * phaseSpeed * h.speedRatio);
+			}
+			points.push(y);
+		}
+
+		const path = new Path2D();
+		const pixelStep = width / (points.length - 1);
+
+		if (points.length >= 2) {
+			path.moveTo(0, points[0]);
+
+			for (let i = 0; i < points.length - 1; i += 1) {
+				const p0 = points[i - 1] ?? points[0];
+				const p1 = points[i];
+				const p2 = points[i + 1];
+				const p3 = points[i + 2] ?? points[points.length - 1];
+
+				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
+					const tt = j * SPLINE_SAMPLE_STEP;
+					const y = catmullRomSpline(p0, p1, p2, p3, tt);
+					const x = (i + tt) * pixelStep;
+					path.lineTo(x, y);
+				}
+			}
+		}
+
+		ctx.strokeStyle = `rgba(255, 255, 255, ${config.strokeAlpha})`;
+		ctx.lineWidth = WAVE_STROKE_WIDTH;
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
 		ctx.stroke(path);
@@ -310,7 +400,11 @@
 		if (animationFrame !== null) return;
 
 		const step = () => {
-			drawWaveform();
+			if (analyserNode && ttsState.isPlaying && !isPaused) {
+				drawWaveform();
+			} else if (ttsState.isGenerating) {
+				drawGeneratingWave();
+			}
 			animationFrame = requestAnimationFrame(step);
 		};
 
@@ -325,7 +419,9 @@
 	}
 
 	$effect(() => {
-		if (analyserNode && ttsState.isPlaying && !isPaused) {
+		const shouldAnimate =
+			ttsState.isGenerating || (analyserNode && ttsState.isPlaying && !isPaused);
+		if (shouldAnimate) {
 			startAnimation();
 		} else {
 			stopAnimation();
@@ -371,7 +467,7 @@
 </script>
 
 {#if panelVisible}
-	<div in:fade out:fade class="tts-player">
+	<div in:fade={{ duration: 4000 }} out:fade={{ duration: 80 }} class="tts-player">
 		<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
 
 		<div class="tts-player__controls">
@@ -382,9 +478,7 @@
 				disabled={ttsState.isGenerating}
 				aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
 			>
-				{#if ttsState.isGenerating}
-					<Icon name="Loader" size={22} />
-				{:else if ttsState.isPlaying}
+				{#if ttsState.isPlaying}
 					<Icon name="Pause" size={22} />
 				{:else}
 					<Icon name="Play" size={22} />
@@ -400,11 +494,10 @@
 					<Icon name="Square" size={18} />
 				</button>
 			{/if}
+			{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
+				<span class="tts-player__time">{formatTime(remainingSeconds)}</span>
+			{/if}
 		</div>
-
-		{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
-			<span class="tts-player__time">{formatTime(remainingSeconds)}</span>
-		{/if}
 
 		{#if ttsState.isGenerating}
 			<span class="tts-player__status">Generating...</span>
@@ -425,7 +518,7 @@
 		inset: 0;
 		border-radius: 16px;
 		overflow: hidden;
-		background: rgba(14, 14, 14, 0.76);
+		background: rgba(14, 14, 14, 0.95);
 		box-shadow:
 			0 0 0 1px rgba(255, 255, 255, 0.06),
 			0 18px 48px rgba(0, 0, 0, 0.4);
@@ -480,13 +573,10 @@
 	}
 
 	.tts-player__time {
-		position: absolute;
-		bottom: 1rem;
-		left: 50%;
-		transform: translateX(-50%);
 		background: rgba(0, 0, 0, 0.9);
 		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.75rem;
+		font-size: 1rem;
+		font-weight: bold;
 		font-variant-numeric: tabular-nums;
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
