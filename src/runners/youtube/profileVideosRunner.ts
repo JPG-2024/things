@@ -13,12 +13,11 @@ const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
 
 export async function youtubeProfileRunner(
 	url: string,
-	videosAmount: number = 4,
+	videosAmount: number = 3,
 	profileId?: string
 ): Promise<Task[]> {
 	try {
 		const routine = profileId ? fromVideoRoutine : fromUrlRoutine;
-
 		const tasks = await buildTaskSubroutine(routine, youtubeTaskRegistry, {
 			url,
 			language: viewState.language,

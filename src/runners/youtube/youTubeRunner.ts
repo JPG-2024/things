@@ -12,7 +12,8 @@ const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE_SUMMARY,
-	TaskNames.TITLE
+	TaskNames.TITLE,
+	TaskNames.CHAPTERS_SUMMARY
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];

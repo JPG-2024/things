@@ -323,9 +323,9 @@ const youtubeTasks = {
 				if (row) continue;
 				results.push(
 					await youTubeRunner(url, null, {
-						makeActive: false,
+						makeActive: true,
 						parentRunId: runId,
-						routine: 'videoItem',
+						routine: 'fromProfileRunner',
 						profileId
 					})
 				);
@@ -335,7 +335,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.CHAPTERS_SUMMARY]: scriptTask({
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO, TaskNames.CHAPTERS, TaskNames.TIMED_CAPTIONS],
-		persist: false,
+		persist: true,
 		output: outputSchemas[TaskNames.CHAPTERS_SUMMARY],
 		run: async ({ state, enqueueTasks }) => {
 			const context = getTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
