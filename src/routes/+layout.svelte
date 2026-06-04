@@ -10,6 +10,7 @@
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
+	import { playCoinSound } from '@/lib/utils/coinSound';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -116,6 +117,8 @@
 					}
 					return;
 				}
+
+				playCoinSound();
 
 				await handlePasteUrl(validUrl);
 			} catch {
