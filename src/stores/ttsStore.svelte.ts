@@ -31,6 +31,7 @@ class TTSState {
 	textContents = $state<string[]>([]);
 	isGenerating = $state(false);
 	blobs = $state<Blob[]>([]);
+	generatedId = $state('');
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -68,23 +69,28 @@ class TTSState {
 
 	clearPlaylist(): void {
 		this.isPlaying = false;
-		this.blobs = [];
-		this.durationSeconds = null;
 	}
 
 	releaseBlobs(): void {
 		this.blobs = [];
 	}
 
-	async generateTTS(): Promise<void> {
+	async generateTTS(id: string): Promise<void> {
 		if (this.isGenerating || this.textContents.length === 0) {
 			return;
 		}
 
+		if (id === this.generatedId && this.blobs.length > 0) {
+			this.errorMessage = '';
+			this.isPlaying = true;
+			return;
+		}
+
 		this.releaseBlobs();
-		this.isGenerating = true;
+		this.durationSeconds = null;
 		this.errorMessage = '';
 		this.isPlaying = false;
+		this.isGenerating = true;
 
 		try {
 			let totalDuration = 0;
@@ -118,9 +124,9 @@ class TTSState {
 			}
 
 			this.durationSeconds = totalDuration;
-			ttsState.durationSeconds = totalDuration;
 
 			if (this.blobs.length > 0) {
+				this.generatedId = id;
 				this.isPlaying = true;
 			}
 		} catch (err) {

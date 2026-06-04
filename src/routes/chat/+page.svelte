@@ -96,7 +96,7 @@
 			if (idx !== -1) {
 				messages[idx] = { ...messages[idx], content: streamedText, done: true };
 				ttsState.addTextContent(streamedText);
-				void ttsState.generateTTS();
+				void ttsState.generateTTS(assistantId);
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error occurred';

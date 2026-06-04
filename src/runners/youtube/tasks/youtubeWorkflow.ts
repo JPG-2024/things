@@ -21,6 +21,7 @@ import {
 	TaskNames,
 	type YouTubeTaskFactoryContext
 } from './youtubeTasks.shared';
+import { ttsState } from '@/stores/ttsStore.svelte';
 
 export { TaskNames };
 
@@ -87,7 +88,8 @@ const outputSchemas = {
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.TITLE]: z.string(),
 	[TaskNames.KEYWORDS]: z.string(),
-	[TaskNames.KEYPOINTS]: z.string()
+	[TaskNames.KEYPOINTS]: z.string(),
+	[TaskNames.GENERATE_TTS]: z.string()
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
@@ -389,6 +391,20 @@ const youtubeTasks = {
 			return content;
 		},
 		completionOptions: ytCompletionOptions
+	}),
+	[TaskNames.GENERATE_TTS]: scriptTask({
+		name: 'Generate TTS',
+		dependencies: [TaskNames.TITLE_SUMMARY],
+		output: outputSchemas[TaskNames.GENERATE_TTS],
+		run: async ({ state, context }) => {
+			const summary = getTaskState(state, TaskNames.TITLE_SUMMARY);
+			const ctx = context as YouTubeTaskFactoryContext;
+
+			if (ctx.freshRun) {
+				ttsState.setTextContents([summary]);
+				await ttsState.generateTTS(ctx.url);
+			}
+		}
 	}),
 	[TaskNames.TITLE]: iaTask({
 		name: 'Title',

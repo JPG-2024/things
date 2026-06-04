@@ -2,6 +2,8 @@
 	import Icon from './Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { fade } from 'svelte/transition';
+	import { cubicInOut } from 'svelte/easing';
+
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 
@@ -13,7 +15,6 @@
 	let isSettingUp = false;
 	let playbackStartTime = 0;
 	let totalPlaybackDuration = 0;
-	let remainingSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
 	let isPaused = $state(false);
@@ -30,7 +31,9 @@
 	const SPLINE_SAMPLE_STEP = 0.1;
 	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
 
-	const MAX_WAVE_AMPLITUDE_PX = 25;
+	const MAX_WAVE_AMPLITUDE_PX = 80;
+	const SEEK_SECONDS = 5;
+	let elapsedSeconds = $state(0);
 
 	function getAudioContext(): AudioContext {
 		if (!audioContext) {
@@ -99,7 +102,6 @@
 				if (!isPaused) {
 					ttsState.isPlaying = false;
 					clearCountdown();
-					remainingSeconds = 0;
 				}
 			}
 		};
@@ -186,10 +188,10 @@
 
 		isPaused = false;
 		pausedAt = 0;
-		remainingSeconds = 0;
+		elapsedSeconds = 0;
 		combinedBuffer = null;
 
-		ttsState.clearPlaylist();
+		ttsState.isPlaying = false;
 		ttsState.errorMessage = '';
 	}
 
@@ -197,7 +199,7 @@
 		clearCountdown();
 		countdownInterval = setInterval(() => {
 			const elapsed = (performance.now() - playbackStartTime) / 1000;
-			remainingSeconds = Math.max(0, Math.ceil(totalPlaybackDuration - elapsed));
+			elapsedSeconds = elapsed;
 		}, 500);
 	}
 
@@ -206,6 +208,42 @@
 			clearInterval(countdownInterval);
 			countdownInterval = null;
 		}
+	}
+
+	function getCurrentPosition(): number {
+		if (isPaused) return pausedAt;
+		if (ttsState.isPlaying) return (performance.now() - playbackStartTime) / 1000;
+		return 0;
+	}
+
+	function seekTo(offset: number) {
+		const duration = totalPlaybackDuration || combinedBuffer?.duration || 0;
+		const clamped = Math.max(0, Math.min(offset, duration));
+
+		if (ttsState.isPlaying && currentSource) {
+			currentSource.onended = null;
+			currentSource.stop();
+			currentSource.disconnect();
+			currentSource = null;
+			cleanupAnalyser();
+
+			startSource(clamped);
+			playbackStartTime = performance.now() - clamped * 1000;
+			startCountdown();
+		} else if (isPaused) {
+			pausedAt = clamped;
+			elapsedSeconds = clamped;
+		}
+	}
+
+	function handleSeekForward() {
+		if (!ttsState.isPlaying && !isPaused) return;
+		seekTo(getCurrentPosition() + SEEK_SECONDS);
+	}
+
+	function handleSeekBackward() {
+		if (!ttsState.isPlaying && !isPaused) return;
+		seekTo(getCurrentPosition() - SEEK_SECONDS);
 	}
 
 	function formatTime(seconds: number): string {
@@ -246,6 +284,16 @@
 	});
 
 	createHotkey('Space', handlePrimaryClick, {
+		stopPropagation: true,
+		preventDefault: true
+	});
+
+	createHotkey('ArrowRight', handleSeekForward, {
+		stopPropagation: true,
+		preventDefault: true
+	});
+
+	createHotkey('ArrowLeft', handleSeekBackward, {
 		stopPropagation: true,
 		preventDefault: true
 	});
@@ -467,40 +515,44 @@
 </script>
 
 {#if panelVisible}
-	<div in:fade={{ duration: 4000 }} out:fade={{ duration: 80 }} class="tts-player">
+	<div
+		in:fade={{ duration: 4000, easing: cubicInOut }}
+		out:fade={{ duration: 80 }}
+		class="tts-player"
+	>
 		<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
 
-		<div class="tts-player__controls">
-			<button
-				type="button"
-				class="tts-player__btn"
-				onclick={handlePrimaryClick}
-				disabled={ttsState.isGenerating}
-				aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
-			>
-				{#if ttsState.isPlaying}
-					<Icon name="Pause" size={22} />
-				{:else}
-					<Icon name="Play" size={22} />
-				{/if}
-			</button>
-			{#if ttsState.isPlaying || isPaused}
+		{#if !ttsState.isGenerating}
+			<div class="tts-player__controls">
 				<button
 					type="button"
-					class="tts-player__btn tts-player__btn--stop"
-					onclick={handleStop}
-					aria-label="Stop"
+					class="tts-player__btn"
+					onclick={handlePrimaryClick}
+					aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
 				>
-					<Icon name="Square" size={18} />
+					{#if ttsState.isPlaying}
+						<Icon name="Pause" size={22} />
+					{:else}
+						<Icon name="Play" size={22} />
+					{/if}
 				</button>
-			{/if}
-			{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
-				<span class="tts-player__time">{formatTime(remainingSeconds)}</span>
-			{/if}
-		</div>
-
-		{#if ttsState.isGenerating}
-			<span class="tts-player__status">Generating...</span>
+				{#if ttsState.isPlaying || isPaused}
+					<button
+						type="button"
+						class="tts-player__btn tts-player__btn--stop"
+						onclick={handleStop}
+						aria-label="Stop"
+					>
+						<Icon name="Square" size={18} />
+					</button>
+				{/if}
+				{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
+					<span class="tts-player__time"
+						>{formatTime(Math.floor(elapsedSeconds))} /
+						{formatTime(Math.floor(totalPlaybackDuration))}</span
+					>
+				{/if}
+			</div>
 		{/if}
 
 		{#if ttsState.errorMessage}
@@ -514,11 +566,11 @@
 
 <style>
 	.tts-player {
-		position: absolute;
+		position: fixed;
 		inset: 0;
 		border-radius: 16px;
 		overflow: hidden;
-		background: rgba(14, 14, 14, 0.95);
+		background: rgba(14, 14, 14, 0.9);
 		box-shadow:
 			0 0 0 1px rgba(255, 255, 255, 0.06),
 			0 18px 48px rgba(0, 0, 0, 0.4);

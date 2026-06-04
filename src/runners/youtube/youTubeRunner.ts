@@ -12,6 +12,7 @@ const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE_SUMMARY,
+	TaskNames.GENERATE_TTS,
 	TaskNames.TITLE,
 	TaskNames.CHAPTERS_SUMMARY
 ];

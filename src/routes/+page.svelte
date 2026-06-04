@@ -99,12 +99,13 @@
 		async () => {
 			if (!viewState.hoveredArticleUrl) return;
 			const article = await getArticleWithTasksByUrl(viewState.hoveredArticleUrl);
+			debugger;
 			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
 			if (!titleSummaryTask?.data) {
 				throw new Error('No title-summary data found for this article');
 			}
 			ttsState.setTextContents([titleSummaryTask.data as string]);
-			await ttsState.generateTTS();
+			await ttsState.generateTTS(viewState.hoveredArticleUrl);
 		},
 		() => ({
 			enabled: viewState.hoveredArticleUrl !== null,
