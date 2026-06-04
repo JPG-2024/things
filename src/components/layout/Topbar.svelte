@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { viewState } from '@/stores/viewStore.svelte';
 
 	interface Props {
@@ -12,6 +13,11 @@
 	function handleBackNavigation() {
 		goto(`/`);
 	}
+
+	createHotkey('Escape', handleBackNavigation, {
+		stopPropagation: true,
+		preventDefault: true
+	});
 </script>
 
 <div class="top-bar">
