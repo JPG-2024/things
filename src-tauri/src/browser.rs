@@ -64,7 +64,7 @@ impl ReadyPage {
     }
 }
 
-pub static BROWSER_STATE: Mutex<Option<BrowserState>> = Mutex::const_new(None);
+static BROWSER_STATE: Mutex<Option<BrowserState>> = Mutex::const_new(None);
 
 // Anti-detect config se carga estáticamente en ANTI_DETECT_CONFIG (LazyLock)
 
