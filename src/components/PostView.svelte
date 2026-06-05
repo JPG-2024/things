@@ -14,10 +14,10 @@
 
 	interface Props {
 		headerContent?: any;
-		summaryContent?: any;
+		contentSnippet?: any;
 	}
 
-	const { headerContent, summaryContent } = $props();
+	const { headerContent, contentSnippet } = $props();
 	// reactive state for deletion flag (Svelte runes)
 	let isDeleting = $state(false);
 
@@ -91,7 +91,7 @@
 		{/if}
 	</div>
 
-	{@render summaryContent()}
+	{@render contentSnippet()}
 
 	<SettingsModal
 		show={viewState.modalSettingVisible}

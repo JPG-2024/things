@@ -6,7 +6,7 @@ import {
 	type ArticleWithTasks
 } from '@/stores/tasksStore';
 import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
-import { extractProfileRunner } from '@/runners/youtube/profileVideosRunner';
+import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 
@@ -41,12 +41,19 @@ const routeDefinitions: UrlRoute[] = [
 	{
 		name: 'youtubeVideo',
 		condition: YOUTUBE_URL_REGEX,
-		handler: (url, context) => youTubeRunner(url, context?.cachedArticle)
+		handler: (url, context) =>
+			youTubeRunner(url, {
+				runnerConfig: { cached: context?.cachedArticle, routine: 'fromUrl' }
+			})
 	},
 	{
 		name: 'youtubeProfileVideos',
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
-		handler: extractProfileRunner
+		handler: (url) =>
+			profileRunner(url, {
+				runnerConfig: { routine: 'fromVideo', makeActive: true },
+				options: { videosAmount: 10 }
+			})
 	},
 	{
 		name: 'defaultBlog',

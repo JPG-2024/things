@@ -9,9 +9,9 @@
 	let showIframe = false;
 </script>
 
-<PostView headerContent={null} summaryContent={summaryContentSnippet} />
+<PostView headerContent={null} {contentSnippet} />
 
-{#snippet summaryContentSnippet()}
+{#snippet contentSnippet()}
 	<TasksRender />
 {/snippet}
 

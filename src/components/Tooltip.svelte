@@ -87,7 +87,9 @@
 		border: none;
 		border-radius: 12px;
 		background: rgba(21, 21, 21, 0.9);
-		box-shadow: inset 0 -1px 2px 0px var(--primary-color);
+		box-shadow:
+			inset 0 -1px 2px 20px var(--primary-color),
+			0 0 8px var(--primary-color);
 		border: 1px solid var(--primary-color);
 		padding: 0.4rem 0.7rem;
 		color: inherit;

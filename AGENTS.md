@@ -60,6 +60,22 @@
   `test_zero_capacity`
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
+# Always consider use hotkey as UX principle
+
+## Hotkeys
+
+- Use `@tanstack/svelte-hotkeys` (`createHotkey`) for keyboard shortcuts.
+- Two patterns are used in this repo:
+
+### Simple global hotkeys (always active while mounted)
+
+Use a static options object. Common for media-player-style controls.
+
+    createHotkey('Escape', handleStop, {
+    	stopPropagation: true,
+    	preventDefault: true
+    });
+
 ## Validation Expectations
 
 - For frontend TS/Svelte changes, usually run `bun run check` and the smallest relevant manual smoke test.
@@ -132,6 +148,24 @@
 - When mutating task/store structures, follow existing defensive-copy patterns where used.
 - Maintain consistency between Tauri command names and frontend callers.
 - If changing persisted shapes or database-facing data, check for downstream readers first.
+
+### Conditional hotkeys (reactive enable/disable)
+
+Use a reactive options function (getter) when the hotkey should only fire under certain conditions.
+
+    const sHotkey = createHotkey(
+    	'S',
+    	async () => { /* handler */ },
+    	() => ({
+    		enabled: viewState.hoveredArticleUrl !== null,
+    		ignoreInputs: true
+    	})
+    );
+
+- Key names: single letters (`'S'`), named keys (`'Escape'`, `'Space'`), or arrows (`'ArrowRight'`).
+- Use `ignoreInputs: true` to prevent hotkeys from firing while the user is typing in input fields.
+- Use `stopPropagation: true` and `preventDefault: true` for global shortcuts that should not bubble.
+- Assign the return value to a variable only when you need the reference; fire-and-forget calls are fine.
 
 ## Tauri and Rust Notes
 

@@ -1,8 +1,6 @@
-import { buildTaskSubroutine } from '@/runners/taskBuilder';
-import { workflowManager } from '@/runners/workflowManager.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { viewState } from '@/stores/viewStore.svelte';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
+import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
 
 const fromUrlRoutine: TaskNames[] = [
 	TaskNames.INIT_YOUTUBE_PROFILE,
@@ -11,32 +9,42 @@ const fromUrlRoutine: TaskNames[] = [
 ];
 const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
 
-export async function youtubeProfileRunner(
-	url: string,
-	videosAmount: number = 3,
-	profileId?: string
-): Promise<Task[]> {
-	try {
-		const routine = profileId ? fromVideoRoutine : fromUrlRoutine;
-		const tasks = await buildTaskSubroutine(routine, youtubeTaskRegistry, {
-			url,
-			language: viewState.language,
-			videosAmount,
-			profileId
-		});
+const routines = {
+	fromUrl: fromUrlRoutine,
+	fromVideo: fromVideoRoutine
+};
 
-		const runResult = await workflowManager.run(url, tasks, {
-			makeActive: false,
-			stream: false,
-			profile: profileId
-		});
-
-		const completedTasks = runResult.tasks as Task[];
-
-		return completedTasks;
-	} catch (invokeErr) {
-		throw new Error(`Error: ${invokeErr}`);
-	}
+interface ProfileRunnerOptions {
+	videosAmount?: number;
+	profileId?: string;
 }
 
-export const extractProfileRunner = youtubeProfileRunner;
+export interface ProfileRunnerCallConfig {
+	runnerConfig?: RunnerConfigBase;
+	options?: ProfileRunnerOptions;
+}
+
+let _runner: ReturnType<typeof createUrlRunner> | undefined;
+function getRunner() {
+	return (_runner ??= createUrlRunner({ taskRegistry: youtubeTaskRegistry, routines }));
+}
+
+export async function profileRunner(
+	url: string,
+	config?: ProfileRunnerCallConfig
+): Promise<Task[]> {
+	const { runnerConfig, options } = config ?? {};
+
+	return getRunner()<ProfileRunnerOptions>({
+		url,
+		routine: runnerConfig?.routine ?? 'fromUrl',
+		cached: runnerConfig?.cached,
+		language: runnerConfig?.language,
+		makeActive: runnerConfig?.makeActive,
+		stream: runnerConfig?.stream,
+		rebuild: runnerConfig?.rebuild,
+		parentRunId: runnerConfig?.parentRunId,
+		options,
+		onRunResult: runnerConfig?.onRunResult
+	});
+}

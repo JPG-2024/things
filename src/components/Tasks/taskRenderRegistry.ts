@@ -6,6 +6,7 @@ import Player from '@/components/youtube/YouTubePlayer.svelte';
 import VideoInfo from '@/components/youtube/VideoInfo.svelte';
 import Keywords from '@/components/Keywords.svelte';
 import ListItems from '@/components/ListItems.svelte';
+import ProfileTaskComponent from '@/components/Tasks/ProfileTaskComponent.svelte';
 
 export const taskRenderRegistry: Record<string, Component<Record<string, unknown>>> = {
 	ask: AskComponent,
@@ -14,5 +15,6 @@ export const taskRenderRegistry: Record<string, Component<Record<string, unknown
 	player: Player,
 	videoInfo: VideoInfo,
 	keywords: Keywords,
-	listItems: ListItems
+	listItems: ListItems,
+	profile: ProfileTaskComponent
 };

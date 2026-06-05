@@ -15,7 +15,7 @@ import {
 	createContentGetter
 } from '@/runners/taskSchema';
 import { youTubeRunner } from '../youTubeRunner';
-import { youtubeProfileRunner } from '../profileVideosRunner';
+import { profileRunner } from '../profileVideosRunner';
 import {
 	buildVideoPageParams,
 	TaskNames,
@@ -75,6 +75,8 @@ const outputSchemas = {
 		name: z.string(),
 		profilePicture: z.string().nullable(),
 		videoUrls: z.array(z.string()),
+		videosTitles: z.array(z.string()),
+		videosImageSrc: z.array(z.string()),
 		id: z.string()
 	}),
 	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: z.object({
@@ -213,7 +215,10 @@ const youtubeTasks = {
 			const existingProfile = await getProfile(profileId);
 			if (existingProfile) return { profileId };
 			const profileUrl = `https://www.youtube.com/${profileId}/videos`;
-			youtubeProfileRunner(profileUrl, 1, profileId);
+			profileRunner(profileUrl, {
+				runnerConfig: { routine: 'fromUrl' },
+				options: { videosAmount: 1, profileId }
+			});
 			return { profileId };
 		}
 	}),
@@ -253,6 +258,9 @@ const youtubeTasks = {
 	}),
 	[TaskNames.EXTRACT_PROFILE]: scriptTask({
 		dependencies: [TaskNames.INIT_YOUTUBE_PROFILE],
+		component: 'profile',
+		gridSpan: 3,
+		persist: true,
 		output: outputSchemas[TaskNames.EXTRACT_PROFILE],
 		run: async ({ state }) => {
 			const initCtx = getTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
@@ -267,11 +275,19 @@ const youtubeTasks = {
 						attribute: 'src'
 					},
 					{ name: 'videoIds', selector: 'a.ytLockupViewModelContentImage', attribute: 'href' },
-					{ name: 'uploadDate', selector: 'div#info yt-formatted-string' }
+					{ name: 'uploadDate', selector: 'div#info yt-formatted-string' },
+					{
+						name: 'videosimageSrc',
+						selector: 'a img[src]',
+						attribute: 'src'
+					},
+					{ name: 'videosTitles', selector: 'a.ytLockupMetadataViewModelTitle span' }
 				],
 				attempts: 5,
 				intervalMs: 500
 			});
+
+			debugger;
 			const profilePictureRaw = result.profilePicture;
 			const pictureUrl = Array.isArray(profilePictureRaw)
 				? profilePictureRaw[1]
@@ -299,7 +315,9 @@ const youtubeTasks = {
 				id: profileId,
 				name: channelName,
 				profilePicture: downloadedImage.imageSrc,
-				videoUrls
+				videoUrls,
+				videosImageSrc: result.videosimageSrc as string[],
+				videosTitles: result.videosTitles as string[]
 			};
 			const existingProfile = await getProfile(initCtx.profileId);
 			if (!existingProfile) {
@@ -324,11 +342,13 @@ const youtubeTasks = {
 				const row = await invoke('get_stored_article_by_url', { url });
 				if (row) continue;
 				results.push(
-					await youTubeRunner(url, null, {
-						makeActive: true,
-						parentRunId: runId,
-						routine: 'fromProfileRunner',
-						profileId
+					await youTubeRunner(url, {
+						runnerConfig: {
+							makeActive: true,
+							parentRunId: runId,
+							routine: 'fromProfileRunner'
+						},
+						options: { profileId }
 					})
 				);
 			}

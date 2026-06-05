@@ -5,7 +5,7 @@
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
-	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
+	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { goto } from '$app/navigation';
 	import {
 		getArticlesByProfile,
@@ -50,10 +50,22 @@
 		refetchOnWindowFocus: 'always'
 	});
 
+	async function goToprofile() {
+		const profileUrl = getProfileUrl(profile.name);
+		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
+		profileRunner(profileUrl, {
+			runnerConfig: { routine: 'fromUrl' },
+			options: { videosAmount: 20, profileId: profile.id }
+		});
+	}
+
 	async function handleRefresh() {
 		if (isProfileRunning) return;
 		const profileUrl = getProfileUrl(profile.name);
-		await youtubeProfileRunner(profileUrl);
+		await profileRunner(profileUrl, {
+			runnerConfig: { routine: 'fromUrl' },
+			options: { videosAmount: 3, profileId: profile.id }
+		});
 		$query.refetch();
 	}
 
@@ -92,20 +104,27 @@
 				<div class="img-flex">
 					{#if profile.profilePicture}
 						<div class="avatar-container">
-							<img
-								src={profile.profilePicture}
-								alt={profile.name}
-								class="profile-avatar"
-								onmouseenter={() => {
-									viewState.hoveredProfileName = profile.name;
-									viewState.hoveredProfileId = profile.id;
-								}}
-								onmouseleave={() => {
-									viewState.hoveredProfileName = null;
-									viewState.hoveredProfileId = null;
-								}}
-							/>
 							<button
+								class="img-button"
+								type="button"
+								onclick={goToprofile}
+								aria-label="View article"
+							>
+								<img
+									src={profile.profilePicture}
+									alt={profile.name}
+									class="profile-avatar"
+									onmouseenter={() => {
+										viewState.hoveredProfileName = profile.name;
+										viewState.hoveredProfileId = profile.id;
+									}}
+									onmouseleave={() => {
+										viewState.hoveredProfileName = null;
+										viewState.hoveredProfileId = null;
+									}}
+								/>
+							</button>
+							<!-- 							<button
 								type="button"
 								class="collapse-toggle"
 								onclick={toggleCollapse}
@@ -113,7 +132,7 @@
 								title={isCollapsed ? 'Expand' : 'Collapse'}
 							>
 								<Icon name={isCollapsed ? 'ChevronRight' : 'ChevronLeft'} />
-							</button>
+							</button> -->
 						</div>
 					{/if}
 					{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
@@ -213,21 +232,21 @@
 	}
 
 	.img-button:hover {
-		transform: scale(1.3);
+		transform: scale(1.1);
 		z-index: 20;
 	}
 
 	.mini-img {
-		width: 80px;
-		height: 55px;
+		width: 5rem;
+		height: 4rem;
 		border-radius: 12px;
 		object-fit: cover;
 		display: block;
 	}
 
 	.profile-avatar {
-		width: 50px;
-		height: 50px;
+		width: 4rem;
+		height: 4rem;
 		border-radius: 100%;
 		object-fit: cover;
 		flex-shrink: 0;
@@ -238,6 +257,11 @@
 	.profile-avatar:hover {
 		transform: scale(1.1);
 		z-index: 20;
+	}
+
+	.collapse-toggle:hover {
+		background: rgba(255, 255, 255, 0.2);
+		transform: scale(1.1);
 	}
 
 	.collapse-toggle {
@@ -253,11 +277,6 @@
 		transition:
 			background-color 0.15s ease,
 			transform 0.15s ease;
-	}
-
-	.collapse-toggle:hover {
-		background: rgba(255, 255, 255, 0.2);
-		transform: scale(1.1);
 	}
 
 	.spin {

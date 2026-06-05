@@ -84,6 +84,8 @@ export async function handleYoutubeQuestion(query: string) {
 			}
 		});
 
+		debugger;
+
 		console.log('YouTube search results:', results);
 		console.log('YouTube answers:', answers);
 		console.log('Final synthesized answer:', finalAnswer);

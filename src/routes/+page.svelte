@@ -7,8 +7,8 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
-	import { getProfileUrl } from '@/lib/utils/youtube';
-	import { youtubeProfileRunner } from '@/runners/youtube/profileVideosRunner';
+	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
+	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -88,7 +88,8 @@
 		if (validUrl) {
 			void handlePasteUrl(trimmed);
 		} else {
-			navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
+			handleYoutubeQuestion(trimmed);
+			//navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
 		}
 	}
 
@@ -120,7 +121,10 @@
 			const profile = profileCategories.find((p) => p.name === viewState.hoveredProfileName);
 			if (!profile) return;
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
-			await youtubeProfileRunner(profileUrl);
+			await profileRunner(profileUrl, {
+				runnerConfig: { routine: 'fromUrl' },
+				options: { videosAmount: 3 }
+			});
 			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
 		},
 		() => ({
@@ -140,8 +144,6 @@
 			ignoreInputs: true
 		})
 	);
-
-	$inspect(viewState.collapseProfiles);
 </script>
 
 <div class="page-topbar">
