@@ -278,13 +278,14 @@ const youtubeTasks = {
 					{ name: 'uploadDate', selector: 'div#info yt-formatted-string' },
 					{
 						name: 'videosimageSrc',
-						selector: 'a img[src]',
+						selector: '#video-grid ytd-rich-grid-media img, ytd-rich-item-renderer img',
 						attribute: 'src'
 					},
 					{ name: 'videosTitles', selector: 'a.ytLockupMetadataViewModelTitle span' }
 				],
 				attempts: 5,
-				intervalMs: 500
+				intervalMs: 500,
+				scrollTimes: 5
 			});
 
 			debugger;

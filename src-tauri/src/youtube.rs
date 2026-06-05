@@ -255,6 +255,9 @@ pub async fn get_page_elements(
     selectors: Vec<VideoInfoSelector>,
     attempts: Option<u32>,
     interval_ms: Option<u64>,
+    scroll_times: Option<u32>,
+    scroll_delay_ms: Option<u64>,
+    scroll_container: Option<String>,
 ) -> Result<HashMap<String, Value>, String> {
     app.emit(
         "flow-status",
@@ -271,6 +274,30 @@ pub async fn get_page_elements(
         let mut result: HashMap<String, Value> = HashMap::new();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+        let scroll_times = scroll_times.unwrap_or(0);
+        let scroll_delay_ms = scroll_delay_ms.unwrap_or(1000);
+        let scroll_container = scroll_container.unwrap_or_else(|| "window".to_string());
+
+        for _ in 0..scroll_times {
+            let scroll_script = if scroll_container == "window" {
+                "window.scrollBy(0, window.innerHeight)".to_string()
+            } else {
+                let sel = scroll_container
+                    .replace('\\', "\\\\")
+                    .replace('\'', "\\'");
+                format!(
+                    "const el = document.querySelector('{}'); el.scrollBy(0, el.clientHeight)",
+                    sel
+                )
+            };
+
+            page.evaluate(scroll_script)
+                .await
+                .map_err(|e| format!("Failed to scroll: {}", e))?;
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(scroll_delay_ms)).await;
+        }
 
         for item in selectors {
             let name = item.name.clone();
