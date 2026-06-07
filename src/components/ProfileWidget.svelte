@@ -54,7 +54,7 @@
 		const profileUrl = getProfileUrl(profile.name);
 		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
 		profileRunner(profileUrl, {
-			runnerConfig: { routine: 'fromUrl' },
+			runnerConfig: { routine: 'fromVideo' },
 			options: { videosAmount: 20, profileId: profile.id }
 		});
 	}
