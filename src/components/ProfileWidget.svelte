@@ -11,7 +11,7 @@
 		getArticlesByProfile,
 		type ArticleProfile,
 		type ArticleWithTasks
-	} from '@/stores/tasksStore';
+	} from '@/stores/webStore';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -245,8 +245,8 @@
 	}
 
 	.profile-avatar {
-		width: 4rem;
-		height: 4rem;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 100%;
 		object-fit: cover;
 		flex-shrink: 0;

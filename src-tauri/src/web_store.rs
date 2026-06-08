@@ -8,12 +8,12 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 const DB_FILE:&str = "notian.db";
-pub const UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
-pub const UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
+pub const WEB_STORE_UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
+pub const WEB_STORE_UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StoredArticleRecord {
+pub struct WebStoreArticleRecord {
     pub id: String,
     pub url: Option<String>,
     pub created_at: i64,
@@ -25,14 +25,13 @@ pub struct StoredArticleRecord {
     pub main_color: Option<String>,
     pub profile: Option<String>,
     pub primary_color: Option<String>,
-    pub tasks_json: Option<String>,
     pub updated_at: i64,
     pub embedding_source_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StoredArticleProfileRecord {
+pub struct WebStoreProfileRecord {
     pub id: String,
     pub name: String,
     pub count: i64,
@@ -42,14 +41,14 @@ pub struct StoredArticleProfileRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DeleteStoredArticleProfileResult {
+pub struct WebStoreProfileDeletion {
     pub success: bool,
     pub deleted_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProfileWithMostRecentArticle {
+pub struct WebStoreProfileSummary {
     pub id: String,
     pub name: String,
     pub most_recent_created_at: i64,
@@ -59,7 +58,7 @@ pub struct ProfileWithMostRecentArticle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpsertStoredArticleInput {
+pub struct UpsertWebStoreArticleInput {
     pub url: String,
     pub title: Option<String>,
     pub thumbnail: Option<String>,
@@ -67,7 +66,6 @@ pub struct UpsertStoredArticleInput {
     pub directory: Option<String>,
     pub main_color: Option<String>,
     pub profile: Option<String>,
-    pub tasks_json: String,
     pub embedding_source_text: Option<String>,
 }
 
@@ -103,7 +101,7 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
 
 fn init_schema(conn:&Connection) -> Result<(), String> {
     conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS articles (
+        "CREATE TABLE IF NOT EXISTS web_articles (
             id TEXT PRIMARY KEY,
             url TEXT NOT NULL,
             created_at INTEGER NOT NULL DEFAULT 0,
@@ -113,43 +111,74 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             media_directory TEXT,
             main_color TEXT,
             profile TEXT,
-            tasks_json TEXT NOT NULL DEFAULT '[]',
             embedding_source_text TEXT,
             updated_at INTEGER NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
-        CREATE INDEX IF NOT EXISTS idx_articles_profile ON articles(profile);
+        CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
+        CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
 
-        CREATE TABLE IF NOT EXISTS profiles (
+        CREATE TABLE IF NOT EXISTS web_profiles (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             last_video_date TEXT,
             updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS web_tasks (
+            url TEXT PRIMARY KEY,
+            tasks_json TEXT NOT NULL DEFAULT '[]',
+            updated_at INTEGER NOT NULL
         );"
     ).map_err(|error| error.to_string())?;
 
-    migrate_add_last_video_date(conn)?;
+    migrate_legacy_tables(conn)?;
 
     Ok(())
 }
 
-fn migrate_add_last_video_date(conn:&Connection) -> Result<(), String> {
-    let table_sql: Result<String, _> = conn.query_row(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='profiles'",
+fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
+    let has_old_articles: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='articles'",
         [],
         |row| row.get(0),
-    );
+    ).unwrap_or(false);
 
-    match table_sql {
-        Ok(sql) if sql.contains("last_video_date") => {
-        }
-        _ => {
-            conn.execute("ALTER TABLE profiles ADD COLUMN last_video_date TEXT", [])
-                .map_err(|e| e.to_string())?;
-        }
+    if !has_old_articles {
+        return Ok(());
     }
+
+    conn.execute_batch(
+        "ALTER TABLE articles RENAME TO old_articles;
+         ALTER TABLE profiles RENAME TO old_profiles;"
+    ).map_err(|error| error.to_string())?;
+
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO web_articles (id, url, created_at, title, thumbnail, content, 
+                media_directory, main_color, profile, embedding_source_text, updated_at)
+         SELECT id, url, created_at, title, thumbnail, content, 
+                media_directory, main_color, profile, embedding_source_text, updated_at
+         FROM old_articles;"
+    ).map_err(|error| error.to_string())?;
+
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at)
+         SELECT id, name, count, profile_picture, last_video_date, updated_at
+         FROM old_profiles;"
+    ).map_err(|error| error.to_string())?;
+
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO web_tasks (url, tasks_json, updated_at)
+         SELECT url, tasks_json, updated_at
+         FROM old_articles
+         WHERE tasks_json IS NOT NULL AND tasks_json != '[]';"
+    ).map_err(|error| error.to_string())?;
+
+    conn.execute_batch(
+        "DROP TABLE old_articles;
+         DROP TABLE old_profiles;"
+    ).map_err(|error| error.to_string())?;
 
     Ok(())
 }
@@ -170,13 +199,13 @@ fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
     match normalized {
         Some(value) => (value.clone(), value),
         None => (
-            UNKNOWN_PROFILE_ID.to_string(),
-            UNKNOWN_PROFILE_LABEL.to_string(),
+            WEB_STORE_UNKNOWN_PROFILE_ID.to_string(),
+            WEB_STORE_UNKNOWN_PROFILE_LABEL.to_string(),
         ),
     }
 }
 
-fn filter_record_to_json(record:&StoredArticleRecord, fields: &Option<Vec<String>>) -> Value {
+fn filter_record_to_json(record:&WebStoreArticleRecord, fields: &Option<Vec<String>>) -> Value {
     match fields {
         None => {
             serde_json::to_value(record).unwrap_or(Value::Null)
@@ -197,13 +226,13 @@ fn filter_record_to_json(record:&StoredArticleRecord, fields: &Option<Vec<String
     }
 }
 
-fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticleProfileRecord> {
-    let mut aggregated = HashMap::<String, StoredArticleProfileRecord>::new();
+fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfileRecord> {
+    let mut aggregated = HashMap::<String, WebStoreProfileRecord>::new();
 
     for record in records {
         let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
         let id = raw_id.to_lowercase();
-        let display_name = if id == UNKNOWN_PROFILE_ID {
+        let display_name = if id == WEB_STORE_UNKNOWN_PROFILE_ID {
             name
         } else {
             name.to_lowercase()
@@ -213,7 +242,7 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
             .and_modify(|profile| {
                 profile.count += 1;
             })
-            .or_insert(StoredArticleProfileRecord {
+            .or_insert(WebStoreProfileRecord {
                 id,
                 name: display_name,
                 count: 1,
@@ -232,11 +261,11 @@ fn aggregate_profiles(records: Vec<StoredArticleRecord>) -> Vec<StoredArticlePro
     profiles
 }
 
-fn sort_articles_by_created_at_desc(records: &mut [StoredArticleRecord]) {
+fn sort_articles_by_created_at_desc(records: &mut [WebStoreArticleRecord]) {
     records.sort_by(|left, right| right.created_at.cmp(&left.created_at));
 }
 
-fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<StoredArticleRecord, rusqlite::Error> {
+fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecord, rusqlite::Error> {
     let id: String = row.get(0)?;
     let url: String = row.get(1)?;
     let created_at: i64 = row.get(2)?;
@@ -246,11 +275,10 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<StoredArticleRecord,
     let media_directory: Option<String> = row.get(6)?;
     let main_color: Option<String> = row.get(7)?;
     let profile: Option<String> = row.get(8)?;
-    let tasks_json: String = row.get(9)?;
-    let embedding_source_text: Option<String> = row.get(10)?;
-    let updated_at: i64 = row.get(11)?;
+    let embedding_source_text: Option<String> = row.get(9)?;
+    let updated_at: i64 = row.get(10)?;
 
-    Ok(StoredArticleRecord {
+    Ok(WebStoreArticleRecord {
         id,
         url: Some(url),
         created_at,
@@ -262,7 +290,6 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<StoredArticleRecord,
         main_color: main_color.clone(),
         profile,
         primary_color: main_color,
-        tasks_json: Some(tasks_json),
         updated_at,
         embedding_source_text,
     })
@@ -272,11 +299,11 @@ fn query_articles(
     conn: &Connection,
     filter: Option<&str>,
     limit: Option<usize>,
-) -> Result<Vec<StoredArticleRecord>, String> {
+) -> Result<Vec<WebStoreArticleRecord>, String> {
     let mut sql = String::from(
         "SELECT id, url, created_at, title, thumbnail, content, 
-                media_directory, main_color, profile, tasks_json, embedding_source_text, updated_at 
-         FROM articles"
+                media_directory, main_color, profile, embedding_source_text, updated_at 
+         FROM web_articles"
     );
     
     if let Some(f) = filter {
@@ -303,14 +330,14 @@ fn query_articles(
     Ok(records)
 }
 
-fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<StoredArticleProfileRecord>, String> {
+fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM profiles WHERE id = ?1")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles WHERE id = ?1")
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
         .query_map([profile_id], |row| {
-            Ok(StoredArticleProfileRecord {
+            Ok(WebStoreProfileRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 count: row.get(2)?,
@@ -326,14 +353,14 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Sto
     }
 }
 
-fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, String> {
+fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM profiles ORDER BY count DESC, name ASC")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles ORDER BY count DESC, name ASC")
         .map_err(|error| error.to_string())?;
 
     let profile_iter = stmt
         .query_map([], |row| {
-            Ok(StoredArticleProfileRecord {
+            Ok(WebStoreProfileRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 count: row.get(2)?,
@@ -353,11 +380,11 @@ fn query_profiles(conn: &Connection) -> Result<Vec<StoredArticleProfileRecord>, 
 
 fn upsert_profile(
     conn: &Connection,
-    profile: &StoredArticleProfileRecord,
+    profile: &WebStoreProfileRecord,
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT OR REPLACE INTO profiles (id, name, count, profile_picture, last_video_date, updated_at) 
+        "INSERT OR REPLACE INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             profile.id,
@@ -373,7 +400,7 @@ fn upsert_profile(
 }
 
 fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM profiles WHERE id = ?1", params![profile_id])
+    conn.execute("DELETE FROM web_profiles WHERE id = ?1", params![profile_id])
         .map_err(|error| error.to_string())?;
     Ok(())
 }
@@ -403,7 +430,7 @@ fn rebuild_profiles_from_articles(
         if let Some(profile) = aggregated.iter_mut().find(|p| p.id == profile_id) {
             profile.profile_picture = Some(picture);
         } else {
-            aggregated.push(StoredArticleProfileRecord {
+            aggregated.push(WebStoreProfileRecord {
                 id: profile_id,
                 name: String::new(),
                 count: 0,
@@ -421,7 +448,7 @@ fn rebuild_profiles_from_articles(
 }
 
 #[tauri::command]
-pub async fn list_stored_articles(
+pub async fn list_web_store_articles(
     app: AppHandle,
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
@@ -435,9 +462,9 @@ pub async fn list_stored_articles(
 }
 
 #[tauri::command]
-pub async fn list_stored_article_profiles(
+pub async fn list_web_store_profiles(
     app: AppHandle,
-) -> Result<Vec<StoredArticleProfileRecord>, String> {
+) -> Result<Vec<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
     let mut profiles = query_profiles(&conn)?;
@@ -454,17 +481,17 @@ pub async fn list_stored_article_profiles(
 }
 
 #[tauri::command]
-pub async fn get_stored_article_profile(
+pub async fn get_web_store_profile(
     app: AppHandle,
     profile_id: String,
-) -> Result<Option<StoredArticleProfileRecord>, String> {
+) -> Result<Option<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
     query_profile_by_id(&conn, &profile_id)
 }
 
 #[tauri::command]
-pub async fn list_stored_articles_by_profile(
+pub async fn list_web_store_articles_by_profile(
     app: AppHandle,
     profile_id: String,
     created_at_from: Option<i64>,
@@ -476,7 +503,7 @@ pub async fn list_stored_articles_by_profile(
 
     let normalized_profile_id = profile_id.trim().to_lowercase();
 
-    let filter = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+    let filter = if normalized_profile_id.is_empty() || normalized_profile_id == WEB_STORE_UNKNOWN_PROFILE_ID {
         None
     } else {
         Some(format!("LOWER(profile) = '{}'", normalized_profile_id.replace('\'', "''")))
@@ -493,12 +520,12 @@ pub async fn list_stored_articles_by_profile(
         query_articles(&conn, filter.as_deref(), limit)?
     };
 
-    let filtered_records = if normalized_profile_id.is_empty() || normalized_profile_id == UNKNOWN_PROFILE_ID {
+    let filtered_records = if normalized_profile_id.is_empty() || normalized_profile_id == WEB_STORE_UNKNOWN_PROFILE_ID {
         records
             .into_iter()
             .filter(|record| {
                 let (raw_id, _) = normalize_profile_bucket(record.profile.as_deref());
-                raw_id.to_lowercase() == UNKNOWN_PROFILE_ID
+                raw_id.to_lowercase() == WEB_STORE_UNKNOWN_PROFILE_ID
             })
             .collect()
     } else {
@@ -512,10 +539,10 @@ pub async fn list_stored_articles_by_profile(
 }
 
 #[tauri::command]
-pub async fn list_profiles_with_articles_after(
+pub async fn list_web_store_profiles_with_articles_after(
     app: AppHandle,
     created_at_from: i64,
-) -> Result<Vec<ProfileWithMostRecentArticle>, String> {
+) -> Result<Vec<WebStoreProfileSummary>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
@@ -527,7 +554,7 @@ pub async fn list_profiles_with_articles_after(
     for record in records {
         let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
         let id = raw_id.to_lowercase();
-        let display_name = if id == UNKNOWN_PROFILE_ID {
+        let display_name = if id == WEB_STORE_UNKNOWN_PROFILE_ID {
             name
         } else {
             name.to_lowercase()
@@ -548,14 +575,14 @@ pub async fn list_profiles_with_articles_after(
         .map(|profile| (profile.id, (profile.profile_picture, profile.last_video_date)))
         .collect();
 
-    let mut profiles: Vec<ProfileWithMostRecentArticle> = profile_map
+    let mut profiles: Vec<WebStoreProfileSummary> = profile_map
         .into_iter()
         .map(|(id, (name, most_recent_created_at))| {
             let (profile_picture, last_video_date) = profile_data
                 .get(&id)
                 .cloned()
                 .unwrap_or((None, None));
-            ProfileWithMostRecentArticle {
+            WebStoreProfileSummary {
                 id: id.clone(),
                 name,
                 most_recent_created_at,
@@ -571,10 +598,10 @@ pub async fn list_profiles_with_articles_after(
 }
 
 #[tauri::command]
-pub async fn get_stored_article_by_url(
+pub async fn get_web_store_article_by_url(
     app: AppHandle,
     url: String,
-) -> Result<Option<StoredArticleRecord>, String> {
+) -> Result<Option<WebStoreArticleRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
     let filter = format!("url = '{}'", url.replace('\'', "''"));
@@ -583,9 +610,9 @@ pub async fn get_stored_article_by_url(
 }
 
 #[tauri::command]
-pub async fn upsert_stored_article(
+pub async fn upsert_web_store_article(
     app: AppHandle,
-    mut input: UpsertStoredArticleInput,
+    mut input: UpsertWebStoreArticleInput,
 ) -> Result<(), String> {
     input.title = normalize_optional_string(input.title);
     input.thumbnail = normalize_optional_string(input.thumbnail);
@@ -600,15 +627,15 @@ pub async fn upsert_stored_article(
 
     let now = chrono_like_now();
 
-    let previous_article = get_stored_article_by_url(app.clone(), input.url.clone()).await?;
+    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone()).await?;
     
     if previous_article.is_some() {
         conn.execute(
-            "UPDATE articles SET 
+            "UPDATE web_articles SET 
                 title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
-                main_color = ?5, profile = ?6, tasks_json = ?7, 
-                embedding_source_text = ?8, updated_at = ?9 
-             WHERE url = ?10",
+                main_color = ?5, profile = ?6, 
+                embedding_source_text = ?7, updated_at = ?8 
+             WHERE url = ?9",
             params![
                 input.title,
                 input.thumbnail,
@@ -616,7 +643,6 @@ pub async fn upsert_stored_article(
                 input.directory,
                 input.main_color,
                 input.profile,
-                input.tasks_json,
                 input.embedding_source_text,
                 now,
                 input.url
@@ -625,10 +651,10 @@ pub async fn upsert_stored_article(
         .map_err(|error| error.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO articles (id, url, created_at, title, thumbnail, content, 
-                                   media_directory, main_color, profile, tasks_json, 
+            "INSERT INTO web_articles (id, url, created_at, title, thumbnail, content, 
+                                   media_directory, main_color, profile, 
                                    embedding_source_text, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 input.url,
                 input.url,
@@ -639,7 +665,6 @@ pub async fn upsert_stored_article(
                 input.directory,
                 input.main_color,
                 input.profile,
-                input.tasks_json,
                 input.embedding_source_text,
                 now
             ],
@@ -651,20 +676,20 @@ pub async fn upsert_stored_article(
 }
 
 #[tauri::command]
-pub async fn delete_stored_article_by_url(
+pub async fn delete_web_store_article_by_url(
     app: AppHandle,
     url: String,
 ) -> Result<bool, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let article = get_stored_article_by_url(app.clone(), url.clone()).await?;
+    let article = get_web_store_article_by_url(app.clone(), url.clone()).await?;
 
     let Some(_article) = article else {
         return Ok(false);
     };
 
-    conn.execute("DELETE FROM articles WHERE url = ?1", params![url])
+    conn.execute("DELETE FROM web_articles WHERE url = ?1", params![url])
         .map_err(|error| error.to_string())?;
 
     rebuild_profiles_from_articles(&conn, None)?;
@@ -674,7 +699,7 @@ pub async fn delete_stored_article_by_url(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpsertStoredArticleProfileInput {
+pub struct UpsertWebStoreProfileInput {
     pub id: String,
     pub name: String,
     pub profile_picture: Option<String>,
@@ -682,14 +707,14 @@ pub struct UpsertStoredArticleProfileInput {
 }
 
 #[tauri::command]
-pub async fn upsert_stored_article_profile(
+pub async fn upsert_web_store_profile(
     app: AppHandle,
-    input: UpsertStoredArticleProfileInput,
+    input: UpsertWebStoreProfileInput,
 ) -> Result<(), String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let profile = StoredArticleProfileRecord {
+    let profile = WebStoreProfileRecord {
         id: input.id,
         name: input.name,
         count: 0,
@@ -702,14 +727,14 @@ pub async fn upsert_stored_article_profile(
 }
 
 #[tauri::command]
-pub async fn delete_stored_article_profile(
+pub async fn delete_web_store_profile(
     app: AppHandle,
     profile_id: String,
-) -> Result<DeleteStoredArticleProfileResult, String> {
+) -> Result<WebStoreProfileDeletion, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let articles = list_stored_articles_by_profile(
+    let articles = list_web_store_articles_by_profile(
         app.clone(),
         profile_id.clone(),
         None,
@@ -722,7 +747,7 @@ pub async fn delete_stored_article_profile(
 
     for article_value in articles {
         if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
-            if delete_stored_article_by_url(app.clone(), url.to_string()).await? {
+            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
                 deleted_count += 1;
             }
         }
@@ -730,8 +755,108 @@ pub async fn delete_stored_article_profile(
 
     delete_profile(&conn, &profile_id)?;
 
-    Ok(DeleteStoredArticleProfileResult {
+    Ok(WebStoreProfileDeletion {
         success: true,
         deleted_count,
     })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebStoreTaskRecord {
+    pub url: String,
+    pub tasks_json: String,
+    pub updated_at: i64,
+}
+
+fn row_to_web_store_task(row: &rusqlite::Row<'_>) -> Result<WebStoreTaskRecord, rusqlite::Error> {
+    let url: String = row.get(0)?;
+    let tasks_json: String = row.get(1)?;
+    let updated_at: i64 = row.get(2)?;
+
+    Ok(WebStoreTaskRecord {
+        url,
+        tasks_json,
+        updated_at,
+    })
+}
+
+#[tauri::command]
+pub async fn list_web_store_tasks(
+    app: AppHandle,
+) -> Result<Vec<WebStoreTaskRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks ORDER BY updated_at DESC")
+        .map_err(|error| error.to_string())?;
+
+    let task_iter = stmt
+        .query_map([], row_to_web_store_task)
+        .map_err(|error| error.to_string())?;
+
+    let mut records = Vec::new();
+    for task_result in task_iter {
+        records.push(task_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(records)
+}
+
+#[tauri::command]
+pub async fn get_web_store_tasks_by_url(
+    app: AppHandle,
+    url: String,
+) -> Result<Option<WebStoreTaskRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks WHERE url = ?1")
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([&url], row_to_web_store_task)
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub async fn upsert_web_store_tasks(
+    app: AppHandle,
+    url: String,
+    tasks_json: String,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+
+    conn.execute(
+        "INSERT OR REPLACE INTO web_tasks (url, tasks_json, updated_at) VALUES (?1, ?2, ?3)",
+        params![url, tasks_json, now],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_web_store_tasks_by_url(
+    app: AppHandle,
+    url: String,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute("DELETE FROM web_tasks WHERE url = ?1", params![url])
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
 }

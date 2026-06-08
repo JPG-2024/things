@@ -1,6 +1,6 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
-import { saveTasks, type ArticleWithTasks } from '@/stores/tasksStore';
+import { saveTasks, type ArticleWithTasks } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { WebTaskNames, webTaskRegistry } from './tasks/webWorkflow';

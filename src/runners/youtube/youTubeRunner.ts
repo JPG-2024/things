@@ -1,5 +1,5 @@
 import type { Task } from '@/types/taskRunner.types';
-import { saveTasks } from '@/stores/tasksStore';
+import { saveTasks } from '@/stores/webStore';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { getTaskData } from '@/lib/utils/helpers/tasks';
@@ -11,7 +11,8 @@ const fromUrl: TaskNames[] = [
 	TaskNames.TITLE_SUMMARY,
 	TaskNames.GENERATE_TTS,
 	TaskNames.TITLE,
-	TaskNames.CHAPTERS_SUMMARY
+	TaskNames.CHAPTERS_SUMMARY,
+	TaskNames.PROFILE_FROM_VIDEO
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];

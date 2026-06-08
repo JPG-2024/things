@@ -210,6 +210,10 @@
 		padding: 1.5rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 2rem;
+		border: 1px solid var(--primary-color);
+		/* filter: blur(2px) opacity(0.7); */
+		border-bottom: none;
+		border-top: none;
 	}
 
 	main.loaded::after {

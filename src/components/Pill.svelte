@@ -23,7 +23,7 @@
 		font-size: 0.88rem;
 		line-height: 1.2;
 		width: max-content;
-		padding: 10px 20px;
+		padding: 7px 20px;
 		font-weight: bold;
 	}
 

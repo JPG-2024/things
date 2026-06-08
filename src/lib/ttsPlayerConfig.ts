@@ -34,7 +34,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 			{ cycles: 1.5, amplitudeRatio: 0.6, speedRatio: 1.0 },
 			{ cycles: 2.55, amplitudeRatio: 0.3, speedRatio: 1.3 }
 		],
-		amplitude: 0.18,
+		amplitude: 0.2,
 		baseSpeed: 0.6,
 		pointCount: 80,
 		strokeAlpha: 0.6
@@ -60,7 +60,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 	}
 };
 
-let currentStyleName: GeneratingWaveStyle = 'organicMultiBright';
+let currentStyleName: GeneratingWaveStyle = 'organicMultiDim';
 
 export function getCurrentStyleName(): GeneratingWaveStyle {
 	return currentStyleName;

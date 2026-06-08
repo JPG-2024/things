@@ -14,16 +14,33 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		getProfilesWithArticlesAfter,
-		UNKNOWN_PROFILE_ID,
-		UNKNOWN_PROFILE_LABEL,
+		WEB_STORE_UNKNOWN_PROFILE_ID,
+		WEB_STORE_UNKNOWN_PROFILE_LABEL,
 		getArticleWithTasksByUrl,
 		deleteProfileById
-	} from '@/stores/tasksStore';
+	} from '@/stores/webStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 	let processingUrl = $state(false);
+
+	function rgbToHex(rgb: string): string {
+		const match = rgb.match(/\d+/g);
+		if (!match || match.length < 3) return '#fae4c0';
+		const r = parseInt(match[0]);
+		const g = parseInt(match[1]);
+		const b = parseInt(match[2]);
+		return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+	}
+
+	function handleColorChange(e: Event) {
+		const hex = (e.target as HTMLInputElement).value;
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		viewState.primaryColor = `rgb(${r}, ${g}, ${b})`;
+	}
 
 	const profilesQuery = createQuery({
 		queryKey: ['profiles'],
@@ -33,7 +50,7 @@
 	const profileCategories = $derived(
 		$profilesQuery.data?.length
 			? $profilesQuery.data
-			: [{ id: UNKNOWN_PROFILE_ID, name: UNKNOWN_PROFILE_LABEL, count: 0 }]
+			: [{ id: WEB_STORE_UNKNOWN_PROFILE_ID, name: WEB_STORE_UNKNOWN_PROFILE_LABEL, count: 0 }]
 	);
 
 	async function handleDeleteProfile(profileId: string) {
@@ -100,7 +117,6 @@
 		async () => {
 			if (!viewState.hoveredArticleUrl) return;
 			const article = await getArticleWithTasksByUrl(viewState.hoveredArticleUrl);
-			debugger;
 			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
 			if (!titleSummaryTask?.data) {
 				throw new Error('No title-summary data found for this article');
@@ -167,7 +183,15 @@
 
 <div class="dashboard-container">
 	<div class="title-row">
-		<span class="dashboard-title">Things</span>
+		<label class="dashboard-title-label">
+			<span class="dashboard-title">Things</span>
+			<input
+				type="color"
+				class="color-picker-input"
+				value={rgbToHex(viewState.primaryColor)}
+				oninput={handleColorChange}
+			/>
+		</label>
 	</div>
 
 	<div class="inputs-container">
@@ -260,6 +284,24 @@
 		width: 100%;
 		justify-content: center;
 		padding: 10px;
+	}
+
+	.dashboard-title-label {
+		display: inline-flex;
+		align-items: center;
+		cursor: pointer;
+		position: relative;
+	}
+
+	.color-picker-input {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		width: 100%;
+		height: 100%;
+		cursor: pointer;
+		border: none;
+		padding: 0;
 	}
 
 	/* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */

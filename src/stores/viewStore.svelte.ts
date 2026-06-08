@@ -37,6 +37,12 @@ class ViewState {
 	ytVideoId = $derived(this.url ? new URL(this.url).searchParams.get('v') : null);
 
 	ytThumbnailUrl = $derived(this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, 'high') : '');
+
+	primaryColorAlpha(alpha: number): string {
+		const match = this.primaryColor.match(/\d+/g);
+		if (!match || match.length < 3) return `rgba(250, 228, 192, ${alpha})`;
+		return `rgba(${match[0]}, ${match[1]}, ${match[2]}, ${alpha})`;
+	}
 }
 
 export interface Message {

@@ -1,4 +1,4 @@
-import type { PersistedTaskState } from '@/stores/tasksStore';
+import type { PersistedTaskState } from '@/stores/webStore';
 import type { Task, TaskMapBase, TaskRerunPatch } from '@/types/taskRunner.types';
 
 type NoInfer<T> = [T][T extends unknown ? 0 : never];

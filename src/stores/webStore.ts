@@ -24,8 +24,8 @@ export interface ArticleWithTasks {
 	[key: string]: unknown;
 }
 
-export const UNKNOWN_PROFILE_ID = '__unknown_profile__';
-export const UNKNOWN_PROFILE_LABEL = 'Unknown profile';
+export const WEB_STORE_UNKNOWN_PROFILE_ID = '__unknown_profile__';
+export const WEB_STORE_UNKNOWN_PROFILE_LABEL = 'Unknown profile';
 
 export interface ArticleProfile {
 	id: string;
@@ -36,7 +36,7 @@ export interface ArticleProfile {
 
 type SearchRowKind = 'content_chunk' | 'keyword_bundle';
 
-export type StoredArticleRecord = {
+export type WebStoreArticleRecord = {
 	id: string;
 	url: string | null;
 	createdAt: number;
@@ -48,32 +48,37 @@ export type StoredArticleRecord = {
 	profile: string | null;
 	mainColor: string | null;
 	primaryColor: string | null;
-	tasksJson: string | null;
 	updatedAt: number;
 	embeddingSourceText: string | null;
 	profilePicture: string | null;
 };
 
-type StoredArticleSearchRowInput = {
+export type WebStoreTaskRecord = {
+	url: string;
+	tasksJson: string;
+	updatedAt: number;
+};
+
+type SearchRowInput = {
 	rowId: string;
 	kind: SearchRowKind;
 	ordinal: number;
 	text: string;
 };
 
-export type StoredArticleProfileRecord = {
+export type WebStoreProfileRecord = {
 	id: string;
 	name: string;
 	count: number;
 	profilePicture?: string | null;
 };
 
-export type DeleteStoredArticleProfileResult = {
+export type WebStoreProfileDeletion = {
 	success: boolean;
 	deletedCount: number;
 };
 
-export type ProfileWithMostRecentArticle = {
+export type WebStoreProfileSummary = {
 	id: string;
 	name: string;
 	mostRecentCreatedAt: number;
@@ -81,14 +86,13 @@ export type ProfileWithMostRecentArticle = {
 	lastVideoDate?: string;
 };
 
-type UpsertStoredArticleInput = {
+type UpsertWebStoreArticleInput = {
 	url: string;
 	title: string | null;
 	thumbnail: string | null;
 	directory: string | null;
 	mainColor: string | null;
 	profile: string | null;
-	tasksJson: string;
 	embeddingSourceText: string | null;
 };
 
@@ -376,18 +380,12 @@ export async function buildUpsertInput(params: {
 	tasksToSave: Array<{ id?: string; data?: unknown }>;
 	existingArticle: ArticleWithTasks | null;
 	valuesToOverride?: Partial<Record<string, unknown>> | undefined;
-}): Promise<UpsertStoredArticleInput> {
+}): Promise<UpsertWebStoreArticleInput> {
 	const title = firstNormalizedString(
 		params.valuesToOverride?.title as string | undefined,
 		getStoredTaskData<string>(params.tasksToSave, 'title'),
 		params.existingArticle?.title
 	);
-
-	/* 	const content = firstNormalizedString(
-		params.valuesToOverride?.content as string | undefined,
-		getStoredTaskData<string>(params.tasksToSave, 'content'),
-		getArticleStringField(params.existingArticle, 'content')
-	); */
 
 	const thumbnailTaskData =
 		getStoredTaskData<{
@@ -431,28 +429,29 @@ export async function buildUpsertInput(params: {
 		directory,
 		mainColor,
 		profile,
-		tasksJson: JSON.stringify(params.tasksToSave),
 		embeddingSourceText
 	};
 }
 
-export function mapStoredArticle(row: StoredArticleRecord): ArticleWithTasks {
-	const tasksJson = row.tasksJson ?? '[]';
-	//const mainColor = typeof row.mainColor === 'string' ? row.mainColor : row.primaryColor;
+export function mapStoredArticle(
+	row: WebStoreArticleRecord,
+	tasksJson?: string | null
+): ArticleWithTasks {
+	const resolvedTasksJson = tasksJson ?? '[]';
 
 	return {
 		...row,
 		profilePicture: row.profilePicture,
-		persistedTasks: parsePersistedTaskStates(tasksJson)
+		persistedTasks: parsePersistedTaskStates(resolvedTasksJson)
 	};
 }
 
-export async function fetchStoredArticlesByProfile(
+export async function fetchWebStoreArticlesByProfile(
 	profileId: string,
 	fields?: string[],
 	createdAtFrom?: number,
 	limit?: number
-): Promise<StoredArticleRecord[]> {
+): Promise<WebStoreArticleRecord[]> {
 	const payload: {
 		profileId: string;
 		fields?: string[];
@@ -472,5 +471,193 @@ export async function fetchStoredArticlesByProfile(
 		payload.limit = limit;
 	}
 
-	return invoke<StoredArticleRecord[]>('list_stored_articles_by_profile', payload);
+	return invoke<WebStoreArticleRecord[]>('list_web_store_articles_by_profile', payload);
+}
+
+export async function getArticles(): Promise<ArticleWithTasks[]> {
+	try {
+		const [articles, tasks] = await Promise.all([
+			invoke<WebStoreArticleRecord[]>('list_web_store_articles'),
+			invoke<WebStoreTaskRecord[]>('list_web_store_tasks')
+		]);
+
+		const tasksByUrl = new Map<string, string>();
+		for (const task of tasks) {
+			tasksByUrl.set(task.url, task.tasksJson);
+		}
+
+		return articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null));
+	} catch (error) {
+		console.error('Error querying DB articles', error);
+		return [];
+	}
+}
+
+export async function getProfiles(): Promise<ArticleProfile[]> {
+	try {
+		const result = await invoke<ArticleProfile[]>('list_web_store_profiles');
+
+		return result;
+	} catch (error) {
+		console.error('Error querying article profiles', error);
+		return [];
+	}
+}
+
+export async function getProfile(profileId: string): Promise<ArticleProfile | null> {
+	try {
+		const result = await invoke<ArticleProfile | null>('get_web_store_profile', {
+			profileId
+		});
+
+		return result;
+	} catch (error) {
+		console.error('Error querying profile', error);
+		return null;
+	}
+}
+
+export async function getProfilesWithArticlesAfter(
+	createdAtFrom: number
+): Promise<WebStoreProfileSummary[]> {
+	try {
+		const result = await invoke<WebStoreProfileSummary[]>(
+			'list_web_store_profiles_with_articles_after',
+			{ createdAtFrom }
+		);
+
+		return result;
+	} catch (error) {
+		console.error('Error querying profiles with articles after date', error);
+		return [];
+	}
+}
+
+export async function getArticlesByProfile(
+	profileId: string,
+	options?: {
+		createdAtFrom?: number;
+		limit?: number;
+	}
+): Promise<ArticleWithTasks[]> {
+	try {
+		const [articles, tasks] = await Promise.all([
+			fetchWebStoreArticlesByProfile(
+				profileId,
+				['id', 'url', 'title', 'thumbnail'],
+				options?.createdAtFrom,
+				options?.limit
+			),
+			invoke<WebStoreTaskRecord[]>('list_web_store_tasks')
+		]);
+
+		const tasksByUrl = new Map<string, string>();
+		for (const task of tasks) {
+			tasksByUrl.set(task.url, task.tasksJson);
+		}
+
+		return articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null));
+	} catch (error) {
+		console.error('Error querying profile articles', error);
+		return [];
+	}
+}
+
+export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
+	try {
+		const [row, taskRecord] = await Promise.all([
+			invoke<WebStoreArticleRecord | null>('get_web_store_article_by_url', { url }),
+			invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', { url })
+		]);
+
+		if (!row) {
+			return null;
+		}
+
+		return mapStoredArticle(row, taskRecord?.tasksJson ?? null);
+	} catch (error) {
+		console.error('Error querying article', error);
+		return null;
+	}
+}
+
+export async function saveTasks<TMap extends TaskMapBase>(
+	url: string,
+	tasks: Task<TMap>[],
+	valuesToOverride?: Partial<Record<string, unknown>> | undefined
+): Promise<void> {
+	try {
+		const existingArticle = await getArticleWithTasksByUrl(url);
+		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
+		const input = await buildUpsertInput({
+			url,
+			tasksToSave,
+			existingArticle,
+			valuesToOverride
+		});
+
+		await Promise.all([
+			invoke('upsert_web_store_article', { input }),
+			invoke('upsert_web_store_tasks', {
+				url,
+				tasksJson: JSON.stringify(tasksToSave)
+			})
+		]);
+	} catch (error) {
+		console.error('Error saving tasks:', error);
+	}
+}
+
+export async function deleteArticleByUrl(url: string): Promise<{ success: boolean }> {
+	try {
+		const existingArticle = await getArticleWithTasksByUrl(url);
+		await deleteArticleMedia(existingArticle);
+
+		await Promise.all([
+			invoke('delete_web_store_article_by_url', { url }),
+			invoke('delete_web_store_tasks_by_url', { url })
+		]);
+
+		return { success: true };
+	} catch (error) {
+		console.error('Error deleting article from database:', error);
+		return { success: false };
+	}
+}
+
+export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
+	try {
+		const articles = await fetchWebStoreArticlesByProfile(profileId);
+		for (const article of articles) {
+			await deleteArticleMedia(mapStoredArticle(article));
+		}
+
+		return await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
+			profileId
+		});
+	} catch (error) {
+		console.error('Error deleting article profile:', error);
+		return { success: false, deletedCount: 0 };
+	}
+}
+
+export async function saveProfile(
+	profileId: string,
+	profilePicture: string | null,
+	lastVideoDate: string | null
+): Promise<unknown> {
+	try {
+		const res = await invoke('upsert_web_store_profile', {
+			input: {
+				id: profileId.toLowerCase().replace(/\s+/g, '-'),
+				name: profileId.toLowerCase().replace(/\s+/g, '-'),
+				profilePicture,
+				lastVideoDate
+			}
+		});
+
+		return res;
+	} catch (error) {
+		console.error('Error saving profile:', error);
+	}
 }

@@ -8,7 +8,7 @@
 		getArticlesByProfile,
 		getProfiles,
 		type ArticleWithTasks
-	} from '@/stores/tasksStore';
+	} from '@/stores/webStore';
 	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
 
 	interface Props {

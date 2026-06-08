@@ -2,7 +2,6 @@
 	import Modal from '../Modal.svelte';
 	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
-	import TTSSettings from './TTSSettings.svelte';
 	import { invoke } from '@tauri-apps/api/core';
 
 	let { show = false, onClose = () => {} } = $props();
@@ -58,7 +57,6 @@
 				<input id="aiModel" type="text" bind:value={viewState.aiModel} />
 			</div>
 		</div>
-		<TTSSettings />
 	</div>
 </Modal>
 

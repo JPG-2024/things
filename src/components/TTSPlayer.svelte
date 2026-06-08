@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { fade } from 'svelte/transition';
-	import { cubicInOut } from 'svelte/easing';
+	import { fade, slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
+	import TTSSettings from '@/components/modals/TTSSettings.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let audioContext: AudioContext | null = $state(null);
@@ -19,14 +21,15 @@
 
 	let isPaused = $state(false);
 	let pausedAt = 0;
+	let settingsOpen = $state(false);
 
 	let animationFrame: number | null = null;
 	const amplitudeScale = 0.3;
-	const wavelengthScale = 100;
+	const wavelengthScale = 300;
 
 	const SINE_FILL_ALPHA = 0.24;
-	const WAVE_STROKE_WIDTH = 3;
-	const WAVE_STROKE_COLOR = 'white';
+	const WAVE_STROKE_WIDTH = 4;
+	//const WAVE_STROKE_COLOR = 'white';
 
 	const SPLINE_SAMPLE_STEP = 0.1;
 	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
@@ -375,7 +378,7 @@
 			}
 		}
 
-		ctx.strokeStyle = WAVE_STROKE_COLOR;
+		ctx.strokeStyle = viewState.primaryColor;
 		ctx.lineWidth = WAVE_STROKE_WIDTH;
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
@@ -437,7 +440,7 @@
 			}
 		}
 
-		ctx.strokeStyle = `rgba(255, 255, 255, ${config.strokeAlpha})`;
+		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
 		ctx.lineWidth = WAVE_STROKE_WIDTH;
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
@@ -450,7 +453,7 @@
 		const step = () => {
 			if (analyserNode && ttsState.isPlaying && !isPaused) {
 				drawWaveform();
-			} else if (ttsState.isGenerating) {
+			} else if (ttsState.isGenerating || ttsState.addVoiceLoading) {
 				drawGeneratingWave();
 			}
 			animationFrame = requestAnimationFrame(step);
@@ -468,7 +471,9 @@
 
 	$effect(() => {
 		const shouldAnimate =
-			ttsState.isGenerating || (analyserNode && ttsState.isPlaying && !isPaused);
+			ttsState.isGenerating ||
+			ttsState.addVoiceLoading ||
+			(analyserNode && ttsState.isPlaying && !isPaused);
 		if (shouldAnimate) {
 			startAnimation();
 		} else {
@@ -510,13 +515,14 @@
 			ttsState.isPlaying ||
 			isPaused ||
 			ttsState.isGenerating ||
+			ttsState.addVoiceLoading ||
 			!!ttsState.errorMessage
 	);
 </script>
 
 {#if panelVisible}
 	<div
-		in:fade={{ duration: 4000, easing: cubicInOut }}
+		in:fade={{ duration: 3000, easing: cubicOut }}
 		out:fade={{ duration: 80 }}
 		class="tts-player"
 	>
@@ -531,9 +537,9 @@
 					aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
 				>
 					{#if ttsState.isPlaying}
-						<Icon name="Pause" size={22} />
+						<Icon name="Pause" size={30} color={viewState.primaryColor} />
 					{:else}
-						<Icon name="Play" size={22} />
+						<Icon name="Play" size={30} color={viewState.primaryColor} />
 					{/if}
 				</button>
 				{#if ttsState.isPlaying || isPaused}
@@ -543,15 +549,38 @@
 						onclick={handleStop}
 						aria-label="Stop"
 					>
-						<Icon name="Square" size={18} />
+						<Icon name="Square" size={30} color={viewState.primaryColor} />
 					</button>
 				{/if}
+				<button
+					type="button"
+					class="tts-player__btn tts-player__btn--settings"
+					onclick={() => (settingsOpen = !settingsOpen)}
+					aria-label="TTS Settings"
+				>
+					<Icon name="Settings" size={20} color={viewState.primaryColor} />
+				</button>
 				{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
 					<span class="tts-player__time"
-						>{formatTime(Math.floor(elapsedSeconds))} /
-						{formatTime(Math.floor(totalPlaybackDuration))}</span
+						>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
 					>
 				{/if}
+			</div>
+		{/if}
+
+		{#if settingsOpen}
+			<div
+				class="tts-player__settings-panel"
+				in:slide={{ axis: 'x', duration: 300 }}
+				out:slide={{ axis: 'x' }}
+			>
+				<TTSSettings />
+			</div>
+		{/if}
+
+		{#if ttsState.addVoiceLoading && ttsState.addVoiceStatus}
+			<div class="tts-player__status-overlay">
+				<span>{ttsState.addVoiceMessage || ttsState.addVoiceStatus}</span>
 			</div>
 		{/if}
 
@@ -566,15 +595,16 @@
 
 <style>
 	.tts-player {
+		border: 3px solid var(--primary-color);
 		position: fixed;
 		inset: 0;
-		border-radius: 16px;
 		overflow: hidden;
 		background: rgba(14, 14, 14, 0.9);
 		box-shadow:
 			0 0 0 1px rgba(255, 255, 255, 0.06),
 			0 18px 48px rgba(0, 0, 0, 0.4);
 		z-index: 1000;
+		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	}
 
 	.tts-player__canvas {
@@ -624,9 +654,41 @@
 		background: rgba(0, 0, 0, 0.5);
 	}
 
+	.tts-player__btn--settings {
+		width: 40px;
+		height: 40px;
+		background: rgba(0, 0, 0, 0.5);
+	}
+
+	.tts-player__settings-panel {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: min(600px, 90%);
+		height: 100%;
+		overflow-y: auto;
+		background: rgba(14, 14, 14, 0.95);
+		border-left: 1px solid rgba(255, 255, 255, 0.08);
+		z-index: 10;
+	}
+
+	.tts-player__status-overlay {
+		position: absolute;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.8);
+		color: var(--primary-color);
+		font-size: 0.9rem;
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		z-index: 5;
+	}
+
 	.tts-player__time {
 		background: rgba(0, 0, 0, 0.9);
-		color: rgba(255, 255, 255, 0.9);
+		color: var(--primary-color);
+		opacity: 0.8;
 		font-size: 1rem;
 		font-weight: bold;
 		font-variant-numeric: tabular-nums;

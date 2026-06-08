@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/svelte-query';
-import { getProfilesWithArticlesAfter, getArticlesByProfile } from '@/stores/tasksStore';
+import { getProfilesWithArticlesAfter, getArticlesByProfile } from '@/stores/webStore';
 
 export async function prefetchHomeData(queryClient: QueryClient) {
 	const profiles = await queryClient.ensureQueryData({

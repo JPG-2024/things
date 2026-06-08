@@ -7,7 +7,7 @@
 	import Topbar from './layout/Topbar.svelte';
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
-	import { deleteArticleByUrl } from '@/stores/tasksStore';
+	import { deleteArticleByUrl } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 	import { useQueryClient } from '@tanstack/svelte-query';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';

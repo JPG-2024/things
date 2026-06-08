@@ -4,7 +4,7 @@ import {
 	deleteArticleByUrl,
 	getArticleWithTasksByUrl,
 	type ArticleWithTasks
-} from '@/stores/tasksStore';
+} from '@/stores/webStore';
 import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';

@@ -5,7 +5,7 @@ import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
-import { saveProfile, getProfile } from '@/stores/tasksStore';
+import { saveProfile, getProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
 	defineWorkflow,
@@ -216,7 +216,7 @@ const youtubeTasks = {
 			if (existingProfile) return { profileId };
 			const profileUrl = `https://www.youtube.com/${profileId}/videos`;
 			profileRunner(profileUrl, {
-				runnerConfig: { routine: 'fromUrl' },
+				runnerConfig: { routine: 'fromVideo', makeActive: false },
 				options: { videosAmount: 1, profileId }
 			});
 			return { profileId };
@@ -288,7 +288,6 @@ const youtubeTasks = {
 				scrollTimes: 5
 			});
 
-			debugger;
 			const profilePictureRaw = result.profilePicture;
 			const pictureUrl = Array.isArray(profilePictureRaw)
 				? profilePictureRaw[1]
@@ -303,6 +302,7 @@ const youtubeTasks = {
 				attempts: 5,
 				intervalMs: 200
 			});
+
 			const dateRegex = /\d{1,2}\s[a-zA-Z]+\s\d{4}/i;
 			let lastVideoDate =
 				videoInfo.uploadDate.find((d) =>
@@ -320,10 +320,9 @@ const youtubeTasks = {
 				videosImageSrc: result.videosimageSrc as string[],
 				videosTitles: result.videosTitles as string[]
 			};
-			const existingProfile = await getProfile(initCtx.profileId);
-			if (!existingProfile) {
-				await saveProfile(initCtx.profileId, profile.profilePicture, lastVideoDate);
-			}
+
+			await saveProfile(initCtx.profileId, profile.profilePicture, lastVideoDate);
+
 			return profile;
 		}
 	}),
@@ -340,7 +339,7 @@ const youtubeTasks = {
 			const cleanedUrls = urlsToProcess.map((url) => removeYTPpParam(url));
 			const results = [];
 			for (const url of cleanedUrls) {
-				const row = await invoke('get_stored_article_by_url', { url });
+				const row = await invoke('get_web_store_article_by_url', { url });
 				if (row) continue;
 				results.push(
 					await youTubeRunner(url, {

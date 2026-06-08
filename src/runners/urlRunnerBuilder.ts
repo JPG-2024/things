@@ -1,7 +1,7 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 import type { Task, TaskRunSummary } from '@/types/taskRunner.types';
-import type { PersistedTaskState } from '@/stores/tasksStore';
+import type { PersistedTaskState } from '@/stores/webStore';
 import type { TTSLanguage } from '@/lib/utils/tts';
 import { viewState } from '@/stores/viewStore.svelte';
 

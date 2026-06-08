@@ -33,8 +33,12 @@
 <style>
 	.loading-pills {
 		display: flex;
+		justify-content: center;
+		align-items: center;
+		background: rgb(24, 24, 24);
+		border: 2px solid var(--primary-color);
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: 1rem;
 		position: fixed;
 		bottom: 0;
 		left: 0;

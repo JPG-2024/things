@@ -27,18 +27,22 @@ pub use crate::download_media::download_and_save_image;
 mod url;
 pub use crate::url::url_to_folder_name;
 
-mod article_store;
-pub use crate::article_store::{
-    delete_stored_article_profile,
-    delete_stored_article_by_url,
-    get_stored_article_by_url,
-    get_stored_article_profile,
-    list_profiles_with_articles_after,
-    list_stored_article_profiles,
-    list_stored_articles_by_profile,
-    list_stored_articles,
-    upsert_stored_article,
-    upsert_stored_article_profile,
+mod web_store;
+pub use crate::web_store::{
+    delete_web_store_profile,
+    delete_web_store_article_by_url,
+    get_web_store_article_by_url,
+    get_web_store_profile,
+    list_web_store_profiles_with_articles_after,
+    list_web_store_profiles,
+    list_web_store_articles_by_profile,
+    list_web_store_articles,
+    upsert_web_store_article,
+    upsert_web_store_profile,
+    list_web_store_tasks,
+    get_web_store_tasks_by_url,
+    upsert_web_store_tasks,
+    delete_web_store_tasks_by_url,
 };
 
 mod llama_server;
@@ -76,16 +80,20 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         // Register the command wrapper here
         .invoke_handler(tauri::generate_handler![
-            list_stored_articles,
-            list_stored_article_profiles,
-            get_stored_article_profile,
-            list_profiles_with_articles_after,
-            list_stored_articles_by_profile,
-            get_stored_article_by_url,
-            upsert_stored_article,
-            upsert_stored_article_profile,
-            delete_stored_article_by_url,
-            delete_stored_article_profile,
+            list_web_store_articles,
+            list_web_store_profiles,
+            get_web_store_profile,
+            list_web_store_profiles_with_articles_after,
+            list_web_store_articles_by_profile,
+            get_web_store_article_by_url,
+            upsert_web_store_article,
+            upsert_web_store_profile,
+            delete_web_store_article_by_url,
+            delete_web_store_profile,
+            list_web_store_tasks,
+            get_web_store_tasks_by_url,
+            upsert_web_store_tasks,
+            delete_web_store_tasks_by_url,
             extract_markdown,
             extract_metadata,
             extract_blog,
