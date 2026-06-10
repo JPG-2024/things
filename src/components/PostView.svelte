@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { viewState } from '@/stores/viewStore.svelte';
-	import SettingsModal from '@/components/modals/SettingsModal.svelte';
+	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import Icon from './Icon.svelte';
 	import LinkIcon from './LinkIcon.svelte';
 	import Topbar from './layout/Topbar.svelte';
@@ -82,7 +81,7 @@
 		{/if}
 
 		<LinkIcon url={viewState.url!} />
-		<Icon name="Settings" title="Settings" onClick={() => (viewState.modalSettingVisible = true)} />
+		<Icon name="Settings" title="Settings" onClick={() => drawersState.open('settings')} />
 	</Topbar>
 
 	<div class="header">
@@ -92,11 +91,6 @@
 	</div>
 
 	{@render contentSnippet()}
-
-	<SettingsModal
-		show={viewState.modalSettingVisible}
-		onClose={() => (viewState.modalSettingVisible = false)}
-	/>
 </article>
 
 <style>

@@ -1,36 +1,92 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { fetchVoices, type Voice } from '@/lib/utils/ttsService';
+	import {
+		fetchVoiceProfiles,
+		fetchVoiceChunks,
+		deleteVoiceChunk,
+		type Voice,
+		type VoiceProfile
+	} from '@/lib/utils/ttsService';
 	import Button from '../inputs/Button.component.svelte';
-	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Input from '../inputs/Input.component.svelte';
 	import LoadingLine from '@/components/LoadingLine.svelte';
 	import RangeSelector from '../inputs/RangeSelector.svelte';
-	import Checkbox from '../inputs/Checkbox.component.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
+	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 
-	let voices = $state<Voice[]>([]);
+	let profiles = $state<VoiceProfile[]>([]);
+	let chunks = $state<Voice[]>([]);
+	let hoveredVoiceName = $state<string | null>(null);
+
 	let voicesLoading = $state(false);
 	let voicesError = $state('');
 
-	let selectedVoiceValue = $state('');
-	let selectedNamePrefix = $state('');
+	let selectedNamePrefix = $state(ttsState.namePrefix);
+
+	let localVideoUrl = $state(ttsState.videoUrl);
+	let localSegment = $state(ttsState.segment);
+	let localNamePrefix = $state(ttsState.namePrefix);
+	let localChunkCount = $state(ttsState.chunkCount);
+	let localImageSrc = $state(ttsState.imageSrc);
+	let localConfig = $state<TTSConfig>({ ...ttsState.config });
+	let localLanguage = $state(viewState.language);
+
+	createHotkey(
+		'D',
+		async () => {
+			if (!hoveredVoiceName) return;
+			try {
+				await deleteVoiceChunk(hoveredVoiceName);
+				hoveredVoiceName = null;
+				await reloadChunks();
+			} catch (err) {
+				voicesError = err instanceof Error ? err.message : 'Failed to delete voice chunk';
+			}
+		},
+		() => ({
+			enabled: hoveredVoiceName !== null,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
+	);
 
 	onMount(() => {
-		loadVoices();
+		loadProfiles();
 	});
 
-	async function loadVoices() {
+	onDestroy(() => {
+		ttsState.videoUrl = localVideoUrl;
+		ttsState.segment = localSegment;
+		ttsState.namePrefix = localNamePrefix;
+		ttsState.chunkCount = localChunkCount;
+		ttsState.imageSrc = localImageSrc;
+		ttsState.config = { ...localConfig };
+		viewState.language = localLanguage;
+	});
+
+	async function loadProfiles() {
 		voicesLoading = true;
 		voicesError = '';
 		try {
-			voices = await fetchVoices();
-			const match = voices.find((v) => v.audio_file === ttsState.config.refAudioFilename);
+			profiles = await fetchVoiceProfiles();
+
+			const match = profiles.find((p) => p.name_prefix === localNamePrefix);
 			if (match) {
-				selectedVoiceValue = match.audio_file;
 				selectedNamePrefix = match.name_prefix;
+				if (match.language) {
+					localLanguage = match.language as 'en' | 'es';
+				}
+				await loadChunksForProfile(match.id);
+			} else if (profiles.length > 0) {
+				selectedNamePrefix = profiles[0].name_prefix;
+				if (profiles[0].language) {
+					localLanguage = profiles[0].language as 'en' | 'es';
+				}
+				await loadChunksForProfile(profiles[0].id);
 			}
 		} catch (err) {
 			voicesError = err instanceof Error ? err.message : 'Failed to load voices';
@@ -39,43 +95,70 @@
 		}
 	}
 
+	async function loadChunksForProfile(profileId: string) {
+		try {
+			chunks = await fetchVoiceChunks(profileId);
+		} catch (err) {
+			voicesError = err instanceof Error ? err.message : 'Failed to load voice chunks';
+		}
+	}
+
+	async function reloadChunks() {
+		const profile = profiles.find((p) => p.name_prefix === selectedNamePrefix);
+		if (profile) {
+			await loadChunksForProfile(profile.id);
+		}
+	}
+
 	const namePrefixOptions = $derived(
-		[...new Set(voices.map((v) => v.name_prefix))].map((p) => ({
-			label: p,
-			value: p
+		profiles.map((p) => ({
+			label: p.name_prefix,
+			value: p.name_prefix,
+			icon: p.image_src ?? ''
 		}))
 	);
 
-	const voicesForPrefix = $derived(voices.filter((v) => v.name_prefix === selectedNamePrefix));
+	const voicesForPrefix = $derived(chunks);
 
-	function handleNamePrefixChange(prefix: string) {
+	async function handleNamePrefixChange(prefix: string) {
 		selectedNamePrefix = prefix;
+		localNamePrefix = prefix;
+		const profile = profiles.find((p) => p.name_prefix === prefix);
+		if (profile) {
+			if (profile.language) {
+				localLanguage = profile.language as 'en' | 'es';
+			}
+			await loadChunksForProfile(profile.id);
+		}
 	}
 
 	function selectVoiceByIndex(index: number) {
 		const voice = voicesForPrefix[index];
 
 		if (!voice) return;
-		selectedVoiceValue = voice.audio_file;
 		handleVoiceChange(voice.audio_file);
 	}
 
 	function handleVoiceChange(audioFile: string) {
-		const voice = voices.find((v) => v.audio_file === audioFile);
-		if (!voice) return;
+		const chunk = chunks.find((c) => c.audio_file === audioFile);
+		if (!chunk) return;
 
-		ttsState.config.refAudioFilename = voice.audio_file;
-		ttsState.config.refText = voice.text_reference;
+		localConfig.refAudioFilename = chunk.audio_file;
+		localConfig.refText = chunk.text_reference;
 
-		console.log(voice.audio_file, voice.text_reference);
-
-		viewState.language = voice.language as 'en' | 'es';
+		console.log(chunk.audio_file, chunk.text_reference);
 	}
 
 	async function handleAddVoice() {
+		ttsState.videoUrl = localVideoUrl;
+		ttsState.segment = localSegment;
+		ttsState.namePrefix = localNamePrefix;
+		ttsState.chunkCount = localChunkCount;
+		ttsState.imageSrc = localImageSrc;
+
 		await ttsState.startAddVoice();
 		if (ttsState.addVoiceStatus === 'done') {
-			await loadVoices();
+			await loadProfiles();
 		}
 	}
 </script>
@@ -91,199 +174,206 @@
 		<p class="loading">Loading voices...</p>
 	{/if}
 
-	<Spacer title="Synthetize params" defaultOpen>
+	<Spacer title="Voices" defaultOpen>
+		<div class="voice-selector">
+			<IconDropdown
+				options={namePrefixOptions}
+				bind:value={selectedNamePrefix}
+				placeholder="Select a voice chunk..."
+				disabled={voicesForPrefix.length === 0}
+				onChange={handleNamePrefixChange}
+				iconSize={60}
+			/>
+
+			<div class="voice-buttons">
+				{#each voicesForPrefix as voice, i (voice.name)}
+					<Button onClick={() => selectVoiceByIndex(i)}>
+						<div
+							role="button"
+							class="voice-button"
+							tabindex={i}
+							onmouseenter={() => (hoveredVoiceName = voice.name)}
+						>
+							{i + 1}
+						</div>
+					</Button>
+				{/each}
+			</div>
+		</div>
+
+		<Spacer size={25} />
+
+		<Spacer title="Add Voice">
+			<Input id="videoUrl" label="Video URL" bind:value={localVideoUrl} placeholder="https://..." />
+			<Input id="imageSrc" label="Image URL" bind:value={localImageSrc} placeholder="https://..." />
+
+			<div class="inline-grid">
+				<Input id="segment" label="Segment" bind:value={localSegment} />
+				<Input id="namePrefix" label="Name Prefix" bind:value={localNamePrefix} />
+				<Input
+					id="chunkCount"
+					label="Chunk Count"
+					type="number"
+					min="1"
+					value={localChunkCount.toString()}
+					onChange={(v) => (localChunkCount = parseInt(v) || 1)}
+				/>
+			</div>
+
+			<Spacer size={25} />
+
+			<Button disabled={ttsState.addVoiceLoading} onClick={handleAddVoice}>
+				{ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
+			</Button>
+
+			<Spacer size={25} />
+
+			<LoadingLine loading={ttsState.addVoiceLoading} />
+
+			{#if ttsState.addVoiceStatus}
+				<p
+					class="status"
+					class:error={ttsState.addVoiceStatus === 'error'}
+					class:done={ttsState.addVoiceStatus === 'done'}
+				>
+					{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
+						ttsState.addVoiceStatus}
+				</p>
+			{/if}
+		</Spacer>
+	</Spacer>
+
+	<Spacer title="Synthetize params">
 		<RangeSelector
 			id="numStep"
 			label="Num Steps"
-			value={ttsState.config.numStep}
+			value={localConfig.numStep}
 			min={1}
 			max={64}
 			step={1}
 			format={(v) => v.toString()}
-			onChange={(v) => (ttsState.config.numStep = v)}
+			onChange={(v) => (localConfig.numStep = v)}
 		/>
 
 		<RangeSelector
 			id="guidanceScale"
 			label="Guidance Scale"
-			value={ttsState.config.guidanceScale}
+			value={localConfig.guidanceScale}
 			min={0}
 			max={10}
 			step={0.1}
 			format={(v) => v.toFixed(1)}
-			onChange={(v) => (ttsState.config.guidanceScale = v)}
+			onChange={(v) => (localConfig.guidanceScale = v)}
 		/>
 
 		<RangeSelector
 			id="speed"
 			label="Speed"
-			value={ttsState.config.speed}
+			value={localConfig.speed}
 			min={0.25}
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.speed = v)}
+			onChange={(v) => (localConfig.speed = v)}
 		/>
 
 		<!-- 		<RangeSelector
 			id="tShift"
 			label="T Shift"
-			value={ttsState.config.tShift ?? 0}
+			value={localConfig.tShift ?? 0}
 			min={0}
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.tShift = v)}
+			onChange={(v) => (localConfig.tShift = v)}
 		/>
 
 		<RangeSelector
 			id="positionTemperature"
 			label="Position Temperature"
-			value={ttsState.config.positionTemperature ?? 0}
+			value={localConfig.positionTemperature ?? 0}
 			min={0}
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.positionTemperature = v)}
+			onChange={(v) => (localConfig.positionTemperature = v)}
 		/>
 
 		<RangeSelector
 			id="classTemperature"
 			label="Class Temperature"
-			value={ttsState.config.classTemperature ?? 0}
+			value={localConfig.classTemperature ?? 0}
 			min={0}
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.classTemperature = v)}
+			onChange={(v) => (localConfig.classTemperature = v)}
 		/>
 
 		<RangeSelector
 			id="layerPenaltyFactor"
 			label="Layer Penalty Factor"
-			value={ttsState.config.layerPenaltyFactor ?? 0}
+			value={localConfig.layerPenaltyFactor ?? 0}
 			min={0}
 			max={2}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.layerPenaltyFactor = v)}
+			onChange={(v) => (localConfig.layerPenaltyFactor = v)}
 		/>
 
 		<RangeSelector
 			id="duration"
 			label="Duration"
-			value={ttsState.config.duration ?? 0}
+			value={localConfig.duration ?? 0}
 			min={0}
 			max={60}
 			step={1}
 			format={(v) => `${v.toFixed(0)}s`}
-			onChange={(v) => (ttsState.config.duration = v)}
+			onChange={(v) => (localConfig.duration = v)}
 		/>
 
 		<RangeSelector
 			id="audioChunkDuration"
 			label="Audio Chunk Duration"
-			value={ttsState.config.audioChunkDuration ?? 0}
+			value={localConfig.audioChunkDuration ?? 0}
 			min={0}
 			max={30}
 			step={0.5}
 			format={(v) => `${v.toFixed(1)}s`}
-			onChange={(v) => (ttsState.config.audioChunkDuration = v)}
+			onChange={(v) => (localConfig.audioChunkDuration = v)}
 		/>
 
 		<RangeSelector
 			id="audioChunkThreshold"
 			label="Audio Chunk Threshold"
-			value={ttsState.config.audioChunkThreshold ?? 0}
+			value={localConfig.audioChunkThreshold ?? 0}
 			min={1.05}
 			max={5}
 			step={0.05}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (ttsState.config.audioChunkThreshold = v)}
+			onChange={(v) => (localConfig.audioChunkThreshold = v)}
 		/>
 
 		<Checkbox
 			id="denoise"
 			label="Denoise"
-			checked={ttsState.config.denoise}
-			onChange={(v) => (ttsState.config.denoise = v)}
+			checked={localConfig.denoise}
+			onChange={(v) => (localConfig.denoise = v)}
 		/>
 
 		<Checkbox
 			id="preprocessPrompt"
 			label="Preprocess Prompt"
-			checked={ttsState.config.preprocessPrompt}
-			onChange={(v) => (ttsState.config.preprocessPrompt = v)}
+			checked={localConfig.preprocessPrompt}
+			onChange={(v) => (localConfig.preprocessPrompt = v)}
 		/>
 
 		<Checkbox
 			id="postprocessOutput"
 			label="Postprocess Output"
-			checked={ttsState.config.postprocessOutput}
-			onChange={(v) => (ttsState.config.postprocessOutput = v)}
+			checked={localConfig.postprocessOutput}
+			onChange={(v) => (localConfig.postprocessOutput = v)}
 		/> -->
-	</Spacer>
-
-	<Spacer size={25} />
-
-	<Spacer title="Voices" defaultOpen>
-		<div class="voice-selector">
-			<Dropdown
-				label="Voice"
-				options={namePrefixOptions}
-				bind:value={selectedNamePrefix}
-				onChange={handleNamePrefixChange}
-				placeholder="Select a voice..."
-			/>
-
-			<div class="voice-buttons">
-				{#each voicesForPrefix as _, i}
-					<Button label={`${i + 1}`} onClick={() => selectVoiceByIndex(i)} />
-				{/each}
-			</div>
-		</div>
-
-		<Input
-			id="videoUrl"
-			label="Video URL"
-			bind:value={ttsState.videoUrl}
-			placeholder="https://..."
-		/>
-
-		<div class="inline-grid">
-			<Input id="segment" label="Segment" bind:value={ttsState.segment} />
-			<Input id="namePrefix" label="Name Prefix" bind:value={ttsState.namePrefix} />
-			<Input
-				id="chunkCount"
-				label="Chunk Count"
-				type="number"
-				min="1"
-				bind:value={ttsState.chunkCount}
-			/>
-		</div>
-
-		<Spacer size={25} />
-
-		<Button
-			label={ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
-			disabled={ttsState.addVoiceLoading}
-			onClick={handleAddVoice}
-		/>
-
-		<Spacer size={25} />
-
-		<LoadingLine loading={ttsState.addVoiceLoading} />
-
-		{#if ttsState.addVoiceStatus}
-			<p
-				class="status"
-				class:error={ttsState.addVoiceStatus === 'error'}
-				class:done={ttsState.addVoiceStatus === 'done'}
-			>
-				{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
-					ttsState.addVoiceStatus}
-			</p>
-		{/if}
 	</Spacer>
 </div>
 
@@ -301,7 +391,7 @@
 	h2 {
 		margin: 0 0 0.5rem 0;
 		font-size: 1.1rem;
-		color: var(--primary-color, #000);
+		color: var(--primary-color);
 	}
 
 	.inline-grid {
@@ -312,8 +402,10 @@
 
 	.voice-selector {
 		display: flex;
-		gap: 0.5rem;
-		align-items: flex-end;
+		flex-direction: column;
+		gap: 1rem;
+
+		height: fit-content;
 	}
 
 	.voice-selector :global(.dropdown-input) {
@@ -326,11 +418,5 @@
 		display: flex;
 		gap: 0.25rem;
 		flex: 1;
-	}
-
-	.voice-buttons :global(.btn) {
-		flex: 1;
-		padding: 0.5rem 0.5rem;
-		font-size: 1rem;
 	}
 </style>

@@ -30,6 +30,7 @@
 		const target = event.target as HTMLSelectElement;
 		const newValue = target.value;
 		value = newValue;
+		target.blur();
 
 		if (onChange) {
 			onChange(newValue);
@@ -69,7 +70,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(154, 154, 154, 0.12);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		padding: 0.4rem 0.75rem;
+		padding: 0.2rem 0.75rem;
 		width: 100%;
 		color: inherit;
 		font-size: 1rem;

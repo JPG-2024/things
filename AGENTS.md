@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## svelte-check
+
+Instead of run svelte-check for entire repo run in modified files.
+ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 | head -100`
+
 ## Repo Overview
 
 - Frontend: SvelteKit + Svelte 5 runes.

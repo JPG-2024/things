@@ -140,8 +140,13 @@
 							type="button"
 							class="img-button"
 							onclick={() => handleNavigateToArticle(article)}
-							onmouseenter={() => (viewState.hoveredArticleUrl = article.url ?? null)}
-							onmouseleave={() => (viewState.hoveredArticleUrl = null)}
+							onmouseenter={() => {
+								viewState.hoveredArticleUrl = article.url ?? null;
+								viewState.hoveredPictureSrc = article.thumbnail ?? null;
+							}}
+							onmouseleave={() => {
+								viewState.hoveredArticleUrl = null;
+							}}
 							aria-label="View article"
 						>
 							<Tooltip content={article.title ?? ''}>

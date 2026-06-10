@@ -8,14 +8,14 @@ class ViewState {
 	language = $state<language>('es');
 	loading = $state(false);
 	loaded = $state(false);
+	subStatus = $state<string | null>(null);
 	showAllTasks = $state(false);
-	collapseProfiles = $state(false);
-
-	modalSettingVisible = $state(false);
+	collapseProfiles = $state(true);
 
 	url = $state<string | null>(null);
 	hoveredProfileName = $state<string | null>(null);
 	hoveredProfileId = $state<string | null>(null);
+	hoveredPictureSrc = $state<string | null>(null);
 	hoveredArticleUrl = $state<string | null>(null);
 
 	messages = $state<Message[]>([]);
@@ -54,3 +54,25 @@ export interface Message {
 }
 
 export const viewState = new ViewState();
+
+class DrawersState {
+	drawers = $state<Record<string, boolean>>({});
+
+	isOpen(name: string): boolean {
+		return this.drawers[name] ?? false;
+	}
+
+	open(name: string) {
+		this.drawers[name] = true;
+	}
+
+	close(name: string) {
+		this.drawers[name] = false;
+	}
+
+	toggle(name: string) {
+		this.drawers[name] = !this.drawers[name];
+	}
+}
+
+export const drawersState = new DrawersState();

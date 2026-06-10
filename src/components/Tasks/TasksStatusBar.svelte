@@ -30,13 +30,17 @@
 	</div>
 {/if}
 
+{#if viewState.subStatus}
+	<div class="sub-status">
+		{viewState.subStatus}
+	</div>
+{/if}
+
 <style>
 	.loading-pills {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: rgb(24, 24, 24);
-		border: 2px solid var(--primary-color);
 		flex-wrap: wrap;
 		gap: 1rem;
 		position: fixed;
@@ -44,6 +48,14 @@
 		left: 0;
 		right: 0;
 		padding: 1rem;
+		z-index: 9999;
+	}
+
+	.sub-status {
+		position: fixed;
+		bottom: 1rem;
+		right: 1rem;
+		color: white;
 		z-index: 9999;
 	}
 </style>

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
-	import TTSSettings from '@/components/modals/TTSSettings.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let audioContext: AudioContext | null = $state(null);
@@ -21,7 +21,6 @@
 
 	let isPaused = $state(false);
 	let pausedAt = 0;
-	let settingsOpen = $state(false);
 
 	let animationFrame: number | null = null;
 	const amplitudeScale = 0.3;
@@ -98,15 +97,8 @@
 		analyser.connect(ctx.destination);
 
 		source.onended = () => {
-			if (currentSource === source) {
-				currentSource.disconnect();
-				currentSource = null;
-				analyserNode = null;
-				if (!isPaused) {
-					ttsState.isPlaying = false;
-					clearCountdown();
-				}
-			}
+			cleanupPlayback();
+			stopPlayback();
 		};
 
 		source.start(0, offset);
@@ -179,7 +171,7 @@
 		}
 	}
 
-	function stopPlayback() {
+	function cleanupPlayback() {
 		if (currentSource) {
 			currentSource.onended = null;
 			currentSource.stop();
@@ -193,9 +185,12 @@
 		pausedAt = 0;
 		elapsedSeconds = 0;
 		combinedBuffer = null;
-
-		ttsState.isPlaying = false;
 		ttsState.errorMessage = '';
+	}
+
+	function stopPlayback() {
+		cleanupPlayback();
+		ttsState.isPlaying = false;
 	}
 
 	function startCountdown() {
@@ -500,9 +495,23 @@
 		}
 	});
 
+	let prevConfigSig = ttsState.configSig;
+
+	$effect(() => {
+		const currentSig = ttsState.configSig;
+		const url = ttsState.generatedId;
+
+		if (currentSig !== prevConfigSig && url) {
+			prevConfigSig = currentSig;
+			cleanupPlayback();
+			generateTTSfromArticleURL(url);
+		}
+	});
+
 	$effect(() => {
 		return () => {
 			stopPlayback();
+			cleanupPlayback();
 			if (audioContext) {
 				audioContext.close();
 				audioContext = null;
@@ -526,7 +535,15 @@
 		out:fade={{ duration: 80 }}
 		class="tts-player"
 	>
-		<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
+		<div class="tts-player__header">
+			<div class="tts-player__picture-container">
+				<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
+			</div>
+		</div>
+
+		<div class="tts-player__canvas-container">
+			<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
+		</div>
 
 		{#if !ttsState.isGenerating}
 			<div class="tts-player__controls">
@@ -555,7 +572,7 @@
 				<button
 					type="button"
 					class="tts-player__btn tts-player__btn--settings"
-					onclick={() => (settingsOpen = !settingsOpen)}
+					onclick={() => drawersState.toggle('tts-settings')}
 					aria-label="TTS Settings"
 				>
 					<Icon name="Settings" size={20} color={viewState.primaryColor} />
@@ -565,16 +582,6 @@
 						>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
 					>
 				{/if}
-			</div>
-		{/if}
-
-		{#if settingsOpen}
-			<div
-				class="tts-player__settings-panel"
-				in:slide={{ axis: 'x', duration: 300 }}
-				out:slide={{ axis: 'x' }}
-			>
-				<TTSSettings />
 			</div>
 		{/if}
 
@@ -595,16 +602,59 @@
 
 <style>
 	.tts-player {
-		border: 3px solid var(--primary-color);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		/* border: 4px solid var(--primary-color); */
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
 		background: rgba(14, 14, 14, 0.9);
-		box-shadow:
-			0 0 0 1px rgba(255, 255, 255, 0.06),
-			0 18px 48px rgba(0, 0, 0, 0.4);
 		z-index: 1000;
 		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	}
+
+	.tts-player__canvas-container {
+		width: 100%;
+		height: 20%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.tts-player__header {
+		height: 35%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.75rem;
+	}
+
+	.tts-player__picture-container {
+		width: 250px;
+		height: 150px;
+		border-radius: 40px;
+		overflow: hidden;
+		position: relative;
+		display: block;
+		border-radius: 20px;
+		/* border: 1px solid var(--primary-color); */
+	}
+
+	.tts-player__picture-container::before {
+		display: block;
+		content: '';
+		border-radius: 20px;
+	}
+
+	.tts-player__picture-container img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		left: 0;
+		right: auto;
+		border-radius: 40px;
 	}
 
 	.tts-player__canvas {
@@ -617,7 +667,7 @@
 
 	.tts-player__controls {
 		position: absolute;
-		top: 70%;
+		top: 64%;
 		left: 50%;
 		transform: translate(-50%, -50%);
 		display: flex;
@@ -658,18 +708,6 @@
 		width: 40px;
 		height: 40px;
 		background: rgba(0, 0, 0, 0.5);
-	}
-
-	.tts-player__settings-panel {
-		position: absolute;
-		top: 0;
-		right: 0;
-		width: min(600px, 90%);
-		height: 100%;
-		overflow-y: auto;
-		background: rgba(14, 14, 14, 0.95);
-		border-left: 1px solid rgba(255, 255, 255, 0.08);
-		z-index: 10;
 	}
 
 	.tts-player__status-overlay {

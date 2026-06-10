@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 
 	interface Props {
 		children?: Snippet;
@@ -16,7 +16,8 @@
 
 	createHotkey('Escape', handleBackNavigation, {
 		stopPropagation: true,
-		preventDefault: true
+		preventDefault: true,
+		enabled: !drawersState.isOpen('tts-settings') && !drawersState.isOpen('settings')
 	});
 </script>
 

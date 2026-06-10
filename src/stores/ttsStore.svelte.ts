@@ -1,5 +1,5 @@
 import { viewState } from './viewStore.svelte';
-import { addVoice, generateSpeech } from '@/lib/utils/ttsService';
+import { addVoice, generateSpeech, parseSSE } from '@/lib/utils/ttsService';
 
 export interface TTSRefConfig {
 	refAudioFilename: string;
@@ -45,15 +45,18 @@ class TTSState {
 		preprocessPrompt: true,
 		postprocessOutput: true
 	});
+	configSig = $derived(JSON.stringify(this.config));
+	private generatedConfigSig = $state('');
 
 	videoUrl = $state('');
 	segment = $state('00:00-01:00');
 	namePrefix = $state('jessica_martin');
 	chunkCount = $state(1);
+	imageSrc = $state('');
 	addVoiceStatus = $state<'' | 'downloading' | 'transcribing' | 'chunking' | 'done' | 'error'>('');
 	addVoiceMessage = $state('');
 	addVoiceLoading = $state(false);
-	private eventSource: EventSource | null = null;
+	private abortController: AbortController | null = null;
 
 	setTextContents(contents: string[]): void {
 		this.textContents = contents;
@@ -80,7 +83,11 @@ class TTSState {
 			return;
 		}
 
-		if (id === this.generatedId && this.blobs.length > 0) {
+		if (
+			id === this.generatedId &&
+			this.configSig === this.generatedConfigSig &&
+			this.blobs.length > 0
+		) {
 			this.errorMessage = '';
 			this.isPlaying = true;
 			return;
@@ -127,6 +134,7 @@ class TTSState {
 
 			if (this.blobs.length > 0) {
 				this.generatedId = id;
+				this.generatedConfigSig = this.configSig;
 				this.isPlaying = true;
 			}
 		} catch (err) {
@@ -138,63 +146,49 @@ class TTSState {
 	}
 
 	cleanup(): void {
-		if (this.eventSource) {
-			this.eventSource.close();
-			this.eventSource = null;
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
 		}
 	}
 
 	async startAddVoice(): Promise<void> {
-		if (this.eventSource) {
-			this.eventSource.close();
-			this.eventSource = null;
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
 		}
 
 		this.addVoiceLoading = true;
 		this.addVoiceStatus = '';
 		this.addVoiceMessage = '';
+
+		const controller = new AbortController();
+		this.abortController = controller;
+
 		try {
-			const { source } = await addVoice({
-				url: this.videoUrl,
-				segment: this.segment,
-				name_prefix: this.namePrefix,
-				chunk_count: this.chunkCount
-			});
+			const response = await addVoice(
+				{
+					url: this.videoUrl,
+					segment: this.segment,
+					name_prefix: this.namePrefix,
+					chunk_count: this.chunkCount,
+					image_src: this.imageSrc || undefined
+				},
+				controller.signal
+			);
 
-			this.eventSource = source;
-
-			console.log(source);
-
-			await new Promise<void>((resolve) => {
-				source.onmessage = (e) => {
-					const data = JSON.parse(e.data);
-					const eventName = e.type || data.status;
-					this.addVoiceStatus = eventName;
-					if (eventName === 'chunking') {
-						this.addVoiceMessage = `Processing chunk ${data.current} of ${data.total}`;
-					} else {
-						this.addVoiceMessage = data.message ?? eventName;
-					}
-					if (eventName === 'done' || eventName === 'error') {
-						source.close();
-						this.eventSource = null;
-						this.addVoiceLoading = false;
-						resolve();
-					}
-				};
-				source.onerror = () => {
-					source.close();
-					this.eventSource = null;
-					this.addVoiceLoading = false;
-					this.addVoiceStatus = 'error';
-					this.addVoiceMessage = 'Connection lost';
-					resolve();
-				};
-			});
+			for await (const { event, data } of parseSSE(response)) {
+				viewState.subStatus = event;
+			}
 		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') {
+				return;
+			}
+			console.error('[SSE] Error:', err);
+		} finally {
 			this.addVoiceLoading = false;
-			this.addVoiceStatus = 'error';
-			this.addVoiceMessage = err instanceof Error ? err.message : 'Failed to start';
+			this.abortController = null;
+			viewState.subStatus = null;
 		}
 	}
 }

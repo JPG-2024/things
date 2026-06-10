@@ -152,6 +152,9 @@ const youtubeTasks = {
 				fileName: thumbnailImage,
 				imageSrc: thumbnailImageSrc
 			} = await downloadImageUrl(ytThumbnailUrl);
+
+			viewState.hoveredPictureSrc = thumbnailImageSrc;
+
 			return {
 				mediaDirectory,
 				thumbnailImage,

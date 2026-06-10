@@ -20,8 +20,13 @@
 </script>
 
 {#if show}
-	<div class="backdrop" role="presentation" transition:fade={{ duration: 200 }}>
-		<div class="modal" role="dialog" transition:scale={{ start: 0.8, duration: 100 }}>
+	<div class="backdrop" role="presentation" transition:fade={{ duration: 200 }} onclick={onClose}>
+		<div
+			class="modal"
+			role="dialog"
+			transition:scale={{ start: 0.8, duration: 100 }}
+			onclick={(e) => e.stopPropagation()}
+		>
 			<button class="close-btn" onclick={onClose} aria-label="Close modal">×</button>
 			<div class="modal-content">
 				{@render children?.()}

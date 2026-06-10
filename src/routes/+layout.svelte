@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { invoke } from '@tauri-apps/api/core';
@@ -11,6 +11,10 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { playCoinSound } from '@/lib/utils/coinSound';
+	import TTSSettings from '@/components/modals/TTSSettings.svelte';
+	import SettingsModal from '@/components/modals/SettingsModal.svelte';
+	import Drawer from '@/components/Drawer.svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -77,9 +81,7 @@
 
 	$effect(() => {
 		const color = viewState.primaryColor;
-		if (mainElement) {
-			mainElement.style.setProperty('--primary-color', color);
-		}
+		document.documentElement.style.setProperty('--primary-color', color);
 	});
 
 	/* 	$effect(() => {
@@ -98,6 +100,26 @@
 	afterNavigate(() => {
 		ttsState.clearPlaylist();
 	});
+
+	createHotkey(
+		',',
+		() => {
+			drawersState.toggle('tts-settings');
+		},
+		{
+			ignoreInputs: true
+		}
+	);
+
+	createHotkey(
+		'.',
+		() => {
+			drawersState.toggle('settings');
+		},
+		{
+			ignoreInputs: true
+		}
+	);
 
 	onMount(() => {
 		const pollClipboard = async () => {
@@ -159,6 +181,14 @@
 		<TasksStatusBar />
 		<TTSPlayer />
 	</main>
+
+	<Drawer name="tts-settings">
+		<TTSSettings />
+	</Drawer>
+
+	<Drawer name="settings">
+		<SettingsModal />
+	</Drawer>
 </QueryClientProvider>
 
 <style>

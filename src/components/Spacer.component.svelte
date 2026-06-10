@@ -9,7 +9,7 @@
 		children?: Snippet;
 	};
 
-	let { size = 16, title, defaultOpen = false, children }: Props = $props();
+	let { size = 5, title, defaultOpen = false, children }: Props = $props();
 
 	let open = $state(defaultOpen);
 	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
@@ -53,6 +53,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+		padding-left: 1rem;
 	}
 
 	.spacer-header {

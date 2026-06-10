@@ -3,13 +3,12 @@
 
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
@@ -20,6 +19,7 @@
 		deleteProfileById
 	} from '@/stores/webStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
+	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -115,14 +115,7 @@
 	const sHotkey = createHotkey(
 		'S',
 		async () => {
-			if (!viewState.hoveredArticleUrl) return;
-			const article = await getArticleWithTasksByUrl(viewState.hoveredArticleUrl);
-			const titleSummaryTask = article?.persistedTasks?.find((t) => t.id === 'title-summary');
-			if (!titleSummaryTask?.data) {
-				throw new Error('No title-summary data found for this article');
-			}
-			ttsState.setTextContents([titleSummaryTask.data as string]);
-			await ttsState.generateTTS(viewState.hoveredArticleUrl);
+			await generateTTSfromArticleURL(viewState.hoveredArticleUrl);
 		},
 		() => ({
 			enabled: viewState.hoveredArticleUrl !== null,
@@ -139,7 +132,7 @@
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
 			await profileRunner(profileUrl, {
 				runnerConfig: { routine: 'fromUrl' },
-				options: { videosAmount: 3 }
+				options: { videosAmount: 1 }
 			});
 			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
 		},
@@ -174,7 +167,7 @@
 	<button
 		type="button"
 		class="settings-trigger"
-		onclick={() => (viewState.modalSettingVisible = true)}
+		onclick={() => drawersState.open('settings')}
 		aria-label="Open settings"
 	>
 		<Icon name="ChevronRight" />
@@ -208,11 +201,6 @@
 		{/each}
 	</div>
 </div>
-
-<SettingsModal
-	show={viewState.modalSettingVisible}
-	onClose={() => (viewState.modalSettingVisible = false)}
-/>
 
 <style>
 	.page-topbar {
