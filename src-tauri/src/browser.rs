@@ -195,8 +195,35 @@ async fn launch_browser_state() -> Result<BrowserState, String> {
     })
 }
 
+async fn reset_browser() {
+    let state = {
+        let mut state = BROWSER_STATE.lock().await;
+        state.take()
+    };
+
+    if let Some(state) = state {
+        eprintln!("🔄 Resetting browser state...");
+        state.handler_task.abort();
+        drop(state.browser);
+        drop(state.shared_page);
+        drop(state.page_semaphore);
+        if state.cleanup_on_exit {
+            cleanup_user_data_dir(&state.user_data_dir);
+        }
+    }
+}
+
 async fn ensure_browser() -> Result<BrowserContext, String> {
     let mut state = BROWSER_STATE.lock().await;
+
+    if let Some(ref existing_state) = *state {
+        if existing_state.handler_task.is_finished() {
+            eprintln!("⚠️  Browser handler task exited, restarting browser...");
+            drop(state);
+            reset_browser().await;
+            state = BROWSER_STATE.lock().await;
+        }
+    }
 
     if state.is_none() {
         *state = Some(launch_browser_state().await?);
@@ -345,7 +372,33 @@ pub async fn get_ready_page() -> Result<ReadyPage> {
         Ok(page) => page,
         Err(error) => {
             drop(permit);
-            return Err(anyhow::anyhow!("Failed to create browser page: {}", error));
+            eprintln!("⚠️  Failed to create page: {}, resetting browser and retrying...", error);
+            reset_browser().await;
+
+            let retry_context = ensure_browser().await.map_err(anyhow::Error::msg)?;
+            let retry_permit = retry_context
+                .page_semaphore
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to acquire browser page slot on retry: {}", e))?;
+
+            let retry_page = match retry_context.browser.lock().await.new_page("about:blank").await {
+                Ok(page) => page,
+                Err(retry_error) => {
+                    return Err(anyhow::anyhow!("Failed to create browser page after retry: {}", retry_error));
+                }
+            };
+
+            if let Err(config_error) = configure_page(&retry_page).await {
+                close_page(retry_page).await;
+                return Err(anyhow::anyhow!("Failed to configure page after retry: {}", config_error));
+            }
+
+            return Ok(ReadyPage {
+                page: retry_page,
+                _permit: retry_permit,
+            });
         }
     };
 
@@ -382,12 +435,29 @@ where
 
     let page = {
         let mut guard = ctx.shared_page.lock().await;
-        if guard.is_none() {
-            let new_page = ctx.browser.lock().await.new_page("about:blank").await.map_err(|e| e.to_string())?;
-            configure_page(&new_page).await.map_err(|e| e.to_string())?;
-            *guard = Some(new_page);
+        if guard.is_some() {
+            guard.as_ref().unwrap().clone()
+        } else {
+            match ctx.browser.lock().await.new_page("about:blank").await {
+                Ok(new_page) => {
+                    configure_page(&new_page).await.map_err(|e| e.to_string())?;
+                    *guard = Some(new_page);
+                    guard.as_ref().unwrap().clone()
+                }
+                Err(e) => {
+                    drop(guard);
+                    eprintln!("⚠️  Failed to create shared page: {}, resetting browser and retrying...", e);
+                    reset_browser().await;
+
+                    let retry_ctx = ensure_browser().await?;
+                    let mut retry_guard = retry_ctx.shared_page.lock().await;
+                    let retry_page = retry_ctx.browser.lock().await.new_page("about:blank").await.map_err(|e| e.to_string())?;
+                    configure_page(&retry_page).await.map_err(|e| e.to_string())?;
+                    *retry_guard = Some(retry_page);
+                    retry_guard.as_ref().unwrap().clone()
+                }
+            }
         }
-        guard.as_ref().unwrap().clone()
     };
 
     let result = work(page).await;
