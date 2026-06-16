@@ -42,7 +42,8 @@ export enum TaskNames {
 	TITLE = 'title',
 	EXTRACT_PROFILE = 'extract-profile',
 	PROFILE_FROM_VIDEO = 'profile-from-video',
-	GENERATE_TTS = 'generate-tts'
+	GENERATE_TTS = 'waveing...',
+	CATEGORY = 'categoty'
 }
 
 export type YouTubeTaskFactoryContext = {

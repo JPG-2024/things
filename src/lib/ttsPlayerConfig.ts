@@ -60,7 +60,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 	}
 };
 
-let currentStyleName: GeneratingWaveStyle = 'organicMultiDim';
+let currentStyleName: GeneratingWaveStyle = 'organicMultiBright';
 
 export function getCurrentStyleName(): GeneratingWaveStyle {
 	return currentStyleName;

@@ -25,6 +25,7 @@ class ViewState {
 	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
+	blur = $state(false);
 	clipboardPollingEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(10);

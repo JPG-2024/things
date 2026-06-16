@@ -5,14 +5,10 @@ import type { PersistedTaskState } from '@/stores/webStore';
 import type { TTSLanguage } from '@/lib/utils/tts';
 import { viewState } from '@/stores/viewStore.svelte';
 
-export interface CachedWithTasks {
-	persistedTasks?: PersistedTaskState[];
-}
-
 export interface UrlRunnerConfig<TOptions = Record<string, never>> {
 	url: string;
 	routine: string | ((freshRun: boolean) => string);
-	cached?: CachedWithTasks | null;
+	cachedTasks?: PersistedTaskState[] | null;
 	language?: TTSLanguage;
 	makeActive?: boolean;
 	stream?: boolean;
@@ -34,7 +30,7 @@ export function createUrlRunner(config: {
 	const { taskRegistry, routines } = config;
 
 	return async (runnerConfig) => {
-		const freshRun = runnerConfig.rebuild ?? !runnerConfig.cached?.persistedTasks?.length;
+		const freshRun = runnerConfig.rebuild ?? !runnerConfig.cachedTasks?.length;
 
 		const routineId =
 			typeof runnerConfig.routine === 'function'
@@ -54,7 +50,7 @@ export function createUrlRunner(config: {
 		};
 
 		const tasks: Task[] = await buildTaskSubroutine(routineTasks, taskRegistry, context, {
-			persistedTasks: runnerConfig.cached?.persistedTasks,
+			persistedTasks: runnerConfig.cachedTasks ?? undefined,
 			Rebuild: runnerConfig.rebuild
 		});
 

@@ -9,13 +9,11 @@
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
-	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		getProfilesWithArticlesAfter,
 		WEB_STORE_UNKNOWN_PROFILE_ID,
 		WEB_STORE_UNKNOWN_PROFILE_LABEL,
-		getArticleWithTasksByUrl,
 		deleteProfileById
 	} from '@/stores/webStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
@@ -24,6 +22,8 @@
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 	let processingUrl = $state(false);
+
+	const queryClient = useQueryClient();
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -110,11 +110,10 @@
 		}
 	}
 
-	const queryClient = useQueryClient();
-
 	const sHotkey = createHotkey(
 		'S',
 		async () => {
+			if (!viewState.hoveredArticleUrl) return;
 			await generateTTSfromArticleURL(viewState.hoveredArticleUrl);
 		},
 		() => ({
@@ -156,21 +155,21 @@
 </script>
 
 <div class="page-topbar">
-	<button
+	<!-- 	<button
 		type="button"
 		class="settings-trigger"
 		onclick={() => (viewState.collapseProfiles = !viewState.collapseProfiles)}
 		aria-label="Open settings"
 	>
 		<Icon name="ChevronRight" />
-	</button>
+	</button> -->
 	<button
 		type="button"
 		class="settings-trigger"
 		onclick={() => drawersState.open('settings')}
 		aria-label="Open settings"
 	>
-		<Icon name="ChevronRight" />
+		<Icon name="Cog" />
 	</button>
 </div>
 
@@ -213,10 +212,8 @@
 		justify-content: flex-end;
 		align-items: center;
 		min-height: 52px;
-		padding: 0 1rem;
-		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
-		background: rgba(54, 54, 54, 0.2);
+		padding: 2rem;
+		margin: 1px;
 	}
 
 	.settings-trigger {
@@ -244,6 +241,14 @@
 		color: var(--primary-color);
 		font-size: 2.2rem;
 		padding: 0.1rem 1rem;
+		position: relative;
+
+		text-shadow:
+			0 0 5px var(--primary-color),
+			0 0 10px var(--primary-color),
+			0 0 20px var(--primary-color),
+			0 0 40px var(--primary-color),
+			0 0 80px white;
 	}
 
 	.flex-squares {

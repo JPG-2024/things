@@ -17,9 +17,7 @@
 </script>
 
 <div class="task-shell">
-	<div class="task-header">
-		<span class="title">{task.name}</span>
-	</div>
+	<div class="task-header"></div>
 
 	<div class="task-content">
 		{@render children?.()}

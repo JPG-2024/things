@@ -1,10 +1,6 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import {
-	deleteArticleByUrl,
-	getArticleWithTasksByUrl,
-	type ArticleWithTasks
-} from '@/stores/webStore';
+import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/stores/webStore';
 import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';
@@ -20,7 +16,9 @@ const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
 type UrlRouteCondition = RegExp | ((url: string) => boolean);
 
 type UrlRouteHandlerContext = {
-	cachedArticle?: ArticleWithTasks | null;
+	cachedTasks?: PersistedTaskState[] | null;
+	runnerOptions?: Record<string, unknown>;
+	routine?: string;
 };
 
 type UrlRoute = {
@@ -43,22 +41,26 @@ const routeDefinitions: UrlRoute[] = [
 		condition: YOUTUBE_URL_REGEX,
 		handler: (url, context) =>
 			youTubeRunner(url, {
-				runnerConfig: { cached: context?.cachedArticle, routine: 'fromUrl' }
+				runnerConfig: { cachedTasks: context?.cachedTasks, routine: 'fromUrl' }
 			})
 	},
 	{
 		name: 'youtubeProfileVideos',
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
-		handler: (url) =>
+		handler: (url, context) =>
 			profileRunner(url, {
-				runnerConfig: { routine: 'fromVideo', makeActive: true },
-				options: { videosAmount: 10 }
+				runnerConfig: {
+					cachedTasks: context?.cachedTasks,
+					routine: context?.routine ?? 'fromVideo',
+					makeActive: true
+				},
+				options: { videosAmount: 10, ...context?.runnerOptions }
 			})
 	},
 	{
 		name: 'defaultBlog',
 		condition: () => true,
-		handler: (url, context) => webRunner(url, context?.cachedArticle)
+		handler: (url, context) => webRunner(url, context?.cachedTasks)
 	}
 ];
 
@@ -72,11 +74,13 @@ export function addUrlRoute(route: UrlRoute) {
 
 type UrlRouterOptions = {
 	forceRunTasks?: boolean;
+	runnerOptions?: Record<string, unknown>;
+	routine?: string;
 };
 
 export async function urlRouter(
 	url: string,
-	{ forceRunTasks = false }: UrlRouterOptions = {}
+	{ forceRunTasks = false, runnerOptions, routine }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
 	workflowManager.clearStack();
 
@@ -85,7 +89,7 @@ export async function urlRouter(
 	}
 
 	const inFlight: Promise<RouterResult> = (async () => {
-		let cachedArticle: ArticleWithTasks | null = null;
+		let cachedTasks: PersistedTaskState[] | null = null;
 		try {
 			const matchingRoute = findRoute(url);
 
@@ -97,27 +101,27 @@ export async function urlRouter(
 			if (forceRunTasks) {
 				await deleteArticleByUrl(url);
 			} else {
-				cachedArticle = await getArticleWithTasksByUrl(url);
+				cachedTasks = await getTasksByUrl(url);
 			}
 
-			if (cachedArticle) {
-				viewState.url = cachedArticle.url ?? '';
-			} else {
-				viewState.url = url;
-			}
-			if (!cachedArticle) {
+			viewState.url = url;
+			if (!cachedTasks) {
 				viewState.loading = true;
 				viewState.loaded = false;
 			}
 
-			const tasks = await matchingRoute.handler(url, { cachedArticle });
+			const tasks = await matchingRoute.handler(url, {
+				cachedTasks,
+				runnerOptions,
+				routine
+			});
 
-			if (!cachedArticle) {
+			if (!cachedTasks) {
 				viewState.loaded = true;
 				viewState.loading = false;
 			}
 
-			return { data: { url, tasks }, cached: Boolean(cachedArticle) };
+			return { data: { url, tasks }, cached: Boolean(cachedTasks) };
 		} catch (err) {
 			console.error('Error while routing URL:', err);
 			viewState.loading = false;

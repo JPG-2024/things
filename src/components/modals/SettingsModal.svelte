@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Dropdown from '../inputs/Dropdown.component.svelte';
+	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { invoke } from '@tauri-apps/api/core';
+
+	const providerOptions = [
+		{ label: 'Llama', value: 'llama' },
+		{ label: 'OpenRouter', value: 'openrouter' }
+	];
 
 	let browserProfile = $state<string>('Not loaded');
 
@@ -32,13 +38,7 @@
 	</div>
 	<div class="inference-section">
 		<h3>Inference</h3>
-		<div class="field">
-			<label for="aiProvider">AI Provider</label>
-			<select id="aiProvider" bind:value={viewState.aiProvider}>
-				<option value="llama">Llama</option>
-				<option value="openrouter">OpenRouter</option>
-			</select>
-		</div>
+		<IconDropdown label="AI Provider" options={providerOptions} bind:value={viewState.aiProvider} />
 		<div class="field">
 			<label for="aiUrl">AI URL</label>
 			<input id="aiUrl" type="text" bind:value={viewState.aiUrl} />
@@ -109,8 +109,7 @@
 		color: rgba(255, 255, 255, 0.8);
 	}
 
-	.field input,
-	.field select {
+	.field input {
 		padding: 0.5rem;
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 0.375rem;
@@ -119,8 +118,7 @@
 		color: white;
 	}
 
-	.field input:focus,
-	.field select:focus {
+	.field input:focus {
 		outline: none;
 		border-color: var(--primary-color, #fae4c0);
 	}

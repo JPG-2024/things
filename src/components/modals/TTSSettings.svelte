@@ -16,6 +16,7 @@
 	import RangeSelector from '../inputs/RangeSelector.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
+	import Icon from '@/components/Icon.svelte';
 
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
@@ -164,7 +165,10 @@
 </script>
 
 <div class="panel">
-	<h2>TTS Settings</h2>
+	<h2>
+		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
+		<span>TTS Settings</span>
+	</h2>
 
 	{#if voicesError}
 		<p class="error">{voicesError}</p>
@@ -392,6 +396,9 @@
 		margin: 0 0 0.5rem 0;
 		font-size: 1.1rem;
 		color: var(--primary-color);
+		display: flex;
+		gap: 1rem;
+		align-items: center;
 	}
 
 	.inline-grid {

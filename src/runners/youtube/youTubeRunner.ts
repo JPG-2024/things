@@ -1,5 +1,5 @@
 import type { Task } from '@/types/taskRunner.types';
-import { saveTasks } from '@/stores/webStore';
+import { saveArticle, saveTasks } from '@/stores/webStore';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { getTaskData } from '@/lib/utils/helpers/tasks';
@@ -11,8 +11,10 @@ const fromUrl: TaskNames[] = [
 	TaskNames.TITLE_SUMMARY,
 	TaskNames.GENERATE_TTS,
 	TaskNames.TITLE,
-	TaskNames.CHAPTERS_SUMMARY,
-	TaskNames.PROFILE_FROM_VIDEO
+	//TaskNames.CHAPTERS_SUMMARY,
+	TaskNames.PROFILE_FROM_VIDEO,
+	TaskNames.KEYWORDS,
+	TaskNames.CATEGORY
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];
@@ -56,7 +58,7 @@ export async function youTubeRunner(
 	return getYtRunner()<YouTubeRunnerOptions>({
 		url: cleanUrl,
 		routine: runnerConfig?.routine ?? 'fromUrl',
-		cached: runnerConfig?.cached,
+		cachedTasks: runnerConfig?.cachedTasks,
 		language: runnerConfig?.language,
 		makeActive: runnerConfig?.makeActive,
 		stream: runnerConfig?.stream,
@@ -66,7 +68,10 @@ export async function youTubeRunner(
 		onRunResult: async (runResult) => {
 			const profileId =
 				options?.profileId || getTaskData(runResult.tasks, 'video-info', 'profileId');
-			await saveTasks(cleanUrl, runResult.tasks, { profile: profileId });
+			await Promise.all([
+				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),
+				saveTasks(cleanUrl, runResult.tasks)
+			]);
 			await runnerConfig?.onRunResult?.(runResult);
 		}
 	});

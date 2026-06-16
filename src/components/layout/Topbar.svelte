@@ -48,8 +48,8 @@
 		gap: 10px;
 		-webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px);
-		background: rgba(54, 54, 54, 0.5);
-		min-height: 50px;
+		background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+		min-height: 35px;
 		right: 0;
 		left: 0;
 		z-index: 10;
@@ -67,9 +67,9 @@
 		height: 1px;
 		background: linear-gradient(
 			270deg,
-			rgba(255, 255, 255, 0.01) 0%,
-			rgba(255, 255, 255, 0.334) 50%,
-			rgba(255, 255, 255, 0.01) 100%,
+			color-mix(in srgb, var(--primary-color) 1%, transparent) 0%,
+			color-mix(in srgb, var(--primary-color) 90%, transparent) 50%,
+			color-mix(in srgb, var(--primary-color) 1%, transparent) 100%,
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;

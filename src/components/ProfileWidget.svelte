@@ -5,7 +5,6 @@
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
-	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { goto } from '$app/navigation';
 	import {
 		getArticlesByProfile,
@@ -53,18 +52,18 @@
 	async function goToprofile() {
 		const profileUrl = getProfileUrl(profile.name);
 		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
-		profileRunner(profileUrl, {
-			runnerConfig: { routine: 'fromVideo' },
-			options: { videosAmount: 20, profileId: profile.id }
+		await urlRouter(profileUrl, {
+			runnerOptions: { videosAmount: 20, profileId: profile.id }
 		});
 	}
 
 	async function handleRefresh() {
 		if (isProfileRunning) return;
 		const profileUrl = getProfileUrl(profile.name);
-		await profileRunner(profileUrl, {
-			runnerConfig: { routine: 'fromUrl' },
-			options: { videosAmount: 3, profileId: profile.id }
+		await urlRouter(profileUrl, {
+			forceRunTasks: true,
+			routine: 'fromUrl',
+			runnerOptions: { videosAmount: 3, profileId: profile.id }
 		});
 		$query.refetch();
 	}
@@ -76,7 +75,7 @@
 	}
 </script>
 
-<div class="categoty-container">
+<div class="category-container">
 	<div class="category-widget">
 		<Card loading={isProfileRunning}>
 			{#if showTitle}
@@ -168,7 +167,11 @@
 </div>
 
 <style>
+	.category-container {
+	}
+
 	.category-widget {
+		padding: 5px;
 		display: flex;
 		flex-direction: column;
 		width: max-content;

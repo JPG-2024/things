@@ -332,7 +332,7 @@ fn query_articles(
 
 fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles WHERE id = ?1")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles WHERE id = ?1 COLLATE NOCASE")
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
@@ -604,7 +604,7 @@ pub async fn get_web_store_article_by_url(
 ) -> Result<Option<WebStoreArticleRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
-    let filter = format!("url = '{}'", url.replace('\'', "''"));
+    let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
     let mut records = query_articles(&conn, Some(&filter), Some(1))?;
     Ok(records.pop())
 }
@@ -635,7 +635,7 @@ pub async fn upsert_web_store_article(
                 title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
                 main_color = ?5, profile = ?6, 
                 embedding_source_text = ?7, updated_at = ?8 
-             WHERE url = ?9",
+             WHERE url = ?9 COLLATE NOCASE",
             params![
                 input.title,
                 input.thumbnail,
@@ -689,7 +689,7 @@ pub async fn delete_web_store_article_by_url(
         return Ok(false);
     };
 
-    conn.execute("DELETE FROM web_articles WHERE url = ?1", params![url])
+    conn.execute("DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE", params![url])
         .map_err(|error| error.to_string())?;
 
     rebuild_profiles_from_articles(&conn, None)?;
@@ -747,6 +747,7 @@ pub async fn delete_web_store_profile(
 
     for article_value in articles {
         if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
+            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
             if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
                 deleted_count += 1;
             }
@@ -813,7 +814,7 @@ pub async fn get_web_store_tasks_by_url(
     init_schema(&conn)?;
 
     let mut stmt = conn
-        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks WHERE url = ?1")
+        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks WHERE url = ?1 COLLATE NOCASE")
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
@@ -855,7 +856,7 @@ pub async fn delete_web_store_tasks_by_url(
     init_schema(&conn)?;
 
     let changes = conn
-        .execute("DELETE FROM web_tasks WHERE url = ?1", params![url])
+        .execute("DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE", params![url])
         .map_err(|error| error.to_string())?;
 
     Ok(changes > 0)

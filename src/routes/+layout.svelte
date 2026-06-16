@@ -5,7 +5,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate } from '@/lib/utils/url';
-	import { afterNavigate, onNavigate } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
@@ -101,6 +101,18 @@
 		ttsState.clearPlaylist();
 	});
 
+	const ttsPlayerVisible = $derived(
+		ttsState.isPlaying ||
+			ttsState.isPaused ||
+			ttsState.isGenerating ||
+			ttsState.addVoiceLoading ||
+			!!ttsState.errorMessage
+	);
+
+	const blurActive = $derived(
+		ttsPlayerVisible || drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')
+	);
+
 	createHotkey(
 		',',
 		() => {
@@ -128,6 +140,13 @@
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
 				const validUrl = extractValidUrl(clipboardText ?? '');
+
+				if (drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')) {
+					if (validUrl) {
+						viewState.lastHandledClipboardUrl = validUrl;
+					}
+					return;
+				}
 
 				if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
 					return;
@@ -174,13 +193,16 @@
 		id="layout-main"
 		bind:this={mainElement}
 		class="container"
+		class:blur-active={blurActive}
 		class:flashy
 		class:loaded={viewState.loaded}
 	>
 		{@render children()}
-		<TasksStatusBar />
-		<TTSPlayer />
 	</main>
+
+	<TasksStatusBar />
+
+	<TTSPlayer />
 
 	<Drawer name="tts-settings">
 		<TTSSettings />
@@ -240,10 +262,13 @@
 		padding: 1.5rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 2rem;
-		border: 1px solid var(--primary-color);
-		/* filter: blur(2px) opacity(0.7); */
+		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
 		border-bottom: none;
 		border-top: none;
+	}
+
+	main.blur-active {
+		/* filter: v-bind('viewState.blur ? "blur(4px) opacity(0.7)" : "opacity(0.7)"'); */
 	}
 
 	main.loaded::after {

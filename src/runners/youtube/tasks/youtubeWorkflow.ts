@@ -91,7 +91,8 @@ const outputSchemas = {
 	[TaskNames.TITLE]: z.string(),
 	[TaskNames.KEYWORDS]: z.string(),
 	[TaskNames.KEYPOINTS]: z.string(),
-	[TaskNames.GENERATE_TTS]: z.string()
+	[TaskNames.GENERATE_TTS]: z.string(),
+	[TaskNames.CATEGORY]: z.string()
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
@@ -132,7 +133,7 @@ const youtubeTasks = {
 		run: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
 			const urlObj = new URL(ctx.url);
-			const profileId = ctx.profileId || urlObj.pathname.split('/')[1];
+			const profileId = (ctx.profileId || urlObj.pathname.split('/')[1]).toLowerCase();
 			const url = `https://www.youtube.com/${profileId}/videos`;
 			return { ...ctx, url, profileId, videosAmount: ctx.videosAmount };
 		}
@@ -201,14 +202,14 @@ const youtubeTasks = {
 				intervalMs: 200
 			});
 
-			videoInfo.profileId = videoInfo.profileId.slice(1);
+			videoInfo.profileId = videoInfo.profileId.slice(1).toLowerCase();
 
 			return videoInfo;
 		}
 	}),
 	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
 		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO],
+		dependencies: [TaskNames.VIDEO_INFO, TaskNames.GENERATE_TTS],
 		persist: true,
 		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
 		run: async ({ state }) => {
@@ -218,7 +219,7 @@ const youtubeTasks = {
 			const existingProfile = await getProfile(profileId);
 			if (existingProfile) return { profileId };
 			const profileUrl = `https://www.youtube.com/${profileId}/videos`;
-			profileRunner(profileUrl, {
+			await profileRunner(profileUrl, {
 				runnerConfig: { routine: 'fromVideo', makeActive: false },
 				options: { videosAmount: 1, profileId }
 			});
@@ -306,14 +307,13 @@ const youtubeTasks = {
 				intervalMs: 200
 			});
 
-			const dateRegex = /\d{1,2}\s[a-zA-Z]+\s\d{4}/i;
 			let lastVideoDate =
 				videoInfo.uploadDate.find((d) =>
 					d.match(/^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{4})$/i)
 				) ?? '0';
 			const date = new Date(lastVideoDate);
 			lastVideoDate = date.toISOString().split('T')[0];
-			const profileId = (result.profile as string[])[0];
+			const profileId = ((result.profile as string[])[0] ?? '').toLowerCase();
 			const channelName = result.channelName as string;
 			const profile = {
 				id: profileId,
@@ -404,10 +404,10 @@ const youtubeTasks = {
 		dependencies: [TaskNames.CONTENT],
 		component: 'taskBase',
 		output: outputSchemas[TaskNames.TITLE_SUMMARY],
-		systemMessage: `Eres un profesor de jardin. Tu tarea es ayudar a los niños a entender de qué trata un video de YouTube con un pequeño resumen. Responde en el mismo idioma del video.`,
+		systemMessage: `You are a reviewer of content.`,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Generate a short summary for this video. avoid markdown, only text. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Write a summary. max 1000 characters. No markdown. no titles. conclude with 3 main ideas. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const content = getTaskState(state, TaskNames.CONTENT);
@@ -448,12 +448,16 @@ const youtubeTasks = {
 		completionOptions: ytCompletionOptions
 	}),
 	[TaskNames.KEYWORDS]: iaTask({
-		dependencies: [TaskNames.CONTENT],
+		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.KEYWORDS],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		userMessage: 'extract 5 keywords.',
-		run: getContentFromState,
+		run: ({ state }) => {
+			const titleSummary = state[TaskNames.TITLE_SUMMARY];
+			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
+			return titleSummary;
+		},
 		completionOptions: {
 			...ytCompletionOptions,
 			temperature: 1.0,
@@ -473,6 +477,40 @@ const youtubeTasks = {
 							}
 						},
 						required: ['keywords'],
+						additionalProperties: false
+					}
+				}
+			}
+		}
+	}),
+	[TaskNames.CATEGORY]: iaTask({
+		dependencies: [TaskNames.TITLE_SUMMARY],
+		component: 'keywords',
+		output: outputSchemas[TaskNames.CATEGORY],
+		systemMessage: 'Return only valid JSON that matches the provided schema.',
+		userMessage: 'Give a category from this ones: health, psychology, programming.',
+		run: ({ state }) => {
+			const titleSummary = state[TaskNames.TITLE_SUMMARY];
+			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
+			return titleSummary;
+		},
+		completionOptions: {
+			...ytCompletionOptions,
+			temperature: 1.0,
+			response_format: {
+				type: 'json_schema',
+				json_schema: {
+					name: 'keywords',
+					strict: true,
+					schema: {
+						type: 'object',
+						properties: {
+							category: {
+								type: 'string',
+								enum: ['health', 'programming', 'psychology']
+							}
+						},
+						required: ['category'],
 						additionalProperties: false
 					}
 				}

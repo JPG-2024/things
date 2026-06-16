@@ -294,24 +294,29 @@ export function firstNormalizedString(...values: Array<string | null | undefined
 }
 
 export function parseKeywords(data: unknown): string[] {
+	if (typeof data === 'string') {
+		try {
+			return parseKeywords(JSON.parse(data) as unknown);
+		} catch {
+			return [];
+		}
+	}
+
 	if (Array.isArray(data)) {
 		return data.map((keyword) => String(keyword).trim()).filter(Boolean);
 	}
 
-	if (typeof data === 'object' && data !== null && 'keywords' in data) {
-		const value = data.keywords;
-		return Array.isArray(value)
-			? value.map((keyword) => String(keyword).trim()).filter(Boolean)
-			: [];
-	}
+	if (typeof data === 'object' && data !== null) {
+		const record = data as Record<string, unknown>;
 
-	if (typeof data === 'string') {
-		try {
-			const parsed = JSON.parse(data) as { keywords?: unknown };
-			return parseKeywords(parsed);
-		} catch {
-			return [];
+		if (Array.isArray(record.keywords)) {
+			return record.keywords.map((keyword) => String(keyword).trim()).filter(Boolean);
 		}
+
+		return Object.values(record)
+			.filter((value): value is string => typeof value === 'string')
+			.map((value) => value.trim())
+			.filter(Boolean);
 	}
 
 	return [];
@@ -563,6 +568,23 @@ export async function getArticlesByProfile(
 	}
 }
 
+export async function getTasksByUrl(url: string): Promise<PersistedTaskState[] | null> {
+	try {
+		const taskRecord = await invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', {
+			url
+		});
+
+		if (!taskRecord) {
+			return null;
+		}
+
+		return parsePersistedTaskStates(taskRecord.tasksJson);
+	} catch (error) {
+		console.error('Error querying tasks', error);
+		return null;
+	}
+}
+
 export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
 	try {
 		const [row, taskRecord] = await Promise.all([
@@ -581,14 +603,13 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 	}
 }
 
-export async function saveTasks<TMap extends TaskMapBase>(
+export async function saveArticle(
 	url: string,
-	tasks: Task<TMap>[],
+	tasksToSave: Array<{ id?: string; data?: unknown }>,
 	valuesToOverride?: Partial<Record<string, unknown>> | undefined
 ): Promise<void> {
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
-		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
 		const input = await buildUpsertInput({
 			url,
 			tasksToSave,
@@ -596,13 +617,24 @@ export async function saveTasks<TMap extends TaskMapBase>(
 			valuesToOverride
 		});
 
-		await Promise.all([
-			invoke('upsert_web_store_article', { input }),
-			invoke('upsert_web_store_tasks', {
-				url,
-				tasksJson: JSON.stringify(tasksToSave)
-			})
-		]);
+		await invoke('upsert_web_store_article', { input });
+	} catch (error) {
+		console.error('Error saving article:', error);
+	}
+}
+
+export async function saveTasks<TMap extends TaskMapBase>(
+	url: string,
+	tasks: Task<TMap>[]
+): Promise<void> {
+	try {
+		const existingArticle = await getArticleWithTasksByUrl(url);
+		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
+
+		await invoke('upsert_web_store_tasks', {
+			url,
+			tasksJson: JSON.stringify(tasksToSave)
+		});
 	} catch (error) {
 		console.error('Error saving tasks:', error);
 	}

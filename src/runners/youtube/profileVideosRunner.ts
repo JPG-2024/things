@@ -1,6 +1,7 @@
 import type { Task } from '@/types/taskRunner.types';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
+import { saveTasks } from '@/stores/webStore';
 
 const fromUrlRoutine: TaskNames[] = [
 	TaskNames.INIT_YOUTUBE_PROFILE,
@@ -38,13 +39,16 @@ export async function profileRunner(
 	return getRunner()<ProfileRunnerOptions>({
 		url,
 		routine: runnerConfig?.routine ?? 'fromUrl',
-		cached: runnerConfig?.cached,
+		cachedTasks: runnerConfig?.cachedTasks,
 		language: runnerConfig?.language,
 		makeActive: runnerConfig?.makeActive,
 		stream: runnerConfig?.stream,
 		rebuild: runnerConfig?.rebuild,
 		parentRunId: runnerConfig?.parentRunId,
 		options,
-		onRunResult: runnerConfig?.onRunResult
+		onRunResult: async (runResult) => {
+			await saveTasks(url, runResult.tasks);
+			await runnerConfig?.onRunResult?.(runResult);
+		}
 	});
 }

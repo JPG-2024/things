@@ -18,7 +18,7 @@
 	.pill {
 		color: var(--primary-color);
 		border-radius: 12px;
-		background-color: rgb(154, 154, 154, 0.1);
+		background-color: black;
 		background-size: 200% 200%;
 		font-size: 0.88rem;
 		line-height: 1.2;

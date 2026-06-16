@@ -1,9 +1,8 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-
+	import Icon from '@/components/Icon.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
@@ -16,10 +15,8 @@
 	let combinedBuffer: AudioBuffer | null = $state(null);
 	let isSettingUp = false;
 	let playbackStartTime = 0;
-	let totalPlaybackDuration = 0;
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
-	let isPaused = $state(false);
 	let pausedAt = 0;
 
 	let animationFrame: number | null = null;
@@ -36,6 +33,7 @@
 	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
 	let elapsedSeconds = $state(0);
+	let totalPlaybackDuration = $state(0);
 
 	function getAudioContext(): AudioContext {
 		if (!audioContext) {
@@ -48,6 +46,14 @@
 		const ctx = getAudioContext();
 		if (ctx.state === 'suspended') {
 			await ctx.resume();
+		}
+		if (ctx.state !== 'running') {
+			try {
+				await ctx.close();
+			} catch {
+				// ignore close errors
+			}
+			audioContext = new AudioContext();
 		}
 	}
 
@@ -114,7 +120,11 @@
 
 		if (currentSource) {
 			currentSource.onended = null;
-			currentSource.stop();
+			try {
+				currentSource.stop();
+			} catch {
+				// ignore stop errors
+			}
 			currentSource = null;
 		}
 
@@ -124,7 +134,7 @@
 		playbackStartTime = performance.now();
 		totalPlaybackDuration = ttsState.durationSeconds ?? combinedBuffer?.duration ?? 0;
 		ttsState.isPlaying = true;
-		isPaused = false;
+		ttsState.isPaused = false;
 		startCountdown();
 		isSettingUp = false;
 	}
@@ -132,7 +142,7 @@
 	function pausePlayback() {
 		if (!currentSource || !ttsState.isPlaying) return;
 		pausedAt = (performance.now() - playbackStartTime) / 1000;
-		isPaused = true;
+		ttsState.isPaused = true;
 		ttsState.isPlaying = false;
 		clearCountdown();
 		currentSource.onended = null;
@@ -147,7 +157,7 @@
 	}
 
 	async function resumePlayback() {
-		if (isSettingUp || !combinedBuffer || !isPaused) return;
+		if (isSettingUp || !combinedBuffer || !ttsState.isPaused) return;
 		isSettingUp = true;
 
 		await ensureResumed();
@@ -155,7 +165,7 @@
 		startSource(pausedAt);
 		playbackStartTime = performance.now() - pausedAt * 1000;
 		ttsState.isPlaying = true;
-		isPaused = false;
+		ttsState.isPaused = false;
 		startCountdown();
 		isSettingUp = false;
 	}
@@ -181,7 +191,7 @@
 		cleanupAnalyser();
 		clearCountdown();
 
-		isPaused = false;
+		ttsState.isPaused = false;
 		pausedAt = 0;
 		elapsedSeconds = 0;
 		combinedBuffer = null;
@@ -209,7 +219,7 @@
 	}
 
 	function getCurrentPosition(): number {
-		if (isPaused) return pausedAt;
+		if (ttsState.isPaused) return pausedAt;
 		if (ttsState.isPlaying) return (performance.now() - playbackStartTime) / 1000;
 		return 0;
 	}
@@ -228,19 +238,19 @@
 			startSource(clamped);
 			playbackStartTime = performance.now() - clamped * 1000;
 			startCountdown();
-		} else if (isPaused) {
+		} else if (ttsState.isPaused) {
 			pausedAt = clamped;
 			elapsedSeconds = clamped;
 		}
 	}
 
 	function handleSeekForward() {
-		if (!ttsState.isPlaying && !isPaused) return;
+		if (!ttsState.isPlaying && !ttsState.isPaused) return;
 		seekTo(getCurrentPosition() + SEEK_SECONDS);
 	}
 
 	function handleSeekBackward() {
-		if (!ttsState.isPlaying && !isPaused) return;
+		if (!ttsState.isPlaying && !ttsState.isPaused) return;
 		seekTo(getCurrentPosition() - SEEK_SECONDS);
 	}
 
@@ -265,7 +275,7 @@
 		if (ttsState.isGenerating) return;
 		if (ttsState.isPlaying) {
 			pausePlayback();
-		} else if (isPaused) {
+		} else if (ttsState.isPaused) {
 			await resumePlayback();
 		} else {
 			await startFresh();
@@ -446,7 +456,7 @@
 		if (animationFrame !== null) return;
 
 		const step = () => {
-			if (analyserNode && ttsState.isPlaying && !isPaused) {
+			if (analyserNode && ttsState.isPlaying && !ttsState.isPaused) {
 				drawWaveform();
 			} else if (ttsState.isGenerating || ttsState.addVoiceLoading) {
 				drawGeneratingWave();
@@ -468,7 +478,7 @@
 		const shouldAnimate =
 			ttsState.isGenerating ||
 			ttsState.addVoiceLoading ||
-			(analyserNode && ttsState.isPlaying && !isPaused);
+			(analyserNode && ttsState.isPlaying && !ttsState.isPaused);
 		if (shouldAnimate) {
 			startAnimation();
 		} else {
@@ -484,7 +494,7 @@
 				combinedBuffer = buf;
 				playBuffer();
 			});
-		} else if (ttsState.blobs.length === 0 && !isPaused) {
+		} else if (ttsState.blobs.length === 0 && !ttsState.isPaused) {
 			combinedBuffer = null;
 		}
 	});
@@ -522,7 +532,7 @@
 	const panelVisible = $derived(
 		!!combinedBuffer ||
 			ttsState.isPlaying ||
-			isPaused ||
+			ttsState.isPaused ||
 			ttsState.isGenerating ||
 			ttsState.addVoiceLoading ||
 			!!ttsState.errorMessage
@@ -536,9 +546,9 @@
 		class="tts-player"
 	>
 		<div class="tts-player__header">
-			<div class="tts-player__picture-container">
+			<!-- 			<div class="tts-player__picture-container">
 				<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
-			</div>
+			</div> -->
 		</div>
 
 		<div class="tts-player__canvas-container">
@@ -559,7 +569,7 @@
 						<Icon name="Play" size={30} color={viewState.primaryColor} />
 					{/if}
 				</button>
-				{#if ttsState.isPlaying || isPaused}
+				{#if ttsState.isPlaying || ttsState.isPaused}
 					<button
 						type="button"
 						class="tts-player__btn tts-player__btn--stop"
@@ -575,9 +585,9 @@
 					onclick={() => drawersState.toggle('tts-settings')}
 					aria-label="TTS Settings"
 				>
-					<Icon name="Settings" size={20} color={viewState.primaryColor} />
+					<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 				</button>
-				{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || isPaused)}
+				{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || ttsState.isPaused)}
 					<span class="tts-player__time"
 						>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
 					>
@@ -605,7 +615,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		/* border: 4px solid var(--primary-color); */
+		/* border: 4px solid var(--pri mary-color); */
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
@@ -685,7 +695,6 @@
 		width: 50px;
 		height: 50px;
 		border-radius: 50%;
-		background: rgba(0, 0, 0, 0.3);
 		color: var(--primary-color);
 	}
 
@@ -694,20 +703,14 @@
 		cursor: not-allowed;
 	}
 
-	.tts-player__btn:not(:disabled):hover {
-		background: rgba(255, 255, 255, 0.12);
-	}
-
 	.tts-player__btn--stop {
 		width: 40px;
 		height: 40px;
-		background: rgba(0, 0, 0, 0.5);
 	}
 
 	.tts-player__btn--settings {
 		width: 40px;
 		height: 40px;
-		background: rgba(0, 0, 0, 0.5);
 	}
 
 	.tts-player__status-overlay {
@@ -724,24 +727,11 @@
 	}
 
 	.tts-player__time {
-		background: rgba(0, 0, 0, 0.9);
 		color: var(--primary-color);
 		opacity: 0.8;
-		font-size: 1rem;
+		font-size: 1.1rem;
 		font-weight: bold;
 		font-variant-numeric: tabular-nums;
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-	}
-
-	.tts-player__status {
-		position: absolute;
-		bottom: 1rem;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(0, 0, 0, 0.9);
-		color: var(--primary-color);
-		font-size: 0.75rem;
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
 	}
