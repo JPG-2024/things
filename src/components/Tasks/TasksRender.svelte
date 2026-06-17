@@ -1,11 +1,33 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
 	import TaskError from '@/components/Tasks/TaskError.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { ensureAudioContext } from '@/lib/audioContextManager';
+	import { viewState } from '@/stores/viewStore.svelte';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
+
+	createHotkey(
+		'S',
+		async () => {
+			if (!viewState.url) return;
+			const entry = stackedTasks.find(
+				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
+			);
+			if (!entry?.task.data || typeof entry.task.data !== 'string') return;
+			void ensureAudioContext();
+			ttsState.setTextContents([entry.task.data]);
+			await ttsState.generateTTS(viewState.url);
+		},
+		{
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		}
+	);
 
 	/* 	let bottomAnchor: HTMLDivElement | undefined = $state();
 	let previousFinishedCount = 0;

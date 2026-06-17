@@ -8,13 +8,14 @@ import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuild
 const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
-	TaskNames.TITLE_SUMMARY,
-	TaskNames.GENERATE_TTS,
 	TaskNames.TITLE,
+	TaskNames.KEYWORDS,
+	TaskNames.CATEGORY,
+	TaskNames.TITLE_SUMMARY,
 	//TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.PROFILE_FROM_VIDEO,
-	TaskNames.KEYWORDS,
-	TaskNames.CATEGORY
+	TaskNames.KEYPOINTS,
+	TaskNames.GENERATE_TTS
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];

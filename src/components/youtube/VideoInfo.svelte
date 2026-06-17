@@ -42,11 +42,11 @@
 				<p class="channel-name">{getDataContent('profileId')}</p>
 			</div>
 			<div class="pill">
-				<Icon name="Eye" />
+				<Icon name="Eye" size={12} />
 				<p>{getDataContent('views')}</p>
 			</div>
 			<div class="pill">
-				<Icon name="Calendar" />
+				<Icon name="Calendar" size={12} />
 				<p>{calculateDaysAgo(getDataContent('uploadDate') || '')}</p>
 			</div>
 		</div>
@@ -56,9 +56,8 @@
 <style>
 	.title {
 		color: var(--primary-color);
-		font-family: Oswald;
-		font-size: 1.6rem;
-		letter-spacing: 3px;
+		font-family: Charter;
+		font-size: 1.4rem;
 		margin: 0;
 	}
 
@@ -71,21 +70,22 @@
 	}
 
 	:global(.revealer) {
-		font-family: Noto Sans CJK SC Thin;
+		font-family: Charter;
 		font-size: 1.6rem;
 		color: var(--primary-color);
 		letter-spacing: 3px;
 	}
 
 	.channel-name {
-		font-family: Noto Sans CJK SC Thin;
+		font-family: Charter;
 		font-weight: semi-bold;
-		font-size: 1.4rem;
+		font-size: 1.1rem;
 		padding-bottom: 5px;
 	}
 
 	.pill {
-		font-size: 1.1rem;
+		font-family: Charter;
+		font-size: 0.8rem;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;

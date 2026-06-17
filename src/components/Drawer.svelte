@@ -40,7 +40,7 @@
 		position: fixed;
 		inset: 0;
 		z-index: 1001;
-		background: rgba(0, 0, 0, 0.8);
+		background: rgba(0, 0, 0, 0.92);
 	}
 
 	.drawer-panel {
@@ -53,6 +53,5 @@
 		height: 100%;
 		overflow-y: auto;
 		background: rgba(14, 14, 14, 0.95);
-		border-left: 1px solid var(--primary-color);
 	}
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Dropdown from '../inputs/Dropdown.component.svelte';
+	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { invoke } from '@tauri-apps/api/core';
@@ -24,7 +25,10 @@
 </script>
 
 <div class="drawer-inner">
-	<h2>Settings</h2>
+	<h2>
+		<Icon name="Cog" size={30} color={viewState.primaryColor} />
+		Settings
+	</h2>
 	<Dropdown
 		options={[
 			{ label: 'Spanish', value: 'es' },
@@ -60,6 +64,9 @@
 	}
 
 	h2 {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
 		margin: 0;
 		color: var(--primary-color, #fae4c0);
 	}

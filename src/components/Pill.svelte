@@ -64,7 +64,6 @@
 	}
 
 	.pill.done {
-		opacity: 0.5;
 	}
 
 	.pill.tag {

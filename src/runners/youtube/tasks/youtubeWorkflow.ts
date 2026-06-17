@@ -141,7 +141,7 @@ const youtubeTasks = {
 	[TaskNames.THUMBNAIL]: scriptTask({
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		component: 'player',
-		gridSpan: 1,
+		gridSpan: 3,
 		persist: true,
 		output: outputSchemas[TaskNames.THUMBNAIL],
 		run: async ({ state }) => {
@@ -407,7 +407,7 @@ const youtubeTasks = {
 		systemMessage: `You are a reviewer of content.`,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Write a summary. max 1000 characters. No markdown. no titles. conclude with 3 main ideas. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Write a summary. max 1000 characters. No markdown. no titles. add 3 keypoints without title and enumerate. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const content = getTaskState(state, TaskNames.CONTENT);
@@ -448,15 +448,15 @@ const youtubeTasks = {
 		completionOptions: ytCompletionOptions
 	}),
 	[TaskNames.KEYWORDS]: iaTask({
-		dependencies: [TaskNames.TITLE_SUMMARY],
-		component: 'keywords',
+		dependencies: [TaskNames.CONTENT],
+		//component: 'keywords',
 		output: outputSchemas[TaskNames.KEYWORDS],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		userMessage: 'extract 5 keywords.',
 		run: ({ state }) => {
-			const titleSummary = state[TaskNames.TITLE_SUMMARY];
-			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
-			return titleSummary;
+			const content = state[TaskNames.CONTENT];
+			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
+			return content;
 		},
 		completionOptions: {
 			...ytCompletionOptions,
@@ -527,7 +527,11 @@ const youtubeTasks = {
 			return `Return only valid JSON that matches the provided schema. Response in language: ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		userMessage: 'extract 8 keypoints. Each keypoint should be a short, clear statement.',
-		run: getContentFromState,
+		run: ({ state }) => {
+			const content = state[TaskNames.CONTENT];
+			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
+			return content;
+		},
 		completionOptions: {
 			...ytCompletionOptions,
 			response_format: {

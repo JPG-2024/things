@@ -11,6 +11,7 @@ class ViewState {
 	subStatus = $state<string | null>(null);
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);
+	selectedTaskId = $state('title-summary');
 
 	url = $state<string | null>(null);
 	hoveredProfileName = $state<string | null>(null);

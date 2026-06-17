@@ -5,12 +5,18 @@
 	import Icon from '@/components/Icon.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
+	import {
+		getAudioContext,
+		ensureAudioContext,
+		resetAudioContext,
+		closeAudioContext
+	} from '@/lib/audioContextManager';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 
 	let canvas: HTMLCanvasElement | null = $state(null);
-	let audioContext: AudioContext | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
+	let bufferContext: AudioContext | null = null;
 	let analyserNode: AnalyserNode | null = $state(null);
 	let combinedBuffer: AudioBuffer | null = $state(null);
 	let isSettingUp = false;
@@ -35,37 +41,13 @@
 	let elapsedSeconds = $state(0);
 	let totalPlaybackDuration = $state(0);
 
-	function getAudioContext(): AudioContext {
-		if (!audioContext) {
-			audioContext = new AudioContext();
-		}
-		return audioContext;
-	}
-
-	async function ensureResumed() {
-		const ctx = getAudioContext();
-		if (ctx.state === 'suspended') {
-			await ctx.resume();
-		}
-		if (ctx.state !== 'running') {
-			try {
-				await ctx.close();
-			} catch {
-				// ignore close errors
-			}
-			audioContext = new AudioContext();
-		}
-	}
-
-	async function decodeBlob(blob: Blob): Promise<AudioBuffer> {
-		const ctx = getAudioContext();
+	async function decodeBlob(blob: Blob, ctx: AudioContext): Promise<AudioBuffer> {
 		const arrayBuffer = await blob.arrayBuffer();
 		return ctx.decodeAudioData(arrayBuffer);
 	}
 
-	async function concatenateBlobs(blobs: Blob[]): Promise<AudioBuffer> {
-		const ctx = getAudioContext();
-		const decoded = await Promise.all(blobs.map((b) => decodeBlob(b)));
+	async function concatenateBlobs(blobs: Blob[], ctx: AudioContext): Promise<AudioBuffer> {
+		const decoded = await Promise.all(blobs.map((b) => decodeBlob(b, ctx)));
 
 		if (decoded.length === 0) {
 			throw new Error('No blobs to concatenate');
@@ -86,6 +68,15 @@
 		}
 
 		return combined;
+	}
+
+	async function ensureBuffer(forceReset = false): Promise<AudioBuffer> {
+		const ctx = await ensureAudioContext(forceReset);
+		if (forceReset || !combinedBuffer || bufferContext !== ctx) {
+			combinedBuffer = await concatenateBlobs(ttsState.blobs, ctx);
+			bufferContext = ctx;
+		}
+		return combinedBuffer;
 	}
 
 	function startSource(offset: number) {
@@ -112,31 +103,34 @@
 		analyserNode = analyser;
 	}
 
-	async function playBuffer() {
-		if (isSettingUp || !combinedBuffer) return;
+	async function playBuffer(forceReset = false) {
+		if (isSettingUp || ttsState.blobs.length === 0) return;
 		isSettingUp = true;
 
-		await ensureResumed();
+		try {
+			await ensureBuffer(forceReset);
 
-		if (currentSource) {
-			currentSource.onended = null;
-			try {
-				currentSource.stop();
-			} catch {
-				// ignore stop errors
+			if (currentSource) {
+				currentSource.onended = null;
+				try {
+					currentSource.stop();
+				} catch {
+					// ignore stop errors
+				}
+				currentSource = null;
 			}
-			currentSource = null;
+
+			clearCountdown();
+
+			startSource(0);
+			playbackStartTime = performance.now();
+			totalPlaybackDuration = ttsState.durationSeconds ?? combinedBuffer?.duration ?? 0;
+			ttsState.isPlaying = true;
+			ttsState.isPaused = false;
+			startCountdown();
+		} finally {
+			isSettingUp = false;
 		}
-
-		clearCountdown();
-
-		startSource(0);
-		playbackStartTime = performance.now();
-		totalPlaybackDuration = ttsState.durationSeconds ?? combinedBuffer?.duration ?? 0;
-		ttsState.isPlaying = true;
-		ttsState.isPaused = false;
-		startCountdown();
-		isSettingUp = false;
 	}
 
 	function pausePlayback() {
@@ -157,17 +151,20 @@
 	}
 
 	async function resumePlayback() {
-		if (isSettingUp || !combinedBuffer || !ttsState.isPaused) return;
+		if (isSettingUp || !ttsState.isPaused) return;
 		isSettingUp = true;
 
-		await ensureResumed();
+		try {
+			await ensureBuffer();
 
-		startSource(pausedAt);
-		playbackStartTime = performance.now() - pausedAt * 1000;
-		ttsState.isPlaying = true;
-		ttsState.isPaused = false;
-		startCountdown();
-		isSettingUp = false;
+			startSource(pausedAt);
+			playbackStartTime = performance.now() - pausedAt * 1000;
+			ttsState.isPlaying = true;
+			ttsState.isPaused = false;
+			startCountdown();
+		} finally {
+			isSettingUp = false;
+		}
 	}
 
 	function cleanupAnalyser() {
@@ -195,11 +192,13 @@
 		pausedAt = 0;
 		elapsedSeconds = 0;
 		combinedBuffer = null;
+		bufferContext = null;
 		ttsState.errorMessage = '';
 	}
 
 	function stopPlayback() {
 		cleanupPlayback();
+		closeAudioContext();
 		ttsState.isPlaying = false;
 	}
 
@@ -224,7 +223,7 @@
 		return 0;
 	}
 
-	function seekTo(offset: number) {
+	async function seekTo(offset: number) {
 		const duration = totalPlaybackDuration || combinedBuffer?.duration || 0;
 		const clamped = Math.max(0, Math.min(offset, duration));
 
@@ -239,6 +238,7 @@
 			playbackStartTime = performance.now() - clamped * 1000;
 			startCountdown();
 		} else if (ttsState.isPaused) {
+			await ensureBuffer();
 			pausedAt = clamped;
 			elapsedSeconds = clamped;
 		}
@@ -246,12 +246,12 @@
 
 	function handleSeekForward() {
 		if (!ttsState.isPlaying && !ttsState.isPaused) return;
-		seekTo(getCurrentPosition() + SEEK_SECONDS);
+		void seekTo(getCurrentPosition() + SEEK_SECONDS);
 	}
 
 	function handleSeekBackward() {
 		if (!ttsState.isPlaying && !ttsState.isPaused) return;
-		seekTo(getCurrentPosition() - SEEK_SECONDS);
+		void seekTo(getCurrentPosition() - SEEK_SECONDS);
 	}
 
 	function formatTime(seconds: number): string {
@@ -262,13 +262,7 @@
 
 	async function startFresh() {
 		if (ttsState.blobs.length === 0) return;
-		if (!audioContext) {
-			getAudioContext();
-		}
-		await ensureResumed();
-		const buf = await concatenateBlobs(ttsState.blobs);
-		combinedBuffer = buf;
-		await playBuffer();
+		await playBuffer(true);
 	}
 
 	async function handlePrimaryClick() {
@@ -489,13 +483,11 @@
 	});
 
 	$effect(() => {
-		if (ttsState.blobs.length > 0 && ttsState.isPlaying && !combinedBuffer) {
-			concatenateBlobs(ttsState.blobs).then((buf) => {
-				combinedBuffer = buf;
-				playBuffer();
-			});
+		if (ttsState.blobs.length > 0 && ttsState.isPlaying && !combinedBuffer && !isSettingUp) {
+			void startFresh();
 		} else if (ttsState.blobs.length === 0 && !ttsState.isPaused) {
 			combinedBuffer = null;
+			bufferContext = null;
 		}
 	});
 
@@ -521,11 +513,24 @@
 	$effect(() => {
 		return () => {
 			stopPlayback();
-			cleanupPlayback();
-			if (audioContext) {
-				audioContext.close();
-				audioContext = null;
+		};
+	});
+
+	$effect(() => {
+		const handleForeground = () => {
+			if (!document.hidden && ttsState.isPaused) {
+				resetAudioContext();
+				combinedBuffer = null;
+				bufferContext = null;
 			}
+		};
+
+		window.addEventListener('focus', handleForeground);
+		document.addEventListener('visibilitychange', handleForeground);
+
+		return () => {
+			window.removeEventListener('focus', handleForeground);
+			document.removeEventListener('visibilitychange', handleForeground);
 		};
 	});
 

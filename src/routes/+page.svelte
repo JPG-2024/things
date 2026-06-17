@@ -18,10 +18,51 @@
 	} from '@/stores/webStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
+	import { ensureAudioContext } from '@/lib/audioContextManager';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 	let processingUrl = $state(false);
+	let glowIntensity = $state(1);
+
+	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
+		const count = 2 + Math.floor(Math.random() * 6);
+		const timeouts: ReturnType<typeof setTimeout>[] = [];
+		let offset = 0;
+
+		for (let i = 0; i < count; i++) {
+			const dipDuration = 30 + Math.floor(Math.random() * 21);
+			const onDuration = 20 + Math.floor(Math.random() * 41);
+
+			timeouts.push(
+				setTimeout(() => {
+					glowIntensity = 0.15;
+				}, offset),
+				setTimeout(() => {
+					glowIntensity = 1;
+				}, offset + dipDuration)
+			);
+
+			offset += dipDuration + onDuration;
+		}
+
+		return timeouts;
+	}
+
+	$effect(() => {
+		let blinkTimeouts: ReturnType<typeof setTimeout>[] = [];
+
+		const interval = setInterval(() => {
+			if (Math.random() > 0.5) {
+				blinkTimeouts = triggerQuickBlink();
+			}
+		}, 8000);
+
+		return () => {
+			clearInterval(interval);
+			blinkTimeouts.forEach(clearTimeout);
+		};
+	});
 
 	const queryClient = useQueryClient();
 
@@ -114,6 +155,7 @@
 		'S',
 		async () => {
 			if (!viewState.hoveredArticleUrl) return;
+			void ensureAudioContext();
 			await generateTTSfromArticleURL(viewState.hoveredArticleUrl);
 		},
 		() => ({
@@ -169,14 +211,14 @@
 		onclick={() => drawersState.open('settings')}
 		aria-label="Open settings"
 	>
-		<Icon name="Cog" />
+		<Icon name="Cog" color="var(--primary-color)" />
 	</button>
 </div>
 
 <div class="dashboard-container">
 	<div class="title-row">
 		<label class="dashboard-title-label">
-			<span class="dashboard-title">Things</span>
+			<span class="dashboard-title" style:--glow-opacity={glowIntensity}>Things</span>
 			<input
 				type="color"
 				class="color-picker-input"
@@ -212,7 +254,7 @@
 		justify-content: flex-end;
 		align-items: center;
 		min-height: 52px;
-		padding: 2rem;
+		padding: 1.5rem;
 		margin: 1px;
 	}
 
@@ -233,7 +275,7 @@
 		gap: 1.4rem;
 		align-items: center;
 		box-sizing: border-box;
-		padding: 76px 20px 20px;
+		padding: 30px 20px 20px;
 		width: 100%;
 	}
 
@@ -244,11 +286,15 @@
 		position: relative;
 
 		text-shadow:
-			0 0 5px var(--primary-color),
-			0 0 10px var(--primary-color),
-			0 0 20px var(--primary-color),
-			0 0 40px var(--primary-color),
-			0 0 80px white;
+			0 0 5px
+				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
+			0 0 10px
+				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
+			0 0 20px
+				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
+			0 0 40px
+				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
+			0 0 80px color-mix(in srgb, white calc(100% * var(--glow-opacity, 1)), transparent);
 	}
 
 	.flex-squares {

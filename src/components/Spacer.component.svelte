@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import { scale, slide } from 'svelte/transition';
 
 	type Props = {
 		size?: number | string;
@@ -34,7 +35,11 @@
 			<span class="spacer-title">{title}</span>
 		</button>
 		{#if open}
-			<div class="spacer-content" style="padding-top: {resolvedSize}">
+			<div
+				class="spacer-content"
+				style="padding-top: {resolvedSize}"
+				transition:slide={{ axis: 'y', duration: 100 }}
+			>
 				{@render children?.()}
 			</div>
 		{/if}

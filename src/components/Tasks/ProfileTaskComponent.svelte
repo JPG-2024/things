@@ -34,8 +34,6 @@
 		};
 	});
 
-	$inspect(profileData);
-
 	async function handleNavigate(url: string) {
 		await urlRouter(url);
 		goto(`/youtube/${encodeURIComponent(url)}`);

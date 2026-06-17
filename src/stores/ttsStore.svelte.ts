@@ -80,6 +80,13 @@ class TTSState {
 		this.blobs = [];
 	}
 
+	async forceRegenerate(id: string): Promise<void> {
+		this.releaseBlobs();
+		this.generatedId = '';
+		this.generatedConfigSig = '';
+		await this.generateTTS(id);
+	}
+
 	async generateTTS(id: string): Promise<void> {
 		if (this.isGenerating || this.textContents.length === 0) {
 			return;

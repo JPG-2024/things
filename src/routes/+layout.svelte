@@ -15,6 +15,8 @@
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { ensureAudioContext } from '@/lib/audioContextManager';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -133,6 +135,25 @@
 		}
 	);
 
+	createHotkey(
+		'Shift+S',
+		async () => {
+			if (!viewState.url) return;
+			const entry = workflowStore.stackedTasks.find(
+				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
+			);
+			if (!entry?.task.data || typeof entry.task.data !== 'string') return;
+			void ensureAudioContext();
+			ttsState.setTextContents([entry.task.data]);
+			await ttsState.forceRegenerate(viewState.url);
+		},
+		{
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		}
+	);
+
 	onMount(() => {
 		const pollClipboard = async () => {
 			if (!viewState.clipboardPollingEnabled || processingUrl) return;
@@ -172,17 +193,17 @@
 			void pollClipboard();
 		}, CLIPBOARD_POLL_INTERVAL_MS);
 
-		const flashyInterval = setInterval(() => {
+		/* 		const flashyInterval = setInterval(() => {
 			if (viewState.loading) return;
 
 			flashy = true;
 			setTimeout(() => {
 				flashy = false;
 			}, 2000);
-		}, 18000);
+		}, 18000); */
 
 		return () => {
-			clearInterval(flashyInterval);
+			//clearInterval(flashyInterval);
 			clearInterval(clipboardInterval);
 		};
 	});

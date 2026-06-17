@@ -5,6 +5,7 @@
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import {
 		chatCompletions,
 		type LlamaChatCompletionsRequest
@@ -60,6 +61,7 @@
 		activeAssistantId = assistantId;
 		streaming = true;
 		error = null;
+		void ensureAudioContext();
 		await scrollToBottom();
 
 		const historyForApi: { role: 'system' | 'user' | 'assistant'; content: string }[] = [

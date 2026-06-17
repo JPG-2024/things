@@ -48,13 +48,13 @@
 		gap: 10px;
 		-webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px);
-		background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 		min-height: 35px;
 		right: 0;
 		left: 0;
 		z-index: 10;
 		box-sizing: border-box;
-		padding: 0 1rem;
+		padding: 0.2rem 1rem;
 		padding-right: 1.8em;
 	}
 

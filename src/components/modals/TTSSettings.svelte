@@ -166,7 +166,7 @@
 
 <div class="panel">
 	<h2>
-		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
+		<Icon name="AudioWaveform" size={30} color={viewState.primaryColor} />
 		<span>TTS Settings</span>
 	</h2>
 

@@ -171,7 +171,7 @@
 	}
 
 	.category-widget {
-		padding: 5px;
+		padding: 1px;
 		display: flex;
 		flex-direction: column;
 		width: max-content;
