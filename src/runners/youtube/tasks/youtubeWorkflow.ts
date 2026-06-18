@@ -5,6 +5,7 @@ import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
+import { parseLastVideoDate } from '@/lib/utils/date';
 import { saveProfile, getProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
@@ -209,7 +210,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
 		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO, TaskNames.GENERATE_TTS],
+		dependencies: [TaskNames.VIDEO_INFO],
 		persist: true,
 		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
 		run: async ({ state }) => {
@@ -279,10 +280,13 @@ const youtubeTasks = {
 						attribute: 'src'
 					},
 					{ name: 'videoIds', selector: 'a.ytLockupViewModelContentImage', attribute: 'href' },
-					{ name: 'uploadDate', selector: 'div#info yt-formatted-string' },
+					{
+						name: 'uploadDate',
+						selector: 'div.ytLockupMetadataViewModelMetadata span:nth-of-type(4)'
+					},
 					{
 						name: 'videosimageSrc',
-						selector: '#video-grid ytd-rich-grid-media img, ytd-rich-item-renderer img',
+						selector: 'div.ytThumbnailViewModelImage img',
 						attribute: 'src'
 					},
 					{ name: 'videosTitles', selector: 'a.ytLockupMetadataViewModelTitle span' }
@@ -296,31 +300,25 @@ const youtubeTasks = {
 			const pictureUrl = Array.isArray(profilePictureRaw)
 				? profilePictureRaw[1]
 				: profilePictureRaw;
-			const downloadedImage = await downloadImageUrl(pictureUrl as string);
+
+			const downloadedImage = pictureUrl ? await downloadImageUrl(pictureUrl as string) : null;
+			if (!result.videoIds) throw new Error('No video IDs found in profile page scrape');
 			const videoIds = result.videoIds as string[];
 			const videoUrls = videoIds.map((id: string) => `https://www.youtube.com${id}`);
-			const firstVideoUrl = removeYTPpParam(videoUrls[0]);
-			const videoInfo = await invoke<{ uploadDate: string[] }>('get_page_elements', {
-				...buildVideoPageParams(firstVideoUrl),
-				selectors: [{ name: 'uploadDate', selector: 'div#info yt-formatted-string' }],
-				attempts: 5,
-				intervalMs: 200
-			});
-
-			let lastVideoDate =
-				videoInfo.uploadDate.find((d) =>
-					d.match(/^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{4})$/i)
-				) ?? '0';
-			const date = new Date(lastVideoDate);
-			lastVideoDate = date.toISOString().split('T')[0];
-			const profileId = ((result.profile as string[])[0] ?? '').toLowerCase();
+			const uploadDates = (result.uploadDate as string[] | undefined) ?? [];
+			const lastVideoDate =
+				uploadDates.map((d) => parseLastVideoDate(d)).find((d) => d !== '1970-01-01') ??
+				'1970-01-01';
+			const profileId = (
+				(result.profile as string[] | undefined)?.[0] ?? initCtx.profileId
+			).toLowerCase();
 			const channelName = result.channelName as string;
 			const profile = {
 				id: profileId,
 				name: channelName,
-				profilePicture: downloadedImage.imageSrc,
+				profilePicture: downloadedImage?.imageSrc ?? null,
 				videoUrls,
-				videosImageSrc: result.videosimageSrc as string[],
+				videosImageSrc: result.videosImageSrc as string[],
 				videosTitles: result.videosTitles as string[]
 			};
 

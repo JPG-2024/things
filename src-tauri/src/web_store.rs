@@ -58,6 +58,29 @@ pub struct WebStoreProfileSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WebStoreCategoryRecord {
+    pub id: String,
+    pub name: String,
+    pub last_modified: i64,
+    pub deleted_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertWebStoreCategoryInput {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileCategoryInput {
+    pub profile_id: String,
+    pub category_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpsertWebStoreArticleInput {
     pub url: String,
     pub title: Option<String>,
@@ -130,7 +153,24 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             url TEXT PRIMARY KEY,
             tasks_json TEXT NOT NULL DEFAULT '[]',
             updated_at INTEGER NOT NULL
-        );"
+        );
+
+        CREATE TABLE IF NOT EXISTS web_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            last_modified INTEGER NOT NULL,
+            deleted_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS profile_category (
+            profile_id TEXT NOT NULL,
+            category_id TEXT NOT NULL,
+            PRIMARY KEY (profile_id, category_id),
+            FOREIGN KEY (profile_id) REFERENCES web_profiles(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES web_categories(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);"
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
@@ -860,4 +900,195 @@ pub async fn delete_web_store_tasks_by_url(
         .map_err(|error| error.to_string())?;
 
     Ok(changes > 0)
+}
+
+#[tauri::command]
+pub async fn list_web_store_categories(
+    app: AppHandle,
+) -> Result<Vec<WebStoreCategoryRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, name, last_modified, deleted_at FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC")
+        .map_err(|error| error.to_string())?;
+
+    let category_iter = stmt
+        .query_map([], |row| {
+            Ok(WebStoreCategoryRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                last_modified: row.get(2)?,
+                deleted_at: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut categories = Vec::new();
+    for category_result in category_iter {
+        categories.push(category_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(categories)
+}
+
+#[tauri::command]
+pub async fn upsert_web_store_category(
+    app: AppHandle,
+    input: UpsertWebStoreCategoryInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+
+    conn.execute(
+        "INSERT INTO web_categories (id, name, last_modified, deleted_at) 
+         VALUES (?1, ?2, ?3, NULL)
+         ON CONFLICT(id) DO UPDATE SET name = ?2, last_modified = ?3, deleted_at = NULL",
+        params![input.id, input.name, now],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_web_store_category(
+    app: AppHandle,
+    category_id: String,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+
+    conn.execute(
+        "UPDATE web_categories SET deleted_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+        params![now, category_id],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn assign_category_to_profile(
+    app: AppHandle,
+    input: ProfileCategoryInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let category_exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
+        [&input.category_id],
+        |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+
+    if !category_exists {
+        return Err("Category does not exist or is deleted".to_string());
+    }
+
+    conn.execute(
+        "INSERT OR IGNORE INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
+        params![input.profile_id, input.category_id],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn unassign_category_from_profile(
+    app: AppHandle,
+    input: ProfileCategoryInput,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute(
+            "DELETE FROM profile_category WHERE profile_id = ?1 AND category_id = ?2",
+            params![input.profile_id, input.category_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+#[tauri::command]
+pub async fn list_categories_by_profile(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<Vec<WebStoreCategoryRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT c.id, c.name, c.last_modified, c.deleted_at 
+             FROM web_categories c
+             INNER JOIN profile_category pc ON c.id = pc.category_id
+             WHERE pc.profile_id = ?1 AND c.deleted_at IS NULL
+             ORDER BY c.name ASC",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let category_iter = stmt
+        .query_map([&profile_id], |row| {
+            Ok(WebStoreCategoryRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                last_modified: row.get(2)?,
+                deleted_at: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut categories = Vec::new();
+    for category_result in category_iter {
+        categories.push(category_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(categories)
+}
+
+#[tauri::command]
+pub async fn list_profiles_by_category(
+    app: AppHandle,
+    category_id: String,
+) -> Result<Vec<WebStoreProfileRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.name, p.count, p.profile_picture, p.last_video_date
+             FROM web_profiles p
+             INNER JOIN profile_category pc ON p.id = pc.profile_id
+             INNER JOIN web_categories c ON pc.category_id = c.id
+              WHERE pc.category_id = ?1 AND c.deleted_at IS NULL
+              ORDER BY p.last_video_date DESC",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let profile_iter = stmt
+        .query_map([&category_id], |row| {
+            Ok(WebStoreProfileRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                count: row.get(2)?,
+                profile_picture: row.get(3)?,
+                last_video_date: row.get(4)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut profiles = Vec::new();
+    for profile_result in profile_iter {
+        profiles.push(profile_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(profiles)
 }

@@ -86,6 +86,23 @@ export type WebStoreProfileSummary = {
 	lastVideoDate?: string;
 };
 
+export type WebStoreCategoryRecord = {
+	id: string;
+	name: string;
+	lastModified: number;
+	deletedAt: number | null;
+};
+
+export type UpsertWebStoreCategoryInput = {
+	id: string;
+	name: string;
+};
+
+export type ProfileCategoryInput = {
+	profileId: string;
+	categoryId: string;
+};
+
 type UpsertWebStoreArticleInput = {
 	url: string;
 	title: string | null;
@@ -691,5 +708,66 @@ export async function saveProfile(
 		return res;
 	} catch (error) {
 		console.error('Error saving profile:', error);
+	}
+}
+
+export async function getCategories(): Promise<WebStoreCategoryRecord[]> {
+	try {
+		return await invoke<WebStoreCategoryRecord[]>('list_web_store_categories');
+	} catch (error) {
+		console.error('Error fetching categories:', error);
+		return [];
+	}
+}
+
+export async function saveCategory(input: UpsertWebStoreCategoryInput): Promise<void> {
+	try {
+		await invoke('upsert_web_store_category', { input });
+	} catch (error) {
+		console.error('Error saving category:', error);
+	}
+}
+
+export async function deleteCategory(categoryId: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('delete_web_store_category', { categoryId });
+	} catch (error) {
+		console.error('Error deleting category:', error);
+		return false;
+	}
+}
+
+export async function assignCategoryToProfile(input: ProfileCategoryInput): Promise<void> {
+	try {
+		await invoke('assign_category_to_profile', { input });
+	} catch (error) {
+		console.error('Error assigning category to profile:', error);
+	}
+}
+
+export async function unassignCategoryFromProfile(input: ProfileCategoryInput): Promise<boolean> {
+	try {
+		return await invoke<boolean>('unassign_category_from_profile', { input });
+	} catch (error) {
+		console.error('Error unassigning category from profile:', error);
+		return false;
+	}
+}
+
+export async function getCategoriesByProfile(profileId: string): Promise<WebStoreCategoryRecord[]> {
+	try {
+		return await invoke<WebStoreCategoryRecord[]>('list_categories_by_profile', { profileId });
+	} catch (error) {
+		console.error('Error fetching categories by profile:', error);
+		return [];
+	}
+}
+
+export async function getProfilesByCategory(categoryId: string): Promise<ArticleProfile[]> {
+	try {
+		return await invoke<ArticleProfile[]>('list_profiles_by_category', { categoryId });
+	} catch (error) {
+		console.error('Error fetching profiles by category:', error);
+		return [];
 	}
 }

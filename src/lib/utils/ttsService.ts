@@ -18,7 +18,6 @@ export interface Voice {
 
 export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 	const res = await fetch(`${WHISPER_API_URL}/voices`);
-	debugger;
 	if (!res.ok) throw new Error(`Failed to fetch voice profiles: ${res.status}`);
 	const data: { profiles: VoiceProfile[] } = await res.json();
 	return data.profiles;
