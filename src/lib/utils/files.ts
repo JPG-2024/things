@@ -29,15 +29,20 @@ export const getImageSrc = async (mediaDirectory: string, imgName: string): Prom
 };
 
 export async function downloadImageUrl(url: string): Promise<DownloadedImageResult> {
-	const mediaDirectory = await resolveMediaDirectory(url);
+	try {
+		const mediaDirectory = await resolveMediaDirectory(url);
+		const fileName = await invoke<string>('download_and_save_image', {
+			url: url,
+			folderName: mediaDirectory,
+			reductionMagnitud: 1
+		});
 
-	const fileName = await invoke<string>('download_and_save_image', {
-		url: url,
-		folderName: mediaDirectory,
-		reductionMagnitud: 1
-	});
+		const imageSrc = await getImageSrc(mediaDirectory, fileName);
 
-	const imageSrc = await getImageSrc(mediaDirectory, fileName);
-
-	return { mediaDirectory, fileName, imageSrc };
+		return { mediaDirectory, fileName, imageSrc };
+	} catch (error) {
+		throw new Error(
+			`Failed to download image from "${url}": ${error instanceof Error ? error.message : String(error)}`
+		);
+	}
 }
