@@ -483,7 +483,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 		const message = response.choices?.[0]?.message;
 		const text = collectAssistantText(message?.content ?? null);
-		this.setTaskFields(task.id, { data: text as TMap[keyof TMap & string] });
+		const finalData = task.resultParser ? await task.resultParser(text) : text;
+		this.setTaskFields(task.id, { data: finalData as TMap[keyof TMap & string] });
 	}
 
 	/**

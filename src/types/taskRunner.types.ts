@@ -92,7 +92,8 @@ export interface ScriptTask<
 
 export interface IaTask<
 	TMap extends TaskMapBase = TaskMapBase,
-	TId extends keyof TMap & string = keyof TMap & string
+	TId extends keyof TMap & string = keyof TMap & string,
+	TParsed = TMap[TId]
 > extends TaskBase<TMap, TId> {
 	type: 'ia';
 	systemMessage: string;
@@ -102,6 +103,7 @@ export interface IaTask<
 	};
 	baseUrl?: string;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
+	resultParser?: (text: string) => TParsed | Promise<TParsed>;
 }
 
 export type Task<TMap extends TaskMapBase = TaskMapBase> = ScriptTask<TMap> | IaTask<TMap>;

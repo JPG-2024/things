@@ -33,7 +33,7 @@ type ScriptTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
 	run: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => unknown | Promise<unknown>;
 };
 
-type IaTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
+type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOutput>> = Omit<
 	TaskDefBase<TOutput, TContext>,
 	'output'
 > & {
@@ -47,6 +47,7 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
 	completionOptions: Record<string, unknown>;
 	baseUrl?: string;
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
+	resultParser?: (text: string) => TParsed | Promise<TParsed>;
 };
 
 export type ScriptTaskDef<
@@ -56,8 +57,9 @@ export type ScriptTaskDef<
 
 export type IaTaskDef<
 	TOutput extends AnyZodOutput = AnyZodOutput,
-	TContext = unknown
-> = IaTaskDefBase<TOutput, TContext> & { type: 'ia' };
+	TContext = unknown,
+	TParsed = z.infer<TOutput>
+> = IaTaskDefBase<TOutput, TContext, TParsed> & { type: 'ia' };
 
 type AnyTaskDef<TContext = unknown> =
 	| ScriptTaskDef<AnyZodOutput, TContext>
@@ -73,9 +75,11 @@ type TaskRunContext<TContext, TState> = {
 };
 
 export type InferTaskMap<TDefs extends Record<string, AnyTaskDef>> = {
-	[K in keyof TDefs]: TDefs[K]['output'] extends AnyZodOutput
-		? z.infer<TDefs[K]['output']>
-		: unknown;
+	[K in keyof TDefs]: TDefs[K] extends IaTaskDefBase<infer TOutput, infer TContext, infer TParsed>
+		? TParsed
+		: TDefs[K]['output'] extends AnyZodOutput
+			? z.infer<TDefs[K]['output']>
+			: unknown;
 } & TaskMapBase;
 
 type WorkflowConfig<TContext = unknown> = {
@@ -86,7 +90,11 @@ type InferTaskFromDef<
 	TMap extends TaskMapBase,
 	TId extends keyof TMap & string,
 	TDef extends AnyTaskDef
-> = TDef extends { type: 'script' } ? ScriptTask<TMap, TId> : IaTask<TMap, TId>;
+> = TDef extends { type: 'script' }
+	? ScriptTask<TMap, TId>
+	: TDef extends IaTaskDefBase<AnyZodOutput, unknown, infer TParsed>
+		? IaTask<TMap, TId, TParsed>
+		: IaTask<TMap, TId>;
 
 type InferRegistry<TConfig extends WorkflowConfig> = {
 	[K in keyof TConfig['tasks']]: (
@@ -100,10 +108,12 @@ export function scriptTask<TOutput extends AnyZodOutput, TContext = unknown>(
 	return { ...def, type: 'script' } as ScriptTaskDef<TOutput, TContext>;
 }
 
-export function iaTask<TOutput extends AnyZodOutput, TContext = unknown>(
-	def: IaTaskDefBase<TOutput, TContext>
-): IaTaskDef<TOutput, TContext> {
-	return { ...def, type: 'ia' } as IaTaskDef<TOutput, TContext>;
+export function iaTask<
+	TOutput extends AnyZodOutput,
+	TContext = unknown,
+	TParsed = z.infer<TOutput>
+>(def: IaTaskDefBase<TOutput, TContext, TParsed>): IaTaskDef<TOutput, TContext, TParsed> {
+	return { ...def, type: 'ia' } as IaTaskDef<TOutput, TContext, TParsed>;
 }
 
 function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & string, TContext>(
@@ -142,10 +152,15 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 	};
 }
 
-function buildIaTask<TMap extends TaskMapBase, TId extends keyof TMap & string, TContext>(
+function buildIaTask<
+	TMap extends TaskMapBase,
+	TId extends keyof TMap & string,
+	TContext,
+	TParsed = TMap[TId]
+>(
 	id: TId,
-	def: IaTaskDef<AnyZodOutput, TContext>
-): (context: TContext) => IaTask<TMap, TId> {
+	def: IaTaskDef<AnyZodOutput, TContext, TParsed>
+): (context: TContext) => IaTask<TMap, TId, TParsed> {
 	return (context: TContext) => {
 		const propsCtx = { context, state: {} };
 		const systemMessage =
@@ -182,7 +197,8 @@ function buildIaTask<TMap extends TaskMapBase, TId extends keyof TMap & string, 
 							) => void
 						});
 					}
-				: undefined
+				: undefined,
+			resultParser: def.resultParser as IaTask<TMap, TId, TParsed>['resultParser']
 		};
 	};
 }

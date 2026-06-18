@@ -23,6 +23,7 @@ import {
 	type YouTubeTaskFactoryContext
 } from './youtubeTasks.shared';
 import { ttsState } from '@/stores/ttsStore.svelte';
+import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 
 export { TaskNames };
 
@@ -90,10 +91,11 @@ const outputSchemas = {
 	[TaskNames.SUMMARY]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.TITLE]: z.string(),
-	[TaskNames.KEYWORDS]: z.string(),
+	[TaskNames.KEYWORDS]: z.array(z.string()),
 	[TaskNames.KEYPOINTS]: z.string(),
 	[TaskNames.GENERATE_TTS]: z.string(),
-	[TaskNames.CATEGORY]: z.string()
+	[TaskNames.CATEGORY]: z.array(z.string()),
+	[TaskNames.PROFILE_CATEGORY]: z.array(z.string())
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
@@ -185,7 +187,6 @@ const youtubeTasks = {
 	[TaskNames.VIDEO_INFO]: scriptTask({
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		component: 'videoInfo',
-		gridSpan: 1,
 		persist: true,
 		output: outputSchemas[TaskNames.VIDEO_INFO],
 		run: async ({ state }) => {
@@ -250,7 +251,6 @@ const youtubeTasks = {
 	[TaskNames.CONTENT]: scriptTask({
 		dependencies: [TaskNames.TIMED_CAPTIONS],
 		component: 'ask',
-		gridSpan: 3,
 		persist: true,
 		output: outputSchemas[TaskNames.CONTENT],
 		run: ({ state }) => {
@@ -447,7 +447,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.KEYWORDS]: iaTask({
 		dependencies: [TaskNames.CONTENT],
-		//component: 'keywords',
+		component: 'keywords',
 		output: outputSchemas[TaskNames.KEYWORDS],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		userMessage: 'extract 5 keywords.',
@@ -455,6 +455,10 @@ const youtubeTasks = {
 			const content = state[TaskNames.CONTENT];
 			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
 			return content;
+		},
+		resultParser: (text) => {
+			const categories = parseStructuredArrayResponses(text);
+			return categories;
 		},
 		completionOptions: {
 			...ytCompletionOptions,
@@ -482,15 +486,56 @@ const youtubeTasks = {
 		}
 	}),
 	[TaskNames.CATEGORY]: iaTask({
-		dependencies: [TaskNames.TITLE_SUMMARY],
+		dependencies: [TaskNames.KEYWORDS],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.CATEGORY],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
 		userMessage: 'Give a category from this ones: health, psychology, programming.',
 		run: ({ state }) => {
-			const titleSummary = state[TaskNames.TITLE_SUMMARY];
-			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
-			return titleSummary;
+			const keywords = state[TaskNames.KEYWORDS];
+			return keywords.join(' ');
+		},
+		resultParser: (text) => {
+			const categories = parseStructuredArrayResponses(text);
+			return categories;
+		},
+		completionOptions: {
+			...ytCompletionOptions,
+			temperature: 1.0,
+			response_format: {
+				type: 'json_schema',
+				json_schema: {
+					name: 'keywords',
+					strict: true,
+					schema: {
+						type: 'object',
+						properties: {
+							category: {
+								type: 'string',
+								enum: ['health', 'programming', 'psychology']
+							}
+						},
+						required: ['category'],
+						additionalProperties: false
+					}
+				}
+			}
+		}
+	}),
+	[TaskNames.PROFILE_CATEGORY]: iaTask({
+		dependencies: [TaskNames.EXTRACT_PROFILE],
+		component: 'keywords',
+		output: outputSchemas[TaskNames.PROFILE_CATEGORY],
+		systemMessage: 'Return only valid JSON that matches the provided schema.',
+		userMessage: 'Give a category from this ones: health, psychology, programming.',
+		run: ({ state }) => {
+			const profile = state[TaskNames.EXTRACT_PROFILE];
+			const videosTitles = profile.videosTitles;
+			return videosTitles.join(' ');
+		},
+		resultParser: (text) => {
+			const categories = parseStructuredArrayResponses(text);
+			return categories;
 		},
 		completionOptions: {
 			...ytCompletionOptions,

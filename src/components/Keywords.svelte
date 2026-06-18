@@ -12,43 +12,17 @@
 
 	void componentProps;
 
-	function parseKeywordsFromObject(value: unknown): string[] {
-		if (Array.isArray(value)) {
-			return value.map((keyword) => String(keyword).trim()).filter(Boolean);
-		}
-
-		if (typeof value !== 'object' || value === null) {
-			return [];
-		}
-
-		const record = value as Record<string, unknown>;
-
-		if (Array.isArray(record.keywords)) {
-			return record.keywords.map((keyword) => String(keyword).trim()).filter(Boolean);
-		}
-
-		return Object.values(record)
-			.filter((v): v is string => typeof v === 'string')
-			.map((v) => v.trim())
-			.filter(Boolean);
-	}
-
 	const parsedKeywords = $derived.by(() => {
 		if (keywords.length > 0) {
 			return keywords;
 		}
 
 		const data = task?.data;
-
-		if (typeof data === 'string') {
-			try {
-				return parseKeywordsFromObject(JSON.parse(data) as unknown);
-			} catch {
-				return [];
-			}
+		if (Array.isArray(data)) {
+			return data.map((keyword) => String(keyword).trim()).filter(Boolean);
 		}
 
-		return parseKeywordsFromObject(data);
+		return [];
 	});
 </script>
 

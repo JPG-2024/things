@@ -6,9 +6,10 @@ import { saveTasks } from '@/stores/webStore';
 const fromUrlRoutine: TaskNames[] = [
 	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.EXTRACT_PROFILE,
-	TaskNames.EXTRACT_CHANNEL_VIDEOS
+	TaskNames.EXTRACT_CHANNEL_VIDEOS,
+	TaskNames.PROFILE_CATEGORY
 ];
-const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
+const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE, TaskNames.PROFILE_CATEGORY];
 
 const routines = {
 	fromUrl: fromUrlRoutine,
