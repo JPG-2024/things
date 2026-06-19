@@ -10,7 +10,7 @@ const fromUrl: TaskNames[] = [
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE,
 	TaskNames.KEYWORDS,
-	TaskNames.CATEGORY,
+	//TaskNames.CATEGORY,
 	TaskNames.TITLE_SUMMARY,
 	//TaskNames.CHAPTERS_SUMMARY,
 	TaskNames.PROFILE_FROM_VIDEO,

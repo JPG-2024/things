@@ -541,7 +541,6 @@ const youtubeTasks = {
 			return categories;
 		},
 		onComplete: async ({ state, result }) => {
-			debugger;
 			const profile = state[TaskNames.EXTRACT_PROFILE];
 			const categoryNames = result as string[];
 			const categoryIds = categoryNames

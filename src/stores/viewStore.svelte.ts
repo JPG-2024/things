@@ -36,7 +36,7 @@ class ViewState {
 	domainUrl = $derived(this.url ? new URL(this.url).hostname : null);
 
 	categories = $state<WebStoreCategoryRecord[]>([]);
-	selectedCategories = $state<string[]>([]);
+	selectedCategories = $state<string[]>(['programming']);
 
 	isYouTube = $derived(this.url ? new URL(this.url).hostname.includes('youtube.com') : false);
 

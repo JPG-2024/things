@@ -89,6 +89,11 @@
 				{/if}
 			</span>
 		{/each}
+		{#if viewState.categories.length === 0}
+			<button type="button" class="pill add-categories-pill" onclick={() => (isEditing = true)}>
+				+ add categories
+			</button>
+		{/if}
 	</div>
 	{#if isEditing}
 		<div class="add-form">
@@ -165,6 +170,17 @@
 
 	.pill.tag {
 		border-radius: 4px;
+	}
+
+	.add-categories-pill {
+		border: 1px dashed var(--primary-color);
+		background: transparent;
+		opacity: 0.6;
+		transition: opacity 0.15s;
+	}
+
+	.add-categories-pill:hover {
+		opacity: 1;
 	}
 
 	.remove-btn {

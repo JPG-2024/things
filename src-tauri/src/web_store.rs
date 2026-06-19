@@ -1066,26 +1066,37 @@ pub async fn list_categories_by_profile(
 }
 
 #[tauri::command]
-pub async fn list_profiles_by_category(
+pub async fn list_profiles_by_categories(
     app: AppHandle,
-    category_id: String,
+    category_ids: Vec<String>,
 ) -> Result<Vec<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT p.id, p.name, p.count, p.profile_picture, p.last_video_date
-             FROM web_profiles p
-             INNER JOIN profile_category pc ON p.id = pc.profile_id
-             INNER JOIN web_categories c ON pc.category_id = c.id
-              WHERE pc.category_id = ?1 AND c.deleted_at IS NULL
-              ORDER BY p.last_video_date DESC",
-        )
-        .map_err(|error| error.to_string())?;
+    if category_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let placeholders = category_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql = format!(
+        "SELECT DISTINCT p.id, p.name, p.count, p.profile_picture, p.last_video_date
+         FROM web_profiles p
+         INNER JOIN profile_category pc ON p.id = pc.profile_id
+         INNER JOIN web_categories c ON pc.category_id = c.id
+         WHERE pc.category_id IN ({}) AND c.deleted_at IS NULL
+         ORDER BY p.last_video_date DESC",
+        placeholders
+    );
+
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+
+    let params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
+        .iter()
+        .map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>)
+        .collect();
 
     let profile_iter = stmt
-        .query_map([&category_id], |row| {
+        .query_map(rusqlite::params_from_iter(params), |row| {
             Ok(WebStoreProfileRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,

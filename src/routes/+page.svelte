@@ -11,7 +11,7 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
-		getProfilesWithArticlesAfter,
+		getProfilesByCategories,
 		WEB_STORE_UNKNOWN_PROFILE_ID,
 		WEB_STORE_UNKNOWN_PROFILE_LABEL,
 		deleteProfileById
@@ -86,7 +86,17 @@
 
 	const profilesQuery = createQuery({
 		queryKey: ['profiles'],
-		queryFn: () => getProfilesWithArticlesAfter(Date.now() - 5 * 24 * 60 * 60 * 1000)
+		queryFn: () => getProfilesByCategories(viewState.selectedCategories),
+		placeholderData: (prev) => prev
+	});
+
+	let initialCategoryLoad = $state(true);
+	$effect(() => {
+		viewState.selectedCategories.length;
+		if (!initialCategoryLoad) {
+			$profilesQuery.refetch();
+		}
+		initialCategoryLoad = false;
 	});
 
 	const profileCategories = $derived(
@@ -230,8 +240,8 @@
 	</div>
 
 	<div class="inputs-container">
-		<Categories></Categories>
 		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
+		<Categories />
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
 		<!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->

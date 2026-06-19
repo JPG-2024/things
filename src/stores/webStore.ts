@@ -770,11 +770,16 @@ export async function getCategoriesByProfile(profileId: string): Promise<WebStor
 	}
 }
 
-export async function getProfilesByCategory(categoryId: string): Promise<ArticleProfile[]> {
+export async function getProfilesByCategories(categoryIds: string[]): Promise<ArticleProfile[]> {
 	try {
-		return await invoke<ArticleProfile[]>('list_profiles_by_category', { categoryId });
+		if (categoryIds.length === 0) {
+			return await getProfiles();
+		}
+		return await invoke<ArticleProfile[]>('list_profiles_by_categories', {
+			categoryIds
+		});
 	} catch (error) {
-		console.error('Error fetching profiles by category:', error);
+		console.error('Error fetching profiles by categories:', error);
 		return [];
 	}
 }
