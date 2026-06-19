@@ -178,7 +178,7 @@
 		<p class="loading">Loading voices...</p>
 	{/if}
 
-	<Spacer title="Voices" defaultOpen>
+	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
 			<IconDropdown
 				options={namePrefixOptions}
@@ -207,7 +207,7 @@
 
 		<Spacer size={25} />
 
-		<Spacer title="Add Voice">
+		<Spacer title="add Voice" icon="UserRoundPlus">
 			<Input id="videoUrl" label="Video URL" bind:value={localVideoUrl} placeholder="https://..." />
 			<Input id="imageSrc" label="Image URL" bind:value={localImageSrc} placeholder="https://..." />
 
@@ -247,7 +247,7 @@
 		</Spacer>
 	</Spacer>
 
-	<Spacer title="Synthetize params">
+	<Spacer title="synthetize params" icon="SlidersHorizontal">
 		<RangeSelector
 			id="numStep"
 			label="Num Steps"

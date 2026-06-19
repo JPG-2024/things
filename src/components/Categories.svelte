@@ -98,6 +98,7 @@
 	{#if isEditing}
 		<div class="add-form">
 			<input
+				autocomplete="one-time-code"
 				type="text"
 				bind:value={newCategoryName}
 				onkeydown={handleKeydown}
@@ -112,21 +113,21 @@
 <style>
 	.categories {
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		gap: 0.75rem;
 		width: 100%;
-		position: relative;
 	}
 
 	.categories-header {
+		display: flex;
 		position: absolute;
 		top: 0;
 		right: 0;
-		display: flex;
 		align-items: center;
 		opacity: 0;
-		transition: opacity 0.15s;
 		z-index: 1;
+		transition: opacity 0.15s;
 	}
 
 	.categories:hover .categories-header {
@@ -146,17 +147,17 @@
 	}
 
 	.pill {
-		color: var(--primary-color);
+		cursor: pointer;
+		border: none;
 		border-radius: 12px;
-		background-color: black;
 		background-size: 200% 200%;
+		background-color: black;
+		padding: 7px 20px;
+		width: max-content;
+		color: var(--primary-color);
+		font-weight: bold;
 		font-size: 0.88rem;
 		line-height: 1.2;
-		width: max-content;
-		padding: 7px 20px;
-		font-weight: bold;
-		border: none;
-		cursor: pointer;
 	}
 
 	.pill:disabled {
@@ -173,10 +174,10 @@
 	}
 
 	.add-categories-pill {
-		border: 1px dashed var(--primary-color);
-		background: transparent;
 		opacity: 0.6;
 		transition: opacity 0.15s;
+		border: 1px dashed var(--primary-color);
+		background: transparent;
 	}
 
 	.add-categories-pill:hover {
@@ -184,15 +185,15 @@
 	}
 
 	.remove-btn {
-		background: none;
-		border: none;
-		color: var(--primary-color);
-		cursor: pointer;
-		font-size: 1rem;
-		line-height: 1;
-		padding: 0 0.25rem;
 		opacity: 0.6;
 		transition: opacity 0.15s;
+		cursor: pointer;
+		border: none;
+		background: none;
+		padding: 0 0.25rem;
+		color: var(--primary-color);
+		font-size: 1rem;
+		line-height: 1;
 	}
 
 	.remove-btn:hover {
@@ -206,35 +207,35 @@
 
 	.add-input {
 		flex: 1;
-		background: black;
+		outline: none;
 		border: 1px solid var(--primary-color);
 		border-radius: 4px;
+		background: black;
+		padding: 6px 12px;
 		color: var(--primary-color);
 		font-size: 0.88rem;
-		padding: 6px 12px;
-		outline: none;
 	}
 
 	.add-input::placeholder {
-		color: var(--primary-color);
 		opacity: 0.4;
+		color: var(--primary-color);
 	}
 
 	.add-input:focus {
-		border-color: var(--primary-color);
 		box-shadow: 0 0 0 1px var(--primary-color);
+		border-color: var(--primary-color);
 	}
 
 	.add-btn {
-		background: var(--primary-color);
+		transition: opacity 0.15s;
+		cursor: pointer;
 		border: none;
 		border-radius: 4px;
-		color: black;
-		cursor: pointer;
-		font-size: 0.88rem;
-		font-weight: bold;
+		background: var(--primary-color);
 		padding: 6px 16px;
-		transition: opacity 0.15s;
+		color: black;
+		font-weight: bold;
+		font-size: 0.88rem;
 	}
 
 	.add-btn:hover {

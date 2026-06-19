@@ -10,6 +10,7 @@
 	import { goto } from '$app/navigation';
 	import { useQueryClient } from '@tanstack/svelte-query';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
+	import { workflowManager } from '@/runners/workflowManager.svelte';
 
 	interface Props {
 		headerContent?: any;
@@ -36,6 +37,7 @@
 		// Cleanup on component unload
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
+			workflowManager.clearStack();
 		};
 	});
 

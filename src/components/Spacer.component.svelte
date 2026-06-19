@@ -6,11 +6,12 @@
 	type Props = {
 		size?: number | string;
 		title?: string;
+		icon?: string;
 		defaultOpen?: boolean;
 		children?: Snippet;
 	};
 
-	let { size = 5, title, defaultOpen = false, children }: Props = $props();
+	let { size = 5, title, icon, defaultOpen = false, children }: Props = $props();
 
 	let open = $state(defaultOpen);
 	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
@@ -32,6 +33,9 @@
 					? 'transform: rotate(90deg); transition: transform 0.2s'
 					: 'transition: transform 0.2s'}
 			/>
+			{#if icon}
+				<Icon name={icon} size={16} color="rgba(255, 255, 255, 0.6)" />
+			{/if}
 			<span class="spacer-title">{title}</span>
 		</button>
 		{#if open}

@@ -551,9 +551,9 @@
 		class="tts-player"
 	>
 		<div class="tts-player__header">
-			<!-- 			<div class="tts-player__picture-container">
+			<div class="tts-player__picture-container">
 				<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
-			</div> -->
+			</div>
 		</div>
 
 		<div class="tts-player__canvas-container">
@@ -649,18 +649,10 @@
 	.tts-player__picture-container {
 		width: 250px;
 		height: 150px;
-		border-radius: 40px;
+		border-radius: 20px;
 		overflow: hidden;
 		position: relative;
 		display: block;
-		border-radius: 20px;
-		/* border: 1px solid var(--primary-color); */
-	}
-
-	.tts-player__picture-container::before {
-		display: block;
-		content: '';
-		border-radius: 20px;
 	}
 
 	.tts-player__picture-container img {
@@ -669,7 +661,17 @@
 		object-fit: cover;
 		left: 0;
 		right: auto;
-		border-radius: 40px;
+		filter: grayscale(100%) contrast(1.15);
+		transform: scale(1.15);
+	}
+
+	.tts-player__picture-container::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: var(--primary-color);
+		mix-blend-mode: color;
+		pointer-events: none;
 	}
 
 	.tts-player__canvas {
@@ -734,7 +736,7 @@
 	.tts-player__time {
 		color: var(--primary-color);
 		opacity: 0.8;
-		font-size: 1.1rem;
+		font-size: 1.2rem;
 		font-weight: bold;
 		font-variant-numeric: tabular-nums;
 		padding: 0.25rem 0.5rem;

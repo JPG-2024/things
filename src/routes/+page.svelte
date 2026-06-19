@@ -241,7 +241,10 @@
 
 	<div class="inputs-container">
 		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
-		<Categories />
+		<div class="categories-container">
+			<Categories />
+		</div>
+
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
 		<!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
@@ -289,6 +292,10 @@
 		box-sizing: border-box;
 		padding: 30px 20px 20px;
 		width: 100%;
+	}
+
+	.categories-container {
+		margin: 10px 0;
 	}
 
 	.dashboard-title {
