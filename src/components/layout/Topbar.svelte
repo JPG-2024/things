@@ -56,6 +56,8 @@
 		box-sizing: border-box;
 		padding: 0.2rem 1rem;
 		padding-right: 1.8em;
+		border-bottom-left-radius: 16px;
+		border-bottom-right-radius: 16px;
 	}
 
 	.top-bar::after {

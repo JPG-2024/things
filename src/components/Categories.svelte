@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
-	import Pill from './Pill.svelte';
+	import Icon from './Icon.svelte';
 
 	let newCategoryName = $state('');
+	let isEditing = $state(false);
 
 	async function loadCategories() {
 		viewState.categories = await getCategories();
@@ -18,8 +19,24 @@
 	}
 
 	async function removeCategory(id: string) {
+		pruneCategory(id);
 		await deleteCategory(id);
 		await loadCategories();
+	}
+
+	function isSelected(id: string): boolean {
+		return viewState.selectedCategories.includes(id);
+	}
+
+	function toggleCategory(id: string) {
+		const list = viewState.selectedCategories;
+		const i = list.indexOf(id);
+		if (i >= 0) list.splice(i, 1);
+		else list.push(id);
+	}
+
+	function pruneCategory(id: string) {
+		viewState.selectedCategories = viewState.selectedCategories.filter((c) => c !== id);
 	}
 
 	$effect(() => {
@@ -40,30 +57,51 @@
 </script>
 
 <div class="categories">
+	<div class="categories-header">
+		<Icon
+			name="Edit"
+			size={16}
+			color="var(--primary-color)"
+			onClick={() => (isEditing = !isEditing)}
+			style="opacity: {isEditing ? 1 : 0.5}"
+		/>
+	</div>
 	<div class="category-list">
 		{#each viewState.categories as category (category.id)}
 			<span class="category-pill">
-				<Pill status="idle" text={category.name} tag />
 				<button
-					class="remove-btn"
-					onclick={() => removeCategory(category.id)}
-					aria-label="Remove {category.name}"
+					type="button"
+					class="pill tag"
+					class:pill--active={isSelected(category.id)}
+					disabled={isEditing}
+					onclick={() => toggleCategory(category.id)}
 				>
-					&times;
+					{category.name}
 				</button>
+				{#if isEditing}
+					<button
+						class="remove-btn"
+						onclick={() => removeCategory(category.id)}
+						aria-label="Remove {category.name}"
+					>
+						&times;
+					</button>
+				{/if}
 			</span>
 		{/each}
 	</div>
-	<div class="add-form">
-		<input
-			type="text"
-			bind:value={newCategoryName}
-			onkeydown={handleKeydown}
-			placeholder="New category"
-			class="add-input"
-		/>
-		<button class="add-btn" onclick={handleAdd}>Add</button>
-	</div>
+	{#if isEditing}
+		<div class="add-form">
+			<input
+				type="text"
+				bind:value={newCategoryName}
+				onkeydown={handleKeydown}
+				placeholder="New category"
+				class="add-input"
+			/>
+			<button class="add-btn" onclick={handleAdd}>Add</button>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -72,6 +110,22 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		width: 100%;
+		position: relative;
+	}
+
+	.categories-header {
+		position: absolute;
+		top: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		opacity: 0;
+		transition: opacity 0.15s;
+		z-index: 1;
+	}
+
+	.categories:hover .categories-header {
+		opacity: 1;
 	}
 
 	.category-list {
@@ -84,6 +138,33 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
+	}
+
+	.pill {
+		color: var(--primary-color);
+		border-radius: 12px;
+		background-color: black;
+		background-size: 200% 200%;
+		font-size: 0.88rem;
+		line-height: 1.2;
+		width: max-content;
+		padding: 7px 20px;
+		font-weight: bold;
+		border: none;
+		cursor: pointer;
+	}
+
+	.pill:disabled {
+		cursor: default;
+	}
+
+	.pill--active {
+		background-color: var(--primary-color);
+		color: black;
+	}
+
+	.pill.tag {
+		border-radius: 4px;
 	}
 
 	.remove-btn {
