@@ -19,6 +19,7 @@
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
+	import Categories from '@/components/Categories.svelte';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -229,6 +230,7 @@
 	</div>
 
 	<div class="inputs-container">
+		<Categories></Categories>
 		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->

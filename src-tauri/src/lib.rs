@@ -29,7 +29,7 @@ pub use crate::url::url_to_folder_name;
 
 mod web_store;
 pub use crate::web_store::{
-    assign_category_to_profile,
+    assign_categories_to_profile,
     delete_web_store_article_by_url,
     delete_web_store_category,
     delete_web_store_profile,
@@ -104,7 +104,7 @@ pub fn run() {
             list_web_store_categories,
             upsert_web_store_category,
             delete_web_store_category,
-            assign_category_to_profile,
+            assign_categories_to_profile,
             unassign_category_from_profile,
             list_categories_by_profile,
             list_profiles_by_category,

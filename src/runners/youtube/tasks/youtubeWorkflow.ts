@@ -6,7 +6,7 @@ import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
 import { parseLastVideoDate } from '@/lib/utils/date';
-import { saveProfile, getProfile } from '@/stores/webStore';
+import { saveProfile, getProfile, assignCategoriesToProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
 	defineWorkflow,
@@ -490,7 +490,7 @@ const youtubeTasks = {
 		component: 'keywords',
 		output: outputSchemas[TaskNames.CATEGORY],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
-		userMessage: 'Give a category from this ones: health, psychology, programming.',
+		userMessage: `Give a category from this ones: ${viewState.categories}`,
 		run: ({ state }) => {
 			const keywords = state[TaskNames.KEYWORDS];
 			return keywords.join(' ');
@@ -505,14 +505,14 @@ const youtubeTasks = {
 			response_format: {
 				type: 'json_schema',
 				json_schema: {
-					name: 'keywords',
+					name: 'category',
 					strict: true,
 					schema: {
 						type: 'object',
 						properties: {
 							category: {
 								type: 'string',
-								enum: ['health', 'programming', 'psychology']
+								enum: viewState.categories.map((c) => c.name)
 							}
 						},
 						required: ['category'],
@@ -527,7 +527,10 @@ const youtubeTasks = {
 		component: 'keywords',
 		output: outputSchemas[TaskNames.PROFILE_CATEGORY],
 		systemMessage: 'Return only valid JSON that matches the provided schema.',
-		userMessage: 'Give a category from this ones: health, psychology, programming.',
+		userMessage: () => {
+			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
+			return `Give a category from this ones: ${categoryNames || 'health, psychology, programming'}.`;
+		},
 		run: ({ state }) => {
 			const profile = state[TaskNames.EXTRACT_PROFILE];
 			const videosTitles = profile.videosTitles;
@@ -537,20 +540,34 @@ const youtubeTasks = {
 			const categories = parseStructuredArrayResponses(text);
 			return categories;
 		},
-		completionOptions: {
+		onComplete: async ({ state, result }) => {
+			const profile = state[TaskNames.EXTRACT_PROFILE];
+			const categoryNames = result as string[];
+			const categoryIds = categoryNames
+				.map((name) => viewState.categories.find((c) => c.name === name)?.id)
+				.filter((id): id is string => id !== undefined);
+
+			if (categoryIds.length > 0) {
+				await assignCategoriesToProfile({
+					profileId: profile.id,
+					categoryIds
+				});
+			}
+		},
+		completionOptions: () => ({
 			...ytCompletionOptions,
 			temperature: 1.0,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {
-					name: 'keywords',
+					name: 'category',
 					strict: true,
 					schema: {
 						type: 'object',
 						properties: {
 							category: {
 								type: 'string',
-								enum: ['health', 'programming', 'psychology']
+								enum: viewState.categories.map((c) => c.name)
 							}
 						},
 						required: ['category'],
@@ -558,7 +575,7 @@ const youtubeTasks = {
 					}
 				}
 			}
-		}
+		})
 	}),
 	[TaskNames.KEYPOINTS]: iaTask({
 		name: 'Key points',

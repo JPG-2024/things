@@ -485,6 +485,13 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const text = collectAssistantText(message?.content ?? null);
 		const finalData = task.resultParser ? await task.resultParser(text) : text;
 		this.setTaskFields(task.id, { data: finalData as TMap[keyof TMap & string] });
+		if (task.onComplete) {
+			await (task as IaTask<TMap, keyof TMap & string, unknown>).onComplete?.({
+				result: finalData,
+				runResult,
+				state: runtime.state
+			});
+		}
 	}
 
 	/**

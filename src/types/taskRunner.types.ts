@@ -56,6 +56,7 @@ export type TaskRerunPatch<TMap extends TaskMapBase = TaskMapBase> = Partial<
 		| 'debug'
 		| 'startedAt'
 		| 'endedAt'
+		| 'onComplete'
 	>
 >;
 
@@ -104,6 +105,11 @@ export interface IaTask<
 	baseUrl?: string;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 	resultParser?: (text: string) => TParsed | Promise<TParsed>;
+	onComplete?: (params: {
+		result: TParsed;
+		runResult: string;
+		state: Readonly<TaskGlobalState<TMap>>;
+	}) => void | Promise<void>;
 }
 
 export type Task<TMap extends TaskMapBase = TaskMapBase> = ScriptTask<TMap> | IaTask<TMap>;

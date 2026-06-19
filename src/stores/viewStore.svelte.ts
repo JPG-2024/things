@@ -1,4 +1,5 @@
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
 type language = 'en' | 'es';
 
@@ -33,6 +34,8 @@ class ViewState {
 	lastHandledClipboardUrl = $state('');
 
 	domainUrl = $derived(this.url ? new URL(this.url).hostname : null);
+
+	categories = $state<WebStoreCategoryRecord[]>([]);
 
 	isYouTube = $derived(this.url ? new URL(this.url).hostname.includes('youtube.com') : false);
 

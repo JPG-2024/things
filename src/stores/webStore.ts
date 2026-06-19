@@ -103,6 +103,11 @@ export type ProfileCategoryInput = {
 	categoryId: string;
 };
 
+export type AssignCategoriesToProfileInput = {
+	profileId: string;
+	categoryIds: string[];
+};
+
 type UpsertWebStoreArticleInput = {
 	url: string;
 	title: string | null;
@@ -737,11 +742,13 @@ export async function deleteCategory(categoryId: string): Promise<boolean> {
 	}
 }
 
-export async function assignCategoryToProfile(input: ProfileCategoryInput): Promise<void> {
+export async function assignCategoriesToProfile(
+	input: AssignCategoriesToProfileInput
+): Promise<void> {
 	try {
-		await invoke('assign_category_to_profile', { input });
+		await invoke('assign_categories_to_profile', { input });
 	} catch (error) {
-		console.error('Error assigning category to profile:', error);
+		console.error('Error assigning categories to profile:', error);
 	}
 }
 

@@ -3,6 +3,7 @@ import type {
 	IaTask,
 	ScriptTask,
 	Task,
+	TaskGlobalState,
 	TaskMapBase,
 	TaskRuntime,
 	TaskStatusUpdater
@@ -44,10 +45,20 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 	userMessage:
 		| string
 		| ((ctx: { context: TContext; state: Readonly<Record<string, unknown>> }) => string);
-	completionOptions: Record<string, unknown>;
+	completionOptions:
+		| Record<string, unknown>
+		| ((ctx: {
+				context: TContext;
+				state: Readonly<Record<string, unknown>>;
+		  }) => Record<string, unknown>);
 	baseUrl?: string;
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
 	resultParser?: (text: string) => TParsed | Promise<TParsed>;
+	onComplete?: (params: {
+		result: unknown;
+		runResult: string;
+		state: Readonly<Record<string, unknown>>;
+	}) => void | Promise<void>;
 };
 
 export type ScriptTaskDef<
@@ -169,6 +180,10 @@ function buildIaTask<
 			typeof def.userMessage === 'function' ? def.userMessage(propsCtx) : def.userMessage;
 		const componentProps =
 			typeof def.componentProps === 'function' ? def.componentProps(propsCtx) : def.componentProps;
+		const completionOptions =
+			typeof def.completionOptions === 'function'
+				? def.completionOptions(propsCtx)
+				: def.completionOptions;
 
 		return {
 			id,
@@ -177,7 +192,7 @@ function buildIaTask<
 			type: 'ia',
 			systemMessage,
 			userMessage,
-			completionOptions: def.completionOptions as IaTask<TMap, TId>['completionOptions'],
+			completionOptions: completionOptions as IaTask<TMap, TId>['completionOptions'],
 			baseUrl: def.baseUrl,
 			component: def.component,
 			componentProps,
@@ -198,7 +213,14 @@ function buildIaTask<
 						});
 					}
 				: undefined,
-			resultParser: def.resultParser as IaTask<TMap, TId, TParsed>['resultParser']
+			resultParser: def.resultParser as IaTask<TMap, TId, TParsed>['resultParser'],
+			onComplete: def.onComplete as IaTask<TMap, TId, TParsed>['onComplete'] as
+				| ((params: {
+						result: TParsed;
+						runResult: string;
+						state: Readonly<TaskGlobalState<TMap>>;
+				  }) => void | Promise<void>)
+				| undefined
 		};
 	};
 }

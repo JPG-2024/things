@@ -25,26 +25,26 @@ export type ChapterContext = {
 };
 
 export enum TaskNames {
-	INIT_YOUTUBE_PROFILE = 'init youtube profile',
-	INIT_YOUTUBE_VIDEO = 'init youtube video',
+	INIT_YOUTUBE_PROFILE = 'init-youtube-profile',
+	INIT_YOUTUBE_VIDEO = 'init-youtube-video',
 	THUMBNAIL = 'thumbnail',
-	MAIN_COLOR = 'main color',
+	MAIN_COLOR = 'main-color',
 	SUMMARY = 'summary',
-	EXTRACT_CHANNEL_VIDEOS = 'extract channel videos',
+	EXTRACT_CHANNEL_VIDEOS = 'extract-channel-videos',
 	KEYWORDS = 'keywords',
-	KEYPOINTS = 'key points',
+	KEYPOINTS = 'key-points',
 	CHAPTERS = 'chapters',
-	CHAPTERS_SUMMARY = 'chapters summary',
-	TIMED_CAPTIONS = 'timed captions',
+	CHAPTERS_SUMMARY = 'chapters-summary',
+	TIMED_CAPTIONS = 'timed-captions',
 	CONTENT = 'content',
-	VIDEO_INFO = 'video info',
-	TITLE_SUMMARY = 'title summary',
+	VIDEO_INFO = 'video-info',
+	TITLE_SUMMARY = 'title-summary',
 	TITLE = 'title',
-	EXTRACT_PROFILE = 'extract profile',
-	PROFILE_FROM_VIDEO = 'profile from video',
+	EXTRACT_PROFILE = 'extract-profile',
+	PROFILE_FROM_VIDEO = 'profile-from video',
 	GENERATE_TTS = 'waveing...',
 	CATEGORY = 'category',
-	PROFILE_CATEGORY = 'profile category'
+	PROFILE_CATEGORY = 'profile-category'
 }
 
 export type YouTubeTaskFactoryContext = {

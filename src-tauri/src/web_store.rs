@@ -81,6 +81,13 @@ pub struct ProfileCategoryInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssignCategoriesToProfileInput {
+    pub profile_id: String,
+    pub category_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpsertWebStoreArticleInput {
     pub url: String,
     pub title: Option<String>,
@@ -973,29 +980,33 @@ pub async fn delete_web_store_category(
 }
 
 #[tauri::command]
-pub async fn assign_category_to_profile(
+pub async fn assign_categories_to_profile(
     app: AppHandle,
-    input: ProfileCategoryInput,
+    input: AssignCategoriesToProfileInput,
 ) -> Result<(), String> {
-    let conn = get_db(&app)?;
+    let mut conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let category_exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
-        [&input.category_id],
-        |row| row.get(0),
-    ).map_err(|error| error.to_string())?;
+    let tx = conn.transaction().map_err(|error| error.to_string())?;
 
-    if !category_exists {
-        return Err("Category does not exist or is deleted".to_string());
+    for category_id in &input.category_ids {
+        let category_exists: bool = tx.query_row(
+            "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
+            [category_id],
+            |row| row.get(0),
+        ).map_err(|error| error.to_string())?;
+
+        if !category_exists {
+            return Err(format!("Category {} does not exist or is deleted", category_id));
+        }
+
+        tx.execute(
+            "INSERT OR IGNORE INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
+            params![input.profile_id, category_id],
+        ).map_err(|error| error.to_string())?;
     }
 
-    conn.execute(
-        "INSERT OR IGNORE INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
-        params![input.profile_id, input.category_id],
-    )
-    .map_err(|error| error.to_string())?;
-
+    tx.commit().map_err(|error| error.to_string())?;
     Ok(())
 }
 
