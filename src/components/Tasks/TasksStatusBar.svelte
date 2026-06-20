@@ -47,7 +47,7 @@
 		bottom: 0;
 		left: 0;
 		right: 0;
-		padding: 1rem;
+		padding: 2rem;
 		z-index: 9999;
 	}
 

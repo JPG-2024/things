@@ -551,9 +551,9 @@
 		class="tts-player"
 	>
 		<div class="tts-player__header">
-			<div class="tts-player__picture-container">
+			<!-- 			<div class="tts-player__picture-container">
 				<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
-			</div>
+			</div> -->
 		</div>
 
 		<div class="tts-player__canvas-container">

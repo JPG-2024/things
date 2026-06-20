@@ -6,7 +6,6 @@
 	"permissions": [
 		"core:default",
 		"fs:default",
-
 		"fs:allow-read",
 		"fs:allow-write",
 		"fs:allow-write-file",
@@ -22,10 +21,7 @@
 				{ "path": "$APPDATA/media/*" },
 				{ "path": "$HOME/notian" },
 				{ "path": "$HOME/notian/**" },
-				{ "path": "$TEMP/**" },
-				{
-					"path": "/run/media/jhon/2ae745c3-9664-4fcc-a90a-586e6d5487a4/proyects/supertonic/assets/**"
-				}
+				{ "path": "$TEMP/**" }
 			]
 		}
 	]

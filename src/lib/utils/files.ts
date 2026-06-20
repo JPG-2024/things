@@ -1,11 +1,24 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
+import { BaseDirectory, remove } from '@tauri-apps/plugin-fs';
+
+export const MEDIA_FOLDER = 'thumbnails';
+
+export const getMediaSrc = (filename: string): Promise<string> =>
+	getImageSrc(MEDIA_FOLDER, filename);
+
+export const deleteMediaFile = async (filename: string): Promise<void> => {
+	try {
+		await remove(`media/${MEDIA_FOLDER}/${filename}`, { baseDir: BaseDirectory.AppData });
+	} catch (error) {
+		console.error(`[Media] Error deleting media file: ${error}`);
+	}
+};
 
 export interface DownloadedImageResult {
 	mediaDirectory: string;
 	fileName: string;
-	imageSrc: string;
 }
 
 export async function resolveMediaDirectory(url: string, profile?: string | null): Promise<string> {
@@ -37,9 +50,7 @@ export async function downloadImageUrl(url: string): Promise<DownloadedImageResu
 			reductionMagnitud: 1
 		});
 
-		const imageSrc = await getImageSrc(mediaDirectory, fileName);
-
-		return { mediaDirectory, fileName, imageSrc };
+		return { mediaDirectory, fileName };
 	} catch (error) {
 		throw new Error(
 			`Failed to download image from "${url}": ${error instanceof Error ? error.message : String(error)}`

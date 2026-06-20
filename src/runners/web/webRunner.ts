@@ -11,7 +11,8 @@ const webPage = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
-	WebTaskNames.TITLE_SUMMARY
+	WebTaskNames.TITLE_SUMMARY,
+	WebTaskNames.GENERATE_TTS
 ] as const satisfies readonly WebTaskId[];
 
 const quickArticle = [

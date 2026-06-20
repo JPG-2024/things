@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { invoke } from '@tauri-apps/api/core';
-import { downloadImageUrl } from '@/lib/utils/files';
+import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
@@ -8,13 +8,8 @@ import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapte
 import { parseLastVideoDate } from '@/lib/utils/date';
 import { saveProfile, getProfile, assignCategoriesToProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
-import {
-	defineWorkflow,
-	scriptTask,
-	iaTask,
-	getRequiredTaskState,
-	createContentGetter
-} from '@/runners/taskSchema';
+import { ttsState } from '@/stores/ttsStore.svelte';
+import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { youTubeRunner } from '../youTubeRunner';
 import { profileRunner } from '../profileVideosRunner';
 import {
@@ -22,7 +17,6 @@ import {
 	TaskNames,
 	type YouTubeTaskFactoryContext
 } from './youtubeTasks.shared';
-import { ttsState } from '@/stores/ttsStore.svelte';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 
 export { TaskNames };
@@ -126,6 +120,7 @@ const youtubeTasks = {
 			const ctx = context as YouTubeTaskFactoryContext;
 			const urlObj = new URL(ctx.url);
 			const videoId = urlObj.searchParams.get('v');
+			ttsState.videoUrl = ctx.url;
 			return { url: ctx.url, videoId, language: ctx.language };
 		}
 	}),
@@ -151,11 +146,8 @@ const youtubeTasks = {
 			const urlData = getTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
 			if (!urlData.videoId) throw new Error('Video ID not found in URL');
 			const ytThumbnailUrl = getYouTubeThumbnailUrl(urlData.videoId, 'high');
-			const {
-				mediaDirectory,
-				fileName: thumbnailImage,
-				imageSrc: thumbnailImageSrc
-			} = await downloadImageUrl(ytThumbnailUrl);
+			const { mediaDirectory, fileName: thumbnailImage } = await downloadImageUrl(ytThumbnailUrl);
+			const thumbnailImageSrc = await getMediaSrc(thumbnailImage);
 
 			viewState.hoveredPictureSrc = thumbnailImageSrc;
 
@@ -211,7 +203,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
 		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO, TaskNames.GENERATE_TTS],
+		dependencies: [TaskNames.VIDEO_INFO],
 		persist: true,
 		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
 		run: async ({ state }) => {
@@ -302,6 +294,9 @@ const youtubeTasks = {
 				: profilePictureRaw;
 
 			const downloadedImage = pictureUrl ? await downloadImageUrl(pictureUrl as string) : null;
+			const profilePictureSrc = downloadedImage
+				? await getMediaSrc(downloadedImage.fileName)
+				: null;
 			if (!result.videoIds) throw new Error('No video IDs found in profile page scrape');
 			const videoIds = result.videoIds as string[];
 			const videoUrls = videoIds.map((id: string) => `https://www.youtube.com${id}`);
@@ -316,13 +311,22 @@ const youtubeTasks = {
 			const profile = {
 				id: profileId,
 				name: channelName,
-				profilePicture: downloadedImage?.imageSrc ?? null,
+				profilePicture: profilePictureSrc,
 				videoUrls,
 				videosImageSrc: result.videosImageSrc as string[],
 				videosTitles: result.videosTitles as string[]
 			};
 
-			await saveProfile(initCtx.profileId, profile.profilePicture, lastVideoDate);
+			ttsState.namePrefix = profile.id;
+			ttsState.imageSrc = profile.profilePicture ?? '';
+			ttsState.videoUrl = profile.videoUrls[0] ?? '';
+
+			await saveProfile(
+				initCtx.profileId,
+				downloadedImage?.fileName ?? null,
+				lastVideoDate,
+				initCtx.url
+			);
 
 			return profile;
 		}
@@ -405,7 +409,7 @@ const youtubeTasks = {
 		systemMessage: `You are a reviewer of content.`,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Write a summary. max 1000 characters. No markdown. no titles. add 3 keypoints without title and enumerate. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Write a summary. max 3000 characters. No markdown. No enumertions. no titles. Just a precize analisis. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const content = getTaskState(state, TaskNames.CONTENT);

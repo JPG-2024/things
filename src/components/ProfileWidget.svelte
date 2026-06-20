@@ -14,6 +14,8 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { createQuery } from '@tanstack/svelte-query';
+	import { fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
 		profile: ArticleProfile;
@@ -75,7 +77,11 @@
 	}
 </script>
 
-<div class="category-container">
+<div
+	class="category-container"
+	in:fade={{ duration: 500, easing: cubicOut }}
+	out:fade={{ duration: 80 }}
+>
 	<div class="category-widget">
 		<Card loading={isProfileRunning}>
 			{#if showTitle}
@@ -101,7 +107,7 @@
 			{/if}
 			{#if $query.data?.length}
 				<div class="img-flex">
-					{#if profile.profilePicture}
+					{#if profile.profilePictureSrc}
 						<div class="avatar-container">
 							<button
 								class="img-button"
@@ -110,7 +116,7 @@
 								aria-label="View article"
 							>
 								<img
-									src={profile.profilePicture}
+									src={profile.profilePictureSrc}
 									alt={profile.name}
 									class="profile-avatar"
 									onmouseenter={() => {
@@ -141,7 +147,7 @@
 							onclick={() => handleNavigateToArticle(article)}
 							onmouseenter={() => {
 								viewState.hoveredArticleUrl = article.url ?? null;
-								viewState.hoveredPictureSrc = article.thumbnail ?? null;
+								viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
 							}}
 							onmouseleave={() => {
 								viewState.hoveredArticleUrl = null;
@@ -150,7 +156,7 @@
 						>
 							<Tooltip content={article.title ?? ''}>
 								<img
-									src={article.thumbnail}
+									src={article.thumbnailSrc}
 									alt="Article"
 									class="mini-img"
 									style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
@@ -240,7 +246,7 @@
 	}
 
 	.img-button:hover {
-		transform: scale(1.1);
+		transform: scale(1.02);
 		z-index: 20;
 	}
 

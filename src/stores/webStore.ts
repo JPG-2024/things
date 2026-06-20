@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { BaseDirectory, remove } from '@tauri-apps/plugin-fs';
+import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
@@ -14,6 +14,7 @@ export interface ArticleWithTasks {
 	url: string | null;
 	title: string | null;
 	thumbnail: string | null;
+	thumbnailSrc?: string | null;
 	content?: string | null;
 	mediaDirectory?: string | null;
 	profileId?: string | null;
@@ -32,6 +33,8 @@ export interface ArticleProfile {
 	name: string;
 	count?: number;
 	profilePicture?: string | null;
+	profilePictureSrc?: string | null;
+	url?: string | null;
 }
 
 type SearchRowKind = 'content_chunk' | 'keyword_bundle';
@@ -71,6 +74,7 @@ export type WebStoreProfileRecord = {
 	name: string;
 	count: number;
 	profilePicture?: string | null;
+	url?: string | null;
 };
 
 export type WebStoreProfileDeletion = {
@@ -83,6 +87,7 @@ export type WebStoreProfileSummary = {
 	name: string;
 	mostRecentCreatedAt: number;
 	profilePicture?: string;
+	profilePictureSrc?: string;
 	lastVideoDate?: string;
 };
 
@@ -204,94 +209,10 @@ export function getArticleStringField(article: ArticleWithTasks | null, fieldNam
 	return typeof fieldValue === 'string' ? fieldValue : '';
 }
 
-export function getArticleMediaDirectory(article: ArticleWithTasks | null): string | null {
-	return firstNormalizedString(
-		getArticleStringField(article, 'mediaDirectory'),
-		getArticleStringField(article, 'directory')
-	);
-}
-
-export function normalizeOwnedMediaFileName(value: unknown): string | null {
-	if (typeof value !== 'string') {
-		return null;
-	}
-
-	const normalized = value.trim();
-	if (!normalized || normalized.includes('/') || normalized.includes('\\')) {
-		return null;
-	}
-
-	return normalized;
-}
-
-export function collectOwnedMediaFiles(tasks: PersistedTaskState[] | undefined): string[] {
-	const ownedFiles = new Set<string>();
-
-	for (const task of tasks ?? []) {
-		if (typeof task.data !== 'object' || task.data === null || Array.isArray(task.data)) {
-			continue;
-		}
-
-		const data = task.data as Record<string, unknown>;
-		for (const fileValue of [data.thumbnailImage, data.fileName]) {
-			const fileName = normalizeOwnedMediaFileName(fileValue);
-			if (fileName) {
-				ownedFiles.add(fileName);
-			}
-		}
-
-		if (Array.isArray(data.mediaFiles)) {
-			for (const fileValue of data.mediaFiles) {
-				const fileName = normalizeOwnedMediaFileName(fileValue);
-				if (fileName) {
-					ownedFiles.add(fileName);
-				}
-			}
-		}
-	}
-
-	return Array.from(ownedFiles);
-}
-
-export function isLegacyArticleMediaDirectory(directory: string): boolean {
-	return /^[a-f0-9]{16}$/i.test(directory.trim());
-}
-
 export async function deleteArticleMedia(article: ArticleWithTasks | null): Promise<void> {
-	const directory = getArticleMediaDirectory(article);
-	if (!directory) {
-		return;
-	}
-
-	const ownedFiles = collectOwnedMediaFiles(article?.persistedTasks);
-	if (ownedFiles.length === 0) {
-		if (!isLegacyArticleMediaDirectory(directory)) {
-			return;
-		}
-
-		const mediaPath = `media/${directory}`;
-		try {
-			await remove(mediaPath, {
-				baseDir: BaseDirectory.AppData,
-				recursive: true
-			});
-			console.log(`[Media] Deleted legacy media directory: ${mediaPath}`);
-		} catch (error) {
-			console.error(`[Media] Error deleting legacy media directory: ${error}`);
-		}
-		return;
-	}
-
-	for (const fileName of ownedFiles) {
-		const mediaPath = `media/${directory}/${fileName}`;
-		try {
-			await remove(mediaPath, {
-				baseDir: BaseDirectory.AppData
-			});
-			console.log(`[Media] Deleted media file: ${mediaPath}`);
-		} catch (error) {
-			console.error(`[Media] Error deleting media file: ${error}`);
-		}
+	const thumbnail = article?.thumbnail;
+	if (typeof thumbnail === 'string' && thumbnail.trim()) {
+		await deleteMediaFile(thumbnail);
 	}
 }
 
@@ -416,13 +337,13 @@ export async function buildUpsertInput(params: {
 
 	const thumbnailTaskData =
 		getStoredTaskData<{
-			thumbnailImageSrc?: string;
+			thumbnailImage?: string;
 			mediaDirectory?: string;
 		}>(params.tasksToSave, 'thumbnail') ?? {};
 
 	const thumbnail = firstNormalizedString(
 		params.valuesToOverride?.thumbnail as string | undefined,
-		thumbnailTaskData.thumbnailImageSrc,
+		thumbnailTaskData.thumbnailImage,
 		params.existingArticle?.thumbnail
 	);
 	const directory = firstNormalizedString(
@@ -473,6 +394,42 @@ export function mapStoredArticle(
 	};
 }
 
+async function resolveArticleThumbnail(article: ArticleWithTasks): Promise<ArticleWithTasks> {
+	const thumbnail = article.thumbnail;
+
+	if (!thumbnail || thumbnail.includes('://')) {
+		return article;
+	}
+
+	const thumbnailSrc = await getMediaSrc(thumbnail);
+	return { ...article, thumbnailSrc };
+}
+
+async function resolveArticleThumbnailBatch(
+	articles: ArticleWithTasks[]
+): Promise<ArticleWithTasks[]> {
+	return Promise.all(articles.map(resolveArticleThumbnail));
+}
+
+async function resolveProfilePictureField<T extends { profilePicture?: string | null }>(
+	profile: T
+): Promise<T & { profilePictureSrc?: string | null }> {
+	const profilePicture = profile.profilePicture;
+
+	if (!profilePicture || profilePicture.includes('://')) {
+		return { ...profile, profilePictureSrc: profilePicture ?? null };
+	}
+
+	const profilePictureSrc = await getMediaSrc(profilePicture);
+	return { ...profile, profilePictureSrc };
+}
+
+async function resolveProfilePictureBatch<T extends { profilePicture?: string | null }>(
+	profiles: T[]
+): Promise<T[]> {
+	return Promise.all(profiles.map(resolveProfilePictureField));
+}
+
 export async function fetchWebStoreArticlesByProfile(
 	profileId: string,
 	fields?: string[],
@@ -513,7 +470,11 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 			tasksByUrl.set(task.url, task.tasksJson);
 		}
 
-		return articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null));
+		const mappedArticles = articles.map((row) =>
+			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		);
+
+		return resolveArticleThumbnailBatch(mappedArticles);
 	} catch (error) {
 		console.error('Error querying DB articles', error);
 		return [];
@@ -524,7 +485,7 @@ export async function getProfiles(): Promise<ArticleProfile[]> {
 	try {
 		const result = await invoke<ArticleProfile[]>('list_web_store_profiles');
 
-		return result;
+		return resolveProfilePictureBatch(result);
 	} catch (error) {
 		console.error('Error querying article profiles', error);
 		return [];
@@ -537,7 +498,11 @@ export async function getProfile(profileId: string): Promise<ArticleProfile | nu
 			profileId
 		});
 
-		return result;
+		if (!result) {
+			return null;
+		}
+
+		return resolveProfilePictureField(result);
 	} catch (error) {
 		console.error('Error querying profile', error);
 		return null;
@@ -553,7 +518,7 @@ export async function getProfilesWithArticlesAfter(
 			{ createdAtFrom }
 		);
 
-		return result;
+		return resolveProfilePictureBatch(result);
 	} catch (error) {
 		console.error('Error querying profiles with articles after date', error);
 		return [];
@@ -571,7 +536,7 @@ export async function getArticlesByProfile(
 		const [articles, tasks] = await Promise.all([
 			fetchWebStoreArticlesByProfile(
 				profileId,
-				['id', 'url', 'title', 'thumbnail'],
+				['id', 'url', 'title', 'thumbnail', 'mediaDirectory'],
 				options?.createdAtFrom,
 				options?.limit
 			),
@@ -583,7 +548,11 @@ export async function getArticlesByProfile(
 			tasksByUrl.set(task.url, task.tasksJson);
 		}
 
-		return articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null));
+		const mappedArticles = articles.map((row) =>
+			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		);
+
+		return resolveArticleThumbnailBatch(mappedArticles);
 	} catch (error) {
 		console.error('Error querying profile articles', error);
 		return [];
@@ -618,7 +587,8 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 			return null;
 		}
 
-		return mapStoredArticle(row, taskRecord?.tasksJson ?? null);
+		const article = mapStoredArticle(row, taskRecord?.tasksJson ?? null);
+		return resolveArticleThumbnail(article);
 	} catch (error) {
 		console.error('Error querying article', error);
 		return null;
@@ -681,6 +651,12 @@ export async function deleteArticleByUrl(url: string): Promise<{ success: boolea
 
 export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
 	try {
+		const profile = await getProfile(profileId);
+
+		if (profile?.profilePicture && profile.profilePicture.trim()) {
+			await deleteMediaFile(profile.profilePicture);
+		}
+
 		const articles = await fetchWebStoreArticlesByProfile(profileId);
 		for (const article of articles) {
 			await deleteArticleMedia(mapStoredArticle(article));
@@ -698,7 +674,8 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 export async function saveProfile(
 	profileId: string,
 	profilePicture: string | null,
-	lastVideoDate: string | null
+	lastVideoDate: string | null,
+	url: string | null = null
 ): Promise<unknown> {
 	try {
 		const res = await invoke('upsert_web_store_profile', {
@@ -706,7 +683,8 @@ export async function saveProfile(
 				id: profileId.toLowerCase().replace(/\s+/g, '-'),
 				name: profileId.toLowerCase().replace(/\s+/g, '-'),
 				profilePicture,
-				lastVideoDate
+				lastVideoDate,
+				url
 			}
 		});
 
@@ -775,9 +753,10 @@ export async function getProfilesByCategories(categoryIds: string[]): Promise<Ar
 		if (categoryIds.length === 0) {
 			return await getProfiles();
 		}
-		return await invoke<ArticleProfile[]>('list_profiles_by_categories', {
+		const result = await invoke<ArticleProfile[]>('list_profiles_by_categories', {
 			categoryIds
 		});
+		return resolveProfilePictureBatch(result);
 	} catch (error) {
 		console.error('Error fetching profiles by categories:', error);
 		return [];

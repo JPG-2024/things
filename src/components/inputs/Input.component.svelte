@@ -81,7 +81,7 @@
 		outline: none;
 		border: none;
 		border-radius: 12px;
-		background: rgba(154, 154, 154, 0.12);
+		background: rgba(154, 154, 154, 0.1);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		padding: 0.4rem 0.75rem;

@@ -37,6 +37,7 @@ pub struct WebStoreProfileRecord {
     pub count: i64,
     pub profile_picture: Option<String>,
     pub last_video_date: Option<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -153,6 +154,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             last_video_date TEXT,
+            url TEXT,
             updated_at INTEGER NOT NULL
         );
 
@@ -181,6 +183,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
+    migrate_profile_url_column(conn)?;
 
     Ok(())
 }
@@ -226,6 +229,21 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
         "DROP TABLE old_articles;
          DROP TABLE old_profiles;"
     ).map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn migrate_profile_url_column(conn:&Connection) -> Result<(), String> {
+    let has_url_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_profiles') WHERE name='url'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_url_column {
+        conn.execute_batch("ALTER TABLE web_profiles ADD COLUMN url TEXT")
+            .map_err(|error| error.to_string())?;
+    }
 
     Ok(())
 }
@@ -295,6 +313,7 @@ fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfil
                 count: 1,
                 profile_picture: None,
                 last_video_date: None,
+                url: None,
             });
     }
 
@@ -379,7 +398,7 @@ fn query_articles(
 
 fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles WHERE id = ?1 COLLATE NOCASE")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date, url FROM web_profiles WHERE id = ?1 COLLATE NOCASE")
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
@@ -390,6 +409,7 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
                 last_video_date: row.get(4)?,
+                url: row.get(5)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -402,7 +422,7 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
 
 fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date FROM web_profiles ORDER BY count DESC, name ASC")
+        .prepare("SELECT id, name, count, profile_picture, last_video_date, url FROM web_profiles ORDER BY count DESC, name ASC")
         .map_err(|error| error.to_string())?;
 
     let profile_iter = stmt
@@ -413,6 +433,7 @@ fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, Strin
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
                 last_video_date: row.get(4)?,
+                url: row.get(5)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -431,13 +452,14 @@ fn upsert_profile(
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO web_profiles (id, name, count, profile_picture, last_video_date, url, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(id) DO UPDATE SET 
            name = excluded.name,
            count = excluded.count,
            profile_picture = excluded.profile_picture,
            last_video_date = excluded.last_video_date,
+           url = excluded.url,
            updated_at = excluded.updated_at",
         params![
             profile.id,
@@ -445,6 +467,7 @@ fn upsert_profile(
             profile.count,
             profile.profile_picture,
             profile.last_video_date,
+            profile.url,
             updated_at
         ],
     )
@@ -494,6 +517,7 @@ fn rebuild_profiles_from_articles(
                 count: 0,
                 profile_picture: Some(picture),
                 last_video_date: None,
+                url: None,
             });
         }
     }
@@ -762,6 +786,7 @@ pub struct UpsertWebStoreProfileInput {
     pub name: String,
     pub profile_picture: Option<String>,
     pub last_video_date: Option<String>,
+    pub url: Option<String>,
 }
 
 #[tauri::command]
@@ -778,6 +803,7 @@ pub async fn upsert_web_store_profile(
         count: 0,
         profile_picture: input.profile_picture,
         last_video_date: input.last_video_date,
+        url: input.url,
     };
 
     upsert_profile(&conn, &profile)?;
@@ -791,6 +817,12 @@ pub async fn delete_web_store_profile(
 ) -> Result<WebStoreProfileDeletion, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
+
+    if let Some(profile) = query_profile_by_id(&conn, &profile_id)? {
+        if let Some(profile_url) = profile.url {
+            delete_web_store_tasks_by_url(app.clone(), profile_url).await?;
+        }
+    }
 
     let articles = list_web_store_articles_by_profile(
         app.clone(),
@@ -1090,7 +1122,7 @@ pub async fn list_profiles_by_categories(
 
     let placeholders = category_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
     let sql = format!(
-        "SELECT DISTINCT p.id, p.name, p.count, p.profile_picture, p.last_video_date
+        "SELECT DISTINCT p.id, p.name, p.count, p.profile_picture, p.last_video_date, p.url
          FROM web_profiles p
          INNER JOIN profile_category pc ON p.id = pc.profile_id
          INNER JOIN web_categories c ON pc.category_id = c.id
@@ -1114,6 +1146,7 @@ pub async fn list_profiles_by_categories(
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
                 last_video_date: row.get(4)?,
+                url: row.get(5)?,
             })
         })
         .map_err(|error| error.to_string())?;

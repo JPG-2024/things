@@ -9,6 +9,7 @@ const fromUrlRoutine: TaskNames[] = [
 	TaskNames.EXTRACT_CHANNEL_VIDEOS,
 	TaskNames.PROFILE_CATEGORY
 ];
+
 const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE, TaskNames.PROFILE_CATEGORY];
 
 const routines = {

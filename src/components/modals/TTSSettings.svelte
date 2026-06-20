@@ -27,11 +27,8 @@
 
 	let selectedNamePrefix = $state(ttsState.namePrefix);
 
-	let localVideoUrl = $state(ttsState.videoUrl);
 	let localSegment = $state(ttsState.segment);
-	let localNamePrefix = $state(ttsState.namePrefix);
 	let localChunkCount = $state(ttsState.chunkCount);
-	let localImageSrc = $state(ttsState.imageSrc);
 	let localConfig = $state<TTSConfig>({ ...ttsState.config });
 	let localLanguage = $state(viewState.language);
 
@@ -60,11 +57,8 @@
 	});
 
 	onDestroy(() => {
-		ttsState.videoUrl = localVideoUrl;
 		ttsState.segment = localSegment;
-		ttsState.namePrefix = localNamePrefix;
 		ttsState.chunkCount = localChunkCount;
-		ttsState.imageSrc = localImageSrc;
 		ttsState.config = { ...localConfig };
 		viewState.language = localLanguage;
 	});
@@ -75,7 +69,7 @@
 		try {
 			profiles = await fetchVoiceProfiles();
 
-			const match = profiles.find((p) => p.name_prefix === localNamePrefix);
+			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
 				selectedNamePrefix = match.name_prefix;
 				if (match.language) {
@@ -123,7 +117,7 @@
 
 	async function handleNamePrefixChange(prefix: string) {
 		selectedNamePrefix = prefix;
-		localNamePrefix = prefix;
+		ttsState.namePrefix = prefix;
 		const profile = profiles.find((p) => p.name_prefix === prefix);
 		if (profile) {
 			if (profile.language) {
@@ -151,11 +145,8 @@
 	}
 
 	async function handleAddVoice() {
-		ttsState.videoUrl = localVideoUrl;
 		ttsState.segment = localSegment;
-		ttsState.namePrefix = localNamePrefix;
 		ttsState.chunkCount = localChunkCount;
-		ttsState.imageSrc = localImageSrc;
 
 		await ttsState.startAddVoice();
 		if (ttsState.addVoiceStatus === 'done') {
@@ -208,12 +199,29 @@
 		<Spacer size={25} />
 
 		<Spacer title="add Voice" icon="UserRoundPlus">
-			<Input id="videoUrl" label="Video URL" bind:value={localVideoUrl} placeholder="https://..." />
-			<Input id="imageSrc" label="Image URL" bind:value={localImageSrc} placeholder="https://..." />
+			<Input
+				id="videoUrl"
+				label="Video URL"
+				bind:value={ttsState.videoUrl}
+				placeholder="https://..."
+			/>
+			<div class="image-preview-row">
+				{#if ttsState.imageSrc}
+					<img class="image-preview" src={ttsState.imageSrc} alt="voice preview" />
+				{:else}
+					<div class="image-preview image-preview-empty" />
+				{/if}
+				<Input
+					id="imageSrc"
+					label="Image URL"
+					bind:value={ttsState.imageSrc}
+					placeholder="https://..."
+				/>
+			</div>
 
 			<div class="inline-grid">
 				<Input id="segment" label="Segment" bind:value={localSegment} />
-				<Input id="namePrefix" label="Name Prefix" bind:value={localNamePrefix} />
+				<Input id="namePrefix" label="Name Prefix" bind:value={ttsState.namePrefix} />
 				<Input
 					id="chunkCount"
 					label="Chunk Count"
@@ -425,5 +433,24 @@
 		display: flex;
 		gap: 0.25rem;
 		flex: 1;
+	}
+
+	.image-preview-row {
+		display: flex;
+		gap: 0.75rem;
+		align-items: flex-end;
+	}
+
+	.image-preview {
+		width: 40px;
+		height: 40px;
+		border-radius: 8px;
+		object-fit: cover;
+		flex-shrink: 0;
+	}
+
+	.image-preview-empty {
+		background: rgba(154, 154, 154, 0.12);
+		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
 </style>

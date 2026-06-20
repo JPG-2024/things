@@ -100,9 +100,9 @@
 		{/if}
 		{#if $query.data?.length}
 			<div class="img-flex">
-				{#if profile?.picture}
+				{#if profile?.profilePictureSrc}
 					<img
-						src={profile.picture}
+						src={profile.profilePictureSrc}
 						alt={name}
 						class="profile-avatar"
 						style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
@@ -116,7 +116,7 @@
 						aria-label="View article"
 					>
 						<img
-							src={article.thumbnail}
+							src={article.thumbnailSrc}
 							alt="Article"
 							class="mini-img"
 							style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}

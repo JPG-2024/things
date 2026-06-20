@@ -4,18 +4,19 @@ import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeT
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { getTaskData } from '@/lib/utils/helpers/tasks';
 import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
+import { drawersState } from '@/stores/viewStore.svelte';
 
 const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE,
-	TaskNames.KEYWORDS,
+	//TaskNames.KEYWORDS,
 	//TaskNames.CATEGORY,
-	TaskNames.TITLE_SUMMARY,
+	//TaskNames.TITLE_SUMMARY,
 	//TaskNames.CHAPTERS_SUMMARY,
-	TaskNames.PROFILE_FROM_VIDEO,
+	TaskNames.PROFILE_FROM_VIDEO
 	//TaskNames.KEYPOINTS,
-	TaskNames.GENERATE_TTS
+	//TaskNames.GENERATE_TTS
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];
@@ -28,11 +29,14 @@ const fromProfileRunner: TaskNames[] = [
 
 const previewRoutine: TaskNames[] = [TaskNames.THUMBNAIL];
 
+const fromCloneVoice: TaskNames[] = [TaskNames.VIDEO_INFO, TaskNames.PROFILE_FROM_VIDEO];
+
 const routines = {
 	fromUrl,
 	fromFreshUrl,
 	fromProfileRunner,
-	previewRoutine
+	previewRoutine,
+	fromCloneVoice
 };
 
 interface YouTubeRunnerOptions {
@@ -58,7 +62,9 @@ export async function youTubeRunner(
 
 	return getYtRunner()<YouTubeRunnerOptions>({
 		url: cleanUrl,
-		routine: runnerConfig?.routine ?? 'fromUrl',
+		routine: drawersState.isOpen('tts-settings')
+			? 'fromCloneVoice'
+			: (runnerConfig?.routine ?? 'fromUrl'),
 		cachedTasks: runnerConfig?.cachedTasks,
 		language: runnerConfig?.language,
 		makeActive: runnerConfig?.makeActive,

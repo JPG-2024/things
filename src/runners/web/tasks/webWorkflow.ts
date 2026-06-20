@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { invoke } from '@tauri-apps/api/core';
 import { compactMarkdown } from '@/lib/utils/splitter';
-import { getImageSrc, resolveMediaDirectory } from '@/lib/utils/files';
+import { getMediaSrc, resolveMediaDirectory } from '@/lib/utils/files';
+import { ttsState } from '@/stores/ttsStore.svelte';
 import {
 	defineWorkflow,
 	scriptTask,
@@ -36,7 +37,8 @@ const outputSchemas = {
 	[WebTaskNames.CONTENT]: z.string(),
 	[WebTaskNames.TITLE_SUMMARY]: z.string(),
 	[WebTaskNames.KEYWORDS]: z.string(),
-	[WebTaskNames.KEYPOINTS]: z.string()
+	[WebTaskNames.KEYPOINTS]: z.string(),
+	[WebTaskNames.GENERATE_TTS]: z.string()
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
@@ -119,7 +121,7 @@ export const webWorkflow = defineWorkflow({
 					folderName: mediaDirectory,
 					reductionMagnitud: 2
 				});
-				const thumbnailImageSrc = await getImageSrc(mediaDirectory, thumbnailImage);
+				const thumbnailImageSrc = await getMediaSrc(thumbnailImage);
 
 				return {
 					mediaDirectory,
@@ -247,6 +249,21 @@ export const webWorkflow = defineWorkflow({
 							additionalProperties: false
 						}
 					}
+				}
+			}
+		}),
+
+		[WebTaskNames.GENERATE_TTS]: scriptTask({
+			name: 'Generate TTS',
+			dependencies: [WebTaskNames.TITLE_SUMMARY],
+			output: outputSchemas[WebTaskNames.GENERATE_TTS],
+			run: async ({ state, context }) => {
+				const summary = getTaskState(state, WebTaskNames.TITLE_SUMMARY);
+				const ctx = context as WebTaskFactoryContext;
+
+				if (ctx.freshRun) {
+					ttsState.setTextContents([summary]);
+					await ttsState.generateTTS(ctx.url);
 				}
 			}
 		})

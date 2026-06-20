@@ -10,12 +10,7 @@
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import {
-		getProfilesByCategories,
-		WEB_STORE_UNKNOWN_PROFILE_ID,
-		WEB_STORE_UNKNOWN_PROFILE_LABEL,
-		deleteProfileById
-	} from '@/stores/webStore';
+	import { getProfilesByCategories, deleteProfileById } from '@/stores/webStore';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
@@ -99,11 +94,7 @@
 		initialCategoryLoad = false;
 	});
 
-	const profileCategories = $derived(
-		$profilesQuery.data?.length
-			? $profilesQuery.data
-			: [{ id: WEB_STORE_UNKNOWN_PROFILE_ID, name: WEB_STORE_UNKNOWN_PROFILE_LABEL, count: 0 }]
-	);
+	const profileCategories = $derived($profilesQuery.data ?? []);
 
 	async function handleDeleteProfile(profileId: string) {
 		const result = await deleteProfileById(profileId);
@@ -254,6 +245,8 @@
 	<div class="flex-squares">
 		{#each profileCategories as profile (profile.id)}
 			<ProfileWidget {profile} showTitle={false} collapsed={viewState.collapseProfiles} />
+		{:else}
+			<div class="empty-profiles-pill">+ no profiles yet</div>
 		{/each}
 	</div>
 </div>
@@ -324,6 +317,22 @@
 		justify-content: center;
 		gap: 2rem;
 		width: 100%;
+	}
+
+	.empty-profiles-pill {
+		opacity: 0.6;
+		transition: opacity 0.15s;
+		border: 1px dashed var(--primary-color);
+		border-radius: 12px;
+		padding: 7px 20px;
+		color: var(--primary-color);
+		font-weight: bold;
+		font-size: 0.88rem;
+		line-height: 1.2;
+	}
+
+	.empty-profiles-pill:hover {
+		opacity: 1;
 	}
 
 	.inputs-container {

@@ -162,12 +162,12 @@
 				const clipboardText = await invoke<string>('read_clipboard_text');
 				const validUrl = extractValidUrl(clipboardText ?? '');
 
-				if (drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')) {
+				/* 				if (drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')) {
 					if (validUrl) {
 						viewState.lastHandledClipboardUrl = validUrl;
 					}
 					return;
-				}
+				} */
 
 				if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
 					return;

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { BLOG_SUMMARY_SYSTEM_PROMPT, DOCS_SUMMARY_SYSTEM_PROMPT } from '@/constants';
 import { viewState } from '@/stores/viewStore.svelte';
-import { getImageSrc, resolveMediaDirectory } from './utils/files';
+import { getMediaSrc, resolveMediaDirectory } from './utils/files';
 import { compactMarkdown } from './utils/splitter';
 
 export async function extractBlog(url: string): Promise<{ content: string; summary: string }> {
@@ -25,7 +25,7 @@ export async function extractBlog(url: string): Promise<{ content: string; summa
 				reductionMagnitud: 2
 			});
 			viewState.mainImage = _mainImage;
-			viewState.mainImageSrc = await getImageSrc(_mediaDir, _mainImage);
+			viewState.mainImageSrc = await getMediaSrc(_mainImage);
 		}
 
 		const compactedMarkdown = compactMarkdown(response.markdown);
