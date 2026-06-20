@@ -173,8 +173,8 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             profile_id TEXT NOT NULL,
             category_id TEXT NOT NULL,
             PRIMARY KEY (profile_id, category_id),
-            FOREIGN KEY (profile_id) REFERENCES web_profiles(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES web_categories(id) ON DELETE CASCADE
+            FOREIGN KEY (profile_id) REFERENCES web_profiles(id),
+            FOREIGN KEY (category_id) REFERENCES web_categories(id)
         );
 
         CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);"
@@ -431,8 +431,14 @@ fn upsert_profile(
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT OR REPLACE INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET 
+           name = excluded.name,
+           count = excluded.count,
+           profile_picture = excluded.profile_picture,
+           last_video_date = excluded.last_video_date,
+           updated_at = excluded.updated_at",
         params![
             profile.id,
             profile.name,
@@ -447,6 +453,11 @@ fn upsert_profile(
 }
 
 fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM profile_category WHERE profile_id = ?1",
+        params![profile_id]
+    ).map_err(|error| error.to_string())?;
+    
     conn.execute("DELETE FROM web_profiles WHERE id = ?1", params![profile_id])
         .map_err(|error| error.to_string())?;
     Ok(())
