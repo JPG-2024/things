@@ -10,13 +10,13 @@ const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE,
-	//TaskNames.KEYWORDS,
-	//TaskNames.CATEGORY,
-	//TaskNames.TITLE_SUMMARY,
+	TaskNames.KEYWORDS,
+	TaskNames.CATEGORY,
+	TaskNames.TITLE_SUMMARY,
 	//TaskNames.CHAPTERS_SUMMARY,
-	TaskNames.PROFILE_FROM_VIDEO
+	TaskNames.PROFILE_FROM_VIDEO,
 	//TaskNames.KEYPOINTS,
-	//TaskNames.GENERATE_TTS
+	TaskNames.GENERATE_TTS
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl, TaskNames.PROFILE_FROM_VIDEO];
@@ -60,11 +60,11 @@ export async function youTubeRunner(
 	const cleanUrl = removeYTTimeParam(url);
 	const { runnerConfig, options } = config ?? {};
 
+	const fromCloneVoice = drawersState.isOpen('tts-settings');
+
 	return getYtRunner()<YouTubeRunnerOptions>({
 		url: cleanUrl,
-		routine: drawersState.isOpen('tts-settings')
-			? 'fromCloneVoice'
-			: (runnerConfig?.routine ?? 'fromUrl'),
+		routine: fromCloneVoice ? 'fromCloneVoice' : (runnerConfig?.routine ?? 'fromUrl'),
 		cachedTasks: runnerConfig?.cachedTasks,
 		language: runnerConfig?.language,
 		makeActive: runnerConfig?.makeActive,
@@ -73,6 +73,8 @@ export async function youTubeRunner(
 		parentRunId: runnerConfig?.parentRunId,
 		options,
 		onRunResult: async (runResult) => {
+			if (fromCloneVoice) return;
+
 			const profileId =
 				options?.profileId || getTaskData(runResult.tasks, 'video-info', 'profileId');
 			await Promise.all([

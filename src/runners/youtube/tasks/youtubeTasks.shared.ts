@@ -42,7 +42,7 @@ export enum TaskNames {
 	TITLE = 'title',
 	EXTRACT_PROFILE = 'extract-profile',
 	PROFILE_FROM_VIDEO = 'profile-from-video',
-	GENERATE_TTS = '〰〰〰',
+	GENERATE_TTS = '〰',
 	CATEGORY = 'category',
 	PROFILE_CATEGORY = 'profile-category'
 }

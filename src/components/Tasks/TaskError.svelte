@@ -161,7 +161,7 @@
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
-		padding: 0.6em 0;
+		padding: 0.2em 0;
 	}
 
 	.task-action {

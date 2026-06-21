@@ -16,14 +16,16 @@
 
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
-	let bufferContext: AudioContext | null = null;
 	let analyserNode: AnalyserNode | null = $state(null);
-	let combinedBuffer: AudioBuffer | null = $state(null);
 	let isSettingUp = false;
 	let playbackStartTime = 0;
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
 	let pausedAt = 0;
+	let decodedChunks: (AudioBuffer | null)[] = [];
+	let currentChunkIndex = 0;
+	let chunkOffsets: number[] = [];
+	let waitingForChunk = false;
 
 	let animationFrame: number | null = null;
 	const amplitudeScale = 0.3;
@@ -46,91 +48,126 @@
 		return ctx.decodeAudioData(arrayBuffer);
 	}
 
-	async function concatenateBlobs(blobs: Blob[], ctx: AudioContext): Promise<AudioBuffer> {
-		const decoded = await Promise.all(blobs.map((b) => decodeBlob(b, ctx)));
-
-		if (decoded.length === 0) {
-			throw new Error('No blobs to concatenate');
+	function recomputeChunkOffsets() {
+		chunkOffsets = [];
+		let cumulative = 0;
+		for (const buf of decodedChunks) {
+			chunkOffsets.push(cumulative);
+			cumulative += buf?.duration ?? 0;
 		}
+	}
 
-		const sampleRate = decoded[0].sampleRate;
-		const channels = decoded[0].numberOfChannels;
-		const totalLength = decoded.reduce((acc, buf) => acc + buf.length, 0);
+	function computeTotalDuration(): number {
+		let total = 0;
+		for (const buf of decodedChunks) total += buf?.duration ?? 0;
+		return total;
+	}
 
-		const combined = ctx.createBuffer(channels, totalLength, sampleRate);
-
-		let offset = 0;
-		for (const buf of decoded) {
-			for (let ch = 0; ch < channels; ch++) {
-				combined.copyToChannel(buf.getChannelData(ch), ch, offset);
+	function findChunkAtTime(globalTime: number): { chunkIndex: number; offsetInChunk: number } {
+		recomputeChunkOffsets();
+		for (let i = decodedChunks.length - 1; i >= 0; i--) {
+			if (chunkOffsets[i] <= globalTime) {
+				return { chunkIndex: i, offsetInChunk: globalTime - chunkOffsets[i] };
 			}
-			offset += buf.length;
 		}
-
-		return combined;
+		return { chunkIndex: 0, offsetInChunk: 0 };
 	}
 
-	async function ensureBuffer(forceReset = false): Promise<AudioBuffer> {
-		const ctx = await ensureAudioContext(forceReset);
-		if (forceReset || !combinedBuffer || bufferContext !== ctx) {
-			combinedBuffer = await concatenateBlobs(ttsState.blobs, ctx);
-			bufferContext = ctx;
-		}
-		return combinedBuffer;
-	}
-
-	function startSource(offset: number) {
+	async function ensureDecodedChunk(index: number): Promise<AudioBuffer | null> {
+		if (index < 0 || index >= ttsState.blobs.length) return null;
+		if (decodedChunks[index]) return decodedChunks[index];
 		const ctx = getAudioContext();
-		const source = ctx.createBufferSource();
-		source.buffer = combinedBuffer;
-
-		const analyser = ctx.createAnalyser();
-		analyser.fftSize = 1024;
-		analyser.smoothingTimeConstant = 0.8;
-		analyser.minDecibels = -90;
-		analyser.maxDecibels = -10;
-
-		source.connect(analyser);
-		analyser.connect(ctx.destination);
-
-		source.onended = () => {
-			cleanupPlayback();
-			stopPlayback();
-		};
-
-		source.start(0, offset);
-		currentSource = source;
-		analyserNode = analyser;
+		const buf = await decodeBlob(ttsState.blobs[index], ctx);
+		decodedChunks[index] = buf;
+		recomputeChunkOffsets();
+		return buf;
 	}
 
-	async function playBuffer(forceReset = false) {
-		if (isSettingUp || ttsState.blobs.length === 0) return;
+	async function playChunkAt(index: number, offsetInChunk = 0) {
+		if (isSettingUp) return;
 		isSettingUp = true;
 
 		try {
-			await ensureBuffer(forceReset);
+			const buf = await ensureDecodedChunk(index);
+			if (!buf) {
+				stopPlayback();
+				return;
+			}
 
 			if (currentSource) {
 				currentSource.onended = null;
 				try {
 					currentSource.stop();
 				} catch {
-					// ignore stop errors
+					// ignore
 				}
+				currentSource.disconnect();
 				currentSource = null;
 			}
 
-			clearCountdown();
+			cleanupAnalyser();
 
-			startSource(0);
-			playbackStartTime = performance.now();
-			totalPlaybackDuration = ttsState.durationSeconds ?? combinedBuffer?.duration ?? 0;
+			const ctx = getAudioContext();
+			const source = ctx.createBufferSource();
+			source.buffer = buf;
+
+			const analyser = ctx.createAnalyser();
+			analyser.fftSize = 1024;
+			analyser.smoothingTimeConstant = 0.8;
+			analyser.minDecibels = -90;
+			analyser.maxDecibels = -10;
+
+			source.connect(analyser);
+			analyser.connect(ctx.destination);
+
+			source.onended = () => {
+				handleChunkEnded();
+			};
+
+			source.start(0, offsetInChunk);
+			currentSource = source;
+			analyserNode = analyser;
+			currentChunkIndex = index;
+
+			recomputeChunkOffsets();
+			const globalStart = chunkOffsets[index] + offsetInChunk;
+			playbackStartTime = performance.now() - globalStart * 1000;
 			ttsState.isPlaying = true;
 			ttsState.isPaused = false;
+			waitingForChunk = false;
 			startCountdown();
 		} finally {
 			isSettingUp = false;
 		}
+	}
+
+	function handleChunkEnded() {
+		if (currentSource) {
+			currentSource.onended = null;
+			currentSource.disconnect();
+			currentSource = null;
+		}
+		cleanupAnalyser();
+
+		const nextIdx = currentChunkIndex + 1;
+		if (nextIdx < ttsState.blobs.length) {
+			if (decodedChunks[nextIdx] || ttsState.blobs[nextIdx]) {
+				void playChunkAt(nextIdx);
+			} else {
+				waitingForChunk = true;
+			}
+		} else {
+			stopPlayback();
+		}
+	}
+
+	async function startPlayback() {
+		if (isSettingUp || ttsState.blobs.length === 0) return;
+		decodedChunks = new Array(ttsState.blobs.length).fill(null);
+		chunkOffsets = [];
+		currentChunkIndex = 0;
+		await ensureAudioContext();
+		await playChunkAt(0);
 	}
 
 	function pausePlayback() {
@@ -152,19 +189,9 @@
 
 	async function resumePlayback() {
 		if (isSettingUp || !ttsState.isPaused) return;
-		isSettingUp = true;
-
-		try {
-			await ensureBuffer();
-
-			startSource(pausedAt);
-			playbackStartTime = performance.now() - pausedAt * 1000;
-			ttsState.isPlaying = true;
-			ttsState.isPaused = false;
-			startCountdown();
-		} finally {
-			isSettingUp = false;
-		}
+		const { chunkIndex, offsetInChunk } = findChunkAtTime(pausedAt);
+		await ensureDecodedChunk(chunkIndex);
+		await playChunkAt(chunkIndex, offsetInChunk);
 	}
 
 	function cleanupAnalyser() {
@@ -191,8 +218,11 @@
 		ttsState.isPaused = false;
 		pausedAt = 0;
 		elapsedSeconds = 0;
-		combinedBuffer = null;
-		bufferContext = null;
+		totalPlaybackDuration = 0;
+		decodedChunks = [];
+		chunkOffsets = [];
+		currentChunkIndex = 0;
+		waitingForChunk = false;
 		ttsState.errorMessage = '';
 	}
 
@@ -224,21 +254,21 @@
 	}
 
 	async function seekTo(offset: number) {
-		const duration = totalPlaybackDuration || combinedBuffer?.duration || 0;
+		const duration = totalPlaybackDuration || 0;
 		const clamped = Math.max(0, Math.min(offset, duration));
 
-		if (ttsState.isPlaying && currentSource) {
-			currentSource.onended = null;
-			currentSource.stop();
-			currentSource.disconnect();
-			currentSource = null;
-			cleanupAnalyser();
-
-			startSource(clamped);
-			playbackStartTime = performance.now() - clamped * 1000;
-			startCountdown();
+		if (ttsState.isPlaying) {
+			const { chunkIndex, offsetInChunk } = findChunkAtTime(clamped);
+			await ensureDecodedChunk(chunkIndex);
+			if (currentSource) {
+				currentSource.onended = null;
+				currentSource.stop();
+				currentSource.disconnect();
+				currentSource = null;
+				cleanupAnalyser();
+			}
+			await playChunkAt(chunkIndex, offsetInChunk);
 		} else if (ttsState.isPaused) {
-			await ensureBuffer();
 			pausedAt = clamped;
 			elapsedSeconds = clamped;
 		}
@@ -262,7 +292,7 @@
 
 	async function startFresh() {
 		if (ttsState.blobs.length === 0) return;
-		await playBuffer(true);
+		await startPlayback();
 	}
 
 	async function handlePrimaryClick() {
@@ -483,17 +513,51 @@
 	});
 
 	$effect(() => {
-		if (ttsState.blobs.length > 0 && ttsState.isPlaying && !combinedBuffer && !isSettingUp) {
+		if (
+			ttsState.blobs.length > 0 &&
+			ttsState.isPlaying &&
+			decodedChunks.length === 0 &&
+			!isSettingUp
+		) {
 			void startFresh();
 		} else if (ttsState.blobs.length === 0 && !ttsState.isPaused) {
-			combinedBuffer = null;
-			bufferContext = null;
+			decodedChunks = [];
+			chunkOffsets = [];
 		}
 	});
 
 	$effect(() => {
-		if (ttsState.isGenerating) {
-			stopPlayback();
+		const version = ttsState.chunkNotifyVersion;
+		if (version > 0 && waitingForChunk && ttsState.isPlaying && !isSettingUp) {
+			waitingForChunk = false;
+			void playChunkAt(currentChunkIndex + 1);
+		}
+	});
+
+	$effect(() => {
+		const generating = ttsState.isGenerating;
+		const blobCount = ttsState.blobs.length;
+		const total = ttsState.totalChunks;
+
+		if (generating) {
+			totalPlaybackDuration = 0;
+		} else if (blobCount > 0 && blobCount === total) {
+			const ctx = getAudioContext();
+			const decodeAll = async () => {
+				while (decodedChunks.length < blobCount) {
+					decodedChunks.push(null);
+				}
+				await Promise.all(
+					ttsState.blobs.map(async (blob, i) => {
+						if (!decodedChunks[i]) {
+							decodedChunks[i] = await decodeBlob(blob, ctx);
+						}
+					})
+				);
+				recomputeChunkOffsets();
+				totalPlaybackDuration = computeTotalDuration();
+			};
+			void decodeAll();
 		}
 	});
 
@@ -520,8 +584,8 @@
 		const handleForeground = () => {
 			if (!document.hidden && ttsState.isPaused) {
 				resetAudioContext();
-				combinedBuffer = null;
-				bufferContext = null;
+				decodedChunks = [];
+				chunkOffsets = [];
 			}
 		};
 
@@ -535,7 +599,7 @@
 	});
 
 	const panelVisible = $derived(
-		!!combinedBuffer ||
+		decodedChunks.length > 0 ||
 			ttsState.isPlaying ||
 			ttsState.isPaused ||
 			ttsState.isGenerating ||
@@ -560,7 +624,7 @@
 			<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
 		</div>
 
-		{#if !ttsState.isGenerating}
+		{#if ttsState.isPlaying || ttsState.isPaused}
 			<div class="tts-player__controls">
 				<button
 					type="button"
@@ -574,16 +638,16 @@
 						<Icon name="Play" size={30} color={viewState.primaryColor} />
 					{/if}
 				</button>
-				{#if ttsState.isPlaying || ttsState.isPaused}
-					<button
-						type="button"
-						class="tts-player__btn tts-player__btn--stop"
-						onclick={handleStop}
-						aria-label="Stop"
-					>
-						<Icon name="Square" size={30} color={viewState.primaryColor} />
-					</button>
-				{/if}
+
+				<button
+					type="button"
+					class="tts-player__btn tts-player__btn--stop"
+					onclick={handleStop}
+					aria-label="Stop"
+				>
+					<Icon name="Square" size={30} color={viewState.primaryColor} />
+				</button>
+
 				<button
 					type="button"
 					class="tts-player__btn tts-player__btn--settings"
@@ -592,7 +656,7 @@
 				>
 					<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 				</button>
-				{#if ttsState.durationSeconds !== null && ttsState.durationSeconds > 0 && (ttsState.isPlaying || ttsState.isPaused)}
+				{#if totalPlaybackDuration > 0 && (ttsState.isPlaying || ttsState.isPaused)}
 					<span class="tts-player__time"
 						>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
 					>

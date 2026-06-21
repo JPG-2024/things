@@ -141,12 +141,14 @@
 	}
 
 	.category-pill {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		gap: 0.25rem;
+		text-transform: capitalize;
 	}
 
 	.pill {
+		text-transform: capitalize;
 		cursor: pointer;
 		border: none;
 		border-radius: 12px;
@@ -165,8 +167,12 @@
 	}
 
 	.pill--active {
-		background-color: var(--primary-color);
-		color: black;
+		text-shadow:
+			0 0 5px var(--primary-color),
+			0 0 10px var(--primary-color),
+			0 0 20px var(--primary-color),
+			0 0 40px var(--primary-color),
+			0 0 80px white;
 	}
 
 	.pill.tag {

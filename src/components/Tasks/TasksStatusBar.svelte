@@ -43,6 +43,7 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 1rem;
+		row-gap: 2rem;
 		position: fixed;
 		bottom: 0;
 		left: 0;

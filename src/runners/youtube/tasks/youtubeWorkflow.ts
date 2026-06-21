@@ -203,7 +203,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
 		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO],
+		dependencies: [TaskNames.VIDEO_INFO, TaskNames.GENERATE_TTS],
 		persist: true,
 		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
 		run: async ({ state }) => {

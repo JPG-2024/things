@@ -75,7 +75,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 1rem;
+		gap: 3rem;
 		width: 100%;
 	}
 
@@ -102,7 +102,7 @@
 	.video-grid {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: 3rem;
 		justify-content: center;
 		width: 100%;
 	}
@@ -113,26 +113,27 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.4rem;
-		width: 140px;
+		width: 320px;
 		cursor: pointer;
 		border-radius: 0.5rem;
 		transition: transform 0.15s ease;
 	}
 
 	.video-card:hover {
-		transform: scale(1.05);
+		transform: scale(1.02);
 	}
 
 	.video-thumb {
-		width: 140px;
-		height: 79px;
+		width: 320px;
+		height: 180px;
 		border-radius: 0.5rem;
 		object-fit: cover;
 		display: block;
 	}
 
 	.video-title {
-		font-size: 0.75rem;
+		padding: 1rem;
+		font-size: 1rem;
 		line-height: 1.3;
 		text-align: center;
 		display: -webkit-box;

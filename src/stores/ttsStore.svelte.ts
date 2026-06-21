@@ -1,5 +1,6 @@
 import { viewState } from './viewStore.svelte';
 import { addVoice, generateSpeech, parseSSE } from '@/lib/utils/ttsService';
+import { splitTextIntoChunks } from '@/lib/utils/splitText';
 
 export interface TTSRefConfig {
 	refAudioFilename: string;
@@ -33,6 +34,10 @@ class TTSState {
 	isGenerating = $state(false);
 	blobs = $state<Blob[]>([]);
 	generatedId = $state('');
+	chunksGenerated = $state(0);
+	totalChunks = $state(0);
+	chunkNotifyVersion = $state(0);
+	private _generationAbort: AbortController | null = null;
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -81,10 +86,19 @@ class TTSState {
 	}
 
 	async forceRegenerate(id: string): Promise<void> {
+		this.cancelGeneration();
 		this.releaseBlobs();
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		await this.generateTTS(id);
+	}
+
+	cancelGeneration(): void {
+		if (this._generationAbort) {
+			this._generationAbort.abort();
+			this._generationAbort = null;
+		}
+		this.isGenerating = false;
 	}
 
 	async generateTTS(id: string): Promise<void> {
@@ -102,18 +116,31 @@ class TTSState {
 			return;
 		}
 
+		this.cancelGeneration();
 		this.releaseBlobs();
 		this.durationSeconds = null;
 		this.errorMessage = '';
 		this.isPlaying = false;
+		this.chunksGenerated = 0;
+		this.chunkNotifyVersion = 0;
+
+		const allChunks: string[] = [];
+		for (const text of this.textContents) {
+			allChunks.push(...splitTextIntoChunks(text));
+		}
+
+		if (allChunks.length === 0) return;
+
+		this.totalChunks = allChunks.length;
 		this.isGenerating = true;
 
-		try {
-			let totalDuration = 0;
+		const abort = new AbortController();
+		this._generationAbort = abort;
 
-			for (const text of this.textContents) {
+		try {
+			for (let i = 0; i < allChunks.length; i++) {
 				const res = await generateSpeech({
-					text,
+					text: allChunks[i],
 					ref_audio: this.config.refAudioFilename,
 					ref_text: this.config.refText,
 					num_step: this.config.numStep,
@@ -136,25 +163,29 @@ class TTSState {
 				}
 
 				this.blobs.push(res.blob);
-				totalDuration += res.durationSeconds ?? 0;
-			}
+				this.chunksGenerated = i + 1;
+				this.chunkNotifyVersion++;
 
-			this.durationSeconds = totalDuration;
-
-			if (this.blobs.length > 0) {
-				this.generatedId = id;
-				this.generatedConfigSig = this.configSig;
-				this.isPlaying = true;
+				if (i === 0) {
+					this.generatedId = id;
+					this.generatedConfigSig = this.configSig;
+					this.isPlaying = true;
+				}
 			}
 		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') {
+				return;
+			}
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
 			console.error('[TTS] Generation error:', err);
 		} finally {
 			this.isGenerating = false;
+			this._generationAbort = null;
 		}
 	}
 
 	cleanup(): void {
+		this.cancelGeneration();
 		if (this.abortController) {
 			this.abortController.abort();
 			this.abortController = null;
@@ -186,7 +217,7 @@ class TTSState {
 				controller.signal
 			);
 
-			for await (const { event, data } of parseSSE(response)) {
+			for await (const { event } of parseSSE(response)) {
 				viewState.subStatus = event;
 			}
 		} catch (err) {

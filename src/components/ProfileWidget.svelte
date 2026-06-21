@@ -79,7 +79,7 @@
 
 <div
 	class="category-container"
-	in:fade={{ duration: 500, easing: cubicOut }}
+	in:fade={{ duration: 700, easing: cubicOut }}
 	out:fade={{ duration: 80 }}
 >
 	<div class="category-widget">
@@ -177,23 +177,23 @@
 	}
 
 	.category-widget {
-		padding: 1px;
 		display: flex;
 		flex-direction: column;
-		width: max-content;
 		align-items: center;
 		box-sizing: border-box;
+		padding: 1px;
+		width: max-content;
 	}
 
 	.title-row {
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
+		align-items: center;
 		gap: 0rem;
-		width: 100%;
 		padding-inline: 10px;
-		font-size: 0.5rem;
+		width: 100%;
 		color: rgba(255, 255, 255, 0.068);
+		font-size: 0.5rem;
 	}
 
 	.actions {
@@ -205,12 +205,12 @@
 	.refresh-btn {
 		all: unset;
 		display: inline-flex;
-		align-items: center;
 		justify-content: center;
+		align-items: center;
 		cursor: pointer;
 		border-radius: 999px;
-		padding: 0.3rem;
 		background: rgba(255, 255, 255, 0.08);
+		padding: 0.3rem;
 	}
 
 	.refresh-btn:disabled {
@@ -221,28 +221,27 @@
 	.img-flex {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
 		justify-content: center;
-		width: 100%;
-		padding: 0.5rem;
+		gap: 1rem;
 		transition: all 0.25s ease;
+		width: 100%;
 	}
 
 	.avatar-container {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 	}
 
 	.img-button {
 		display: flex;
 		align-items: center;
+		transition: transform 0.1s;
+		cursor: pointer;
 		border: none;
+		border-radius: 0.5rem;
 		background: none;
 		padding: 0;
-		cursor: pointer;
-		border-radius: 0.5rem;
-		transition: transform 0.1s;
 	}
 
 	.img-button:hover {
@@ -251,21 +250,21 @@
 	}
 
 	.mini-img {
+		display: block;
+		border-radius: 12px;
 		width: 5rem;
 		height: 4rem;
-		border-radius: 12px;
 		object-fit: cover;
-		display: block;
 	}
 
 	.profile-avatar {
+		flex-shrink: 0;
+		transition: transform 0.1s;
+		margin-right: 0.5rem;
+		border-radius: 100%;
 		width: 3rem;
 		height: 3rem;
-		border-radius: 100%;
 		object-fit: cover;
-		flex-shrink: 0;
-		margin-right: 0.5rem;
-		transition: transform 0.1s;
 	}
 
 	.profile-avatar:hover {
@@ -274,23 +273,23 @@
 	}
 
 	.collapse-toggle:hover {
-		background: rgba(255, 255, 255, 0.2);
 		transform: scale(1.1);
+		background: rgba(255, 255, 255, 0.2);
 	}
 
 	.collapse-toggle {
 		all: unset;
+		display: inline-flex;
 		position: absolute;
 		right: -13px;
-		display: inline-flex;
-		align-items: center;
 		justify-content: center;
-		cursor: pointer;
-		border-radius: 999px;
-		padding: 0.1rem;
+		align-items: center;
 		transition:
 			background-color 0.15s ease,
 			transform 0.15s ease;
+		cursor: pointer;
+		border-radius: 999px;
+		padding: 0.1rem;
 	}
 
 	.spin {

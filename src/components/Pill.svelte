@@ -25,16 +25,7 @@
 		width: max-content;
 		padding: 7px 20px;
 		font-weight: bold;
-	}
-
-	.pill::before {
-		display: inline-block;
-		margin-right: 0.3rem;
-		border-radius: 50%;
-		background-color: var(--pill-indicator-idle, #6b7280);
-		width: 0.5rem;
-		height: 0.5rem;
-		content: '';
+		text-transform: capitalize;
 	}
 
 	.pill.loading::before {
@@ -55,8 +46,9 @@
 		background-color: var(--pill-indicator-error, #ef4444);
 	}
 
-	.pill.idle::before {
-		background-color: var(--pill-indicator-idle, #6b7280);
+	.pill.idle {
+		border: 1px solid var(--primary-color);
+		border-radius: 16px;
 	}
 
 	.pill.done::before {
@@ -67,7 +59,7 @@
 	}
 
 	.pill.tag {
-		border-radius: 4px;
+		border-radius: 12px;
 	}
 
 	.pill.tag::before {

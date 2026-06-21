@@ -38,7 +38,6 @@
 	.task-shell {
 		position: relative;
 		display: grid;
-		gap: 0.9rem;
 		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;

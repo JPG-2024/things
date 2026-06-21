@@ -231,10 +231,10 @@
 	</div>
 
 	<div class="inputs-container">
-		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
 		<div class="categories-container">
 			<Categories />
 		</div>
+		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
 
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
@@ -246,7 +246,7 @@
 		{#each profileCategories as profile (profile.id)}
 			<ProfileWidget {profile} showTitle={false} collapsed={viewState.collapseProfiles} />
 		{:else}
-			<div class="empty-profiles-pill">+ no profiles yet</div>
+			<div class="empty-profiles-pill">404</div>
 		{/each}
 	</div>
 </div>

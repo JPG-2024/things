@@ -55,6 +55,7 @@
 		backdrop-filter: blur(20px);
 		border-radius: 12px;
 		padding: 7px;
+		padding-right: 8px;
 		overflow: hidden;
 	}
 
