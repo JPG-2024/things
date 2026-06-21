@@ -40,8 +40,11 @@
 
 	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
+	const PREBUFFER_SECONDS = 2;
 	let elapsedSeconds = $state(0);
 	let totalPlaybackDuration = $state(0);
+	let nextChunkPrefetchRequested = false;
+	let currentChunkDuration = 0;
 
 	async function decodeBlob(blob: Blob, ctx: AudioContext): Promise<AudioBuffer> {
 		const arrayBuffer = await blob.arrayBuffer();
@@ -128,6 +131,8 @@
 			currentSource = source;
 			analyserNode = analyser;
 			currentChunkIndex = index;
+			currentChunkDuration = buf.duration;
+			nextChunkPrefetchRequested = false;
 
 			recomputeChunkOffsets();
 			const globalStart = chunkOffsets[index] + offsetInChunk;
@@ -158,7 +163,9 @@
 			}
 		} else if (nextIdx < ttsState.totalChunks) {
 			waitingForChunk = true;
-			void ttsState.generateNextChunk();
+			if (!nextChunkPrefetchRequested) {
+				void ttsState.generateNextChunk();
+			}
 		} else {
 			stopPlayback();
 		}
@@ -226,6 +233,7 @@
 		chunkOffsets = [];
 		currentChunkIndex = 0;
 		waitingForChunk = false;
+		nextChunkPrefetchRequested = false;
 		ttsState.errorMessage = '';
 	}
 
@@ -241,6 +249,21 @@
 		countdownInterval = setInterval(() => {
 			const elapsed = (performance.now() - playbackStartTime) / 1000;
 			elapsedSeconds = elapsed;
+
+			if (
+				!nextChunkPrefetchRequested &&
+				currentChunkIndex + 1 < ttsState.totalChunks &&
+				currentChunkIndex + 1 >= ttsState.blobs.length
+			) {
+				const chunkEndTime =
+					playbackStartTime + (chunkOffsets[currentChunkIndex] + currentChunkDuration) * 1000;
+				const timeRemaining = (chunkEndTime - performance.now()) / 1000;
+
+				if (timeRemaining <= PREBUFFER_SECONDS) {
+					nextChunkPrefetchRequested = true;
+					void ttsState.generateNextChunk();
+				}
+			}
 		}, 500);
 	}
 

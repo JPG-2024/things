@@ -193,6 +193,10 @@ class TTSState {
 			return;
 		}
 
+		if (this._generationAbort !== null) {
+			return;
+		}
+
 		const abort = new AbortController();
 		this._generationAbort = abort;
 		const i = this._nextChunkIndex;
