@@ -156,6 +156,9 @@
 			} else {
 				waitingForChunk = true;
 			}
+		} else if (nextIdx < ttsState.totalChunks) {
+			waitingForChunk = true;
+			void ttsState.generateNextChunk();
 		} else {
 			stopPlayback();
 		}
@@ -228,6 +231,7 @@
 
 	function stopPlayback() {
 		cleanupPlayback();
+		ttsState.cancelGeneration();
 		closeAudioContext();
 		ttsState.isPlaying = false;
 	}

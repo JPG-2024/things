@@ -38,6 +38,8 @@ class TTSState {
 	totalChunks = $state(0);
 	chunkNotifyVersion = $state(0);
 	private _generationAbort: AbortController | null = null;
+	private _allChunks: string[] = [];
+	private _nextChunkIndex = 0;
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -83,6 +85,8 @@ class TTSState {
 
 	releaseBlobs(): void {
 		this.blobs = [];
+		this._allChunks = [];
+		this._nextChunkIndex = 0;
 	}
 
 	async forceRegenerate(id: string): Promise<void> {
@@ -99,9 +103,12 @@ class TTSState {
 			this._generationAbort = null;
 		}
 		this.isGenerating = false;
+		this._allChunks = [];
+		this._nextChunkIndex = 0;
 	}
 
 	async generateTTS(id: string): Promise<void> {
+		console.log('GENERATE', id);
 		if (this.isGenerating || this.textContents.length === 0) {
 			return;
 		}
@@ -133,45 +140,42 @@ class TTSState {
 
 		this.totalChunks = allChunks.length;
 		this.isGenerating = true;
+		this._allChunks = allChunks;
+		this._nextChunkIndex = 1;
 
 		const abort = new AbortController();
 		this._generationAbort = abort;
 
 		try {
-			for (let i = 0; i < allChunks.length; i++) {
-				const res = await generateSpeech({
-					text: allChunks[i],
-					ref_audio: this.config.refAudioFilename,
-					ref_text: this.config.refText,
-					num_step: this.config.numStep,
-					denoise: this.config.denoise,
-					guidance_scale: this.config.guidanceScale,
-					t_shift: this.config.tShift,
-					position_temperature: this.config.positionTemperature,
-					class_temperature: this.config.classTemperature,
-					layer_penalty_factor: this.config.layerPenaltyFactor,
-					duration: this.config.duration,
-					speed: this.config.speed,
-					preprocess_prompt: this.config.preprocessPrompt,
-					postprocess_output: this.config.postprocessOutput,
-					audio_chunk_duration: this.config.audioChunkDuration,
-					audio_chunk_threshold: this.config.audioChunkThreshold
-				});
+			const res = await generateSpeech({
+				text: allChunks[0],
+				ref_audio: this.config.refAudioFilename,
+				ref_text: this.config.refText,
+				num_step: this.config.numStep,
+				denoise: this.config.denoise,
+				guidance_scale: this.config.guidanceScale,
+				t_shift: this.config.tShift,
+				position_temperature: this.config.positionTemperature,
+				class_temperature: this.config.classTemperature,
+				layer_penalty_factor: this.config.layerPenaltyFactor,
+				duration: this.config.duration,
+				speed: this.config.speed,
+				preprocess_prompt: this.config.preprocessPrompt,
+				postprocess_output: this.config.postprocessOutput,
+				audio_chunk_duration: this.config.audioChunkDuration,
+				audio_chunk_threshold: this.config.audioChunkThreshold
+			});
 
-				if (res.blob.size === 0) {
-					throw new Error('Generated audio is empty (0 bytes)');
-				}
-
-				this.blobs.push(res.blob);
-				this.chunksGenerated = i + 1;
-				this.chunkNotifyVersion++;
-
-				if (i === 0) {
-					this.generatedId = id;
-					this.generatedConfigSig = this.configSig;
-					this.isPlaying = true;
-				}
+			if (res.blob.size === 0) {
+				throw new Error('Generated audio is empty (0 bytes)');
 			}
+
+			this.blobs.push(res.blob);
+			this.chunksGenerated = 1;
+			this.chunkNotifyVersion++;
+			this.generatedId = id;
+			this.generatedConfigSig = this.configSig;
+			this.isPlaying = true;
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
 				return;
@@ -179,8 +183,59 @@ class TTSState {
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
 			console.error('[TTS] Generation error:', err);
 		} finally {
-			this.isGenerating = false;
 			this._generationAbort = null;
+		}
+	}
+
+	async generateNextChunk(): Promise<void> {
+		if (this._nextChunkIndex >= this._allChunks.length || this._allChunks.length === 0) {
+			this.isGenerating = false;
+			return;
+		}
+
+		const abort = new AbortController();
+		this._generationAbort = abort;
+		const i = this._nextChunkIndex;
+
+		try {
+			const res = await generateSpeech({
+				text: this._allChunks[i],
+				ref_audio: this.config.refAudioFilename,
+				ref_text: this.config.refText,
+				num_step: this.config.numStep,
+				denoise: this.config.denoise,
+				guidance_scale: this.config.guidanceScale,
+				t_shift: this.config.tShift,
+				position_temperature: this.config.positionTemperature,
+				class_temperature: this.config.classTemperature,
+				layer_penalty_factor: this.config.layerPenaltyFactor,
+				duration: this.config.duration,
+				speed: this.config.speed,
+				preprocess_prompt: this.config.preprocessPrompt,
+				postprocess_output: this.config.postprocessOutput,
+				audio_chunk_duration: this.config.audioChunkDuration,
+				audio_chunk_threshold: this.config.audioChunkThreshold
+			});
+
+			if (res.blob.size === 0) {
+				throw new Error('Generated audio is empty (0 bytes)');
+			}
+
+			this.blobs.push(res.blob);
+			this.chunksGenerated = i + 1;
+			this.chunkNotifyVersion++;
+			this._nextChunkIndex = i + 1;
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') {
+				return;
+			}
+			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
+			console.error('[TTS] Generation error:', err);
+		} finally {
+			this._generationAbort = null;
+			if (this._nextChunkIndex >= this._allChunks.length) {
+				this.isGenerating = false;
+			}
 		}
 	}
 
