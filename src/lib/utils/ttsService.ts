@@ -90,29 +90,33 @@ export async function addVoice(
 	return res;
 }
 
-export async function generateSpeech(params: {
-	text: string;
-	instruct?: string;
-	ref_audio: string;
-	ref_text: string;
-	num_step: number;
-	denoise: boolean;
-	guidance_scale: number;
-	t_shift?: number;
-	position_temperature?: number;
-	class_temperature?: number;
-	layer_penalty_factor?: number;
-	duration?: number;
-	speed: number;
-	preprocess_prompt: boolean;
-	postprocess_output: boolean;
-	audio_chunk_duration?: number;
-	audio_chunk_threshold?: number;
-}): Promise<{ blob: Blob; durationSeconds: number | null }> {
+export async function generateSpeech(
+	params: {
+		text: string;
+		instruct?: string;
+		ref_audio: string;
+		ref_text: string;
+		num_step: number;
+		denoise: boolean;
+		guidance_scale: number;
+		t_shift?: number;
+		position_temperature?: number;
+		class_temperature?: number;
+		layer_penalty_factor?: number;
+		duration?: number;
+		speed: number;
+		preprocess_prompt: boolean;
+		postprocess_output: boolean;
+		audio_chunk_duration?: number;
+		audio_chunk_threshold?: number;
+	},
+	signal?: AbortSignal
+): Promise<{ blob: Blob; durationSeconds: number | null }> {
 	const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(params)
+		body: JSON.stringify(params),
+		signal
 	});
 
 	if (!res.ok) {

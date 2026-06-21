@@ -84,20 +84,18 @@
 	}
 
 	.pill {
-		font-family: Charter;
-		font-size: 0.8rem;
+		font-size: 1rem;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 	}
 
 	.info-row {
-		font-size: 0.9rem;
+		font-size: 2rem;
 		display: flex;
-		flex-direction: column;
-		align-items: start;
-		gap: 0.5rem;
-		margin-top: 0.5rem;
+		align-items: center;
+		gap: 2rem;
+		margin-top: 1rem;
 		justify-content: start;
 	}
 </style>

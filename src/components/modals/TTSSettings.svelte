@@ -272,8 +272,8 @@
 			label="Guidance Scale"
 			value={localConfig.guidanceScale}
 			min={0}
-			max={10}
-			step={0.1}
+			max={5}
+			step={1}
 			format={(v) => v.toFixed(1)}
 			onChange={(v) => (localConfig.guidanceScale = v)}
 		/>

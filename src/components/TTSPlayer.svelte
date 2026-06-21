@@ -239,9 +239,8 @@
 
 	function stopPlayback() {
 		cleanupPlayback();
-		ttsState.cancelGeneration();
+		ttsState.fullReset();
 		closeAudioContext();
-		ttsState.isPlaying = false;
 	}
 
 	function startCountdown() {
@@ -596,8 +595,11 @@
 
 		if (currentSig !== prevConfigSig && url) {
 			prevConfigSig = currentSig;
-			cleanupPlayback();
-			generateTTSfromArticleURL(url);
+			stopPlayback();
+			generateTTSfromArticleURL(url).catch((err) => {
+				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate TTS';
+				console.error('[TTS] Regeneration error:', err);
+			});
 		}
 	});
 
