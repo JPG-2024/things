@@ -6,7 +6,7 @@
 	import Topbar from './layout/Topbar.svelte';
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
-	import { deleteArticleByUrl } from '@/stores/webStore';
+	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 	import { useQueryClient } from '@tanstack/svelte-query';
 	import { prefetchHomeData } from '@/lib/prefetchHomeData';
@@ -38,6 +38,16 @@
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
 			workflowManager.clearStack();
+		};
+	});
+
+	$effect(() => {
+		return () => {
+			if (viewState.url) {
+				void markArticleAsViewed(viewState.url).then(() => {
+					queryClient.invalidateQueries({ queryKey: ['articles'] });
+				});
+			}
 		};
 	});
 

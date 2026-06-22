@@ -210,10 +210,18 @@
 	<button
 		type="button"
 		class="settings-trigger"
+		onclick={() => drawersState.open('tts-settings')}
+		aria-label="Open settings"
+	>
+		<Icon name="AudioWaveform" color="var(--primary-color)" size={20} />
+	</button>
+	<button
+		type="button"
+		class="settings-trigger"
 		onclick={() => drawersState.open('settings')}
 		aria-label="Open settings"
 	>
-		<Icon name="Cog" color="var(--primary-color)" />
+		<Icon name="Cog" color="var(--primary-color)" size={20} />
 	</button>
 </div>
 
@@ -272,9 +280,7 @@
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		border-radius: 999px;
 		padding: 0.45rem;
-		background: rgba(255, 255, 255, 0.06);
 	}
 
 	.dashboard-container {

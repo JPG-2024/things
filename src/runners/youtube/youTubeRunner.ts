@@ -61,10 +61,11 @@ export async function youTubeRunner(
 	const { runnerConfig, options } = config ?? {};
 
 	const fromCloneVoice = drawersState.isOpen('tts-settings');
+	const routine = fromCloneVoice ? 'fromCloneVoice' : (runnerConfig?.routine ?? 'fromUrl');
 
 	return getYtRunner()<YouTubeRunnerOptions>({
 		url: cleanUrl,
-		routine: fromCloneVoice ? 'fromCloneVoice' : (runnerConfig?.routine ?? 'fromUrl'),
+		routine,
 		cachedTasks: runnerConfig?.cachedTasks,
 		language: runnerConfig?.language,
 		makeActive: runnerConfig?.makeActive,
@@ -77,10 +78,12 @@ export async function youTubeRunner(
 
 			const profileId =
 				options?.profileId || getTaskData(runResult.tasks, 'video-info', 'profileId');
-			await Promise.all([
+			const saveOperations: Promise<unknown>[] = [
 				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),
 				saveTasks(cleanUrl, runResult.tasks)
-			]);
+			];
+
+			await Promise.all(saveOperations);
 			await runnerConfig?.onRunResult?.(runResult);
 		}
 	});

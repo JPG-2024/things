@@ -22,6 +22,7 @@ export interface ArticleWithTasks {
 	primaryColor?: string | null;
 	mainColor?: string | null;
 	persistedTasks?: PersistedTaskState[];
+	viewed?: boolean | null;
 	[key: string]: unknown;
 }
 
@@ -54,6 +55,7 @@ export type WebStoreArticleRecord = {
 	updatedAt: number;
 	embeddingSourceText: string | null;
 	profilePicture: string | null;
+	viewed: boolean;
 };
 
 export type WebStoreTaskRecord = {
@@ -536,7 +538,7 @@ export async function getArticlesByProfile(
 		const [articles, tasks] = await Promise.all([
 			fetchWebStoreArticlesByProfile(
 				profileId,
-				['id', 'url', 'title', 'thumbnail', 'mediaDirectory'],
+				['id', 'url', 'title', 'thumbnail', 'mediaDirectory', 'viewed'],
 				options?.createdAtFrom,
 				options?.limit
 			),
@@ -646,6 +648,18 @@ export async function deleteArticleByUrl(url: string): Promise<{ success: boolea
 	} catch (error) {
 		console.error('Error deleting article from database:', error);
 		return { success: false };
+	}
+}
+
+export async function markArticleAsViewed(url: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('update_web_store_article_viewed', {
+			url,
+			viewed: true
+		});
+	} catch (error) {
+		console.error('Error marking article as viewed:', error);
+		return false;
 	}
 }
 

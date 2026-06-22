@@ -17,6 +17,7 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { rawRunner } from '@/runners/raw/rawRunner';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
@@ -54,20 +55,46 @@
 		}
 	}
 
-	async function handlePasteUrl(url: string, replaceState = false) {
-		const validUrl = extractValidUrl(url);
-		if (!validUrl || processingUrl) return;
+	async function handlePasteUrl(content: string, replaceState = false) {
+		if (processingUrl) return;
+
+		const validUrl = extractValidUrl(content);
+
+		if (validUrl) {
+			processingUrl = true;
+			try {
+				viewState.lastHandledClipboardUrl = validUrl;
+				navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
+				await urlRouter(validUrl);
+				queryClient.invalidateQueries({ queryKey: ['profiles'] });
+				queryClient.invalidateQueries({ queryKey: ['articles'] });
+				await prefetchHomeData(queryClient);
+			} finally {
+				processingUrl = false;
+				await processQueue();
+			}
+			return;
+		}
+
+		const trimmed = content.trim();
+		if (!trimmed) return;
 
 		processingUrl = true;
+		const rawId = `raw-${Date.now()}`;
 
 		try {
-			viewState.lastHandledClipboardUrl = validUrl;
-			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
-			await urlRouter(validUrl);
+			viewState.lastHandledClipboardUrl = trimmed;
+			viewState.url = rawId;
+			viewState.loading = true;
+			viewState.loaded = false;
+			navigate(`/raw/${rawId}`, { replaceState });
+			await rawRunner(rawId, trimmed);
 			queryClient.invalidateQueries({ queryKey: ['profiles'] });
 			queryClient.invalidateQueries({ queryKey: ['articles'] });
 			await prefetchHomeData(queryClient);
 		} finally {
+			viewState.loaded = true;
+			viewState.loading = false;
 			processingUrl = false;
 			await processQueue();
 		}
@@ -160,29 +187,22 @@
 
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
-				const validUrl = extractValidUrl(clipboardText ?? '');
+				const trimmed = (clipboardText ?? '').trim();
 
-				/* 				if (drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')) {
-					if (validUrl) {
-						viewState.lastHandledClipboardUrl = validUrl;
-					}
-					return;
-				} */
-
-				if (!validUrl || validUrl === viewState.lastHandledClipboardUrl) {
+				if (!trimmed || trimmed === viewState.lastHandledClipboardUrl) {
 					return;
 				}
 
 				if (processingUrl || viewState.loading) {
 					if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
-						viewState.urlQueue.push(validUrl);
+						viewState.urlQueue.push(trimmed);
 					}
 					return;
 				}
 
 				playCoinSound();
 
-				await handlePasteUrl(validUrl);
+				await handlePasteUrl(trimmed);
 			} catch {
 				viewState.clipboardPollingEnabled = false;
 			}

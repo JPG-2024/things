@@ -33,12 +33,18 @@ class ViewState {
 	maxUrlQueueSize = $state(10);
 	lastHandledClipboardUrl = $state('');
 
-	domainUrl = $derived(this.url ? new URL(this.url).hostname : null);
+	domainUrl = $derived(
+		this.url && /^https?:\/\//.test(this.url) ? new URL(this.url).hostname : null
+	);
 
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 
-	isYouTube = $derived(this.url ? new URL(this.url).hostname.includes('youtube.com') : false);
+	isYouTube = $derived(
+		this.url && /^https?:\/\//.test(this.url)
+			? new URL(this.url).hostname.includes('youtube.com')
+			: false
+	);
 
 	ytVideoId = $derived(this.url ? new URL(this.url).searchParams.get('v') : null);
 

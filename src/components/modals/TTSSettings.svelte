@@ -273,7 +273,7 @@
 			value={localConfig.guidanceScale}
 			min={0}
 			max={5}
-			step={1}
+			step={0.5}
 			format={(v) => v.toFixed(1)}
 			onChange={(v) => (localConfig.guidanceScale = v)}
 		/>

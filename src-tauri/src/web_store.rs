@@ -27,6 +27,7 @@ pub struct WebStoreArticleRecord {
     pub primary_color: Option<String>,
     pub updated_at: i64,
     pub embedding_source_text: Option<String>,
+    pub viewed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,7 +144,8 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             main_color TEXT,
             profile TEXT,
             embedding_source_text TEXT,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            viewed INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
         CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
@@ -184,6 +186,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
 
     migrate_legacy_tables(conn)?;
     migrate_profile_url_column(conn)?;
+    migrate_viewed_column(conn)?;
 
     Ok(())
 }
@@ -242,6 +245,21 @@ fn migrate_profile_url_column(conn:&Connection) -> Result<(), String> {
 
     if !has_url_column {
         conn.execute_batch("ALTER TABLE web_profiles ADD COLUMN url TEXT")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_viewed_column(conn:&Connection) -> Result<(), String> {
+    let has_viewed_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='viewed'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_viewed_column {
+        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN viewed INTEGER NOT NULL DEFAULT 0")
             .map_err(|error| error.to_string())?;
     }
 
@@ -343,6 +361,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     let profile: Option<String> = row.get(8)?;
     let embedding_source_text: Option<String> = row.get(9)?;
     let updated_at: i64 = row.get(10)?;
+    let viewed_int: i64 = row.get(11)?;
 
     Ok(WebStoreArticleRecord {
         id,
@@ -358,6 +377,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
         primary_color: main_color,
         updated_at,
         embedding_source_text,
+        viewed: viewed_int != 0,
     })
 }
 
@@ -367,8 +387,9 @@ fn query_articles(
     limit: Option<usize>,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
     let mut sql = String::from(
-        "SELECT id, url, created_at, title, thumbnail, content, 
-                media_directory, main_color, profile, embedding_source_text, updated_at 
+        "SELECT id, url, created_at, title, thumbnail, content,
+                media_directory, main_color, profile, embedding_source_text, updated_at,
+                viewed
          FROM web_articles"
     );
     
@@ -733,10 +754,10 @@ pub async fn upsert_web_store_article(
         .map_err(|error| error.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO web_articles (id, url, created_at, title, thumbnail, content, 
-                                   media_directory, main_color, profile, 
-                                   embedding_source_text, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO web_articles (id, url, created_at, title, thumbnail, content,
+                                   media_directory, main_color, profile,
+                                   embedding_source_text, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0)",
             params![
                 input.url,
                 input.url,
@@ -777,6 +798,25 @@ pub async fn delete_web_store_article_by_url(
     rebuild_profiles_from_articles(&conn, None)?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn update_web_store_article_viewed(
+    app: AppHandle,
+    url: String,
+    viewed: bool,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute(
+            "UPDATE web_articles SET viewed = ?1 WHERE url = ?2 COLLATE NOCASE",
+            params![viewed as i64, url],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

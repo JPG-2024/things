@@ -15,6 +15,7 @@ interface Article {
 	summary: string;
 	title: string;
 	url: string;
+	viewed?: boolean;
 	ytThumbnailUrl: string | null;
 	ytTranscript?: string | null;
 	ytVideoId: string | null;

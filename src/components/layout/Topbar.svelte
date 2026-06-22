@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { drawersState, viewState } from '@/stores/viewStore.svelte';
+	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
+	import { viewState } from '@/stores/viewStore.svelte';
 
 	interface Props {
 		children?: Snippet;
@@ -14,11 +14,11 @@
 		goto(`/`);
 	}
 
-	createHotkey('Escape', handleBackNavigation, {
+	/* 	createHotkey('Escape', handleBackNavigation, {
 		stopPropagation: true,
 		preventDefault: true,
 		enabled: !drawersState.isOpen('tts-settings') && !drawersState.isOpen('settings')
-	});
+	}); */
 </script>
 
 <div class="top-bar">

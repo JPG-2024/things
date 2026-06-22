@@ -175,6 +175,10 @@
 			0 0 80px white;
 	}
 
+	.pill.error {
+		border-radius: 1px solid rgb(255, 140, 109)3)
+	}
+
 	.pill.tag {
 		border-radius: 4px;
 	}

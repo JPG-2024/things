@@ -154,14 +154,19 @@
 							}}
 							aria-label="View article"
 						>
-							<Tooltip content={article.title ?? ''}>
-								<img
-									src={article.thumbnailSrc}
-									alt="Article"
-									class="mini-img"
-									style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-								/>
-							</Tooltip>
+							<div class="thumbnail-container">
+								{#if !article.viewed}
+									<span class="unread-dot"></span>
+								{/if}
+								<Tooltip content={article.title ?? ''}>
+									<img
+										src={article.thumbnailSrc}
+										alt="Article"
+										class="mini-img"
+										style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+									/>
+								</Tooltip>
+							</div>
 						</button>
 					{/each}
 				</div>
@@ -174,6 +179,22 @@
 
 <style>
 	.category-container {
+	}
+
+	.thumbnail-container {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.unread-dot {
+		position: absolute;
+		top: 0px;
+		right: -5px;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--primary-color);
+		z-index: 10;
 	}
 
 	.category-widget {

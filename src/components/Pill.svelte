@@ -42,7 +42,7 @@
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
 	}
 
-	.pill.error::before {
+	.pill.error {
 		background-color: var(--pill-indicator-error, #ef4444);
 	}
 
