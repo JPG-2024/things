@@ -153,7 +153,7 @@
 		border: none;
 		border-radius: 12px;
 		background-size: 200% 200%;
-		background-color: black;
+		background-color: transparent;
 		padding: 7px 20px;
 		width: max-content;
 		color: var(--primary-color);

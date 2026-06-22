@@ -6,7 +6,7 @@ import { saveTasks } from '@/stores/webStore';
 const fromUrlRoutine: TaskNames[] = [
 	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.EXTRACT_PROFILE,
-	//TaskNames.EXTRACT_CHANNEL_VIDEOS,
+	TaskNames.EXTRACT_CHANNEL_VIDEOS,
 	TaskNames.PROFILE_CATEGORY
 ];
 
@@ -20,6 +20,7 @@ const routines = {
 interface ProfileRunnerOptions {
 	videosAmount?: number;
 	profileId?: string;
+	scrollTimes?: number;
 }
 
 export interface ProfileRunnerCallConfig {

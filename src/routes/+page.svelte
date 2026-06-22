@@ -175,7 +175,7 @@
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
 			await profileRunner(profileUrl, {
 				runnerConfig: { routine: 'fromUrl' },
-				options: { videosAmount: 1 }
+				options: { videosAmount: 1, scrollTimes: 1 }
 			});
 			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
 		},

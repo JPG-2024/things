@@ -30,6 +30,14 @@ const ytCompletionOptions = {
 	stream: true
 } as const;
 
+const structuredOutputOptions = {
+	temperature: 0.0,
+	top_p: 1.0,
+	top_k: 1,
+	min_p: 0.0,
+	repeat_penalty: 1.0,
+	n_predict: 256
+} as const;
 // Output schemas defined separately so the state type can be derived without circular references
 const outputSchemas = {
 	[TaskNames.INIT_YOUTUBE_VIDEO]: z.object({
@@ -259,7 +267,8 @@ const youtubeTasks = {
 		gridSpan: 3,
 		persist: true,
 		output: outputSchemas[TaskNames.EXTRACT_PROFILE],
-		run: async ({ state }) => {
+		run: async ({ state, context }) => {
+			console.log('CONTEXT', context);
 			const initCtx = getTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
 			const result = await invoke<Record<string, unknown>>('get_page_elements', {
 				url: initCtx.url,
@@ -285,7 +294,7 @@ const youtubeTasks = {
 				],
 				attempts: 5,
 				intervalMs: 500,
-				scrollTimes: 5
+				scrollTimes: context.scrollTimes ?? 2
 			});
 
 			const profilePictureRaw = result.profilePicture;
@@ -409,7 +418,7 @@ const youtubeTasks = {
 		systemMessage: `You are a reviewer of content.`,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Write a summary. max 3000 characters. No markdown. No enumertions. no titles. Just a precize analisis. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Write a summary in 2 paragraphs. No markdown. No enumertions. no titles. Just a precize analisis. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const content = getTaskState(state, TaskNames.CONTENT);
@@ -465,8 +474,7 @@ const youtubeTasks = {
 			return categories;
 		},
 		completionOptions: {
-			...ytCompletionOptions,
-			temperature: 1.0,
+			...structuredOutputOptions,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {
@@ -504,8 +512,7 @@ const youtubeTasks = {
 			return categories;
 		},
 		completionOptions: {
-			...ytCompletionOptions,
-			temperature: 1.0,
+			...structuredOutputOptions,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {
@@ -597,7 +604,7 @@ const youtubeTasks = {
 			return content;
 		},
 		completionOptions: {
-			...ytCompletionOptions,
+			...structuredOutputOptions,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {
