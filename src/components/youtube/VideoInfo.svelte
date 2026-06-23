@@ -77,10 +77,7 @@
 	}
 
 	.channel-name {
-		font-family: Charter;
-		font-weight: semi-bold;
-		font-size: 1.1rem;
-		padding-bottom: 5px;
+		color: var(--primary-color);
 	}
 
 	.pill {
@@ -88,13 +85,14 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		text-wrap: nowrap;
 	}
 
 	.info-row {
 		font-size: 2rem;
 		display: flex;
 		align-items: center;
-		gap: 2rem;
+		gap: 1rem;
 		margin-top: 1rem;
 		justify-content: start;
 	}

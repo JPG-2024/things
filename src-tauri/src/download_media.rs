@@ -34,6 +34,31 @@ pub async fn download_and_save_image(
         return Err(String::from("reduction_magnitud must be greater than 0"));
     }
 
+    // Get the app's local data directory
+    let app_local_data = app.path().app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    let media_dir = app_local_data.join("media").join(&folder_name);
+
+    // Generate a deterministic filename from the URL hash
+    let mut hasher = Sha256::new();
+    hasher.update(url.as_bytes());
+    let hash = hex_encode(hasher.finalize());
+    let filename = format!("{}.png", &hash[..16]);
+
+    // Skip download if file already exists
+    let filepath = media_dir.join(&filename);
+    if filepath.exists() {
+        println!("[Image] File already exists, skipping download: {}", filename);
+        return Ok(filename);
+    }
+
+    println!("[Image] Saving image to folder: media/{}", app_local_data.join("media").join(&folder_name).display());
+
+    // Create the thumbs directory if it doesn't exist
+    std::fs::create_dir_all(&media_dir)
+        .map_err(|e| format!("Failed to create media directory: {}", e))?;
+
     println!("[Image] Downloading image from: {}", url);
 
     // Download the image using reqwest
@@ -50,33 +75,6 @@ pub async fn download_and_save_image(
     let bytes = response.bytes()
         .await
         .map_err(|e| format!("Failed to read image data: {}", e))?;
-
-    // Get the app's local data directory
-    let app_local_data = app.path().app_local_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-
-
-    println!("[Image] Saving image to folder: media/{}", app_local_data.join("media").join(&folder_name).display());
-
-    // Create the thumbs directory if it doesn't exist
-    let media_dir = app_local_data.join("media").join(folder_name);
-    std::fs::create_dir_all(&media_dir)
-        .map_err(|e| format!("Failed to create media directory: {}", e))?;
-
-    // Generate a deterministic filename from the URL hash
-    let mut hasher = Sha256::new();
-    hasher.update(url.as_bytes());
-    let hash = hex_encode(hasher.finalize());
-    let filename = format!("{}.png", &hash[..16]);
-
-    // Write the image file
-    let filepath = media_dir.join(&filename);
-
-    // Skip download if file already exists
-    if filepath.exists() {
-        println!("[Image] File already exists, skipping download: {}", filename);
-        return Ok(filename);
-    }
 
     let image = image::load_from_memory(&bytes)
         .map_err(|e| format!("Failed to decode image: {}", e))?;

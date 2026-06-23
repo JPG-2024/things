@@ -160,12 +160,18 @@
 									<span class="unread-dot"></span>
 								{/if}
 								<Tooltip content={article.title ?? ''}>
-									<img
-										src={article.thumbnailSrc}
-										alt="Article"
-										class="mini-img"
-										style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-									/>
+									{#if article.thumbnailSrc}
+										<img
+											src={article.thumbnailSrc}
+											alt="Article"
+											class="mini-img"
+											style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+										/>
+									{:else}
+										<div class="mini-img-fallback" title={article.title ?? ''}>
+											{article.title?.slice(0, 45).concat('...') ?? ''}
+										</div>
+									{/if}
 								</Tooltip>
 							</div>
 						</button>
@@ -275,6 +281,25 @@
 		width: 5rem;
 		height: 4rem;
 		object-fit: cover;
+	}
+
+	.mini-img-fallback {
+		display: -webkit-box;
+		justify-content: center;
+		align-items: center;
+		border-radius: 12px;
+		width: 5rem;
+		height: 4rem;
+		padding: 0.25rem;
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(255, 255, 255, 0.75);
+		font-size: 0.65rem;
+		line-height: 1.1;
+		text-align: left;
+		overflow: hidden;
+		-webkit-line-clamp: 4;
+		-webkit-box-orient: vertical;
+		line-clamp: 4;
 	}
 
 	.profile-avatar {

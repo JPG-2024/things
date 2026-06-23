@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { downloadImageUrl, getImageSrc } from '@/lib/utils/files';
+	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 
 	interface Props {
 		children?: Snippet;
@@ -23,12 +23,9 @@
 		faviconSrc = googleUrl;
 
 		(async () => {
-			try {
-				const { mediaDirectory, fileName } = await downloadImageUrl(googleUrl);
-				const localSrc = await getImageSrc(mediaDirectory, fileName);
-				faviconSrc = localSrc;
-			} catch (error) {
-				console.error('Failed to download favicon:', error);
+			const result = await downloadFavicon(viewState.domainUrl!);
+			if (result) {
+				faviconSrc = result.src;
 			}
 		})();
 	});

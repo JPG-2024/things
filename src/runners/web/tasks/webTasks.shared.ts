@@ -2,6 +2,7 @@ import type { TTSLanguage } from '$lib/utils/tts';
 
 export enum WebTaskNames {
 	INIT_WEB_CONTEXT = 'init-web-context',
+	EXTRACT_WEB_PROFILE = 'extract-web-profile',
 	METADATA = 'metadata',
 	THUMBNAIL = 'thumbnail',
 	MAIN_COLOR = 'main-color',

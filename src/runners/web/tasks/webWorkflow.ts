@@ -3,6 +3,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { compactMarkdown } from '@/lib/utils/splitter';
 import { getMediaSrc, resolveMediaDirectory } from '@/lib/utils/files';
 import { ttsState } from '@/stores/ttsStore.svelte';
+import { viewState } from '@/stores/viewStore.svelte';
+import { saveProfile } from '@/stores/webStore';
+import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 import {
 	defineWorkflow,
 	scriptTask,
@@ -21,11 +24,16 @@ export { WebTaskNames };
 const outputSchemas = {
 	[WebTaskNames.INIT_WEB_CONTEXT]: z.object({
 		url: z.string(),
+		domainUrl: z.string(),
 		language: z.string(),
 		extraction: z.object({
 			metadata: z.record(z.string(), z.string()),
 			content: z.string()
 		})
+	}),
+	[WebTaskNames.EXTRACT_WEB_PROFILE]: z.object({
+		profileId: z.string(),
+		profilePicture: z.string().nullable()
 	}),
 	[WebTaskNames.METADATA]: z.record(z.string(), z.string()),
 	[WebTaskNames.THUMBNAIL]: z.object({
@@ -74,11 +82,30 @@ export const webWorkflow = defineWorkflow({
 
 				return {
 					url: ctx.url,
+					domainUrl: new URL(ctx.url).origin,
 					language: ctx.language,
 					extraction: {
 						metadata: response.metadata,
 						content: compactMarkdown(response.markdown)
 					}
+				};
+			}
+		}),
+
+		[WebTaskNames.EXTRACT_WEB_PROFILE]: scriptTask({
+			name: 'Extract web profile',
+			dependencies: [WebTaskNames.INIT_WEB_CONTEXT],
+			output: outputSchemas[WebTaskNames.EXTRACT_WEB_PROFILE],
+			run: async ({ state }) => {
+				const init = getTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);
+				const domainUrl = new URL(init.domainUrl).hostname;
+				const favicon = await downloadFavicon(domainUrl);
+
+				await saveProfile(domainUrl, favicon?.src ?? null, null, init.url);
+
+				return {
+					profileId: domainUrl,
+					profilePicture: favicon?.fileName ?? null
 				};
 			}
 		}),
@@ -95,12 +122,16 @@ export const webWorkflow = defineWorkflow({
 		}),
 
 		[WebTaskNames.THUMBNAIL]: scriptTask({
-			dependencies: [WebTaskNames.INIT_WEB_CONTEXT, WebTaskNames.METADATA],
+			dependencies: [
+				WebTaskNames.INIT_WEB_CONTEXT,
+				WebTaskNames.METADATA,
+				WebTaskNames.EXTRACT_WEB_PROFILE
+			],
 			component: 'image',
 			persist: true,
 			output: outputSchemas[WebTaskNames.THUMBNAIL],
-			run: async ({ state, context }) => {
-				const ctx = context as WebTaskFactoryContext;
+			run: async ({ state }) => {
+				debugger;
 				const init = getTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);
 				const metadata = getTaskState(state, WebTaskNames.METADATA);
 				const imageUrl = metadata['og:image'] || metadata['twitter:image'];
@@ -115,13 +146,19 @@ export const webWorkflow = defineWorkflow({
 					};
 				}
 
+				const resolvedImageUrl = imageUrl.startsWith('/')
+					? `${init.domainUrl}${imageUrl}`
+					: imageUrl;
+
 				const mediaDirectory = await resolveMediaDirectory(init.url, profile);
 				const thumbnailImage = await invoke<string>('download_and_save_image', {
-					url: imageUrl,
+					url: resolvedImageUrl,
 					folderName: mediaDirectory,
 					reductionMagnitud: 2
 				});
 				const thumbnailImageSrc = await getMediaSrc(thumbnailImage);
+
+				viewState.hoveredPictureSrc = thumbnailImageSrc;
 
 				return {
 					mediaDirectory,
