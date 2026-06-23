@@ -49,7 +49,7 @@
 		left: 0;
 		right: 0;
 		padding: 2rem;
-		z-index: 9999;
+		z-index: 1000;
 	}
 
 	.sub-status {

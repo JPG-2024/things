@@ -67,7 +67,7 @@ pub async fn download_and_save_image(
     let mut hasher = Sha256::new();
     hasher.update(url.as_bytes());
     let hash = hex_encode(hasher.finalize());
-    let filename = format!("{}.jpg", &hash[..16]);
+    let filename = format!("{}.png", &hash[..16]);
 
     // Write the image file
     let filepath = media_dir.join(&filename);
@@ -88,7 +88,7 @@ pub async fn download_and_save_image(
     );
 
     resized_image
-        .save_with_format(&filepath, ImageFormat::Jpeg)
+        .save_with_format(&filepath, ImageFormat::Png)
         .map_err(|e| format!("Failed to save resized image: {}", e))?;
 
     println!("[Image] Successfully saved image to: media/{}", filename);

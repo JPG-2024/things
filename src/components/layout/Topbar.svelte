@@ -3,12 +3,35 @@
 	import { goto } from '$app/navigation';
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { downloadImageUrl, getImageSrc } from '@/lib/utils/files';
 
 	interface Props {
 		children?: Snippet;
 	}
 
 	let { children }: Props = $props();
+
+	let faviconSrc = $state<string | null>(null);
+
+	$effect(() => {
+		if (!viewState.domainUrl) {
+			faviconSrc = null;
+			return;
+		}
+
+		const googleUrl = `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`;
+		faviconSrc = googleUrl;
+
+		(async () => {
+			try {
+				const { mediaDirectory, fileName } = await downloadImageUrl(googleUrl);
+				const localSrc = await getImageSrc(mediaDirectory, fileName);
+				faviconSrc = localSrc;
+			} catch (error) {
+				console.error('Failed to download favicon:', error);
+			}
+		})();
+	});
 
 	function handleBackNavigation() {
 		goto(`/`);
@@ -23,11 +46,11 @@
 
 <div class="top-bar">
 	<button onclick={handleBackNavigation} class="back-navigation">⬅</button>
-	{#if viewState.domainUrl}
+	{#if faviconSrc}
 		<button type="button" class="favicon-btn" aria-label="Navigate back">
 			<img
 				class="favicon"
-				src="https://www.google.com/s2/favicons?sz=64&domain={viewState.domainUrl}"
+				src={faviconSrc}
 				alt=""
 			/>
 		</button>

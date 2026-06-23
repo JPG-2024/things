@@ -171,9 +171,7 @@
 						</button>
 					{/each}
 				</div>
-			{:else if $query.isLoading}
-				<span>Loading articles...</span>
-			{/if}
+			{:else if $query.isLoading}{/if}
 		</Card>
 	</div>
 </div>

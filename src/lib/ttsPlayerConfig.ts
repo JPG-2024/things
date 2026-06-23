@@ -50,8 +50,8 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 	organicMultiBright: {
 		name: 'organicMultiBright',
 		harmonics: [
-			{ cycles: 1.5, amplitudeRatio: 0.6, speedRatio: 1.0 },
-			{ cycles: 2.55, amplitudeRatio: 0.3, speedRatio: 1.3 }
+			{ cycles: 1.5, amplitudeRatio: 0.35, speedRatio: 1.0 },
+			{ cycles: 2.55, amplitudeRatio: 0.1, speedRatio: 1.3 }
 		],
 		amplitude: 0.18,
 		baseSpeed: 0.6,

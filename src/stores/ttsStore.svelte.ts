@@ -208,6 +208,7 @@ class TTSState {
 				return;
 			}
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
+			this.isGenerating = false;
 			console.error('[TTS] Generation error:', err);
 		} finally {
 			if (this._generationAbort === abort) {
@@ -274,6 +275,7 @@ class TTSState {
 				return;
 			}
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
+			this.isGenerating = false;
 			console.error('[TTS] Generation error:', err);
 		} finally {
 			if (this._generationAbort === abort) {

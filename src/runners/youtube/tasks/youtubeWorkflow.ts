@@ -31,13 +31,12 @@ const ytCompletionOptions = {
 } as const;
 
 const structuredOutputOptions = {
-	temperature: 0.0,
-	top_p: 1.0,
+	temperature: 0.1,
+	top_p: 0.9,
 	top_k: 1,
-	min_p: 0.0,
-	repeat_penalty: 1.0,
-	n_predict: 256
+	presence_penalty: 0
 } as const;
+
 // Output schemas defined separately so the state type can be derived without circular references
 const outputSchemas = {
 	[TaskNames.INIT_YOUTUBE_VIDEO]: z.object({
@@ -268,7 +267,6 @@ const youtubeTasks = {
 		persist: true,
 		output: outputSchemas[TaskNames.EXTRACT_PROFILE],
 		run: async ({ state, context }) => {
-			console.log('CONTEXT', context);
 			const initCtx = getTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
 			const result = await invoke<Record<string, unknown>>('get_page_elements', {
 				url: initCtx.url,
@@ -438,6 +436,8 @@ const youtubeTasks = {
 				ttsState.setTextContents([summary]);
 				await ttsState.generateTTS(ctx.url);
 			}
+
+			return summary;
 		}
 	}),
 	[TaskNames.TITLE]: iaTask({

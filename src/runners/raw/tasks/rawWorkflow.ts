@@ -104,6 +104,8 @@ export const rawWorkflow = defineWorkflow({
 					ttsState.setTextContents([summary]);
 					await ttsState.generateTTS(ctx.rawId);
 				}
+
+				return summary;
 			}
 		})
 	}

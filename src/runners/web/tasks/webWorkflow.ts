@@ -265,6 +265,8 @@ export const webWorkflow = defineWorkflow({
 					ttsState.setTextContents([summary]);
 					await ttsState.generateTTS(ctx.url);
 				}
+
+				return summary;
 			}
 		})
 	}

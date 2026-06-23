@@ -206,6 +206,9 @@
 	>
 		<Icon name="ChevronRight" />
 	</button> -->
+	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+		<ToggleIcon name="ClipboardPaste" bind:checked={viewState.clipboardPollingEnabled} size={20} />
+	</button>
 	<button
 		type="button"
 		class="settings-trigger"
@@ -214,8 +217,6 @@
 	>
 		<Icon name="AudioWaveform" color="var(--primary-color)" size={20} />
 	</button>
-
-	<ToggleIcon name="ClipboardPaste" bind:checked={viewState.clipboardPollingEnabled} size={20} />
 
 	<button
 		type="button"
