@@ -46,15 +46,13 @@
 
 <div class="top-bar">
 	<button onclick={handleBackNavigation} class="back-navigation">⬅</button>
-	{#if faviconSrc}
-		<button type="button" class="favicon-btn" aria-label="Navigate back">
-			<img
-				class="favicon"
-				src={faviconSrc}
-				alt=""
-			/>
-		</button>
-	{/if}
+	<button type="button" class="favicon-btn" aria-label="Navigate back">
+		{#if faviconSrc}
+			<img class="favicon" src={faviconSrc} alt="" />
+		{:else}
+			<div class="favicon-placeholder"></div>
+		{/if}
+	</button>
 
 	{@render children?.()}
 </div>
@@ -123,5 +121,12 @@
 		border-radius: 8px;
 		width: 32px;
 		height: 32px;
+	}
+
+	.favicon-placeholder {
+		border-radius: 8px;
+		width: 32px;
+		height: 32px;
+		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 	}
 </style>
