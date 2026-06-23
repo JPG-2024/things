@@ -47,11 +47,11 @@
 			getArticlesByProfile(profile.id, {
 				limit: 20,
 				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30
-			}),
-		refetchOnWindowFocus: 'always'
+			})
 	});
 
 	async function goToprofile() {
+		viewState.currentProfileId = profile.id;
 		const profileUrl = getProfileUrl(profile.name);
 		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
 		await urlRouter(profileUrl, {
@@ -72,6 +72,7 @@
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
+		viewState.currentProfileId = profile.id;
 		urlRouter(article.url);
 		goto(`/youtube/${encodeURIComponent(article.url)}`);
 	}

@@ -1,6 +1,5 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
-import { saveArticle, saveTasks } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { RawTaskNames, rawTaskRegistry } from './tasks/rawWorkflow';
@@ -43,12 +42,12 @@ export async function rawRunner(
 		Rebuild: options.Rebuild
 	});
 
-	await Promise.all([
+	/* 	await Promise.all([
 		saveArticle(rawId, runResult.tasks, {
 			profile: RAW_TEXT_PROFILE
 		}),
 		saveTasks(rawId, runResult.tasks)
-	]);
+	]); */
 
 	return runResult.tasks as Task[];
 }

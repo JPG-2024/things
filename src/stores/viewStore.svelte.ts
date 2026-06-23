@@ -3,7 +3,7 @@ import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
 type language = 'en' | 'es';
 
-export const DEFAULT_PRIMARY_COLOR = 'rgb(250, 228, 192)';
+export const DEFAULT_PRIMARY_COLOR = 'rgb(211 227 254)';
 
 class ViewState {
 	language = $state<language>('es');
@@ -15,6 +15,7 @@ class ViewState {
 	selectedTaskId = $state('title-summary');
 
 	url = $state<string | null>(null);
+	currentProfileId = $state<string | null>(null);
 	hoveredProfileName = $state<string | null>(null);
 	hoveredProfileId = $state<string | null>(null);
 	hoveredPictureSrc = $state<string | null>(null);

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
@@ -28,8 +29,7 @@
 			getArticlesByProfile(categoryId, {
 				limit: 20,
 				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30
-			}),
-		refetchOnWindowFocus: 'always'
+			})
 	});
 
 	const profilesQuery = createQuery({
@@ -59,6 +59,7 @@
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
+		viewState.currentProfileId = categoryId;
 		await urlRouter(article.url);
 		navigate(`/youtube/${encodeURIComponent(article.url)}`);
 	}

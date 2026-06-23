@@ -9,7 +9,6 @@
 	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 	import { useQueryClient } from '@tanstack/svelte-query';
-	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 
 	interface Props {
@@ -30,7 +29,7 @@
 				window.removeEventListener('scroll', handleScroll);
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
 				queryClient.invalidateQueries({ queryKey: ['articles'] });
-				void prefetchHomeData(queryClient).then(() => goto('/'));
+				void goto('/');
 			}
 		}
 		window.addEventListener('scroll', handleScroll);
@@ -45,7 +44,11 @@
 		return () => {
 			if (viewState.url) {
 				void markArticleAsViewed(viewState.url).then(() => {
-					queryClient.invalidateQueries({ queryKey: ['articles'] });
+					if (viewState.currentProfileId) {
+						queryClient.invalidateQueries({ queryKey: ['articles', viewState.currentProfileId] });
+					} else {
+						queryClient.invalidateQueries({ queryKey: ['articles'] });
+					}
 				});
 			}
 		};
@@ -58,8 +61,11 @@
 			const res = await deleteArticleByUrl(viewState.url);
 			if (res?.success) {
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				queryClient.invalidateQueries({ queryKey: ['articles'] });
-				await prefetchHomeData(queryClient);
+				if (viewState.currentProfileId) {
+					queryClient.invalidateQueries({ queryKey: ['articles', viewState.currentProfileId] });
+				} else {
+					queryClient.invalidateQueries({ queryKey: ['articles'] });
+				}
 				goto(`/`);
 			} else {
 				console.error('Failed to delete article');

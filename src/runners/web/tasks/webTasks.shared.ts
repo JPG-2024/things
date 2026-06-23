@@ -10,7 +10,8 @@ export enum WebTaskNames {
 	TITLE_SUMMARY = 'title-summary',
 	KEYWORDS = 'keywords',
 	KEYPOINTS = 'key-points',
-	GENERATE_TTS = '〰'
+	GENERATE_TTS = '〰',
+	CATEGORY = 'CATEGORY'
 }
 
 export type WebTaskFactoryContext = {

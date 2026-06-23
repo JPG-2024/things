@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Filtro de glow reducido -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur1" />
+      <feGaussianBlur stdDeviation="4" result="blur2" />
+      <feGaussianBlur stdDeviation="8" result="blur3" />
+      <feGaussianBlur stdDeviation="16" result="blur4" />
+
+      <!-- Glow blanco sutil -->
+      <feGaussianBlur stdDeviation="24" result="blurWhite" />
+
+      <!-- Combinar -->
+      <feMerge result="merged">
+        <feMergeNode in="blurWhite" />
+        <feMergeNode in="blur4" />
+        <feMergeNode in="blur3" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Gradiente para el fondo -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a2e" />
+      <stop offset="100%" stop-color="#0d0d1a" />
+    </radialGradient>
+  </defs>
+
+  <!-- Fondo con bordes redondeados -->
+  <rect width="100%" height="100%" rx="80" fill="url(#bgGrad)" />
+
+  <!-- Borde sutil -->
+  <rect width="100%" height="100%" rx="80" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
+
+  <!-- Carácter T con glow blanco, fuente más fina -->
+  <text 
+    x="50%" 
+    y="50%" 
+    dy="0.05em"
+    text-anchor="middle" 
+    dominant-baseline="central"
+    font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif"
+    font-weight="300"
+    font-size="300"
+    fill="#ffffff"
+    filter="url(#glow)"
+    style="letter-spacing: -2px;"
+  >T</text>
+</svg>

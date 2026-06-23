@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-	defineWorkflow,
-	scriptTask,
-	iaTask,
-	getRequiredTaskState,
-	createContentGetter
-} from '@/runners/taskSchema';
+import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import {
 	RawTaskNames,
@@ -39,8 +33,6 @@ function getTaskState<TId extends keyof RawTaskState & string>(
 	return getRequiredTaskState(state, taskId) as RawTaskState[TId];
 }
 
-const getContentFromState = createContentGetter(RawTaskNames.CONTENT);
-
 export const rawWorkflow = defineWorkflow({
 	tasks: {
 		[RawTaskNames.INIT_RAW_CONTEXT]: scriptTask({
@@ -63,7 +55,6 @@ export const rawWorkflow = defineWorkflow({
 			output: outputSchemas[RawTaskNames.CONTENT],
 			run: ({ state }) => {
 				const init = getTaskState(state, RawTaskNames.INIT_RAW_CONTEXT);
-				console.log('INIT', init);
 				return init.rawText;
 			}
 		}),

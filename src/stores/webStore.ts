@@ -137,6 +137,33 @@ type LegacyPageElementItem = {
 	textContent?: unknown;
 };
 
+let _cachedTasksByUrl: Map<string, string> | null = null;
+let _cachedTasksTimestamp = 0;
+let _pendingTasksPromise: Promise<Map<string, string>> | null = null;
+const TASKS_CACHE_TTL = 30_000;
+
+async function getTasksByUrlMap(): Promise<Map<string, string>> {
+	if (_cachedTasksByUrl && Date.now() - _cachedTasksTimestamp < TASKS_CACHE_TTL) {
+		return _cachedTasksByUrl;
+	}
+
+	if (!_pendingTasksPromise) {
+		_pendingTasksPromise = (async () => {
+			const tasks = await invoke<WebStoreTaskRecord[]>('list_web_store_tasks');
+			const map = new Map<string, string>();
+			for (const task of tasks) {
+				map.set(task.url, task.tasksJson);
+			}
+			_cachedTasksByUrl = map;
+			_cachedTasksTimestamp = Date.now();
+			_pendingTasksPromise = null;
+			return map;
+		})();
+	}
+
+	return _pendingTasksPromise;
+}
+
 export function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
 	if (!raw) {
 		return [];
@@ -462,15 +489,10 @@ export async function fetchWebStoreArticlesByProfile(
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
-		const [articles, tasks] = await Promise.all([
+		const [articles, tasksByUrl] = await Promise.all([
 			invoke<WebStoreArticleRecord[]>('list_web_store_articles'),
-			invoke<WebStoreTaskRecord[]>('list_web_store_tasks')
+			getTasksByUrlMap()
 		]);
-
-		const tasksByUrl = new Map<string, string>();
-		for (const task of tasks) {
-			tasksByUrl.set(task.url, task.tasksJson);
-		}
 
 		const mappedArticles = articles.map((row) =>
 			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
@@ -535,20 +557,15 @@ export async function getArticlesByProfile(
 	}
 ): Promise<ArticleWithTasks[]> {
 	try {
-		const [articles, tasks] = await Promise.all([
+		const [articles, tasksByUrl] = await Promise.all([
 			fetchWebStoreArticlesByProfile(
 				profileId,
 				['id', 'url', 'title', 'thumbnail', 'mediaDirectory', 'viewed'],
 				options?.createdAtFrom,
 				options?.limit
 			),
-			invoke<WebStoreTaskRecord[]>('list_web_store_tasks')
+			getTasksByUrlMap()
 		]);
-
-		const tasksByUrl = new Map<string, string>();
-		for (const task of tasks) {
-			tasksByUrl.set(task.url, task.tasksJson);
-		}
 
 		const mappedArticles = articles.map((row) =>
 			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)

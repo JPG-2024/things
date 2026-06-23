@@ -9,7 +9,7 @@
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { prefetchHomeData } from '@/lib/prefetchHomeData';
+
 	import { playCoinSound } from '@/lib/utils/coinSound';
 	import TTSSettings from '@/components/modals/TTSSettings.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
@@ -68,7 +68,6 @@
 				await urlRouter(validUrl);
 				queryClient.invalidateQueries({ queryKey: ['profiles'] });
 				queryClient.invalidateQueries({ queryKey: ['articles'] });
-				await prefetchHomeData(queryClient);
 			} finally {
 				processingUrl = false;
 				await processQueue();
@@ -91,7 +90,6 @@
 			await rawRunner(rawId, trimmed);
 			queryClient.invalidateQueries({ queryKey: ['profiles'] });
 			queryClient.invalidateQueries({ queryKey: ['articles'] });
-			await prefetchHomeData(queryClient);
 		} finally {
 			viewState.loaded = true;
 			viewState.loading = false;

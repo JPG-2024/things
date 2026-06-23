@@ -11,10 +11,10 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getProfilesByCategories, deleteProfileById } from '@/stores/webStore';
-	import { prefetchHomeData } from '@/lib/prefetchHomeData';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 
 	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -134,7 +134,6 @@
 			await urlRouter(validUrl);
 			queryClient.invalidateQueries({ queryKey: ['profiles'] });
 			queryClient.invalidateQueries({ queryKey: ['articles'] });
-			await prefetchHomeData(queryClient);
 		} finally {
 			processingUrl = false;
 		}
@@ -215,6 +214,9 @@
 	>
 		<Icon name="AudioWaveform" color="var(--primary-color)" size={20} />
 	</button>
+
+	<ToggleIcon name="ClipboardPaste" bind:checked={viewState.clipboardPollingEnabled} size={20} />
+
 	<button
 		type="button"
 		class="settings-trigger"
