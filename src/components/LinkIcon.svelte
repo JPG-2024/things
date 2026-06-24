@@ -1,21 +1,38 @@
 <script lang="ts">
+	import { openUrl } from '@tauri-apps/plugin-opener';
 	import Icon from './Icon.svelte';
 
 	let { url }: { url: string } = $props();
 
-	async function copyToClipboard(event: MouseEvent) {
+	async function handleClick(event: MouseEvent) {
 		event.preventDefault();
-		try {
-			await navigator.clipboard.writeText(url);
-			// Optionally, you can show a notification or visual feedback here
-		} catch (err) {
-			// Optionally, handle error
-			console.error('Failed to copy!', err);
+		if (event.metaKey || event.ctrlKey || event.button === 2) {
+			try {
+				await navigator.clipboard.writeText(url);
+			} catch (err) {
+				console.error('Failed to copy!', err);
+			}
+			return;
 		}
+		try {
+			await openUrl(url);
+		} catch (err) {
+			console.error('Failed to open URL!', err);
+		}
+	}
+
+	function handleContextMenu(event: MouseEvent) {
+		event.preventDefault();
 	}
 </script>
 
-<button type="button" onclick={copyToClipboard} class="link" title="Copy link">
+<button
+	type="button"
+	onclick={handleClick}
+	oncontextmenu={handleContextMenu}
+	class="link"
+	title="Open link in browser (Cmd/Ctrl-click to copy)"
+>
 	<Icon name="Link" />
 </button>
 

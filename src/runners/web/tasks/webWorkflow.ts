@@ -131,7 +131,6 @@ export const webWorkflow = defineWorkflow({
 			persist: true,
 			output: outputSchemas[WebTaskNames.THUMBNAIL],
 			run: async ({ state }) => {
-				debugger;
 				const init = getTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);
 				const metadata = getTaskState(state, WebTaskNames.METADATA);
 				const imageUrl = metadata['og:image'] || metadata['twitter:image'];

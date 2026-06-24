@@ -579,14 +579,20 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 					const results = await Promise.allSettled(
 						readyScripts.map((task) => this.executeTask(task, options))
 					);
-					const failedIndex = results.findIndex((result) => result.status === 'rejected');
+					const failedIndexes = results
+						.map((result, index) => (result.status === 'rejected' ? index : -1))
+						.filter((index) => index !== -1);
 
-					if (failedIndex !== -1) {
-						failedTaskId = readyScripts[failedIndex]?.id;
-						if (failedTaskId) {
-							this.markDescendantsBlocked(failedTaskId);
+					if (failedIndexes.length > 0) {
+						for (const failedIndex of failedIndexes) {
+							const id = readyScripts[failedIndex]?.id;
+							if (id) {
+								this.markDescendantsBlocked(id);
+								if (!failedTaskId) failedTaskId = id;
+							}
 						}
-						break;
+						// Keep scheduling tasks that do not depend on the failed ones.
+						continue;
 					}
 					continue;
 				}
@@ -597,9 +603,10 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				try {
 					await this.executeTask(nextIa, options);
 				} catch {
-					failedTaskId = nextIa.id;
+					failedTaskId = failedTaskId ?? nextIa.id;
 					this.markDescendantsBlocked(nextIa.id);
-					break;
+					// Keep scheduling tasks that do not depend on the failed one.
+					continue;
 				}
 			}
 		} finally {

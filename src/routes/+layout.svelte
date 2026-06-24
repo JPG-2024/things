@@ -3,8 +3,6 @@
 	import { onMount } from 'svelte';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { invoke } from '@tauri-apps/api/core';
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { navigate } from '@/lib/utils/url';
 	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
@@ -17,16 +15,14 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import { rawRunner } from '@/runners/raw/rawRunner';
+	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
-	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 	let { children } = $props();
 
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
-	let processingUrl = $state(false);
 
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -35,76 +31,6 @@
 			}
 		}
 	});
-
-	function extractValidUrl(value: string): string | null {
-		const trimmedValue = value.trim();
-
-		if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
-			return null;
-		}
-
-		try {
-			const parsedUrl = new URL(trimmedValue);
-			if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-				return null;
-			}
-
-			return parsedUrl.toString();
-		} catch {
-			return null;
-		}
-	}
-
-	async function handlePasteUrl(content: string, replaceState = false) {
-		if (processingUrl) return;
-
-		const validUrl = extractValidUrl(content);
-
-		if (validUrl) {
-			processingUrl = true;
-			try {
-				viewState.lastHandledClipboardUrl = validUrl;
-				navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
-				await urlRouter(validUrl);
-				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				queryClient.invalidateQueries({ queryKey: ['articles'] });
-			} finally {
-				processingUrl = false;
-				await processQueue();
-			}
-			return;
-		}
-
-		const trimmed = content.trim();
-		if (!trimmed) return;
-
-		processingUrl = true;
-		const rawId = `raw-${Date.now()}`;
-
-		try {
-			viewState.lastHandledClipboardUrl = trimmed;
-			viewState.url = rawId;
-			viewState.loading = true;
-			viewState.loaded = false;
-			navigate(`/raw/${rawId}`, { replaceState });
-			await rawRunner(rawId, trimmed);
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
-			queryClient.invalidateQueries({ queryKey: ['articles'] });
-		} finally {
-			viewState.loaded = true;
-			viewState.loading = false;
-			processingUrl = false;
-			await processQueue();
-		}
-	}
-
-	async function processQueue() {
-		while (viewState.urlQueue.length > 0) {
-			const nextUrl = viewState.urlQueue.shift();
-			if (!nextUrl) break;
-			await handlePasteUrl(nextUrl, true);
-		}
-	}
 
 	$effect(() => {
 		const color = viewState.primaryColor;
@@ -181,7 +107,7 @@
 
 	onMount(() => {
 		const pollClipboard = async () => {
-			if (!viewState.clipboardPollingEnabled || processingUrl) return;
+			if (!viewState.clipboardPollingEnabled || viewState.processingUrl) return;
 
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
@@ -191,7 +117,7 @@
 					return;
 				}
 
-				if (processingUrl || viewState.loading) {
+				if (viewState.processingUrl || viewState.loading) {
 					if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
 						viewState.urlQueue.push(trimmed);
 					}
@@ -200,7 +126,7 @@
 
 				playCoinSound();
 
-				await handlePasteUrl(trimmed);
+				await handlePasteUrl(trimmed, { queryClient });
 			} catch {
 				viewState.clipboardPollingEnabled = false;
 			}

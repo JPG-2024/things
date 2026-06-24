@@ -128,6 +128,7 @@ const youtubeTasks = {
 			const urlObj = new URL(ctx.url);
 			const videoId = urlObj.searchParams.get('v');
 			ttsState.videoUrl = ctx.url;
+
 			return { url: ctx.url, videoId, language: ctx.language };
 		}
 	}),
@@ -326,7 +327,6 @@ const youtubeTasks = {
 
 			ttsState.namePrefix = profile.id;
 			ttsState.imageSrc = profile.profilePicture ?? '';
-			ttsState.videoUrl = profile.videoUrls[0] ?? '';
 
 			await saveProfile(
 				initCtx.profileId,
@@ -414,6 +414,7 @@ const youtubeTasks = {
 		component: 'taskBase',
 		output: outputSchemas[TaskNames.TITLE_SUMMARY],
 		systemMessage: `You are a reviewer of content.`,
+		persist: true,
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
 			return `Write a summary in 2 paragraphs. No markdown. No enumertions. no titles. Just a precize analisis. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
@@ -462,7 +463,8 @@ const youtubeTasks = {
 		dependencies: [TaskNames.CONTENT],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.KEYWORDS],
-		systemMessage: 'Return only valid JSON that matches the provided schema.',
+		systemMessage:
+			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
 		userMessage: 'extract 5 keywords.',
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
@@ -501,14 +503,19 @@ const youtubeTasks = {
 		dependencies: [TaskNames.KEYWORDS],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.CATEGORY],
-		systemMessage: 'Return only valid JSON that matches the provided schema.',
-		userMessage: `Give a category from this ones: ${viewState.categories}`,
+		systemMessage:
+			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
+		userMessage: () => {
+			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
+			return `Give a category from this ones: ${categoryNames}.`;
+		},
 		run: ({ state }) => {
-			const keywords = state[TaskNames.KEYWORDS];
-			return keywords.join(' ');
+			const keywords = state[TaskNames.KEYWORDS] as string[];
+			const stringKeywords = keywords.join(' ');
+
+			return stringKeywords;
 		},
 		resultParser: (text) => {
-			console.log(text);
 			const categories = parseStructuredArrayResponses(text);
 			return categories;
 		},
@@ -538,15 +545,18 @@ const youtubeTasks = {
 		dependencies: [TaskNames.EXTRACT_PROFILE],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.PROFILE_CATEGORY],
-		systemMessage: 'Return only valid JSON that matches the provided schema.',
+		systemMessage:
+			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
 		userMessage: () => {
 			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
-			return `Give a category from this ones: ${categoryNames || 'health, psychology, programming'}.`;
+			return `Give a category from this ones: ${categoryNames}.`;
 		},
 		run: ({ state }) => {
 			const profile = state[TaskNames.EXTRACT_PROFILE];
 			const videosTitles = profile.videosTitles;
-			return videosTitles.join(' ');
+			const textVideoTitles = videosTitles.join(' ');
+
+			return textVideoTitles;
 		},
 		resultParser: (text) => {
 			const categories = parseStructuredArrayResponses(text);
@@ -596,9 +606,9 @@ const youtubeTasks = {
 		output: outputSchemas[TaskNames.KEYPOINTS],
 		systemMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Return only valid JSON that matches the provided schema. Response in language: ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.`;
 		},
-		userMessage: 'extract 8 keypoints. Each keypoint should be a short, clear statement.',
+		userMessage: 'Extract 5 keywords from the text in Spanish.',
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
 			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');

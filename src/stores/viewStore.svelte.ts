@@ -9,6 +9,7 @@ class ViewState {
 	language = $state<language>('es');
 	loading = $state(false);
 	loaded = $state(false);
+	processingUrl = $state(false);
 	subStatus = $state<string | null>(null);
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);

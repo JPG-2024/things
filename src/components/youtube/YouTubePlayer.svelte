@@ -14,6 +14,8 @@
 	let showIframe = $state(false);
 	const playerData = $derived((task.data ?? {}) as Partial<YouTubePlayerContext>);
 
+	console.log(playerData);
+
 	void runId;
 	void componentProps;
 </script>
@@ -44,7 +46,7 @@
 			/>
 		</button>
 
-		<button
+		<!-- 		<button
 			class="yt-play"
 			onclick={() => {
 				showIframe = true;
@@ -53,7 +55,7 @@
 			title="Play video"
 		>
 			▶
-		</button>
+		</button> -->
 	{/if}
 </div>
 

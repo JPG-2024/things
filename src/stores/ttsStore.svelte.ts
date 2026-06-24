@@ -128,7 +128,6 @@ class TTSState {
 	}
 
 	async generateTTS(id: string): Promise<void> {
-		console.log('GENERATE', id);
 		if (this.textContents.length === 0) {
 			return;
 		}

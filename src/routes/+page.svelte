@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { invoke } from '@tauri-apps/api/core';
 
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { navigate } from '@/lib/utils/url';
+	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
@@ -16,9 +16,6 @@
 	import Categories from '@/components/Categories.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 
-	const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
-
-	let processingUrl = $state(false);
 	let glowIntensity = $state(1);
 
 	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
@@ -103,52 +100,27 @@
 		}
 	}
 
-	function extractValidUrl(value: string): string | null {
-		const trimmedValue = value.trim();
-
-		if (!trimmedValue || !HTTP_URL_REGEX.test(trimmedValue)) {
-			return null;
-		}
-
-		try {
-			const parsedUrl = new URL(trimmedValue);
-			if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-				return null;
-			}
-
-			return parsedUrl.toString();
-		} catch {
-			return null;
-		}
-	}
-
-	async function handlePasteUrl(url: string) {
-		const validUrl = extractValidUrl(url);
-		if (!validUrl || processingUrl) return;
-
-		processingUrl = true;
-
-		try {
-			viewState.lastHandledClipboardUrl = validUrl;
-			navigate(`/youtube/${encodeURIComponent(validUrl)}`);
-			await urlRouter(validUrl);
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
-			queryClient.invalidateQueries({ queryKey: ['articles'] });
-		} finally {
-			processingUrl = false;
-		}
-	}
-
 	function handleEnter(value: string) {
 		const trimmed = value.trim();
 		if (!trimmed) return;
 
 		const validUrl = extractValidUrl(trimmed);
 		if (validUrl) {
-			void handlePasteUrl(trimmed);
+			void handlePasteUrl(trimmed, { queryClient });
 		} else {
 			handleYoutubeQuestion(trimmed);
 			//navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
+		}
+	}
+
+	async function handleTitleClick() {
+		try {
+			const clipboardText = await invoke<string>('read_clipboard_text');
+			const trimmed = (clipboardText ?? '').trim();
+			if (!trimmed) return;
+			await handlePasteUrl(trimmed, { queryClient });
+		} catch {
+			viewState.clipboardPollingEnabled = false;
 		}
 	}
 
@@ -226,26 +198,36 @@
 	>
 		<Icon name="Cog" color="var(--primary-color)" size={20} />
 	</button>
+
+	<label class="color-dot-trigger" aria-label="Change primary color">
+		<span class="color-dot" style:background-color={viewState.primaryColor}></span>
+		<input
+			type="color"
+			class="color-picker-input"
+			value={rgbToHex(viewState.primaryColor)}
+			oninput={handleColorChange}
+		/>
+	</label>
 </div>
 
 <div class="dashboard-container">
 	<div class="title-row">
-		<label class="dashboard-title-label">
-			<span class="dashboard-title" style:--glow-opacity={glowIntensity}>Things</span>
-			<input
-				type="color"
-				class="color-picker-input"
-				value={rgbToHex(viewState.primaryColor)}
-				oninput={handleColorChange}
-			/>
-		</label>
+		<button
+			type="button"
+			class="dashboard-title"
+			style:--glow-opacity={glowIntensity}
+			onclick={handleTitleClick}
+			aria-label="Paste clipboard URL"
+		>
+			Things
+		</button>
 	</div>
 
 	<div class="inputs-container">
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
+		<!-- <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." /> -->
 
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
@@ -294,7 +276,7 @@
 		gap: 1.4rem;
 		align-items: center;
 		box-sizing: border-box;
-		padding: 50px 20px 20px;
+		padding: 50px 10px;
 		width: 100%;
 		min-height: 80px;
 	}
@@ -304,10 +286,13 @@
 	}
 
 	.dashboard-title {
+		all: unset;
+		cursor: pointer;
 		color: var(--primary-color);
 		font-size: 2.2rem;
 		padding: 0.1rem 1rem;
 		position: relative;
+		display: inline-block;
 
 		text-shadow:
 			0 0 5px
@@ -329,6 +314,7 @@
 		justify-content: center;
 		gap: 2rem;
 		width: 100%;
+		padding-bottom: 20%;
 	}
 
 	.empty-profiles-container {
@@ -373,11 +359,31 @@
 		padding: 10px;
 	}
 
-	.dashboard-title-label {
+	.color-dot-trigger {
+		all: unset;
+		position: relative;
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		cursor: pointer;
-		position: relative;
+		padding: 0.45rem;
+	}
+
+	.color-dot {
+		display: block;
+		width: 15px;
+		height: 15px;
+		border-radius: 50%;
+		border: 1px solid color-mix(in srgb, var(--primary-color) 60%, transparent);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--primary-color) 35%, transparent);
+		transition:
+			box-shadow 0.15s,
+			transform 0.15s;
+	}
+
+	.color-dot-trigger:hover .color-dot {
+		box-shadow: 0 0 10px color-mix(in srgb, var(--primary-color) 60%, transparent);
+		transform: scale(1.05);
 	}
 
 	.color-picker-input {

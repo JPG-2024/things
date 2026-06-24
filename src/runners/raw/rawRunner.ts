@@ -26,7 +26,7 @@ export async function rawRunner(
 	options: RawRunnerOptions = {}
 ): Promise<Task[]> {
 	const runId = rawId;
-	const freshRun = options.Rebuild === true;
+	const freshRun = true;
 
 	const tasks = await buildTaskSubroutine(
 		defaultRoutine,

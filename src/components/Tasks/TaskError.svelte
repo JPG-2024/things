@@ -100,7 +100,6 @@
 		border-bottom: 1px solid rgba(255, 143, 143, 0.15);
 
 		.title {
-			font-family: 'Bitstream Vera Sans';
 			font-size: 1.1rem;
 			margin-right: auto;
 			color: #ff8f8f;

@@ -6,12 +6,12 @@
 		checked = $bindable(false),
 		color = 'var(--primary-color)',
 		size = 18,
-		label,
+		label = null,
 		...props
 	} = $props();
 
 	const glowFilter =
-		'drop-shadow(0 0 5px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color)) drop-shadow(0 0 20px var(--primary-color)) drop-shadow(0 0 80px white)';
+		'drop-shadow(0 0 5px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color)) drop-shadow(0 0 80px white)';
 </script>
 
 <button type="button" class="toggle-wrapper" onclick={() => (checked = !checked)}>

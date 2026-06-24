@@ -80,11 +80,7 @@
 
 <article>
 	<Topbar>
-		<ToggleIcon
-			name="ListChecks"
-			checked={viewState.showAllTasks}
-			onToggle={() => (viewState.showAllTasks = !viewState.showAllTasks)}
-		/>
+		<ToggleIcon name="ListChecks" bind:checked={viewState.showAllTasks} />
 		<Icon name="RefreshCcw" onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })} />
 
 		{#if viewState.url && !viewState.loading}

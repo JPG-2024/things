@@ -86,6 +86,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_opener::init())
         // Register the command wrapper here
         .invoke_handler(tauri::generate_handler![
             list_web_store_articles,
