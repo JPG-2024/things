@@ -59,16 +59,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		padding: 1.5rem;
+		padding: 3rem 1.5rem;
 		width: 100%;
 	}
 
 	h2 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.1rem;
+		color: var(--primary-color);
 		display: flex;
-		align-items: center;
 		gap: 1rem;
-		margin: 0;
-		color: var(--primary-color, #fae4c0);
+		align-items: center;
 	}
 
 	.profile-info {

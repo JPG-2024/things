@@ -257,7 +257,9 @@
 		{#each profileCategories as profile (profile.id)}
 			<ProfileWidget {profile} showTitle={false} collapsed={viewState.collapseProfiles} />
 		{:else}
-			<div class="empty-profiles-pill">404</div>
+			<div class="empty-profiles-container">
+				<div class="empty-profiles-pill">404</div>
+			</div>
 		{/each}
 	</div>
 </div>
@@ -292,8 +294,9 @@
 		gap: 1.4rem;
 		align-items: center;
 		box-sizing: border-box;
-		padding: 30px 20px 20px;
+		padding: 50px 20px 20px;
 		width: 100%;
+		min-height: 80px;
 	}
 
 	.categories-container {
@@ -326,6 +329,14 @@
 		justify-content: center;
 		gap: 2rem;
 		width: 100%;
+	}
+
+	.empty-profiles-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
 	}
 
 	.empty-profiles-pill {

@@ -29,7 +29,7 @@ class ViewState {
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	blur = $state(false);
-	clipboardPollingEnabled = $state(true);
+	clipboardPollingEnabled = $state(false);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(10);
 	lastHandledClipboardUrl = $state('');

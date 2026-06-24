@@ -72,7 +72,7 @@
 		left: 0;
 		z-index: 10;
 		box-sizing: border-box;
-		padding: 0.2rem 1rem;
+		padding: 0.3rem 1rem;
 		padding-right: 1.8em;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
@@ -116,14 +116,14 @@
 
 	.favicon {
 		border-radius: 8px;
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 	}
 
 	.favicon-placeholder {
 		border-radius: 8px;
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 	}
 </style>

@@ -14,6 +14,7 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 
+	const config = getCurrentStyle();
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
 	let analyserNode: AnalyserNode | null = $state(null);
@@ -40,7 +41,7 @@
 
 	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
-	const PREBUFFER_SECONDS = 2;
+	const PREBUFFER_SECONDS = 2.3;
 	let elapsedSeconds = $state(0);
 	let totalPlaybackDuration = $state(0);
 	let nextChunkPrefetchRequested = false;
@@ -433,7 +434,7 @@
 			}
 		}
 
-		ctx.strokeStyle = viewState.primaryColor;
+		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
 		ctx.lineWidth = WAVE_STROKE_WIDTH;
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
@@ -451,7 +452,6 @@
 
 		resizeCanvas(ctx, width, height);
 
-		const config = getCurrentStyle();
 		const t = performance.now() / 1000;
 		const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
 		const pointCount = config.pointCount;
@@ -502,14 +502,45 @@
 		ctx.stroke(path);
 	}
 
+	function drawIdleLine() {
+		if (!canvas) return;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const width = canvas.clientWidth;
+		const height = canvas.clientHeight;
+		if (width === 0 || height === 0) return;
+
+		resizeCanvas(ctx, width, height);
+
+		ctx.clearRect(0, 0, width, height);
+		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
+		ctx.fillRect(0, 0, width, height);
+
+		const path = new Path2D();
+		path.moveTo(0, height / 2);
+		path.lineTo(width, height / 2);
+
+		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
+		ctx.lineWidth = WAVE_STROKE_WIDTH;
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.stroke(path);
+	}
+
 	function startAnimation() {
 		if (animationFrame !== null) return;
 
 		const step = () => {
 			if (analyserNode && ttsState.isPlaying && !ttsState.isPaused) {
 				drawWaveform();
-			} else if (ttsState.isGenerating || ttsState.addVoiceLoading) {
+			} else if (
+				ttsState.addVoiceLoading ||
+				(ttsState.isGenerating && ttsState.chunksGenerated === 0)
+			) {
 				drawGeneratingWave();
+			} else if (ttsState.isGenerating || waitingForChunk) {
+				drawIdleLine();
 			}
 			animationFrame = requestAnimationFrame(step);
 		};
@@ -528,6 +559,7 @@
 		const shouldAnimate =
 			ttsState.isGenerating ||
 			ttsState.addVoiceLoading ||
+			waitingForChunk ||
 			(analyserNode && ttsState.isPlaying && !ttsState.isPaused);
 		if (shouldAnimate) {
 			startAnimation();

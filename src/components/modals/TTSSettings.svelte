@@ -395,7 +395,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		padding: 1.5rem;
+		padding: 3rem 1.5rem;
 		border-radius: 8px;
 		background-color: rgba(255, 255, 255, 0.02);
 	}

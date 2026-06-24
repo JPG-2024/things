@@ -210,7 +210,7 @@ const youtubeTasks = {
 	}),
 	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
 		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO, TaskNames.GENERATE_TTS],
+		dependencies: [TaskNames.VIDEO_INFO],
 		persist: true,
 		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
 		run: async ({ state }) => {
@@ -508,6 +508,7 @@ const youtubeTasks = {
 			return keywords.join(' ');
 		},
 		resultParser: (text) => {
+			console.log(text);
 			const categories = parseStructuredArrayResponses(text);
 			return categories;
 		},
