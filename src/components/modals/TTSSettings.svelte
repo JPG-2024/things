@@ -7,6 +7,7 @@
 		fetchVoiceProfiles,
 		fetchVoiceChunks,
 		deleteVoiceChunk,
+		deleteVoiceProfile,
 		getImage,
 		type Voice,
 		type VoiceProfile
@@ -26,7 +27,7 @@
 	let voicesLoading = $state(false);
 	let voicesError = $state('');
 
-	let selectedNamePrefix = $state(ttsState.namePrefix);
+	let selectedProfileId = $state('');
 
 	let localSegment = $state(ttsState.segment);
 	let localChunkCount = $state(ttsState.chunkCount);
@@ -72,13 +73,13 @@
 
 			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
-				selectedNamePrefix = match.name_prefix;
+				selectedProfileId = match.id;
 				if (match.language) {
 					localLanguage = match.language as 'en' | 'es';
 				}
 				await loadChunksForProfile(match.id);
 			} else if (profiles.length > 0) {
-				selectedNamePrefix = profiles[0].name_prefix;
+				selectedProfileId = profiles[0].id;
 				if (profiles[0].language) {
 					localLanguage = profiles[0].language as 'en' | 'es';
 				}
@@ -100,7 +101,7 @@
 	}
 
 	async function reloadChunks() {
-		const profile = profiles.find((p) => p.name_prefix === selectedNamePrefix);
+		const profile = profiles.find((p) => p.id === selectedProfileId);
 		if (profile) {
 			await loadChunksForProfile(profile.id);
 		}
@@ -109,18 +110,18 @@
 	const namePrefixOptions = $derived(
 		profiles.map((p) => ({
 			label: p.name_prefix,
-			value: p.name_prefix,
+			value: p.id,
 			icon: p.image_src ? getImage(p.image_src) : ''
 		}))
 	);
 
 	const voicesForPrefix = $derived(chunks);
 
-	async function handleNamePrefixChange(prefix: string) {
-		selectedNamePrefix = prefix;
-		ttsState.namePrefix = prefix;
-		const profile = profiles.find((p) => p.name_prefix === prefix);
+	async function handleNamePrefixChange(id: string) {
+		selectedProfileId = id;
+		const profile = profiles.find((p) => p.id === id);
 		if (profile) {
+			ttsState.namePrefix = profile.name_prefix;
 			if (profile.language) {
 				localLanguage = profile.language as 'en' | 'es';
 			}
@@ -143,6 +144,31 @@
 		localConfig.refText = chunk.text_reference;
 
 		console.log(chunk.audio_file, chunk.text_reference);
+	}
+
+	async function handleDeleteProfile() {
+		const profile = profiles.find((p) => p.id === selectedProfileId);
+		if (!profile) return;
+
+		if (!confirm(`Delete voice profile "${profile.name_prefix}"?`)) return;
+
+		try {
+			await deleteVoiceProfile(profile.id);
+			profiles = profiles.filter((p) => p.id !== profile.id);
+			chunks = [];
+			selectedProfileId = '';
+			if (profiles.length > 0) {
+				const first = profiles[0];
+				selectedProfileId = first.id;
+				ttsState.namePrefix = first.name_prefix;
+				if (first.language) localLanguage = first.language as 'en' | 'es';
+				await loadChunksForProfile(first.id);
+			} else {
+				ttsState.namePrefix = '';
+			}
+		} catch (err) {
+			voicesError = err instanceof Error ? err.message : 'Failed to delete voice profile';
+		}
 	}
 
 	async function handleAddVoice() {
@@ -172,14 +198,27 @@
 
 	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
-			<IconDropdown
-				options={namePrefixOptions}
-				bind:value={selectedNamePrefix}
-				placeholder="Select a voice chunk..."
-				disabled={voicesForPrefix.length === 0}
-				onChange={handleNamePrefixChange}
-				iconSize={60}
-			/>
+			<div class="profile-row">
+				<IconDropdown
+					options={namePrefixOptions}
+					bind:value={selectedProfileId}
+					placeholder="Select a voice chunk..."
+					disabled={voicesForPrefix.length === 0}
+					onChange={handleNamePrefixChange}
+					iconSize={60}
+				/>
+
+				<button
+					type="button"
+					class="delete-profile-btn"
+					onclick={handleDeleteProfile}
+					disabled={!selectedProfileId}
+					aria-label="Delete voice profile"
+					title="Delete voice profile"
+				>
+					<Icon name="Trash" />
+				</button>
+			</div>
 
 			<div class="voice-buttons">
 				{#each voicesForPrefix as voice, i (voice.name)}
@@ -453,5 +492,39 @@
 	.image-preview-empty {
 		background: rgba(154, 154, 154, 0.12);
 		border: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.profile-row {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-end;
+	}
+
+	.delete-profile-btn {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		background: rgba(154, 154, 154, 0.12);
+		color: var(--primary-color);
+		cursor: pointer;
+		outline: none;
+		transition: all 0.2s ease;
+	}
+
+	.delete-profile-btn:hover:not(:disabled) {
+		background: rgba(255, 80, 80, 0.2);
+		border-color: rgba(255, 80, 80, 0.4);
+		color: #ff5050;
+	}
+
+	.delete-profile-btn:disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
 	}
 </style>

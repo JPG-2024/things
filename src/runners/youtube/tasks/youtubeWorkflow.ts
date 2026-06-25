@@ -325,7 +325,7 @@ const youtubeTasks = {
 				videosTitles: result.videosTitles as string[]
 			};
 
-			ttsState.namePrefix = profile.id;
+			ttsState.namePrefix = profile.name_prefix;
 			ttsState.imageSrc = pictureUrl ?? '';
 
 			await saveProfile(

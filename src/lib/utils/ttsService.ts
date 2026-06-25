@@ -25,6 +25,7 @@ export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 		return data.profiles;
 	} catch (err) {
 		console.error('An error occurred:', err.message);
+		throw err;
 	}
 }
 
