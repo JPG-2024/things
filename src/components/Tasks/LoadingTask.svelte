@@ -35,8 +35,8 @@
 {#if shouldShowTask}
 	<button
 		class="loading-container"
-		in:fly={{ x: -30, duration: 800 }}
-		out:fly={{ x: 30, duration: 400 }}
+		/* 		in:fly={{ x: -30, duration: 800 }}
+		out:fly={{ x: 30, duration: 400 }} */
 		onclick={() => (showModal = true)}
 	>
 		<Pill status={getPillStatus(task.status)} text={task.id} />

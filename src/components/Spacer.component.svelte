@@ -24,19 +24,19 @@
 {#if title}
 	<div class="spacer-accordion">
 		<button class="spacer-header" onclick={toggle}>
+			{#if icon}
+				<Icon name={icon} size={16} color="var(--primary-color)" />
+			{/if}
+			<span class="spacer-title">{title}</span>
 			<Icon
 				name="ChevronRight"
 				size={14}
-				color="rgba(255, 255, 255, 0.6)"
+				color="var(--primary-color)"
 				class="chevron"
 				style={open
 					? 'transform: rotate(90deg); transition: transform 0.2s'
 					: 'transition: transform 0.2s'}
 			/>
-			{#if icon}
-				<Icon name={icon} size={16} color="rgba(255, 255, 255, 0.6)" />
-			{/if}
-			<span class="spacer-title">{title}</span>
 		</button>
 		{#if open}
 			<div
@@ -85,16 +85,13 @@
 	}
 
 	.spacer-title {
+		color: rgba(255, 255, 255, 0.9);
 		font-size: 0.88rem;
-		color: rgba(255, 255, 255, 0.65);
-		color: var(--primary-color);
 		font-weight: bold;
 		font-size: 1.1rem;
-		color: var(--primary-color, #000);
 	}
 
 	.spacer-header:hover .spacer-title {
-		color: rgba(255, 255, 255, 0.9);
 	}
 
 	.spacer-content {
