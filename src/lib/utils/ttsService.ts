@@ -17,10 +17,19 @@ export interface Voice {
 }
 
 export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
-	const res = await fetch(`${WHISPER_API_URL}/voices`);
-	if (!res.ok) throw new Error(`Failed to fetch voice profiles: ${res.status}`);
-	const data: { profiles: VoiceProfile[] } = await res.json();
-	return data.profiles;
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices`);
+		if (!res.ok) throw new Error(`Failed to fetch voice profiles: ${res.status}`);
+		const data: { profiles: VoiceProfile[] } = await res.json();
+		console.log(data);
+		return data.profiles;
+	} catch (err) {
+		console.error('An error occurred:', err.message);
+	}
+}
+
+export function getImage(filename: string): string {
+	return `${WHISPER_API_URL}${filename}`;
 }
 
 export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
@@ -35,6 +44,13 @@ export async function deleteVoiceChunk(name: string): Promise<void> {
 		method: 'DELETE'
 	});
 	if (!res.ok) throw new Error(`Failed to delete voice chunk: ${res.status}`);
+}
+
+export async function deleteVoiceProfile(profileId: string): Promise<void> {
+	const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete voice profile: ${res.status}`);
 }
 
 export async function* parseSSE(

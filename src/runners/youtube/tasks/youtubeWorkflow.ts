@@ -326,7 +326,7 @@ const youtubeTasks = {
 			};
 
 			ttsState.namePrefix = profile.id;
-			ttsState.imageSrc = profile.profilePicture ?? '';
+			ttsState.imageSrc = pictureUrl ?? '';
 
 			await saveProfile(
 				initCtx.profileId,

@@ -7,6 +7,7 @@
 		fetchVoiceProfiles,
 		fetchVoiceChunks,
 		deleteVoiceChunk,
+		getImage,
 		type Voice,
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
@@ -109,7 +110,7 @@
 		profiles.map((p) => ({
 			label: p.name_prefix,
 			value: p.name_prefix,
-			icon: p.image_src ?? ''
+			icon: p.image_src ? getImage(p.image_src) : ''
 		}))
 	);
 
