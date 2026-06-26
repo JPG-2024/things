@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Things</title>
+		<div class="block"></div>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				width: 100%;
+				height: 100%;
+				background: #0e0e0e;
+				overflow: hidden;
+				font-family: 'CaskaydiaCove NFM Light', monospace;
+			}
+
+			#canvas {
+				position: fixed;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+
+			#title {
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				user-select: none;
+			}
+
+			.char {
+				position: absolute;
+				left: 0;
+				top: 0;
+				color: #ffffff;
+				font-size: clamp(1.5rem, 6vw, 5rem);
+				line-height: 1;
+				mix-blend-mode: difference;
+				opacity: 0.94;
+				will-change: transform, text-shadow;
+			}
+
+			.block {
+				height: 100px;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+		<div id="title" style:--glow-opacity="1"></div>
+
+		<script>
+			const canvas = document.getElementById('canvas');
+			const ctx = canvas.getContext('2d');
+			const title = document.getElementById('title');
+
+			const config = {
+				harmonics: [
+					{ cycles: 1.5, amplitudeRatio: 0.35, speedRatio: 1.0 },
+					{ cycles: 2.55, amplitudeRatio: 0.1, speedRatio: 1.3 }
+				],
+				amplitude: 0.18,
+				baseSpeed: 0.6,
+				pointCount: 80,
+				strokeAlpha: 1.0
+			};
+
+			const SPLINE_SAMPLE_STEP = 0.1;
+			const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
+			const MAX_WAVE_AMPLITUDE_PX = 80;
+			const WAVE_STROKE_WIDTH = 4;
+			const SINE_FILL_ALPHA = 0.24;
+
+			const chars = 'Things'.split('').map((letter) => {
+				const el = document.createElement('span');
+				el.className = 'char';
+				el.textContent = letter;
+				title.appendChild(el);
+				return el;
+			});
+
+			let glowIntensity = 1;
+
+			function triggerQuickBlink() {
+				const count = 2 + Math.floor(Math.random() * 6);
+				const timeouts = [];
+				let offset = 0;
+
+				for (let i = 0; i < count; i++) {
+					const dipDuration = 30 + Math.floor(Math.random() * 21);
+					const onDuration = 20 + Math.floor(Math.random() * 41);
+
+					timeouts.push(
+						setTimeout(() => {
+							glowIntensity = 0.15;
+						}, offset),
+						setTimeout(() => {
+							glowIntensity = 1;
+						}, offset + dipDuration)
+					);
+
+					offset += dipDuration + onDuration;
+				}
+
+				return timeouts;
+			}
+
+			let blinkTimeouts = [];
+			setInterval(() => {
+				if (Math.random() > 0.5) {
+					blinkTimeouts = triggerQuickBlink();
+				}
+			}, 8000);
+
+			function resize() {
+				const pixelRatio = window.devicePixelRatio || 1;
+				canvas.width = Math.floor(window.innerWidth * pixelRatio);
+				canvas.height = Math.floor(window.innerHeight * pixelRatio);
+				canvas.style.width = window.innerWidth + 'px';
+				canvas.style.height = window.innerHeight + 'px';
+				ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+			}
+
+			function catmullRomSpline(p0, p1, p2, p3, t) {
+				const t2 = t * t;
+				const t3 = t2 * t;
+				return (
+					0.5 *
+					(2 * p1 +
+						(-p0 + p2) * t +
+						(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+						(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+				);
+			}
+
+			function draw() {
+				const width = window.innerWidth;
+				const height = window.innerHeight;
+
+				ctx.clearRect(0, 0, width, height);
+				ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
+				ctx.fillRect(0, 0, width, height);
+
+				const t = performance.now() / 1000;
+				const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
+				const pointCount = config.pointCount;
+				const phaseSpeed = config.baseSpeed;
+
+				const points = [];
+				for (let i = 0; i < pointCount; i += 1) {
+					const u = pointCount === 1 ? 0 : i / (pointCount - 1);
+					let y = height / 2;
+					for (const h of config.harmonics) {
+						y +=
+							amplitude *
+							h.amplitudeRatio *
+							Math.sin(2 * Math.PI * h.cycles * u - t * phaseSpeed * h.speedRatio);
+					}
+					points.push(y);
+				}
+
+				const path = new Path2D();
+				const pixelStep = width / (points.length - 1);
+
+				if (points.length >= 2) {
+					path.moveTo(0, points[0]);
+
+					for (let i = 0; i < points.length - 1; i += 1) {
+						const p0 = points[i - 1] ?? points[0];
+						const p1 = points[i];
+						const p2 = points[i + 1];
+						const p3 = points[i + 2] ?? points[points.length - 1];
+
+						for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
+							const tt = j * SPLINE_SAMPLE_STEP;
+							const y = catmullRomSpline(p0, p1, p2, p3, tt);
+							const x = (i + tt) * pixelStep;
+							path.lineTo(x, y);
+						}
+					}
+				}
+
+				ctx.strokeStyle = `rgba(255, 255, 255, ${config.strokeAlpha})`;
+				ctx.lineWidth = WAVE_STROKE_WIDTH;
+				ctx.lineCap = 'round';
+				ctx.lineJoin = 'round';
+				ctx.stroke(path);
+
+				updateChars(points, pixelStep);
+
+				requestAnimationFrame(draw);
+			}
+
+			function updateChars(points, pixelStep) {
+				const widths = chars.map((el) => el.getBoundingClientRect().width);
+				const totalWidth = widths.reduce((a, b) => a + b, 0);
+				const centerX = window.innerWidth / 2;
+				let x = centerX - totalWidth / 2;
+
+				chars.forEach((el, i) => {
+					const charCenterX = x + widths[i] / 2;
+					const idx = Math.max(0, Math.min(points.length - 1, Math.round(charCenterX / pixelStep)));
+					const waveY = points[idx];
+					const charHeight = el.getBoundingClientRect().height;
+					const floatGap = charHeight * 0.15;
+					const y = waveY - charHeight / 2 - floatGap;
+
+					el.style.transform = `translate(${charCenterX}px, ${y}px) translate(-50%, -50%)`;
+					el.style.textShadow = `0 0 5px rgba(255,255,255,${glowIntensity}), 0 0 10px rgba(255,255,255,${glowIntensity}), 0 0 20px rgba(255,255,255,${glowIntensity}), 0 0 40px rgba(255,255,255,${glowIntensity}), 0 0 80px rgba(255,255,255,${glowIntensity})`;
+					x += widths[i];
+				});
+			}
+
+			window.addEventListener('resize', resize);
+			resize();
+			requestAnimationFrame(draw);
+		</script>
+	</body>
+</html>
