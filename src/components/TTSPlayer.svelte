@@ -12,7 +12,6 @@
 		closeAudioContext
 	} from '@/lib/audioContextManager';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
-	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 
 	const config = getCurrentStyle();
 	let canvas: HTMLCanvasElement | null = $state(null);
@@ -623,12 +622,14 @@
 
 	$effect(() => {
 		const currentSig = ttsState.configSig;
-		const url = ttsState.generatedId;
+		const id = ttsState.generatedId;
 
-		if (currentSig !== prevConfigSig && url) {
+		if (currentSig !== prevConfigSig && id) {
 			prevConfigSig = currentSig;
+			const contents = ttsState.textContents.slice();
 			stopPlayback();
-			generateTTSfromArticleURL(url).catch((err) => {
+			ttsState.setTextContents(contents);
+			void ttsState.forceRegenerate(id).catch((err) => {
 				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate TTS';
 				console.error('[TTS] Regeneration error:', err);
 			});

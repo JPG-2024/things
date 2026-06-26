@@ -450,7 +450,7 @@ const youtubeTasks = {
 		systemMessage: 'Avoid Markdown',
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Generate a short title for this context that describes the main idea in 10 words. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Generate a summary based on questions and answers. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const titleSummary = state[TaskNames.TITLE_SUMMARY];

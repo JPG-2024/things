@@ -13,12 +13,14 @@
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
 	import Button from '../inputs/Button.component.svelte';
+	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Input from '../inputs/Input.component.svelte';
 	import LoadingLine from '@/components/LoadingLine.svelte';
 	import RangeSelector from '../inputs/RangeSelector.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
@@ -95,6 +97,7 @@
 	async function loadChunksForProfile(profileId: string) {
 		try {
 			chunks = await fetchVoiceChunks(profileId);
+			ttsState.setVoiceChunks(chunks);
 		} catch (err) {
 			voicesError = err instanceof Error ? err.message : 'Failed to load voice chunks';
 		}
@@ -218,22 +221,26 @@
 				>
 					<Icon name="Trash" />
 				</button>
+
+				<ToggleIcon name="Shuffle" bind:checked={localConfig.randomChunk} label="Random chunk" />
 			</div>
 
-			<div class="voice-buttons">
-				{#each voicesForPrefix as voice, i (voice.name)}
-					<Button onClick={() => selectVoiceByIndex(i)}>
-						<div
-							role="button"
-							class="voice-button"
-							tabindex={i}
-							onmouseenter={() => (hoveredVoiceName = voice.name)}
-						>
-							{i + 1}
-						</div>
-					</Button>
-				{/each}
-			</div>
+			{#if !localConfig.randomChunk}
+				<div class="voice-buttons">
+					{#each voicesForPrefix as voice, i (voice.name)}
+						<Button onClick={() => selectVoiceByIndex(i)}>
+							<div
+								role="button"
+								class="voice-button"
+								tabindex={i}
+								onmouseenter={() => (hoveredVoiceName = voice.name)}
+							>
+								{i + 1}
+							</div>
+						</Button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		<Spacer size={25} />
@@ -327,6 +334,18 @@
 			step={0.05}
 			format={(v) => v.toFixed(2)}
 			onChange={(v) => (localConfig.speed = v)}
+		/>
+
+		<Dropdown
+			label="Chunk split level"
+			options={[
+				{ label: 'Coarse (paragraphs only)', value: '0' },
+				{ label: 'Default (paragraphs + sentences)', value: '1' },
+				{ label: 'Medium (+ clauses)', value: '2' },
+				{ label: 'Fine (+ soft breaks)', value: '3' }
+			]}
+			value={String(localConfig.splitLevel)}
+			onChange={(v) => (localConfig.splitLevel = Number(v) as 0 | 1 | 2 | 3)}
 		/>
 
 		<!-- 		<RangeSelector

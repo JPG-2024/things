@@ -1,24 +1,47 @@
 const MIN_CHUNK_CHARS = 50;
 
-export function splitTextIntoChunks(text: string): string[] {
+export function splitTextIntoChunks(text: string, level = 0): string[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 
-	const paragraphs = trimmed
+	const paragraphs = splitByParagraphs(trimmed);
+
+	if (level === 0) {
+		if (paragraphs.length > 1) {
+			return mergeSmallChunks(paragraphs);
+		}
+
+		const sentences = splitBySentences(trimmed);
+		if (sentences.length > 1) {
+			return mergeSmallChunks(sentences);
+		}
+
+		return [trimmed];
+	}
+
+	const allChunks: string[] = [];
+	for (const para of paragraphs) {
+		allChunks.push(...splitByDots(para));
+	}
+
+	if (level === 1) {
+		return mergeSmallChunks(allChunks);
+	}
+
+	let pieces = allChunks.flatMap((chunk) => splitByClauses(chunk));
+
+	if (level >= 3) {
+		pieces = pieces.flatMap((chunk) => splitBySoftBreaks(chunk));
+	}
+
+	return mergeSmallChunks(pieces);
+}
+
+function splitByParagraphs(text: string): string[] {
+	return text
 		.split(/\n\s*\n/)
 		.map((p) => p.trim())
 		.filter((p) => p.length > 0);
-
-	if (paragraphs.length > 1) {
-		return mergeSmallChunks(paragraphs);
-	}
-
-	const sentences = splitBySentences(trimmed);
-	if (sentences.length > 1) {
-		return mergeSmallChunks(sentences);
-	}
-
-	return [trimmed];
 }
 
 function splitBySentences(text: string): string[] {
@@ -42,6 +65,27 @@ function splitBySentences(text: string): string[] {
 		parts.push(current.trim());
 	}
 	return parts;
+}
+
+function splitByDots(text: string): string[] {
+	return text
+		.split(/(?<=[.!?。！？])\s+/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
+}
+
+function splitByClauses(text: string): string[] {
+	return text
+		.split(/(?<=[,;:])\s+/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
+}
+
+function splitBySoftBreaks(text: string): string[] {
+	return text
+		.split(/(?<=\s[—–-])\s+/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
 }
 
 function mergeSmallChunks(chunks: string[]): string[] {

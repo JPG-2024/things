@@ -1,5 +1,5 @@
 import { viewState } from './viewStore.svelte';
-import { addVoice, generateSpeech, parseSSE } from '@/lib/utils/ttsService';
+import { addVoice, generateSpeech, parseSSE, type Voice } from '@/lib/utils/ttsService';
 import { splitTextIntoChunks } from '@/lib/utils/splitText';
 
 export interface TTSRefConfig {
@@ -14,6 +14,8 @@ export interface TTSConfig extends TTSRefConfig {
 	speed: number;
 	preprocessPrompt: boolean;
 	postprocessOutput: boolean;
+	randomChunk: boolean;
+	splitLevel: 0 | 1 | 2 | 3;
 	tShift?: number;
 	positionTemperature?: number;
 	classTemperature?: number;
@@ -52,10 +54,15 @@ class TTSState {
 		guidanceScale: 3.0,
 		speed: 1.0,
 		preprocessPrompt: true,
-		postprocessOutput: true
+		postprocessOutput: true,
+		randomChunk: false,
+		splitLevel: 0
 	});
 	configSig = $derived(JSON.stringify(this.config));
 	private generatedConfigSig = $state('');
+
+	voiceChunks = $state<Voice[]>([]);
+	private _chunkRefs: Array<{ refAudioFilename: string; refText: string }> = [];
 
 	videoUrl = $state('');
 	segment = $state('00:00-01:00');
@@ -77,6 +84,10 @@ class TTSState {
 
 	clearTextContents(): void {
 		this.textContents = [];
+	}
+
+	setVoiceChunks(chunks: Voice[]): void {
+		this.voiceChunks = chunks;
 	}
 
 	clearPlaylist(): void {
@@ -118,6 +129,7 @@ class TTSState {
 		this.chunkNotifyVersion = 0;
 		this.generatedId = '';
 		this.generatedConfigSig = '';
+		this._chunkRefs = [];
 		if (clearTextContents) {
 			this.textContents = [];
 		}
@@ -149,10 +161,22 @@ class TTSState {
 
 		const allChunks: string[] = [];
 		for (const text of this.textContents) {
-			allChunks.push(...splitTextIntoChunks(text));
+			allChunks.push(...splitTextIntoChunks(text, this.config.splitLevel));
 		}
 
 		if (allChunks.length === 0) return;
+
+		this._chunkRefs = allChunks.map(() => {
+			if (this.config.randomChunk && this.voiceChunks.length > 0) {
+				const v = this.voiceChunks[Math.floor(Math.random() * this.voiceChunks.length)];
+				console.log('CHUNK', v.audio_file);
+				return { refAudioFilename: v.audio_file, refText: v.text_reference };
+			}
+			return {
+				refAudioFilename: this.config.refAudioFilename,
+				refText: this.config.refText
+			};
+		});
 
 		this.totalChunks = allChunks.length;
 		this.isGenerating = true;
@@ -166,8 +190,8 @@ class TTSState {
 			const res = await generateSpeech(
 				{
 					text: allChunks[0],
-					ref_audio: this.config.refAudioFilename,
-					ref_text: this.config.refText,
+					ref_audio: this._chunkRefs[0].refAudioFilename,
+					ref_text: this._chunkRefs[0].refText,
 					num_step: this.config.numStep,
 					denoise: this.config.denoise,
 					guidance_scale: this.config.guidanceScale,
@@ -235,8 +259,8 @@ class TTSState {
 			const res = await generateSpeech(
 				{
 					text: this._allChunks[i],
-					ref_audio: this.config.refAudioFilename,
-					ref_text: this.config.refText,
+					ref_audio: this._chunkRefs[i]?.refAudioFilename ?? this.config.refAudioFilename,
+					ref_text: this._chunkRefs[i]?.refText ?? this.config.refText,
 					num_step: this.config.numStep,
 					denoise: this.config.denoise,
 					guidance_scale: this.config.guidanceScale,
