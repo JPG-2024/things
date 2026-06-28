@@ -18,6 +18,7 @@ import {
 	type YouTubeTaskFactoryContext
 } from './youtubeTasks.shared';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
+import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
 
 export { TaskNames };
 
@@ -476,8 +477,8 @@ const youtubeTasks = {
 		component: 'keywords',
 		output: outputSchemas[TaskNames.KEYWORDS],
 		systemMessage:
-			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
-		userMessage: 'extract 5 keywords. respond in JSON format.',
+			'You are a data extraction assistant. Return only a JSON array of exactly 10 keywords. No markdown, no explanations.',
+		userMessage: 'extract 10 keywords. respond in JSON format.',
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
 			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
@@ -489,76 +490,46 @@ const youtubeTasks = {
 		},
 		completionOptions: {
 			...structuredOutputOptions,
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'keywords',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							keywords: {
-								type: 'array',
-								items: { type: 'string' },
-								minItems: 5,
-								maxItems: 5
-							}
-						},
-						required: ['keywords'],
-						additionalProperties: false
-					}
-				}
-			}
+			grammar: stringArrayGbnf(10)
 		}
 	}),
 	[TaskNames.CATEGORY]: iaTask({
-		dependencies: [TaskNames.TITLE_SUMMARY],
+		dependencies: [TaskNames.KEYWORDS],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.CATEGORY],
 		systemMessage:
-			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
+			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
 		userMessage: () => {
 			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
 			return `Give a category from this ones: ${categoryNames}.`;
 		},
 		run: ({ state }) => {
-			const summary = state[TaskNames.TITLE_SUMMARY] as string[];
-			console.log('KEYWORDS', summary);
+			const keywords = state[TaskNames.KEYWORDS] as string[];
+			const stringKeywords = keywords.join(' ');
 
-			return summary;
+			return stringKeywords;
 		},
 		resultParser: (text) => {
 			const categories = parseStructuredArrayResponses(text);
 			return categories;
 		},
-		completionOptions: {
+		completionOptions: () => ({
 			...structuredOutputOptions,
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'category',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							category: {
-								type: 'string',
-								enum: viewState.categories.map((c) => c.name)
-							}
-						},
-						required: ['category'],
-						additionalProperties: false
-					}
+			grammar: arrayToGbnf(
+				viewState.categories.map((c) => c.name),
+				{
+					minItems: 1,
+					maxItems: 1
 				}
-			}
-		}
+			)
+		})
 	}),
 	[TaskNames.PROFILE_CATEGORY]: iaTask({
 		dependencies: [TaskNames.EXTRACT_PROFILE],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.PROFILE_CATEGORY],
 		systemMessage:
-			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
+			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
 		userMessage: () => {
 			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
 			return `Give a category from this ones: ${categoryNames}.`;
@@ -591,24 +562,13 @@ const youtubeTasks = {
 		completionOptions: () => ({
 			...ytCompletionOptions,
 			temperature: 1.0,
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'category',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							category: {
-								type: 'string',
-								enum: viewState.categories.map((c) => c.name)
-							}
-						},
-						required: ['category'],
-						additionalProperties: false
-					}
+			grammar: arrayToGbnf(
+				viewState.categories.map((c) => c.name),
+				{
+					minItems: 1,
+					maxItems: 1
 				}
-			}
+			)
 		})
 	}),
 	[TaskNames.KEYPOINTS]: iaTask({
