@@ -35,7 +35,7 @@
 	});
 
 	async function handleNavigate(url: string) {
-		await urlRouter(url);
+		await urlRouter(url, { routine: 'fromProfile' });
 		goto(`/youtube/${encodeURIComponent(url)}`);
 	}
 </script>

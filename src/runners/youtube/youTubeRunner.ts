@@ -10,7 +10,7 @@ const fromUrl: TaskNames[] = [
 	TaskNames.THUMBNAIL,
 	TaskNames.VIDEO_INFO,
 	TaskNames.TITLE,
-	TaskNames.KEYWORDS,
+	//TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
 	TaskNames.TITLE_SUMMARY,
 	//TaskNames.CHAPTERS_SUMMARY,
@@ -27,6 +27,16 @@ const fromProfileRunner: TaskNames[] = [
 	//TaskNames.TITLE
 ];
 
+const fromProfile: TaskNames[] = [
+	TaskNames.THUMBNAIL,
+	TaskNames.VIDEO_INFO,
+	TaskNames.TITLE,
+	TaskNames.KEYWORDS,
+	TaskNames.CATEGORY,
+	TaskNames.TITLE_SUMMARY,
+	TaskNames.GENERATE_TTS
+];
+
 const previewRoutine: TaskNames[] = [TaskNames.THUMBNAIL];
 
 const fromCloneVoice: TaskNames[] = [TaskNames.VIDEO_INFO, TaskNames.PROFILE_FROM_VIDEO];
@@ -34,6 +44,7 @@ const fromCloneVoice: TaskNames[] = [TaskNames.VIDEO_INFO, TaskNames.PROFILE_FRO
 const routines = {
 	fromUrl,
 	fromFreshUrl,
+	fromProfile,
 	fromProfileRunner,
 	previewRoutine,
 	fromCloneVoice
@@ -63,6 +74,7 @@ export async function youTubeRunner(
 	const fromCloneVoice = drawersState.isOpen('tts-settings');
 	const routine = fromCloneVoice ? 'fromCloneVoice' : (runnerConfig?.routine ?? 'fromUrl');
 
+	console.log('routine', routine);
 	return getYtRunner()<YouTubeRunnerOptions>({
 		url: cleanUrl,
 		routine,

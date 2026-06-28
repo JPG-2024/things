@@ -28,6 +28,7 @@ pub struct WebStoreArticleRecord {
     pub updated_at: i64,
     pub embedding_source_text: Option<String>,
     pub viewed: bool,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +100,7 @@ pub struct UpsertWebStoreArticleInput {
     pub main_color: Option<String>,
     pub profile: Option<String>,
     pub embedding_source_text: Option<String>,
+    pub date: Option<String>,
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -145,7 +147,8 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             profile TEXT,
             embedding_source_text TEXT,
             updated_at INTEGER NOT NULL,
-            viewed INTEGER NOT NULL DEFAULT 0
+            viewed INTEGER NOT NULL DEFAULT 0,
+            date TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
         CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
@@ -187,6 +190,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_legacy_tables(conn)?;
     migrate_profile_url_column(conn)?;
     migrate_viewed_column(conn)?;
+    migrate_date_column(conn)?;
 
     Ok(())
 }
@@ -260,6 +264,21 @@ fn migrate_viewed_column(conn:&Connection) -> Result<(), String> {
 
     if !has_viewed_column {
         conn.execute_batch("ALTER TABLE web_articles ADD COLUMN viewed INTEGER NOT NULL DEFAULT 0")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_date_column(conn:&Connection) -> Result<(), String> {
+    let has_date_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='date'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_date_column {
+        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN date TEXT")
             .map_err(|error| error.to_string())?;
     }
 
@@ -362,6 +381,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     let embedding_source_text: Option<String> = row.get(9)?;
     let updated_at: i64 = row.get(10)?;
     let viewed_int: i64 = row.get(11)?;
+    let date: Option<String> = row.get(12)?;
 
     Ok(WebStoreArticleRecord {
         id,
@@ -378,6 +398,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
         updated_at,
         embedding_source_text,
         viewed: viewed_int != 0,
+        date,
     })
 }
 
@@ -385,11 +406,12 @@ fn query_articles(
     conn: &Connection,
     filter: Option<&str>,
     limit: Option<usize>,
+    sort: Option<&str>,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
     let mut sql = String::from(
         "SELECT id, url, created_at, title, thumbnail, content,
                 media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed
+                viewed, date
          FROM web_articles"
     );
     
@@ -398,7 +420,10 @@ fn query_articles(
         sql.push_str(f);
     }
     
-    sql.push_str(" ORDER BY created_at DESC");
+    match sort {
+        Some("date") => sql.push_str(" ORDER BY date IS NULL, date DESC"),
+        _ => sql.push_str(" ORDER BY created_at DESC"),
+    }
     
     if let Some(lim) = limit {
         sql.push_str(&format!(" LIMIT {}", lim));
@@ -517,7 +542,7 @@ fn rebuild_profiles_from_articles(
         .map(|p| (p.id, p.profile_picture))
         .collect();
 
-    let all_articles = query_articles(conn, None, None)?;
+    let all_articles = query_articles(conn, None, None, None)?;
     let mut aggregated = aggregate_profiles(all_articles);
 
     for profile in &mut aggregated {
@@ -557,7 +582,7 @@ pub async fn list_web_store_articles(
 ) -> Result<Vec<Value>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
-    let records = query_articles(&conn, None, None)?;
+    let records = query_articles(&conn, None, None, None)?;
     Ok(records
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
@@ -573,7 +598,7 @@ pub async fn list_web_store_profiles(
     let mut profiles = query_profiles(&conn)?;
 
     if profiles.is_empty() {
-        let aggregated = aggregate_profiles(query_articles(&conn, None, None)?);
+        let aggregated = aggregate_profiles(query_articles(&conn, None, None, None)?);
         for profile in &aggregated {
             upsert_profile(&conn, profile)?;
         }
@@ -597,7 +622,7 @@ pub async fn get_web_store_profile(
 pub async fn list_web_store_articles_by_profile(
     app: AppHandle,
     profile_id: String,
-    created_at_from: Option<i64>,
+    date_from: Option<String>,
     limit: Option<usize>,
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
@@ -612,15 +637,15 @@ pub async fn list_web_store_articles_by_profile(
         Some(format!("LOWER(profile) = '{}'", normalized_profile_id.replace('\'', "''")))
     };
 
-    let records = if let Some(from) = created_at_from {
-        let base_filter = format!("created_at >= {}", from);
+    let records = if let Some(ref from) = date_from {
+        let base_filter = format!("date >= '{}'", from.replace('\'', "''"));
         let combined_filter = match filter {
             Some(f) => format!("{} AND {}", base_filter, f),
             None => base_filter,
         };
-        query_articles(&conn, Some(&combined_filter), limit)?
+        query_articles(&conn, Some(&combined_filter), limit, Some("date"))?
     } else {
-        query_articles(&conn, filter.as_deref(), limit)?
+        query_articles(&conn, filter.as_deref(), limit, Some("date"))?
     };
 
     let filtered_records = if normalized_profile_id.is_empty() || normalized_profile_id == WEB_STORE_UNKNOWN_PROFILE_ID {
@@ -650,7 +675,7 @@ pub async fn list_web_store_profiles_with_articles_after(
     init_schema(&conn)?;
 
     let filter = format!("created_at >= {}", created_at_from);
-    let records = query_articles(&conn, Some(&filter), None)?;
+    let records = query_articles(&conn, Some(&filter), None, None)?;
 
     let mut profile_map: HashMap<String, (String, i64)> = HashMap::new();
 
@@ -708,7 +733,7 @@ pub async fn get_web_store_article_by_url(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
     let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
-    let mut records = query_articles(&conn, Some(&filter), Some(1))?;
+    let mut records = query_articles(&conn, Some(&filter), Some(1), None)?;
     Ok(records.pop())
 }
 
@@ -724,6 +749,7 @@ pub async fn upsert_web_store_article(
     input.main_color = normalize_optional_string(input.main_color);
     input.profile = normalize_optional_string(input.profile).map(|p| p.to_lowercase());
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
+    input.date = normalize_optional_string(input.date);
 
     let conn = get_db(&app)?;
     init_schema(&conn)?;
@@ -737,8 +763,8 @@ pub async fn upsert_web_store_article(
             "UPDATE web_articles SET 
                 title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
                 main_color = ?5, profile = ?6, 
-                embedding_source_text = ?7, updated_at = ?8 
-             WHERE url = ?9 COLLATE NOCASE",
+                embedding_source_text = ?7, date = ?8, updated_at = ?9 
+             WHERE url = ?10 COLLATE NOCASE",
             params![
                 input.title,
                 input.thumbnail,
@@ -747,6 +773,7 @@ pub async fn upsert_web_store_article(
                 input.main_color,
                 input.profile,
                 input.embedding_source_text,
+                input.date,
                 now,
                 input.url
             ],
@@ -756,8 +783,8 @@ pub async fn upsert_web_store_article(
         conn.execute(
             "INSERT INTO web_articles (id, url, created_at, title, thumbnail, content,
                                    media_directory, main_color, profile,
-                                   embedding_source_text, updated_at, viewed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0)",
+                                   embedding_source_text, date, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0)",
             params![
                 input.url,
                 input.url,
@@ -769,6 +796,7 @@ pub async fn upsert_web_store_article(
                 input.main_color,
                 input.profile,
                 input.embedding_source_text,
+                input.date,
                 now
             ],
         )

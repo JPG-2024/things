@@ -46,7 +46,7 @@
 		queryFn: () =>
 			getArticlesByProfile(profile.id, {
 				limit: 20,
-				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30
+				dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
 			})
 	});
 
@@ -106,7 +106,7 @@
 					</div>
 				</div>
 			{/if}
-			{#if $query.data?.length}
+			{#if profile.profilePictureSrc || $query.data?.length}
 				<div class="img-flex">
 					{#if profile.profilePictureSrc}
 						<div class="avatar-container">
@@ -130,54 +130,47 @@
 									}}
 								/>
 							</button>
-							<!-- 							<button
-								type="button"
-								class="collapse-toggle"
-								onclick={toggleCollapse}
-								aria-label={isCollapsed ? 'Expand' : 'Collapse'}
-								title={isCollapsed ? 'Expand' : 'Collapse'}
-							>
-								<Icon name={isCollapsed ? 'ChevronRight' : 'ChevronLeft'} />
-							</button> -->
 						</div>
 					{/if}
-					{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
-						<button
-							type="button"
-							class="img-button"
-							onclick={() => handleNavigateToArticle(article)}
-							onmouseenter={() => {
-								viewState.hoveredArticleUrl = article.url ?? null;
-								viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-							}}
-							onmouseleave={() => {
-								viewState.hoveredArticleUrl = null;
-							}}
-							aria-label="View article"
-						>
-							<div class="thumbnail-container">
-								{#if !article.viewed}
-									<span class="unread-dot"></span>
-								{/if}
-								<Tooltip content={article.title ?? ''}>
-									{#if article.thumbnailSrc}
-										<img
-											src={article.thumbnailSrc}
-											alt="Article"
-											class="mini-img"
-											style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-										/>
-									{:else}
-										<div class="mini-img-fallback" title={article.title ?? ''}>
-											{article.title?.slice(0, 45).concat('...') ?? ''}
-										</div>
+					{#if $query.data?.length}
+						{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
+							<button
+								type="button"
+								class="img-button"
+								onclick={() => handleNavigateToArticle(article)}
+								onmouseenter={() => {
+									viewState.hoveredArticleUrl = article.url ?? null;
+									viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
+								}}
+								onmouseleave={() => {
+									viewState.hoveredArticleUrl = null;
+								}}
+								aria-label="View article"
+							>
+								<div class="thumbnail-container">
+									{#if !article.viewed}
+										<span class="unread-dot"></span>
 									{/if}
-								</Tooltip>
-							</div>
-						</button>
-					{/each}
+									<Tooltip content={article.title ?? ''}>
+										{#if article.thumbnailSrc}
+											<img
+												src={article.thumbnailSrc}
+												alt="Article"
+												class="mini-img"
+												style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+											/>
+										{:else}
+											<div class="mini-img-fallback" title={article.title ?? ''}>
+												{article.title?.slice(0, 45).concat('...') ?? ''}
+											</div>
+										{/if}
+									</Tooltip>
+								</div>
+							</button>
+						{/each}
+					{/if}
 				</div>
-			{:else if $query.isLoading}{/if}
+			{/if}
 		</Card>
 	</div>
 </div>

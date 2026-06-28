@@ -51,6 +51,11 @@
 		return ctx.decodeAudioData(arrayBuffer);
 	}
 
+	function setTtsError(err: unknown, fallback: string) {
+		ttsState.errorMessage = err instanceof Error ? err.message : fallback;
+		console.error('[TTS]', err);
+	}
+
 	function recomputeChunkOffsets() {
 		chunkOffsets = [];
 		let cumulative = 0;
@@ -141,6 +146,9 @@
 			ttsState.isPaused = false;
 			waitingForChunk = false;
 			startCountdown();
+		} catch (err) {
+			setTtsError(err, 'Failed to play audio');
+			stopPlayback();
 		} finally {
 			isSettingUp = false;
 		}
@@ -176,8 +184,13 @@
 		decodedChunks = new Array(ttsState.blobs.length).fill(null);
 		chunkOffsets = [];
 		currentChunkIndex = 0;
-		await ensureAudioContext();
-		await playChunkAt(0);
+		try {
+			await ensureAudioContext();
+			await playChunkAt(0);
+		} catch (err) {
+			setTtsError(err, 'Failed to start playback');
+			stopPlayback();
+		}
 	}
 
 	function pausePlayback() {
@@ -200,8 +213,13 @@
 	async function resumePlayback() {
 		if (isSettingUp || !ttsState.isPaused) return;
 		const { chunkIndex, offsetInChunk } = findChunkAtTime(pausedAt);
-		await ensureDecodedChunk(chunkIndex);
-		await playChunkAt(chunkIndex, offsetInChunk);
+		try {
+			await ensureDecodedChunk(chunkIndex);
+			await playChunkAt(chunkIndex, offsetInChunk);
+		} catch (err) {
+			setTtsError(err, 'Failed to resume playback');
+			stopPlayback();
+		}
 	}
 
 	function cleanupAnalyser() {
@@ -285,15 +303,20 @@
 
 		if (ttsState.isPlaying) {
 			const { chunkIndex, offsetInChunk } = findChunkAtTime(clamped);
-			await ensureDecodedChunk(chunkIndex);
-			if (currentSource) {
-				currentSource.onended = null;
-				currentSource.stop();
-				currentSource.disconnect();
-				currentSource = null;
-				cleanupAnalyser();
+			try {
+				await ensureDecodedChunk(chunkIndex);
+				if (currentSource) {
+					currentSource.onended = null;
+					currentSource.stop();
+					currentSource.disconnect();
+					currentSource = null;
+					cleanupAnalyser();
+				}
+				await playChunkAt(chunkIndex, offsetInChunk);
+			} catch (err) {
+				setTtsError(err, 'Failed to seek');
+				stopPlayback();
 			}
-			await playChunkAt(chunkIndex, offsetInChunk);
 		} else if (ttsState.isPaused) {
 			pausedAt = clamped;
 			elapsedSeconds = clamped;
@@ -328,7 +351,12 @@
 		} else if (ttsState.isPaused) {
 			await resumePlayback();
 		} else {
-			await startFresh();
+			try {
+				await startFresh();
+			} catch (err) {
+				setTtsError(err, 'Failed to start playback');
+				stopPlayback();
+			}
 		}
 	}
 
@@ -604,15 +632,19 @@
 				while (decodedChunks.length < blobCount) {
 					decodedChunks.push(null);
 				}
-				await Promise.all(
-					ttsState.blobs.map(async (blob, i) => {
-						if (!decodedChunks[i]) {
-							decodedChunks[i] = await decodeBlob(blob, ctx);
-						}
-					})
-				);
-				recomputeChunkOffsets();
-				totalPlaybackDuration = computeTotalDuration();
+				try {
+					await Promise.all(
+						ttsState.blobs.map(async (blob, i) => {
+							if (!decodedChunks[i]) {
+								decodedChunks[i] = await decodeBlob(blob, ctx);
+							}
+						})
+					);
+					recomputeChunkOffsets();
+					totalPlaybackDuration = computeTotalDuration();
+				} catch (err) {
+					setTtsError(err, 'Failed to decode audio');
+				}
 			};
 			void decodeAll();
 		}

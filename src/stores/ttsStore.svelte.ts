@@ -343,13 +343,24 @@ class TTSState {
 				controller.signal
 			);
 
-			for await (const { event } of parseSSE(response)) {
+			for await (const { event, data } of parseSSE(response)) {
+				if (event === 'error') {
+					const message =
+						typeof data === 'object' && data !== null && 'message' in data
+							? String((data as { message: unknown }).message)
+							: 'Add voice failed';
+					throw new Error(message);
+				}
 				viewState.subStatus = event;
 			}
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
 				return;
 			}
+			const message = err instanceof Error ? err.message : 'Failed to add voice';
+			this.errorMessage = message;
+			this.addVoiceStatus = 'error';
+			this.addVoiceMessage = message;
 			console.error('[SSE] Error:', err);
 		} finally {
 			this.addVoiceLoading = false;

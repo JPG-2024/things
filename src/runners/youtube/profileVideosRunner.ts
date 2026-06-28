@@ -10,11 +10,14 @@ const fromUrlRoutine: TaskNames[] = [
 	TaskNames.PROFILE_CATEGORY
 ];
 
+const updateProfile: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
+
 const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE, TaskNames.PROFILE_CATEGORY];
 
 const routines = {
 	fromUrl: fromUrlRoutine,
-	fromVideo: fromVideoRoutine
+	fromVideo: fromVideoRoutine,
+	updateProfile
 };
 
 interface ProfileRunnerOptions {

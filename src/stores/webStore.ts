@@ -21,6 +21,7 @@ export interface ArticleWithTasks {
 	profilePicture?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
+	date?: string | null;
 	persistedTasks?: PersistedTaskState[];
 	viewed?: boolean | null;
 	[key: string]: unknown;
@@ -56,6 +57,7 @@ export type WebStoreArticleRecord = {
 	embeddingSourceText: string | null;
 	profilePicture: string | null;
 	viewed: boolean;
+	date: string | null;
 };
 
 export type WebStoreTaskRecord = {
@@ -123,6 +125,7 @@ type UpsertWebStoreArticleInput = {
 	mainColor: string | null;
 	profile: string | null;
 	embeddingSourceText: string | null;
+	date: string | null;
 };
 
 type StoredTask = {
@@ -394,6 +397,16 @@ export async function buildUpsertInput(params: {
 		getArticleStringField(params.existingArticle, 'profileId')
 	);
 
+	const videoInfoData = getStoredTaskData<{ uploadDate?: string }>(
+		params.tasksToSave,
+		'video-info'
+	);
+	const date = firstNormalizedString(
+		params.valuesToOverride?.date as string | undefined,
+		videoInfoData?.uploadDate,
+		params.existingArticle?.date as string | undefined
+	);
+
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
 		keywords
@@ -406,7 +419,8 @@ export async function buildUpsertInput(params: {
 		directory,
 		mainColor,
 		profile,
-		embeddingSourceText
+		embeddingSourceText,
+		date
 	};
 }
 
@@ -462,13 +476,13 @@ async function resolveProfilePictureBatch<T extends { profilePicture?: string | 
 export async function fetchWebStoreArticlesByProfile(
 	profileId: string,
 	fields?: string[],
-	createdAtFrom?: number,
+	dateFrom?: string,
 	limit?: number
 ): Promise<WebStoreArticleRecord[]> {
 	const payload: {
 		profileId: string;
 		fields?: string[];
-		createdAtFrom?: number;
+		dateFrom?: string;
 		limit?: number;
 	} = { profileId };
 
@@ -476,8 +490,8 @@ export async function fetchWebStoreArticlesByProfile(
 		payload.fields = fields;
 	}
 
-	if (typeof createdAtFrom === 'number') {
-		payload.createdAtFrom = createdAtFrom;
+	if (typeof dateFrom === 'string') {
+		payload.dateFrom = dateFrom;
 	}
 
 	if (typeof limit === 'number') {
@@ -552,16 +566,17 @@ export async function getProfilesWithArticlesAfter(
 export async function getArticlesByProfile(
 	profileId: string,
 	options?: {
-		createdAtFrom?: number;
+		dateFrom?: string;
 		limit?: number;
 	}
 ): Promise<ArticleWithTasks[]> {
 	try {
+		console.log('OPTIONS', options);
 		const [articles, tasksByUrl] = await Promise.all([
 			fetchWebStoreArticlesByProfile(
 				profileId,
 				['id', 'url', 'title', 'thumbnail', 'mediaDirectory', 'viewed'],
-				options?.createdAtFrom,
+				options?.dateFrom,
 				options?.limit
 			),
 			getTasksByUrlMap()

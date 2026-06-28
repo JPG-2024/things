@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import {
 		fetchVoiceProfiles,
 		fetchVoiceChunks,
@@ -27,7 +27,6 @@
 	let hoveredVoiceName = $state<string | null>(null);
 
 	let voicesLoading = $state(false);
-	let voicesError = $state('');
 
 	let selectedProfileId = $state('');
 
@@ -45,7 +44,7 @@
 				hoveredVoiceName = null;
 				await reloadChunks();
 			} catch (err) {
-				voicesError = err instanceof Error ? err.message : 'Failed to delete voice chunk';
+				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to delete voice chunk';
 			}
 		},
 		() => ({
@@ -69,7 +68,6 @@
 
 	async function loadProfiles() {
 		voicesLoading = true;
-		voicesError = '';
 		try {
 			profiles = await fetchVoiceProfiles();
 
@@ -88,7 +86,7 @@
 				await loadChunksForProfile(profiles[0].id);
 			}
 		} catch (err) {
-			voicesError = err instanceof Error ? err.message : 'Failed to load voices';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
 		} finally {
 			voicesLoading = false;
 		}
@@ -99,7 +97,7 @@
 			chunks = await fetchVoiceChunks(profileId);
 			ttsState.setVoiceChunks(chunks);
 		} catch (err) {
-			voicesError = err instanceof Error ? err.message : 'Failed to load voice chunks';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voice chunks';
 		}
 	}
 
@@ -170,13 +168,14 @@
 				ttsState.namePrefix = '';
 			}
 		} catch (err) {
-			voicesError = err instanceof Error ? err.message : 'Failed to delete voice profile';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to delete voice profile';
 		}
 	}
 
 	async function handleAddVoice() {
 		ttsState.segment = localSegment;
 		ttsState.chunkCount = localChunkCount;
+		drawersState.close('tts-settings');
 
 		await ttsState.startAddVoice();
 		if (ttsState.addVoiceStatus === 'done') {
@@ -190,10 +189,6 @@
 		<Icon name="AudioWaveform" size={30} color={viewState.primaryColor} />
 		<span>TTS Settings</span>
 	</h2>
-
-	{#if voicesError}
-		<p class="error">{voicesError}</p>
-	{/if}
 
 	{#if voicesLoading}
 		<p class="loading">Loading voices...</p>

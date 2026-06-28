@@ -45,6 +45,8 @@
 	$effect(() => {
 		let blinkTimeouts: ReturnType<typeof setTimeout>[] = [];
 
+		console.log(profileCategories);
+
 		const interval = setInterval(() => {
 			if (Math.random() > 0.5) {
 				blinkTimeouts = triggerQuickBlink();

@@ -6,7 +6,7 @@ import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
 import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
 import { parseLastVideoDate } from '@/lib/utils/date';
-import { saveProfile, getProfile, assignCategoriesToProfile } from '@/stores/webStore';
+import { saveProfile, getProfile, assignCategoriesToProfile, saveArticle } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
@@ -31,10 +31,11 @@ const ytCompletionOptions = {
 } as const;
 
 const structuredOutputOptions = {
-	temperature: 0.1,
+	temperature: 0,
 	top_p: 0.9,
 	top_k: 1,
-	presence_penalty: 0
+	presence_penalty: 0,
+	stream: false
 } as const;
 
 // Output schemas defined separately so the state type can be derived without circular references
@@ -80,7 +81,8 @@ const outputSchemas = {
 		videoUrls: z.array(z.string()),
 		videosTitles: z.array(z.string()),
 		videosImageSrc: z.array(z.string()),
-		id: z.string()
+		id: z.string(),
+		lastVideoDate: z.string()
 	}),
 	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: z.object({
 		videoUrls: z.array(z.string()),
@@ -205,6 +207,7 @@ const youtubeTasks = {
 			});
 
 			videoInfo.profileId = videoInfo.profileId.slice(1).toLowerCase();
+			videoInfo.uploadDate = parseLastVideoDate(videoInfo.uploadDate);
 
 			return videoInfo;
 		}
@@ -293,7 +296,7 @@ const youtubeTasks = {
 				],
 				attempts: 5,
 				intervalMs: 500,
-				scrollTimes: context.scrollTimes ?? 2
+				scrollTimes: context.scrollTimes ?? 1
 			});
 
 			const profilePictureRaw = result.profilePicture;
@@ -322,11 +325,9 @@ const youtubeTasks = {
 				profilePicture: profilePictureSrc,
 				videoUrls,
 				videosImageSrc: result.videosImageSrc as string[],
-				videosTitles: result.videosTitles as string[]
+				videosTitles: result.videosTitles as string[],
+				lastVideoDate
 			};
-
-			ttsState.namePrefix = profile.name_prefix;
-			ttsState.imageSrc = pictureUrl ?? '';
 
 			await saveProfile(
 				initCtx.profileId,
@@ -334,6 +335,9 @@ const youtubeTasks = {
 				lastVideoDate,
 				initCtx.url
 			);
+
+			ttsState.namePrefix = profile.name_prefix;
+			ttsState.imageSrc = pictureUrl ?? '';
 
 			return profile;
 		}
@@ -363,6 +367,14 @@ const youtubeTasks = {
 						options: { profileId }
 					})
 				);
+			}
+
+			const mostRecentUrl = profileData.videoUrls[0];
+			if (mostRecentUrl && profileData.lastVideoDate) {
+				await saveArticle(mostRecentUrl, [], {
+					date: profileData.lastVideoDate,
+					profile: profileId
+				});
 			}
 			return { videoUrls: profileData.videoUrls, results };
 		}
@@ -450,7 +462,7 @@ const youtubeTasks = {
 		systemMessage: 'Avoid Markdown',
 		userMessage: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
-			return `Generate a summary based on questions and answers. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
+			return `Create a short title describing the content. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: ({ state }) => {
 			const titleSummary = state[TaskNames.TITLE_SUMMARY];
@@ -465,7 +477,7 @@ const youtubeTasks = {
 		output: outputSchemas[TaskNames.KEYWORDS],
 		systemMessage:
 			'return `You are a data extraction assistant. You must return only valid JSON matching the provided schema. Do not include markdown formatting, conversational text, or numbered lists.',
-		userMessage: 'extract 5 keywords.',
+		userMessage: 'extract 5 keywords. respond in JSON format.',
 		run: ({ state }) => {
 			const content = state[TaskNames.CONTENT];
 			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
@@ -500,7 +512,7 @@ const youtubeTasks = {
 		}
 	}),
 	[TaskNames.CATEGORY]: iaTask({
-		dependencies: [TaskNames.KEYWORDS],
+		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'keywords',
 		output: outputSchemas[TaskNames.CATEGORY],
 		systemMessage:
@@ -510,10 +522,10 @@ const youtubeTasks = {
 			return `Give a category from this ones: ${categoryNames}.`;
 		},
 		run: ({ state }) => {
-			const keywords = state[TaskNames.KEYWORDS] as string[];
-			const stringKeywords = keywords.join(' ');
+			const summary = state[TaskNames.TITLE_SUMMARY] as string[];
+			console.log('KEYWORDS', summary);
 
-			return stringKeywords;
+			return summary;
 		},
 		resultParser: (text) => {
 			const categories = parseStructuredArrayResponses(text);

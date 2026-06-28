@@ -28,7 +28,7 @@
 		queryFn: () =>
 			getArticlesByProfile(categoryId, {
 				limit: 20,
-				createdAtFrom: Date.now() - 1000 * 60 * 60 * 24 * 30
+				dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
 			})
 	});
 

@@ -2,6 +2,7 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+
 	import { invoke } from '@tauri-apps/api/core';
 	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
@@ -47,7 +48,7 @@
 				if (mainElement === undefined) return;
 				mainElement.scrollTop = 0;
 			}, 200);
-		}
+		} 
 	}); */
 
 	afterNavigate(() => {

@@ -41,7 +41,10 @@ const routeDefinitions: UrlRoute[] = [
 		condition: YOUTUBE_URL_REGEX,
 		handler: (url, context) =>
 			youTubeRunner(url, {
-				runnerConfig: { cachedTasks: context?.cachedTasks, routine: 'fromUrl' }
+				runnerConfig: {
+					cachedTasks: context?.cachedTasks,
+					routine: context?.routine ?? 'fromUrl'
+				}
 			})
 	},
 	{

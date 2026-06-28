@@ -16,15 +16,40 @@ export interface Voice {
 	file_id?: string;
 }
 
+async function parseErrorDetail(res: Response): Promise<string> {
+	const err = await res.json().catch(() => ({}));
+	const detail = (err as { detail?: unknown }).detail;
+	return detail == null
+		? `Error ${res.status}`
+		: typeof detail === 'string'
+			? detail
+			: JSON.stringify(detail);
+}
+
+async function setErrorFrom(err: unknown, fallback: string): Promise<void> {
+	const { ttsState } = await import('@/stores/ttsStore.svelte');
+	ttsState.errorMessage = err instanceof Error ? err.message : fallback;
+}
+
+function isAbort(err: unknown): boolean {
+	return err instanceof DOMException && err.name === 'AbortError';
+}
+
 export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 	try {
 		const res = await fetch(`${WHISPER_API_URL}/voices`);
-		if (!res.ok) throw new Error(`Failed to fetch voice profiles: ${res.status}`);
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to fetch voice profiles');
+			throw new Error(message);
+		}
 		const data: { profiles: VoiceProfile[] } = await res.json();
 		console.log(data);
 		return data.profiles;
 	} catch (err) {
-		console.error('An error occurred:', err.message);
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to fetch voice profiles');
 		throw err;
 	}
 }
@@ -34,24 +59,57 @@ export function getImage(filename: string): string {
 }
 
 export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
-	const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`);
-	if (!res.ok) throw new Error(`Failed to fetch voice chunks: ${res.status}`);
-	const data: { chunks: Voice[] } = await res.json();
-	return data.chunks;
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`);
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to fetch voice chunks');
+			throw new Error(message);
+		}
+		const data: { chunks: Voice[] } = await res.json();
+		return data.chunks;
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to fetch voice chunks');
+		throw err;
+	}
 }
 
 export async function deleteVoiceChunk(name: string): Promise<void> {
-	const res = await fetch(`${WHISPER_API_URL}/voices/chunk/${encodeURIComponent(name)}`, {
-		method: 'DELETE'
-	});
-	if (!res.ok) throw new Error(`Failed to delete voice chunk: ${res.status}`);
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices/chunk/${encodeURIComponent(name)}`, {
+			method: 'DELETE'
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to delete voice chunk');
+			throw new Error(message);
+		}
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to delete voice chunk');
+		throw err;
+	}
 }
 
 export async function deleteVoiceProfile(profileId: string): Promise<void> {
-	const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
-		method: 'DELETE'
-	});
-	if (!res.ok) throw new Error(`Failed to delete voice profile: ${res.status}`);
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+			method: 'DELETE'
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to delete voice profile');
+			throw new Error(message);
+		}
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to delete voice profile');
+		throw err;
+	}
 }
 
 export async function* parseSSE(
@@ -97,14 +155,25 @@ export async function addVoice(
 		body.image_src = params.image_src;
 	}
 
-	const res = await fetch(`${WHISPER_API_URL}/transcribe-chunks`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body),
-		signal
-	});
-	if (!res.ok) throw new Error(`Failed to start transcription: ${res.status}`);
-	return res;
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/transcribe-chunks`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+			signal
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to start transcription');
+			throw new Error(message);
+		}
+		return res;
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to start transcription');
+		throw err;
+	}
 }
 
 export async function generateSpeech(
@@ -129,27 +198,28 @@ export async function generateSpeech(
 	},
 	signal?: AbortSignal
 ): Promise<{ blob: Blob; durationSeconds: number | null }> {
-	const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(params),
-		signal
-	});
+	try {
+		const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(params),
+			signal
+		});
 
-	if (!res.ok) {
-		const err = await res.json().catch(() => ({}));
-		const detail = (err as { detail?: unknown }).detail;
-		const detailStr =
-			detail == null
-				? `Error ${res.status}`
-				: typeof detail === 'string'
-					? detail
-					: JSON.stringify(detail);
-		throw new Error(detailStr);
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to generate speech');
+			throw new Error(message);
+		}
+		const durationSeconds = Number.parseFloat(res.headers.get('X-Duration-Seconds') ?? 'null');
+
+		const blob = await res.blob();
+
+		return { blob, durationSeconds };
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to generate speech');
+		throw err;
 	}
-	const durationSeconds = Number.parseFloat(res.headers.get('X-Duration-Seconds') ?? 'null');
-
-	const blob = await res.blob();
-
-	return { blob, durationSeconds };
 }

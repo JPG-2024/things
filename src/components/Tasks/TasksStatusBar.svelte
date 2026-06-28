@@ -9,7 +9,7 @@
 	const hasActiveTasks = $derived(
 		stackedTasks.some(({ task }) => {
 			const s = task.status;
-			return s === 'running' || s === 'failed' || s === 'blocked' || viewState.showAllTasks;
+			return s === 'running' /* || s === 'failed' */ || s === 'blocked' || viewState.showAllTasks;
 		})
 	);
 
@@ -45,7 +45,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
-		background: linear-gradient(to top, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
+		/* background: linear-gradient(to top, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)); */
 		position: fixed;
 		bottom: 0;
 		left: 0;
