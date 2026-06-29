@@ -43,6 +43,8 @@ class TTSState {
 	private _allChunks: string[] = [];
 	private _nextChunkIndex = 0;
 	private _generationSession = 0;
+	private _generationTimes: number[] = [];
+	private readonly _MAX_TRACKED_TIMES = 5;
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -60,6 +62,11 @@ class TTSState {
 	});
 	configSig = $derived(JSON.stringify(this.config));
 	private generatedConfigSig = $state('');
+
+	get averageGenerationTime(): number {
+		if (this._generationTimes.length === 0) return 0;
+		return this._generationTimes.reduce((a, b) => a + b, 0) / this._generationTimes.length;
+	}
 
 	voiceChunks = $state<Voice[]>([]);
 	private _chunkRefs: Array<{ refAudioFilename: string; refText: string }> = [];
@@ -130,6 +137,7 @@ class TTSState {
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		this._chunkRefs = [];
+		this._generationTimes = [];
 		if (clearTextContents) {
 			this.textContents = [];
 		}
@@ -256,6 +264,7 @@ class TTSState {
 		const i = this._nextChunkIndex;
 
 		try {
+			const genStart = performance.now();
 			const res = await generateSpeech(
 				{
 					text: this._allChunks[i],
@@ -277,6 +286,11 @@ class TTSState {
 				},
 				abort.signal
 			);
+			const genElapsed = (performance.now() - genStart) / 1000;
+			this._generationTimes.push(genElapsed);
+			if (this._generationTimes.length > this._MAX_TRACKED_TIMES) {
+				this._generationTimes.shift();
+			}
 
 			if (this._generationSession !== session) {
 				return;

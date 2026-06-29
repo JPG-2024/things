@@ -40,7 +40,8 @@
 
 	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
-	const PREBUFFER_SECONDS = 2.3;
+	const PREBUFFER_RATIO = 0.3;
+	const MIN_PREBUFFER = 1.5;
 	let elapsedSeconds = $state(0);
 	let totalPlaybackDuration = $state(0);
 	let nextChunkPrefetchRequested = false;
@@ -140,6 +141,7 @@
 			nextChunkPrefetchRequested = false;
 
 			recomputeChunkOffsets();
+			totalPlaybackDuration = computeTotalDuration();
 			const globalStart = chunkOffsets[index] + offsetInChunk;
 			playbackStartTime = performance.now() - globalStart * 1000;
 			ttsState.isPlaying = true;
@@ -276,7 +278,14 @@
 					playbackStartTime + (chunkOffsets[currentChunkIndex] + currentChunkDuration) * 1000;
 				const timeRemaining = (chunkEndTime - performance.now()) / 1000;
 
-				if (timeRemaining <= PREBUFFER_SECONDS) {
+				const estimatedGenTime = ttsState.averageGenerationTime;
+				const prebufferSeconds = Math.max(
+					MIN_PREBUFFER,
+					currentChunkDuration * PREBUFFER_RATIO,
+					estimatedGenTime * 1.2
+				);
+
+				if (timeRemaining <= prebufferSeconds) {
 					nextChunkPrefetchRequested = true;
 					void ttsState.generateNextChunk();
 				}
@@ -345,7 +354,7 @@
 	}
 
 	async function handlePrimaryClick() {
-		if (ttsState.isGenerating) return;
+		if (ttsState.isGenerating && !ttsState.isPlaying) return;
 		if (ttsState.isPlaying) {
 			pausePlayback();
 		} else if (ttsState.isPaused) {
@@ -624,7 +633,7 @@
 		const blobCount = ttsState.blobs.length;
 		const total = ttsState.totalChunks;
 
-		if (generating) {
+		if (generating && !ttsState.isPlaying && !ttsState.isPaused) {
 			totalPlaybackDuration = 0;
 		} else if (blobCount > 0 && blobCount === total) {
 			const ctx = getAudioContext();
