@@ -51,7 +51,7 @@
 		left: 0;
 		right: 0;
 		padding: 2rem;
-		z-index: 1000;
+		z-index: 1100;
 	}
 
 	.loading-pills {

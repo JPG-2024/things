@@ -89,6 +89,10 @@ export const rawWorkflow = defineWorkflow({
 				const content = getTaskState(state, RawTaskNames.CONTENT);
 				return content;
 			},
+			onComplete: ({ result, context }) => {
+				ttsState.setTextContents([result]);
+				ttsState.generateTTS(context.url);
+			},
 			completionOptions: defaultCompletionOptions
 		}),
 

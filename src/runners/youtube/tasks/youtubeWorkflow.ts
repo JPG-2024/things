@@ -19,17 +19,9 @@ import {
 } from './youtubeTasks.shared';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
+import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
 
 export { TaskNames };
-
-const ytCompletionOptions = {
-	model: 'llama-server',
-	temperature: 0.8,
-	min_p: 0.0,
-	presence_penalty: 1.5,
-	repetition_penalty: 1.0,
-	stream: true
-} as const;
 
 const structuredOutputOptions = {
 	temperature: 0,
@@ -286,7 +278,7 @@ const youtubeTasks = {
 					{ name: 'videoIds', selector: 'a.ytLockupViewModelContentImage', attribute: 'href' },
 					{
 						name: 'uploadDate',
-						selector: 'div.ytLockupMetadataViewModelMetadata span:nth-of-type(3)'
+						selector: 'div.ytLockupViewModelMetadata span:nth-of-type(3)'
 					},
 					{
 						name: 'videosImageSrc',
@@ -299,6 +291,8 @@ const youtubeTasks = {
 				intervalMs: 500,
 				scrollTimes: context.scrollTimes ?? 1
 			});
+
+			console.log(result);
 
 			const profilePictureRaw = result.profilePicture;
 			const pictureUrl = Array.isArray(profilePictureRaw)
@@ -419,7 +413,7 @@ const youtubeTasks = {
 			return `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 		},
 		run: getContentFromState,
-		completionOptions: ytCompletionOptions
+		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
 	[TaskNames.TITLE_SUMMARY]: iaTask({
 		name: 'Title Summary',
@@ -436,7 +430,11 @@ const youtubeTasks = {
 			const content = getTaskState(state, TaskNames.CONTENT);
 			return content;
 		},
-		completionOptions: ytCompletionOptions
+		onComplete: ({ result, context }) => {
+			ttsState.setTextContents([result]);
+			ttsState.generateTTS(context.url);
+		},
+		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
 	[TaskNames.GENERATE_TTS]: scriptTask({
 		name: 'Generate TTS',
@@ -470,7 +468,7 @@ const youtubeTasks = {
 			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
 			return titleSummary;
 		},
-		completionOptions: ytCompletionOptions
+		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
 	[TaskNames.KEYWORDS]: iaTask({
 		dependencies: [TaskNames.CONTENT],
@@ -560,7 +558,7 @@ const youtubeTasks = {
 			}
 		},
 		completionOptions: () => ({
-			...ytCompletionOptions,
+			...DEFAULT_COMPLETION_OPTIONS,
 			temperature: 1.0,
 			grammar: arrayToGbnf(
 				viewState.categories.map((c) => c.name),
@@ -629,7 +627,7 @@ function buildChapterSummaryTasks(
 		run: () => `Title: ${chapter.title}\n\n${chapter.content}`,
 		userMessage:
 			'Summarize this chapter in 2 lines. add a relevant emoji at the beginning of the summary.',
-		completionOptions: ytCompletionOptions
+		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}));
 }
 

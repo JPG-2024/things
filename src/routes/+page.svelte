@@ -4,7 +4,6 @@
 
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import Input from '@/components/inputs/Input.component.svelte';
 	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
@@ -83,6 +82,8 @@
 		queryFn: () => getProfilesByCategories(viewState.selectedCategories),
 		placeholderData: (prev) => prev
 	});
+
+	console.log(profilesQuery);
 
 	let initialCategoryLoad = $state(true);
 	$effect(() => {

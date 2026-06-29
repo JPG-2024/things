@@ -53,10 +53,14 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 		  }) => Record<string, unknown>);
 	baseUrl?: string;
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
-	resultParser?: (text: string) => TParsed | Promise<TParsed>;
+	resultParser?: (
+		text: string,
+		ctx: { context: TContext; state: Readonly<Record<string, unknown>> }
+	) => TParsed | Promise<TParsed>;
 	onComplete?: (params: {
 		result: unknown;
 		runResult: string;
+		context: TContext;
 		state: Readonly<Record<string, unknown>>;
 	}) => void | Promise<void>;
 };
@@ -213,14 +217,23 @@ function buildIaTask<
 						});
 					}
 				: undefined,
-			resultParser: def.resultParser as IaTask<TMap, TId, TParsed>['resultParser'],
-			onComplete: def.onComplete as IaTask<TMap, TId, TParsed>['onComplete'] as
-				| ((params: {
+			resultParser: def.resultParser
+				? async (
+						text: string,
+						ctx: { state: Readonly<TaskGlobalState<TMap>> }
+					) => {
+						return def.resultParser!(text, { ...ctx, context });
+					}
+				: undefined,
+			onComplete: def.onComplete
+				? async (params: {
 						result: TParsed;
 						runResult: string;
 						state: Readonly<TaskGlobalState<TMap>>;
-				  }) => void | Promise<void>)
-				| undefined
+					}) => {
+						await def.onComplete!({ ...params, context });
+					}
+				: undefined
 		};
 	};
 }

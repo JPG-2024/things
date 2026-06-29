@@ -104,7 +104,10 @@ export interface IaTask<
 	};
 	baseUrl?: string;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
-	resultParser?: (text: string) => TParsed | Promise<TParsed>;
+	resultParser?: (
+		text: string,
+		ctx: { state: Readonly<TaskGlobalState<TMap>> }
+	) => TParsed | Promise<TParsed>;
 	onComplete?: (params: {
 		result: TParsed;
 		runResult: string;

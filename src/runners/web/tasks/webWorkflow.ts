@@ -18,6 +18,7 @@ import {
 	WebTaskNames,
 	type WebTaskFactoryContext
 } from './webTasks.shared';
+import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
 
 export { WebTaskNames };
 
@@ -167,19 +168,24 @@ export const webWorkflow = defineWorkflow({
 			}
 		}),
 
-		[WebTaskNames.TITLE]: scriptTask({
-			name: 'Extract title',
-			dependencies: [WebTaskNames.METADATA],
+		[WebTaskNames.TITLE]: iaTask({
+			name: 'Title',
+			dependencies: [WebTaskNames.TITLE_SUMMARY],
 			component: 'taskBase',
-			persist: true,
+			gridSpan: 1,
 			output: outputSchemas[WebTaskNames.TITLE],
+			systemMessage: 'Avoid Markdown',
+			persist: true,
+			userMessage: ({ context }) => {
+				return `Create a short title describing the content. maximum 2 sentences. Answer in ${context.language === 'es' ? 'Spanish' : 'English'}.`;
+			},
 			run: ({ state }) => {
-				const metadata = getTaskState(state, WebTaskNames.METADATA);
-				const possibleTitle =
-					metadata['og:title'] || metadata['twitter:title'] || metadata.title || '';
-
-				return possibleTitle.trim();
-			}
+				const titleSummary = state[WebTaskNames.TITLE_SUMMARY];
+				if (typeof titleSummary !== 'string')
+					throw new Error('TITLE_SUMMARY is missing or invalid');
+				return titleSummary;
+			},
+			completionOptions: DEFAULT_COMPLETION_OPTIONS
 		}),
 
 		[WebTaskNames.CONTENT]: scriptTask({
@@ -210,6 +216,10 @@ export const webWorkflow = defineWorkflow({
 			run: ({ state }) => {
 				const content = getTaskState(state, WebTaskNames.CONTENT);
 				return content;
+			},
+			onComplete: ({ result, context }) => {
+				ttsState.setTextContents([result]);
+				ttsState.generateTTS(context.url);
 			},
 			completionOptions: defaultCompletionOptions
 		}),

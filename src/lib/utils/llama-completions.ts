@@ -1,3 +1,12 @@
+export const DEFAULT_COMPLETION_OPTIONS = {
+	model: 'llama-server',
+	temperature: 0.8,
+	min_p: 0.0,
+	presence_penalty: 1.5,
+	repetition_penalty: 1.0,
+	stream: true
+} as const;
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export interface JsonObject {

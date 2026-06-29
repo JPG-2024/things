@@ -11,8 +11,8 @@ const webPage = [
 	WebTaskNames.THUMBNAIL,
 	WebTaskNames.TITLE,
 	WebTaskNames.CONTENT,
-	WebTaskNames.TITLE_SUMMARY,
-	WebTaskNames.GENERATE_TTS
+	WebTaskNames.TITLE_SUMMARY
+	//WebTaskNames.GENERATE_TTS
 ] as const satisfies readonly WebTaskId[];
 
 const quickArticle = [
@@ -69,7 +69,8 @@ export async function webRunner(
 	await Promise.all([
 		saveArticle(url, runResult.tasks, {
 			profile: viewState.domainUrl,
-			profilePicture: `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`
+			profilePicture: `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`,
+			date: new Date().toISOString()
 		}),
 		saveTasks(url, runResult.tasks)
 	]);

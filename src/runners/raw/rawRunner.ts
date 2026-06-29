@@ -9,8 +9,8 @@ type RawTaskId = keyof typeof rawTaskRegistry & string;
 const defaultRoutine = [
 	RawTaskNames.TITLE,
 	RawTaskNames.CONTENT,
-	RawTaskNames.TITLE_SUMMARY,
-	RawTaskNames.GENERATE_TTS
+	RawTaskNames.TITLE_SUMMARY
+	//RawTaskNames.GENERATE_TTS
 ] as const satisfies readonly RawTaskId[];
 
 type RawRunnerOptions = {
