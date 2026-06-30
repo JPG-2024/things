@@ -1,6 +1,6 @@
 # TTS End-to-End Flow
 
-This document traces the complete path of text-to-speech generation in Notian, from raw text input to final audio playback.
+This document traces the complete path of text-to-speech generation in Things, from raw text input to final audio playback.
 
 ## Overview
 

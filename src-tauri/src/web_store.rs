@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use tauri::{AppHandle, Manager};
 
-const DB_FILE:&str = "notian.db";
+const DB_FILE:&str = "things.db";
 pub const WEB_STORE_UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const WEB_STORE_UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 

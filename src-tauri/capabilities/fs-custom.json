@@ -1,7 +1,7 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "fs-custom",
-	"description": "Permite leer imágenes desde la carpeta ~/notian y escribir en appdata para thumbnails",
+	"description": "Permite leer imágenes desde la carpeta ~/things y escribir en appdata para thumbnails",
 	"windows": ["main"],
 	"permissions": [
 		"core:default",
@@ -19,8 +19,8 @@
 				{ "path": "$APPDATA/**" },
 				{ "path": "$APPDATA/media" },
 				{ "path": "$APPDATA/media/*" },
-				{ "path": "$HOME/notian" },
-				{ "path": "$HOME/notian/**" },
+				{ "path": "$HOME/things" },
+				{ "path": "$HOME/things/**" },
 				{ "path": "$TEMP/**" }
 			]
 		}

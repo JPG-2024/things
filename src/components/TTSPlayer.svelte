@@ -31,6 +31,9 @@
 	const amplitudeScale = 0.3;
 	const wavelengthScale = 300;
 
+	let showControls = $state(true);
+	let hideControlsTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	const SINE_FILL_ALPHA = 0.24;
 	const WAVE_STROKE_WIDTH = 4;
 	//const WAVE_STROKE_COLOR = 'white';
@@ -148,6 +151,7 @@
 			ttsState.isPaused = false;
 			waitingForChunk = false;
 			startCountdown();
+			scheduleHideControls();
 		} catch (err) {
 			setTtsError(err, 'Failed to play audio');
 			stopPlayback();
@@ -201,6 +205,11 @@
 		ttsState.isPaused = true;
 		ttsState.isPlaying = false;
 		clearCountdown();
+		if (hideControlsTimeout !== null) {
+			clearTimeout(hideControlsTimeout);
+			hideControlsTimeout = null;
+		}
+		showControls = true;
 		currentSource.onended = null;
 		try {
 			currentSource.stop();
@@ -244,6 +253,11 @@
 		}
 		cleanupAnalyser();
 		clearCountdown();
+		if (hideControlsTimeout !== null) {
+			clearTimeout(hideControlsTimeout);
+			hideControlsTimeout = null;
+		}
+		showControls = true;
 
 		ttsState.isPaused = false;
 		pausedAt = 0;
@@ -298,6 +312,20 @@
 			clearInterval(countdownInterval);
 			countdownInterval = null;
 		}
+	}
+
+	function scheduleHideControls() {
+		if (hideControlsTimeout !== null) {
+			clearTimeout(hideControlsTimeout);
+		}
+		hideControlsTimeout = setTimeout(() => {
+			showControls = false;
+		}, 1000);
+	}
+
+	function handlePlayerMouseMove() {
+		showControls = true;
+		scheduleHideControls();
 	}
 
 	function getCurrentPosition(): number {
@@ -716,6 +744,7 @@
 		in:fade={{ duration: 3000, easing: cubicOut }}
 		out:fade={{ duration: 80 }}
 		class="tts-player"
+		onmousemove={handlePlayerMouseMove}
 	>
 		<div class="tts-player__header">
 			<!-- 			<div class="tts-player__picture-container">
@@ -727,8 +756,8 @@
 			<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
 		</div>
 
-		{#if ttsState.isPlaying || ttsState.isPaused}
-			<div class="tts-player__controls">
+		{#if (ttsState.isPlaying || ttsState.isPaused) && showControls}
+			<div class="tts-player__controls" transition:fade={{ duration: 200 }}>
 				<button
 					type="button"
 					class="tts-player__btn"

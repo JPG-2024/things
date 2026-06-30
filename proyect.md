@@ -1,6 +1,6 @@
-# Notian Project Analysis
+# Things Project Analysis
 
-This document provides an overview of the Notian project's architecture, organization, and security model.
+This document provides an overview of the Things project's architecture, organization, and security model.
 
 ## Project Organization Patterns
 

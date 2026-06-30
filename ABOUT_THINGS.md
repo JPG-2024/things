@@ -1,14 +1,14 @@
-# Notian — Turn Any Link Into Insight
+# Things — Turn Any Link Into Insight
 
-Notian is a privacy‑first, desktop app that turns links into structured notes and instant summaries. Paste or copy a URL and Notian will fetch the page exactly as a browser does, extract the main content and metadata, convert it to clean Markdown, and stream a concise AI summary in real time.
+Things is a privacy‑first, desktop app that turns links into structured notes and instant summaries. Paste or copy a URL and Things will fetch the page exactly as a browser does, extract the main content and metadata, convert it to clean Markdown, and stream a concise AI summary in real time.
 
 ## What makes it unique
 
-- Local-first and secure: Built on Tauri (Rust + SvelteKit) with a deny-by-default capability model. The UI can only do what it’s explicitly allowed to do.
-- Clipboard-driven workflow: Copy a URL anywhere; Notian listens and auto-runs the right flow (blog/article vs. YouTube) with zero friction.
-- “What-you-see” extraction: Uses a real Chromium automation layer with anti‑detect hardening (custom UA + stealth script) to load pages like a real user—more resilient than plain HTTP scraping.
+- Local-first and secure: Built on Tauri (Rust + SvelteKit) with a deny-by-default capability model. The UI can only do what it's explicitly allowed to do.
+- Clipboard-driven workflow: Copy a URL anywhere; Things listens and auto-runs the right flow (blog/article vs. YouTube) with zero friction.
+- "What-you-see" extraction: Uses a real Chromium automation layer with anti‑detect hardening (custom UA + stealth script) to load pages like a real user—more resilient than plain HTTP scraping.
 - Clean Markdown, not noise: Converts only the meaningful content (selectors like `article`/`main`, with intelligent fallbacks), skipping headers/nav/scripts/styles.
-- Streaming insights: Summaries stream token-by-token via the OpenRouter API, so you don’t wait for a full response to start reading.
+- Streaming insights: Summaries stream token-by-token via the OpenRouter API, so you don't wait for a full response to start reading.
 - Typed event bus for UX: Progress and results are emitted as structured events (metadata and markdown), enabling responsive UI states and clear feedback.
 
 ## What it does today
@@ -17,7 +17,7 @@ Notian is a privacy‑first, desktop app that turns links into structured notes 
   - Loads the page in a hardened headless Chromium context
   - Pulls metadata (title, description, OpenGraph fields)
   - Converts the main content to Markdown with noise reduction
-  - Optionally saves the main preview image (og:image) to your local `~/notian/images`
+  - Optionally saves the main preview image (og:image) to your local `~/things/images`
 - Summarizes with AI
   - Streams a short, readable summary (currently Spanish prompt by default; easily configurable)
 - Handles YouTube links
@@ -29,8 +29,8 @@ Notian is a privacy‑first, desktop app that turns links into structured notes 
 
 ## Why it matters
 
-- Captures the web “as seen” rather than relying on brittle HTML scraping alone
-- Produces Markdown that’s ready for knowledge bases, wikis, or note apps
+- Captures the web "as seen" rather than relying on brittle HTML scraping alone
+- Produces Markdown that's ready for knowledge bases, wikis, or note apps
 - Cuts the friction from reading-to-notes with a single copy/paste action
 - Keeps sensitive workflows local while using cloud AI only for summarization
 
@@ -62,4 +62,4 @@ Notian is a privacy‑first, desktop app that turns links into structured notes 
 
 ---
 
-Notian is designed to be fast, reliable, and delightful for knowledge workers who live between the browser and their notes. If you capture links, you’ll ship better notes—with less effort.
+Things is designed to be fast, reliable, and delightful for knowledge workers who live between the browser and their notes. If you capture links, you'll ship better notes—with less effort.
