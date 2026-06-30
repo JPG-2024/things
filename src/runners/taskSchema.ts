@@ -218,10 +218,7 @@ function buildIaTask<
 					}
 				: undefined,
 			resultParser: def.resultParser
-				? async (
-						text: string,
-						ctx: { state: Readonly<TaskGlobalState<TMap>> }
-					) => {
+				? async (text: string, ctx: { state: Readonly<TaskGlobalState<TMap>> }) => {
 						return def.resultParser!(text, { ...ctx, context });
 					}
 				: undefined,

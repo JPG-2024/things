@@ -3,16 +3,11 @@ import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeT
 import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
 import { saveTasks } from '@/stores/webStore';
 
-const fromUrlRoutine: TaskNames[] = [
-	TaskNames.INIT_YOUTUBE_PROFILE,
-	TaskNames.EXTRACT_PROFILE,
-	TaskNames.EXTRACT_CHANNEL_VIDEOS,
-	TaskNames.PROFILE_CATEGORY
-];
+const fromUrlRoutine: TaskNames[] = [TaskNames.INIT_YOUTUBE_PROFILE];
 
-const updateProfile: TaskNames[] = [TaskNames.EXTRACT_PROFILE];
+const updateProfile: TaskNames[] = [];
 
-const fromVideoRoutine: TaskNames[] = [TaskNames.EXTRACT_PROFILE, TaskNames.PROFILE_CATEGORY];
+const fromVideoRoutine: TaskNames[] = [];
 
 const routines = {
 	fromUrl: fromUrlRoutine,

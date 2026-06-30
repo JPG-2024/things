@@ -3,20 +3,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { getImageColor } from '@/lib/utils/getImageColor';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
-import { removeYTPpParam } from '@/lib/utils/youtube/helpers';
-import { joinCaptionsByChapters } from '@/lib/utils/youtube/joinCaptionsByChapters';
-import { parseLastVideoDate } from '@/lib/utils/date';
-import { saveProfile, getProfile, assignCategoriesToProfile, saveArticle } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
-import { youTubeRunner } from '../youTubeRunner';
-import { profileRunner } from '../profileVideosRunner';
-import {
-	buildVideoPageParams,
-	TaskNames,
-	type YouTubeTaskFactoryContext
-} from './youtubeTasks.shared';
+import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
@@ -31,7 +21,6 @@ const structuredOutputOptions = {
 	stream: false
 } as const;
 
-// Output schemas defined separately so the state type can be derived without circular references
 const outputSchemas = {
 	[TaskNames.INIT_YOUTUBE_VIDEO]: z.object({
 		url: z.string(),
@@ -53,52 +42,22 @@ const outputSchemas = {
 		url: z.string()
 	}),
 	[TaskNames.MAIN_COLOR]: z.string(),
-	[TaskNames.VIDEO_INFO]: z
-		.object({
-			title: z.string(),
-			views: z.string(),
-			uploadDate: z.string(),
-			profileId: z.string(),
-			profilePicture: z.string()
-		})
-		.passthrough(),
-	[TaskNames.PROFILE_FROM_VIDEO]: z.object({
-		profileId: z.string()
-	}),
-	[TaskNames.CHAPTERS]: z.array(z.object({}).passthrough()),
 	[TaskNames.TIMED_CAPTIONS]: z.array(z.object({ caption: z.string() }).passthrough()),
 	[TaskNames.CONTENT]: z.string(),
-	[TaskNames.EXTRACT_PROFILE]: z.object({
-		name: z.string(),
-		profilePicture: z.string().nullable(),
-		videoUrls: z.array(z.string()),
-		videosTitles: z.array(z.string()),
-		videosImageSrc: z.array(z.string()),
-		id: z.string(),
-		lastVideoDate: z.string()
-	}),
-	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: z.object({
-		videoUrls: z.array(z.string()),
-		results: z.array(z.unknown())
-	}),
-	[TaskNames.CHAPTERS_SUMMARY]: z.object({
-		chapterCaptions: z.array(z.object({}).passthrough())
-	}),
 	[TaskNames.SUMMARY]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.TITLE]: z.string(),
 	[TaskNames.KEYWORDS]: z.array(z.string()),
 	[TaskNames.KEYPOINTS]: z.string(),
 	[TaskNames.GENERATE_TTS]: z.string(),
-	[TaskNames.CATEGORY]: z.array(z.string()),
-	[TaskNames.PROFILE_CATEGORY]: z.array(z.string())
+	[TaskNames.CATEGORY]: z.array(z.string())
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
 
 export type YouTubeTaskState = {
 	[K in keyof OutputSchemas]: z.infer<OutputSchemas[K]>;
-} & Record<`chapter-summary-${number}`, string>;
+};
 
 function getTaskState<TId extends keyof YouTubeTaskState & string>(
 	state: Readonly<Record<string, unknown>>,
@@ -179,59 +138,6 @@ const youtubeTasks = {
 			return mainColor;
 		}
 	}),
-	[TaskNames.VIDEO_INFO]: scriptTask({
-		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
-		component: 'videoInfo',
-		persist: true,
-		output: outputSchemas[TaskNames.VIDEO_INFO],
-		run: async ({ state }) => {
-			const context = getTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
-			const videoInfo = await invoke<Record<string, string>>('get_page_elements', {
-				...buildVideoPageParams(context.url),
-				selectors: [
-					{ name: 'title', selector: '#title h1 yt-formatted-string' },
-					{ name: 'views', selector: 'span.view-count' },
-					{ name: 'uploadDate', selector: 'div#info-strings yt-formatted-string' },
-					{ name: 'profileId', selector: 'div#upload-info a', attribute: 'href' },
-					{ name: 'profilePicture', selector: '#img ', attribute: 'src' }
-				],
-				attempts: 5,
-				intervalMs: 200
-			});
-
-			videoInfo.profileId = videoInfo.profileId.slice(1).toLowerCase();
-			videoInfo.uploadDate = parseLastVideoDate(videoInfo.uploadDate);
-
-			return videoInfo;
-		}
-	}),
-	[TaskNames.PROFILE_FROM_VIDEO]: scriptTask({
-		name: 'Extract profile from video',
-		dependencies: [TaskNames.VIDEO_INFO],
-		persist: true,
-		output: outputSchemas[TaskNames.PROFILE_FROM_VIDEO],
-		run: async ({ state }) => {
-			const { profileId } = getTaskState(state, TaskNames.VIDEO_INFO);
-
-			if (!profileId) throw new Error('No profileId found in video info');
-			const existingProfile = await getProfile(profileId);
-			if (existingProfile) return { profileId };
-			const profileUrl = `https://www.youtube.com/${profileId}/videos`;
-			await profileRunner(profileUrl, {
-				runnerConfig: { routine: 'fromVideo', makeActive: false },
-				options: { videosAmount: 1, profileId }
-			});
-			return { profileId };
-		}
-	}),
-	[TaskNames.CHAPTERS]: scriptTask({
-		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
-		output: outputSchemas[TaskNames.CHAPTERS],
-		run: async ({ state }) => {
-			const context = getTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
-			return invoke<unknown[]>('extract_chapters', buildVideoPageParams(context.url));
-		}
-	}),
 	[TaskNames.TIMED_CAPTIONS]: scriptTask({
 		name: 'Get timed captions',
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
@@ -257,144 +163,6 @@ const youtubeTasks = {
 				.trim();
 		}
 	}),
-	[TaskNames.EXTRACT_PROFILE]: scriptTask({
-		dependencies: [TaskNames.INIT_YOUTUBE_PROFILE],
-		component: 'profile',
-		gridSpan: 3,
-		persist: true,
-		output: outputSchemas[TaskNames.EXTRACT_PROFILE],
-		run: async ({ state, context }) => {
-			const initCtx = getTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
-			const result = await invoke<Record<string, unknown>>('get_page_elements', {
-				url: initCtx.url,
-				selectors: [
-					{ name: 'profile', selector: 'yt-content-metadata-view-model' },
-					{ name: 'channelName', selector: 'h1 > span' },
-					{
-						name: 'profilePicture',
-						selector: 'div#page-header-container img[src]',
-						attribute: 'src'
-					},
-					{ name: 'videoIds', selector: 'a.ytLockupViewModelContentImage', attribute: 'href' },
-					{
-						name: 'uploadDate',
-						selector: 'div.ytLockupViewModelMetadata span:nth-of-type(3)'
-					},
-					{
-						name: 'videosImageSrc',
-						selector: 'yt-thumbnail-view-model img',
-						attribute: 'src'
-					},
-					{ name: 'videosTitles', selector: 'a.ytLockupMetadataViewModelTitle span' }
-				],
-				attempts: 5,
-				intervalMs: 500,
-				scrollTimes: context.scrollTimes ?? 1
-			});
-
-			console.log(result);
-
-			const profilePictureRaw = result.profilePicture;
-			const pictureUrl = Array.isArray(profilePictureRaw)
-				? profilePictureRaw[1]
-				: profilePictureRaw;
-
-			const downloadedImage = pictureUrl ? await downloadImageUrl(pictureUrl as string) : null;
-			const profilePictureSrc = downloadedImage
-				? await getMediaSrc(downloadedImage.fileName)
-				: null;
-			if (!result.videoIds) throw new Error('No video IDs found in profile page scrape');
-			const videoIds = result.videoIds as string[];
-			const videoUrls = videoIds.map((id: string) => `https://www.youtube.com${id}`);
-			const uploadDates = (result.uploadDate as string[] | undefined) ?? [];
-			const lastVideoDate =
-				uploadDates.map((d) => parseLastVideoDate(d)).find((d) => d !== '1970-01-01') ??
-				'1970-01-01';
-			const profileId = (
-				(result.profile as string[] | undefined)?.[0] ?? initCtx.profileId
-			).toLowerCase();
-			const channelName = result.channelName as string;
-			const profile = {
-				id: profileId,
-				name: channelName,
-				profilePicture: profilePictureSrc,
-				videoUrls,
-				videosImageSrc: result.videosImageSrc as string[],
-				videosTitles: result.videosTitles as string[],
-				lastVideoDate
-			};
-
-			await saveProfile(
-				initCtx.profileId,
-				downloadedImage?.fileName ?? null,
-				lastVideoDate,
-				initCtx.url
-			);
-
-			ttsState.namePrefix = profile.name_prefix;
-			ttsState.imageSrc = pictureUrl ?? '';
-
-			return profile;
-		}
-	}),
-	[TaskNames.EXTRACT_CHANNEL_VIDEOS]: scriptTask({
-		name: 'Extract channel videos',
-		dependencies: [TaskNames.EXTRACT_PROFILE],
-		output: outputSchemas[TaskNames.EXTRACT_CHANNEL_VIDEOS],
-		run: async ({ runId, state }) => {
-			const profileData = getTaskState(state, TaskNames.EXTRACT_PROFILE);
-			const initCtx = getTaskState(state, TaskNames.INIT_YOUTUBE_PROFILE);
-			const videosAmount = initCtx.videosAmount ?? 4;
-			const profileId = initCtx.profileId;
-			const urlsToProcess = profileData.videoUrls.slice(0, videosAmount).reverse();
-			const cleanedUrls = urlsToProcess.map((url) => removeYTPpParam(url));
-			const results = [];
-			for (const url of cleanedUrls) {
-				const row = await invoke('get_web_store_article_by_url', { url });
-				if (row) continue;
-				results.push(
-					await youTubeRunner(url, {
-						runnerConfig: {
-							makeActive: true,
-							parentRunId: runId,
-							routine: 'fromProfileRunner'
-						},
-						options: { profileId }
-					})
-				);
-			}
-
-			const mostRecentUrl = profileData.videoUrls[0];
-			if (mostRecentUrl && profileData.lastVideoDate) {
-				await saveArticle(mostRecentUrl, [], {
-					date: profileData.lastVideoDate,
-					profile: profileId
-				});
-			}
-			return { videoUrls: profileData.videoUrls, results };
-		}
-	}),
-	[TaskNames.CHAPTERS_SUMMARY]: scriptTask({
-		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO, TaskNames.CHAPTERS, TaskNames.TIMED_CAPTIONS],
-		persist: true,
-		output: outputSchemas[TaskNames.CHAPTERS_SUMMARY],
-		run: async ({ state, enqueueTasks }) => {
-			const context = getTaskState(state, TaskNames.INIT_YOUTUBE_VIDEO);
-			const chapters = getTaskState(state, TaskNames.CHAPTERS);
-			const timedCaptions = getTaskState(state, TaskNames.TIMED_CAPTIONS);
-			if (!chapters.length) return { chapterCaptions: [] };
-			const chapterCaptions = joinCaptionsByChapters(
-				timedCaptions as Parameters<typeof joinCaptionsByChapters>[0],
-				chapters as Parameters<typeof joinCaptionsByChapters>[1]
-			);
-			const chapterSummaryTasks = buildChapterSummaryTasks(
-				chapterCaptions,
-				context.language as string
-			);
-			enqueueTasks(chapterSummaryTasks);
-			return { chapterCaptions };
-		}
-	}),
 	[TaskNames.SUMMARY]: iaTask({
 		name: 'Summary',
 		dependencies: [TaskNames.CONTENT],
@@ -416,7 +184,7 @@ const youtubeTasks = {
 		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
 	[TaskNames.TITLE_SUMMARY]: iaTask({
-		name: 'Title Summary',
+		name: 'Title summary',
 		dependencies: [TaskNames.CONTENT],
 		component: 'taskBase',
 		output: outputSchemas[TaskNames.TITLE_SUMMARY],
@@ -431,8 +199,10 @@ const youtubeTasks = {
 			return content;
 		},
 		onComplete: ({ result, context }) => {
-			ttsState.setTextContents([result]);
-			ttsState.generateTTS(context.url);
+			if (viewState.autoSpeechEnabled) {
+				ttsState.setTextContents([result as string]);
+				ttsState.generateTTS((context as YouTubeTaskFactoryContext).url);
+			}
 		},
 		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
@@ -522,53 +292,6 @@ const youtubeTasks = {
 			)
 		})
 	}),
-	[TaskNames.PROFILE_CATEGORY]: iaTask({
-		dependencies: [TaskNames.EXTRACT_PROFILE],
-		component: 'keywords',
-		output: outputSchemas[TaskNames.PROFILE_CATEGORY],
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
-		userMessage: () => {
-			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
-			return `Give a category from this ones: ${categoryNames}.`;
-		},
-		run: ({ state }) => {
-			const profile = state[TaskNames.EXTRACT_PROFILE];
-			const videosTitles = profile.videosTitles;
-			const textVideoTitles = videosTitles.join(' ');
-
-			return textVideoTitles;
-		},
-		resultParser: (text) => {
-			const categories = parseStructuredArrayResponses(text);
-			return categories;
-		},
-		onComplete: async ({ state, result }) => {
-			const profile = state[TaskNames.EXTRACT_PROFILE];
-			const categoryNames = result as string[];
-			const categoryIds = categoryNames
-				.map((name) => viewState.categories.find((c) => c.name === name)?.id)
-				.filter((id): id is string => id !== undefined);
-
-			if (categoryIds.length > 0) {
-				await assignCategoriesToProfile({
-					profileId: profile.id,
-					categoryIds
-				});
-			}
-		},
-		completionOptions: () => ({
-			...DEFAULT_COMPLETION_OPTIONS,
-			temperature: 1.0,
-			grammar: arrayToGbnf(
-				viewState.categories.map((c) => c.name),
-				{
-					minItems: 1,
-					maxItems: 1
-				}
-			)
-		})
-	}),
 	[TaskNames.KEYPOINTS]: iaTask({
 		name: 'Key points',
 		dependencies: [TaskNames.CONTENT],
@@ -611,24 +334,5 @@ const youtubeTasks = {
 };
 
 export const youtubeWorkflow = defineWorkflow({ tasks: youtubeTasks });
-
-function buildChapterSummaryTasks(
-	chapterCaptions: Array<{ title: string; content: string }>,
-	language: string
-) {
-	return chapterCaptions.map((chapter, index) => ({
-		id: `chapter-summary-${index}`,
-		name: chapter.title,
-		widget: false,
-		type: 'ia' as const,
-		component: 'taskBase',
-		dependencies: index === 0 ? [TaskNames.CHAPTERS_SUMMARY] : [`chapter-summary-${index - 1}`],
-		systemMessage: `You are a helpful assistant that summarizes YouTube video chapters. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
-		run: () => `Title: ${chapter.title}\n\n${chapter.content}`,
-		userMessage:
-			'Summarize this chapter in 2 lines. add a relevant emoji at the beginning of the summary.',
-		completionOptions: DEFAULT_COMPLETION_OPTIONS
-	}));
-}
 
 export const youtubeTaskRegistry = youtubeWorkflow.registry;

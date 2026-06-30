@@ -57,8 +57,8 @@ class TTSState {
 		speed: 1.0,
 		preprocessPrompt: true,
 		postprocessOutput: true,
-		randomChunk: false,
-		splitLevel: 0
+		randomChunk: true,
+		splitLevel: 1
 	});
 	configSig = $derived(JSON.stringify(this.config));
 	private generatedConfigSig = $state('');

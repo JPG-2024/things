@@ -182,6 +182,9 @@
 		<Icon name="ChevronRight" />
 	</button> -->
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+		<ToggleIcon name="Speech" bind:checked={viewState.autoSpeechEnabled} size={20} />
+	</button>
+	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
 		<ToggleIcon name="ClipboardPaste" bind:checked={viewState.clipboardPollingEnabled} size={20} />
 	</button>
 	<button

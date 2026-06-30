@@ -218,8 +218,10 @@ export const webWorkflow = defineWorkflow({
 				return content;
 			},
 			onComplete: ({ result, context }) => {
-				ttsState.setTextContents([result]);
-				ttsState.generateTTS(context.url);
+				if (viewState.autoSpeechEnabled) {
+					ttsState.setTextContents([result]);
+					ttsState.generateTTS(context.url);
+				}
 			},
 			completionOptions: defaultCompletionOptions
 		}),

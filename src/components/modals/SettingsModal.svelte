@@ -1,27 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
-	import { invoke } from '@tauri-apps/api/core';
 
 	const providerOptions = [
 		{ label: 'Llama', value: 'llama' },
 		{ label: 'OpenRouter', value: 'openrouter' }
 	];
-
-	let browserProfile = $state<string>('Not loaded');
-
-	onMount(() => {
-		invoke<string>('get_browser_profile')
-			.then((path) => {
-				browserProfile = path;
-			})
-			.catch((error) => {
-				browserProfile = `Error: ${error}`;
-			});
-	});
 </script>
 
 <div class="drawer-inner">
@@ -36,10 +22,6 @@
 		]}
 		bind:value={viewState.language}
 	/>
-	<div class="profile-info">
-		<label>Browser Profile</label>
-		<span>{browserProfile}</span>
-	</div>
 	<div class="inference-section">
 		<h3>Inference</h3>
 		<IconDropdown label="AI Provider" options={providerOptions} bind:value={viewState.aiProvider} />
@@ -70,24 +52,6 @@
 		display: flex;
 		gap: 1rem;
 		align-items: center;
-	}
-
-	.profile-info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.profile-info label {
-		font-weight: 600;
-		font-size: 0.875rem;
-		color: var(--primary-color, #fae4c0);
-	}
-
-	.profile-info span {
-		color: rgba(255, 255, 255, 0.7);
-		font-size: 0.8rem;
-		word-break: break-all;
 	}
 
 	.inference-section {

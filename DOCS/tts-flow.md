@@ -26,6 +26,7 @@ TTS generation can be triggered from 5 different places:
 The `GENERATE_TTS` task runs as part of a content processing workflow after the `TITLE_SUMMARY` task completes.
 
 **`src/runners/youtube/tasks/youtubeWorkflow.ts:428-443`**
+
 ```ts
 [TaskNames.GENERATE_TTS]: scriptTask({
     dependencies: [TaskNames.TITLE_SUMMARY],
@@ -46,6 +47,7 @@ The same pattern exists in `webWorkflow.ts` and `rawWorkflow.ts`. The `freshRun`
 ### b) Chat Page
 
 **`src/routes/chat/+page.svelte`** — After a streamed assistant response completes:
+
 ```ts
 ttsState.addTextContent(streamedText);
 void ttsState.generateTTS(assistantId);
@@ -68,6 +70,7 @@ void ttsState.generateTTS(assistantId);
 ## 2. Text Preparation
 
 **`src/stores/ttsStore.svelte.ts:77-79`** — The caller sets the text:
+
 ```ts
 ttsState.setTextContents([summary]);
 ```
@@ -77,18 +80,18 @@ ttsState.setTextContents([summary]);
 ```ts
 const allChunks: string[] = [];
 for (const text of this.textContents) {
-    allChunks.push(...splitTextIntoChunks(text, this.config.splitLevel));
+	allChunks.push(...splitTextIntoChunks(text, this.config.splitLevel));
 }
 ```
 
 ### Split Levels (`src/lib/utils/splitText.ts`)
 
-| Level | Behavior |
-|-------|----------|
+| Level       | Behavior                                                                  |
+| ----------- | ------------------------------------------------------------------------- |
 | 0 (default) | Split by paragraphs (`\n\s*\n`). If single paragraph, split by sentences. |
-| 1 | Split paragraphs further by sentence-ending punctuation (`.!?`). |
-| 2 | Additionally split by clause boundaries (`,;:`). |
-| 3 | Additionally split by soft breaks (em-dash/en-dash patterns). |
+| 1           | Split paragraphs further by sentence-ending punctuation (`.!?`).          |
+| 2           | Additionally split by clause boundaries (`,;:`).                          |
+| 3           | Additionally split by soft breaks (em-dash/en-dash patterns).             |
 
 All levels apply `mergeSmallChunks()` which merges any chunk under 50 characters into the previous chunk, ensuring no chunk is too short for quality TTS synthesis.
 
@@ -108,6 +111,7 @@ All levels apply `mergeSmallChunks()` which merges any chunk under 50 characters
 ### Lazy Chunk Generation
 
 Only chunk 0 is generated eagerly. The store tracks:
+
 - `_allChunks: string[]` — all text chunks
 - `_nextChunkIndex: number` — index of the next chunk to generate
 - `chunksGenerated: number` — how many chunks have been synthesized
@@ -153,6 +157,7 @@ Returns `{ blob: Blob, durationSeconds: number | null }`. The response body is t
 ## 5. Blob Storage and Signaling
 
 **`src/stores/ttsStore.svelte.ts:220-225`** — After each chunk generation:
+
 ```ts
 this.blobs.push(res.blob);
 this.chunksGenerated = i + 1;
@@ -171,9 +176,10 @@ The `blobs` array is a Svelte 5 `$state` property. The `chunkNotifyVersion` coun
 ### Startup
 
 When `ttsState.isPlaying` becomes true and `decodedChunks` is empty (line 572-584):
+
 ```ts
 if (ttsState.blobs.length > 0 && ttsState.isPlaying && decodedChunks.length === 0) {
-    void startFresh();
+	void startFresh();
 }
 ```
 
@@ -182,15 +188,17 @@ if (ttsState.blobs.length > 0 && ttsState.isPlaying && decodedChunks.length === 
 ### Chunk Decoding
 
 **`ensureDecodedChunk(index)`** (line 79-87):
+
 ```ts
 const ctx = getAudioContext();
-const buf = await decodeBlob(ttsState.blobs[index], ctx);  // Blob → ArrayBuffer → AudioBuffer
+const buf = await decodeBlob(ttsState.blobs[index], ctx); // Blob → ArrayBuffer → AudioBuffer
 decodedChunks[index] = buf;
 ```
 
 ### Web Audio Graph
 
 **`playChunkAt(index, offsetInChunk)`** (line 89-147):
+
 ```
 AudioBufferSourceNode → AnalyserNode → AudioContext.destination
 ```
@@ -204,26 +212,28 @@ AudioBufferSourceNode → AnalyserNode → AudioContext.destination
 ### Chunk Chaining
 
 **`handleChunkEnded()`** (line 149-172):
+
 ```ts
 const nextIdx = currentChunkIndex + 1;
 if (nextIdx < ttsState.blobs.length) {
-    // blob already available → play immediately
-    void playChunkAt(nextIdx);
+	// blob already available → play immediately
+	void playChunkAt(nextIdx);
 } else if (nextIdx < ttsState.totalChunks) {
-    // blob not yet generated → request next chunk, wait
-    waitingForChunk = true;
-    void ttsState.generateNextChunk();
+	// blob not yet generated → request next chunk, wait
+	waitingForChunk = true;
+	void ttsState.generateNextChunk();
 }
 ```
 
 When `generateNextChunk()` completes, it increments `chunkNotifyVersion`, which triggers a Svelte `$effect` (line 586-592):
+
 ```ts
 $effect(() => {
-    const version = ttsState.chunkNotifyVersion;
-    if (version > 0 && waitingForChunk && ttsState.isPlaying && !isSettingUp) {
-        waitingForChunk = false;
-        void playChunkAt(currentChunkIndex + 1);
-    }
+	const version = ttsState.chunkNotifyVersion;
+	if (version > 0 && waitingForChunk && ttsState.isPlaying && !isSettingUp) {
+		waitingForChunk = false;
+		void playChunkAt(currentChunkIndex + 1);
+	}
 });
 ```
 
@@ -243,11 +253,11 @@ $effect(() => {
 
 **`src/components/TTSPlayer.svelte:383-502`** — Three waveform states:
 
-| State | When | Function |
-|-------|------|----------|
-| Generating wave | `isGenerating && chunksGenerated === 0` | `drawGeneratingWave()` — animated sine waves using harmonics from `ttsPlayerConfig` |
-| Idle line | `isGenerating` or `waitingForChunk` | `drawIdleLine()` — flat horizontal line |
-| Waveform | `isPlaying && !isPaused && analyserNode` | `drawWaveform()` — real-time audio visualization from the `AnalyserNode` |
+| State           | When                                     | Function                                                                            |
+| --------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| Generating wave | `isGenerating && chunksGenerated === 0`  | `drawGeneratingWave()` — animated sine waves using harmonics from `ttsPlayerConfig` |
+| Idle line       | `isGenerating` or `waitingForChunk`      | `drawIdleLine()` — flat horizontal line                                             |
+| Waveform        | `isPlaying && !isPaused && analyserNode` | `drawWaveform()` — real-time audio visualization from the `AnalyserNode`            |
 
 The animation loop (line 530-548) runs via `requestAnimationFrame` and checks which state to render. The stroke color uses `viewState.primaryColorAlpha()` to tint the wave to the current video's dominant color.
 
@@ -259,12 +269,12 @@ The animation loop (line 530-548) runs via `requestAnimationFrame` and checks wh
 
 Singleton `AudioContext` management:
 
-| Function | Purpose |
-|----------|---------|
-| `getAudioContext()` | Get or create the singleton context |
+| Function               | Purpose                                                |
+| ---------------------- | ------------------------------------------------------ |
+| `getAudioContext()`    | Get or create the singleton context                    |
 | `ensureAudioContext()` | Get context, resume if suspended, reset if not running |
-| `resetAudioContext()` | Close and recreate the context |
-| `closeAudioContext()` | Close and null the context |
+| `resetAudioContext()`  | Close and recreate the context                         |
+| `closeAudioContext()`  | Close and null the context                             |
 
 Called before any TTS generation or playback to satisfy browser autoplay policies.
 
@@ -275,6 +285,7 @@ Defines 4 wave animation styles (`softSingleDim`, `organicMultiDim`, `softSingle
 ### TTS Service (`src/lib/utils/ttsService.ts`)
 
 The HTTP layer. Two API endpoints:
+
 - `POST {TTS_API_URL}/tts/mp3` — speech generation (returns MP3 blob)
 - `POST {WHISPER_API_URL}/transcribe-chunks` — voice profile creation (SSE stream)
 - `GET {WHISPER_API_URL}/voices` — list voice profiles
@@ -288,18 +299,18 @@ The HTTP layer. Two API endpoints:
 
 **`TTSConfig`** (`src/stores/ttsStore.svelte.ts:10-26`):
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `refAudioFilename` | `920d866c-..._1.mp3` | Reference audio for voice cloning |
-| `refText` | Spanish sentence | Transcript of reference audio |
-| `numStep` | 16 | Inference steps |
-| `denoise` | true | Denoise output |
-| `guidanceScale` | 3.0 | Classifier-free guidance |
-| `speed` | 1.0 | Playback speed |
-| `preprocessPrompt` | true | Preprocess text prompt |
-| `postprocessOutput` | true | Postprocess audio |
-| `randomChunk` | false | Use random voice per chunk |
-| `splitLevel` | 0 | Text split granularity (0-3) |
+| Field               | Default              | Description                       |
+| ------------------- | -------------------- | --------------------------------- |
+| `refAudioFilename`  | `920d866c-..._1.mp3` | Reference audio for voice cloning |
+| `refText`           | Spanish sentence     | Transcript of reference audio     |
+| `numStep`           | 16                   | Inference steps                   |
+| `denoise`           | true                 | Denoise output                    |
+| `guidanceScale`     | 3.0                  | Classifier-free guidance          |
+| `speed`             | 1.0                  | Playback speed                    |
+| `preprocessPrompt`  | true                 | Preprocess text prompt            |
+| `postprocessOutput` | true                 | Postprocess audio                 |
+| `randomChunk`       | false                | Use random voice per chunk        |
+| `splitLevel`        | 0                    | Text split granularity (0-3)      |
 
 Additional optional fields: `tShift`, `positionTemperature`, `classTemperature`, `layerPenaltyFactor`, `duration`, `audioChunkDuration`, `audioChunkThreshold`.
 

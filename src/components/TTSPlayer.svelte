@@ -354,12 +354,12 @@
 	}
 
 	async function handlePrimaryClick() {
-		if (ttsState.isGenerating && !ttsState.isPlaying) return;
 		if (ttsState.isPlaying) {
 			pausePlayback();
 		} else if (ttsState.isPaused) {
 			await resumePlayback();
 		} else {
+			if (ttsState.isGenerating) return;
 			try {
 				await startFresh();
 			} catch (err) {
