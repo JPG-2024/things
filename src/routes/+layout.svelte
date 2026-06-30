@@ -17,6 +17,7 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
+	import { micState } from '@/stores/micStore.svelte';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 
@@ -98,6 +99,22 @@
 			void ensureAudioContext();
 			ttsState.setTextContents([entry.task.data]);
 			await ttsState.forceRegenerate(viewState.url);
+		},
+		{
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		}
+	);
+
+	createHotkey(
+		'M',
+		async () => {
+			if (micState.isRecording) {
+				micState.stopMic();
+			} else {
+				await micState.startMic();
+			}
 		},
 		{
 			ignoreInputs: true,

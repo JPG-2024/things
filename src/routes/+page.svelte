@@ -14,6 +14,7 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
 
 	let glowIntensity = $state(1);
 
@@ -233,7 +234,7 @@
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<!-- <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." /> -->
+		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
 
 		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
     <Input onChange={(query) => (viewState.prompt = query)} /> -->
