@@ -73,8 +73,13 @@
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
 		viewState.currentProfileId = profile.id;
-		urlRouter(article.url);
-		goto(`/youtube/${encodeURIComponent(article.url)}`);
+		if (article.url.startsWith('raw-')) {
+			goto(`/raw/${article.url}`);
+			await urlRouter(article.url);
+		} else {
+			urlRouter(article.url);
+			goto(`/youtube/${encodeURIComponent(article.url)}`);
+		}
 	}
 </script>
 
@@ -270,7 +275,7 @@
 
 	.mini-img {
 		display: block;
-		border-radius: 12px;
+		border-radius: 10px;
 		width: 5rem;
 		height: 4rem;
 		object-fit: cover;

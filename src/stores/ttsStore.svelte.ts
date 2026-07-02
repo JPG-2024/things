@@ -147,6 +147,17 @@ class TTSState {
 		this.resetGenerationState(true);
 	}
 
+	getVoiceRef(): { refAudioFilename: string; refText: string } {
+		if (this.config.randomChunk && this.voiceChunks.length > 0) {
+			const v = this.voiceChunks[Math.floor(Math.random() * this.voiceChunks.length)];
+			return { refAudioFilename: v.audio_file, refText: v.text_reference };
+		}
+		return {
+			refAudioFilename: this.config.refAudioFilename,
+			refText: this.config.refText
+		};
+	}
+
 	async generateTTS(id: string): Promise<void> {
 		if (this.textContents.length === 0) {
 			return;
@@ -246,6 +257,14 @@ class TTSState {
 				this._generationAbort = null;
 			}
 		}
+	}
+
+	async generateFromClipboard(text: string): Promise<void> {
+		const chunks = splitTextIntoChunks(text, this.config.splitLevel);
+		if (chunks.length === 0) return;
+
+		this.setTextContents(chunks);
+		await this.generateTTS('clipboard-direct');
 	}
 
 	async generateNextChunk(): Promise<void> {

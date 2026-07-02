@@ -39,7 +39,7 @@
 	.drawer-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 1001;
+		z-index: 1200;
 		background: rgba(0, 0, 0, 0.92);
 	}
 

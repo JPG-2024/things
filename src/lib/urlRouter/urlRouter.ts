@@ -4,6 +4,7 @@ import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/st
 import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';
+import { rawRunner } from '@/runners/raw/rawRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 
 type RouterResult = { data: { url: string | null; tasks?: Task[] }; cached: boolean };
@@ -59,6 +60,22 @@ const routeDefinitions: UrlRoute[] = [
 				},
 				options: { videosAmount: 10, ...context?.runnerOptions }
 			})
+	},
+	{
+		name: 'rawArticle',
+		condition: (url) => url.startsWith('raw-'),
+		handler: async (url, context) => {
+			const cachedTasks = context?.cachedTasks ?? [];
+			const rawText = cachedTasks.find((t) => t.id === 'content')?.data as string | undefined;
+			if (!rawText || typeof rawText !== 'string') {
+				throw new Error('Raw article content not found');
+			}
+			return rawRunner(url, rawText, {
+				makeActive: true,
+				Rebuild: false,
+				cachedTasks
+			});
+		}
 	},
 	{
 		name: 'defaultBlog',

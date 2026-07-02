@@ -3,8 +3,11 @@ const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
 let micContext: AudioContext | null = null;
 let micStream: MediaStream | null = null;
 let workletNode: AudioWorkletNode | null = null;
+let micAnalyser: AnalyserNode | null = null;
 
-export async function startMicRecording(onChunk: (pcm: Float32Array) => void): Promise<void> {
+export async function startMicRecording(
+	onChunk: (pcm: Float32Array) => void
+): Promise<{ analyser: AnalyserNode }> {
 	console.log('start');
 	if (micContext) {
 		throw new Error('Microphone is already active');
@@ -25,16 +28,26 @@ export async function startMicRecording(onChunk: (pcm: Float32Array) => void): P
 	const source = ctx.createMediaStreamSource(stream);
 	const node = new AudioWorkletNode(ctx, 'pcm-processor');
 
+	const analyser = ctx.createAnalyser();
+	analyser.fftSize = 1024;
+	analyser.smoothingTimeConstant = 0.8;
+	analyser.minDecibels = -90;
+	analyser.maxDecibels = -10;
+
 	node.port.onmessage = (event: MessageEvent<Float32Array>) => {
 		onChunk(event.data);
 	};
 
 	source.connect(node);
+	source.connect(analyser);
 	node.connect(ctx.destination);
 
 	micContext = ctx;
 	micStream = stream;
 	workletNode = node;
+	micAnalyser = analyser;
+
+	return { analyser };
 }
 
 export function stopMicRecording(): void {
@@ -50,6 +63,15 @@ export function stopMicRecording(): void {
 		workletNode.disconnect();
 		workletNode.port.onmessage = null;
 		workletNode = null;
+	}
+
+	if (micAnalyser) {
+		try {
+			micAnalyser.disconnect();
+		} catch {
+			// ignore
+		}
+		micAnalyser = null;
 	}
 
 	if (micContext) {

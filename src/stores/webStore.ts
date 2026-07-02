@@ -26,10 +26,9 @@ export interface ArticleWithTasks {
 	viewed?: boolean | null;
 	[key: string]: unknown;
 }
-
 export const WEB_STORE_UNKNOWN_PROFILE_ID = '__unknown_profile__';
 export const WEB_STORE_UNKNOWN_PROFILE_LABEL = 'Unknown profile';
-
+//div[contains(concat(" ", normalize-space(@class), " "), " hp-hero-title_wrapper ")]/div[contains(concat(" ", normalize-space(@class), " "), " t-body-large ")]
 export interface ArticleProfile {
 	id: string;
 	name: string;
@@ -393,8 +392,7 @@ export async function buildUpsertInput(params: {
 	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'keywords'));
 	const profile = firstNormalizedString(
 		params.valuesToOverride?.profile as string | undefined,
-		getPageElementField(params.tasksToSave, 'video-info', 'profileId'),
-		getArticleStringField(params.existingArticle, 'profileId')
+		getArticleStringField(params.existingArticle, 'profile')
 	);
 
 	const videoInfoData = getStoredTaskData<{ uploadDate?: string }>(

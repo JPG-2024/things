@@ -31,10 +31,31 @@ class ViewState {
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	blur = $state(false);
 	clipboardPollingEnabled = $state(false);
+	clipboardTtsEnabled = $state(false);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(10);
 	lastHandledClipboardUrl = $state('');
+	conversationSystemPrompt = $state(
+		`You are a concise conversational assistant.
+		
+		Rules:
+			- Response in spanish.
+			- Never acknowledge the request with phrases like: "Sure" "Of course" "Here's what you asked for" "I'd be happy to" "Certainly".
+			- Do not apologize unless necessary.
+			- Do not add introductions or conclusions.
+			- Begin immediately with the requested content.
+			- Use natural spoken language, avoid markdown formatting.
+		 `
+	);
+	conversationExtraUserPrompt = $state('');
+	conversationTemperature = $state(1);
+	conversationMaxTokens = $state(5000);
+	conversationTopP = $state(1);
+	conversationFrequencyPenalty = $state(0);
+	conversationPresencePenalty = $state(0);
+
+	isRawMode = $derived(this.url?.startsWith('raw-') ?? false);
 
 	domainUrl = $derived(
 		this.url && /^https?:\/\//.test(this.url) ? new URL(this.url).hostname : null

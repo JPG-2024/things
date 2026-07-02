@@ -6,6 +6,8 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
+	import ConversationMode from '@/components/ConversationMode.svelte';
+	import ConversationSettings from '@/components/ConversationSettings.svelte';
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
@@ -17,7 +19,6 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
-	import { micState } from '@/stores/micStore.svelte';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
 
@@ -25,6 +26,7 @@
 
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
+	let conversationMode = $state(false);
 
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -65,7 +67,10 @@
 	);
 
 	const blurActive = $derived(
-		ttsPlayerVisible || drawersState.isOpen('tts-settings') || drawersState.isOpen('settings')
+		ttsPlayerVisible ||
+			drawersState.isOpen('tts-settings') ||
+			drawersState.isOpen('settings') ||
+			conversationMode
 	);
 
 	createHotkey(
@@ -109,12 +114,8 @@
 
 	createHotkey(
 		'M',
-		async () => {
-			if (micState.isRecording) {
-				micState.stopMic();
-			} else {
-				await micState.startMic();
-			}
+		() => {
+			conversationMode = !conversationMode;
 		},
 		{
 			ignoreInputs: true,
@@ -132,6 +133,13 @@
 				const trimmed = (clipboardText ?? '').trim();
 
 				if (!trimmed || trimmed === viewState.lastHandledClipboardUrl) {
+					return;
+				}
+
+				if (viewState.clipboardTtsEnabled) {
+					void ensureAudioContext();
+					await ttsState.generateFromClipboard(trimmed);
+					viewState.lastHandledClipboardUrl = trimmed;
 					return;
 				}
 
@@ -187,12 +195,20 @@
 
 	<TTSPlayer />
 
+	{#if conversationMode}
+		<ConversationMode onExit={() => (conversationMode = false)} />
+	{/if}
+
 	<Drawer name="tts-settings">
 		<TTSSettings />
 	</Drawer>
 
 	<Drawer name="settings">
 		<SettingsModal />
+	</Drawer>
+
+	<Drawer name="conversation-settings">
+		<ConversationSettings />
 	</Drawer>
 </QueryClientProvider>
 

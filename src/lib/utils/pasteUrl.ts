@@ -3,6 +3,7 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { navigate } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
+import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
 
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -37,6 +38,20 @@ export async function handlePasteUrl(
 	if (viewState.processingUrl) return;
 
 	const validUrl = extractValidUrl(content);
+
+	if (validUrl && viewState.isRawMode) {
+		viewState.processingUrl = true;
+		try {
+			viewState.lastHandledClipboardUrl = validUrl;
+			await enrichRawWithUrl(viewState.url!, validUrl);
+			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			queryClient.invalidateQueries({ queryKey: ['articles'] });
+		} finally {
+			viewState.processingUrl = false;
+			await processQueue(queryClient);
+		}
+		return;
+	}
 
 	if (validUrl) {
 		viewState.processingUrl = true;

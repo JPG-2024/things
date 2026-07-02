@@ -1,5 +1,6 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
+import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { RawTaskNames, rawTaskRegistry } from './tasks/rawWorkflow';
@@ -16,6 +17,7 @@ const defaultRoutine = [
 type RawRunnerOptions = {
 	makeActive?: boolean;
 	Rebuild?: boolean;
+	cachedTasks?: PersistedTaskState[];
 };
 
 const RAW_TEXT_PROFILE = 'raw-text';
@@ -26,13 +28,14 @@ export async function rawRunner(
 	options: RawRunnerOptions = {}
 ): Promise<Task[]> {
 	const runId = rawId;
-	const freshRun = true;
+	const freshRun = !options.cachedTasks?.length;
 
 	const tasks = await buildTaskSubroutine(
 		defaultRoutine,
 		rawTaskRegistry,
 		{ rawText, rawId, language: viewState.language, freshRun },
 		{
+			persistedTasks: options.cachedTasks,
 			Rebuild: options.Rebuild
 		}
 	);
@@ -42,12 +45,7 @@ export async function rawRunner(
 		Rebuild: options.Rebuild
 	});
 
-	/* 	await Promise.all([
-		saveArticle(rawId, runResult.tasks, {
-			profile: RAW_TEXT_PROFILE
-		}),
-		saveTasks(rawId, runResult.tasks)
-	]); */
+	await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
 
 	return runResult.tasks as Task[];
 }
