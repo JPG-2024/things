@@ -1,20 +1,21 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		content: string;
-		position?: 'top' | 'bottom' | 'left' | 'right';
+		position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
 		children: Snippet;
 	}
 
-	let { content, position = 'top', children }: Props = $props();
+	let { content, position = 'bottom', children }: Props = $props();
 
 	let wrapperEl: HTMLDivElement;
 	let tooltipEl: HTMLSpanElement;
 	let isHovered = $state(false);
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
+	let effectivePosition = $state<'top' | 'bottom' | 'left' | 'right'>('bottom');
 
 	onMount(() => {
 		if (tooltipEl && tooltipEl.parentElement !== document.body) {
@@ -28,15 +29,50 @@
 	});
 
 	function updatePosition() {
-		if (!wrapperEl) return;
+		if (!wrapperEl || !tooltipEl) return;
 		const rect = wrapperEl.getBoundingClientRect();
-		tooltipX = rect.left + rect.width / 2;
-		tooltipY =
-			position === 'top'
-				? rect.top
-				: position === 'bottom'
-					? rect.bottom
-					: rect.top + rect.height / 2;
+		const tw = tooltipEl.offsetWidth;
+		const th = tooltipEl.offsetHeight;
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const gap = 8;
+
+		let pos: 'top' | 'bottom' | 'left' | 'right';
+
+		if (position === 'auto') {
+			const space = {
+				top: rect.top - th - gap,
+				bottom: vh - rect.bottom - th - gap,
+				left: rect.left - tw - gap,
+				right: vw - rect.right - tw - gap
+			};
+			pos = Object.entries(space).sort((a, b) => b[1] - a[1])[0][0] as
+				| 'top'
+				| 'bottom'
+				| 'left'
+				| 'right';
+		} else {
+			pos = position;
+		}
+
+		effectivePosition = pos;
+
+		if (pos === 'top') {
+			tooltipX = rect.left + rect.width / 2;
+			tooltipY = rect.top - gap;
+		} else if (pos === 'bottom') {
+			tooltipX = rect.left + rect.width / 2;
+			tooltipY = rect.bottom + gap;
+		} else if (pos === 'left') {
+			tooltipX = rect.left - gap;
+			tooltipY = rect.top + rect.height / 2;
+		} else {
+			tooltipX = rect.right + gap;
+			tooltipY = rect.top + rect.height / 2;
+		}
+
+		tooltipX = Math.max(tw / 2, Math.min(tooltipX, vw - tw / 2));
+		tooltipY = Math.max(th, Math.min(tooltipY, vh));
 	}
 
 	function handleMouseEnter() {
@@ -68,7 +104,7 @@
 
 <span
 	bind:this={tooltipEl}
-	class="tooltip tooltip-{position}"
+	class="tooltip tooltip-{effectivePosition}"
 	class:visible={isHovered && content}
 	style="left: {tooltipX}px; top: {tooltipY}px;">{content}</span
 >
