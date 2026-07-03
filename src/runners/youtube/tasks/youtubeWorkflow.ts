@@ -7,9 +7,8 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
-import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
-import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
+import { sharedTasks } from '@/runners/shared/sharedTasks';
 
 export { TaskNames };
 
@@ -73,6 +72,8 @@ const getContentFromState = (state: any) => {
 };
 
 const youtubeTasks = {
+	...sharedTasks,
+
 	[TaskNames.INIT_YOUTUBE_VIDEO]: scriptTask({
 		name: 'Initialize YouTube Context',
 		dependencies: [],
@@ -239,58 +240,6 @@ const youtubeTasks = {
 			return titleSummary;
 		},
 		completionOptions: DEFAULT_COMPLETION_OPTIONS
-	}),
-	[TaskNames.KEYWORDS]: iaTask({
-		dependencies: [TaskNames.CONTENT],
-		component: 'keywords',
-		output: outputSchemas[TaskNames.KEYWORDS],
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array of exactly 10 keywords. No markdown, no explanations.',
-		userMessage: 'extract 10 keywords. respond in JSON format.',
-		run: ({ state }) => {
-			const content = state[TaskNames.CONTENT];
-			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
-			return content;
-		},
-		resultParser: (text) => {
-			const categories = parseStructuredArrayResponses(text);
-			return categories;
-		},
-		completionOptions: {
-			...structuredOutputOptions,
-			grammar: stringArrayGbnf(10)
-		}
-	}),
-	[TaskNames.CATEGORY]: iaTask({
-		dependencies: [TaskNames.KEYWORDS],
-		component: 'keywords',
-		output: outputSchemas[TaskNames.CATEGORY],
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
-		userMessage: () => {
-			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
-			return `Give a category from this ones: ${categoryNames}.`;
-		},
-		run: ({ state }) => {
-			const keywords = state[TaskNames.KEYWORDS] as string[];
-			const stringKeywords = keywords.join(' ');
-
-			return stringKeywords;
-		},
-		resultParser: (text) => {
-			const categories = parseStructuredArrayResponses(text);
-			return categories;
-		},
-		completionOptions: () => ({
-			...structuredOutputOptions,
-			grammar: arrayToGbnf(
-				viewState.categories.map((c) => c.name),
-				{
-					minItems: 1,
-					maxItems: 1
-				}
-			)
-		})
 	}),
 	[TaskNames.KEYPOINTS]: iaTask({
 		name: 'Key points',

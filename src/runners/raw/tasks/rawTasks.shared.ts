@@ -1,14 +1,16 @@
 import type { TTSLanguage } from '$lib/utils/tts';
 
-export enum RawTaskNames {
+export enum TaskNames {
 	INIT_RAW_CONTEXT = 'init-raw-context',
 	TITLE = 'title',
 	CONTENT = 'content',
 	TITLE_SUMMARY = 'title-summary',
+	KEYWORDS = 'keywords',
+	CATEGORY = 'category',
 	GENERATE_TTS = '〰'
 }
 
-export type RawTaskFactoryContext = {
+export type TaskFactoryContext = {
 	rawText: string;
 	rawId: string;
 	language: TTSLanguage;

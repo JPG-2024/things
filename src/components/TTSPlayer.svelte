@@ -742,7 +742,7 @@
 {#if panelVisible}
 	<div
 		in:fade={{ duration: 3000, easing: cubicOut }}
-		out:fade={{ duration: 80 }}
+		out:fade={{ duration: 200 }}
 		class="tts-player"
 		onmousemove={handlePlayerMouseMove}
 	>

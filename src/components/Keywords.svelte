@@ -26,6 +26,8 @@
 	});
 </script>
 
+Hola mauricio!. que hace loquita!. no seas pajero y portate bien..
+
 <div class="keywords">
 	{#each parsedKeywords as keyword (keyword)}
 		<Pill status="idle" text={keyword} tag />

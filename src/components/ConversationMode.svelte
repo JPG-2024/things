@@ -646,8 +646,8 @@
 </script>
 
 <div
-	in:fade={{ duration: 300, easing: cubicOut }}
-	out:fade={{ duration: 150 }}
+	in:fade={{ duration: 100, easing: cubicOut }}
+	out:fade={{ duration: 200 }}
 	class="conversation-mode"
 >
 	<div class="conversation-mode__header">

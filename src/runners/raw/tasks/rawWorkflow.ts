@@ -1,23 +1,22 @@
 import { z } from 'zod';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { ttsState } from '@/stores/ttsStore.svelte';
-import {
-	RawTaskNames,
-	type RawTaskFactoryContext,
-	defaultCompletionOptions
-} from './rawTasks.shared';
+import { TaskNames, type TaskFactoryContext, defaultCompletionOptions } from './rawTasks.shared';
+import { sharedTasks, sharedOutputSchemas, SHARED_TASK_IDS } from '@/runners/shared/sharedTasks';
 
-export { RawTaskNames };
+export { TaskNames };
 
 const outputSchemas = {
-	[RawTaskNames.INIT_RAW_CONTEXT]: z.object({
+	[TaskNames.INIT_RAW_CONTEXT]: z.object({
 		rawText: z.string(),
 		language: z.string()
 	}),
-	[RawTaskNames.TITLE]: z.string(),
-	[RawTaskNames.CONTENT]: z.string(),
-	[RawTaskNames.TITLE_SUMMARY]: z.string(),
-	[RawTaskNames.GENERATE_TTS]: z.string()
+	[TaskNames.TITLE]: z.string(),
+	[TaskNames.CONTENT]: z.string(),
+	[TaskNames.TITLE_SUMMARY]: z.string(),
+	[TaskNames.KEYWORDS]: sharedOutputSchemas[SHARED_TASK_IDS.KEYWORDS],
+	[TaskNames.CATEGORY]: sharedOutputSchemas[SHARED_TASK_IDS.CATEGORY],
+	[TaskNames.GENERATE_TTS]: z.string()
 } as const;
 
 type OutputSchemas = typeof outputSchemas;
@@ -35,12 +34,14 @@ function getTaskState<TId extends keyof RawTaskState & string>(
 
 export const rawWorkflow = defineWorkflow({
 	tasks: {
-		[RawTaskNames.INIT_RAW_CONTEXT]: scriptTask({
+		...sharedTasks,
+
+		[TaskNames.INIT_RAW_CONTEXT]: scriptTask({
 			name: 'Initialize raw context',
 			dependencies: [],
-			output: outputSchemas[RawTaskNames.INIT_RAW_CONTEXT],
+			output: outputSchemas[TaskNames.INIT_RAW_CONTEXT],
 			run: async ({ context }) => {
-				const ctx = context as RawTaskFactoryContext;
+				const ctx = context as TaskFactoryContext;
 				return {
 					rawText: ctx.rawText,
 					language: ctx.language
@@ -48,61 +49,62 @@ export const rawWorkflow = defineWorkflow({
 			}
 		}),
 
-		[RawTaskNames.CONTENT]: scriptTask({
-			dependencies: [RawTaskNames.INIT_RAW_CONTEXT],
+		[TaskNames.CONTENT]: scriptTask({
+			dependencies: [TaskNames.INIT_RAW_CONTEXT],
 			component: 'ask',
 			persist: true,
-			output: outputSchemas[RawTaskNames.CONTENT],
+			output: outputSchemas[TaskNames.CONTENT],
 			run: ({ state }) => {
-				const init = getTaskState(state, RawTaskNames.INIT_RAW_CONTEXT);
+				const init = getTaskState(state, TaskNames.INIT_RAW_CONTEXT);
 				return init.rawText;
 			}
 		}),
 
-		[RawTaskNames.TITLE]: iaTask({
-			dependencies: [RawTaskNames.TITLE_SUMMARY],
+		[TaskNames.TITLE]: iaTask({
+			dependencies: [TaskNames.TITLE_SUMMARY],
 			component: 'taskBase',
-			output: outputSchemas[RawTaskNames.TITLE],
+			output: outputSchemas[TaskNames.TITLE],
 			systemMessage: ({ context }) => {
-				const ctx = context as RawTaskFactoryContext;
+				const ctx = context as TaskFactoryContext;
 				return `Generate a concise title for the following text. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}. Return only the title, nothing else.`;
 			},
 			userMessage: 'Generate a title for this text.',
 			run: async ({ state }) => {
-				const content = getTaskState(state, RawTaskNames.TITLE_SUMMARY);
+				const content = getTaskState(state, TaskNames.TITLE_SUMMARY);
 				return content;
 			},
 			completionOptions: defaultCompletionOptions
 		}),
 
-		[RawTaskNames.TITLE_SUMMARY]: iaTask({
-			dependencies: [RawTaskNames.CONTENT],
+		[TaskNames.TITLE_SUMMARY]: iaTask({
+			dependencies: [TaskNames.CONTENT],
 			component: 'taskBase',
-			output: outputSchemas[RawTaskNames.TITLE_SUMMARY],
+			output: outputSchemas[TaskNames.TITLE_SUMMARY],
 			systemMessage:
 				'You are a professional text summarizer. Write a concise and clear summary. Keep the response under 80 words.',
 			userMessage: ({ context }) => {
-				const ctx = context as RawTaskFactoryContext;
+				const ctx = context as TaskFactoryContext;
 				return `Summarize the following text in one paragraph. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
 			},
 			run: async ({ state }) => {
-				const content = getTaskState(state, RawTaskNames.CONTENT);
+				const content = getTaskState(state, TaskNames.CONTENT);
 				return content;
 			},
 			onComplete: ({ result, context }) => {
-				ttsState.setTextContents([result]);
-				ttsState.generateTTS(context.url);
+				const ctx = context as TaskFactoryContext;
+				ttsState.setTextContents([result as string]);
+				ttsState.generateTTS(ctx.rawId);
 			},
 			completionOptions: defaultCompletionOptions
 		}),
 
-		[RawTaskNames.GENERATE_TTS]: scriptTask({
+		[TaskNames.GENERATE_TTS]: scriptTask({
 			name: 'Generate TTS',
-			dependencies: [RawTaskNames.TITLE_SUMMARY],
-			output: outputSchemas[RawTaskNames.GENERATE_TTS],
+			dependencies: [TaskNames.TITLE_SUMMARY],
+			output: outputSchemas[TaskNames.GENERATE_TTS],
 			run: async ({ state, context }) => {
-				const summary = getTaskState(state, RawTaskNames.TITLE_SUMMARY);
-				const ctx = context as RawTaskFactoryContext;
+				const summary = getTaskState(state, TaskNames.TITLE_SUMMARY);
+				const ctx = context as TaskFactoryContext;
 
 				if (ctx.freshRun) {
 					ttsState.setTextContents([summary]);

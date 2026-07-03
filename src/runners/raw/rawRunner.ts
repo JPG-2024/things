@@ -3,15 +3,17 @@ import { workflowManager } from '@/runners/workflowManager.svelte';
 import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { RawTaskNames, rawTaskRegistry } from './tasks/rawWorkflow';
+import { TaskNames, rawTaskRegistry } from './tasks/rawWorkflow';
 
 type RawTaskId = keyof typeof rawTaskRegistry & string;
 
 const defaultRoutine = [
-	RawTaskNames.TITLE,
-	RawTaskNames.CONTENT,
-	RawTaskNames.TITLE_SUMMARY
-	//RawTaskNames.GENERATE_TTS
+	TaskNames.TITLE,
+	TaskNames.CONTENT,
+	TaskNames.KEYWORDS,
+	TaskNames.CATEGORY,
+	TaskNames.TITLE_SUMMARY
+	//TaskNames.GENERATE_TTS
 ] as const satisfies readonly RawTaskId[];
 
 type RawRunnerOptions = {
