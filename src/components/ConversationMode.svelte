@@ -52,13 +52,13 @@
 	let convGenDone = false;
 	let convBlobReady: (() => void) | null = null;
 
-	const amplitudeScale = 0.3;
+	const amplitudeScale = 0.1;
 	const wavelengthScale = 300;
 	const SINE_FILL_ALPHA = 0.24;
 	const WAVE_STROKE_WIDTH = 4;
 	const SPLINE_SAMPLE_STEP = 0.1;
 	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
-	const MAX_WAVE_AMPLITUDE_PX = 80;
+	const MAX_WAVE_AMPLITUDE_PX = 10;
 
 	function generateId(): string {
 		return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -594,6 +594,7 @@
 				drawWaveform(micAnalyserNode);
 			} else if (status === 'transcribing' || status === 'thinking') {
 				drawGeneratingWave();
+				//drawIdleLine();
 			} else {
 				drawIdleLine();
 			}

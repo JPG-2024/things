@@ -29,7 +29,11 @@ class ArticleCacheStore {
 	private profilesFetching: Promise<void> | null = null;
 	private articlesFetching: Promise<void> | null = null;
 
-	async fetchProfilesWithArticles(options?: { force?: boolean; loadMore?: boolean }) {
+	async fetchProfilesWithArticles(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+	}) {
 		const now = Date.now();
 		if (!options?.force && !options?.loadMore && now - this.profilesFetchedAt < CACHE_TTL) {
 			return;
@@ -48,13 +52,18 @@ class ArticleCacheStore {
 		}
 	}
 
-	private async _doFetchProfiles(options?: { force?: boolean; loadMore?: boolean }) {
+	private async _doFetchProfiles(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+	}) {
 		this.loadingProfiles = true;
 		try {
 			const offset = options?.loadMore ? this.profilesOffset : 0;
 			const result = await getArticlesWithProfiles(ARTICLE_COUNT_PER_PROFILE, {
 				offset,
-				limit: PROFILES_PAGE_SIZE
+				limit: PROFILES_PAGE_SIZE,
+				categoryIds: options?.categoryIds
 			});
 
 			if (options?.loadMore) {
@@ -71,7 +80,11 @@ class ArticleCacheStore {
 		}
 	}
 
-	async fetchArticlesWithoutProfile(options?: { force?: boolean; loadMore?: boolean }) {
+	async fetchArticlesWithoutProfile(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+	}) {
 		const now = Date.now();
 		if (!options?.force && !options?.loadMore && now - this.articlesFetchedAt < CACHE_TTL) {
 			return;
@@ -90,11 +103,16 @@ class ArticleCacheStore {
 		}
 	}
 
-	private async _doFetchArticles(options?: { force?: boolean; loadMore?: boolean }) {
+	private async _doFetchArticles(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+	}) {
 		this.loadingArticles = true;
 		try {
 			const offset = options?.loadMore ? this.articlesOffset : 0;
 			const result = await getArticlesWithoutProfile({
+				categoryIds: options?.categoryIds,
 				offset,
 				limit: ARTICLES_PAGE_SIZE
 			});

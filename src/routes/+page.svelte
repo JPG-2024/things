@@ -16,6 +16,7 @@
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
+	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { goto } from '$app/navigation';
@@ -23,7 +24,11 @@
 	import { onMount } from 'svelte';
 
 	let glowIntensity = $state(1);
-	let activeTab = $state<'profiles' | 'articles'>('profiles');
+
+	const profileArticleTabs = [
+		{ id: 'profiles', label: 'Profiles' },
+		{ id: 'articles', label: 'Articles' }
+	];
 
 	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
 		const count = 2 + Math.floor(Math.random() * 6);
@@ -88,19 +93,25 @@
 	});
 
 	$effect(() => {
-		const _ = viewState.selectedCategories;
+		const categories = viewState.selectedCategories;
 		if (!initialLoad) {
 			articleCacheStore.invalidate();
-			if (activeTab === 'profiles') {
-				articleCacheStore.fetchProfilesWithArticles({ force: true });
+			if (viewState.activeProfileArticleTab === 'profiles') {
+				articleCacheStore.fetchProfilesWithArticles({
+					force: true,
+					categoryIds: categories
+				});
 			} else {
-				articleCacheStore.fetchArticlesWithoutProfile({ force: true });
+				articleCacheStore.fetchArticlesWithoutProfile({
+					force: true,
+					categoryIds: categories
+				});
 			}
 		}
 	});
 
 	$effect(() => {
-		const tab = activeTab;
+		const tab = viewState.activeProfileArticleTab;
 		if (tab === 'articles' && articleCacheStore.articlesWithoutProfile.length === 0) {
 			articleCacheStore.fetchArticlesWithoutProfile({ force: true });
 		}
@@ -258,32 +269,14 @@
 	</div>
 
 	<div class="inputs-container">
+		<Tabs tabs={profileArticleTabs} bind:activeTab={viewState.activeProfileArticleTab} />
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
+		<!-- <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." /> -->
 	</div>
 
-	<div class="tabs">
-		<button
-			type="button"
-			class="tab-button"
-			class:active={activeTab === 'profiles'}
-			onclick={() => (activeTab = 'profiles')}
-		>
-			Profiles
-		</button>
-		<button
-			type="button"
-			class="tab-button"
-			class:active={activeTab === 'articles'}
-			onclick={() => (activeTab = 'articles')}
-		>
-			Articles
-		</button>
-	</div>
-
-	{#if activeTab === 'profiles'}
+	{#if viewState.activeProfileArticleTab === 'profiles'}
 		<div class="flex-squares">
 			{#each articleCacheStore.profilesWithArticles as profile (profile.profileId)}
 				<ProfileWidget
@@ -344,9 +337,9 @@
 							{/if}
 						</Tooltip>
 					</div>
-					{#if article.title}
+					<!-- 					{#if article.title}
 						<span class="article-title">{article.title}</span>
-					{/if}
+					{/if} -->
 				</button>
 			{:else}
 				{#if articleCacheStore.loadingArticles}
@@ -520,39 +513,10 @@
 		padding: 0;
 	}
 
-	.tabs {
-		display: flex;
-		gap: 0.5rem;
-		justify-content: center;
-		margin-bottom: 1rem;
-	}
-
-	.tab-button {
-		all: unset;
-		cursor: pointer;
-		padding: 0.5rem 1.5rem;
-		border-radius: 8px;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 0.9rem;
-		transition: all 0.2s;
-		border: 1px solid transparent;
-	}
-
-	.tab-button:hover {
-		color: rgba(255, 255, 255, 0.8);
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.tab-button.active {
-		color: var(--primary-color);
-		border-color: var(--primary-color);
-		background: rgba(255, 255, 255, 0.03);
-	}
-
 	.articles-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-		gap: 1.5rem;
+		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+		gap: 2rem;
 		width: 100%;
 		max-width: 1200px;
 		padding-bottom: 20%;
@@ -569,7 +533,7 @@
 	}
 
 	.article-card:hover {
-		transform: scale(1.03);
+		transform: scale(1.01);
 	}
 
 	.article-thumbnail-container {

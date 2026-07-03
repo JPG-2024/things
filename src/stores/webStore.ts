@@ -130,6 +130,11 @@ export type AssignCategoriesToProfileInput = {
 	categoryIds: string[];
 };
 
+export type AssignCategoriesToArticleInput = {
+	articleUrl: string;
+	categoryIds: string[];
+};
+
 type UpsertWebStoreArticleInput = {
 	url: string;
 	title: string | null;
@@ -656,6 +661,16 @@ export async function saveArticle(
 		});
 
 		await invoke('upsert_web_store_article', { input });
+
+		const categoryNames = getStoredTaskData<string[]>(tasksToSave, 'category');
+		if (categoryNames && Array.isArray(categoryNames) && categoryNames.length > 0) {
+			const categoryIds = categoryNames
+				.map((name) => name.trim().toLowerCase().replace(/\s+/g, '-'))
+				.filter(Boolean);
+			if (categoryIds.length > 0) {
+				await assignCategoriesToArticle({ articleUrl: url, categoryIds });
+			}
+		}
 	} catch (error) {
 		console.error('Error saving article:', error);
 	}
@@ -788,6 +803,16 @@ export async function assignCategoriesToProfile(
 	}
 }
 
+export async function assignCategoriesToArticle(
+	input: AssignCategoriesToArticleInput
+): Promise<void> {
+	try {
+		await invoke('assign_categories_to_article', { input });
+	} catch (error) {
+		console.error('Error assigning categories to article:', error);
+	}
+}
+
 export async function unassignCategoryFromProfile(input: ProfileCategoryInput): Promise<boolean> {
 	try {
 		return await invoke<boolean>('unassign_category_from_profile', { input });
@@ -869,6 +894,7 @@ export async function getArticlesWithProfiles(
 }
 
 export async function getArticlesWithoutProfile(options?: {
+	categoryIds?: string[];
 	offset?: number;
 	limit?: number;
 }): Promise<ArticlesWithoutProfileResponse> {
@@ -877,6 +903,7 @@ export async function getArticlesWithoutProfile(options?: {
 			articles: WebStoreArticleRecord[];
 			total: number;
 		}>('list_articles_without_profile', {
+			categoryIds: options?.categoryIds ?? null,
 			offset: options?.offset ?? null,
 			limit: options?.limit ?? null
 		});

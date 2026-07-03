@@ -108,6 +108,13 @@ pub struct AssignCategoriesToProfileInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssignCategoriesToArticleInput {
+    pub article_url: String,
+    pub category_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpsertWebStoreArticleInput {
     pub url: String,
     pub title: Option<String>,
@@ -201,7 +208,16 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             FOREIGN KEY (category_id) REFERENCES web_categories(id)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);"
+        CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);
+
+        CREATE TABLE IF NOT EXISTS article_category (
+            article_url TEXT NOT NULL,
+            category_id TEXT NOT NULL,
+            PRIMARY KEY (article_url, category_id),
+            FOREIGN KEY (category_id) REFERENCES web_categories(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_article_category_category_id ON article_category(category_id);"
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
@@ -1139,6 +1155,42 @@ pub async fn assign_categories_to_profile(
 }
 
 #[tauri::command]
+pub async fn assign_categories_to_article(
+    app: AppHandle,
+    input: AssignCategoriesToArticleInput,
+) -> Result<(), String> {
+    let mut conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let tx = conn.transaction().map_err(|error| error.to_string())?;
+
+    tx.execute(
+        "DELETE FROM article_category WHERE article_url = ?1",
+        params![input.article_url],
+    ).map_err(|error| error.to_string())?;
+
+    for category_id in &input.category_ids {
+        let category_exists: bool = tx.query_row(
+            "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
+            [category_id],
+            |row| row.get(0),
+        ).map_err(|error| error.to_string())?;
+
+        if !category_exists {
+            return Err(format!("Category {} does not exist or is deleted", category_id));
+        }
+
+        tx.execute(
+            "INSERT OR IGNORE INTO article_category (article_url, category_id) VALUES (?1, ?2)",
+            params![input.article_url, category_id],
+        ).map_err(|error| error.to_string())?;
+    }
+
+    tx.commit().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn unassign_category_from_profile(
     app: AppHandle,
     input: ProfileCategoryInput,
@@ -1344,33 +1396,69 @@ pub async fn list_articles_with_profiles(
 #[tauri::command]
 pub async fn list_articles_without_profile(
     app: AppHandle,
+    category_ids: Option<Vec<String>>,
     offset: Option<usize>,
     limit: Option<usize>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let total: usize = conn.query_row(
-        "SELECT COUNT(*) FROM web_articles WHERE profile IS NULL",
-        [],
-        |row| row.get(0),
-    ).map_err(|error| error.to_string())?;
+    let category_filter = if let Some(ref cats) = category_ids {
+        if cats.is_empty() {
+            String::new()
+        } else {
+            let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            format!(
+                " AND a.url IN (
+                    SELECT ac.article_url
+                    FROM article_category ac
+                    WHERE ac.category_id IN ({})
+                )",
+                placeholders
+            )
+        }
+    } else {
+        String::new()
+    };
+
+    let count_sql = format!(
+        "SELECT COUNT(*) FROM web_articles a WHERE a.profile IS NULL{}",
+        category_filter
+    );
+
+    let total: usize = {
+        let profile_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
+            .as_ref()
+            .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
+            .unwrap_or_default();
+
+        let mut count_stmt = conn.prepare(&count_sql).map_err(|error| error.to_string())?;
+        count_stmt
+            .query_row(rusqlite::params_from_iter(profile_params), |row| row.get(0))
+            .map_err(|error| error.to_string())?
+    };
 
     let sql = format!(
-        "SELECT id, url, created_at, title, thumbnail, content,
-                media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date
-         FROM web_articles
-         WHERE profile IS NULL
-         ORDER BY date DESC NULLS LAST, created_at DESC
+        "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
+                a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
+                a.viewed, a.date
+         FROM web_articles a
+         WHERE a.profile IS NULL{}
+         ORDER BY a.date DESC NULLS LAST, a.created_at DESC
          LIMIT {} OFFSET {}",
+        category_filter,
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
 
+    let article_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
+        .as_ref()
+        .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
+        .unwrap_or_default();
+
     let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let article_iter = stmt
-        .query_map([], row_to_stored_article)
+        .query_map(rusqlite::params_from_iter(article_params), row_to_stored_article)
         .map_err(|error| error.to_string())?;
 
     let mut articles = Vec::new();
