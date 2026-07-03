@@ -6,24 +6,20 @@
 	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { goto } from '$app/navigation';
-	import {
-		getArticlesByProfile,
-		type ArticleProfile,
-		type ArticleWithTasks
-	} from '@/stores/webStore';
+	import { type ArticleWithTasks, type ProfileWithArticles } from '@/stores/webStore';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { createQuery } from '@tanstack/svelte-query';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
-		profile: ArticleProfile;
+		profileWithArticles: ProfileWithArticles;
 		showTitle?: boolean;
 		collapsed?: boolean;
 	}
 
-	let { profile, showTitle = false, collapsed = false }: Props = $props();
+	let { profileWithArticles, showTitle = false, collapsed = false }: Props = $props();
 	let isCollapsed = $state(false);
 
 	$effect(() => {
@@ -34,45 +30,37 @@
 		isCollapsed = !isCollapsed;
 	}
 
-	const profileRunId = getProfileUrl(profile.name);
+	const profileRunId = getProfileUrl(profileWithArticles.profileName);
 	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
 	const isProfileRunning = $derived(
 		profileRunStatus === 'running' || profileRunStatus === 'pending'
 	);
 	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
 
-	const query = createQuery({
-		queryKey: ['articles', profile.id],
-		queryFn: () =>
-			getArticlesByProfile(profile.id, {
-				limit: 20,
-				dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
-			})
-	});
-
 	async function goToprofile() {
-		viewState.currentProfileId = profile.id;
-		const profileUrl = getProfileUrl(profile.name);
+		viewState.currentProfileId = profileWithArticles.profileId;
+		const profileUrl = getProfileUrl(profileWithArticles.profileName);
 		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
 		await urlRouter(profileUrl, {
-			runnerOptions: { videosAmount: 20, profileId: profile.id }
+			runnerOptions: { videosAmount: 20, profileId: profileWithArticles.profileId }
 		});
 	}
 
 	async function handleRefresh() {
 		if (isProfileRunning) return;
-		const profileUrl = getProfileUrl(profile.name);
+		const profileUrl = getProfileUrl(profileWithArticles.profileName);
 		await urlRouter(profileUrl, {
 			forceRunTasks: true,
 			routine: 'fromUrl',
-			runnerOptions: { videosAmount: 3, profileId: profile.id }
+			runnerOptions: { videosAmount: 3, profileId: profileWithArticles.profileId }
 		});
-		$query.refetch();
+		articleCacheStore.invalidateProfiles();
+		await articleCacheStore.fetchProfilesWithArticles({ force: true });
 	}
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
-		viewState.currentProfileId = profile.id;
+		viewState.currentProfileId = profileWithArticles.profileId;
 		if (article.url.startsWith('raw-')) {
 			goto(`/raw/${article.url}`);
 			await urlRouter(article.url);
@@ -92,14 +80,14 @@
 		<Card loading={isProfileRunning}>
 			{#if showTitle}
 				<div class="title-row">
-					<h2 class="category-title">{profile.name}</h2>
+					<h2 class="category-title">{profileWithArticles.profileName}</h2>
 					<div class="actions">
 						<button
 							type="button"
 							class="refresh-btn"
 							onclick={handleRefresh}
 							disabled={isProfileRunning}
-							aria-label={`Refresh ${profile.name}`}
+							aria-label={`Refresh ${profileWithArticles.profileName}`}
 							title="Refresh"
 						>
 							{#if isProfileRunning}
@@ -111,9 +99,9 @@
 					</div>
 				</div>
 			{/if}
-			{#if profile.profilePictureSrc || $query.data?.length}
+			{#if profileWithArticles.profilePictureSrc || profileWithArticles.articles.length}
 				<div class="img-flex">
-					{#if profile.profilePictureSrc}
+					{#if profileWithArticles.profilePictureSrc}
 						<div class="avatar-container">
 							<button
 								class="img-button"
@@ -122,12 +110,12 @@
 								aria-label="View article"
 							>
 								<img
-									src={profile.profilePictureSrc}
-									alt={profile.name}
+									src={profileWithArticles.profilePictureSrc}
+									alt={profileWithArticles.profileName}
 									class="profile-avatar"
 									onmouseenter={() => {
-										viewState.hoveredProfileName = profile.name;
-										viewState.hoveredProfileId = profile.id;
+										viewState.hoveredProfileName = profileWithArticles.profileName;
+										viewState.hoveredProfileId = profileWithArticles.profileId;
 									}}
 									onmouseleave={() => {
 										viewState.hoveredProfileName = null;
@@ -137,8 +125,8 @@
 							</button>
 						</div>
 					{/if}
-					{#if $query.data?.length}
-						{#each ($query.data ?? []).filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
+					{#if profileWithArticles.articles.length}
+						{#each profileWithArticles.articles.filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
 							<button
 								type="button"
 								class="img-button"

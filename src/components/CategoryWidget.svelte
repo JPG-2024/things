@@ -8,9 +8,11 @@
 		deleteProfileById,
 		getArticlesByProfile,
 		getProfiles,
-		type ArticleWithTasks
+		type ArticleWithTasks,
+		type ArticleProfile
 	} from '@/stores/webStore';
-	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		categoryId: string;
@@ -21,41 +23,35 @@
 
 	let { categoryId, name = '', showTitle = false, onDeleted }: Props = $props();
 
-	const queryClient = useQueryClient();
+	let articles = $state<ArticleWithTasks[]>([]);
+	let profile = $state<ArticleProfile | null>(null);
+	let isLoading = $state(false);
+	let isDeleting = $state(false);
 
-	const query = createQuery({
-		queryKey: ['articles', categoryId],
-		queryFn: () =>
-			getArticlesByProfile(categoryId, {
-				limit: 20,
-				dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
-			})
-	});
-
-	const profilesQuery = createQuery({
-		queryKey: ['profiles'],
-		queryFn: getProfiles
-	});
-
-	const profile = $derived($profilesQuery.data?.find((p) => p.id === categoryId));
-
-	function handleRefresh() {
-		$query.refetch();
+	async function loadData() {
+		isLoading = true;
+		try {
+			const [articlesResult, profilesResult] = await Promise.all([
+				getArticlesByProfile(categoryId, {
+					limit: 20,
+					dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
+				}),
+				getProfiles()
+			]);
+			articles = articlesResult;
+			profile = profilesResult.find((p) => p.id === categoryId) ?? null;
+		} finally {
+			isLoading = false;
+		}
 	}
 
-	const mutation = createMutation({
-		mutationFn: async (profileId: string) => {
-			const result = await deleteProfileById(profileId);
-			if (!result.success) {
-				throw new Error('Failed to delete profile');
-			}
-			return result;
-		},
-		onSuccess: async (_, profileId) => {
-			queryClient.invalidateQueries({ queryKey: ['articles', profileId] });
-			await onDeleted?.(profileId);
-		}
+	onMount(() => {
+		loadData();
 	});
+
+	function handleRefresh() {
+		loadData();
+	}
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
@@ -64,9 +60,18 @@
 		navigate(`/youtube/${encodeURIComponent(article.url)}`);
 	}
 
-	function handleDeleteProfile() {
-		if ($mutation.status === 'pending') return;
-		$mutation.mutate(categoryId);
+	async function handleDeleteProfile() {
+		if (isDeleting) return;
+		isDeleting = true;
+		try {
+			const result = await deleteProfileById(categoryId);
+			if (result.success) {
+				articleCacheStore.invalidate();
+				await onDeleted?.(categoryId);
+			}
+		} finally {
+			isDeleting = false;
+		}
 	}
 </script>
 
@@ -80,7 +85,7 @@
 						type="button"
 						class="refresh-btn"
 						onclick={handleRefresh}
-						disabled={$query.isFetching}
+						disabled={isLoading}
 						aria-label={`Refresh ${name}`}
 						title="Refresh"
 					>
@@ -90,7 +95,7 @@
 						type="button"
 						class="delete-btn"
 						onclick={handleDeleteProfile}
-						disabled={$mutation.status === 'pending'}
+						disabled={isDeleting}
 						aria-label={`Delete ${name}`}
 						title="Delete profile"
 					>
@@ -99,7 +104,7 @@
 				</div>
 			</div>
 		{/if}
-		{#if $query.data?.length}
+		{#if articles.length}
 			<div class="img-flex">
 				{#if profile?.profilePictureSrc}
 					<img
@@ -109,7 +114,7 @@
 						style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
 					/>
 				{/if}
-				{#each $query.data as article (article.url)}
+				{#each articles as article (article.url)}
 					<button
 						type="button"
 						class="img-button"
@@ -125,7 +130,7 @@
 					</button>
 				{/each}
 			</div>
-		{:else if $query.isLoading}
+		{:else if isLoading}
 			<span>Loading articles...</span>
 		{/if}
 	</Card>

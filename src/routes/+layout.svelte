@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
-	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-
 	import { invoke } from '@tauri-apps/api/core';
+
 	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
@@ -27,14 +26,6 @@
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
 	let conversationMode = $state(false);
-
-	const queryClient = new QueryClient({
-		defaultOptions: {
-			queries: {
-				staleTime: 1000 * 60 * 5
-			}
-		}
-	});
 
 	$effect(() => {
 		const color = viewState.primaryColor;
@@ -152,7 +143,7 @@
 
 				playCoinSound();
 
-				await handlePasteUrl(trimmed, { queryClient });
+				await handlePasteUrl(trimmed);
 			} catch {
 				viewState.clipboardPollingEnabled = false;
 			}
@@ -179,38 +170,36 @@
 	});
 </script>
 
-<QueryClientProvider client={queryClient}>
-	<main
-		id="layout-main"
-		bind:this={mainElement}
-		class="container"
-		class:blur-active={blurActive}
-		class:flashy
-		class:loaded={viewState.loaded}
-	>
-		{@render children()}
-	</main>
+<main
+	id="layout-main"
+	bind:this={mainElement}
+	class="container"
+	class:blur-active={blurActive}
+	class:flashy
+	class:loaded={viewState.loaded}
+>
+	{@render children()}
+</main>
 
-	<TasksStatusBar />
+<TasksStatusBar />
 
-	<TTSPlayer />
+<TTSPlayer />
 
-	{#if conversationMode}
-		<ConversationMode onExit={() => (conversationMode = false)} />
-	{/if}
+{#if conversationMode}
+	<ConversationMode onExit={() => (conversationMode = false)} />
+{/if}
 
-	<Drawer name="tts-settings">
-		<TTSSettings />
-	</Drawer>
+<Drawer name="tts-settings">
+	<TTSSettings />
+</Drawer>
 
-	<Drawer name="settings">
-		<SettingsModal />
-	</Drawer>
+<Drawer name="settings">
+	<SettingsModal />
+</Drawer>
 
-	<Drawer name="conversation-settings">
-		<ConversationSettings />
-	</Drawer>
-</QueryClientProvider>
+<Drawer name="conversation-settings">
+	<ConversationSettings />
+</Drawer>
 
 <style>
 	:global(body) {

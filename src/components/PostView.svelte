@@ -8,7 +8,7 @@
 	import ToggleIcon from './ToggleIcon.svelte';
 	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
-	import { useQueryClient } from '@tanstack/svelte-query';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 
 	interface Props {
@@ -17,23 +17,17 @@
 	}
 
 	const { headerContent, contentSnippet } = $props();
-	// reactive state for deletion flag (Svelte runes)
 	let isDeleting = $state(false);
 
-	const queryClient = useQueryClient();
-
-	// Add window scroll event listener on mount, remove on unload, using $effect.pre
 	$effect.pre(() => {
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
 				window.removeEventListener('scroll', handleScroll);
-				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				queryClient.invalidateQueries({ queryKey: ['articles'] });
+				articleCacheStore.invalidate();
 				void goto('/');
 			}
 		}
 		window.addEventListener('scroll', handleScroll);
-		// Cleanup on component unload
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
 			workflowManager.clearStack();
@@ -44,11 +38,7 @@
 		return () => {
 			if (viewState.url) {
 				void markArticleAsViewed(viewState.url).then(() => {
-					if (viewState.currentProfileId) {
-						queryClient.invalidateQueries({ queryKey: ['articles', viewState.currentProfileId] });
-					} else {
-						queryClient.invalidateQueries({ queryKey: ['articles'] });
-					}
+					articleCacheStore.invalidate();
 				});
 			}
 		};
@@ -60,12 +50,7 @@
 			isDeleting = true;
 			const res = await deleteArticleByUrl(viewState.url);
 			if (res?.success) {
-				queryClient.invalidateQueries({ queryKey: ['profiles'] });
-				if (viewState.currentProfileId) {
-					queryClient.invalidateQueries({ queryKey: ['articles', viewState.currentProfileId] });
-				} else {
-					queryClient.invalidateQueries({ queryKey: ['articles'] });
-				}
+				articleCacheStore.invalidate();
 				goto(`/`);
 			} else {
 				console.error('Failed to delete article');

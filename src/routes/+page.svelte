@@ -1,22 +1,29 @@
 <script lang="ts">
-	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { invoke } from '@tauri-apps/api/core';
 
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
+	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Tooltip from '@/components/Tooltip.svelte';
 	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { getProfilesByCategories, deleteProfileById } from '@/stores/webStore';
+	import { deleteProfileById } from '@/stores/webStore';
+	import { toVTName } from '@/lib/utils/url';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
+	import { goto } from '$app/navigation';
+	import { urlRouter } from '@/lib/urlRouter/urlRouter';
+	import { onMount } from 'svelte';
 
 	let glowIntensity = $state(1);
+	let activeTab = $state<'profiles' | 'articles'>('profiles');
 
 	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
 		const count = 2 + Math.floor(Math.random() * 6);
@@ -45,8 +52,6 @@
 	$effect(() => {
 		let blinkTimeouts: ReturnType<typeof setTimeout>[] = [];
 
-		console.log(profileCategories);
-
 		const interval = setInterval(() => {
 			if (Math.random() > 0.5) {
 				blinkTimeouts = triggerQuickBlink();
@@ -58,8 +63,6 @@
 			blinkTimeouts.forEach(clearTimeout);
 		};
 	});
-
-	const queryClient = useQueryClient();
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -78,29 +81,36 @@
 		viewState.primaryColor = `rgb(${r}, ${g}, ${b})`;
 	}
 
-	const profilesQuery = createQuery({
-		queryKey: ['profiles'],
-		queryFn: () => getProfilesByCategories(viewState.selectedCategories),
-		placeholderData: (prev) => prev
+	let initialLoad = $state(true);
+	onMount(async () => {
+		await articleCacheStore.fetchProfilesWithArticles();
+		initialLoad = false;
 	});
 
-	console.log(profilesQuery);
-
-	let initialCategoryLoad = $state(true);
 	$effect(() => {
-		viewState.selectedCategories.length;
-		if (!initialCategoryLoad) {
-			$profilesQuery.refetch();
+		const _ = viewState.selectedCategories;
+		if (!initialLoad) {
+			articleCacheStore.invalidate();
+			if (activeTab === 'profiles') {
+				articleCacheStore.fetchProfilesWithArticles({ force: true });
+			} else {
+				articleCacheStore.fetchArticlesWithoutProfile({ force: true });
+			}
 		}
-		initialCategoryLoad = false;
 	});
 
-	const profileCategories = $derived($profilesQuery.data ?? []);
+	$effect(() => {
+		const tab = activeTab;
+		if (tab === 'articles' && articleCacheStore.articlesWithoutProfile.length === 0) {
+			articleCacheStore.fetchArticlesWithoutProfile({ force: true });
+		}
+	});
 
 	async function handleDeleteProfile(profileId: string) {
 		const result = await deleteProfileById(profileId);
 		if (result.success) {
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
+			articleCacheStore.invalidateProfiles();
+			await articleCacheStore.fetchProfilesWithArticles({ force: true });
 		}
 	}
 
@@ -110,10 +120,9 @@
 
 		const validUrl = extractValidUrl(trimmed);
 		if (validUrl) {
-			void handlePasteUrl(trimmed, { queryClient });
+			void handlePasteUrl(trimmed);
 		} else {
 			handleYoutubeQuestion(trimmed);
-			//navigate(`/chat?prompt=${encodeURIComponent(trimmed)}`);
 		}
 	}
 
@@ -122,9 +131,21 @@
 			const clipboardText = await invoke<string>('read_clipboard_text');
 			const trimmed = (clipboardText ?? '').trim();
 			if (!trimmed) return;
-			await handlePasteUrl(trimmed, { queryClient });
+			await handlePasteUrl(trimmed);
 		} catch {
 			viewState.clipboardPollingEnabled = false;
+		}
+	}
+
+	async function handleNavigateToArticle(url: string | null, profileId: string | null) {
+		if (!url) return;
+		if (profileId) viewState.currentProfileId = profileId;
+		if (url.startsWith('raw-')) {
+			goto(`/raw/${url}`);
+			await urlRouter(url);
+		} else {
+			urlRouter(url);
+			goto(`/youtube/${encodeURIComponent(url)}`);
 		}
 	}
 
@@ -145,14 +166,17 @@
 		'P',
 		async () => {
 			if (!viewState.hoveredProfileName) return;
-			const profile = profileCategories.find((p) => p.name === viewState.hoveredProfileName);
+			const profile = articleCacheStore.profilesWithArticles.find(
+				(p) => p.profileName === viewState.hoveredProfileName
+			);
 			if (!profile) return;
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
 			await profileRunner(profileUrl, {
 				runnerConfig: { routine: 'fromUrl' },
 				options: { videosAmount: 1, scrollTimes: 1 }
 			});
-			queryClient.invalidateQueries({ queryKey: ['articles', profile.id] });
+			articleCacheStore.invalidateProfiles();
+			await articleCacheStore.fetchProfilesWithArticles({ force: true });
 		},
 		() => ({
 			enabled: viewState.hoveredProfileName !== null,
@@ -238,22 +262,111 @@
 			<Categories />
 		</div>
 		<Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." />
-
-		<!--     <Input onChange={(prompt) => (viewState.prompt = prompt)} />
-    <Input onChange={(query) => (viewState.prompt = query)} /> -->
-		<!-- <InstantResponse model="gpt-3.5-turbo" maxTokens={512} /> -->
-		<!-- <button onclick={() => handleYoutubeQuestion(viewState.prompt!)}>search</button> -->
 	</div>
 
-	<div class="flex-squares">
-		{#each profileCategories as profile (profile.id)}
-			<ProfileWidget {profile} showTitle={false} collapsed={viewState.collapseProfiles} />
-		{:else}
-			<div class="empty-profiles-container">
-				<div class="empty-profiles-pill">404</div>
-			</div>
-		{/each}
+	<div class="tabs">
+		<button
+			type="button"
+			class="tab-button"
+			class:active={activeTab === 'profiles'}
+			onclick={() => (activeTab = 'profiles')}
+		>
+			Profiles
+		</button>
+		<button
+			type="button"
+			class="tab-button"
+			class:active={activeTab === 'articles'}
+			onclick={() => (activeTab = 'articles')}
+		>
+			Articles
+		</button>
 	</div>
+
+	{#if activeTab === 'profiles'}
+		<div class="flex-squares">
+			{#each articleCacheStore.profilesWithArticles as profile (profile.profileId)}
+				<ProfileWidget
+					profileWithArticles={profile}
+					showTitle={false}
+					collapsed={viewState.collapseProfiles}
+				/>
+			{:else}
+				{#if articleCacheStore.loadingProfiles}
+					<div class="empty-profiles-container">
+						<div class="loading-indicator"></div>
+					</div>
+				{:else}
+					<div class="empty-profiles-container">
+						<div class="empty-profiles-pill">404</div>
+					</div>
+				{/if}
+			{/each}
+			{#if articleCacheStore.hasMoreProfiles}
+				<LoadMoreSentinel
+					onLoadMore={() => articleCacheStore.loadMoreProfiles()}
+					disabled={articleCacheStore.loadingProfiles}
+				/>
+			{/if}
+		</div>
+	{:else}
+		<div class="articles-grid">
+			{#each articleCacheStore.articlesWithoutProfile as article (article.url)}
+				<button
+					type="button"
+					class="article-card"
+					onclick={() => handleNavigateToArticle(article.url, null)}
+					onmouseenter={() => {
+						viewState.hoveredArticleUrl = article.url ?? null;
+						viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
+					}}
+					onmouseleave={() => {
+						viewState.hoveredArticleUrl = null;
+					}}
+					aria-label="View article"
+				>
+					<div class="article-thumbnail-container">
+						{#if !article.viewed}
+							<span class="unread-dot"></span>
+						{/if}
+						<Tooltip content={article.title ?? ''}>
+							{#if article.thumbnailSrc}
+								<img
+									src={article.thumbnailSrc}
+									alt="Article"
+									class="article-thumbnail"
+									style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+								/>
+							{:else}
+								<div class="article-thumbnail-fallback" title={article.title ?? ''}>
+									{article.title?.slice(0, 60).concat('...') ?? ''}
+								</div>
+							{/if}
+						</Tooltip>
+					</div>
+					{#if article.title}
+						<span class="article-title">{article.title}</span>
+					{/if}
+				</button>
+			{:else}
+				{#if articleCacheStore.loadingArticles}
+					<div class="empty-profiles-container">
+						<div class="loading-indicator"></div>
+					</div>
+				{:else}
+					<div class="empty-profiles-container">
+						<div class="empty-profiles-pill">No articles</div>
+					</div>
+				{/if}
+			{/each}
+			{#if articleCacheStore.hasMoreArticles}
+				<LoadMoreSentinel
+					onLoadMore={() => articleCacheStore.loadMoreArticles()}
+					disabled={articleCacheStore.loadingArticles}
+				/>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -407,5 +520,112 @@
 		padding: 0;
 	}
 
-	/* The widget-specific styles were moved to `src/components/CategoryWidget.svelte` */
+	.tabs {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: center;
+		margin-bottom: 1rem;
+	}
+
+	.tab-button {
+		all: unset;
+		cursor: pointer;
+		padding: 0.5rem 1.5rem;
+		border-radius: 8px;
+		color: rgba(255, 255, 255, 0.5);
+		font-size: 0.9rem;
+		transition: all 0.2s;
+		border: 1px solid transparent;
+	}
+
+	.tab-button:hover {
+		color: rgba(255, 255, 255, 0.8);
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.tab-button.active {
+		color: var(--primary-color);
+		border-color: var(--primary-color);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.articles-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: 1.5rem;
+		width: 100%;
+		max-width: 1200px;
+		padding-bottom: 20%;
+	}
+
+	.article-card {
+		all: unset;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		transition: transform 0.15s;
+	}
+
+	.article-card:hover {
+		transform: scale(1.03);
+	}
+
+	.article-thumbnail-container {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.article-thumbnail {
+		display: block;
+		border-radius: 12px;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		object-fit: cover;
+	}
+
+	.article-thumbnail-fallback {
+		display: -webkit-box;
+		justify-content: center;
+		align-items: center;
+		border-radius: 12px;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		padding: 0.5rem;
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(255, 255, 255, 0.75);
+		font-size: 0.75rem;
+		line-height: 1.2;
+		text-align: left;
+		overflow: hidden;
+		-webkit-line-clamp: 4;
+		-webkit-box-orient: vertical;
+		line-clamp: 4;
+	}
+
+	.article-title {
+		font-size: 0.8rem;
+		color: rgba(255, 255, 255, 0.7);
+		text-align: center;
+		max-width: 180px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.loading-indicator {
+		width: 30px;
+		height: 30px;
+		border: 3px solid rgba(255, 255, 255, 0.2);
+		border-top-color: var(--primary-color);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
 </style>

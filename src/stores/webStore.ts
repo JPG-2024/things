@@ -26,6 +26,20 @@ export interface ArticleWithTasks {
 	viewed?: boolean | null;
 	[key: string]: unknown;
 }
+
+export interface ProfileWithArticles {
+	profileId: string;
+	profileName: string;
+	profilePicture?: string | null;
+	profilePictureSrc?: string | null;
+	profileUrl?: string | null;
+	articles: ArticleWithTasks[];
+}
+
+export interface ArticlesWithoutProfileResponse {
+	articles: ArticleWithTasks[];
+	total: number;
+}
 export const WEB_STORE_UNKNOWN_PROFILE_ID = '__unknown_profile__';
 export const WEB_STORE_UNKNOWN_PROFILE_LABEL = 'Unknown profile';
 //div[contains(concat(" ", normalize-space(@class), " "), " hp-hero-title_wrapper ")]/div[contains(concat(" ", normalize-space(@class), " "), " t-body-large ")]
@@ -467,7 +481,7 @@ async function resolveProfilePictureField<T extends { profilePicture?: string | 
 
 async function resolveProfilePictureBatch<T extends { profilePicture?: string | null }>(
 	profiles: T[]
-): Promise<T[]> {
+): Promise<(T & { profilePictureSrc?: string | null })[]> {
 	return Promise.all(profiles.map(resolveProfilePictureField));
 }
 
@@ -804,5 +818,78 @@ export async function getProfilesByCategories(categoryIds: string[]): Promise<Ar
 	} catch (error) {
 		console.error('Error fetching profiles by categories:', error);
 		return [];
+	}
+}
+
+export async function getArticlesWithProfiles(
+	articleCount: number,
+	options?: { categoryIds?: string[]; offset?: number; limit?: number }
+): Promise<ProfileWithArticles[]> {
+	try {
+		const result = await invoke<
+			Array<{
+				profileId: string;
+				profileName: string;
+				profilePicture: string | null;
+				profileUrl: string | null;
+				articles: WebStoreArticleRecord[];
+			}>
+		>('list_articles_with_profiles', {
+			articleCount,
+			categoryIds: options?.categoryIds ?? null,
+			offset: options?.offset ?? null,
+			limit: options?.limit ?? null
+		});
+
+		const resolvedProfiles = await resolveProfilePictureBatch(result);
+
+		const profilesWithArticles: ProfileWithArticles[] = [];
+		for (const profile of resolvedProfiles) {
+			const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
+			const mappedArticles = profile.articles.map((row) =>
+				mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+			);
+			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+
+			profilesWithArticles.push({
+				profileId: profile.profileId,
+				profileName: profile.profileName,
+				profilePicture: profile.profilePicture,
+				profilePictureSrc: profile.profilePictureSrc ?? null,
+				profileUrl: profile.profileUrl,
+				articles: resolvedArticles
+			});
+		}
+
+		return profilesWithArticles;
+	} catch (error) {
+		console.error('Error fetching articles with profiles:', error);
+		return [];
+	}
+}
+
+export async function getArticlesWithoutProfile(options?: {
+	offset?: number;
+	limit?: number;
+}): Promise<ArticlesWithoutProfileResponse> {
+	try {
+		const result = await invoke<{
+			articles: WebStoreArticleRecord[];
+			total: number;
+		}>('list_articles_without_profile', {
+			offset: options?.offset ?? null,
+			limit: options?.limit ?? null
+		});
+
+		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
+		const mappedArticles = result.articles.map((row) =>
+			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		);
+		const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+
+		return { articles: resolvedArticles, total: result.total };
+	} catch (error) {
+		console.error('Error fetching articles without profile:', error);
+		return { articles: [], total: 0 };
 	}
 }

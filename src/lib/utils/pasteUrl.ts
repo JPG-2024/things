@@ -1,9 +1,9 @@
-import type { QueryClient } from '@tanstack/svelte-query';
 import { viewState } from '@/stores/viewStore.svelte';
 import { navigate } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
+import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -27,13 +27,12 @@ export function extractValidUrl(value: string): string | null {
 }
 
 type HandlePasteUrlOptions = {
-	queryClient: QueryClient;
 	replaceState?: boolean;
 };
 
 export async function handlePasteUrl(
 	content: string,
-	{ queryClient, replaceState = false }: HandlePasteUrlOptions
+	{ replaceState = false }: HandlePasteUrlOptions = {}
 ): Promise<void> {
 	if (viewState.processingUrl) return;
 
@@ -44,11 +43,10 @@ export async function handlePasteUrl(
 		try {
 			viewState.lastHandledClipboardUrl = validUrl;
 			await enrichRawWithUrl(viewState.url!, validUrl);
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
-			queryClient.invalidateQueries({ queryKey: ['articles'] });
+			articleCacheStore.invalidate();
 		} finally {
 			viewState.processingUrl = false;
-			await processQueue(queryClient);
+			await processQueue({ replaceState });
 		}
 		return;
 	}
@@ -59,11 +57,10 @@ export async function handlePasteUrl(
 			viewState.lastHandledClipboardUrl = validUrl;
 			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
 			await urlRouter(validUrl);
-			queryClient.invalidateQueries({ queryKey: ['profiles'] });
-			queryClient.invalidateQueries({ queryKey: ['articles'] });
+			articleCacheStore.invalidate();
 		} finally {
 			viewState.processingUrl = false;
-			await processQueue(queryClient);
+			await processQueue({ replaceState });
 		}
 		return;
 	}
@@ -81,20 +78,19 @@ export async function handlePasteUrl(
 		viewState.loaded = false;
 		navigate(`/raw/${rawId}`, { replaceState });
 		await rawRunner(rawId, trimmed);
-		queryClient.invalidateQueries({ queryKey: ['profiles'] });
-		queryClient.invalidateQueries({ queryKey: ['articles'] });
+		articleCacheStore.invalidate();
 	} finally {
 		viewState.loaded = true;
 		viewState.loading = false;
 		viewState.processingUrl = false;
-		await processQueue(queryClient);
+		await processQueue({ replaceState });
 	}
 }
 
-export async function processQueue(queryClient: QueryClient): Promise<void> {
+export async function processQueue(options?: { replaceState?: boolean }): Promise<void> {
 	while (viewState.urlQueue.length > 0) {
 		const nextUrl = viewState.urlQueue.shift();
 		if (!nextUrl) break;
-		await handlePasteUrl(nextUrl, { queryClient, replaceState: true });
+		await handlePasteUrl(nextUrl, { ...options, replaceState: true });
 	}
 }

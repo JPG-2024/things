@@ -61,6 +61,23 @@ pub struct WebStoreProfileSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProfileWithArticles {
+    pub profile_id: String,
+    pub profile_name: String,
+    pub profile_picture: Option<String>,
+    pub profile_url: Option<String>,
+    pub articles: Vec<WebStoreArticleRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticlesWithoutProfileResponse {
+    pub articles: Vec<WebStoreArticleRecord>,
+    pub total: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebStoreCategoryRecord {
     pub id: String,
     pub name: String,
@@ -1225,4 +1242,141 @@ pub async fn list_profiles_by_categories(
     }
 
     Ok(profiles)
+}
+
+#[tauri::command]
+pub async fn list_articles_with_profiles(
+    app: AppHandle,
+    article_count: usize,
+    category_ids: Option<Vec<String>>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<Vec<ProfileWithArticles>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let profile_filter = if let Some(ref cats) = category_ids {
+        if cats.is_empty() {
+            String::new()
+        } else {
+            let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            format!(
+                " AND LOWER(p.id) IN (
+                    SELECT DISTINCT LOWER(pc.profile_id)
+                    FROM profile_category pc
+                    INNER JOIN web_categories c ON pc.category_id = c.id
+                    WHERE pc.category_id IN ({}) AND c.deleted_at IS NULL
+                )",
+                placeholders
+            )
+        }
+    } else {
+        String::new()
+    };
+
+    let profiles_sql = format!(
+        "SELECT p.id, p.name, p.profile_picture, p.url,
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) as max_created_at
+         FROM web_profiles p
+         WHERE EXISTS (SELECT 1 FROM web_articles a WHERE LOWER(a.profile) = LOWER(p.id) AND a.profile IS NOT NULL)
+         {}
+         ORDER BY max_created_at DESC NULLS LAST
+         LIMIT {} OFFSET {}",
+        profile_filter,
+        limit.unwrap_or(50),
+        offset.unwrap_or(0)
+    );
+
+    let mut profile_stmt = conn.prepare(&profiles_sql).map_err(|error| error.to_string())?;
+
+    let profile_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
+        .as_ref()
+        .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let profile_rows = profile_stmt
+        .query_map(rusqlite::params_from_iter(profile_params), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut result = Vec::new();
+    for row_result in profile_rows {
+        let (profile_id, profile_name, profile_picture, profile_url) = row_result.map_err(|error| error.to_string())?;
+
+        let articles_sql = format!(
+            "SELECT id, url, created_at, title, thumbnail, content,
+                    media_directory, main_color, profile, embedding_source_text, updated_at,
+                    viewed, date
+             FROM web_articles
+             WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
+             ORDER BY date DESC NULLS LAST, created_at DESC
+             LIMIT ?2"
+        );
+
+        let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
+        let article_rows = article_stmt
+            .query_map(params![profile_id, article_count], row_to_stored_article)
+            .map_err(|error| error.to_string())?;
+
+        let mut articles = Vec::new();
+        for article_result in article_rows {
+            articles.push(article_result.map_err(|error| error.to_string())?);
+        }
+
+        result.push(ProfileWithArticles {
+            profile_id,
+            profile_name,
+            profile_picture,
+            profile_url,
+            articles,
+        });
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn list_articles_without_profile(
+    app: AppHandle,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<ArticlesWithoutProfileResponse, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let total: usize = conn.query_row(
+        "SELECT COUNT(*) FROM web_articles WHERE profile IS NULL",
+        [],
+        |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+
+    let sql = format!(
+        "SELECT id, url, created_at, title, thumbnail, content,
+                media_directory, main_color, profile, embedding_source_text, updated_at,
+                viewed, date
+         FROM web_articles
+         WHERE profile IS NULL
+         ORDER BY date DESC NULLS LAST, created_at DESC
+         LIMIT {} OFFSET {}",
+        limit.unwrap_or(20),
+        offset.unwrap_or(0)
+    );
+
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let article_iter = stmt
+        .query_map([], row_to_stored_article)
+        .map_err(|error| error.to_string())?;
+
+    let mut articles = Vec::new();
+    for article_result in article_iter {
+        articles.push(article_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(ArticlesWithoutProfileResponse { articles, total })
 }
