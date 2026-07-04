@@ -12,7 +12,8 @@ const defaultRoutine = [
 	TaskNames.CONTENT,
 	TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
-	TaskNames.TITLE_SUMMARY
+	TaskNames.TITLE_SUMMARY,
+	TaskNames.EMOJIS
 	//TaskNames.GENERATE_TTS
 ] as const satisfies readonly RawTaskId[];
 

@@ -6,7 +6,8 @@ import { viewState } from '@/stores/viewStore.svelte';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
-	CATEGORY: 'category'
+	CATEGORY: 'category',
+	EMOJIS: 'emojis'
 } as const;
 
 const structuredOutputOptions = {
@@ -19,27 +20,51 @@ const structuredOutputOptions = {
 
 export const sharedOutputSchemas = {
 	[SHARED_TASK_IDS.KEYWORDS]: z.array(z.string()),
-	[SHARED_TASK_IDS.CATEGORY]: z.array(z.string())
+	[SHARED_TASK_IDS.CATEGORY]: z.array(z.string()),
+	[SHARED_TASK_IDS.EMOJIS]: z.array(z.string())
 } as const;
 
-export const sharedTasks = {
-	[SHARED_TASK_IDS.KEYWORDS]: iaTask({
-		dependencies: ['content'],
-		component: 'keywords',
-		output: sharedOutputSchemas[SHARED_TASK_IDS.KEYWORDS],
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array of exactly 10 keywords. No markdown, no explanations.',
-		userMessage: 'extract 10 keywords. respond in JSON format.',
+interface CreateExtractorTaskOptions {
+	count: number;
+	description: string;
+	component: string;
+	dependency?: string;
+}
+
+export function createExtractorTask(options: CreateExtractorTaskOptions) {
+	const { count, description, component, dependency = 'content' } = options;
+
+	return iaTask({
+		dependencies: [dependency],
+		component,
+		output: z.array(z.string()),
+		systemMessage: `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`,
+		userMessage: `Extract ${count} ${description}. Respond in JSON format.`,
 		run: ({ state }) => {
-			const content = state['content'];
+			const content = state[dependency];
 			if (typeof content !== 'string') throw new Error('CONTENT is missing or invalid');
 			return content;
 		},
 		resultParser: (text) => parseStructuredArrayResponses(text),
 		completionOptions: {
 			...structuredOutputOptions,
-			grammar: stringArrayGbnf(10)
+			grammar: stringArrayGbnf(count)
 		}
+	});
+}
+
+export const sharedTasks = {
+	[SHARED_TASK_IDS.KEYWORDS]: createExtractorTask({
+		count: 10,
+		description: 'keywords',
+		component: 'keywords'
+	}),
+
+	[SHARED_TASK_IDS.EMOJIS]: createExtractorTask({
+		count: 3,
+		dependency: 'title-summary',
+		description: 'Emojis',
+		component: 'keywords'
 	}),
 
 	[SHARED_TASK_IDS.CATEGORY]: iaTask({

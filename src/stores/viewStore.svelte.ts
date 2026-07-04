@@ -61,7 +61,7 @@ class ViewState {
 		this.url && /^https?:\/\//.test(this.url) ? new URL(this.url).hostname : null
 	);
 
-	activeProfileArticleTab = $state<'profiles' | 'articles'>('profiles');
+	activeProfileArticleTab = $state<'profiles' | 'articles'>('articles');
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 

@@ -6,6 +6,7 @@ export enum TaskNames {
 	CONTENT = 'content',
 	TITLE_SUMMARY = 'title-summary',
 	KEYWORDS = 'keywords',
+	EMOJIS = 'emojis',
 	CATEGORY = 'category',
 	GENERATE_TTS = '〰'
 }

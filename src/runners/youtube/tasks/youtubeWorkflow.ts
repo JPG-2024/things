@@ -47,6 +47,7 @@ const outputSchemas = {
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.TITLE]: z.string(),
 	[TaskNames.KEYWORDS]: z.array(z.string()),
+	[TaskNames.EMOJIS]: z.array(z.string()),
 	[TaskNames.KEYPOINTS]: z.string(),
 	[TaskNames.GENERATE_TTS]: z.string(),
 	[TaskNames.CATEGORY]: z.array(z.string())

@@ -9,7 +9,8 @@ const fromUrl: TaskNames[] = [
 	TaskNames.TITLE,
 	TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
-	TaskNames.TITLE_SUMMARY
+	TaskNames.TITLE_SUMMARY,
+	TaskNames.EMOJIS
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl];

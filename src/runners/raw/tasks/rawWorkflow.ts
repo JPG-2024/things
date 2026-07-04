@@ -15,6 +15,7 @@ const outputSchemas = {
 	[TaskNames.CONTENT]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.KEYWORDS]: sharedOutputSchemas[SHARED_TASK_IDS.KEYWORDS],
+	[TaskNames.EMOJIS]: sharedOutputSchemas[SHARED_TASK_IDS.EMOJIS],
 	[TaskNames.CATEGORY]: sharedOutputSchemas[SHARED_TASK_IDS.CATEGORY],
 	[TaskNames.GENERATE_TTS]: z.string()
 } as const;

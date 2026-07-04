@@ -27,7 +27,8 @@ export enum TaskNames {
 	TITLE_SUMMARY = 'title-summary',
 	TITLE = 'title',
 	GENERATE_TTS = '〰',
-	CATEGORY = 'category'
+	CATEGORY = 'category',
+	EMOJIS = 'emojis'
 }
 
 export type YouTubeTaskFactoryContext = {
