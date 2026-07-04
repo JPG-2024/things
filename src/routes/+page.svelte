@@ -4,7 +4,6 @@
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
 	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
@@ -12,10 +11,10 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { deleteProfileById } from '@/stores/webStore';
-	import { toVTName } from '@/lib/utils/url';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
+	import ArticleList from '@/components/ArticleList.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -26,8 +25,8 @@
 	let glowIntensity = $state(1);
 
 	const profileArticleTabs = [
-		{ id: 'profiles', label: 'Profiles' },
-		{ id: 'articles', label: 'Articles' }
+		{ id: 'articles', label: 'Articles' },
+		{ id: 'profiles', label: 'Profiles' }
 	];
 
 	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
@@ -303,68 +302,37 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="articles-grid">
-			{#each articleCacheStore.articlesWithoutProfile as article (article.url)}
-				<button
-					type="button"
-					class="article-card"
-					onclick={() => handleNavigateToArticle(article.url, null)}
-					onmouseenter={() => {
-						viewState.hoveredArticleUrl = article.url ?? null;
-						viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-					}}
-					onmouseleave={() => {
-						viewState.hoveredArticleUrl = null;
-					}}
-					aria-label="View article"
-				>
-					<div class="article-thumbnail-container">
-						{#if !article.viewed}
-							<span class="unread-dot"></span>
-						{/if}
-						<Tooltip content={article.title ?? ''}>
-							{#if article.thumbnailSrc}
-								<img
-									src={article.thumbnailSrc}
-									alt="Article"
-									class="article-thumbnail"
-									style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-								/>
-							{:else}
-								<div class="article-thumbnail-fallback" title={article.title ?? ''}>
-									{article.title?.slice(0, 60).concat('...') ?? ''}
-								</div>
-							{/if}
-						</Tooltip>
-					</div>
-					<!-- 					{#if article.title}
-						<span class="article-title">{article.title}</span>
-					{/if} -->
-				</button>
-			{:else}
-				{#if articleCacheStore.loadingArticles}
-					<div class="empty-profiles-container">
-						<div class="loading-indicator"></div>
-					</div>
-				{:else}
-					<div class="empty-profiles-container">
-						<div class="empty-profiles-pill">No articles</div>
-					</div>
-				{/if}
-			{/each}
-			{#if articleCacheStore.hasMoreArticles}
-				<LoadMoreSentinel
-					onLoadMore={() => articleCacheStore.loadMoreArticles()}
-					disabled={articleCacheStore.loadingArticles}
-				/>
-			{/if}
-		</div>
+		<ArticleList
+			articles={articleCacheStore.articlesWithoutProfile}
+			onArticleClick={(a) => handleNavigateToArticle(a.url, null)}
+			onArticleHoverEnter={(a) => {
+				viewState.hoveredArticleUrl = a.url ?? null;
+				viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
+			}}
+			onArticleHoverLeave={() => {
+				viewState.hoveredArticleUrl = null;
+			}}
+		/>
+		{#if articleCacheStore.loadingArticles}
+			<div class="empty-profiles-container">
+				<div class="loading-indicator"></div>
+			</div>
+		{:else if articleCacheStore.articlesWithoutProfile.length === 0}
+			<div class="empty-profiles-container">
+				<div class="empty-profiles-pill">No articles</div>
+			</div>
+		{/if}
+		{#if articleCacheStore.hasMoreArticles}
+			<LoadMoreSentinel
+				onLoadMore={() => articleCacheStore.loadMoreArticles()}
+				disabled={articleCacheStore.loadingArticles}
+			/>
+		{/if}
 	{/if}
 </div>
 
 <style>
 	.page-topbar {
-		position: fixed;
 		top: 0;
 		right: 0;
 		left: 0;
@@ -372,8 +340,8 @@
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
-		min-height: 52px;
-		padding: 1.5rem;
+		min-height: 35px;
+		padding: 0.3rem 1rem;
 		margin: 1px;
 	}
 
@@ -389,10 +357,10 @@
 	.dashboard-container {
 		display: flex;
 		flex-direction: column;
-		gap: 1.4rem;
+		gap: 1rem;
 		align-items: center;
 		box-sizing: border-box;
-		padding: 50px 10px;
+		padding: 10px 10px;
 		width: 100%;
 		min-height: 80px;
 	}
@@ -511,71 +479,6 @@
 		cursor: pointer;
 		border: none;
 		padding: 0;
-	}
-
-	.articles-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-		gap: 2rem;
-		width: 100%;
-		max-width: 1200px;
-		padding-bottom: 20%;
-	}
-
-	.article-card {
-		all: unset;
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.5rem;
-		transition: transform 0.15s;
-	}
-
-	.article-card:hover {
-		transform: scale(1.01);
-	}
-
-	.article-thumbnail-container {
-		position: relative;
-		display: inline-flex;
-	}
-
-	.article-thumbnail {
-		display: block;
-		border-radius: 12px;
-		width: 100%;
-		aspect-ratio: 16 / 10;
-		object-fit: cover;
-	}
-
-	.article-thumbnail-fallback {
-		display: -webkit-box;
-		justify-content: center;
-		align-items: center;
-		border-radius: 12px;
-		width: 100%;
-		aspect-ratio: 16 / 10;
-		padding: 0.5rem;
-		background: rgba(255, 255, 255, 0.05);
-		color: rgba(255, 255, 255, 0.75);
-		font-size: 0.75rem;
-		line-height: 1.2;
-		text-align: left;
-		overflow: hidden;
-		-webkit-line-clamp: 4;
-		-webkit-box-orient: vertical;
-		line-clamp: 4;
-	}
-
-	.article-title {
-		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.7);
-		text-align: center;
-		max-width: 180px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.loading-indicator {

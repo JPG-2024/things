@@ -18,7 +18,7 @@
 	.pill {
 		color: var(--primary-color);
 		border-radius: 12px;
-		background-color: black;
+		background-color: transparent;
 		background-size: 200% 200%;
 		font-size: 0.88rem;
 		line-height: 1.2;
@@ -48,7 +48,7 @@
 
 	.pill.idle {
 		border: 1px solid var(--primary-color);
-		border-radius: 16px;
+		border-radius: 12px;
 	}
 
 	.pill.done::before {
@@ -59,7 +59,7 @@
 	}
 
 	.pill.tag {
-		border-radius: 12px;
+		border-radius: 8px;
 	}
 
 	.pill.tag::before {

@@ -42,7 +42,7 @@
 		width: max-content;
 		color: var(--primary-color);
 		font-weight: bold;
-		font-size: 0.88rem;
+		font-size: 1rem;
 		line-height: 1.2;
 	}
 
