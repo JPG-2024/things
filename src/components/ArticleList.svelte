@@ -4,18 +4,26 @@
 
 	interface Props {
 		articles: ArticleWithTasks[];
+		displayMode?: 'thumbnail' | 'title';
 		onArticleClick: (article: ArticleWithTasks) => void;
 		onArticleHoverEnter: (article: ArticleWithTasks) => void;
 		onArticleHoverLeave: () => void;
 	}
 
-	let { articles, onArticleClick, onArticleHoverEnter, onArticleHoverLeave }: Props = $props();
+	let {
+		articles,
+		displayMode = 'thumbnail',
+		onArticleClick,
+		onArticleHoverEnter,
+		onArticleHoverLeave
+	}: Props = $props();
 </script>
 
 <div class="articles-grid">
 	{#each articles as article (article.url)}
 		<ArticleItem
 			{article}
+			{displayMode}
 			onClick={onArticleClick}
 			onHoverEnter={onArticleHoverEnter}
 			onHoverLeave={onArticleHoverLeave}

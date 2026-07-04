@@ -2,15 +2,20 @@
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import { toVTName } from '@/lib/utils/url';
+	import { getTaskData } from '@/lib/utils/helpers/tasks';
 
 	interface Props {
 		article: ArticleWithTasks;
+		displayMode?: 'thumbnail' | 'title';
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
 		onHoverLeave: () => void;
 	}
 
-	let { article, onClick, onHoverEnter, onHoverLeave }: Props = $props();
+	let { article, displayMode = 'thumbnail', onClick, onHoverEnter, onHoverLeave }: Props = $props();
+
+	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
+	const title = $derived(article.title?.slice(0, 60).concat('...') ?? '');
 </script>
 
 <button
@@ -25,8 +30,8 @@
 		{#if !article.viewed}
 			<span class="unread-dot"></span>
 		{/if}
-		<Tooltip content={article.title ?? ''}>
-			{#if article.thumbnailSrc}
+		<Tooltip content={article.title ?? ''} position="auto">
+			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
 				<img
 					src={article.thumbnailSrc}
 					alt="Article"
@@ -35,7 +40,7 @@
 				/>
 			{:else}
 				<div class="article-thumbnail-raw" title={article.title ?? ''}>
-					{article.title?.slice(0, 60).concat('...') ?? ''}
+					{title}
 				</div>
 			{/if}
 		</Tooltip>
@@ -80,7 +85,7 @@
 		padding: 0.5rem;
 		background: rgba(255, 255, 255, 0.05);
 		color: rgba(255, 255, 255, 0.75);
-		font-size: 0.7rem;
+		font-size: 0.6em;
 		line-height: 1.2;
 		text-align: left;
 		overflow: hidden;
