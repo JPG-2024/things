@@ -228,7 +228,6 @@ const youtubeTasks = {
 		name: 'Title',
 		dependencies: [TaskNames.TITLE_SUMMARY],
 		component: 'taskBase',
-		gridSpan: 1,
 		output: outputSchemas[TaskNames.TITLE],
 		systemMessage: 'Avoid Markdown',
 		userMessage: ({ context }) => {

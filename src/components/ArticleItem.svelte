@@ -69,7 +69,7 @@
 
 	.article-thumbnail {
 		display: block;
-		border-radius: 12px;
+		border-radius: 15px;
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
@@ -79,13 +79,13 @@
 		display: -webkit-box;
 		justify-content: center;
 		align-items: center;
-		border-radius: 12px;
+		border-radius: 15px;
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		padding: 0.5rem;
 		background: rgba(255, 255, 255, 0.05);
 		color: rgba(255, 255, 255, 0.75);
-		font-size: 0.6em;
+		font-size: 0.65em;
 		line-height: 1.2;
 		text-align: left;
 		overflow: hidden;
