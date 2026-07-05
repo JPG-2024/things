@@ -8,6 +8,7 @@
 		fetchVoiceChunks,
 		deleteVoiceChunk,
 		deleteVoiceProfile,
+		updateVoiceProfile,
 		getImage,
 		type Voice,
 		type VoiceProfile
@@ -18,9 +19,9 @@
 	import LoadingLine from '@/components/LoadingLine.svelte';
 	import RangeSelector from '../inputs/RangeSelector.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
-	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import HorizontalScroller from '@/components/HorizontalScroller.svelte';
 
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
@@ -34,6 +35,18 @@
 	let localChunkCount = $state(ttsState.chunkCount);
 	let localConfig = $state<TTSConfig>({ ...ttsState.config });
 	let localLanguage = $state(viewState.language);
+
+	let editNamePrefix = $state('');
+	let editImageSrc = $state('');
+	let editLoading = $state(false);
+
+	$effect(() => {
+		const profile = profiles.find((p) => p.id === selectedProfileId);
+		if (profile) {
+			editNamePrefix = profile.name_prefix;
+			editImageSrc = profile.image_src ?? '';
+		}
+	});
 
 	createHotkey(
 		'D',
@@ -73,17 +86,9 @@
 
 			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
-				selectedProfileId = match.id;
-				if (match.language) {
-					localLanguage = match.language as 'en' | 'es';
-				}
-				await loadChunksForProfile(match.id);
+				await selectProfile(match.id);
 			} else if (profiles.length > 0) {
-				selectedProfileId = profiles[0].id;
-				if (profiles[0].language) {
-					localLanguage = profiles[0].language as 'en' | 'es';
-				}
-				await loadChunksForProfile(profiles[0].id);
+				await selectProfile(profiles[0].id);
 			}
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
@@ -108,30 +113,40 @@
 		}
 	}
 
-	const namePrefixOptions = $derived(
-		profiles.map((p) => ({
-			label: p.name_prefix,
-			value: p.id,
-			icon: p.image_src ? getImage(p.image_src) : ''
-		}))
-	);
-
-	const voicesForPrefix = $derived(chunks);
-
-	async function handleNamePrefixChange(id: string) {
+	async function selectProfile(id: string) {
 		selectedProfileId = id;
 		const profile = profiles.find((p) => p.id === id);
-		if (profile) {
-			ttsState.namePrefix = profile.name_prefix;
-			if (profile.language) {
-				localLanguage = profile.language as 'en' | 'es';
-			}
-			await loadChunksForProfile(profile.id);
+		if (!profile) return;
+		ttsState.namePrefix = profile.name_prefix;
+		if (profile.language) {
+			localLanguage = profile.language as 'en' | 'es';
+		}
+		await loadChunksForProfile(profile.id);
+		const firstChunk = chunks[0];
+		if (firstChunk) {
+			const audioFile = firstChunk.audio_file;
+			const refText = firstChunk.text_reference;
+			ttsState.config.refAudioFilename = audioFile;
+			ttsState.config.refText = refText;
+			localConfig.refAudioFilename = audioFile;
+			localConfig.refText = refText;
 		}
 	}
 
+	const scrollerItems = $derived(
+		profiles.map((p) => ({
+			id: p.id,
+			label: p.name_prefix,
+			imageSrc: p.image_src ? getImage(p.image_src) : null
+		}))
+	);
+
+	async function handleNamePrefixChange(id: string) {
+		await selectProfile(id);
+	}
+
 	function selectVoiceByIndex(index: number) {
-		const voice = voicesForPrefix[index];
+		const voice = chunks[index];
 
 		if (!voice) return;
 		handleVoiceChange(voice.audio_file);
@@ -151,19 +166,13 @@
 		const profile = profiles.find((p) => p.id === selectedProfileId);
 		if (!profile) return;
 
-		if (!confirm(`Delete voice profile "${profile.name_prefix}"?`)) return;
-
 		try {
 			await deleteVoiceProfile(profile.id);
 			profiles = profiles.filter((p) => p.id !== profile.id);
 			chunks = [];
 			selectedProfileId = '';
 			if (profiles.length > 0) {
-				const first = profiles[0];
-				selectedProfileId = first.id;
-				ttsState.namePrefix = first.name_prefix;
-				if (first.language) localLanguage = first.language as 'en' | 'es';
-				await loadChunksForProfile(first.id);
+				await selectProfile(profiles[0].id);
 			} else {
 				ttsState.namePrefix = '';
 			}
@@ -182,6 +191,27 @@
 			await loadProfiles();
 		}
 	}
+
+	async function handleSaveProfile() {
+		const profile = profiles.find((p) => p.id === selectedProfileId);
+		if (!profile) return;
+		const patch: { name_prefix?: string; image_src?: string } = {};
+		const nextName = editNamePrefix.trim();
+		if (nextName && nextName !== profile.name_prefix) patch.name_prefix = nextName;
+		const nextImage = editImageSrc.trim();
+		if (nextImage !== (profile.image_src ?? '')) patch.image_src = nextImage || undefined;
+		if (Object.keys(patch).length === 0) return;
+
+		editLoading = true;
+		try {
+			await updateVoiceProfile(profile.id, patch);
+			await loadProfiles();
+		} catch (err) {
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to update voice profile';
+		} finally {
+			editLoading = false;
+		}
+	}
 </script>
 
 <div class="panel">
@@ -196,16 +226,13 @@
 
 	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
-			<div class="profile-row">
-				<IconDropdown
-					options={namePrefixOptions}
-					bind:value={selectedProfileId}
-					placeholder="Select a voice chunk..."
-					disabled={voicesForPrefix.length === 0}
-					onChange={handleNamePrefixChange}
-					iconSize={60}
-				/>
+			<HorizontalScroller
+				items={scrollerItems}
+				bind:selectedId={selectedProfileId}
+				onSelect={handleNamePrefixChange}
+			/>
 
+			<div class="profile-row">
 				<button
 					type="button"
 					class="delete-profile-btn"
@@ -222,7 +249,7 @@
 
 			{#if !localConfig.randomChunk}
 				<div class="voice-buttons">
-					{#each voicesForPrefix as voice, i (voice.name)}
+					{#each chunks as voice, i (voice.name)}
 						<Button onClick={() => selectVoiceByIndex(i)}>
 							<div
 								role="button"
@@ -295,6 +322,29 @@
 				</p>
 			{/if}
 		</Spacer>
+	</Spacer>
+
+	<Spacer title="edit Voice" icon="UserRoundPen">
+		<Input id="editNamePrefix" label="Name Prefix" bind:value={editNamePrefix} />
+		<div class="image-preview-row">
+			{#if editImageSrc}
+				<img class="image-preview" src={getImage(editImageSrc)} alt="profile preview" />
+			{:else}
+				<div class="image-preview image-preview-empty" />
+			{/if}
+			<Input
+				id="editImageSrc"
+				label="Image URL"
+				bind:value={editImageSrc}
+				placeholder="https://..."
+			/>
+		</div>
+
+		<Spacer size={25} />
+
+		<Button disabled={editLoading || !selectedProfileId} onClick={handleSaveProfile}>
+			{editLoading ? 'Saving...' : 'Save Profile'}
+		</Button>
 	</Spacer>
 
 	<Spacer title="synthetize params" icon="SlidersHorizontal">
@@ -475,12 +525,6 @@
 		gap: 1rem;
 
 		height: fit-content;
-	}
-
-	.voice-selector :global(.dropdown-input) {
-		flex: 0 0 auto;
-		width: auto;
-		min-width: 150px;
 	}
 
 	.voice-buttons {

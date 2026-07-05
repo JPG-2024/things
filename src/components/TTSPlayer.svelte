@@ -695,9 +695,10 @@
 
 		if (currentSig !== prevConfigSig && id) {
 			prevConfigSig = currentSig;
-			const contents = ttsState.textContents.slice();
-			stopPlayback();
-			ttsState.setTextContents(contents);
+			cleanupPlayback();
+			ttsState.isPlaying = false;
+			ttsState.isPaused = false;
+			closeAudioContext();
 			void ttsState.forceRegenerate(id).catch((err) => {
 				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate TTS';
 				console.error('[TTS] Regeneration error:', err);

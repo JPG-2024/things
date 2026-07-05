@@ -112,6 +112,30 @@ export async function deleteVoiceProfile(profileId: string): Promise<void> {
 	}
 }
 
+export async function updateVoiceProfile(
+	profileId: string,
+	patch: { name_prefix?: string; image_src?: string }
+): Promise<VoiceProfile> {
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(patch)
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to update voice profile');
+			throw new Error(message);
+		}
+		return (await res.json()) as VoiceProfile;
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to update voice profile');
+		throw err;
+	}
+}
+
 export async function* parseSSE(
 	response: Response
 ): AsyncGenerator<{ event: string | null; data: unknown }> {
