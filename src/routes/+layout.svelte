@@ -10,7 +10,6 @@
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
-	import { playCoinSound } from '@/lib/utils/coinSound';
 	import TTSSettings from '@/components/modals/TTSSettings.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
@@ -141,9 +140,8 @@
 					return;
 				}
 
-				playCoinSound();
-
 				await handlePasteUrl(trimmed);
+				viewState.lastHandledClipboardUrl = trimmed;
 			} catch {
 				viewState.clipboardPollingEnabled = false;
 			}

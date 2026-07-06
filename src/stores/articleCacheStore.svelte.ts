@@ -84,6 +84,7 @@ class ArticleCacheStore {
 		force?: boolean;
 		loadMore?: boolean;
 		categoryIds?: string[];
+		onlyWithoutProfile?: boolean;
 	}) {
 		const now = Date.now();
 		if (!options?.force && !options?.loadMore && now - this.articlesFetchedAt < CACHE_TTL) {
@@ -107,6 +108,7 @@ class ArticleCacheStore {
 		force?: boolean;
 		loadMore?: boolean;
 		categoryIds?: string[];
+		onlyWithoutProfile?: boolean;
 	}) {
 		this.loadingArticles = true;
 		try {
@@ -114,7 +116,8 @@ class ArticleCacheStore {
 			const result = await getArticlesWithoutProfile({
 				categoryIds: options?.categoryIds,
 				offset,
-				limit: ARTICLES_PAGE_SIZE
+				limit: ARTICLES_PAGE_SIZE,
+				onlyWithoutProfile: options?.onlyWithoutProfile
 			});
 
 			if (options?.loadMore) {

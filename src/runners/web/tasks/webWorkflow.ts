@@ -98,6 +98,7 @@ export const webWorkflow = defineWorkflow({
 		[WebTaskNames.EXTRACT_WEB_PROFILE]: scriptTask({
 			name: 'Extract web profile',
 			dependencies: [WebTaskNames.INIT_WEB_CONTEXT],
+			persist: true,
 			output: outputSchemas[WebTaskNames.EXTRACT_WEB_PROFILE],
 			run: async ({ state }) => {
 				const init = getTaskState(state, WebTaskNames.INIT_WEB_CONTEXT);

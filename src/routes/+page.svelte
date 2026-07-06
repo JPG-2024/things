@@ -103,7 +103,8 @@
 			} else {
 				articleCacheStore.fetchArticlesWithoutProfile({
 					force: true,
-					categoryIds: categories
+					categoryIds: categories,
+					onlyWithoutProfile: !viewState.showAllArticles
 				});
 			}
 		}
@@ -112,7 +113,21 @@
 	$effect(() => {
 		const tab = viewState.activeProfileArticleTab;
 		if (tab === 'articles' && articleCacheStore.articlesWithoutProfile.length === 0) {
-			articleCacheStore.fetchArticlesWithoutProfile({ force: true });
+			articleCacheStore.fetchArticlesWithoutProfile({
+				force: true,
+				onlyWithoutProfile: !viewState.showAllArticles
+			});
+		}
+	});
+
+	$effect(() => {
+		const showAll = viewState.showAllArticles;
+		if (!initialLoad && viewState.activeProfileArticleTab === 'articles') {
+			articleCacheStore.invalidateArticles();
+			articleCacheStore.fetchArticlesWithoutProfile({
+				force: true,
+				onlyWithoutProfile: !showAll
+			});
 		}
 	});
 
@@ -224,6 +239,9 @@
 	</button>
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
 		<ToggleIcon name="MessageSquareText" bind:checked={viewState.clipboardTtsEnabled} size={20} />
+	</button>
+	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
+		<ToggleIcon name="Library" bind:checked={viewState.showAllArticles} size={20} />
 	</button>
 	<button
 		type="button"

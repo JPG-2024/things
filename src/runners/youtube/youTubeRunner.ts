@@ -1,10 +1,12 @@
 import type { Task } from '@/types/taskRunner.types';
-import { saveArticle, saveTasks } from '@/stores/webStore';
+import { saveArticle, saveProfile, saveTasks } from '@/stores/webStore';
 import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
+import { viewState } from '@/stores/viewStore.svelte';
 
 const fromUrl: TaskNames[] = [
+	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.THUMBNAIL,
 	TaskNames.TITLE,
 	TaskNames.KEYWORDS,
@@ -18,6 +20,7 @@ const fromFreshUrl: TaskNames[] = [...fromUrl];
 const fromProfileRunner: TaskNames[] = [TaskNames.THUMBNAIL];
 
 const fromProfile: TaskNames[] = [
+	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.THUMBNAIL,
 	TaskNames.TITLE,
 	TaskNames.KEYWORDS,
@@ -35,7 +38,7 @@ const routines = {
 	previewRoutine
 };
 
-interface YouTubeRunnerOptions {
+export interface YouTubeRunnerOptions {
 	profileId?: string;
 }
 
@@ -67,11 +70,15 @@ export async function youTubeRunner(
 		parentRunId: runnerConfig?.parentRunId,
 		options,
 		onRunResult: async (runResult) => {
-			const profileId = options?.profileId;
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),
+				saveArticle(cleanUrl, runResult.tasks, { profile: viewState.domainUrl ?? '' }),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
+
+			if (viewState.domainUrl) {
+				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`;
+				saveOperations.push(saveProfile(viewState.domainUrl ?? '', profilePicture, null, null));
+			}
 
 			await Promise.all(saveOperations);
 			await runnerConfig?.onRunResult?.(runResult);

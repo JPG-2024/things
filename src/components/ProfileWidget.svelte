@@ -65,7 +65,9 @@
 			goto(`/raw/${article.url}`);
 			await urlRouter(article.url);
 		} else {
-			urlRouter(article.url);
+			urlRouter(article.url, {
+				runnerOptions: { profileId: profileWithArticles.profileId }
+			});
 			goto(`/youtube/${encodeURIComponent(article.url)}`);
 		}
 	}

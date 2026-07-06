@@ -897,6 +897,7 @@ export async function getArticlesWithoutProfile(options?: {
 	categoryIds?: string[];
 	offset?: number;
 	limit?: number;
+	onlyWithoutProfile?: boolean;
 }): Promise<ArticlesWithoutProfileResponse> {
 	try {
 		const result = await invoke<{
@@ -905,7 +906,8 @@ export async function getArticlesWithoutProfile(options?: {
 		}>('list_articles_without_profile', {
 			categoryIds: options?.categoryIds ?? null,
 			offset: options?.offset ?? null,
-			limit: options?.limit ?? null
+			limit: options?.limit ?? null,
+			onlyWithoutProfile: options?.onlyWithoutProfile ?? null
 		});
 
 		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);

@@ -4,6 +4,8 @@ import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+import { RAW_PROCESS_LIMIT } from '@/constants';
+import { playCoinSound } from '@/lib/utils/coinSound';
 
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -52,6 +54,7 @@ export async function handlePasteUrl(
 	}
 
 	if (validUrl) {
+		playCoinSound();
 		viewState.processingUrl = true;
 		try {
 			viewState.lastHandledClipboardUrl = validUrl;
@@ -66,12 +69,13 @@ export async function handlePasteUrl(
 	}
 
 	const trimmed = content.trim();
-	if (!trimmed) return;
+	if (!trimmed || trimmed.length < RAW_PROCESS_LIMIT) return;
 
 	viewState.processingUrl = true;
 	const rawId = `raw-${Date.now()}`;
 
 	try {
+		playCoinSound();
 		viewState.lastHandledClipboardUrl = trimmed;
 		viewState.url = rawId;
 		viewState.loading = true;

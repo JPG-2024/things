@@ -92,6 +92,7 @@ const youtubeTasks = {
 		name: 'Initialize YouTube Profile',
 		dependencies: [],
 		output: outputSchemas[TaskNames.INIT_YOUTUBE_PROFILE],
+		persist: true,
 		run: ({ context }) => {
 			const ctx = context as YouTubeTaskFactoryContext;
 			const urlObj = new URL(ctx.url);

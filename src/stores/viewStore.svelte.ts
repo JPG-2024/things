@@ -62,6 +62,7 @@ class ViewState {
 	);
 
 	activeProfileArticleTab = $state<'profiles' | 'articles'>('articles');
+	showAllArticles = $state(true);
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 

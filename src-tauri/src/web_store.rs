@@ -1361,25 +1361,7 @@ pub async fn list_articles_with_profiles(
     for row_result in profile_rows {
         let (profile_id, profile_name, profile_picture, profile_url) = row_result.map_err(|error| error.to_string())?;
 
-        let articles_sql = format!(
-            "SELECT id, url, created_at, title, thumbnail, content,
-                    media_directory, main_color, profile, embedding_source_text, updated_at,
-                    viewed, date
-             FROM web_articles
-             WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
-             ORDER BY date DESC NULLS LAST, created_at DESC
-             LIMIT ?2"
-        );
-
-        let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
-        let article_rows = article_stmt
-            .query_map(params![profile_id, article_count], row_to_stored_article)
-            .map_err(|error| error.to_string())?;
-
-        let mut articles = Vec::new();
-        for article_result in article_rows {
-            articles.push(article_result.map_err(|error| error.to_string())?);
-        }
+        let articles = query_articles_for_profile(&conn, &profile_id, article_count)?;
 
         result.push(ProfileWithArticles {
             profile_id,
@@ -1393,48 +1375,82 @@ pub async fn list_articles_with_profiles(
     Ok(result)
 }
 
+fn query_articles_for_profile(
+    conn: &Connection,
+    profile_id: &str,
+    article_count: usize,
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let articles_sql = format!(
+        "SELECT id, url, created_at, title, thumbnail, content,
+                media_directory, main_color, profile, embedding_source_text, updated_at,
+                viewed, date
+         FROM web_articles
+         WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
+         ORDER BY created_at DESC, date DESC NULLS LAST
+         LIMIT ?2"
+    );
+
+    let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
+    let article_rows = article_stmt
+        .query_map(params![profile_id, article_count], row_to_stored_article)
+        .map_err(|error| error.to_string())?;
+
+    let mut articles = Vec::new();
+    for article_result in article_rows {
+        articles.push(article_result.map_err(|error| error.to_string())?);
+    }
+    Ok(articles)
+}
+
 #[tauri::command]
 pub async fn list_articles_without_profile(
     app: AppHandle,
     category_ids: Option<Vec<String>>,
     offset: Option<usize>,
     limit: Option<usize>,
+    only_without_profile: Option<bool>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let category_filter = if let Some(ref cats) = category_ids {
-        if cats.is_empty() {
-            String::new()
-        } else {
+    let filter_only_without_profile = only_without_profile.unwrap_or(true);
+
+    let mut where_clauses = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if filter_only_without_profile {
+        where_clauses.push("a.profile IS NULL".to_string());
+    }
+
+    if let Some(ref cats) = category_ids {
+        if !cats.is_empty() {
             let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            format!(
-                " AND a.url IN (
+            where_clauses.push(format!(
+                "a.url IN (
                     SELECT ac.article_url
                     FROM article_category ac
                     WHERE ac.category_id IN ({})
                 )",
                 placeholders
-            )
+            ));
+            for id in cats {
+                params.push(Box::new(id.clone()));
+            }
         }
-    } else {
+    }
+
+    let where_sql = if where_clauses.is_empty() {
         String::new()
+    } else {
+        format!(" WHERE {}", where_clauses.join(" AND "))
     };
 
-    let count_sql = format!(
-        "SELECT COUNT(*) FROM web_articles a WHERE a.profile IS NULL{}",
-        category_filter
-    );
+    let count_sql = format!("SELECT COUNT(*) FROM web_articles a{}", where_sql);
 
     let total: usize = {
-        let profile_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
-            .as_ref()
-            .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
-            .unwrap_or_default();
-
         let mut count_stmt = conn.prepare(&count_sql).map_err(|error| error.to_string())?;
         count_stmt
-            .query_row(rusqlite::params_from_iter(profile_params), |row| row.get(0))
+            .query_row(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), |row| row.get(0))
             .map_err(|error| error.to_string())?
     };
 
@@ -1443,22 +1459,17 @@ pub async fn list_articles_without_profile(
                 a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
                 a.viewed, a.date
          FROM web_articles a
-         WHERE a.profile IS NULL{}
-         ORDER BY a.date DESC NULLS LAST, a.created_at DESC
+         {}
+         ORDER BY a.created_at DESC, a.date DESC NULLS LAST
          LIMIT {} OFFSET {}",
-        category_filter,
+        where_sql,
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
 
-    let article_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
-        .as_ref()
-        .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
-        .unwrap_or_default();
-
     let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let article_iter = stmt
-        .query_map(rusqlite::params_from_iter(article_params), row_to_stored_article)
+        .query_map(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), row_to_stored_article)
         .map_err(|error| error.to_string())?;
 
     let mut articles = Vec::new();
@@ -1467,4 +1478,56 @@ pub async fn list_articles_without_profile(
     }
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn build_in_memory_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        init_schema(&conn).expect("init schema");
+        conn
+    }
+
+    fn insert_article(
+        conn: &Connection,
+        id: &str,
+        profile: &str,
+        created_at: i64,
+        date: Option<&str>,
+    ) {
+        conn.execute(
+            "INSERT INTO web_articles
+                (id, url, created_at, title, thumbnail, content, media_directory,
+                 main_color, profile, embedding_source_text, updated_at, viewed, date)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, NULL, ?6, NULL, ?3, 0, ?7)",
+            params![id, id, created_at, format!("title-{}", id), None::<String>, profile, date],
+        )
+        .expect("insert article");
+    }
+
+    #[test]
+    fn query_articles_for_profile_orders_by_created_at_desc() {
+        let conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        insert_article(&conn, "old-yt-newly-added", profile, 2_000_000_000_000, Some("15 jun 2024"));
+        insert_article(&conn, "newer-yt-added-earlier", profile, 1_000_000_000_000, Some("20 dic 2025"));
+        insert_article(&conn, "newest-yt-old-publish", profile, 3_000_000_000_000, Some("1 ene 2023"));
+        insert_article(&conn, "other-profile", "channel-b", 9_000_000_000_000, Some("1 mar 2026"));
+
+        let articles = query_articles_for_profile(&conn, profile, 10).expect("query");
+
+        let urls: Vec<&str> = articles
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(
+            urls,
+            vec!["newest-yt-old-publish", "old-yt-newly-added", "newer-yt-added-earlier"],
+            "expected most recently added article first, regardless of publication date"
+        );
+    }
 }

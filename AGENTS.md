@@ -55,14 +55,9 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 
 - There is currently no JS test runner configured in `package.json`.
 - No frontend `*.test.*` or `*.spec.*` files were found.
-- Current automated tests are Rust unit tests in `src-tauri/src/splitter.rs`.
+- Automated tests are Rust unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
 - Known Rust tests at time of writing:
-  `test_split_markdown`
-  `test_split_podcast`
-  `test_split_code_ts`
-  `test_split_with_overlap`
-  `test_invalid_overlap`
-  `test_zero_capacity`
+  `web_store::tests::query_articles_for_profile_orders_by_created_at_desc` (`src-tauri/src/web_store.rs`)
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
 # Always consider use hotkey as UX principle

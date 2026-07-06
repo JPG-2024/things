@@ -1,6 +1,6 @@
 import { buildTaskSubroutine } from '@/runners/taskBuilder';
 import { workflowManager } from '@/runners/workflowManager.svelte';
-import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { WebTaskNames, webTaskRegistry } from './tasks/webWorkflow';
@@ -66,13 +66,26 @@ export async function webRunner(
 		Rebuild: options.Rebuild
 	});
 
-	await Promise.all([
-		saveArticle(url, runResult.tasks, {
-			profile: viewState.domainUrl,
-			profilePicture: `https://www.google.com/s2/favicons?sz=64&domain=${viewState.domainUrl}`,
-			date: new Date().toISOString()
-		}),
+	const profileTask = runResult.tasks.find(
+		(task) => task.id === WebTaskNames.EXTRACT_WEB_PROFILE
+	);
+	const profileTaskData = profileTask?.data as { profileId?: string } | undefined;
+	const extractedProfileId =
+		typeof profileTaskData?.profileId === 'string' && profileTaskData.profileId.length > 0
+			? profileTaskData.profileId
+			: null;
+	const effectiveProfile = extractedProfileId ?? viewState.domainUrl;
+
+	const saveOperations: Promise<unknown>[] = [
+		saveArticle(url, runResult.tasks, { profile: effectiveProfile ?? '' }),
 		saveTasks(url, runResult.tasks)
-	]);
+	];
+
+	if (effectiveProfile) {
+		const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${effectiveProfile}`;
+		saveOperations.push(saveProfile(effectiveProfile, profilePicture, null, null));
+	}
+
+	await Promise.all(saveOperations);
 	return runResult.tasks as Task[];
 }

@@ -1,3 +1,5 @@
+export const RAW_PROCESS_LIMIT = 1000;
+
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`;
 
 export const TECH_SUMMARY_SYSTEM_PROMPT = `Eres un experto en tecnología y comunicación técnica. Acabo de ver un vídeo sobre tecnología y quiero un resumen perfecto para compartir o recordar los puntos clave.
