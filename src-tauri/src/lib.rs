@@ -23,7 +23,11 @@ pub use crate::web_store::{
 	delete_web_store_tasks_by_url,
 };
 
+mod embedding_store;
 mod llama_server;
+pub use crate::embedding_store::{
+	delete_chunk, delete_chunks_by_article, index_chunks, search_similar_chunks,
+};
 pub use crate::llama_server::launch_llama_server;
 use crate::llama_server::{stop_llama_server, LlamaServerState};
 use tauri::Manager;
@@ -86,6 +90,10 @@ pub fn run() {
 			url_to_folder_name,
 			launch_llama_server,
 			read_clipboard_text,
+			index_chunks,
+			search_similar_chunks,
+			delete_chunks_by_article,
+			delete_chunk,
 		])
 		.build(tauri::generate_context!())
 		.expect("error while building tauri application");
