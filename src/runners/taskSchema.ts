@@ -52,6 +52,7 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 				state: Readonly<Record<string, unknown>>;
 		  }) => Record<string, unknown>);
 	baseUrl?: string;
+	extractorConfig?: { count: number; description: string };
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
 	resultParser?: (
 		text: string,
@@ -198,6 +199,7 @@ function buildIaTask<
 			userMessage,
 			completionOptions: completionOptions as IaTask<TMap, TId>['completionOptions'],
 			baseUrl: def.baseUrl,
+			extractorConfig: def.extractorConfig,
 			component: def.component,
 			componentProps,
 			gridSpan: def.gridSpan,

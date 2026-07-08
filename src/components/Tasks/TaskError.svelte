@@ -141,7 +141,6 @@
 			margin: 0.5rem 0 0;
 			max-height: 16rem;
 			overflow: auto;
-			font-family: 'CaskaydiaCove NFM Light', monospace;
 			font-size: 0.85rem;
 			white-space: pre-wrap;
 			word-break: break-word;

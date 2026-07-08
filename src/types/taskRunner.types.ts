@@ -103,6 +103,7 @@ export interface IaTask<
 		model: string;
 	};
 	baseUrl?: string;
+	extractorConfig?: { count: number; description: string };
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 	resultParser?: (
 		text: string,

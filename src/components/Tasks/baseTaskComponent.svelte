@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from '@/components/Icon.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import TaskRerunEditor from '@/components/Tasks/TaskRerunEditor.svelte';
+	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 
 	type Props = {
@@ -13,7 +16,16 @@
 
 	let { runId = undefined, task, children, componentProps = {} }: Props = $props();
 
+	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
+
 	let showModal = $state(false);
+
+	function handleRerun() {
+		if (!targetRunId) return;
+		void workflowManager.rerunTask(targetRunId, task.id).catch((error) => {
+			console.error('Task rerun failed', error);
+		});
+	}
 </script>
 
 <div class="task-shell">
@@ -24,6 +36,14 @@
 	</div>
 	<div class="task-footer is">
 		<div class="toolbar">
+			<Icon
+				name="RefreshCw"
+				onClick={handleRerun}
+				size={18}
+				color="var(--primary-color)"
+				title="Rerun task and descendants"
+				class="task-action"
+			/>
 			<TaskRerunEditor {task} {runId} />
 		</div>
 	</div>
@@ -74,13 +94,34 @@
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
-		padding: 0.6em 0;
 	}
 
 	.task-content {
+		padding-top: 35px;
 		min-width: 0;
 		width: 100%;
 		font-size: 1.2rem;
+	}
+
+	.task-action {
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.04);
+		padding: 0.45rem 0.9rem;
+		color: inherit;
+		font: inherit;
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition:
+			background 0.2s ease,
+			border-color 0.2s ease,
+			transform 0.2s ease;
+	}
+
+	.task-action:hover {
+		border-color: rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.08);
+		transform: translateY(-1px);
 	}
 
 	.wrapped-output {

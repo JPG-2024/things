@@ -203,7 +203,7 @@
 	:global(body) {
 		margin: 0;
 		font-size: 14px;
-		font-family: 'CaskaydiaCove NFM Light', monospace;
+		font-family: 'Anonymous Pro', monospace;
 	}
 
 	@font-face {

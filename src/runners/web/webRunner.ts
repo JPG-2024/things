@@ -66,9 +66,7 @@ export async function webRunner(
 		Rebuild: options.Rebuild
 	});
 
-	const profileTask = runResult.tasks.find(
-		(task) => task.id === WebTaskNames.EXTRACT_WEB_PROFILE
-	);
+	const profileTask = runResult.tasks.find((task) => task.id === WebTaskNames.EXTRACT_WEB_PROFILE);
 	const profileTaskData = profileTask?.data as { profileId?: string } | undefined;
 	const extractedProfileId =
 		typeof profileTaskData?.profileId === 'string' && profileTaskData.profileId.length > 0

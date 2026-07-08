@@ -395,6 +395,7 @@
 		padding: 0.1rem 1rem;
 		position: relative;
 		display: inline-block;
+		font-family: 'CaskaydiaCove NFM Light', monospace;
 
 		text-shadow:
 			0 0 5px

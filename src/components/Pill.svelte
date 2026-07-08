@@ -23,7 +23,7 @@
 		font-size: 0.88rem;
 		line-height: 1.2;
 		width: max-content;
-		padding: 7px 20px;
+		padding: 7px 15px;
 		font-weight: bold;
 		text-transform: capitalize;
 	}
@@ -47,7 +47,7 @@
 	}
 
 	.pill.idle {
-		border: 1px solid var(--primary-color);
+		border: 1px solid rgb(from var(--primary-color) r g b / 0.2);
 		border-radius: 12px;
 	}
 

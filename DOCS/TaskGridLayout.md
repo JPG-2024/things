@@ -151,7 +151,6 @@ A task appears in the grid when:
 .tasks-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-	gap: 1rem;
 	width: 100%;
 }
 

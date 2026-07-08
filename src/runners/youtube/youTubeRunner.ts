@@ -7,12 +7,13 @@ import { viewState } from '@/stores/viewStore.svelte';
 
 const fromUrl: TaskNames[] = [
 	TaskNames.INIT_YOUTUBE_PROFILE,
-	TaskNames.THUMBNAIL,
 	TaskNames.TITLE,
+	TaskNames.THUMBNAIL,
 	TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
 	TaskNames.TITLE_SUMMARY,
-	TaskNames.EMOJIS
+	TaskNames.EMOJIS,
+	TaskNames.CONTENT
 ];
 
 const fromFreshUrl: TaskNames[] = [...fromUrl];

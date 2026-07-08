@@ -8,7 +8,7 @@ import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
-import { sharedTasks } from '@/runners/shared/sharedTasks';
+import { sharedTasks, SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 
 export { TaskNames };
 
@@ -45,7 +45,7 @@ const outputSchemas = {
 	[TaskNames.CONTENT]: z.string(),
 	[TaskNames.SUMMARY]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
-	[TaskNames.TITLE]: z.string(),
+	[TaskNames.TITLE]: sharedOutputSchemas[SHARED_TASK_IDS.TITLE],
 	[TaskNames.KEYWORDS]: z.array(z.string()),
 	[TaskNames.EMOJIS]: z.array(z.string()),
 	[TaskNames.KEYPOINTS]: z.string(),
@@ -224,23 +224,6 @@ const youtubeTasks = {
 
 			return summary;
 		}
-	}),
-	[TaskNames.TITLE]: iaTask({
-		name: 'Title',
-		dependencies: [TaskNames.TITLE_SUMMARY],
-		component: 'taskBase',
-		output: outputSchemas[TaskNames.TITLE],
-		systemMessage: 'Avoid Markdown',
-		userMessage: ({ context }) => {
-			const ctx = context as YouTubeTaskFactoryContext;
-			return `Create a short title describing the content. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
-		},
-		run: ({ state }) => {
-			const titleSummary = state[TaskNames.TITLE_SUMMARY];
-			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
-			return titleSummary;
-		},
-		completionOptions: DEFAULT_COMPLETION_OPTIONS
 	}),
 	[TaskNames.KEYPOINTS]: iaTask({
 		name: 'Key points',

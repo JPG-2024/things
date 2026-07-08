@@ -11,7 +11,7 @@ const outputSchemas = {
 		rawText: z.string(),
 		language: z.string()
 	}),
-	[TaskNames.TITLE]: z.string(),
+	[TaskNames.TITLE]: sharedOutputSchemas[SHARED_TASK_IDS.TITLE],
 	[TaskNames.CONTENT]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.KEYWORDS]: sharedOutputSchemas[SHARED_TASK_IDS.KEYWORDS],
@@ -59,22 +59,6 @@ export const rawWorkflow = defineWorkflow({
 				const init = getTaskState(state, TaskNames.INIT_RAW_CONTEXT);
 				return init.rawText;
 			}
-		}),
-
-		[TaskNames.TITLE]: iaTask({
-			dependencies: [TaskNames.TITLE_SUMMARY],
-			component: 'taskBase',
-			output: outputSchemas[TaskNames.TITLE],
-			systemMessage: ({ context }) => {
-				const ctx = context as TaskFactoryContext;
-				return `Generate a concise title for the following text. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}. Return only the title, nothing else.`;
-			},
-			userMessage: 'Generate a title for this text.',
-			run: async ({ state }) => {
-				const content = getTaskState(state, TaskNames.TITLE_SUMMARY);
-				return content;
-			},
-			completionOptions: defaultCompletionOptions
 		}),
 
 		[TaskNames.TITLE_SUMMARY]: iaTask({

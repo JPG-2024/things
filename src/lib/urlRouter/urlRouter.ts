@@ -1,10 +1,7 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/stores/webStore';
-import {
-	youTubeRunner,
-	type YouTubeRunnerOptions
-} from '@/runners/youtube/youTubeRunner';
+import { youTubeRunner, type YouTubeRunnerOptions } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import { webRunner } from '@/runners/web/webRunner';
 import { rawRunner } from '@/runners/raw/rawRunner';

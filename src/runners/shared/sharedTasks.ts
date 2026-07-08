@@ -7,7 +7,8 @@ import { viewState } from '@/stores/viewStore.svelte';
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
 	CATEGORY: 'category',
-	EMOJIS: 'emojis'
+	EMOJIS: 'emojis',
+	TITLE: 'title'
 } as const;
 
 const structuredOutputOptions = {
@@ -22,7 +23,8 @@ const structuredOutputOptions = {
 export const sharedOutputSchemas = {
 	[SHARED_TASK_IDS.KEYWORDS]: z.array(z.string()),
 	[SHARED_TASK_IDS.CATEGORY]: z.array(z.string()),
-	[SHARED_TASK_IDS.EMOJIS]: z.array(z.string())
+	[SHARED_TASK_IDS.EMOJIS]: z.array(z.string()),
+	[SHARED_TASK_IDS.TITLE]: z.string()
 } as const;
 
 interface CreateExtractorTaskOptions {
@@ -30,6 +32,59 @@ interface CreateExtractorTaskOptions {
 	description: string;
 	component: string;
 	dependency?: string;
+}
+
+const DEFAULT_TITLE_COMPLETION_OPTIONS = {
+	temperature: 0.7,
+	top_p: 0.9,
+	max_tokens: 20,
+	frequency_penalty: 0.4,
+	presence_penalty: 0.1,
+	stop: ['\n', '. ', '? ', '! '],
+	seed: 42
+} as const;
+
+interface CreateTitleTaskOptions {
+	systemMessage?:
+		| string
+		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
+	userMessage?:
+		| string
+		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
+	completionOptions?: Record<string, unknown>;
+	persist?: boolean;
+	gridSpan?: 1 | 2 | 3;
+}
+
+export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
+	const defaultUserMessage: (ctx: {
+		context: unknown;
+		state: Readonly<Record<string, unknown>>;
+	}) => string = ({ context }) => {
+		const lang = (context as { language?: string })?.language;
+		return `Create a short title describing the content. No more than 10 words. Start with an emoji. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+	};
+
+	return {
+		name: 'Title',
+		dependencies: ['title-summary'],
+		component: 'taskBase',
+		output: z.string(),
+		systemMessage: options?.systemMessage ?? 'Avoid Markdown',
+		userMessage: options?.userMessage ?? defaultUserMessage,
+		run: ({ state }: { state: Record<string, unknown> }) => {
+			const titleSummary = state['title-summary'];
+			if (typeof titleSummary !== 'string') throw new Error('TITLE_SUMMARY is missing or invalid');
+			return titleSummary;
+		},
+		completionOptions: options?.completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS,
+		persist: options?.persist,
+		gridSpan: options?.gridSpan
+	};
+}
+
+export function createTitleTask(options?: CreateTitleTaskOptions) {
+	return iaTask(createTitleTaskConfig(options));
 }
 
 export function createExtractorTask(options: CreateExtractorTaskOptions) {
@@ -50,7 +105,8 @@ export function createExtractorTask(options: CreateExtractorTaskOptions) {
 		completionOptions: {
 			...structuredOutputOptions,
 			grammar: stringArrayGbnf(count)
-		}
+		},
+		extractorConfig: { count, description }
 	});
 }
 
@@ -62,11 +118,13 @@ export const sharedTasks = {
 	}),
 
 	[SHARED_TASK_IDS.EMOJIS]: createExtractorTask({
-		count: 3,
+		count: 5,
 		dependency: 'title-summary',
 		description: 'Emojis',
 		component: 'keywords'
 	}),
+
+	[SHARED_TASK_IDS.TITLE]: createTitleTask(),
 
 	[SHARED_TASK_IDS.CATEGORY]: iaTask({
 		dependencies: [SHARED_TASK_IDS.KEYWORDS],

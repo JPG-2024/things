@@ -78,7 +78,6 @@
 		color: rgba(255, 255, 255, 0.825);
 		pointer-events: none;
 		z-index: 20;
-		font-family: 'Noto Sans Mono', monospace;
 	}
 
 	.widget.no-borders::before,

@@ -20,9 +20,12 @@
 	let userMessage = $state('');
 	let systemMessage = $state('');
 	let completionOptionsJson = $state('{}');
+	let extractorCount = $state(0);
+	let extractorDescription = $state('');
 
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 	const isIaTask = $derived(task.type === 'ia');
+	const hasExtractorConfig = $derived(!!(task.type === 'ia' && task.extractorConfig));
 
 	function toErrorMessage(error: unknown): string {
 		if (error instanceof Error) return error.message;
@@ -47,6 +50,8 @@
 		userMessage = iaTask?.userMessage ?? '';
 		systemMessage = iaTask?.systemMessage ?? '';
 		completionOptionsJson = JSON.stringify(iaTask?.completionOptions ?? {}, null, 2);
+		extractorCount = iaTask?.extractorConfig?.count ?? 0;
+		extractorDescription = iaTask?.extractorConfig?.description ?? '';
 		errorMessage = '';
 	}
 
@@ -76,17 +81,27 @@
 			return patch as TaskRerunPatch;
 		}
 
-		if (userMessage !== iaTask.userMessage) {
-			patch.userMessage = userMessage;
-		}
+		if (hasExtractorConfig) {
+			const originalConfig = iaTask.extractorConfig!;
+			if (
+				extractorCount !== originalConfig.count ||
+				extractorDescription !== originalConfig.description
+			) {
+				patch.extractorConfig = { count: extractorCount, description: extractorDescription };
+			}
+		} else {
+			if (userMessage !== iaTask.userMessage) {
+				patch.userMessage = userMessage;
+			}
 
-		if (systemMessage !== iaTask.systemMessage) {
-			patch.systemMessage = systemMessage;
-		}
+			if (systemMessage !== iaTask.systemMessage) {
+				patch.systemMessage = systemMessage;
+			}
 
-		const parsedCompletionOptions = JSON.parse(completionOptionsJson) as Record<string, unknown>;
-		if (JSON.stringify(parsedCompletionOptions) !== JSON.stringify(iaTask.completionOptions)) {
-			patch.completionOptions = parsedCompletionOptions;
+			const parsedCompletionOptions = JSON.parse(completionOptionsJson) as Record<string, unknown>;
+			if (JSON.stringify(parsedCompletionOptions) !== JSON.stringify(iaTask.completionOptions)) {
+				patch.completionOptions = parsedCompletionOptions;
+			}
 		}
 
 		return patch as TaskRerunPatch;
@@ -167,7 +182,17 @@
 				<span>Persist task result</span>
 			</label>
 
-			{#if isIaTask}
+			{#if hasExtractorConfig}
+				<label>
+					<span>Count</span>
+					<input bind:value={extractorCount} type="number" min="1" />
+				</label>
+
+				<label>
+					<span>Description</span>
+					<input bind:value={extractorDescription} type="text" />
+				</label>
+			{:else if isIaTask}
 				<label>
 					<span>User message</span>
 					<textarea bind:value={userMessage} rows="5"></textarea>

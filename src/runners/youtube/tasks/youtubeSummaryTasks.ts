@@ -1,4 +1,5 @@
 import { viewState } from '@/stores/viewStore.svelte';
+import { createTitleTask } from '@/runners/shared/sharedTasks';
 import {
 	defaultCompletionOptions,
 	getContentFromState,
@@ -60,23 +61,8 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 
 	[TaskNames.TITLE]: ({ language }) => ({
 		id: TaskNames.TITLE,
-		name: 'Title',
-		dependencies: [TaskNames.TITLE_SUMMARY],
-		component: 'taskBase',
-		gridSpan: 1,
-		type: 'ia',
-		systemMessage: `Avoid Markdown`,
-		run: ({ state }) => {
-			const titleSummary = state[TaskNames.TITLE_SUMMARY];
-
-			if (typeof titleSummary !== 'string') {
-				throw new Error('TITLE_SUMMARY is missing or invalid');
-			}
-
-			return titleSummary;
-		},
-		userMessage: `Generate a short title for this context that describes the main idea in maximum 10 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
-		completionOptions: defaultCompletionOptions
+		...createTitleTask({ gridSpan: 1 }),
+		userMessage: `Generate a short title for this context that describes the main idea in maximum 10 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`
 	}),
 
 	[TaskNames.KEYWORDS]: () => ({

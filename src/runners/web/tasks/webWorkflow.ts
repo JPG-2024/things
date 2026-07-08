@@ -18,7 +18,11 @@ import {
 	WebTaskNames,
 	type WebTaskFactoryContext
 } from './webTasks.shared';
-import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
+import {
+	createTitleTask,
+	SHARED_TASK_IDS,
+	sharedOutputSchemas
+} from '@/runners/shared/sharedTasks';
 
 export { WebTaskNames };
 
@@ -42,7 +46,7 @@ const outputSchemas = {
 		thumbnailImage: z.string(),
 		thumbnailImageSrc: z.string()
 	}),
-	[WebTaskNames.TITLE]: z.string(),
+	[WebTaskNames.TITLE]: sharedOutputSchemas[SHARED_TASK_IDS.TITLE],
 	[WebTaskNames.CONTENT]: z.string(),
 	[WebTaskNames.TITLE_SUMMARY]: z.string(),
 	[WebTaskNames.KEYWORDS]: z.string(),
@@ -171,25 +175,7 @@ export const webWorkflow = defineWorkflow({
 			}
 		}),
 
-		[WebTaskNames.TITLE]: iaTask({
-			name: 'Title',
-			dependencies: [WebTaskNames.TITLE_SUMMARY],
-			component: 'taskBase',
-			gridSpan: 1,
-			output: outputSchemas[WebTaskNames.TITLE],
-			systemMessage: 'Avoid Markdown',
-			persist: true,
-			userMessage: ({ context }) => {
-				return `Create a short title describing the content. maximum 2 sentences. Answer in ${context.language === 'es' ? 'Spanish' : 'English'}.`;
-			},
-			run: ({ state }) => {
-				const titleSummary = state[WebTaskNames.TITLE_SUMMARY];
-				if (typeof titleSummary !== 'string')
-					throw new Error('TITLE_SUMMARY is missing or invalid');
-				return titleSummary;
-			},
-			completionOptions: DEFAULT_COMPLETION_OPTIONS
-		}),
+		[WebTaskNames.TITLE]: createTitleTask({ persist: true }),
 
 		[WebTaskNames.CONTENT]: scriptTask({
 			dependencies: [WebTaskNames.INIT_WEB_CONTEXT],

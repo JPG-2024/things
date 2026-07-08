@@ -3,6 +3,7 @@ import {
 	LlamaChatCompletionError,
 	type LlamaChatCompletionsRequest
 } from '@/lib/utils/chat-completions-provider';
+import { stringArrayGbnf } from '@/lib/utils/gbnf';
 import type {
 	IaTask,
 	Task,
@@ -450,19 +451,31 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const runtime = this.runtimeFor(task.id);
 		const runResultRaw = task.run ? await task.run(runtime) : '';
 		const runResult = String(runResultRaw ?? '').trim();
-		const userContent = runResult ? `context: ${runResult} ${task.userMessage}` : task.userMessage;
+
+		let systemMessage = task.systemMessage;
+		let userMessage = task.userMessage;
+		const completionOptions = { ...task.completionOptions };
+
+		if (task.extractorConfig) {
+			const { count, description } = task.extractorConfig;
+			systemMessage = `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`;
+			userMessage = `Extract ${count} ${description}. Respond in JSON format.`;
+			completionOptions.grammar = stringArrayGbnf(count);
+		}
+
+		const userContent = runResult ? `context: ${runResult} ${userMessage}` : userMessage;
 		const useStream =
 			options?.stream !== undefined
 				? options.stream === true
 				: task.completionOptions.stream === true;
 		const request: LlamaChatCompletionsRequest = {
-			...task.completionOptions,
+			...completionOptions,
 			stream: useStream,
 			think: false,
 			enable_thinking: false,
 			cache_prompt: false,
 			messages: [
-				{ role: 'system', content: task.systemMessage },
+				{ role: 'system', content: systemMessage },
 				{ role: 'user', content: userContent }
 			]
 		};
