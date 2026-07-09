@@ -12,7 +12,7 @@ export function playCoinSound(): void {
 	osc1.frequency.setValueAtTime(1318.5, now);
 
 	gain1.gain.setValueAtTime(0, now);
-	gain1.gain.linearRampToValueAtTime(0.1, now + 0.01);
+	gain1.gain.linearRampToValueAtTime(0.025, now + 0.01);
 	gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
 
 	osc1.connect(gain1);
@@ -27,7 +27,7 @@ export function playCoinSound(): void {
 	osc2.frequency.setValueAtTime(1975.5, now + 0.08);
 
 	gain2.gain.setValueAtTime(0, now + 0.08);
-	gain2.gain.linearRampToValueAtTime(0.1, now + 0.09);
+	gain2.gain.linearRampToValueAtTime(0.025, now + 0.09);
 	gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
 	osc2.connect(gain2);

@@ -2,13 +2,15 @@ import { z } from 'zod';
 import { iaTask } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
+import { chatCompletions } from '@/lib/utils/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
 	CATEGORY: 'category',
 	EMOJIS: 'emojis',
-	TITLE: 'title'
+	TITLE: 'title',
+	EMOJI_FROM_STRING: 'emoji-from-string'
 } as const;
 
 const structuredOutputOptions = {
@@ -24,7 +26,8 @@ export const sharedOutputSchemas = {
 	[SHARED_TASK_IDS.KEYWORDS]: z.array(z.string()),
 	[SHARED_TASK_IDS.CATEGORY]: z.array(z.string()),
 	[SHARED_TASK_IDS.EMOJIS]: z.array(z.string()),
-	[SHARED_TASK_IDS.TITLE]: z.string()
+	[SHARED_TASK_IDS.TITLE]: z.string(),
+	[SHARED_TASK_IDS.EMOJI_FROM_STRING]: z.string()
 } as const;
 
 interface CreateExtractorTaskOptions {
@@ -43,6 +46,16 @@ const DEFAULT_TITLE_COMPLETION_OPTIONS = {
 	stop: ['\n', '. ', '? ', '! '],
 	seed: 42
 } as const;
+
+const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
+	temperature: 0.1,
+	top_p: 0.9,
+	max_tokens: 5,
+	frequency_penalty: 0,
+	presence_penalty: 0,
+	stop: ['\n'],
+	seed: 42
+};
 
 interface CreateTitleTaskOptions {
 	systemMessage?:
@@ -70,7 +83,7 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 		dependencies: ['title-summary'],
 		component: 'taskBase',
 		output: z.string(),
-		systemMessage: options?.systemMessage ?? 'Avoid Markdown',
+		systemMessage: options?.systemMessage ?? 'Avoid Markdown.',
 		userMessage: options?.userMessage ?? defaultUserMessage,
 		run: ({ state }: { state: Record<string, unknown> }) => {
 			const titleSummary = state['title-summary'];
@@ -110,6 +123,46 @@ export function createExtractorTask(options: CreateExtractorTaskOptions) {
 	});
 }
 
+function extractFirstGrapheme(text: string): string {
+	const trimmed = text.trim();
+	if (!trimmed) return '';
+	if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+		const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+		const first = segmenter.segment(trimmed)[Symbol.iterator]().next().value;
+		return first?.segment ?? trimmed;
+	}
+	return trimmed;
+}
+
+function parseEmojiResponse(text: string): string {
+	return extractFirstGrapheme(text);
+}
+
+export async function generateEmojiForText(text: string): Promise<string> {
+	const trimmed = text.trim();
+	if (!trimmed) return '';
+	try {
+		const response = await chatCompletions({
+			model: viewState.aiModel,
+			...DEFAULT_EMOJI_COMPLETION_OPTIONS,
+			stream: false,
+			messages: [
+				{
+					role: 'system',
+					content:
+						'Return exactly one emoji that best represents the user text. Respond with only the emoji and nothing else.'
+				},
+				{ role: 'user', content: trimmed }
+			]
+		});
+		const rawContent = response.choices?.[0]?.message?.content ?? '';
+		const content = typeof rawContent === 'string' ? rawContent : '';
+		return parseEmojiResponse(content);
+	} catch {
+		return '';
+	}
+}
+
 export const sharedTasks = {
 	[SHARED_TASK_IDS.KEYWORDS]: createExtractorTask({
 		count: 10,
@@ -125,6 +178,20 @@ export const sharedTasks = {
 	}),
 
 	[SHARED_TASK_IDS.TITLE]: createTitleTask(),
+
+	[SHARED_TASK_IDS.EMOJI_FROM_STRING]: iaTask({
+		dependencies: [],
+		output: sharedOutputSchemas[SHARED_TASK_IDS.EMOJI_FROM_STRING],
+		systemMessage:
+			'Return exactly one emoji that best represents the user text. Respond with only the emoji and nothing else.',
+		userMessage: 'Return exactly one emoji for the given text.',
+		run: ({ context }) => {
+			const text = (context as { text?: string })?.text ?? '';
+			return text;
+		},
+		resultParser: (text) => parseEmojiResponse(text),
+		completionOptions: DEFAULT_EMOJI_COMPLETION_OPTIONS
+	}),
 
 	[SHARED_TASK_IDS.CATEGORY]: iaTask({
 		dependencies: [SHARED_TASK_IDS.KEYWORDS],

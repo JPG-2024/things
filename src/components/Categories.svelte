@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
+	import { generateEmojiForText } from '@/runners/shared/sharedTasks';
 	import Icon from './Icon.svelte';
 
 	let newCategoryName = $state('');
@@ -43,9 +44,12 @@
 		loadCategories();
 	});
 
-	function handleAdd() {
-		if (!newCategoryName.trim()) return;
-		addCategory(newCategoryName);
+	async function handleAdd() {
+		const trimmed = newCategoryName.trim();
+		if (!trimmed) return;
+		const emoji = await generateEmojiForText(trimmed);
+		const name = emoji ? `${emoji} ${trimmed}` : trimmed;
+		await addCategory(name);
 		newCategoryName = '';
 	}
 
@@ -176,7 +180,7 @@
 	}
 
 	.pill.error {
-		border-radius: 1px solid rgb(255, 140, 109)3)
+		border: 1px solid rgb(255, 140, 109);
 	}
 
 	.pill.tag {

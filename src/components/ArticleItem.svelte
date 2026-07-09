@@ -69,7 +69,7 @@
 
 	.article-thumbnail {
 		display: block;
-		border-radius: 15px;
+		border-radius: 5px;
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
@@ -79,7 +79,7 @@
 		display: -webkit-box;
 		justify-content: center;
 		align-items: center;
-		border-radius: 15px;
+		border-radius: 5px;
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		padding: 0.5rem;

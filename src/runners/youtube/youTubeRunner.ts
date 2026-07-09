@@ -6,9 +6,9 @@ import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuild
 import { viewState } from '@/stores/viewStore.svelte';
 
 const fromUrl: TaskNames[] = [
+	TaskNames.THUMBNAIL,
 	TaskNames.INIT_YOUTUBE_PROFILE,
 	TaskNames.TITLE,
-	TaskNames.THUMBNAIL,
 	TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
 	TaskNames.TITLE_SUMMARY,
