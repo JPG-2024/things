@@ -10,10 +10,10 @@ type RawTaskId = keyof typeof rawTaskRegistry & string;
 const defaultRoutine = [
 	TaskNames.TITLE,
 	TaskNames.CONTENT,
-	TaskNames.KEYWORDS,
+	//TaskNames.KEYWORDS,
 	TaskNames.CATEGORY,
-	TaskNames.TITLE_SUMMARY,
-	TaskNames.EMOJIS
+	TaskNames.TITLE_SUMMARY
+	//TaskNames.EMOJIS
 	//TaskNames.GENERATE_TTS
 ] as const satisfies readonly RawTaskId[];
 

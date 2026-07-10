@@ -10,7 +10,6 @@
 	import { goto } from '$app/navigation';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
-	import TasksEditorModal from '@/components/Tasks/TasksEditorModal.svelte';
 
 	interface Props {
 		headerContent?: any;
@@ -92,10 +91,6 @@
 
 	{@render contentSnippet()}
 </article>
-
-{#if viewState.showAllTasks}
-	<TasksEditorModal onClose={() => (viewState.showAllTasks = false)} />
-{/if}
 
 <style>
 	article {
