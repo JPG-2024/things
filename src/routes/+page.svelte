@@ -412,6 +412,10 @@
 			0 0 80px color-mix(in srgb, white calc(100% * var(--glow-opacity, 1)), transparent);
 	}
 
+	.dashboard-title:hover {
+		text-shadow: none;
+	}
+
 	.flex-squares {
 		display: flex;
 		flex-direction: row;
