@@ -26,24 +26,25 @@
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
 >
-	<div class="article-thumbnail-container">
-		{#if !article.viewed}
-			<span class="unread-dot"></span>
-		{/if}
-		<Tooltip content={article.title ?? ''} position="auto">
-			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
-				<img
-					src={article.thumbnailSrc}
-					alt="Article"
-					class="article-thumbnail"
-					style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-				/>
-			{:else}
-				<div class="article-thumbnail-raw" title={article.title ?? ''}>
-					{title}
-				</div>
+	<div class="article-content">
+		<div class="article-thumbnail-container">
+			{#if !article.viewed}
+				<span class="unread-dot"></span>
 			{/if}
-		</Tooltip>
+			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
+				<Tooltip content={article.title ?? ''} position="auto">
+					<img
+						src={article.thumbnailSrc}
+						alt="Article"
+						class="article-thumbnail"
+						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+					/>
+				</Tooltip>
+			{/if}
+		</div>
+		<div class="article-title">
+			<span>{article.title ?? ''}</span>
+		</div>
 	</div>
 </button>
 
