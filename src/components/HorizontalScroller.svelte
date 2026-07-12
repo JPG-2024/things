@@ -56,12 +56,21 @@
 	function handleMouseLeave() {
 		onHoverChange?.(null);
 	}
+
+	function handleWheel(e: WheelEvent) {
+		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+		const el = e.currentTarget as HTMLDivElement;
+		const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+		el.scrollLeft += delta;
+		e.preventDefault();
+	}
 </script>
 
 <div
 	class="scroller"
 	class:full-width={fullWidth}
 	style="--item-size: {itemSize}px; --gap: {gap}px;"
+	onwheel={handleWheel}
 	role="listbox"
 	aria-label="Horizontal selector"
 >

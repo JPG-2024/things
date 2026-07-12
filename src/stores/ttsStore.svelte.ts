@@ -1,6 +1,7 @@
 import { viewState } from './viewStore.svelte';
 import { addVoice, generateSpeech, parseSSE, type Voice } from '@/lib/utils/ttsService';
 import { splitTextIntoChunks } from '@/lib/utils/splitText';
+import { translateText } from '@/lib/utils/inference/translation';
 
 export interface TTSRefConfig {
 	refAudioFilename: string;
@@ -98,8 +99,18 @@ class TTSState {
 	}
 
 	clearPlaylist(): void {
+		this.cancelGeneration();
+		this.releaseBlobs();
 		this.isPlaying = false;
 		this.isPaused = false;
+		this.errorMessage = '';
+		this.chunksGenerated = 0;
+		this.totalChunks = 0;
+		this.chunkNotifyVersion = 0;
+		this.generatedId = '';
+		this.generatedConfigSig = '';
+		this._chunkRefs = [];
+		this._generationTimes = [];
 	}
 
 	releaseBlobs(): void {
@@ -178,8 +189,12 @@ class TTSState {
 
 		const session = ++this._generationSession;
 
+		const textsToProcess = viewState.forceLanguageEnabled
+			? await Promise.all(this.textContents.map((t) => translateText(t, viewState.language)))
+			: this.textContents;
+
 		const allChunks: string[] = [];
-		for (const text of this.textContents) {
+		for (const text of textsToProcess) {
 			allChunks.push(...splitTextIntoChunks(text, this.config.splitLevel));
 		}
 

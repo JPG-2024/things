@@ -25,7 +25,7 @@
 	let decodedChunks: (AudioBuffer | null)[] = [];
 	let currentChunkIndex = 0;
 	let chunkOffsets: number[] = [];
-	let waitingForChunk = false;
+	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
 	const amplitudeScale = 0.3;
@@ -275,6 +275,7 @@
 		cleanupPlayback();
 		ttsState.fullReset();
 		closeAudioContext();
+		clearCanvas();
 	}
 
 	function startCountdown() {
@@ -566,6 +567,13 @@
 		ctx.stroke(path);
 	}
 
+	function clearCanvas() {
+		if (!canvas) return;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+		ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+	}
+
 	function drawIdleLine() {
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d');
@@ -731,8 +739,7 @@
 	});
 
 	const panelVisible = $derived(
-		decodedChunks.length > 0 ||
-			ttsState.isPlaying ||
+		ttsState.isPlaying ||
 			ttsState.isPaused ||
 			ttsState.isGenerating ||
 			ttsState.addVoiceLoading ||

@@ -32,6 +32,7 @@ class ViewState {
 	blur = $state(false);
 	clipboardPollingEnabled = $state(false);
 	clipboardTtsEnabled = $state(false);
+	forceLanguageEnabled = $state(false);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(10);
