@@ -135,7 +135,10 @@
 				}
 
 				if (viewState.processingUrl || viewState.loading) {
-					if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
+					if (
+						viewState.forceLanguageEnabled ||
+						viewState.urlQueue.length < viewState.maxUrlQueueSize
+					) {
 						viewState.urlQueue.push(trimmed);
 					}
 					return;

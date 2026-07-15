@@ -58,6 +58,12 @@
 	});
 
 	$effect(() => {
+		if (!viewState.clipboardPollingEnabled) {
+			viewState.lastHandledClipboardUrl = '';
+		}
+	});
+
+	$effect(() => {
 		const categories = viewState.selectedCategories;
 		const tab = viewState.activeProfileArticleTab;
 		const onlyRaw = viewState.showOnlyRawArticles;
