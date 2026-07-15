@@ -6,6 +6,7 @@
 	import TaskRerunEditor from '@/components/Tasks/TaskRerunEditor.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 
 	type Props = {
@@ -34,9 +35,14 @@
 			console.error('Task rerun failed', error);
 		});
 	}
+
+	function toggleTaskEdit() {
+		if (!targetRunId) return;
+		workflowManager.addTask(targetRunId, { ...task, status: 'editing' });
+	}
 </script>
 
-<Spacer defaultOpen={true}>
+<Spacer defaultOpen={true} forcedClosed={viewState.enableTasksCollapse}>
 	{#snippet titleSlot()}
 		<div class="task-spacer-title">
 			<LuminousText size="1.1em" mode={task.status === 'running' ? 'blink' : 'off'}>
@@ -60,7 +66,7 @@
 				/>
 				<Icon
 					name="Wrench"
-					onClick={handleRerun}
+					onClick={toggleTaskEdit}
 					size={16}
 					color="var(--primary-color)"
 					title="Rerun task and descendants"

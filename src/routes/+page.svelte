@@ -238,7 +238,12 @@
 
 <div class="dashboard-container">
 	<div class="title-row">
-		<LuminousText mode="random" size="2.2rem" onclick={handleTitleClick} aria-label="Paste clipboard URL">
+		<LuminousText
+			mode="random"
+			size="2.2rem"
+			onclick={handleTitleClick}
+			aria-label="Paste clipboard URL"
+		>
 			Things
 		</LuminousText>
 	</div>

@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type {
 	IaTask,
+	IaTaskSubtype,
 	ScriptTask,
 	Task,
 	TaskGlobalState,
@@ -39,6 +40,7 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 	'output'
 > & {
 	output: TOutput;
+	subtype?: IaTaskSubtype;
 	systemMessage:
 		| string
 		| ((ctx: { context: TContext; state: Readonly<Record<string, unknown>> }) => string);
@@ -195,6 +197,7 @@ function buildIaTask<
 			name: def.name,
 			dependencies: def.dependencies ?? [],
 			type: 'ia',
+			subtype: def.subtype,
 			systemMessage,
 			userMessage,
 			completionOptions: completionOptions as IaTask<TMap, TId>['completionOptions'],

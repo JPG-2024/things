@@ -10,6 +10,7 @@
 		icon?: string;
 		defaultOpen?: boolean;
 		opened?: boolean;
+		forcedClosed?: boolean;
 		showOnlyContent?: boolean;
 		children?: Snippet;
 	};
@@ -21,15 +22,19 @@
 		icon,
 		defaultOpen = false,
 		opened,
+		forcedClosed = false,
 		showOnlyContent = false,
 		children
 	}: Props = $props();
 
 	let open = $state(opened || defaultOpen);
 	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
+	let effectiveOpen = $derived(forcedClosed ? false : open);
 
 	function toggle() {
-		open = !open;
+		if (!forcedClosed) {
+			open = !open;
+		}
 	}
 </script>
 
@@ -60,7 +65,7 @@
 				/>
 			</span>
 		</button>
-		{#if open}
+		{#if effectiveOpen}
 			<div class="spacer-content" transition:slide={{ axis: 'y', duration: 100 }}>
 				{@render children?.()}
 			</div>

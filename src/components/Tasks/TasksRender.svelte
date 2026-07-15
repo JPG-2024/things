@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
+	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
 	import TaskError from '@/components/Tasks/TaskError.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -100,6 +101,17 @@
 				style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
+			</div>
+		{:else if task.status === 'editing'}
+			<div
+				class="task-wrapper"
+				class:span-2={(task.gridSpan ?? 3) === 2}
+				class:span-3={(task.gridSpan ?? 3) === 3}
+				transition:fade={{ duration: 250 }}
+			>
+				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+					<EditTaskComponent {task} runId={entry.runId} {componentProps} />
+				</BaseTaskComponent>
 			</div>
 		{:else if task.status === 'failed'}
 			<div

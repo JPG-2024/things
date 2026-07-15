@@ -429,7 +429,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 		for (const taskId of blocked) {
 			const task = this.getTaskById(taskId);
-			if (!task || task.status !== 'pending') continue;
+			if (!task || (task.status !== 'pending' && task.status !== 'editing')) continue;
 			task.status = 'blocked';
 			task.error = `Blocked by failed dependency: ${failedTaskId}`;
 			task.endedAt = Date.now();

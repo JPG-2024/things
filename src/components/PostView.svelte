@@ -65,6 +65,7 @@
 
 <article>
 	<Topbar>
+		<ToggleIcon name="FoldVertical" bind:checked={viewState.enableTasksCollapse} />
 		<ToggleIcon name="ListChecks" bind:checked={viewState.showAllTasks} />
 		<Icon name="RefreshCcw" onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })} />
 

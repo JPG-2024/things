@@ -3,7 +3,7 @@ import { iaTask } from '@/runners/taskSchema';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { stringArrayGbnf } from '@/lib/utils/gbnf';
-import type { Task } from '@/types/taskRunner.types';
+import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 
@@ -43,6 +43,7 @@ export interface CreateIaTaskOptions {
 	id?: string;
 	name?: string;
 	dependencies?: string[];
+	subtype?: IaTaskSubtype;
 	systemMessage?:
 		| string
 		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
@@ -63,6 +64,7 @@ export function createIaTask(options: CreateIaTaskOptions): IaTaskDef<z.ZodStrin
 	const {
 		name,
 		dependencies = [],
+		subtype,
 		systemMessage,
 		userMessage,
 		component = 'taskBase',
@@ -73,6 +75,7 @@ export function createIaTask(options: CreateIaTaskOptions): IaTaskDef<z.ZodStrin
 	return iaTask({
 		name,
 		dependencies,
+		subtype,
 		component,
 		output: z.string(),
 		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
@@ -111,6 +114,7 @@ export function createExtractorTask(
 	return iaTask({
 		name,
 		dependencies,
+		subtype: 'extraction',
 		component,
 		output: z.array(z.string()),
 		systemMessage: `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`,
@@ -158,6 +162,7 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 	return {
 		name: 'Title',
 		dependencies: ['title-summary'],
+		subtype: 'title' as const,
 		component: 'taskBase',
 		output: z.string(),
 		systemMessage: options?.systemMessage ?? 'Avoid Markdown.',
@@ -194,6 +199,7 @@ export function buildTask(def: IaTaskDef, id: string): Task {
 		name: def.name,
 		dependencies: def.dependencies ?? [],
 		type: 'ia' as const,
+		subtype: def.subtype,
 		systemMessage,
 		userMessage,
 		completionOptions: completionOptions as Task['completionOptions'],

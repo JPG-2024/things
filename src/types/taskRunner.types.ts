@@ -10,7 +10,15 @@ export enum TaskTypesEnum {
 
 export type TaskType = 'script' | 'ia';
 
-export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked';
+export type IaTaskSubtype =
+	| 'extraction'
+	| 'summary'
+	| 'title'
+	| 'translation'
+	| 'categorization'
+	| 'generation';
+
+export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'editing';
 
 export type WorkflowRunStatus = 'idle' | 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 
@@ -98,6 +106,7 @@ export interface IaTask<
 	TParsed = TMap[TId]
 > extends TaskBase<TMap, TId> {
 	type: 'ia';
+	subtype?: IaTaskSubtype;
 	systemMessage: string;
 	userMessage: string;
 	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & {
