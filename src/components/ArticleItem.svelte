@@ -27,21 +27,21 @@
 	aria-label="View article"
 >
 	<div class="article-content">
-		<div class="article-thumbnail-container">
-			{#if !article.viewed}
+		{#if displayMode === 'thumbnail' && article.thumbnailSrc}
+			<div class="article-thumbnail-container">
+				<!-- 			{#if !article.viewed}
 				<span class="unread-dot"></span>
-			{/if}
-			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
-				<Tooltip content={article.title ?? ''} position="auto">
-					<img
-						src={article.thumbnailSrc}
-						alt="Article"
-						class="article-thumbnail"
-						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-					/>
-				</Tooltip>
-			{/if}
-		</div>
+			{/if} -->
+				<!-- <Tooltip content={article.title ?? ''} position="auto"> -->
+				<img
+					src={article.thumbnailSrc}
+					alt="Article"
+					class="article-thumbnail"
+					style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+				/>
+				<!-- </Tooltip> -->
+			</div>
+		{/if}
 		<div class="article-title">
 			<span>{article.title ?? ''}</span>
 		</div>
@@ -53,10 +53,20 @@
 		all: unset;
 		cursor: pointer;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		gap: 0.5rem;
 		transition: transform 0.15s;
+	}
+
+	.article-content {
+		display: flex;
+		gap: 0.9rem;
+		align-items: center;
+		width: 100%;
+	}
+
+	.article-title {
+		flex: 1;
 	}
 
 	.article-card:hover {
@@ -64,6 +74,7 @@
 	}
 
 	.article-thumbnail-container {
+		flex: 0 0 30%;
 		position: relative;
 		display: inline-flex;
 	}
@@ -86,7 +97,6 @@
 		padding: 0.5rem;
 		background: rgba(255, 255, 255, 0.05);
 		color: rgba(255, 255, 255, 0.75);
-		font-size: 0.65em;
 		line-height: 1.2;
 		text-align: left;
 		overflow: hidden;

@@ -120,7 +120,6 @@
 		border-radius: 8px;
 		padding: 6px 10px;
 		color: white;
-		font-size: 18px;
 		line-height: 1;
 	}
 
@@ -131,7 +130,6 @@
 
 	.url-link {
 		color: var(--primary-color);
-		font-size: 0.9rem;
 		text-decoration: none;
 		text-align: center;
 		word-break: break-all;

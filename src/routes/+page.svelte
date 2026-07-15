@@ -4,6 +4,7 @@
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import LuminousText from '@/components/LuminousText.svelte';
 	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
@@ -22,51 +23,10 @@
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { onMount } from 'svelte';
 
-	let glowIntensity = $state(1);
-
 	const profileArticleTabs = [
 		{ id: 'articles', label: 'Articles' },
 		{ id: 'profiles', label: 'Profiles' }
 	];
-
-	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
-		const count = 2 + Math.floor(Math.random() * 6);
-		const timeouts: ReturnType<typeof setTimeout>[] = [];
-		let offset = 0;
-
-		for (let i = 0; i < count; i++) {
-			const dipDuration = 30 + Math.floor(Math.random() * 21);
-			const onDuration = 20 + Math.floor(Math.random() * 41);
-
-			timeouts.push(
-				setTimeout(() => {
-					glowIntensity = 0.15;
-				}, offset),
-				setTimeout(() => {
-					glowIntensity = 1;
-				}, offset + dipDuration)
-			);
-
-			offset += dipDuration + onDuration;
-		}
-
-		return timeouts;
-	}
-
-	$effect(() => {
-		let blinkTimeouts: ReturnType<typeof setTimeout>[] = [];
-
-		const interval = setInterval(() => {
-			if (Math.random() > 0.5) {
-				blinkTimeouts = triggerQuickBlink();
-			}
-		}, 8000);
-
-		return () => {
-			clearInterval(interval);
-			blinkTimeouts.forEach(clearTimeout);
-		};
-	});
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -85,48 +45,35 @@
 		viewState.primaryColor = `rgb(${r}, ${g}, ${b})`;
 	}
 
-	let initialLoad = $state(true);
+	let skipEffectFetch = $state(true);
+
 	onMount(async () => {
-		await articleCacheStore.fetchProfilesWithArticles();
-		initialLoad = false;
-	});
-
-	$effect(() => {
-		const categories = viewState.selectedCategories;
-		if (!initialLoad) {
-			articleCacheStore.invalidate();
-			if (viewState.activeProfileArticleTab === 'profiles') {
-				articleCacheStore.fetchProfilesWithArticles({
-					force: true,
-					categoryIds: categories
-				});
-			} else {
-				articleCacheStore.fetchArticlesWithoutProfile({
-					force: true,
-					categoryIds: categories,
-					onlyWithoutProfile: !viewState.showAllArticles
-				});
-			}
-		}
-	});
-
-	$effect(() => {
-		const tab = viewState.activeProfileArticleTab;
-		if (tab === 'articles' && articleCacheStore.articlesWithoutProfile.length === 0) {
-			articleCacheStore.fetchArticlesWithoutProfile({
-				force: true,
-				onlyWithoutProfile: !viewState.showAllArticles
+		if (viewState.activeProfileArticleTab === 'profiles') {
+			await articleCacheStore.fetchProfilesWithArticles();
+		} else {
+			await articleCacheStore.fetchArticlesWithoutProfile({
+				onlyWithoutProfile: viewState.showOnlyRawArticles
 			});
 		}
 	});
 
 	$effect(() => {
-		const showAll = viewState.showAllArticles;
-		if (!initialLoad && viewState.activeProfileArticleTab === 'articles') {
-			articleCacheStore.invalidateArticles();
+		const categories = viewState.selectedCategories;
+		const tab = viewState.activeProfileArticleTab;
+		const onlyRaw = viewState.showOnlyRawArticles;
+
+		if (skipEffectFetch) {
+			skipEffectFetch = false;
+			return;
+		}
+
+		if (tab === 'profiles') {
+			articleCacheStore.fetchProfilesWithArticles({ force: true, categoryIds: categories });
+		} else {
 			articleCacheStore.fetchArticlesWithoutProfile({
 				force: true,
-				onlyWithoutProfile: !showAll
+				categoryIds: categories,
+				onlyWithoutProfile: onlyRaw
 			});
 		}
 	});
@@ -136,18 +83,6 @@
 		if (result.success) {
 			articleCacheStore.invalidateProfiles();
 			await articleCacheStore.fetchProfilesWithArticles({ force: true });
-		}
-	}
-
-	function handleEnter(value: string) {
-		const trimmed = value.trim();
-		if (!trimmed) return;
-
-		const validUrl = extractValidUrl(trimmed);
-		if (validUrl) {
-			void handlePasteUrl(trimmed);
-		} else {
-			handleYoutubeQuestion(trimmed);
 		}
 	}
 
@@ -232,19 +167,39 @@
 		<Icon name="ChevronRight" />
 	</button> -->
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-		<ToggleIcon name="Speech" bind:checked={viewState.autoSpeechEnabled} size={20} />
+		<ToggleIcon
+			name="Speech"
+			bind:checked={viewState.autoSpeechEnabled}
+			size={20}
+			tooltipProps={{ content: 'auto start voice' }}
+		/>
 	</button>
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-		<ToggleIcon name="Languages" bind:checked={viewState.forceLanguageEnabled} size={20} />
+		<ToggleIcon
+			name="Languages"
+			bind:checked={viewState.forceLanguageEnabled}
+			size={20}
+			tooltipProps={{ content: 'translate to current language' }}
+		/>
 	</button>
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-		<ToggleIcon name="ClipboardPaste" bind:checked={viewState.clipboardPollingEnabled} size={20} />
+		<ToggleIcon
+			name="ClipboardPaste"
+			bind:checked={viewState.clipboardPollingEnabled}
+			size={20}
+			tooltipProps={{ content: 'listen clipboard' }}
+		/>
 	</button>
 	<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
-		<ToggleIcon name="MessageSquareText" bind:checked={viewState.clipboardTtsEnabled} size={20} />
+		<ToggleIcon
+			name="MessageSquareText"
+			bind:checked={viewState.clipboardTtsEnabled}
+			size={20}
+			tooltipProps={{ content: 'read copied text' }}
+		/>
 	</button>
 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
-		<ToggleIcon name="Library" bind:checked={viewState.showAllArticles} size={20} />
+		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={20} />
 	</button>
 	<button
 		type="button"
@@ -277,15 +232,9 @@
 
 <div class="dashboard-container">
 	<div class="title-row">
-		<button
-			type="button"
-			class="dashboard-title"
-			style:--glow-opacity={glowIntensity}
-			onclick={handleTitleClick}
-			aria-label="Paste clipboard URL"
-		>
+		<LuminousText mode="random" size="2.2rem" onclick={handleTitleClick} aria-label="Paste clipboard URL">
 			Things
-		</button>
+		</LuminousText>
 	</div>
 
 	<div class="inputs-container">
@@ -388,32 +337,6 @@
 
 	.categories-container {
 		margin: 10px 0;
-	}
-
-	.dashboard-title {
-		all: unset;
-		cursor: pointer;
-		color: var(--primary-color);
-		font-size: 2.2rem;
-		padding: 0.1rem 1rem;
-		position: relative;
-		display: inline-block;
-		font-family: 'CaskaydiaCove NFM Light', monospace;
-
-		text-shadow:
-			0 0 5px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 10px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 20px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 40px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 80px color-mix(in srgb, white calc(100% * var(--glow-opacity, 1)), transparent);
-	}
-
-	.dashboard-title:hover {
-		text-shadow: none;
 	}
 
 	.flex-squares {

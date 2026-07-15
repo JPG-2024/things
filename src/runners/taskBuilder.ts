@@ -131,10 +131,8 @@ export async function buildTaskSubroutine<
 
 		if (!shouldRebuild && task.status === 'done') {
 			visited.add(taskId);
-			orderedTasks.push({
-				...task,
-				dependencies: []
-			});
+			// Keep factory dependencies so rerun can still walk the dependency graph.
+			orderedTasks.push(task);
 			return;
 		}
 
@@ -143,6 +141,7 @@ export async function buildTaskSubroutine<
 		}
 
 		visited.add(taskId);
+		task.renderOrder = orderedTasks.length;
 		orderedTasks.push(task);
 	};
 

@@ -35,7 +35,7 @@ class ViewState {
 	forceLanguageEnabled = $state(false);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
-	maxUrlQueueSize = $state(10);
+	maxUrlQueueSize = $state(100);
 	lastHandledClipboardUrl = $state('');
 	conversationSystemPrompt = $state(
 		`You are a concise conversational assistant.
@@ -63,7 +63,7 @@ class ViewState {
 	);
 
 	activeProfileArticleTab = $state<'profiles' | 'articles'>('articles');
-	showAllArticles = $state(true);
+	showOnlyRawArticles = $state(false);
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 

@@ -1,11 +1,18 @@
-<script>
+<script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import type { Snippet } from 'svelte';
 
-	let { show = false, onClose, children } = $props();
+	type Props = {
+		show?: boolean;
+		onClose: () => void;
+		children?: Snippet;
+	};
+
+	let { show = false, onClose, children }: Props = $props();
 
 	onMount(() => {
-		const handleEscape = (e) => {
+		const handleEscape = (e: KeyboardEvent) => {
 			if (e.key === 'Escape' && show) {
 				onClose();
 			}

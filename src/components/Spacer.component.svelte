@@ -1,19 +1,31 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import { scale, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	type Props = {
 		size?: number | string;
 		title?: string;
+		titleSlot?: Snippet;
 		icon?: string;
 		defaultOpen?: boolean;
+		opened?: boolean;
+		showOnlyContent?: boolean;
 		children?: Snippet;
 	};
 
-	let { size = 5, title, icon, defaultOpen = false, children }: Props = $props();
+	let {
+		size = 5,
+		title,
+		titleSlot,
+		icon,
+		defaultOpen = false,
+		opened,
+		showOnlyContent = false,
+		children
+	}: Props = $props();
 
-	let open = $state(defaultOpen);
+	let open = $state(opened || defaultOpen);
 	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
 
 	function toggle() {
@@ -21,29 +33,35 @@
 	}
 </script>
 
-{#if title}
+{#if showOnlyContent}
+	<div class="spacer" style="padding-top: {resolvedSize}">
+		{@render children?.()}
+	</div>
+{:else if title || titleSlot}
 	<div class="spacer-accordion">
 		<button class="spacer-header" onclick={toggle}>
 			{#if icon}
 				<Icon name={icon} size={16} color="var(--primary-color)" />
 			{/if}
-			<span class="spacer-title">{title}</span>
-			<Icon
-				name="ChevronRight"
-				size={14}
-				color="var(--primary-color)"
-				class="chevron"
-				style={open
-					? 'transform: rotate(90deg); transition: transform 0.2s'
-					: 'transition: transform 0.2s'}
-			/>
+			{#if titleSlot}
+				{@render titleSlot()}
+			{:else}
+				<span class="spacer-title">{title}</span>
+			{/if}
+			<span class="collapse-icon">
+				<Icon
+					name="ChevronRight"
+					size={14}
+					color="var(--primary-color)"
+					class="chevron"
+					style={open
+						? 'transform: rotate(90deg); transition: transform 0.2s'
+						: 'transition: transform 0.2s'}
+				/>
+			</span>
 		</button>
 		{#if open}
-			<div
-				class="spacer-content"
-				style="padding-top: {resolvedSize}"
-				transition:slide={{ axis: 'y', duration: 100 }}
-			>
+			<div class="spacer-content" transition:slide={{ axis: 'y', duration: 100 }}>
 				{@render children?.()}
 			</div>
 		{/if}
@@ -74,6 +92,7 @@
 		padding: 0.25rem 0;
 		cursor: pointer;
 		width: max-content;
+		color: white;
 	}
 
 	.spacer-header :global(.chevron) {
@@ -86,9 +105,12 @@
 
 	.spacer-title {
 		color: rgba(255, 255, 255, 0.9);
-		font-size: 0.88rem;
 		font-weight: bold;
 		font-size: 1.1rem;
+	}
+
+	.collapse-icon {
+		opacity: 0.5;
 	}
 
 	.spacer-header:hover .spacer-title {
@@ -96,5 +118,6 @@
 
 	.spacer-content {
 		width: 100%;
+		padding-top: 15px;
 	}
 </style>

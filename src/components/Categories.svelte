@@ -186,7 +186,6 @@
 	.pill.tag {
 		border-radius: 4px;
 	}
-
 	.add-categories-pill {
 		opacity: 0.6;
 		transition: opacity 0.15s;

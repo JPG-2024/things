@@ -1,13 +1,47 @@
 <script lang="ts">
 	import * as icons from '@lucide/svelte';
+	import type { Component } from 'svelte';
+	import Tooltip from '@/components/Tooltip.svelte';
+	import type { TooltipProps } from '@/components/Tooltip.svelte';
 
-	let { name, size = 18, color = 'white', onClick = undefined, ...props } = $props();
+	interface Props {
+		name: string;
+		size?: number;
+		color?: string;
+		onClick?: (event: MouseEvent) => void;
+		tooltipProps?: Omit<TooltipProps, 'children'>;
+		[key: string]: unknown;
+	}
 
-	const Icon = (icons as any)[name];
+	let {
+		name,
+		size = 18,
+		color = 'white',
+		onClick = undefined,
+		tooltipProps = undefined,
+		...props
+	}: Props = $props();
+
+	let Icon = $derived((icons as unknown as Record<string, Component>)[name]);
+
+	function handleClick(event: MouseEvent) {
+		event.stopPropagation();
+		onClick?.(event);
+	}
 </script>
 
-{#if onClick}
-	<button onclick={onClick} class="icon-button">
+{#if tooltipProps}
+	<Tooltip {...tooltipProps}>
+		{#if onClick}
+			<button onclick={handleClick} class="icon-button">
+				<Icon {...props} {color} {size} />
+			</button>
+		{:else}
+			<Icon {...props} {color} {size} />
+		{/if}
+	</Tooltip>
+{:else if onClick}
+	<button onclick={handleClick} class="icon-button">
 		<Icon {...props} {color} {size} />
 	</button>
 {:else}

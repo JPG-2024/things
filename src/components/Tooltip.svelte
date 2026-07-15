@@ -8,6 +8,8 @@
 		children: Snippet;
 	}
 
+	export type TooltipProps = Props;
+
 	let { content, position = 'bottom', children }: Props = $props();
 
 	let wrapperEl: HTMLDivElement;
@@ -122,15 +124,14 @@
 		outline: none;
 		border: none;
 		border-radius: 12px;
-		background: rgba(21, 21, 21, 0.9);
+		background: rgba(21, 21, 21);
 		color: var(--primary-color);
 		padding: 0.4rem 0.7rem;
-		font-size: 0.9rem;
+		font-size: 0.8rem;
 		white-space: normal;
 		z-index: 9999;
 		pointer-events: none;
 		max-width: 300px;
-		min-width: 300px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		transform: translate(-50%, -100%);
@@ -138,6 +139,7 @@
 		opacity: 0;
 		transition: opacity 0.15s;
 		word-wrap: break-word;
+		font-weight: bold;
 	}
 
 	.tooltip.visible {

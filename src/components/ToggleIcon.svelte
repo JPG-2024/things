@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import type { TooltipProps } from '@/components/Tooltip.svelte';
 
 	interface Props {
 		name: string;
@@ -7,6 +8,7 @@
 		color?: string;
 		size?: number;
 		label?: string | null;
+		tooltipProps?: Omit<TooltipProps, 'children'>;
 		[key: string]: unknown;
 	}
 
@@ -16,13 +18,14 @@
 		color = 'var(--primary-color)',
 		size = 18,
 		label = null,
+		tooltipProps = undefined,
 		...props
 	}: Props = $props();
 </script>
 
 <button type="button" class="toggle-wrapper" onclick={() => (checked = !checked)}>
 	<span class="icon-glow" class:glow={checked}>
-		<Icon {name} {...props} {color} {size} />
+		<Icon {name} {...props} {color} {size} {tooltipProps} />
 	</span>
 	{#if label}
 		<span class="label" class:glow={checked}>{label}</span>

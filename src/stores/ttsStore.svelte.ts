@@ -189,6 +189,8 @@ class TTSState {
 
 		const session = ++this._generationSession;
 
+		console.log(viewState.forceLanguageEnabled, viewState.language);
+
 		const textsToProcess = viewState.forceLanguageEnabled
 			? await Promise.all(this.textContents.map((t) => translateText(t, viewState.language)))
 			: this.textContents;

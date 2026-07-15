@@ -28,7 +28,7 @@
 
 <div class="keywords">
 	{#each parsedKeywords as keyword (keyword)}
-		<Pill status="idle" text={keyword} tag />
+		<Pill status="idle" text={keyword} showPoint {...componentProps} />
 	{/each}
 </div>
 

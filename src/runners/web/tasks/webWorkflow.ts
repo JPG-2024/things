@@ -18,11 +18,8 @@ import {
 	WebTaskNames,
 	type WebTaskFactoryContext
 } from './webTasks.shared';
-import {
-	createTitleTask,
-	SHARED_TASK_IDS,
-	sharedOutputSchemas
-} from '@/runners/shared/sharedTasks';
+import { createTitleTask } from '@/runners/shared/dynamicTasks';
+import { SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 
 export { WebTaskNames };
 

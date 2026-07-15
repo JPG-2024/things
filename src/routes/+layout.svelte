@@ -8,6 +8,7 @@
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
 	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
+	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	import TTSSettings from '@/components/modals/TTSSettings.svelte';
@@ -181,6 +182,8 @@
 
 <TasksStatusBar />
 
+<TaskWorkflowEditor />
+
 <TTSPlayer />
 
 {#if conversationMode}
@@ -245,7 +248,7 @@
 		background-color: #000000;
 		overflow-y: auto;
 		height: 100vh;
-		padding: 1.5rem;
+		padding: 2rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 2rem;
 		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);

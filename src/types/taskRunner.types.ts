@@ -71,6 +71,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	component?: string;
 	componentProps?: TaskComponentProps;
 	gridSpan?: 1 | 2 | 3;
+	renderOrder?: number;
 	persist?: boolean;
 	status?: TaskStatus;
 	error?: string;

@@ -2,10 +2,11 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Modal from '@/components/Modal.svelte';
+	import Spacer from '@/components/Spacer.component.svelte';
 	import TaskRerunEditor from '@/components/Tasks/TaskRerunEditor.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import LuminousText from '@/components/LuminousText.svelte';
 
 	type Props = {
 		runId?: string;
@@ -19,6 +20,13 @@
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 
 	let showModal = $state(false);
+	let contentHeight: number | null = $state(null);
+
+	$effect(() => {
+		if (task.status === 'done') {
+			contentHeight = null;
+		}
+	});
 
 	function handleRerun() {
 		if (!targetRunId) return;
@@ -28,26 +36,49 @@
 	}
 </script>
 
-<div class="task-shell">
-	<div class="task-header"></div>
+<Spacer defaultOpen={true}>
+	{#snippet titleSlot()}
+		<div class="task-spacer-title">
+			<LuminousText size="1.1em" mode={task.status === 'running' ? 'blink' : 'off'}>
+				{task.id}
+			</LuminousText>
 
-	<div class="task-content">
-		{@render children?.()}
-	</div>
-	<div class="task-footer is">
-		<div class="toolbar">
-			<Icon
-				name="RefreshCw"
-				onClick={handleRerun}
-				size={18}
-				color="var(--primary-color)"
-				title="Rerun task and descendants"
-				class="task-action"
-			/>
-			<TaskRerunEditor {task} {runId} />
+			<div class="task-toolbar">
+				<Icon
+					name="GitBranch"
+					tooltipProps={{ content: 'new task from' }}
+					size={16}
+					color="var(--primary-color)"
+				/>
+				<Icon
+					name="RefreshCw"
+					onClick={handleRerun}
+					size={16}
+					color="var(--primary-color)"
+					title="Rerun task and descendants"
+					class="task-action"
+				/>
+				<Icon
+					name="Wrench"
+					onClick={handleRerun}
+					size={16}
+					color="var(--primary-color)"
+					title="Rerun task and descendants"
+					class="task-action"
+				/>
+				<TaskRerunEditor {task} {runId} />
+			</div>
+		</div>
+	{/snippet}
+	<div class="task-shell">
+		<div class="task-content">
+			{@render children?.()}
+		</div>
+		<div class="task-footer is">
+			<div class="toolbar"></div>
 		</div>
 	</div>
-</div>
+</Spacer>
 
 <Modal show={showModal} onClose={() => (showModal = false)}>
 	<h2>Task Details</h2>
@@ -67,19 +98,11 @@
 		}
 	}
 
-	.task-header {
-		width: 100%;
+	.task-spacer-title {
 		display: flex;
-		justify-content: flex-start;
 		align-items: center;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-
-		.title {
-			font-family: 'Bitstream Vera Sans';
-			font-size: 1.1rem;
-			margin-right: auto;
-			color: var(--primary-color);
-		}
+		gap: 1rem;
+		font-size: 0.9em;
 	}
 
 	.toolbar {
@@ -97,10 +120,23 @@
 	}
 
 	.task-content {
-		padding-top: 35px;
 		min-width: 0;
 		width: 100%;
-		font-size: 1.2rem;
+	}
+
+	.task-toolbar {
+		padding-top: 5px;
+		opacity: 0.5;
+	}
+
+	.task-placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		color: rgba(255, 255, 255, 0.5);
+		font-size: 0.9rem;
+		min-height: 80px;
 	}
 
 	.task-action {

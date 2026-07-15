@@ -45,7 +45,7 @@
 
 {#if content}
 	<!-- apply computed font size -->
-	<div class="markdown-container" style="font-size: {fontSize}rem;">
+	<div class="markdown-container">
 		{@html md.render(preprocessContent(content))}
 	</div>
 {/if}
@@ -58,7 +58,6 @@
 		color: #fafafa;
 		text-align: left;
 		word-wrap: break-word;
-		font-size: 1em;
 		overflow-wrap: break-word;
 	}
 
@@ -78,7 +77,6 @@
 		padding: 0.5rem 1rem;
 		cursor: pointer;
 		color: #888;
-		font-size: 1rem;
 		user-select: none;
 	}
 
@@ -91,7 +89,6 @@
 		padding: 1rem;
 		border-top: 1px solid #333;
 		color: #aaa;
-		font-size: 1rem;
 		font-style: italic;
 	}
 
@@ -102,11 +99,9 @@
 	.markdown-container :global(h5),
 	.markdown-container :global(h6) {
 		font-weight: bold;
-		font-size: 1rem;
 	}
 
 	.markdown-container :global(p) {
-		font-size: 1rem;
 		margin: 0.8rem 0;
 		line-height: 1.9;
 	}
@@ -116,7 +111,6 @@
 
 		padding: 2px 6px;
 		color: #fafafa;
-		font-size: 1rem;
 	}
 
 	.markdown-container :global(pre) {
@@ -164,7 +158,6 @@
 
 	.markdown-container :global(strong) {
 		font-weight: bold;
-		font-size: 1rem;
 		color: var(--primary-color);
 	}
 
@@ -201,7 +194,6 @@
 
 		padding: 2px 6px;
 		color: #fafafa;
-		font-size: 1rem;
 	}
 
 	.markdown-container :global(pre) {
@@ -227,12 +219,11 @@
 	}
 
 	.markdown-container :global(p) {
-		font-size: 1em;
 	}
 
 	.markdown-container :global(ul),
 	.markdown-container :global(ol) {
-		margin: 1em 0 1em 2em;
+		margin: 1rem 0 1rem 2rem;
 		padding: 0;
 	}
 
@@ -241,19 +232,18 @@
 	}
 
 	.markdown-container :global(li) {
-		margin: 0.5em 0;
+		margin: 0.5rem 0;
 	}
 
 	.markdown-container :global(blockquote) {
-		margin: 1em 0;
-		padding-left: 1em;
+		margin: 1rem 0;
+		padding-left: 1rem;
 		color: #d0d0d0;
 		font-style: italic;
 	}
 
 	.markdown-container :global(strong) {
 		font-weight: bold;
-		font-size: 1em;
 		color: var(--primary-color);
 	}
 

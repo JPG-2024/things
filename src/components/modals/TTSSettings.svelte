@@ -227,7 +227,7 @@
 	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
 			<HorizontalScroller
-				items={scrollerItems}
+				items={scrollerItems.reverse()}
 				bind:selectedId={selectedProfileId}
 				onSelect={handleNamePrefixChange}
 			/>

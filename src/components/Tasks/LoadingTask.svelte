@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
 	import Modal from '@/components/Modal.svelte';
 	import Pill from '@/components/Pill.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';

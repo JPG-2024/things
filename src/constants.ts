@@ -82,6 +82,6 @@ Constraints:
 - Ensure JSON is strictly valid.`;
 
 export const LANG_NAMES: Record<string, string> = {
-	english: 'English',
-	spanish: 'Spanish'
+	en: 'English',
+	sp: 'Spanish'
 };

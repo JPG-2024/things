@@ -701,16 +701,18 @@
 		const currentSig = ttsState.configSig;
 		const id = ttsState.generatedId;
 
-		if (currentSig !== prevConfigSig && id) {
+		if (currentSig !== prevConfigSig) {
 			prevConfigSig = currentSig;
-			cleanupPlayback();
-			ttsState.isPlaying = false;
-			ttsState.isPaused = false;
-			closeAudioContext();
-			void ttsState.forceRegenerate(id).catch((err) => {
-				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate TTS';
-				console.error('[TTS] Regeneration error:', err);
-			});
+			if (id) {
+				cleanupPlayback();
+				ttsState.isPlaying = false;
+				ttsState.isPaused = false;
+				closeAudioContext();
+				void ttsState.forceRegenerate(id).catch((err) => {
+					ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate TTS';
+					console.error('[TTS] Regeneration error:', err);
+				});
+			}
 		}
 	});
 

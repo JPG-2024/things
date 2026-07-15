@@ -368,6 +368,12 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		}
 
 		for (const task of this.tasks) {
+			// Cached done tasks may reference factory dependencies that were pruned
+			// from the active task list. They are already satisfied, so skip validation.
+			if (task.status === 'done') {
+				continue;
+			}
+
 			for (const dependencyId of task.dependencies) {
 				if (!idSet.has(dependencyId)) {
 					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`);
@@ -449,8 +455,29 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	private async runIaTask(task: IaTask<TMap>, options?: TaskRunOptions): Promise<void> {
 		const runtime = this.runtimeFor(task.id);
-		const runResultRaw = task.run ? await task.run(runtime) : '';
-		const runResult = String(runResultRaw ?? '').trim();
+
+		let runResult: string;
+		if (task.run) {
+			const raw = await task.run(runtime);
+			runResult = String(raw ?? '').trim();
+		} else if (task.dependencies.length > 0) {
+			const parts: string[] = [];
+			for (const depId of task.dependencies) {
+				const depData = runtime.getTaskData(depId);
+				if (typeof depData === 'string') {
+					parts.push(depData);
+				} else if (Array.isArray(depData)) {
+					parts.push(depData.join(' '));
+				}
+			}
+			runResult = parts.join('\n\n').trim();
+		} else {
+			runResult = '';
+		}
+
+		if (!runResult) {
+			throw new Error(`No context available for task "${task.id}". Cannot run.`);
+		}
 
 		let systemMessage = task.systemMessage;
 		let userMessage = task.userMessage;
@@ -463,7 +490,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			completionOptions.grammar = stringArrayGbnf(count);
 		}
 
-		const userContent = runResult ? `context: ${runResult} ${userMessage}` : userMessage;
+		const userContent = `context: ${runResult} ${userMessage}`;
 		const useStream =
 			options?.stream !== undefined
 				? options.stream === true

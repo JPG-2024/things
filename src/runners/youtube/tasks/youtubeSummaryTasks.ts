@@ -1,5 +1,5 @@
 import { viewState } from '@/stores/viewStore.svelte';
-import { createTitleTask } from '@/runners/shared/sharedTasks';
+import { createTitleTask } from '@/runners/shared/dynamicTasks';
 import {
 	defaultCompletionOptions,
 	getContentFromState,

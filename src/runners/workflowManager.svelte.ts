@@ -50,6 +50,23 @@ export class WorkflowManager {
 		}
 	}
 
+	private ensureRunRecord<TMap extends TaskMapBase = TaskMapBase>(
+		id: string
+	): WorkflowRunState<TMap> {
+		let record = workflowStore.getRun<TMap>(id);
+		if (!record) {
+			this.evictOldRunsIfNeeded();
+			record = {
+				id,
+				status: 'idle',
+				dependencies: [],
+				runner: createTaskRunner<TMap>(id)
+			} as WorkflowRunState<TMap>;
+			workflowStore.upsertRun(record);
+		}
+		return record;
+	}
+
 	get activeRunner(): TaskRunnerStore | undefined {
 		return workflowStore.focusedRunId
 			? workflowStore.getRunner(workflowStore.focusedRunId)
@@ -105,18 +122,7 @@ export class WorkflowManager {
 			status?: WorkflowRunStatus;
 		}
 	): TaskRunnerStore<TMap> {
-		let record = workflowStore.getRun<TMap>(id);
-
-		if (!record) {
-			this.evictOldRunsIfNeeded();
-			record = {
-				id,
-				status: 'idle',
-				dependencies: [],
-				runner: createTaskRunner<TMap>(id)
-			} as WorkflowRunState<TMap>;
-			workflowStore.upsertRun(record);
-		}
+		const record = this.ensureRunRecord<TMap>(id);
 
 		this.syncRunStack(record.id, options);
 		record.runner.setTasks(tasks);
@@ -139,7 +145,7 @@ export class WorkflowManager {
 
 	async run<TMap extends TaskMapBase = TaskMapBase>(
 		id: string,
-		tasks: Task<TMap>[],
+		tasks?: Task<TMap>[],
 		options?: WorkflowRunOptions
 	): Promise<TaskRunSummary<TMap>> {
 		let record = workflowStore.getRun<TMap>(id);
@@ -153,16 +159,7 @@ export class WorkflowManager {
 			if (existingPromise) return existingPromise;
 		}
 
-		if (!record) {
-			this.evictOldRunsIfNeeded();
-			record = {
-				id,
-				status: 'idle',
-				dependencies: [],
-				runner: createTaskRunner<TMap>(id)
-			} as WorkflowRunState<TMap>;
-			workflowStore.upsertRun(record);
-		}
+		record = this.ensureRunRecord<TMap>(id);
 
 		this.syncRunStack(record.id, options);
 		record.dependencies = [...(options?.dependencies ?? [])];
@@ -170,7 +167,9 @@ export class WorkflowManager {
 		record.summary = undefined;
 		record.startedAt = Date.now();
 		record.endedAt = undefined;
-		record.runner.setTasks(tasks);
+		if (tasks !== undefined) {
+			record.runner.setTasks(tasks);
+		}
 
 		workflowStore.updateRunStatus(record.id, 'pending');
 
@@ -215,6 +214,29 @@ export class WorkflowManager {
 		(record as any).promise = promise;
 
 		return promise;
+	}
+
+	getTasks<TMap extends TaskMapBase = TaskMapBase>(id: string): Task<TMap>[] | undefined {
+		const record = workflowStore.getRun<TMap>(id);
+		return record ? record.runner.tasks : undefined;
+	}
+
+	addTask<TMap extends TaskMapBase = TaskMapBase>(id: string, task: Task<TMap>): void {
+		const record = this.ensureRunRecord<TMap>(id);
+		record.runner.upsertTask(task);
+	}
+
+	addTasks<TMap extends TaskMapBase = TaskMapBase>(id: string, tasks: Task<TMap>[]): void {
+		const record = this.ensureRunRecord<TMap>(id);
+		for (const task of tasks) {
+			record.runner.upsertTask(task);
+		}
+	}
+
+	removeTask(id: string, taskId: string): void {
+		const record = workflowStore.getRun(id);
+		if (!record) return;
+		record.runner.removeTask(taskId);
 	}
 
 	private syncRunStack(

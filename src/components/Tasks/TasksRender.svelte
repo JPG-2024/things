@@ -7,8 +7,23 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { fade } from 'svelte/transition';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
+	const sortedTasks = $derived(
+		[...stackedTasks].sort((a, b) => (a.task.renderOrder ?? 0) - (b.task.renderOrder ?? 0))
+	);
+
+	const taskHeights = $state<Record<string, number>>({});
+
+	function measureDoneHeight(node: HTMLDivElement, key: string) {
+		if (!(key in taskHeights)) {
+			taskHeights[key] = node.offsetHeight;
+		}
+		return {
+			destroy() {}
+		};
+	}
 
 	createHotkey(
 		'S',
@@ -58,21 +73,33 @@
 </script>
 
 <div class="tasks-grid">
-	{#each stackedTasks as entry (`${entry.runId}:${entry.task.id}`)}
+	{#each sortedTasks as entry (`${entry.runId}:${entry.task.id}`)}
 		{@const task = entry.task}
 		{@const componentKey = task.component?.trim()}
 		{@const componentProps = task.componentProps}
 		{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+		{@const taskKey = `${entry.runId}:${entry.task.id}`}
 
 		{#if Renderer && task.status === 'done'}
 			<div
 				class="task-wrapper"
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
+				transition:fade={{ duration: 250 }}
+				// use:measureDoneHeight={taskKey}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 					<Renderer {task} runId={entry.runId} {componentProps} />
 				</BaseTaskComponent>
+			</div>
+		{:else if task.status === 'running'}
+			<div
+				class="task-wrapper"
+				class:span-2={(task.gridSpan ?? 3) === 2}
+				class:span-3={(task.gridSpan ?? 3) === 3}
+				style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+			>
+				<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
 			</div>
 		{:else if task.status === 'failed'}
 			<div

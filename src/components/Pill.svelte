@@ -5,22 +5,25 @@
 		status: PillStatus;
 		text: string;
 		tag?: boolean;
+		showPoint?: boolean;
 	};
 
-	let { status, text, tag = false }: Props = $props();
+	let { status = 'idle', text, tag = false, showPoint = true }: Props = $props();
 </script>
 
-<span class={`pill ${status} ${tag ? 'tag' : ''}`}>
+<span class={`pill ${status} ${tag ? 'tag' : ''} ${showPoint ? 'show-point' : ''}`}>
 	{text}
 </span>
 
 <style>
 	.pill {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		color: var(--primary-color);
 		border-radius: 12px;
 		background-color: transparent;
 		background-size: 200% 200%;
-		font-size: 0.88rem;
 		line-height: 1.2;
 		width: max-content;
 		padding: 7px 15px;
@@ -28,8 +31,25 @@
 		text-transform: capitalize;
 	}
 
-	.pill.loading::before {
-		background-color: var(--pill-indicator-loading, var(--primary-color, #f8f412));
+	.pill.show-point::before {
+		content: '●';
+		font-size: 0.5rem;
+	}
+
+	.pill.show-point.loading::before {
+		color: var(--pill-indicator-loading, var(--primary-color, #f8f412));
+	}
+
+	.pill.show-point.error::before {
+		color: var(--pill-indicator-error, #ef4444);
+	}
+
+	.pill.show-point.idle::before {
+		color: var(--primary-color);
+	}
+
+	.pill.show-point.done::before {
+		color: var(--pill-indicator-done, #57f234);
 	}
 
 	.pill.loading {
@@ -47,12 +67,6 @@
 	}
 
 	.pill.idle {
-		border: 1px solid rgb(from var(--primary-color) r g b / 0.2);
-		border-radius: 12px;
-	}
-
-	.pill.done::before {
-		background-color: var(--pill-indicator-done, #57f234);
 	}
 
 	.pill.done {
@@ -60,10 +74,6 @@
 
 	.pill.tag {
 		border-radius: 8px;
-	}
-
-	.pill.tag::before {
-		display: none;
 	}
 
 	@keyframes pill-loading-gradient {
