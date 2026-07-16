@@ -111,7 +111,7 @@
 	.spacer-title {
 		color: rgba(255, 255, 255, 0.9);
 		font-weight: bold;
-		font-size: 1.1rem;
+		font-size: 1em;
 	}
 
 	.collapse-icon {

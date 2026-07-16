@@ -5,9 +5,10 @@
 	interface CompletionOptionsEditorProps {
 		completionOptions: Record<string, unknown>;
 		onChange?: () => void;
+		showStream?: boolean;
 	}
 
-	let { completionOptions, onChange }: CompletionOptionsEditorProps = $props();
+	let { completionOptions, onChange, showStream = true }: CompletionOptionsEditorProps = $props();
 
 	interface ParamConfig {
 		key: string;
@@ -105,9 +106,11 @@
 	/>
 {/each}
 
-<Checkbox
-	id="completion-stream"
-	label="Stream"
-	checked={getBool('stream')}
-	onChange={handleStreamChange}
-/>
+{#if showStream}
+	<Checkbox
+		id="completion-stream"
+		label="Stream"
+		checked={getBool('stream')}
+		onChange={handleStreamChange}
+	/>
+{/if}

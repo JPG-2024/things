@@ -183,7 +183,7 @@
 	{@render children()}
 </main>
 
-<TasksStatusBar />
+<!-- <TasksStatusBar /> -->
 
 <TaskWorkflowEditor />
 

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	const BLINK_INTERVAL = 70;
+
 	interface Props {
 		children: Snippet;
 		mode?: string;
@@ -59,13 +61,13 @@
 
 		const interval = setInterval(() => {
 			glowIntensity = glowIntensity === 1 ? 0.15 : 1;
-		}, 50);
+		}, BLINK_INTERVAL);
 
 		return () => clearInterval(interval);
 	});
 </script>
 
-<button
+π<button
 	type="button"
 	style:--glow-opacity={glowIntensity}
 	style:font-size={size}

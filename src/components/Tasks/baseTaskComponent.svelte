@@ -46,20 +46,20 @@
 	{#snippet titleSlot()}
 		<div class="task-spacer-title">
 			<LuminousText size="1.1em" mode={task.status === 'running' ? 'blink' : 'off'}>
-				{task.id}
+				<span class="task-id-title">{task.id}</span>
 			</LuminousText>
 
 			<div class="task-toolbar">
 				<Icon
 					name="GitBranch"
 					tooltipProps={{ content: 'new task from' }}
-					size={16}
+					size={14}
 					color="var(--primary-color)"
 				/>
 				<Icon
 					name="RefreshCw"
 					onClick={handleRerun}
-					size={16}
+					size={14}
 					color="var(--primary-color)"
 					title="Rerun task and descendants"
 					class="task-action"
@@ -67,12 +67,12 @@
 				<Icon
 					name="Wrench"
 					onClick={toggleTaskEdit}
-					size={16}
+					size={14}
 					color="var(--primary-color)"
 					title="Rerun task and descendants"
 					class="task-action"
 				/>
-				<TaskRerunEditor {task} {runId} />
+				<!-- <TaskRerunEditor {task} {runId} /> -->
 			</div>
 		</div>
 	{/snippet}
@@ -111,6 +111,10 @@
 		font-size: 0.9em;
 	}
 
+	.task-id-title {
+		color: rgb(255, 255, 255, 0.5);
+	}
+
 	.toolbar {
 		display: flex;
 		align-items: center;
@@ -131,7 +135,7 @@
 	}
 
 	.task-toolbar {
-		padding-top: 5px;
+		padding-top: 7px;
 		opacity: 0.5;
 	}
 
