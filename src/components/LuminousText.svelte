@@ -67,7 +67,7 @@
 	});
 </script>
 
-π<button
+<button
 	type="button"
 	style:--glow-opacity={glowIntensity}
 	style:font-size={size}

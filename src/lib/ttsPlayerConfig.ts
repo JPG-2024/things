@@ -1,3 +1,7 @@
+export type PlayerMode = 'full' | 'mini';
+
+export const DEFAULT_PLAYER_MODE: PlayerMode = 'full';
+
 export type GeneratingWaveStyle =
 	| 'softSingleDim'
 	| 'organicMultiDim'

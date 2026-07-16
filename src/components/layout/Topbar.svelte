@@ -67,12 +67,11 @@
 		-webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px);
 		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-		min-height: 35px;
+		min-height: 30px;
 		right: 0;
 		left: 0;
 		z-index: 10;
 		box-sizing: border-box;
-		padding: 0.3rem 1rem;
 		padding-right: 1.8em;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;

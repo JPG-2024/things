@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import Icon from '@/components/Icon.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
+	import { getCurrentStyle, type PlayerMode } from '@/lib/ttsPlayerConfig';
 	import {
 		getAudioContext,
 		ensureAudioContext,
@@ -14,6 +13,8 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 
 	const config = getCurrentStyle();
+
+	let { mode = $bindable<PlayerMode>('full') }: { mode?: PlayerMode } = $props();
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
 	let analyserNode: AnalyserNode | null = $state(null);
@@ -28,7 +29,7 @@
 	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
-	const amplitudeScale = 0.3;
+	const amplitudeScale = $derived(mode === 'mini' ? 1 : 0.4);
 	const wavelengthScale = 300;
 
 	let showControls = $state(true);
@@ -40,6 +41,7 @@
 
 	const SPLINE_SAMPLE_STEP = 0.1;
 	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
+	const MIN_WAVE_POINTS = 4;
 
 	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
@@ -399,13 +401,37 @@
 	}
 
 	function handleStop() {
+		mode = 'full';
 		stopPlayback();
 	}
 
-	createHotkey('Escape', handleStop, {
-		stopPropagation: true,
-		preventDefault: true
-	});
+	function handlePlayerClick() {
+		if (mode === 'mini') {
+			mode = 'full';
+		}
+	}
+
+	function handlePlayerKeydown(event: KeyboardEvent) {
+		if (mode === 'mini' && (event.key === 'Enter' || event.key === ' ')) {
+			event.preventDefault();
+			mode = 'full';
+		}
+	}
+
+	createHotkey(
+		'Escape',
+		() => {
+			if (mode === 'full') {
+				mode = 'mini';
+			} else {
+				handleStop();
+			}
+		},
+		{
+			stopPropagation: true,
+			preventDefault: true
+		}
+	);
 
 	createHotkey('Space', handlePrimaryClick, {
 		stopPropagation: true,
@@ -468,7 +494,10 @@
 		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
 		ctx.fillRect(0, 0, width, height);
 
-		const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
+		let sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
+		if (bufferLength / sampleStep < MIN_WAVE_POINTS) {
+			sampleStep = Math.floor(bufferLength / MIN_WAVE_POINTS);
+		}
 		const points: number[] = [];
 
 		for (let i = 0; i < bufferLength; i += sampleStep) {
@@ -628,6 +657,7 @@
 	}
 
 	$effect(() => {
+		mode;
 		const shouldAnimate =
 			ttsState.isGenerating ||
 			ttsState.addVoiceLoading ||
@@ -750,73 +780,95 @@
 </script>
 
 {#if panelVisible}
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		in:fade={{ duration: 3000, easing: cubicOut }}
-		out:fade={{ duration: 200 }}
 		class="tts-player"
+		class:tts-player--mini={mode === 'mini'}
+		role={mode === 'mini' ? 'button' : undefined}
+		aria-label={mode === 'mini' ? 'Expand player' : undefined}
+		tabindex={mode === 'mini' ? 0 : undefined}
 		onmousemove={handlePlayerMouseMove}
+		onclick={handlePlayerClick}
+		onkeydown={handlePlayerKeydown}
 	>
-		<div class="tts-player__header">
-			<!-- 			<div class="tts-player__picture-container">
-				<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
-			</div> -->
-		</div>
+		{#if mode === 'full'}
+			<div class="tts-player__header">
+				<!-- 			<div class="tts-player__picture-container">
+					<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
+				</div> -->
+			</div>
 
-		<div class="tts-player__canvas-container">
-			<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
-		</div>
+			<div class="tts-player__canvas-container">
+				<canvas bind:this={canvas} class="tts-player__canvas" aria-hidden="true"></canvas>
+			</div>
 
-		{#if (ttsState.isPlaying || ttsState.isPaused) && showControls}
-			<div class="tts-player__controls" transition:fade={{ duration: 200 }}>
-				<button
-					type="button"
-					class="tts-player__btn"
-					onclick={handlePrimaryClick}
-					aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
-				>
-					{#if ttsState.isPlaying}
-						<Icon name="Pause" size={30} color={viewState.primaryColor} />
-					{:else}
-						<Icon name="Play" size={30} color={viewState.primaryColor} />
-					{/if}
-				</button>
-
-				<button
-					type="button"
-					class="tts-player__btn tts-player__btn--stop"
-					onclick={handleStop}
-					aria-label="Stop"
-				>
-					<Icon name="Square" size={30} color={viewState.primaryColor} />
-				</button>
-
-				<button
-					type="button"
-					class="tts-player__btn tts-player__btn--settings"
-					onclick={() => drawersState.toggle('tts-settings')}
-					aria-label="TTS Settings"
-				>
-					<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
-				</button>
-				{#if totalPlaybackDuration > 0 && (ttsState.isPlaying || ttsState.isPaused)}
-					<span class="tts-player__time"
-						>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
+			{#if (ttsState.isPlaying || ttsState.isPaused) && showControls}
+				<div class="tts-player__controls" transition:fade={{ duration: 200 }}>
+					<button
+						type="button"
+						class="tts-player__btn"
+						onclick={handlePrimaryClick}
+						aria-label={ttsState.isPlaying ? 'Pause' : 'Play'}
 					>
-				{/if}
-			</div>
-		{/if}
+						{#if ttsState.isPlaying}
+							<Icon name="Pause" size={30} color={viewState.primaryColor} />
+						{:else}
+							<Icon name="Play" size={30} color={viewState.primaryColor} />
+						{/if}
+					</button>
 
-		{#if ttsState.addVoiceLoading && ttsState.addVoiceStatus}
-			<div class="tts-player__status-overlay">
-				<span>{ttsState.addVoiceMessage || ttsState.addVoiceStatus}</span>
-			</div>
-		{/if}
+					<button
+						type="button"
+						class="tts-player__btn tts-player__btn--stop"
+						onclick={handleStop}
+						aria-label="Stop"
+					>
+						<Icon name="Square" size={30} color={viewState.primaryColor} />
+					</button>
 
-		{#if ttsState.errorMessage}
-			<div class="tts-player__error">
-				<span>{ttsState.errorMessage}</span>
-				<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+					<button
+						type="button"
+						class="tts-player__btn tts-player__btn--settings"
+						onclick={() => drawersState.toggle('tts-settings')}
+						aria-label="TTS Settings"
+					>
+						<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
+					</button>
+					{#if totalPlaybackDuration > 0 && (ttsState.isPlaying || ttsState.isPaused)}
+						<span class="tts-player__time"
+							>{formatTime(Math.max(0, Math.floor(totalPlaybackDuration - elapsedSeconds)))}</span
+						>
+					{/if}
+				</div>
+			{/if}
+
+			{#if ttsState.addVoiceLoading && ttsState.addVoiceStatus}
+				<div class="tts-player__status-overlay">
+					<span>{ttsState.addVoiceMessage || ttsState.addVoiceStatus}</span>
+				</div>
+			{/if}
+
+			{#if ttsState.errorMessage}
+				<div class="tts-player__error">
+					<span>{ttsState.errorMessage}</span>
+					<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+				</div>
+			{/if}
+		{:else}
+			<div
+				class="tts-player-mini__canvas-clip"
+				in:fade={{ duration: 500 }}
+				out:fade={{ duration: 200 }}
+			>
+				<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
 			</div>
+
+			{#if ttsState.errorMessage}
+				<div class="tts-player-mini__error">
+					<span>{ttsState.errorMessage}</span>
+					<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/if}
@@ -974,6 +1026,71 @@
 	}
 
 	.tts-player__error button:hover {
+		opacity: 1;
+	}
+
+	.tts-player--mini {
+		position: fixed;
+		top: auto;
+		right: auto;
+		bottom: 1.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 120px;
+		height: 50px;
+		border-radius: 15%;
+		background: rgba(14, 14, 14, 0.9);
+		box-shadow: 0 4px 35px rgba(0, 0, 0, 0.8);
+		cursor: pointer;
+	}
+
+	.tts-player--mini:focus-visible {
+		outline: 2px solid var(--primary-color);
+		outline-offset: 4px;
+	}
+
+	.tts-player-mini__canvas-clip {
+		position: absolute;
+		inset: 0;
+		border-radius: 50%;
+		overflow: hidden;
+	}
+
+	.tts-player-mini__canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	.tts-player-mini__error {
+		position: absolute;
+		bottom: calc(100% + 0.5rem);
+		left: 50%;
+		transform: translateX(-50%);
+		white-space: nowrap;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.25rem 0.75rem;
+		background: rgba(255, 80, 80, 0.15);
+		border: 1px solid rgba(255, 80, 80, 0.4);
+		border-radius: 8px;
+		color: #ff5a5a;
+		font-size: 0.75rem;
+		z-index: 5;
+	}
+
+	.tts-player-mini__error button {
+		all: unset;
+		cursor: pointer;
+		font-size: 1rem;
+		line-height: 1;
+		opacity: 0.7;
+	}
+
+	.tts-player-mini__error button:hover {
 		opacity: 1;
 	}
 </style>

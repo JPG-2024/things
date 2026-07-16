@@ -7,7 +7,6 @@
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
-	import TasksStatusBar from '@/components/Tasks/TasksStatusBar.svelte';
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
@@ -46,7 +45,18 @@
 	}); */
 
 	afterNavigate(() => {
-		ttsState.clearPlaylist();
+		const ttsActive =
+			ttsState.isPlaying ||
+			ttsState.isPaused ||
+			ttsState.isGenerating ||
+			ttsState.addVoiceLoading ||
+			!!ttsState.errorMessage;
+
+		if (ttsActive) {
+			viewState.ttsPlayerMode = 'mini';
+		} else {
+			ttsState.clearPlaylist();
+		}
 	});
 
 	const ttsPlayerVisible = $derived(
@@ -187,7 +197,7 @@
 
 <TaskWorkflowEditor />
 
-<TTSPlayer />
+<TTSPlayer bind:mode={viewState.ttsPlayerMode} />
 
 {#if conversationMode}
 	<ConversationMode onExit={() => (conversationMode = false)} />
@@ -257,6 +267,7 @@
 		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
 		border-bottom: none;
 		border-top: none;
+		padding-bottom: 10rem;
 	}
 
 	main.blur-active {

@@ -10,10 +10,19 @@ const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 const DEFAULT_IA_SYSTEM_MESSAGE =
 	'You are a helpful AI assistant. Respond concisely and accurately.';
 
+export const SUMMARY_COMPLETION_OPTIONS = {
+	temperature: 0.2,
+	top_k: 40,
+	min_p: 0.05,
+	presence_penalty: 0,
+	n_predict: 1500,
+	stream: false
+} as const;
+
 export const structuredOutputOptions = {
 	temperature: 0.1,
 	top_k: 40,
-	min_p: 0.05,
+	min_p: 0.1,
 	presence_penalty: 0,
 	n_predict: 256,
 	stream: false

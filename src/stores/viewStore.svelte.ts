@@ -1,3 +1,4 @@
+import type { PlayerMode } from '@/lib/ttsPlayerConfig';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
@@ -14,6 +15,7 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);
 	selectedTaskId = $state('title-summary');
+	ttsPlayerMode = $state<PlayerMode>('full');
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
