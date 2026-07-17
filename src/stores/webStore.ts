@@ -6,7 +6,6 @@ export type PersistedTaskState = {
 	id: string;
 	data?: unknown;
 	status?: Task['status'];
-	component?: string;
 	renderOrder?: number;
 };
 
@@ -151,7 +150,6 @@ type StoredTask = {
 	id?: string;
 	data?: unknown;
 	status?: Task['status'];
-	component?: string;
 	renderOrder?: number;
 };
 
@@ -199,7 +197,6 @@ export function parsePersistedTaskStates(raw: string | null): PersistedTaskState
 				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
 				data: task?.data,
 				status: task?.status ?? 'done',
-				component: task?.component,
 				renderOrder: task?.renderOrder
 			}));
 		}
@@ -211,8 +208,7 @@ export function parsePersistedTaskStates(raw: string | null): PersistedTaskState
 }
 
 export function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): boolean {
-	const hasComponent = typeof task.component === 'string' && task.component.trim().length > 0;
-	return hasComponent || task.persist === true;
+	return task.persist === true;
 }
 
 export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): StoredTask {
@@ -220,7 +216,6 @@ export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): Stored
 		id: task.id,
 		data: task.data,
 		status: task.status,
-		component: task.component,
 		renderOrder: task.renderOrder
 	};
 }
@@ -236,7 +231,7 @@ export function mergeStoredTasks<TMap extends TaskMapBase>(
 			id: task.id,
 			data: task.data,
 			status: task.status,
-			component: task.component
+			renderOrder: task.renderOrder
 		});
 	}
 

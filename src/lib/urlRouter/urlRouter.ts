@@ -42,10 +42,7 @@ const routeDefinitions: UrlRoute[] = [
 		condition: YOUTUBE_URL_REGEX,
 		handler: (url, context) =>
 			youTubeRunner(url, {
-				runnerConfig: {
-					cachedTasks: context?.cachedTasks,
-					routine: context?.routine ?? 'fromUrl'
-				},
+				cachedTasks: context?.cachedTasks,
 				options: context?.runnerOptions as YouTubeRunnerOptions | undefined
 			})
 	},
@@ -81,7 +78,7 @@ const routeDefinitions: UrlRoute[] = [
 	{
 		name: 'defaultBlog',
 		condition: () => true,
-		handler: (url, context) => webRunner(url, context?.cachedTasks)
+		handler: (url, context) => webRunner(url, { cachedTasks: context?.cachedTasks })
 	}
 ];
 

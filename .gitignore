@@ -10,5 +10,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 target/rust-analyzer/flycheck0/stdout
 target/rust-analyzer/flycheck0/stderr
+screenshots
 
 chroma-db/

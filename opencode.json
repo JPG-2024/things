@@ -1,5 +1,78 @@
 {
 	"$schema": "https://opencode.ai/config.json",
+
+	"default_agent": "plan",
+	"agent": {
+		"commit": {
+			"mode": "primary",
+			"description": "Commit message generator.",
+			"model": "opencode-go/deepseek-v4-flash",
+			"temperature": 0.2,
+			"permission": {
+				"read": "allow",
+				"glob": "allow",
+				"grep": "allow",
+				"list": "allow",
+				"task": "allow",
+				"edit": "ask",
+				"bash": "ask"
+			},
+			"prompt": "./.opencode/agents/commiter.md"
+		},
+		"ask": {
+			"mode": "primary",
+			"description": "High-level question answer/analysis. Does not modify files.",
+			"model": "opencode-go/deepseek-v4-flash",
+			"temperature": 0.2,
+			"permission": {
+				"read": "allow",
+				"glob": "allow",
+				"grep": "allow",
+				"list": "allow",
+				"task": "allow",
+				"edit": "ask",
+				"bash": "ask"
+			},
+			"prompt": "./.opencode/agents/ask.md"
+		},
+		"plan": {
+			"mode": "primary",
+			"description": "High-level planning and analysis. Does not modify files.",
+			"model": "opencode-go/kimi-k2.7-code",
+			"temperature": 0.2,
+			"permission": {
+				"read": "allow",
+				"glob": "allow",
+				"grep": "allow",
+				"list": "allow",
+				"task": "allow",
+				"edit": "ask",
+				"bash": "ask"
+			},
+			"prompt": "./.opencode/agents/plan.md"
+		},
+		"repo-research": {
+			"mode": "subagent",
+			"hidden": true,
+			"description": "Repository research: find files, trace flows, and summarize evidence.",
+			"model": "opencode-go/deepseek-v4-flash",
+			"temperature": 0.1,
+			"max_steps": 8,
+			"permission": {
+				"read": "allow",
+				"glob": "allow",
+				"grep": "allow",
+				"list": "allow",
+				"bash": "ask",
+				"edit": "deny",
+				"task": "deny",
+				"webfetch": "deny",
+				"websearch": "deny"
+			},
+			"prompt": "./.opencode/agents/repo-research.md"
+		}
+	},
+
 	"mcp": {
 		"context7": {
 			"type": "remote",

@@ -1,0 +1,140 @@
+import { invoke } from '@tauri-apps/api/core';
+import type {
+	Template,
+	TemplateTaskDef,
+	WebStoreTemplateRecord,
+	WebProfileTemplateRecord
+} from '@/types/template.types';
+import type { Task } from '@/types/taskRunner.types';
+
+function parseTemplateRecord(record: WebStoreTemplateRecord): Template {
+	let tasks: TemplateTaskDef[] = [];
+	try {
+		const parsed = JSON.parse(record.tasksJson);
+		if (Array.isArray(parsed)) {
+			tasks = parsed as TemplateTaskDef[];
+		}
+	} catch (error) {
+		console.warn('Unable to parse template tasks JSON', error);
+	}
+
+	return {
+		id: record.id,
+		name: record.name,
+		description: record.description ?? undefined,
+		tasks,
+		createdAt: record.createdAt,
+		updatedAt: record.updatedAt
+	};
+}
+
+export async function listTemplates(): Promise<Template[]> {
+	try {
+		const records = await invoke<WebStoreTemplateRecord[]>('list_web_store_templates');
+		return records.map(parseTemplateRecord);
+	} catch (error) {
+		console.error('Error listing templates:', error);
+		return [];
+	}
+}
+
+export async function getTemplate(id: string): Promise<Template | null> {
+	try {
+		const record = await invoke<WebStoreTemplateRecord | null>('get_web_store_template', { id });
+		if (!record) return null;
+		return parseTemplateRecord(record);
+	} catch (error) {
+		console.error('Error getting template:', error);
+		return null;
+	}
+}
+
+export async function saveTemplate(
+	template: Omit<Template, 'createdAt' | 'updatedAt'>
+): Promise<Template | null> {
+	try {
+		const record = await invoke<WebStoreTemplateRecord>('upsert_web_store_template', {
+			input: {
+				id: template.id,
+				name: template.name,
+				description: template.description ?? null,
+				tasksJson: JSON.stringify(template.tasks)
+			}
+		});
+		return parseTemplateRecord(record);
+	} catch (error) {
+		console.error('Error saving template:', error);
+		return null;
+	}
+}
+
+export async function deleteTemplate(id: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('delete_web_store_template', { id });
+	} catch (error) {
+		console.error('Error deleting template:', error);
+		return false;
+	}
+}
+
+export async function getProfileTemplateId(profileId: string): Promise<string | null> {
+	try {
+		const record = await invoke<WebProfileTemplateRecord | null>('get_web_profile_template', {
+			profileId
+		});
+		return record?.templateId ?? null;
+	} catch (error) {
+		console.error('Error getting profile template:', error);
+		return null;
+	}
+}
+
+export async function assignTemplateToProfile(
+	profileId: string,
+	templateId: string
+): Promise<boolean> {
+	try {
+		await invoke<WebProfileTemplateRecord>('upsert_web_profile_template', {
+			profileId,
+			templateId
+		});
+		return true;
+	} catch (error) {
+		console.error('Error assigning template to profile:', error);
+		return false;
+	}
+}
+
+export async function removeTemplateFromProfile(profileId: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('delete_web_profile_template', { profileId });
+	} catch (error) {
+		console.error('Error removing template from profile:', error);
+		return false;
+	}
+}
+
+export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
+	return tasks
+		.filter((task) => task.type === 'ia')
+		.map((task) => {
+			const iaTask = task as import('@/types/taskRunner.types').IaTask;
+			const def: TemplateTaskDef = {
+				id: task.id,
+				name: task.name,
+				dependencies: task.dependencies as string[],
+				type: iaTask.extractorConfig ? 'extractor' : 'ia',
+				subtype: iaTask.subtype,
+				systemMessage: iaTask.systemMessage,
+				userMessage: iaTask.userMessage,
+				completionOptions: iaTask.completionOptions as Record<string, unknown>,
+				component: task.component,
+				componentProps: task.componentProps,
+				gridSpan: task.gridSpan,
+				renderOrder: task.renderOrder,
+				persist: task.persist,
+				extractorConfig: iaTask.extractorConfig
+			};
+			return def;
+		});
+}

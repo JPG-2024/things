@@ -1,21 +1,6 @@
-import { buildTaskSubroutine } from '@/runners/taskBuilder';
-import { workflowManager } from '@/runners/workflowManager.svelte';
+import { runTemplateWorkflow } from '@/runners/templateRunner';
 import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
-import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { TaskNames, rawTaskRegistry } from './tasks/rawWorkflow';
-
-type RawTaskId = keyof typeof rawTaskRegistry & string;
-
-const defaultRoutine = [
-	TaskNames.TITLE,
-	TaskNames.CONTENT,
-	//TaskNames.KEYWORDS,
-	TaskNames.CATEGORY,
-	TaskNames.TITLE_SUMMARY
-	//TaskNames.EMOJIS
-	//TaskNames.GENERATE_TTS
-] as const satisfies readonly RawTaskId[];
 
 type RawRunnerOptions = {
 	makeActive?: boolean;
@@ -25,30 +10,31 @@ type RawRunnerOptions = {
 
 const RAW_TEXT_PROFILE = 'raw-text';
 
+function buildRawContentTask(rawId: string, rawText: string): Task {
+	return {
+		id: 'content',
+		name: 'Content',
+		dependencies: [],
+		type: 'script',
+		component: 'ask',
+		persist: true,
+		run: () => rawText
+	};
+}
+
 export async function rawRunner(
 	rawId: string,
 	rawText: string,
 	options: RawRunnerOptions = {}
 ): Promise<Task[]> {
-	const runId = rawId;
-	const freshRun = !options.cachedTasks?.length;
+	const initialTasks = [buildRawContentTask(rawId, rawText)];
 
-	const tasks = await buildTaskSubroutine(
-		defaultRoutine,
-		rawTaskRegistry,
-		{ rawText, rawId, language: viewState.language, freshRun },
-		{
-			persistedTasks: options.cachedTasks,
-			Rebuild: options.Rebuild
-		}
-	);
-
-	const runResult = await workflowManager.run(runId, tasks, {
+	return runTemplateWorkflow(rawId, RAW_TEXT_PROFILE, initialTasks, {
 		makeActive: options.makeActive ?? true,
-		Rebuild: options.Rebuild
+		Rebuild: options.Rebuild,
+		cachedTasks: options.cachedTasks,
+		onRunResult: async (runResult) => {
+			await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
+		}
 	});
-
-	await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
-
-	return runResult.tasks as Task[];
 }

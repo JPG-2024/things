@@ -159,6 +159,7 @@ const youtubeTasks = {
 		component: 'ask',
 		persist: true,
 		output: outputSchemas[TaskNames.CONTENT],
+		renderOrder: 8,
 		run: ({ state }) => {
 			const timedCaptions = getTaskState(state, TaskNames.TIMED_CAPTIONS);
 			return timedCaptions

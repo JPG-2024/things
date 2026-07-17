@@ -12,15 +12,17 @@ pub use crate::url::url_to_folder_name;
 
 mod web_store;
 pub use crate::web_store::{
-	assign_categories_to_article, assign_categories_to_profile, delete_web_store_article_by_url,
-	delete_web_store_category, delete_web_store_profile, get_web_store_article_by_url,
-	get_web_store_profile, get_web_store_tasks_by_url, list_articles_with_profiles,
-	list_articles_without_profile, list_categories_by_profile, list_profiles_by_categories,
-	list_web_store_articles, list_web_store_articles_by_profile, list_web_store_categories,
-	list_web_store_profiles, list_web_store_profiles_with_articles_after, list_web_store_tasks,
-	unassign_category_from_profile, update_web_store_article_viewed, upsert_web_store_article,
-	upsert_web_store_category, upsert_web_store_profile, upsert_web_store_tasks,
-	delete_web_store_tasks_by_url,
+	assign_categories_to_article, assign_categories_to_profile, delete_web_profile_template,
+	delete_web_store_article_by_url, delete_web_store_category, delete_web_store_profile,
+	delete_web_store_template, delete_web_store_tasks_by_url, get_web_profile_template,
+	get_web_store_article_by_url, get_web_store_profile, get_web_store_tasks_by_url,
+	get_web_store_template, list_articles_with_profiles, list_articles_without_profile,
+	list_categories_by_profile, list_profiles_by_categories, list_web_store_articles,
+	list_web_store_articles_by_profile, list_web_store_categories, list_web_store_profiles,
+	list_web_store_profiles_with_articles_after, list_web_store_tasks, list_web_store_templates,
+	unassign_category_from_profile, update_web_store_article_viewed, upsert_web_profile_template,
+	upsert_web_store_article, upsert_web_store_category, upsert_web_store_profile,
+	upsert_web_store_tasks, upsert_web_store_template,
 };
 
 mod embedding_store;
@@ -81,6 +83,13 @@ pub fn run() {
 			unassign_category_from_profile,
 			list_categories_by_profile,
 			list_profiles_by_categories,
+			list_web_store_templates,
+			get_web_store_template,
+			upsert_web_store_template,
+			delete_web_store_template,
+			get_web_profile_template,
+			upsert_web_profile_template,
+			delete_web_profile_template,
 			extract_markdown,
 			extract_metadata,
 			extract_blog,

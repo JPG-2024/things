@@ -49,10 +49,6 @@ export function applyPersistedTaskState<TState extends TaskMapBase>(
 		task.status = persistedTask.status;
 	}
 
-	if (persistedTask.component) {
-		task.component = persistedTask.component;
-	}
-
 	return task;
 }
 

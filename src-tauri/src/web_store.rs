@@ -217,7 +217,24 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             FOREIGN KEY (category_id) REFERENCES web_categories(id)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_article_category_category_id ON article_category(category_id);"
+        CREATE INDEX IF NOT EXISTS idx_article_category_category_id ON article_category(category_id);
+
+        CREATE TABLE IF NOT EXISTS web_templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            tasks_json TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS web_profile_templates (
+            profile_id TEXT PRIMARY KEY,
+            template_id TEXT NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY (profile_id) REFERENCES web_profiles(id),
+            FOREIGN KEY (template_id) REFERENCES web_templates(id)
+        );"
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
@@ -1478,6 +1495,208 @@ pub async fn list_articles_without_profile(
     }
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebStoreTemplateRecord {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub tasks_json: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertWebStoreTemplateInput {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub tasks_json: String,
+}
+
+fn row_to_web_store_template(row: &rusqlite::Row<'_>) -> Result<WebStoreTemplateRecord, rusqlite::Error> {
+    Ok(WebStoreTemplateRecord {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        description: row.get(2)?,
+        tasks_json: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+#[tauri::command]
+pub async fn list_web_store_templates(
+    app: AppHandle,
+) -> Result<Vec<WebStoreTemplateRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates ORDER BY updated_at DESC")
+        .map_err(|error| error.to_string())?;
+
+    let template_iter = stmt
+        .query_map([], row_to_web_store_template)
+        .map_err(|error| error.to_string())?;
+
+    let mut records = Vec::new();
+    for template_result in template_iter {
+        records.push(template_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(records)
+}
+
+#[tauri::command]
+pub async fn get_web_store_template(
+    app: AppHandle,
+    id: String,
+) -> Result<Option<WebStoreTemplateRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates WHERE id = ?1")
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([&id], row_to_web_store_template)
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub async fn upsert_web_store_template(
+    app: AppHandle,
+    input: UpsertWebStoreTemplateInput,
+) -> Result<WebStoreTemplateRecord, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+
+    let existing = get_web_store_template(app.clone(), input.id.clone()).await?;
+
+    if existing.is_some() {
+        conn.execute(
+            "UPDATE web_templates SET name = ?1, description = ?2, tasks_json = ?3, updated_at = ?4 WHERE id = ?5",
+            params![input.name, input.description, input.tasks_json, now, input.id],
+        )
+        .map_err(|error| error.to_string())?;
+    } else {
+        conn.execute(
+            "INSERT INTO web_templates (id, name, description, tasks_json, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![input.id, input.name, input.description, input.tasks_json, now, now],
+        )
+        .map_err(|error| error.to_string())?;
+    }
+
+    let result = get_web_store_template(app.clone(), input.id).await?;
+    result.ok_or_else(|| "Failed to retrieve template after upsert".to_string())
+}
+
+#[tauri::command]
+pub async fn delete_web_store_template(
+    app: AppHandle,
+    id: String,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    conn.execute(
+        "DELETE FROM web_profile_templates WHERE template_id = ?1",
+        params![id],
+    )
+    .map_err(|error| error.to_string())?;
+
+    let changes = conn
+        .execute("DELETE FROM web_templates WHERE id = ?1", params![id])
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebProfileTemplateRecord {
+    pub profile_id: String,
+    pub template_id: String,
+    pub updated_at: i64,
+}
+
+fn row_to_web_profile_template(row: &rusqlite::Row<'_>) -> Result<WebProfileTemplateRecord, rusqlite::Error> {
+    Ok(WebProfileTemplateRecord {
+        profile_id: row.get(0)?,
+        template_id: row.get(1)?,
+        updated_at: row.get(2)?,
+    })
+}
+
+#[tauri::command]
+pub async fn get_web_profile_template(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<Option<WebProfileTemplateRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut stmt = conn
+        .prepare("SELECT profile_id, template_id, updated_at FROM web_profile_templates WHERE profile_id = ?1")
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([&profile_id], row_to_web_profile_template)
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub async fn upsert_web_profile_template(
+    app: AppHandle,
+    profile_id: String,
+    template_id: String,
+) -> Result<WebProfileTemplateRecord, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+
+    conn.execute(
+        "INSERT INTO web_profile_templates (profile_id, template_id, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(profile_id) DO UPDATE SET template_id = excluded.template_id, updated_at = excluded.updated_at",
+        params![profile_id, template_id, now],
+    )
+    .map_err(|error| error.to_string())?;
+
+    let result = get_web_profile_template(app.clone(), profile_id).await?;
+    result.ok_or_else(|| "Failed to retrieve profile template after upsert".to_string())
+}
+
+#[tauri::command]
+pub async fn delete_web_profile_template(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute("DELETE FROM web_profile_templates WHERE profile_id = ?1", params![profile_id])
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
 }
 
 #[cfg(test)]
