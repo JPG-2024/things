@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
+import { defineWorkflow, scriptTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { TaskNames, type TaskFactoryContext, defaultCompletionOptions } from './rawTasks.shared';
 import { sharedTasks, sharedOutputSchemas, SHARED_TASK_IDS } from '@/runners/shared/sharedTasks';
+import { createSummaryTask } from '@/runners/shared/dynamicTasks';
 
 export { TaskNames };
 
@@ -61,20 +62,10 @@ export const rawWorkflow = defineWorkflow({
 			}
 		}),
 
-		[TaskNames.TITLE_SUMMARY]: iaTask({
-			dependencies: [TaskNames.CONTENT],
-			component: 'taskBase',
-			output: outputSchemas[TaskNames.TITLE_SUMMARY],
+		[TaskNames.TITLE_SUMMARY]: createSummaryTask({
 			systemMessage:
 				'You are a professional text summarizer. Write a concise and clear summary. Keep the response under 80 words.',
-			userMessage: ({ context }) => {
-				const ctx = context as TaskFactoryContext;
-				return `Summarize the following text in one paragraph. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
-			},
-			run: async ({ state }) => {
-				const content = getTaskState(state, TaskNames.CONTENT);
-				return content;
-			},
+			userMessage: 'Summarize the following text in one paragraph.',
 			onComplete: ({ result, context }) => {
 				const ctx = context as TaskFactoryContext;
 				ttsState.setTextContents([result as string]);

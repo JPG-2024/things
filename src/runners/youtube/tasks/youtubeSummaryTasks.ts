@@ -1,51 +1,23 @@
 import { viewState } from '@/stores/viewStore.svelte';
-import { createTitleTask } from '@/runners/shared/dynamicTasks';
+import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
 import {
 	defaultCompletionOptions,
-	getContentFromState,
 	TaskNames,
 	type YouTubeTaskRegistrySubset
 } from './youtubeTasks.shared';
 
 type SummaryTaskIds =
-	| TaskNames.SUMMARY
 	| TaskNames.TITLE_SUMMARY
 	| TaskNames.TITLE
 	| TaskNames.KEYWORDS
 	| TaskNames.KEYPOINTS;
 
 export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
-	[TaskNames.SUMMARY]: ({ language, freshRun }) => ({
-		id: TaskNames.SUMMARY,
-		name: 'Summary',
-		dependencies: [TaskNames.CONTENT],
-		component: 'taskBase',
-		componentProps: {
-			autoplayTTS: freshRun
-		},
-
-		type: 'ia',
-		systemMessage: `Focus on extracting:
-- core ideas
-- workflows
-- technical concepts
-- mindset shifts
-- practical advice
-- mistakes and lessons learned
-
-Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
-		run: getContentFromState,
-		userMessage: `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
-		completionOptions: defaultCompletionOptions
-	}),
-
-	[TaskNames.TITLE_SUMMARY]: ({ language }) => ({
+	[TaskNames.TITLE_SUMMARY]: () => ({
 		id: TaskNames.TITLE_SUMMARY,
-		name: 'Title Summary',
-		dependencies: [TaskNames.CONTENT],
-		component: 'taskBase',
-		type: 'ia',
-		systemMessage: `Focus on extracting:
+		...createSummaryTask({
+			name: 'Title Summary',
+			systemMessage: `Focus on extracting:
 - core ideas
 - workflows
 - technical concepts
@@ -53,15 +25,16 @@ Avoid summarizing small talk unless it adds context. Answer in ${language === 'e
 - practical advice
 - mistakes and lessons learned
 
-Avoid summarizing small talk unless it adds context. Answer in ${language === 'es' ? 'Spanish' : 'English'}. got right to rhe point, no intros. dont use markdown. one paragraph.`,
-		run: getContentFromState,
-		userMessage: `Generate a short summary for this video. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`,
-		completionOptions: defaultCompletionOptions
+Avoid summarizing small talk unless it adds context. got right to the point, no intros. dont use markdown. one paragraph.`,
+			userMessage: 'Generate a short summary for this video.',
+			completionOptions: defaultCompletionOptions
+		})
 	}),
 
 	[TaskNames.TITLE]: ({ language }) => ({
 		id: TaskNames.TITLE,
 		...createTitleTask({ gridSpan: 1 }),
+		renderOrder: 2,
 		userMessage: `Generate a short title for this context that describes the main idea in maximum 10 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`
 	}),
 

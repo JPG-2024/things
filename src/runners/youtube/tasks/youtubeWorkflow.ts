@@ -9,6 +9,7 @@ import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runn
 import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
 import { sharedTasks, SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
+import { createSummaryTask } from '@/runners/shared/dynamicTasks';
 
 export { TaskNames };
 
@@ -43,7 +44,6 @@ const outputSchemas = {
 	[TaskNames.MAIN_COLOR]: z.string(),
 	[TaskNames.TIMED_CAPTIONS]: z.array(z.object({ caption: z.string() }).passthrough()),
 	[TaskNames.CONTENT]: z.string(),
-	[TaskNames.SUMMARY]: z.string(),
 	[TaskNames.TITLE_SUMMARY]: z.string(),
 	[TaskNames.TITLE]: sharedOutputSchemas[SHARED_TASK_IDS.TITLE],
 	[TaskNames.KEYWORDS]: z.array(z.string()),
@@ -105,6 +105,7 @@ const youtubeTasks = {
 		dependencies: [TaskNames.INIT_YOUTUBE_VIDEO],
 		component: 'player',
 		gridSpan: 3,
+		renderOrder: 2,
 		persist: true,
 		output: outputSchemas[TaskNames.THUMBNAIL],
 		run: async ({ state }) => {
@@ -166,41 +167,12 @@ const youtubeTasks = {
 				.trim();
 		}
 	}),
-	[TaskNames.SUMMARY]: iaTask({
-		name: 'Summary',
-		dependencies: [TaskNames.CONTENT],
-		component: 'taskBase',
-		componentProps: ({ context }) => {
-			const ctx = context as YouTubeTaskFactoryContext;
-			return { autoplayTTS: ctx.freshRun };
-		},
-		output: outputSchemas[TaskNames.SUMMARY],
-		systemMessage: ({ context }) => {
-			const ctx = context as YouTubeTaskFactoryContext;
-			return `Focus on extracting: ... Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
-		},
-		userMessage: ({ context }) => {
-			const ctx = context as YouTubeTaskFactoryContext;
-			return `Summarize the context clearly in a single paragraph. no more than 80 words. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
-		},
-		run: getContentFromState,
-		completionOptions: DEFAULT_COMPLETION_OPTIONS
-	}),
-	[TaskNames.TITLE_SUMMARY]: iaTask({
+	[TaskNames.TITLE_SUMMARY]: createSummaryTask({
 		name: 'Title summary',
-		dependencies: [TaskNames.CONTENT],
-		component: 'taskBase',
-		output: outputSchemas[TaskNames.TITLE_SUMMARY],
 		systemMessage: `You are a reviewer of content.`,
 		persist: true,
-		userMessage: ({ context }) => {
-			const ctx = context as YouTubeTaskFactoryContext;
-			return `Write a summary in 2 paragraphs. No markdown. No enumertions. no titles. Just a precize analisis. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}.`;
-		},
-		run: ({ state }) => {
-			const content = getTaskState(state, TaskNames.CONTENT);
-			return content;
-		},
+		userMessage:
+			'Write a summary in 2 paragraphs. No markdown. No enumerations. No titles. Just a precise analysis.',
 		onComplete: ({ result, context }) => {
 			if (viewState.autoSpeechEnabled) {
 				ttsState.setTextContents([result as string]);

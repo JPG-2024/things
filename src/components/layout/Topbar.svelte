@@ -4,6 +4,8 @@
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
+	import Icon from '@/components/Icon.svelte';
+
 
 	interface Props {
 		children?: Snippet;
@@ -42,12 +44,13 @@
 </script>
 
 <div class="top-bar">
-	<button onclick={handleBackNavigation} class="back-navigation">⬅</button>
+	<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button>
+
 	<button type="button" class="favicon-btn" aria-label="Navigate back">
 		{#if faviconSrc}
 			<img class="favicon" src={faviconSrc} alt="" />
 		{:else}
-			<div class="favicon-placeholder"></div>
+		    <Icon name="ClipboardType" />
 		{/if}
 	</button>
 
@@ -72,7 +75,7 @@
 		left: 0;
 		z-index: 10;
 		box-sizing: border-box;
-		padding-right: 1.8em;
+		padding-right: 2em;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
 	}
@@ -115,8 +118,8 @@
 
 	.favicon {
 		border-radius: 8px;
-		width: 28px;
-		height: 28px;
+		width: 20px;
+		height: 20px;
 	}
 
 	.favicon-placeholder {

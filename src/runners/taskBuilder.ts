@@ -141,7 +141,9 @@ export async function buildTaskSubroutine<
 		}
 
 		visited.add(taskId);
-		task.renderOrder = orderedTasks.length;
+		if (task.renderOrder === undefined) {
+			task.renderOrder = orderedTasks.length;
+		}
 		orderedTasks.push(task);
 	};
 

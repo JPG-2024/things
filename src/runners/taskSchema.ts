@@ -23,6 +23,7 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 				state: Readonly<Record<string, unknown>>;
 		  }) => Record<string, unknown>);
 	gridSpan?: 1 | 2 | 3;
+	renderOrder?: number;
 	persist?: boolean;
 	output: TOutput;
 };
@@ -151,6 +152,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			component: def.component,
 			componentProps,
 			gridSpan: def.gridSpan,
+			renderOrder: def.renderOrder,
 			persist: def.persist,
 			run: async (runtime: TaskRuntime<TMap, TId>) => {
 				const result = await def.run({
@@ -206,6 +208,7 @@ function buildIaTask<
 			component: def.component,
 			componentProps,
 			gridSpan: def.gridSpan,
+			renderOrder: def.renderOrder,
 			persist: def.persist,
 			run: def.run
 				? async (runtime: TaskRuntime<TMap, TId>) => {

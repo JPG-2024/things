@@ -174,6 +174,7 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 		subtype: 'title' as const,
 		component: 'taskBase',
 		output: z.string(),
+		renderOrder: 1,
 		systemMessage: options?.systemMessage ?? 'Avoid Markdown.',
 		userMessage: options?.userMessage ?? defaultUserMessage,
 		run: ({ state }: { state: Record<string, unknown> }) => {
@@ -189,6 +190,58 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 
 export function createTitleTask(options?: CreateTitleTaskOptions) {
 	return iaTask(createTitleTaskConfig(options));
+}
+
+export interface CreateSummaryTaskOptions {
+	name?: string;
+	dependencies?: string[];
+	systemMessage?: string;
+	userMessage?: string;
+	componentProps?:
+		| Record<string, unknown>
+		| ((ctx: {
+				context: unknown;
+				state: Readonly<Record<string, unknown>>;
+		  }) => Record<string, unknown>);
+	onComplete?: (params: {
+		result: unknown;
+		runResult: string;
+		context: unknown;
+		state: Readonly<Record<string, unknown>>;
+	}) => void | Promise<void>;
+	completionOptions?:
+		| Record<string, unknown>
+		| ((ctx: {
+				context: unknown;
+				state: Readonly<Record<string, unknown>>;
+		  }) => Record<string, unknown>);
+	persist?: boolean;
+}
+
+export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef<z.ZodString> {
+	const deps = options?.dependencies ?? ['content'];
+
+	return iaTask({
+		...(options?.name != null && { name: options.name }),
+		dependencies: deps,
+		component: 'taskBase',
+		output: z.string(),
+		systemMessage:
+			options?.systemMessage ??
+			'You are a professional content summarizer. Write a concise and clear summary.',
+		userMessage: options?.userMessage ?? 'Summarize the content.',
+		run: ({ state }) => {
+			const depKey = deps[0];
+			const content = state[depKey];
+			if (typeof content !== 'string')
+				throw new Error(`Missing content from dependency "${depKey}"`);
+			return content;
+		},
+		...(options?.componentProps != null && { componentProps: options.componentProps }),
+		...(options?.onComplete != null && { onComplete: options.onComplete }),
+		completionOptions: options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS,
+		...(options?.persist != null && { persist: options.persist })
+	});
 }
 
 export function buildTask(def: IaTaskDef, id: string): Task {
@@ -213,6 +266,7 @@ export function buildTask(def: IaTaskDef, id: string): Task {
 		userMessage,
 		completionOptions: completionOptions as Task['completionOptions'],
 		component: def.component,
+		...(def.renderOrder != null && { renderOrder: def.renderOrder }),
 		...(def.extractorConfig != null && { extractorConfig: def.extractorConfig }),
 		...(def.run != null && {
 			run: async (runtime: Parameters<NonNullable<IaTaskDef['run']>>[0]) =>

@@ -11,6 +11,8 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 
+	const TOOLBAR_ICON_SIZE = 14;
+
 	interface Props {
 		headerContent?: any;
 		contentSnippet?: any;
@@ -65,9 +67,24 @@
 
 <article>
 	<Topbar>
-		<ToggleIcon name="FoldVertical" bind:checked={viewState.enableTasksCollapse} />
-		<ToggleIcon name="ListChecks" bind:checked={viewState.showAllTasks} />
-		<Icon name="RefreshCcw" onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })} />
+		<ToggleIcon
+			name="FoldVertical"
+			size={TOOLBAR_ICON_SIZE}
+			bind:checked={viewState.enableTasksCollapse}
+			tooltipProps={{ content: 'toggle tasks collapse' }}
+		/>
+		<ToggleIcon
+			name="ListChecks"
+			size={TOOLBAR_ICON_SIZE}
+			bind:checked={viewState.showAllTasks}
+			tooltipProps={{ content: 'show all tasks' }}
+		/>
+		<Icon
+			name="RefreshCcw"
+			size={TOOLBAR_ICON_SIZE}
+			onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
+			tooltipProps={{ content: 'refresh article' }}
+		/>
 
 		{#if viewState.url && !viewState.loading}
 			<button
@@ -76,12 +93,18 @@
 				disabled={isDeleting}
 				title="Delete article"
 			>
-				<Icon name="Trash" />
+				<Icon name="Trash" size={TOOLBAR_ICON_SIZE} tooltipProps={{ content: 'delete article' }} />
 			</button>
 		{/if}
 
-		<LinkIcon url={viewState.url!} />
-		<Icon name="Settings" title="Settings" onClick={() => drawersState.open('settings')} />
+		<LinkIcon url={viewState.url!} size={TOOLBAR_ICON_SIZE} />
+		<Icon
+			name="Settings"
+			size={TOOLBAR_ICON_SIZE}
+			title="Settings"
+			onClick={() => drawersState.open('settings')}
+			tooltipProps={{ content: 'settings' }}
+		/>
 	</Topbar>
 
 	<div class="header">

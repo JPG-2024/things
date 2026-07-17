@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle, type PlayerMode } from '@/lib/ttsPlayerConfig';
@@ -29,7 +29,7 @@
 	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
-	const amplitudeScale = $derived(mode === 'mini' ? 1 : 0.4);
+	const amplitudeScale = $derived(mode === 'mini' ? 1.4 : 0.4);
 	const wavelengthScale = 300;
 
 	let showControls = $state(true);
@@ -847,7 +847,6 @@
 					<span>{ttsState.addVoiceMessage || ttsState.addVoiceStatus}</span>
 				</div>
 			{/if}
-
 			{#if ttsState.errorMessage}
 				<div class="tts-player__error">
 					<span>{ttsState.errorMessage}</span>
@@ -855,11 +854,7 @@
 				</div>
 			{/if}
 		{:else}
-			<div
-				class="tts-player-mini__canvas-clip"
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 200 }}
-			>
+			<div class="tts-player-mini__canvas-clip" transition:fly={{ duration: 200, y: -50 }}>
 				<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
 			</div>
 
@@ -1038,7 +1033,7 @@
 		transform: translateX(-50%);
 		width: 120px;
 		height: 50px;
-		border-radius: 15%;
+		border-radius: 30%;
 		background: rgba(14, 14, 14, 0.9);
 		box-shadow: 0 4px 35px rgba(0, 0, 0, 0.8);
 		cursor: pointer;

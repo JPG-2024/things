@@ -7,6 +7,7 @@ export type PersistedTaskState = {
 	data?: unknown;
 	status?: Task['status'];
 	component?: string;
+	renderOrder?: number;
 };
 
 export interface ArticleWithTasks {
@@ -151,6 +152,7 @@ type StoredTask = {
 	data?: unknown;
 	status?: Task['status'];
 	component?: string;
+	renderOrder?: number;
 };
 
 type LegacyPageElementItem = {
@@ -197,7 +199,8 @@ export function parsePersistedTaskStates(raw: string | null): PersistedTaskState
 				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
 				data: task?.data,
 				status: task?.status ?? 'done',
-				component: task?.component
+				component: task?.component,
+				renderOrder: task?.renderOrder
 			}));
 		}
 	} catch (error) {
@@ -217,7 +220,8 @@ export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): Stored
 		id: task.id,
 		data: task.data,
 		status: task.status,
-		component: task.component
+		component: task.component,
+		renderOrder: task.renderOrder
 	};
 }
 

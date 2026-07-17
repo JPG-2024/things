@@ -19,7 +19,6 @@ export enum TaskNames {
 	INIT_YOUTUBE_VIDEO = 'init-youtube-video',
 	THUMBNAIL = 'thumbnail',
 	MAIN_COLOR = 'main-color',
-	SUMMARY = 'summary',
 	KEYWORDS = 'keywords',
 	KEYPOINTS = 'key-points',
 	TIMED_CAPTIONS = 'timed-captions',

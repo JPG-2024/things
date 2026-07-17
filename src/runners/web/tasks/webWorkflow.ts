@@ -18,7 +18,7 @@ import {
 	WebTaskNames,
 	type WebTaskFactoryContext
 } from './webTasks.shared';
-import { createTitleTask } from '@/runners/shared/dynamicTasks';
+import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
 import { SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 
 export { WebTaskNames };
@@ -185,28 +185,18 @@ export const webWorkflow = defineWorkflow({
 			}
 		}),
 
-		[WebTaskNames.TITLE_SUMMARY]: iaTask({
-			dependencies: [WebTaskNames.CONTENT],
-			component: 'taskBase',
+		[WebTaskNames.TITLE_SUMMARY]: createSummaryTask({
 			componentProps: ({ context }) => {
 				const ctx = context as WebTaskFactoryContext;
 				return { autoplayTTS: ctx.freshRun };
 			},
-			output: outputSchemas[WebTaskNames.TITLE_SUMMARY],
 			systemMessage:
 				'You are a professional article summarizer. Write a concise and clear summary. Keep the response under 80 words.',
-			userMessage: ({ context }) => {
-				const ctx = context as WebTaskFactoryContext;
-				return `Summarize the article context in one paragraph. Answer in ${ctx.language === 'es' ? 'Spanish' : 'English'}`;
-			},
-			run: ({ state }) => {
-				const content = getTaskState(state, WebTaskNames.CONTENT);
-				return content;
-			},
+			userMessage: 'Summarize the article context in one paragraph.',
 			onComplete: ({ result, context }) => {
 				if (viewState.autoSpeechEnabled) {
-					ttsState.setTextContents([result]);
-					ttsState.generateTTS(context.url);
+					ttsState.setTextContents([result as string]);
+					ttsState.generateTTS((context as WebTaskFactoryContext).url);
 				}
 			},
 			completionOptions: defaultCompletionOptions

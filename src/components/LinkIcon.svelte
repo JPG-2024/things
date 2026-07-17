@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { openUrl } from '@tauri-apps/plugin-opener';
+	import type { ComponentProps } from 'svelte';
 	import Icon from './Icon.svelte';
 
-	let { url }: { url: string } = $props();
+	type Props = Omit<ComponentProps<typeof Icon>, 'name'> & { url: string };
+	let { url, ...rest }: Props = $props();
 
 	async function handleClick(event: MouseEvent) {
 		event.preventDefault();
@@ -33,11 +35,13 @@
 	class="link"
 	title="Open link in browser (Cmd/Ctrl-click to copy)"
 >
-	<Icon name="Link" />
+	<Icon name="Link" {...rest} tooltipProps={{ content: 'open link in browser' }} />
 </button>
 
 <style>
 	.link {
+		display: flex;
+		align-items: center;
 		background: none;
 		border: none;
 		padding: 0;
