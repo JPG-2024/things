@@ -5,6 +5,7 @@
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import {
 		chatCompletions,
@@ -97,8 +98,10 @@
 			const idx = messages.findIndex((m) => m.id === assistantId);
 			if (idx !== -1) {
 				messages[idx] = { ...messages[idx], content: streamedText, done: true };
-				ttsState.addTextContent(streamedText);
-				void ttsState.generateTTS(assistantId);
+				if (viewState.autoSpeechEnabled) {
+					ttsState.addTextContent(streamedText);
+					void ttsState.generateTTS(assistantId);
+				}
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error occurred';

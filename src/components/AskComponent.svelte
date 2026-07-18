@@ -6,6 +6,8 @@
 		type LlamaChatCompletionsRequest
 	} from '@/lib/utils/chat-completions-provider';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	type AskComponentProps = TaskComponentProps & {
 		model?: string;
@@ -13,6 +15,7 @@
 		temperature?: number;
 		topP?: number;
 		systemPrompt?: string;
+		placeholder?: string;
 	};
 
 	type Props = {
@@ -116,13 +119,21 @@
 			error = err instanceof Error ? err.message : 'Unknown error occurred';
 		} finally {
 			loading = false;
+			if (viewState.autoSpeechEnabled && streamedText.trim()) {
+				viewState.ttsPlayerMode = 'mini';
+				ttsState.generateFromClipboard(streamedText);
+			}
 		}
 	}
 </script>
 
 <div class="ask-task">
 	<div class="ask-input" class:is-loading={loading}>
-		<Input placeholder="Ask about this content..." disabled={loading} onEnter={handleSubmit} />
+		<Input
+			placeholder={componentProps?.placeholder ?? 'Ask about this content...'}
+			disabled={loading}
+			onEnter={handleSubmit}
+		/>
 	</div>
 
 	{#if error}

@@ -5,7 +5,7 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
-	import { extractValidUrl, handlePasteUrl } from '@/lib/utils/pasteUrl';
+	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
@@ -18,7 +18,8 @@
 	import ArticleList from '@/components/ArticleList.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
-	import Input from '@/components/inputs/Input.component.svelte';
+	import AskComponent from '@/components/AskComponent.svelte';
+	import type { Task } from '@/types/taskRunner.types';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { onMount } from 'svelte';
@@ -27,6 +28,12 @@
 		{ id: 'articles', label: 'Articles' },
 		{ id: 'profiles', label: 'Profiles' }
 	];
+
+	const standaloneAskTask: Task = {
+		id: 'home-ask',
+		dependencies: [],
+		type: 'script'
+	};
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -253,7 +260,10 @@
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<!-- <Input onEnter={handleEnter} placeholder="Paste URL or type a prompt..." /> -->
+		<AskComponent
+			task={standaloneAskTask}
+			componentProps={{ placeholder: 'Ask the model...' }}
+		/>
 	</div>
 
 	{#if viewState.activeProfileArticleTab === 'profiles'}

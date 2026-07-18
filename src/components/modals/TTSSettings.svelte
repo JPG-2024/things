@@ -21,7 +21,6 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
-	import HorizontalScroller from '@/components/HorizontalScroller.svelte';
 
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
@@ -133,13 +132,22 @@
 		}
 	}
 
-	const scrollerItems = $derived(
-		profiles.map((p) => ({
-			id: p.id,
-			label: p.name_prefix,
-			imageSrc: p.image_src ? getImage(p.image_src) : null
-		}))
-	);
+	function hashHue(input: string): number {
+		let hash = 5381;
+		for (let i = 0; i < input.length; i++) {
+			hash = (hash * 33) ^ input.charCodeAt(i);
+		}
+		return Math.abs(hash) % 360;
+	}
+
+	function colorFor(id: string): string {
+		return `hsl(${hashHue(id)}, 60%, 50%)`;
+	}
+
+	function initialFor(label: string): string {
+		const trimmed = label.trim();
+		return trimmed.length ? trimmed[0].toUpperCase() : '?';
+	}
 
 	async function handleNamePrefixChange(id: string) {
 		await selectProfile(id);
@@ -226,11 +234,29 @@
 
 	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
-			<HorizontalScroller
-				items={scrollerItems.reverse()}
-				bind:selectedId={selectedProfileId}
-				onSelect={handleNamePrefixChange}
-			/>
+			<Spacer title="Voices" icon="Users" defaultOpen={false}>
+				<div class="voice-grid">
+					{#each profiles as profile (profile.id)}
+						<button
+							type="button"
+							class="voice-grid-item"
+							class:selected={profile.id === selectedProfileId}
+							onclick={() => handleNamePrefixChange(profile.id)}
+						>
+							<div class="avatar-wrap">
+								{#if profile.image_src}
+									<img class="avatar" src={getImage(profile.image_src)} alt={profile.name_prefix} />
+								{:else}
+									<div class="avatar fallback" style="background: {colorFor(profile.id)}">
+										<span class="fallback-letter">{initialFor(profile.name_prefix)}</span>
+									</div>
+								{/if}
+							</div>
+							<span class="label">{profile.name_prefix}</span>
+						</button>
+					{/each}
+				</div>
+			</Spacer>
 
 			<div class="profile-row">
 				<button
@@ -525,6 +551,77 @@
 		gap: 1rem;
 
 		height: fit-content;
+	}
+
+	.voice-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+		gap: 1rem;
+		max-height: calc(4 * (64px + 0.4rem + 1.2rem + 1rem) + 3 * 1rem);
+		overflow-y: auto;
+		padding-right: 0.5rem;
+	}
+
+	.voice-grid-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		border-radius: 12px;
+		transition: transform 0.15s ease;
+		color: inherit;
+	}
+
+	.voice-grid-item:hover {
+		transform: translateY(-2px);
+	}
+
+	.voice-grid-item.selected .avatar-wrap {
+		outline: 2px solid var(--primary-color);
+		outline-offset: 2px;
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 25%, transparent);
+	}
+
+	.avatar-wrap {
+		width: 64px;
+		height: 64px;
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.fallback {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		font-weight: bold;
+		font-size: 1.5rem;
+	}
+
+	.label {
+		font-size: 0.75rem;
+		text-align: center;
+		opacity: 0.85;
+		max-width: 80px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.voice-grid-item.selected .label {
+		opacity: 1;
+		font-weight: bold;
 	}
 
 	.voice-buttons {

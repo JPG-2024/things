@@ -221,7 +221,11 @@
 			}
 
 			if (streamedText.trim()) {
-				await speakText(streamedText);
+				if (viewState.autoSpeechEnabled) {
+					await speakText(streamedText);
+				} else {
+					status = 'idle';
+				}
 			} else {
 				status = 'idle';
 			}
