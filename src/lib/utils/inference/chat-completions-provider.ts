@@ -9,7 +9,7 @@ import {
 	type LlamaChatCompletionsResponse,
 	type LlamaChatCompletionsUsage,
 	type LlamaChatMessage
-} from '@/lib/utils/llama-completions';
+} from './llama-completions';
 import { viewState } from '@/stores/viewStore.svelte';
 
 export type {
@@ -19,9 +19,9 @@ export type {
 	LlamaChatCompletionsUsage,
 	LlamaChatMessage,
 	LlamaChatCompletionOptions
-} from '@/lib/utils/llama-completions';
+} from './llama-completions';
 
-export { LlamaChatCompletionError } from '@/lib/utils/llama-completions';
+export { LlamaChatCompletionError } from './llama-completions';
 
 export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o';
 

@@ -100,7 +100,11 @@
 				class:span-3={(task.gridSpan ?? 3) === 3}
 				style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
 			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
+				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+					{#if Renderer}
+						<Renderer {task} runId={entry.runId} {componentProps} />
+					{/if}
+				</BaseTaskComponent>
 			</div>
 		{:else if task.status === 'editing'}
 			<div

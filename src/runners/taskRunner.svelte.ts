@@ -2,7 +2,7 @@ import {
 	chatCompletions,
 	LlamaChatCompletionError,
 	type LlamaChatCompletionsRequest
-} from '@/lib/utils/chat-completions-provider';
+} from '@/lib/utils/inference/chat-completions-provider';
 import { stringArrayGbnf } from '@/lib/utils/gbnf';
 import type {
 	IaTask,

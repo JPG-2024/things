@@ -10,7 +10,7 @@
 	import {
 		chatCompletions,
 		type LlamaChatCompletionsRequest
-	} from '@/lib/utils/chat-completions-provider';
+	} from '@/lib/utils/inference/chat-completions-provider';
 
 	interface ChatMessage {
 		id: string;

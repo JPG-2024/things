@@ -6,7 +6,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
-	import { getProfileUrl, handleYoutubeQuestion } from '@/lib/utils/youtube';
+	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';

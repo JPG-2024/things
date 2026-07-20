@@ -45,7 +45,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		type: 'script',
 		component: 'player',
 		gridSpan: 3,
-		renderOrder: 2,
+		renderOrder: 1,
 		persist: true,
 		run: async (runtime) => {
 			const initData = runtime.getTaskData('init-youtube') as { videoId: string; url: string };
@@ -85,10 +85,13 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		type: 'script',
 		component: 'ask',
 		persist: true,
-		renderOrder: 8,
+		renderOrder: 999,
 		run: (runtime) => {
 			const timedCaptions = runtime.getTaskData('timed-captions') as Array<{ caption: string }>;
-			return timedCaptions.map((item) => item.caption).join(' ').trim();
+			return timedCaptions
+				.map((item) => item.caption)
+				.join(' ')
+				.trim();
 		}
 	};
 

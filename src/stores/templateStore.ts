@@ -130,10 +130,10 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				completionOptions: iaTask.completionOptions as Record<string, unknown>,
 				component: task.component,
 				componentProps: task.componentProps,
-				gridSpan: task.gridSpan,
-				renderOrder: task.renderOrder,
-				persist: task.persist,
-				extractorConfig: iaTask.extractorConfig
+			gridSpan: task.gridSpan,
+			renderOrder: task.renderOrder,
+			persist: true,
+			extractorConfig: iaTask.extractorConfig
 			};
 			return def;
 		});

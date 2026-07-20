@@ -1,4 +1,4 @@
-import { chatCompletions } from '@/lib/utils/chat-completions-provider';
+import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { viewState } from '@/stores/viewStore.svelte';

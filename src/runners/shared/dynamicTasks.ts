@@ -61,6 +61,7 @@ export interface CreateIaTaskOptions {
 		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
 	component?: string;
 	model?: string;
+	renderOrder: number;
 	completionOptions?:
 		| Record<string, unknown>
 		| ((ctx: {

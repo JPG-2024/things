@@ -1,9 +1,9 @@
 use image::imageops::FilterType;
-use image::ImageFormat;
 use sha2::{Sha256, Digest};
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_http::reqwest;
+use webp::Encoder;
 
 fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
     bytes.as_ref().iter().map(|b| format!("{:02x}", b)).collect()
@@ -44,7 +44,7 @@ pub async fn download_and_save_image(
     let mut hasher = Sha256::new();
     hasher.update(url.as_bytes());
     let hash = hex_encode(hasher.finalize());
-    let filename = format!("{}.png", &hash[..16]);
+    let filename = format!("{}.webp", &hash[..16]);
 
     // Skip download if file already exists
     let filepath = media_dir.join(&filename);
@@ -85,9 +85,11 @@ pub async fn download_and_save_image(
         FilterType::Lanczos3,
     );
 
-    resized_image
-        .save_with_format(&filepath, ImageFormat::Png)
-        .map_err(|e| format!("Failed to save resized image: {}", e))?;
+    let webp_data = Encoder::from_image(&resized_image)
+        .map_err(|e| format!("Failed to create WebP encoder: {}", e))?
+        .encode(80.0);
+    std::fs::write(&filepath, &*webp_data)
+        .map_err(|e| format!("Failed to save WebP image: {}", e))?;
 
     println!("[Image] Successfully saved image to: media/{}", filename);
 

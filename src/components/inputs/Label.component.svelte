@@ -24,7 +24,6 @@
 
 <style>
 	.label-wrapper {
-		padding-top: 1rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;

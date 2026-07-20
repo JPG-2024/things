@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { iaTask } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
-import { chatCompletions } from '@/lib/utils/chat-completions-provider';
+import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
 	structuredOutputOptions,

@@ -5,6 +5,8 @@
 	import Checkbox from '@/components/inputs/Checkbox.component.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
+	import Textarea from '@/components/inputs/Textarea.component.svelte';
 
 	type Props = {
 		task: Task;
@@ -22,32 +24,41 @@
 	const isEditableIa = $derived(isIaTask && !(_task as IaTask).extractorConfig);
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
-	let localCompletionOptions = $state<Record<string, unknown>>({});
-	let localSystemMessage = $state('');
-	let localUserMessage = $state('');
+	let editedTask = $state<IaTask>(_task as IaTask);
+	let localRenderOrder = $state('');
+	let originalCompletionOptions = $state('');
+	let originalSystemMessage = $state('');
+	let originalUserMessage = $state('');
+	let originalRenderOrder = $state<number | undefined>(undefined);
 
 	$effect(() => {
 		if (isEditableIa) {
 			const iaTask = _task as IaTask;
-			localCompletionOptions = { ...iaTask.completionOptions };
-			localSystemMessage = iaTask.systemMessage ?? '';
-			localUserMessage = iaTask.userMessage ?? '';
+			editedTask = { ...iaTask, completionOptions: { ...iaTask.completionOptions } } as IaTask;
+			localRenderOrder = iaTask.renderOrder != null ? String(iaTask.renderOrder) : '';
+			originalCompletionOptions = JSON.stringify(iaTask.completionOptions);
+			originalSystemMessage = iaTask.systemMessage ?? '';
+			originalUserMessage = iaTask.userMessage ?? '';
+			originalRenderOrder = iaTask.renderOrder;
 		}
 	});
 
 	function handleSave() {
 		if (!targetRunId || !isEditableIa) return;
-		const iaTask = _task as IaTask;
 		const patch: Record<string, unknown> = {};
 
-		if (JSON.stringify(localCompletionOptions) !== JSON.stringify(iaTask.completionOptions)) {
-			patch.completionOptions = localCompletionOptions;
+		if (JSON.stringify(editedTask.completionOptions) !== originalCompletionOptions) {
+			patch.completionOptions = editedTask.completionOptions;
 		}
-		if (localSystemMessage !== iaTask.systemMessage) {
-			patch.systemMessage = localSystemMessage;
+		if (editedTask.systemMessage !== originalSystemMessage) {
+			patch.systemMessage = editedTask.systemMessage;
 		}
-		if (localUserMessage !== iaTask.userMessage) {
-			patch.userMessage = localUserMessage;
+		if (editedTask.userMessage !== originalUserMessage) {
+			patch.userMessage = editedTask.userMessage;
+		}
+		const editedRenderOrder = localRenderOrder !== '' ? Number(localRenderOrder) : undefined;
+		if (editedRenderOrder !== originalRenderOrder) {
+			patch.renderOrder = editedRenderOrder;
 		}
 
 		if (Object.keys(patch).length === 0) return;
@@ -59,34 +70,39 @@
 		workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 	}
 
+	function handleDelete() {
+		if (!targetRunId) return;
+		workflowManager.removeTask(targetRunId, _task.id);
+	}
+
 	void _componentProps;
 </script>
 
 <div class="edit-task">
-	<label>
-		<span>System message</span>
-		<textarea bind:value={localSystemMessage} rows="5"></textarea>
-	</label>
+	<Textarea bind:value={editedTask.systemMessage} rows={5} label="System message" />
 
-	<label>
-		<span>User message</span>
-		<textarea bind:value={localUserMessage} rows="4"></textarea>
-	</label>
+	<Textarea bind:value={editedTask.userMessage} rows={4} label="User message" />
 
 	<Checkbox
 		id="edit-stream"
 		label="Stream"
-		checked={localCompletionOptions['stream'] === true}
-		onChange={(v) => (localCompletionOptions['stream'] = v)}
+		checked={editedTask.completionOptions?.stream === true}
+		onChange={(v) => (editedTask.completionOptions.stream = v)}
 	/>
+
+	<Input id="render-order" bind:value={localRenderOrder} label="Render order" />
 
 	<Spacer title="Completion Options" defaultOpen={false}>
 		<div class="form-grid">
-			<CompletionOptionsEditor completionOptions={localCompletionOptions} showStream={false} />
+			<CompletionOptionsEditor
+				completionOptions={editedTask.completionOptions}
+				showStream={false}
+			/>
 		</div>
 	</Spacer>
 
 	<div class="actions">
+		<button class="btn btn-delete" onclick={handleDelete}>Delete</button>
 		<button class="btn btn-cancel" onclick={handleCancel}>Cancel</button>
 		<button class="btn btn-save" onclick={handleSave}>Save</button>
 	</div>
@@ -97,35 +113,14 @@
 		width: 100%;
 		display: grid;
 		gap: 0.75rem;
+		border: 1px solid rgba(255, 255, 0, 0.169);
+		padding: 1rem;
+		border-radius: 3pxno;
 	}
 
 	.form-grid {
 		display: grid;
 		gap: 0.75rem;
-	}
-
-	label {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	label span {
-		opacity: 0.82;
-		font-size: 0.85rem;
-	}
-
-	textarea {
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-radius: 14px;
-		background: rgba(255, 255, 255, 0.04);
-		padding: 0.7rem 0.85rem;
-		width: 100%;
-		color: inherit;
-		font: inherit;
-		box-sizing: border-box;
-		resize: vertical;
-		font-family: 'CaskaydiaCove NFM Light', monospace;
-		line-height: 1.45;
 	}
 
 	.actions {
@@ -165,5 +160,16 @@
 
 	.btn-save:hover {
 		opacity: 0.9;
+	}
+
+	.btn-delete {
+		background: rgba(220, 53, 69, 0.1);
+		border-color: rgba(220, 53, 69, 0.4);
+		color: #dc3545;
+	}
+
+	.btn-delete:hover {
+		background: rgba(220, 53, 69, 0.2);
+		border-color: rgba(220, 53, 69, 0.6);
 	}
 </style>

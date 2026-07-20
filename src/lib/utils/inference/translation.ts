@@ -1,4 +1,4 @@
-import { chatCompletions } from '@/lib/utils/chat-completions-provider';
+import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
 import { LANG_NAMES } from '@/constants';
 

@@ -4,7 +4,7 @@
 	import {
 		chatCompletions,
 		type LlamaChatCompletionsRequest
-	} from '@/lib/utils/chat-completions-provider';
+	} from '@/lib/utils/inference/chat-completions-provider';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';

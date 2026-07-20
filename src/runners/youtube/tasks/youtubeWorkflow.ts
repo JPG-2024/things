@@ -7,7 +7,7 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
-import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/llama-completions';
+import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/inference/llama-completions';
 import { sharedTasks, SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 import { createSummaryTask } from '@/runners/shared/dynamicTasks';
 

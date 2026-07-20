@@ -6,10 +6,21 @@
 	import Topbar from './layout/Topbar.svelte';
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
-	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
+	import {
+		deleteArticleByUrl,
+		markArticleAsViewed,
+		saveTasks,
+		saveArticle
+	} from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import {
+		saveTemplate,
+		tasksToTemplateDefs,
+		assignTemplateToProfile
+	} from '@/stores/templateStore';
 
 	const TOOLBAR_ICON_SIZE = 14;
 
@@ -46,7 +57,33 @@
 		};
 	});
 
+	async function handleSaveTemplate() {
+		const tasks = workflowStore.focusedRunTasks;
+		if (!tasks || tasks.length === 0) return;
+
+		const name = 'test';
+		const templateDefs = tasksToTemplateDefs(tasks);
+		if (templateDefs.length === 0) return;
+
+		const id = name;
+		const saved = await saveTemplate({ id, name, tasks: templateDefs });
+		console.log(saved, viewState.currentProfileId, viewState.domainUrl);
+		if (saved && viewState.domainUrl) {
+			console.log('assign', saved);
+			await assignTemplateToProfile(viewState.domainUrl, saved.id);
+		}
+
+		if (viewState.url) {
+			console.log('tasks', tasks);
+			await Promise.all([
+				saveTasks(viewState.url, tasks),
+				saveArticle(viewState.url, tasks, { profile: viewState.domainUrl })
+			]);
+		}
+	}
+
 	async function handleDelete() {
+		console.log('handleDelete');
 		if (!viewState.url || isDeleting) return;
 		try {
 			isDeleting = true;
@@ -84,6 +121,13 @@
 			size={TOOLBAR_ICON_SIZE}
 			onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
 			tooltipProps={{ content: 'refresh article' }}
+		/>
+
+		<Icon
+			name="Save"
+			size={TOOLBAR_ICON_SIZE}
+			tooltipProps={{ content: 'save as template' }}
+			onClick={handleSaveTemplate}
 		/>
 
 		{#if viewState.url && !viewState.loading}

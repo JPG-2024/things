@@ -8,6 +8,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
+	import { createIaTask, buildTask } from '@/runners/shared/dynamicTasks';
 
 	type Props = {
 		runId?: string;
@@ -40,6 +41,19 @@
 		if (!targetRunId) return;
 		workflowManager.addTask(targetRunId, { ...task, status: 'editing' });
 	}
+
+	function handleBranch() {
+		if (!targetRunId) return;
+		const def = createIaTask({
+			dependencies: [task.id],
+			userMessage: '',
+			model: viewState.aiModel,
+			renderOrder: task.renderOrder + 0.1
+		});
+		const newTask = buildTask(def, `branch-${task.id}-${Date.now()}`);
+		newTask.status = 'editing';
+		workflowManager.addTask(targetRunId, newTask);
+	}
 </script>
 
 <Spacer defaultOpen={true} forcedClosed={viewState.enableTasksCollapse}>
@@ -52,9 +66,11 @@
 			<div class="task-toolbar">
 				<Icon
 					name="GitBranch"
+					onClick={handleBranch}
 					tooltipProps={{ content: 'new task from' }}
 					size={14}
 					color="var(--primary-color)"
+					class="task-action"
 				/>
 				<Icon
 					name="RefreshCw"
