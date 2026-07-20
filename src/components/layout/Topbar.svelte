@@ -6,7 +6,6 @@
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 	import Icon from '@/components/Icon.svelte';
 
-
 	interface Props {
 		children?: Snippet;
 	}
@@ -50,7 +49,7 @@
 		{#if faviconSrc}
 			<img class="favicon" src={faviconSrc} alt="" />
 		{:else}
-		    <Icon name="ClipboardType" />
+			<Icon name="ClipboardType" />
 		{/if}
 	</button>
 

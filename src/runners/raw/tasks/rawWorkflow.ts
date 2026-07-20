@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { defineWorkflow, scriptTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { ttsState } from '@/stores/ttsStore.svelte';
-import { TaskNames, type TaskFactoryContext, defaultCompletionOptions } from './rawTasks.shared';
+import { TaskNames, type TaskFactoryContext } from './rawTasks.shared';
+import { DEFAULT_RAW_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { sharedTasks, sharedOutputSchemas, SHARED_TASK_IDS } from '@/runners/shared/sharedTasks';
 import { createSummaryTask } from '@/runners/shared/dynamicTasks';
 
@@ -71,7 +72,7 @@ export const rawWorkflow = defineWorkflow({
 				ttsState.setTextContents([result as string]);
 				ttsState.generateTTS(ctx.rawId);
 			},
-			completionOptions: defaultCompletionOptions
+			completionOptions: DEFAULT_RAW_COMPLETION_OPTIONS
 		}),
 
 		[TaskNames.GENERATE_TTS]: scriptTask({

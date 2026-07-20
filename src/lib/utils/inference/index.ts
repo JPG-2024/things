@@ -1,3 +1,4 @@
+export * from './constants';
 export { chatCompletions } from './chat-completions-provider';
 export {
 	LlamaChatCompletionError,
@@ -13,4 +14,5 @@ export type {
 	LlamaChatCompletionOptions
 } from './llama-completions';
 export { translateText } from './translation';
-export { iaCategorizer } from './categorizer';
+export { iaCategorizer } from './helpers/categorizer';
+export { inferenceTitle } from './helpers/inferenceTitle';

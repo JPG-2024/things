@@ -1,10 +1,6 @@
 import type { TemplateTaskDef } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
-import {
-	createIaTask,
-	createExtractorTask,
-	buildTask
-} from '@/runners/shared/dynamicTasks';
+import { createIaTask, createExtractorTask, buildTask } from '@/runners/shared/dynamicTasks';
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	if (def.type === 'extractor' && def.extractorConfig) {

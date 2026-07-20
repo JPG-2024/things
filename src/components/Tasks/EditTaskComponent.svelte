@@ -7,6 +7,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Textarea from '@/components/inputs/Textarea.component.svelte';
+	import { inferenceTitle } from '@/lib/utils/inference/helpers/inferenceTitle';
 
 	type Props = {
 		task: Task;
@@ -24,29 +25,44 @@
 	const isEditableIa = $derived(isIaTask && !(_task as IaTask).extractorConfig);
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
-	let editedTask = $state<IaTask>(_task as IaTask);
+	let editedTask = $state<IaTask>({ ..._task as IaTask, name: (_task as IaTask).name ?? '' });
 	let localRenderOrder = $state('');
 	let originalCompletionOptions = $state('');
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
 	let originalRenderOrder = $state<number | undefined>(undefined);
+	let originalName = $state('');
 
 	$effect(() => {
 		if (isEditableIa) {
 			const iaTask = _task as IaTask;
-			editedTask = { ...iaTask, completionOptions: { ...iaTask.completionOptions } } as IaTask;
+			editedTask = { ...iaTask, completionOptions: { ...iaTask.completionOptions }, name: iaTask.name ?? '' } as IaTask;
 			localRenderOrder = iaTask.renderOrder != null ? String(iaTask.renderOrder) : '';
 			originalCompletionOptions = JSON.stringify(iaTask.completionOptions);
 			originalSystemMessage = iaTask.systemMessage ?? '';
 			originalUserMessage = iaTask.userMessage ?? '';
 			originalRenderOrder = iaTask.renderOrder;
+			originalName = iaTask.name ?? '';
 		}
 	});
 
-	function handleSave() {
+	async function handleSave() {
 		if (!targetRunId || !isEditableIa) return;
+
+		if (editedTask.userMessage) {
+			try {
+				const title = await inferenceTitle(editedTask.userMessage, { emoji: false, words: 5 });
+				if (title) editedTask.name = title;
+			} catch {
+				// inference failure should not block saving
+			}
+		}
+
 		const patch: Record<string, unknown> = {};
 
+		if (editedTask.name !== originalName) {
+			patch.name = editedTask.name;
+		}
 		if (JSON.stringify(editedTask.completionOptions) !== originalCompletionOptions) {
 			patch.completionOptions = editedTask.completionOptions;
 		}
@@ -79,6 +95,8 @@
 </script>
 
 <div class="edit-task">
+	<Input bind:value={editedTask.name} label="Task name" />
+
 	<Textarea bind:value={editedTask.systemMessage} rows={5} label="System message" />
 
 	<Textarea bind:value={editedTask.userMessage} rows={4} label="User message" />

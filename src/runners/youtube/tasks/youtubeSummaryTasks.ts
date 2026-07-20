@@ -1,10 +1,7 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
-import {
-	defaultCompletionOptions,
-	TaskNames,
-	type YouTubeTaskRegistrySubset
-} from './youtubeTasks.shared';
+import { TaskNames, type YouTubeTaskRegistrySubset } from './youtubeTasks.shared';
+import { DEFAULT_YOUTUBE_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 
 type SummaryTaskIds =
 	| TaskNames.TITLE_SUMMARY
@@ -27,7 +24,7 @@ export const summaryTaskRegistry: YouTubeTaskRegistrySubset<SummaryTaskIds> = {
 
 Avoid summarizing small talk unless it adds context. got right to the point, no intros. dont use markdown. one paragraph.`,
 			userMessage: 'Generate a short summary for this video.',
-			completionOptions: defaultCompletionOptions
+			completionOptions: DEFAULT_YOUTUBE_COMPLETION_OPTIONS
 		})
 	}),
 
@@ -55,7 +52,7 @@ Avoid summarizing small talk unless it adds context. got right to the point, no 
 		},
 		userMessage: 'extract 5 keywords.',
 		completionOptions: {
-			...defaultCompletionOptions,
+			...DEFAULT_YOUTUBE_COMPLETION_OPTIONS,
 			temperature: 1.0,
 			top_p: 0.95,
 			top_k: 20,
@@ -103,7 +100,7 @@ Avoid summarizing small talk unless it adds context. got right to the point, no 
 		},
 		userMessage: `extract 8 keypoints describing the main information. Response in language: ${viewState.language === 'es' ? 'Spanish' : 'English'}.`,
 		completionOptions: {
-			...defaultCompletionOptions,
+			...DEFAULT_YOUTUBE_COMPLETION_OPTIONS,
 			temperature: 1.0,
 			top_p: 0.95,
 			top_k: 20,

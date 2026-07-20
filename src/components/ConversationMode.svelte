@@ -6,7 +6,10 @@
 	import { startMicRecording, stopMicRecording, sendAudio } from '@/lib/utils/micService';
 	import { generateSpeech } from '@/lib/utils/ttsService';
 	import { splitTextIntoChunks } from '@/lib/utils/splitText';
-	import { chatCompletions, type LlamaChatMessage } from '@/lib/utils/inference/chat-completions-provider';
+	import {
+		chatCompletions,
+		type LlamaChatMessage
+	} from '@/lib/utils/inference/chat-completions-provider';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import {

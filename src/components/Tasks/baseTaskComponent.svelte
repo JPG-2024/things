@@ -60,7 +60,7 @@
 	{#snippet titleSlot()}
 		<div class="task-spacer-title">
 			<LuminousText size="1.1em" mode={task.status === 'running' ? 'blink' : 'off'}>
-				<span class="task-id-title">{task.id}</span>
+				<span class="task-id-title">{task.name}</span>
 			</LuminousText>
 
 			<div class="task-toolbar">

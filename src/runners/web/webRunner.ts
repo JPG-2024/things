@@ -70,7 +70,9 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		type: 'script',
 		persist: true,
 		run: (runtime) => {
-			const initData = runtime.getTaskData('init-web') as { extraction: { metadata: Record<string, string> } };
+			const initData = runtime.getTaskData('init-web') as {
+				extraction: { metadata: Record<string, string> };
+			};
 			return initData.extraction.metadata;
 		}
 	};
@@ -135,10 +137,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 	return [initTask, extractProfileTask, metadataTask, thumbnailTask, contentTask];
 }
 
-export async function webRunner(
-	url: string,
-	options: WebRunnerOptions = {}
-): Promise<Task[]> {
+export async function webRunner(url: string, options: WebRunnerOptions = {}): Promise<Task[]> {
 	const initialTasks = await buildWebInitialTasks(url);
 	const domainUrl = deriveDomainFromUrl(url);
 

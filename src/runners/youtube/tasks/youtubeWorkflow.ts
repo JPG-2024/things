@@ -8,18 +8,11 @@ import { ttsState } from '@/stores/ttsStore.svelte';
 import { defineWorkflow, scriptTask, iaTask, getRequiredTaskState } from '@/runners/taskSchema';
 import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared';
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/inference/llama-completions';
+import { YOUTUBE_STRUCTURED_OUTPUT_OPTIONS } from '@/lib/utils/inference/constants';
 import { sharedTasks, SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 import { createSummaryTask } from '@/runners/shared/dynamicTasks';
 
 export { TaskNames };
-
-const structuredOutputOptions = {
-	temperature: 0,
-	top_p: 0.9,
-	top_k: 1,
-	presence_penalty: 0,
-	stream: false
-} as const;
 
 const outputSchemas = {
 	[TaskNames.INIT_YOUTUBE_VIDEO]: z.object({
@@ -214,7 +207,7 @@ const youtubeTasks = {
 			return content;
 		},
 		completionOptions: {
-			...structuredOutputOptions,
+			...YOUTUBE_STRUCTURED_OUTPUT_OPTIONS,
 			response_format: {
 				type: 'json_schema',
 				json_schema: {

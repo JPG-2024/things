@@ -13,11 +13,8 @@ import {
 	getRequiredTaskState,
 	createContentGetter
 } from '@/runners/taskSchema';
-import {
-	defaultCompletionOptions,
-	WebTaskNames,
-	type WebTaskFactoryContext
-} from './webTasks.shared';
+import { WebTaskNames, type WebTaskFactoryContext } from './webTasks.shared';
+import { DEFAULT_WEB_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
 import { SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 
@@ -199,7 +196,7 @@ export const webWorkflow = defineWorkflow({
 					ttsState.generateTTS((context as WebTaskFactoryContext).url);
 				}
 			},
-			completionOptions: defaultCompletionOptions
+			completionOptions: DEFAULT_WEB_COMPLETION_OPTIONS
 		}),
 
 		[WebTaskNames.KEYWORDS]: iaTask({
@@ -213,7 +210,7 @@ export const webWorkflow = defineWorkflow({
 			userMessage: 'Extract 5 representative keywords from the article.',
 			run: getContentFromState,
 			completionOptions: {
-				...defaultCompletionOptions,
+				...DEFAULT_WEB_COMPLETION_OPTIONS,
 				temperature: 0,
 				top_p: 1,
 				top_k: 0,
@@ -252,7 +249,7 @@ export const webWorkflow = defineWorkflow({
 			userMessage: 'Extract 5 insights in one line each.',
 			run: getContentFromState,
 			completionOptions: {
-				...defaultCompletionOptions,
+				...DEFAULT_WEB_COMPLETION_OPTIONS,
 				temperature: 0.9,
 				response_format: {
 					type: 'json_schema',

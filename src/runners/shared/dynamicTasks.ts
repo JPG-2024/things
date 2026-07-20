@@ -3,50 +3,18 @@ import { iaTask } from '@/runners/taskSchema';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { stringArrayGbnf } from '@/lib/utils/gbnf';
+import {
+	SUMMARY_COMPLETION_OPTIONS,
+	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
+	DEFAULT_IA_COMPLETION_OPTIONS,
+	DEFAULT_TITLE_COMPLETION_OPTIONS
+} from '@/lib/utils/inference/constants';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 
 const DEFAULT_IA_SYSTEM_MESSAGE =
 	'You are a helpful AI assistant. Respond concisely and accurately.';
-
-export const SUMMARY_COMPLETION_OPTIONS = {
-	temperature: 0.2,
-	top_k: 40,
-	min_p: 0.05,
-	presence_penalty: 0,
-	n_predict: 1500,
-	stream: false
-} as const;
-
-export const structuredOutputOptions = {
-	temperature: 0.1,
-	top_k: 40,
-	min_p: 0.1,
-	presence_penalty: 0,
-	n_predict: 256,
-	stream: false
-} as const;
-
-const DEFAULT_IA_COMPLETION_OPTIONS = {
-	temperature: 0.7,
-	top_p: 0.8,
-	top_k: 20,
-	min_p: 0.0,
-	presence_penalty: 1.5,
-	repetition_penalty: 1.0,
-	stream: false
-} as const;
-
-const DEFAULT_TITLE_COMPLETION_OPTIONS = {
-	temperature: 0.7,
-	top_p: 0.9,
-	max_tokens: 20,
-	frequency_penalty: 0.4,
-	presence_penalty: 0.1,
-	stop: ['\n', '. ', '? ', '! '],
-	seed: 42
-} as const;
 
 export interface CreateIaTaskOptions {
 	id?: string;
@@ -140,7 +108,7 @@ export function createExtractorTask(
 		},
 		resultParser: (text) => parseStructuredArrayResponses(text),
 		completionOptions: {
-			...structuredOutputOptions,
+			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 			model,
 			grammar: stringArrayGbnf(count)
 		},

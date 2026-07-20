@@ -4,11 +4,11 @@ import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
+import { createExtractorTask, createTitleTask } from '@/runners/shared/dynamicTasks';
 import {
-	structuredOutputOptions,
-	createExtractorTask,
-	createTitleTask
-} from '@/runners/shared/dynamicTasks';
+	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
+	DEFAULT_EMOJI_COMPLETION_OPTIONS
+} from '@/lib/utils/inference/constants';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
@@ -25,16 +25,6 @@ export const sharedOutputSchemas = {
 	[SHARED_TASK_IDS.TITLE]: z.string(),
 	[SHARED_TASK_IDS.EMOJI_FROM_STRING]: z.string()
 } as const;
-
-const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
-	temperature: 0.1,
-	top_p: 0.9,
-	max_tokens: 5,
-	frequency_penalty: 0,
-	presence_penalty: 0,
-	stop: ['\n'],
-	seed: 42
-};
 
 function extractFirstGrapheme(text: string): string {
 	const trimmed = text.trim();
@@ -126,7 +116,7 @@ export const sharedTasks = {
 			return parseStructuredArrayResponses(text);
 		},
 		completionOptions: () => ({
-			...structuredOutputOptions,
+			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 			grammar: arrayToGbnf(
 				viewState.categories.map((c) => c.name),
 				{ minItems: 1, maxItems: 1 }
