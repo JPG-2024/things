@@ -26,8 +26,8 @@
 	<div class="drawer-backdrop" role="presentation" onclick={handleClose}>
 		<div
 			class="drawer-panel"
-			in:slide={{ axis: 'x', duration: 150 }}
-			out:slide={{ axis: 'x', duration: 150 }}
+			in:slide={{ axis: 'y', duration: 150 }}
+			out:slide={{ axis: 'y', duration: 150 }}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{@render children?.()}
@@ -46,11 +46,10 @@
 	.drawer-panel {
 		position: absolute;
 		color: var(--primary-color);
-		top: 0;
-		right: 0;
-		width: min(500px, 90%);
-
-		height: 100%;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 90%;
 		overflow-y: auto;
 		background: rgba(14, 14, 14, 0.95);
 	}

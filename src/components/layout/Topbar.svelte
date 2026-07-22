@@ -15,7 +15,7 @@
 	let faviconSrc = $state<string | null>(null);
 
 	$effect(() => {
-		if (!viewState.domainUrl) {
+		if (!viewState.domainUrl || viewState.isRawMode) {
 			faviconSrc = null;
 			return;
 		}
@@ -73,8 +73,9 @@
 		right: 0;
 		left: 0;
 		z-index: 10;
-		box-sizing: border-box;
+		padding: 4px 10px;
 		padding-right: 2em;
+		box-sizing: border-box;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
 	}

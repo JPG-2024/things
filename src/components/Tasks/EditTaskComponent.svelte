@@ -3,10 +3,13 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import CompletionOptionsEditor from '@/components/inputs/CompletionOptionsEditor.svelte';
 	import Checkbox from '@/components/inputs/Checkbox.component.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Textarea from '@/components/inputs/Textarea.component.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import { inferenceTitle } from '@/lib/utils/inference/helpers/inferenceTitle';
 
 	type Props = {
@@ -25,38 +28,49 @@
 	const isEditableIa = $derived(isIaTask && !(_task as IaTask).extractorConfig);
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
-	let editedTask = $state<IaTask>({ ..._task as IaTask, name: (_task as IaTask).name ?? '' });
+	let editedTask = $state<IaTask>({
+		...(_task as IaTask),
+		name: (_task as IaTask).name ?? '',
+		enableTTS: (_task as IaTask).enableTTS ?? false
+	});
 	let localRenderOrder = $state('');
 	let originalCompletionOptions = $state('');
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
 	let originalRenderOrder = $state<number | undefined>(undefined);
 	let originalName = $state('');
+	let originalEnableTTS = $state(false);
 
 	$effect(() => {
 		if (isEditableIa) {
 			const iaTask = _task as IaTask;
-			editedTask = { ...iaTask, completionOptions: { ...iaTask.completionOptions }, name: iaTask.name ?? '' } as IaTask;
+			editedTask = {
+				...iaTask,
+				completionOptions: { ...iaTask.completionOptions },
+				name: iaTask.name ?? '',
+				enableTTS: iaTask.enableTTS ?? false
+			} as IaTask;
 			localRenderOrder = iaTask.renderOrder != null ? String(iaTask.renderOrder) : '';
 			originalCompletionOptions = JSON.stringify(iaTask.completionOptions);
 			originalSystemMessage = iaTask.systemMessage ?? '';
 			originalUserMessage = iaTask.userMessage ?? '';
 			originalRenderOrder = iaTask.renderOrder;
 			originalName = iaTask.name ?? '';
+			originalEnableTTS = iaTask.enableTTS ?? false;
 		}
 	});
 
 	async function handleSave() {
 		if (!targetRunId || !isEditableIa) return;
 
-		if (editedTask.userMessage) {
+		/* 		if (editedTask.userMessage) {
 			try {
 				const title = await inferenceTitle(editedTask.userMessage, { emoji: false, words: 5 });
 				if (title) editedTask.name = title;
 			} catch {
 				// inference failure should not block saving
 			}
-		}
+		} */
 
 		const patch: Record<string, unknown> = {};
 
@@ -75,6 +89,9 @@
 		const editedRenderOrder = localRenderOrder !== '' ? Number(localRenderOrder) : undefined;
 		if (editedRenderOrder !== originalRenderOrder) {
 			patch.renderOrder = editedRenderOrder;
+		}
+		if (editedTask.enableTTS !== originalEnableTTS) {
+			patch.enableTTS = editedTask.enableTTS;
 		}
 
 		if (Object.keys(patch).length === 0) return;
@@ -108,6 +125,18 @@
 		onChange={(v) => (editedTask.completionOptions.stream = v)}
 	/>
 
+	<div class="tts-toggle">
+		<ToggleIcon
+			name="Speech"
+			bind:checked={editedTask.enableTTS}
+			size={20}
+			tooltipProps={{ content: 'auto speech' }}
+		/>
+		<span class="tts-hint" class:muted={!viewState.autoSpeechEnabled}>
+			{viewState.autoSpeechEnabled ? 'auto speech enabled' : 'auto speech disabled globally'}
+		</span>
+	</div>
+
 	<Input id="render-order" bind:value={localRenderOrder} label="Render order" />
 
 	<Spacer title="Completion Options" defaultOpen={false}>
@@ -120,9 +149,9 @@
 	</Spacer>
 
 	<div class="actions">
-		<button class="btn btn-delete" onclick={handleDelete}>Delete</button>
-		<button class="btn btn-cancel" onclick={handleCancel}>Cancel</button>
-		<button class="btn btn-save" onclick={handleSave}>Save</button>
+		<Button onClick={handleDelete}>Delete</Button>
+		<Button onClick={handleCancel}>Cancel</Button>
+		<Button onClick={handleSave}>Save</Button>
 	</div>
 </div>
 
@@ -133,7 +162,7 @@
 		gap: 0.75rem;
 		border: 1px solid rgba(255, 255, 0, 0.169);
 		padding: 1rem;
-		border-radius: 3pxno;
+		border-radius: 15px;
 	}
 
 	.form-grid {
@@ -148,46 +177,20 @@
 		padding-top: 0.25rem;
 	}
 
-	.btn {
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 999px;
-		padding: 0.45rem 1.1rem;
-		font: inherit;
-		font-size: 0.82rem;
-		cursor: pointer;
-		transition:
-			background 0.2s ease,
-			border-color 0.2s ease;
+	.tts-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.25rem 0;
 	}
 
-	.btn-cancel {
-		background: rgba(255, 255, 255, 0.04);
-		color: inherit;
+	.tts-hint {
+		font-size: 0.8rem;
+		color: var(--primary-color);
+		opacity: 0.8;
 	}
 
-	.btn-cancel:hover {
-		background: rgba(255, 255, 255, 0.08);
-		border-color: rgba(255, 255, 255, 0.3);
-	}
-
-	.btn-save {
-		background: var(--primary-color, #7c6af7);
-		border-color: var(--primary-color, #7c6af7);
-		color: white;
-	}
-
-	.btn-save:hover {
-		opacity: 0.9;
-	}
-
-	.btn-delete {
-		background: rgba(220, 53, 69, 0.1);
-		border-color: rgba(220, 53, 69, 0.4);
-		color: #dc3545;
-	}
-
-	.btn-delete:hover {
-		background: rgba(220, 53, 69, 0.2);
-		border-color: rgba(220, 53, 69, 0.6);
+	.tts-hint.muted {
+		opacity: 0.4;
 	}
 </style>

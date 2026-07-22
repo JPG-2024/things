@@ -133,6 +133,7 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				gridSpan: task.gridSpan,
 				renderOrder: task.renderOrder,
 				persist: true,
+				enableTTS: iaTask.enableTTS ?? false,
 				extractorConfig: iaTask.extractorConfig
 			};
 			return def;

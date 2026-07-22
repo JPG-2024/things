@@ -40,6 +40,8 @@ export async function handlePasteUrl(
 
 	const validUrl = extractValidUrl(content);
 
+	debugger;
+
 	if (validUrl && viewState.isRawMode) {
 		viewState.processingUrl = true;
 		try {

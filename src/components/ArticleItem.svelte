@@ -14,8 +14,14 @@
 
 	let { article, displayMode = 'thumbnail', onClick, onHoverEnter, onHoverLeave }: Props = $props();
 
+	console.log('Article', article);
+
 	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
-	const title = $derived(article.title?.slice(0, 60).concat('...') ?? '');
+	const title = $derived(
+		((article.persistedTasks?.find((t) => t.name === 'title')?.data as string | undefined) ?? '')
+			.slice(0, 60)
+			.concat('...')
+	);
 </script>
 
 <button
@@ -43,7 +49,7 @@
 			</div>
 		{/if}
 		<div class="article-title">
-			<span>{article.title ?? ''}</span>
+			<span>{title}</span>
 		</div>
 	</div>
 </button>

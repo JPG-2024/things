@@ -59,11 +59,15 @@
 		position: relative;
 		background: black;
 		padding: 1.5rem;
-		width: 100vw;
-		height: 100vh;
+		width: 90vw;
+		height: fit-content;
+		max-height: 90vh;
 		overflow-y: auto;
 		border-radius: 8px;
 		z-index: 10000;
+		box-shadow: 1px -1px 20px 31px rgba(0, 0, 0, 0.98);
+		-webkit-box-shadow: 1px -1px 20px 31px rgba(0, 0, 0, 0.98);
+		-moz-box-shadow: 1px -1px 50px 31px rgba(0, 0, 0, 0.68);
 	}
 
 	.modal-content {
@@ -71,7 +75,7 @@
 	}
 
 	.close-btn {
-		position: fixed;
+		position: absolute;
 		top: 0.6rem;
 		right: 1rem;
 		background: none;

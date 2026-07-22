@@ -37,13 +37,12 @@ export const DEFAULT_IA_COMPLETION_OPTIONS = {
 } as const;
 
 export const DEFAULT_TITLE_COMPLETION_OPTIONS = {
-	temperature: 0.7,
+	temperature: 0.1,
 	top_p: 0.9,
 	max_tokens: 20,
 	frequency_penalty: 0.4,
 	presence_penalty: 0.1,
-	stop: ['\n', '. ', '? ', '! '],
-	seed: 42
+	stop: ['\n', '. ', '? ', '! ', ': ']
 } satisfies Record<string, unknown>;
 
 export const DEFAULT_WEB_COMPLETION_OPTIONS = {

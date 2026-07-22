@@ -6,16 +6,18 @@ export async function inferenceTitle(
 	content: string,
 	options: { emoji: boolean; words: number }
 ): Promise<string> {
-	const emojiInstruction = options.emoji ? 'Start with an emoji.' : 'Do not start with an emoji.';
+	const emojiInstruction = options.emoji ? 'Start with an emoji.' : '';
+
+	console.log(content);
 
 	const response = await chatCompletions({
 		model: viewState.aiModel,
 		...DEFAULT_TITLE_COMPLETION_OPTIONS,
 		messages: [
-			{ role: 'system', content: 'Avoid Markdown.' },
+			{ role: 'system', content: 'Avoid Markdown. You are a prompt intention extractor' },
 			{
 				role: 'user',
-				content: `Create a short title describing the content. No more than ${options.words} words. ${emojiInstruction}\n\n${content}`
+				content: `Extract the prompt intention. No more than ${options.words} words. ${emojiInstruction} \n\n prompt: ${content}`
 			}
 		]
 	});

@@ -15,7 +15,7 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);
 	selectedTaskId = $state('title-summary');
-	ttsPlayerMode = $state<PlayerMode>('full');
+	ttsPlayerMode = $state<PlayerMode>('mini');
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
@@ -62,7 +62,11 @@ class ViewState {
 	isRawMode = $derived(this.url?.startsWith('raw-') ?? false);
 
 	domainUrl = $derived(
-		this.url && /^https?:\/\//.test(this.url) ? new URL(this.url).hostname : null
+		this.url && /^https?:\/\//.test(this.url)
+			? new URL(this.url).hostname
+			: this.isRawMode
+				? 'raw-text'
+				: null
 	);
 
 	activeProfileArticleTab = $state<'profiles' | 'articles'>('articles');

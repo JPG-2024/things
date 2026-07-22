@@ -47,6 +47,7 @@ export function createIaTask(options: CreateIaTaskOptions): IaTaskDef<z.ZodStrin
 		userMessage,
 		component = 'taskBase',
 		model = DEFAULT_DYNAMIC_MODEL,
+		renderOrder,
 		completionOptions
 	} = options;
 
@@ -58,6 +59,7 @@ export function createIaTask(options: CreateIaTaskOptions): IaTaskDef<z.ZodStrin
 		output: z.string(),
 		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
 		userMessage,
+		renderOrder,
 		completionOptions: completionOptions ?? {
 			...DEFAULT_IA_COMPLETION_OPTIONS,
 			model
@@ -236,6 +238,7 @@ export function buildTask(def: IaTaskDef, id: string): Task {
 		completionOptions: completionOptions as Task['completionOptions'],
 		component: def.component,
 		...(def.renderOrder != null && { renderOrder: def.renderOrder }),
+		...(def.enableTTS != null && { enableTTS: def.enableTTS }),
 		...(def.extractorConfig != null && { extractorConfig: def.extractorConfig }),
 		...(def.run != null && {
 			run: async (runtime: Parameters<NonNullable<IaTaskDef['run']>>[0]) =>

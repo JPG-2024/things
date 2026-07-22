@@ -32,6 +32,7 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	if (def.renderOrder != null) task.renderOrder = def.renderOrder;
 	if (def.persist != null) task.persist = def.persist;
 	if (def.componentProps != null) task.componentProps = def.componentProps;
+	if (def.enableTTS != null) task.enableTTS = def.enableTTS;
 
 	return task;
 }

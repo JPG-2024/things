@@ -25,6 +25,11 @@ export { LlamaChatCompletionError } from './llama-completions';
 
 export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o';
 
+const LANGUAGE_MAP: Record<string, string> = {
+	en: 'English',
+	es: 'Spanish'
+};
+
 const LLAMA_SPECIFIC_FIELDS = new Set([
 	'grammar',
 	'mirostat',
@@ -349,6 +354,18 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
+	const langName = LANGUAGE_MAP[viewState.language];
+	if (langName) {
+		const messages = request.messages;
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const msg = messages[i];
+			if (msg.role === 'user' && typeof msg.content === 'string') {
+				msg.content += `\n\nRespond in ${langName}.`;
+				break;
+			}
+		}
+	}
+
 	if (viewState.aiProvider === 'openrouter') {
 		return openrouterChatCompletions(request, options);
 	}

@@ -76,6 +76,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	dependencies: (keyof TMap & string)[];
 	type: TaskType;
 	data?: TMap[TId];
+	enableTTS?: boolean;
 	component?: string;
 	componentProps?: TaskComponentProps;
 	gridSpan?: 1 | 2 | 3;

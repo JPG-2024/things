@@ -576,6 +576,11 @@ fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
         "DELETE FROM profile_category WHERE profile_id = ?1",
         params![profile_id]
     ).map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "DELETE FROM web_profile_templates WHERE profile_id = ?1",
+        params![profile_id]
+    ).map_err(|error| error.to_string())?;
     
     conn.execute("DELETE FROM web_profiles WHERE id = ?1", params![profile_id])
         .map_err(|error| error.to_string())?;
@@ -1672,6 +1677,12 @@ pub async fn upsert_web_profile_template(
     init_schema(&conn)?;
 
     let now = chrono_like_now();
+
+    conn.execute(
+        "INSERT OR IGNORE INTO web_profiles (id, name, count, updated_at) VALUES (?1, ?1, 0, ?2)",
+        params![profile_id, now],
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute(
         "INSERT INTO web_profile_templates (profile_id, template_id, updated_at) VALUES (?1, ?2, ?3)

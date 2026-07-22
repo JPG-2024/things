@@ -25,6 +25,7 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	gridSpan?: 1 | 2 | 3;
 	renderOrder?: number;
 	persist?: boolean;
+	enableTTS?: boolean;
 	output: TOutput;
 };
 
@@ -154,6 +155,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
 			persist: def.persist,
+			enableTTS: def.enableTTS,
 			run: async (runtime: TaskRuntime<TMap, TId>) => {
 				const result = await def.run({
 					runId: runtime.runId,
@@ -210,6 +212,7 @@ function buildIaTask<
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
 			persist: def.persist,
+			enableTTS: def.enableTTS,
 			run: def.run
 				? async (runtime: TaskRuntime<TMap, TId>) => {
 						return def.run!({

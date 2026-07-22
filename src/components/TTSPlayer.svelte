@@ -854,7 +854,7 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="tts-player-mini__canvas-clip" transition:fly={{ duration: 200, y: -50 }}>
+			<div class="tts-player-mini__canvas-clip" transition:fly={{ duration: 200, y: -200 }}>
 				<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
 			</div>
 
@@ -1031,8 +1031,8 @@
 		bottom: 1.5rem;
 		left: 50%;
 		transform: translateX(-50%);
-		width: 120px;
-		height: 50px;
+		width: 200px;
+		height: 70px;
 		border-radius: 30%;
 		background: rgba(14, 14, 14, 0.9);
 		box-shadow: 0 4px 35px rgba(0, 0, 0, 0.8);

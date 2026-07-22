@@ -218,7 +218,7 @@
 <style>
 	:global(body) {
 		margin: 0;
-		font-size: 14px;
+		font-size: 16px;
 		font-family: 'Anonymous Pro', monospace;
 	}
 

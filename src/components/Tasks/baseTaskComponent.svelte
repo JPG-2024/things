@@ -44,13 +44,14 @@
 
 	function handleBranch() {
 		if (!targetRunId) return;
+		console.log(task);
 		const def = createIaTask({
 			dependencies: [task.id],
 			userMessage: '',
 			model: viewState.aiModel,
-			renderOrder: task.renderOrder + 0.1
+			renderOrder: task.renderOrder + 0.01
 		});
-		const newTask = buildTask(def, `branch-${task.id}-${Date.now()}`);
+		const newTask = buildTask(def, `${task.id} > ${Date.now()}`);
 		newTask.status = 'editing';
 		workflowManager.addTask(targetRunId, newTask);
 	}
@@ -60,7 +61,7 @@
 	{#snippet titleSlot()}
 		<div class="task-spacer-title">
 			<LuminousText size="1.1em" mode={task.status === 'running' ? 'blink' : 'off'}>
-				<span class="task-id-title">{task.name}</span>
+				<span class="task-id-title">{task.name ?? task.id}</span>
 			</LuminousText>
 
 			<div class="task-toolbar">

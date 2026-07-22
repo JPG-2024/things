@@ -9,6 +9,7 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { fade } from 'svelte/transition';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 	const sortedTasks = $derived(
@@ -26,24 +27,74 @@
 		};
 	}
 
+	const canGenerateTTS = $derived(
+		viewState.url !== null &&
+			stackedTasks.some(
+				({ task }) =>
+					task.id === viewState.selectedTaskId &&
+					task.status === 'done' &&
+					typeof task.data === 'string'
+			)
+	);
+
 	createHotkey(
 		'S',
 		async () => {
-			if (!viewState.url) return;
 			const entry = stackedTasks.find(
 				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
 			);
 			if (!entry?.task.data || typeof entry.task.data !== 'string') return;
 			void ensureAudioContext();
 			ttsState.setTextContents([entry.task.data]);
-			await ttsState.generateTTS(viewState.url);
+			await ttsState.generateTTS(viewState.url!);
 		},
-		{
+		() => ({
+			enabled: canGenerateTTS,
 			ignoreInputs: true,
 			stopPropagation: true,
 			preventDefault: true
-		}
+		})
 	);
+
+	let previousDoneKeys = new SvelteSet<string>();
+	let initialized = false;
+
+	$effect(() => {
+		const currentDoneKeys = new SvelteSet<string>();
+
+		for (const entry of sortedTasks) {
+			const task = entry.task;
+			const key = `${entry.runId}:${task.id}`;
+
+			if (task.status === 'done') {
+				currentDoneKeys.add(key);
+			}
+
+			if (
+				task.enableTTS &&
+				task.status === 'done' &&
+				viewState.autoSpeechEnabled &&
+				!viewState.isCachedArticle &&
+				!previousDoneKeys.has(key) &&
+				initialized
+			) {
+				let ttsText: string | undefined;
+				if (typeof task.data === 'string') {
+					ttsText = task.data;
+				} else if (Array.isArray(task.data)) {
+					ttsText = task.data.map(String).join(' ');
+				}
+
+				if (ttsText?.trim()) {
+					ttsState.setTextContents([ttsText.trim()]);
+					void ttsState.generateTTS(key);
+				}
+			}
+		}
+
+		previousDoneKeys = currentDoneKeys;
+		initialized = true;
+	});
 
 	/* 	let bottomAnchor: HTMLDivElement | undefined = $state();
 	let previousFinishedCount = 0;

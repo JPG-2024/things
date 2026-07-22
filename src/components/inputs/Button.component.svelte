@@ -29,11 +29,10 @@
 		box-sizing: border-box;
 		outline: none;
 		box-shadow: inset 0 0px 5px var(--primary-color);
-		border: 2px solid var(--primary-color);
-		border-radius: 15px;
-		background: rgba(154, 154, 154, 0.1);
-		background: var(--primary-color);
-		color: black;
+		border: 1px solid var(--primary-color);
+		border-radius: 12px;
+		background: rgba(154, 154, 154, 0.12);
+		color: var(--primary-color);
 		font-weight: bold;
 		font-size: 1.2rem;
 		opacity: 0.8;
@@ -41,8 +40,8 @@
 
 	.btn:hover:not(:disabled) {
 		box-shadow: 0 0 0 1px rgba(154, 154, 154, 0.4);
-		background: rgba(154, 154, 154, 0.3);
-		color: var(--primary-color);
+		background: var(--primary-color);
+		color: black;
 	}
 
 	.btn:active:not(:disabled) {

@@ -4,6 +4,7 @@ import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
 	id: string;
+	name?: string;
 	data?: unknown;
 	status?: Task['status'];
 	renderOrder?: number;
@@ -148,6 +149,7 @@ type UpsertWebStoreArticleInput = {
 
 type StoredTask = {
 	id?: string;
+	name?: string;
 	data?: unknown;
 	status?: Task['status'];
 	renderOrder?: number;
@@ -195,6 +197,7 @@ export function parsePersistedTaskStates(raw: string | null): PersistedTaskState
 		if (Array.isArray(parsed)) {
 			return parsed.map((task, index) => ({
 				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
+				name: task?.name,
 				data: task?.data,
 				status: task?.status ?? 'done',
 				renderOrder: task?.renderOrder
@@ -214,6 +217,7 @@ export function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): b
 export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): StoredTask {
 	return {
 		id: task.id,
+		name: task.name,
 		data: task.data,
 		status: task.status,
 		renderOrder: task.renderOrder
@@ -229,6 +233,7 @@ export function mergeStoredTasks<TMap extends TaskMapBase>(
 	for (const task of existingTasks ?? []) {
 		mergedTasks.set(task.id, {
 			id: task.id,
+			name: task.name,
 			data: task.data,
 			status: task.status,
 			renderOrder: task.renderOrder
