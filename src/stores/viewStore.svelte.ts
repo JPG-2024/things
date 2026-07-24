@@ -35,6 +35,7 @@ class ViewState {
 	clipboardPollingEnabled = $state(false);
 	clipboardTtsEnabled = $state(false);
 	forceLanguageEnabled = $state(false);
+	downloadTracksEnabled = $state(false);
 	enableTasksCollapse = $state(false);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);

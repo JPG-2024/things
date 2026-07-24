@@ -4,7 +4,7 @@ import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
-import { createExtractorTask, createTitleTask } from '@/runners/shared/dynamicTasks';
+	import { defineTask, createTitleTask } from '@/runners/shared/dynamicTasks';
 import {
 	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 	DEFAULT_EMOJI_COMPLETION_OPTIONS
@@ -67,17 +67,15 @@ export async function generateEmojiForText(text: string): Promise<string> {
 }
 
 export const sharedTasks = {
-	[SHARED_TASK_IDS.KEYWORDS]: createExtractorTask({
-		count: 10,
-		description: 'keywords',
-		component: 'keywords'
+	[SHARED_TASK_IDS.KEYWORDS]: defineTask({
+		component: 'keywords',
+		extractorConfig: { count: 10, description: 'keywords' }
 	}),
 
-	[SHARED_TASK_IDS.EMOJIS]: createExtractorTask({
-		count: 5,
+	[SHARED_TASK_IDS.EMOJIS]: defineTask({
 		dependencies: ['title-summary'],
-		description: 'Emojis',
-		component: 'keywords'
+		component: 'keywords',
+		extractorConfig: { count: 5, description: 'Emojis' }
 	}),
 
 	[SHARED_TASK_IDS.TITLE]: createTitleTask(),

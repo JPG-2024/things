@@ -13,12 +13,14 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { deleteProfileById } from '@/stores/webStore';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
+	import { musicState } from '@/stores/musicStore.svelte';
 	import type { Task } from '@/types/taskRunner.types';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
@@ -53,6 +55,7 @@
 	}
 
 	let skipEffectFetch = $state(true);
+	let askInputValue = $state('');
 
 	onMount(async () => {
 		if (viewState.activeProfileArticleTab === 'profiles') {
@@ -68,6 +71,16 @@
 		if (!viewState.clipboardPollingEnabled) {
 			viewState.lastHandledClipboardUrl = '';
 		}
+	});
+
+	$effect(() => {
+		if (!viewState.downloadTracksEnabled) return;
+		if (viewState.urlQueue.length === 0) return;
+		if (musicState.isDownloading) return;
+
+		const urlsToDownload = [...viewState.urlQueue];
+		viewState.urlQueue = [];
+		void musicState.downloadTracks(urlsToDownload);
 	});
 
 	$effect(() => {
@@ -104,6 +117,15 @@
 			const clipboardText = await invoke<string>('read_clipboard_text');
 			const trimmed = (clipboardText ?? '').trim();
 			if (!trimmed) return;
+
+			if (viewState.autoSpeechEnabled && viewState.clipboardTtsEnabled) {
+				const inputTrimmed = askInputValue.trim();
+				if (!inputTrimmed) return;
+				void ensureAudioContext();
+				await ttsState.generateFromClipboard(inputTrimmed);
+				return;
+			}
+
 			await handlePasteUrl(trimmed);
 		} catch {
 			viewState.clipboardPollingEnabled = false;
@@ -214,6 +236,26 @@
 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={20} />
 	</button>
+	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
+		<ToggleIcon
+			name="Download"
+			bind:checked={viewState.downloadTracksEnabled}
+			size={20}
+			tooltipProps={{ content: 'download tracks from queue' }}
+		/>
+	</button>
+	<button
+		type="button"
+		class="settings-trigger"
+		onclick={() => drawersState.open('downloads')}
+		aria-label="Open downloads"
+	>
+		<Icon
+			name="ListMusic"
+			color={musicState.downloads.length > 0 ? 'var(--primary-color)' : 'white'}
+			size={20}
+		/>
+	</button>
 	<button
 		type="button"
 		class="settings-trigger"
@@ -260,7 +302,7 @@
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<AskComponent task={standaloneAskTask} componentProps={{ placeholder: 'Ask the model...' }} />
+		<AskComponent task={standaloneAskTask} componentProps={{ placeholder: 'Ask the model...' }} bind:inputValue={askInputValue} />
 	</div>
 
 	{#if viewState.activeProfileArticleTab === 'profiles'}

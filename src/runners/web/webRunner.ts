@@ -84,6 +84,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		type: 'script',
 		component: 'image',
 		persist: true,
+		renderOrder: 2,
 		run: async (runtime) => {
 			const initData = runtime.getTaskData('init-web') as { url: string; domainUrl: string };
 			const metadata = runtime.getTaskData('metadata') as Record<string, string>;
@@ -128,6 +129,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		type: 'script',
 		component: 'ask',
 		persist: true,
+		renderOrder: 999,
 		run: (runtime) => {
 			const initData = runtime.getTaskData('init-web') as { extraction: { content: string } };
 			return initData.extraction.content;

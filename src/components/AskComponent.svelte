@@ -22,9 +22,10 @@
 		runId?: string;
 		task: Task;
 		componentProps?: AskComponentProps;
+		inputValue?: string;
 	};
 
-	let { runId = undefined, task, componentProps = {} }: Props = $props();
+	let { runId = undefined, task, componentProps = {}, inputValue = $bindable('') }: Props = $props();
 
 	void runId;
 
@@ -132,6 +133,7 @@
 		<Input
 			placeholder={componentProps?.placeholder ?? 'Ask about this content...'}
 			disabled={loading}
+			bind:value={inputValue}
 			onEnter={handleSubmit}
 		/>
 	</div>

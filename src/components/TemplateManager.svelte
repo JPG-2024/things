@@ -80,6 +80,30 @@
 		}
 	}
 
+	async function handleUpdate() {
+		if (!selectedTemplateId || selectedTemplateId !== initialTemplateId) return;
+
+		const tasks = workflowStore.focusedRunTasks;
+		if (!tasks || tasks.length === 0) return;
+
+		const templateDefs = tasksToTemplateDefs(tasks);
+		if (templateDefs.length === 0) return;
+
+		const existing = templates.find((t) => t.id === selectedTemplateId);
+		if (!existing) return;
+
+		const updated = await saveTemplate({
+			id: existing.id,
+			name: existing.name,
+			description: existing.description,
+			tasks: templateDefs
+		});
+
+		if (updated) {
+			templates = templates.map((t) => (t.id === updated.id ? updated : t));
+		}
+	}
+
 	function handleClose() {
 		if (templateChanged && viewState.url) {
 			void urlRouter(viewState.url, { forceRunTasks: true });
@@ -107,6 +131,15 @@
 			<div class="field">
 				<Button onClick={handleAssign} disabled={!viewState.domainUrl || !selectedTemplateId}>
 					Assign to profile
+				</Button>
+			</div>
+
+			<div class="field">
+				<Button
+					onClick={handleUpdate}
+					disabled={!viewState.domainUrl || !selectedTemplateId || selectedTemplateId !== initialTemplateId || !workflowStore.focusedRunTasks?.length}
+				>
+					Update current template
 				</Button>
 			</div>
 

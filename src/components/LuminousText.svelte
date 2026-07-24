@@ -65,6 +65,11 @@
 
 		return () => clearInterval(interval);
 	});
+
+	$effect(() => {
+		if (mode === 'blink' || mode === 'random') return;
+		glowIntensity = mode === 'on' ? 1 : 0;
+	});
 </script>
 
 <button
@@ -98,7 +103,7 @@
 			0 0 80px color-mix(in srgb, white calc(100% * var(--glow-opacity, 1)), transparent);
 	}
 
-	button:hover {
+	/* 	button:hover {
 		text-shadow: none;
-	}
+	} */
 </style>

@@ -168,6 +168,15 @@
 					<EditTaskComponent {task} runId={entry.runId} {componentProps} />
 				</BaseTaskComponent>
 			</div>
+		{:else if task.status === 'pending'}
+			<div
+				class="task-wrapper"
+				class:span-2={(task.gridSpan ?? 3) === 2}
+				class:span-3={(task.gridSpan ?? 3) === 3}
+				transition:fade={{ duration: 250 }}
+			>
+				<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+			</div>
 		{:else if task.status === 'failed'}
 			<div
 				class="task-wrapper task-wrapper--error"
@@ -206,5 +215,11 @@
 
 	.task-wrapper.span-3 {
 		grid-column: span 3;
+	}
+
+	.pending-placeholder {
+		padding: 1rem;
+		opacity: 0.5;
+		font-style: italic;
 	}
 </style>

@@ -1,40 +1,24 @@
 import type { TemplateTaskDef } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
-import { createIaTask, createExtractorTask, buildTask } from '@/runners/shared/dynamicTasks';
+import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
-	if (def.type === 'extractor' && def.extractorConfig) {
-		const extractorDef = createExtractorTask({
-			id: def.id,
-			name: def.name,
-			dependencies: def.dependencies,
-			count: def.extractorConfig.count,
-			description: def.extractorConfig.description,
-			component: def.component
-		});
-		return buildTask(extractorDef, def.id);
-	}
-
-	const iaDef = createIaTask({
-		id: def.id,
+	const taskDef = defineTask({
 		name: def.name,
 		dependencies: def.dependencies,
 		subtype: def.subtype,
 		systemMessage: def.systemMessage,
 		userMessage: def.userMessage,
 		component: def.component,
-		completionOptions: def.completionOptions
+		renderOrder: def.renderOrder,
+		completionOptions: def.completionOptions,
+		persist: def.persist,
+		enableTTS: def.enableTTS,
+		gridSpan: def.gridSpan,
+		componentProps: def.componentProps,
+		...(def.extractorConfig ? { extractorConfig: def.extractorConfig } : {})
 	});
-
-	const task = buildTask(iaDef, def.id);
-
-	if (def.gridSpan != null) task.gridSpan = def.gridSpan;
-	if (def.renderOrder != null) task.renderOrder = def.renderOrder;
-	if (def.persist != null) task.persist = def.persist;
-	if (def.componentProps != null) task.componentProps = def.componentProps;
-	if (def.enableTTS != null) task.enableTTS = def.enableTTS;
-
-	return task;
+	return buildTask(taskDef, def.id);
 }
 
 export function buildTasksFromTemplate(

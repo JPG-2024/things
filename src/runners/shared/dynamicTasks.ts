@@ -12,109 +12,101 @@ import {
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
-
 const DEFAULT_IA_SYSTEM_MESSAGE =
 	'You are a helpful AI assistant. Respond concisely and accurately.';
 
-export interface CreateIaTaskOptions {
-	id?: string;
+export interface DefineTaskOptions {
 	name?: string;
 	dependencies?: string[];
 	subtype?: IaTaskSubtype;
 	systemMessage?:
 		| string
 		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
-	userMessage:
+	userMessage?:
 		| string
 		| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
 	component?: string;
 	model?: string;
-	renderOrder: number;
+	renderOrder?: number;
 	completionOptions?:
 		| Record<string, unknown>
 		| ((ctx: {
 				context: unknown;
 				state: Readonly<Record<string, unknown>>;
 		  }) => Record<string, unknown>);
+	persist?: boolean;
+	enableTTS?: boolean;
+	gridSpan?: 1 | 2 | 3;
+	componentProps?:
+		| Record<string, unknown>
+		| ((ctx: {
+				context: unknown;
+				state: Readonly<Record<string, unknown>>;
+		  }) => Record<string, unknown>);
+	extractorConfig?: { count: number; description: string };
 }
 
-export function createIaTask(options: CreateIaTaskOptions): IaTaskDef<z.ZodString> {
-	const {
-		name,
-		dependencies = [],
-		subtype,
-		systemMessage,
-		userMessage,
-		component = 'taskBase',
-		model = DEFAULT_DYNAMIC_MODEL,
-		renderOrder,
-		completionOptions
-	} = options;
+export function defineTask(options: DefineTaskOptions): IaTaskDef {
+	const extractor = options.extractorConfig;
+
+	if (extractor) {
+		const deps = options.dependencies ?? ['content'];
+		const sourceDependency = deps[0] ?? 'content';
+		const model = options.model ?? DEFAULT_DYNAMIC_MODEL;
+
+		return iaTask({
+			name: options.name,
+			dependencies: deps,
+			subtype: 'extraction',
+			component: options.component ?? 'keywords',
+			renderOrder: options.renderOrder,
+			output: z.array(z.string()),
+			systemMessage:
+				options.systemMessage ??
+				`You are a data extraction assistant. Return only a JSON array of exactly ${extractor.count} ${extractor.description}. No markdown, no explanations.`,
+			userMessage:
+				options.userMessage ??
+				`Extract ${extractor.count} ${extractor.description}. Respond in JSON format.`,
+			run: ({ state, taskId }) => {
+				const content = state[sourceDependency];
+				if (typeof content !== 'string') {
+					throw new Error(
+						`Task "${taskId}" missing string content from dependency "${sourceDependency}".`
+					);
+				}
+				return content;
+			},
+			resultParser: (text) => parseStructuredArrayResponses(text),
+			completionOptions: options.completionOptions ?? {
+				...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
+				model,
+				grammar: stringArrayGbnf(extractor.count)
+			},
+			extractorConfig: extractor,
+			...(options.persist != null && { persist: options.persist }),
+			...(options.enableTTS != null && { enableTTS: options.enableTTS }),
+			...(options.gridSpan != null && { gridSpan: options.gridSpan }),
+			...(options.componentProps != null && { componentProps: options.componentProps })
+		});
+	}
 
 	return iaTask({
-		name,
-		dependencies,
-		subtype,
-		component,
+		name: options.name,
+		dependencies: options.dependencies ?? [],
+		subtype: options.subtype,
+		component: options.component ?? 'taskBase',
 		output: z.string(),
-		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
-		userMessage,
-		renderOrder,
-		completionOptions: completionOptions ?? {
+		systemMessage: options.systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
+		userMessage: options.userMessage ?? '',
+		renderOrder: options.renderOrder,
+		completionOptions: options.completionOptions ?? {
 			...DEFAULT_IA_COMPLETION_OPTIONS,
-			model
-		}
-	});
-}
-
-export interface CreateExtractorTaskOptions {
-	id?: string;
-	name?: string;
-	count: number;
-	description: string;
-	component?: string;
-	dependencies?: string[];
-	model?: string;
-}
-
-export function createExtractorTask(
-	options: CreateExtractorTaskOptions
-): IaTaskDef<z.ZodArray<z.ZodString>> {
-	const {
-		count,
-		description,
-		component = 'keywords',
-		dependencies = ['content'],
-		name,
-		model = DEFAULT_DYNAMIC_MODEL
-	} = options;
-
-	const sourceDependency = dependencies[0] ?? 'content';
-
-	return iaTask({
-		name,
-		dependencies,
-		subtype: 'extraction',
-		component,
-		output: z.array(z.string()),
-		systemMessage: `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`,
-		userMessage: `Extract ${count} ${description}. Respond in JSON format.`,
-		run: ({ state, taskId }) => {
-			const content = state[sourceDependency];
-			if (typeof content !== 'string') {
-				throw new Error(
-					`Task "${taskId}" missing string content from dependency "${sourceDependency}".`
-				);
-			}
-			return content;
+			model: options.model ?? DEFAULT_DYNAMIC_MODEL
 		},
-		resultParser: (text) => parseStructuredArrayResponses(text),
-		completionOptions: {
-			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-			model,
-			grammar: stringArrayGbnf(count)
-		},
-		extractorConfig: { count, description }
+		...(options.persist != null && { persist: options.persist }),
+		...(options.enableTTS != null && { enableTTS: options.enableTTS }),
+		...(options.gridSpan != null && { gridSpan: options.gridSpan }),
+		...(options.componentProps != null && { componentProps: options.componentProps })
 	});
 }
 
@@ -238,6 +230,9 @@ export function buildTask(def: IaTaskDef, id: string): Task {
 		completionOptions: completionOptions as Task['completionOptions'],
 		component: def.component,
 		...(def.renderOrder != null && { renderOrder: def.renderOrder }),
+		...(def.gridSpan != null && { gridSpan: def.gridSpan }),
+		...(def.persist != null && { persist: def.persist }),
+		...(def.componentProps != null && { componentProps: def.componentProps }),
 		...(def.enableTTS != null && { enableTTS: def.enableTTS }),
 		...(def.extractorConfig != null && { extractorConfig: def.extractorConfig }),
 		...(def.run != null && {

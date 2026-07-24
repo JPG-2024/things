@@ -6,9 +6,13 @@
 	import TaskRerunEditor from '@/components/Tasks/TaskRerunEditor.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import PopupMenu from '@/components/PopupMenu.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
-	import { createIaTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import CreateTaskForm from '@/components/Tasks/CreateTaskForm.svelte';
+
+	const TOOLBAR_ICON_SIZE = 16;
 
 	type Props = {
 		runId?: string;
@@ -22,6 +26,7 @@
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 
 	let showModal = $state(false);
+	let menuOpen = $state(false);
 	let contentHeight: number | null = $state(null);
 
 	$effect(() => {
@@ -45,11 +50,12 @@
 	function handleBranch() {
 		if (!targetRunId) return;
 		console.log(task);
-		const def = createIaTask({
+		const def = defineTask({
 			dependencies: [task.id],
 			userMessage: '',
 			model: viewState.aiModel,
-			renderOrder: task.renderOrder + 0.01
+			renderOrder: task.renderOrder + 0.01,
+			persist: true
 		});
 		const newTask = buildTask(def, `${task.id} > ${Date.now()}`);
 		newTask.status = 'editing';
@@ -68,15 +74,15 @@
 				<Icon
 					name="GitBranch"
 					onClick={handleBranch}
-					tooltipProps={{ content: 'new task from' }}
-					size={14}
+					tooltipProps={{ content: 'New task from' }}
+					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
 					class="task-action"
 				/>
 				<Icon
 					name="RefreshCw"
 					onClick={handleRerun}
-					size={14}
+					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
 					title="Rerun task and descendants"
 					class="task-action"
@@ -84,11 +90,30 @@
 				<Icon
 					name="Wrench"
 					onClick={toggleTaskEdit}
-					size={14}
+					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
 					title="Rerun task and descendants"
 					class="task-action"
 				/>
+				<PopupMenu position="bottom" bind:open={menuOpen}>
+					{#snippet trigger()}
+						<Icon
+							name="MessageSquarePlus"
+							size={TOOLBAR_ICON_SIZE}
+							color="var(--primary-color)"
+							tooltipProps={{ content: 'add message' }}
+							class="task-action"
+						/>
+					{/snippet}
+					{#snippet content()}
+						<CreateTaskForm
+							runId={targetRunId}
+							parentTaskId={task.id}
+							parentRenderOrder={task.renderOrder}
+							onClose={() => (menuOpen = false)}
+						/>
+					{/snippet}
+				</PopupMenu>
 				<!-- <TaskRerunEditor {task} {runId} /> -->
 			</div>
 		</div>
@@ -130,6 +155,7 @@
 
 	.task-id-title {
 		color: rgb(255, 255, 255, 0.5);
+		text-transform: capitalize;
 	}
 
 	.toolbar {
@@ -149,10 +175,13 @@
 	.task-content {
 		min-width: 0;
 		width: 100%;
+		padding: 10px 0;
 	}
 
 	.task-toolbar {
-		padding-top: 7px;
+		display: flex;
+		align-items: center;
+		gap: 1em;
 		opacity: 0.5;
 	}
 

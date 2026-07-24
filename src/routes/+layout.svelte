@@ -12,6 +12,7 @@
 
 	import TTSSettings from '@/components/modals/TTSSettings.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
+	import DownloadPanel from '@/components/DownloadPanel.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
@@ -71,6 +72,7 @@
 		ttsPlayerVisible ||
 			drawersState.isOpen('tts-settings') ||
 			drawersState.isOpen('settings') ||
+			drawersState.isOpen('downloads') ||
 			conversationMode
 	);
 
@@ -213,6 +215,10 @@
 
 <Drawer name="conversation-settings">
 	<ConversationSettings />
+</Drawer>
+
+<Drawer name="downloads">
+	<DownloadPanel />
 </Drawer>
 
 <style>

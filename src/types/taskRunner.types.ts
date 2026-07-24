@@ -16,9 +16,10 @@ export type IaTaskSubtype =
 	| 'title'
 	| 'translation'
 	| 'categorization'
-	| 'generation';
+	| 'generation'
+	| 'custom';
 
-export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'editing';
+export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'editing' | 'new';
 
 export type WorkflowRunStatus = 'idle' | 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 

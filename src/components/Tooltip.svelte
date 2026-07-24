@@ -1,10 +1,15 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import {
+		calculatePopupPosition,
+		type PopupPosition,
+		type PopupPositionInput
+	} from '@/lib/position';
 
 	interface Props {
 		content: string;
-		position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+		position?: PopupPositionInput;
 		children: Snippet;
 	}
 
@@ -12,12 +17,15 @@
 
 	let { content, position = 'bottom', children }: Props = $props();
 
+	const menuCtx = getContext<{ open: boolean }>('popup-menu-open');
+
 	let wrapperEl: HTMLDivElement;
 	let tooltipEl: HTMLSpanElement;
 	let isHovered = $state(false);
+	let visible = $derived(isHovered && !!content && !(menuCtx?.open ?? false));
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
-	let effectivePosition = $state<'top' | 'bottom' | 'left' | 'right'>('bottom');
+	let effectivePosition = $state<PopupPosition>('bottom');
 
 	onMount(() => {
 		if (tooltipEl && tooltipEl.parentElement !== document.body) {
@@ -32,53 +40,21 @@
 
 	function updatePosition() {
 		if (!wrapperEl || !tooltipEl) return;
-		const rect = wrapperEl.getBoundingClientRect();
-		const tw = tooltipEl.offsetWidth;
-		const th = tooltipEl.offsetHeight;
-		const vw = window.innerWidth;
-		const vh = window.innerHeight;
-		const gap = 8;
-
-		let pos: 'top' | 'bottom' | 'left' | 'right';
-
-		if (position === 'auto') {
-			const space = {
-				top: rect.top - th - gap,
-				bottom: vh - rect.bottom - th - gap,
-				left: rect.left - tw - gap,
-				right: vw - rect.right - tw - gap
-			};
-			pos = Object.entries(space).sort((a, b) => b[1] - a[1])[0][0] as
-				| 'top'
-				| 'bottom'
-				| 'left'
-				| 'right';
-		} else {
-			pos = position;
-		}
-
-		effectivePosition = pos;
-
-		if (pos === 'top') {
-			tooltipX = rect.left + rect.width / 2;
-			tooltipY = rect.top - gap;
-		} else if (pos === 'bottom') {
-			tooltipX = rect.left + rect.width / 2;
-			tooltipY = rect.bottom + gap;
-		} else if (pos === 'left') {
-			tooltipX = rect.left - gap;
-			tooltipY = rect.top + rect.height / 2;
-		} else {
-			tooltipX = rect.right + gap;
-			tooltipY = rect.top + rect.height / 2;
-		}
-
-		tooltipX = Math.max(tw / 2, Math.min(tooltipX, vw - tw / 2));
-		tooltipY = Math.max(th, Math.min(tooltipY, vh));
+		const coords = calculatePopupPosition(
+			wrapperEl.getBoundingClientRect(),
+			tooltipEl.offsetWidth,
+			tooltipEl.offsetHeight,
+			8,
+			position
+		);
+		tooltipX = coords.x;
+		tooltipY = coords.y;
+		effectivePosition = coords.effectivePosition;
 	}
 
 	function handleMouseEnter() {
 		if (!content) return;
+		if (menuCtx?.open) return;
 		updatePosition();
 		isHovered = true;
 	}
@@ -107,13 +83,15 @@
 <span
 	bind:this={tooltipEl}
 	class="tooltip tooltip-{effectivePosition}"
-	class:visible={isHovered && content}
+	class:visible
 	style="left: {tooltipX}px; top: {tooltipY}px;">{content}</span
 >
 
 <style>
 	.tooltip-wrapper {
-		display: inline-flex;
+		/* display: inline-flex; */
+		display: flex;
+		align-items: center;
 		position: relative;
 	}
 
@@ -124,8 +102,8 @@
 		outline: none;
 		border: none;
 		border-radius: 12px;
-		background: rgba(21, 21, 21);
-		color: var(--primary-color);
+		background: var(--primary-color);
+		color: rgba(21, 21, 21);
 		padding: 0.4rem 0.7rem;
 		font-size: 0.8rem;
 		white-space: normal;

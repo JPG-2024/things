@@ -234,143 +234,53 @@
 
 	<Spacer title="voices" defaultOpen icon="Podcast">
 		<div class="voice-selector">
-			<Spacer title="Voices" icon="Users" defaultOpen={false}>
-				<div class="voice-grid">
-					{#each profiles as profile (profile.id)}
-						<button
-							type="button"
-							class="voice-grid-item"
-							class:selected={profile.id === selectedProfileId}
-							onclick={() => handleNamePrefixChange(profile.id)}
-						>
-							<div class="avatar-wrap">
-								{#if profile.image_src}
-									<img class="avatar" src={getImage(profile.image_src)} alt={profile.name_prefix} />
-								{:else}
-									<div class="avatar fallback" style="background: {colorFor(profile.id)}">
-										<span class="fallback-letter">{initialFor(profile.name_prefix)}</span>
-									</div>
-								{/if}
-							</div>
-							<span class="label">{profile.name_prefix}</span>
-						</button>
-					{/each}
-				</div>
-			</Spacer>
+			<div class="voice-grid">
+				{#each profiles as profile (profile.id)}
+					<button
+						type="button"
+						class="voice-grid-item"
+						class:selected={profile.id === selectedProfileId}
+						onclick={() => handleNamePrefixChange(profile.id)}
+					>
+						<div class="avatar-wrap">
+							{#if profile.image_src}
+								<img class="avatar" src={getImage(profile.image_src)} alt={profile.name_prefix} />
+							{:else}
+								<div class="avatar fallback" style="background: {colorFor(profile.id)}">
+									<span class="fallback-letter">{initialFor(profile.name_prefix)}</span>
+								</div>
+							{/if}
+						</div>
+						<span class="label">{profile.name_prefix}</span>
+					</button>
+				{/each}
+			</div>
 
 			<div class="profile-row">
-				<button
-					type="button"
-					class="delete-profile-btn"
-					onclick={handleDeleteProfile}
-					disabled={!selectedProfileId}
-					aria-label="Delete voice profile"
-					title="Delete voice profile"
-				>
-					<Icon name="Trash" />
-				</button>
-
 				<ToggleIcon name="Shuffle" bind:checked={localConfig.randomChunk} label="Random chunk" />
 			</div>
 
 			{#if !localConfig.randomChunk}
 				<div class="voice-buttons">
 					{#each chunks as voice, i (voice.name)}
-						<Button onClick={() => selectVoiceByIndex(i)}>
-							<div
-								role="button"
-								class="voice-button"
-								tabindex={i}
-								onmouseenter={() => (hoveredVoiceName = voice.name)}
-							>
-								{i + 1}
-							</div>
-						</Button>
+						<div class="button-container">
+							<Button onClick={() => selectVoiceByIndex(i)}>
+								<div
+									role="button"
+									class="voice-button"
+									tabindex={i}
+									onmouseenter={() => (hoveredVoiceName = voice.name)}
+								>
+									{i + 1}
+								</div>
+							</Button>
+						</div>
 					{/each}
 				</div>
 			{/if}
 		</div>
 
 		<Spacer size={25} />
-
-		<Spacer title="add Voice" icon="UserRoundPlus">
-			<Input
-				id="videoUrl"
-				label="Video URL"
-				bind:value={ttsState.videoUrl}
-				placeholder="https://..."
-			/>
-			<div class="image-preview-row">
-				{#if ttsState.imageSrc}
-					<img class="image-preview" src={ttsState.imageSrc} alt="voice preview" />
-				{:else}
-					<div class="image-preview image-preview-empty" />
-				{/if}
-				<Input
-					id="imageSrc"
-					label="Image URL"
-					bind:value={ttsState.imageSrc}
-					placeholder="https://..."
-				/>
-			</div>
-
-			<div class="inline-grid">
-				<Input id="segment" label="Segment" bind:value={localSegment} />
-				<Input id="namePrefix" label="Name Prefix" bind:value={ttsState.namePrefix} />
-				<Input
-					id="chunkCount"
-					label="Chunk Count"
-					type="number"
-					min="1"
-					value={localChunkCount.toString()}
-					onChange={(v) => (localChunkCount = parseInt(v) || 1)}
-				/>
-			</div>
-
-			<Spacer size={25} />
-
-			<Button disabled={ttsState.addVoiceLoading} onClick={handleAddVoice}>
-				{ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
-			</Button>
-
-			<Spacer size={25} />
-
-			<LoadingLine loading={ttsState.addVoiceLoading} />
-
-			{#if ttsState.addVoiceStatus}
-				<p
-					class="status"
-					class:error={ttsState.addVoiceStatus === 'error'}
-					class:done={ttsState.addVoiceStatus === 'done'}
-				>
-					{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
-						ttsState.addVoiceStatus}
-				</p>
-			{/if}
-		</Spacer>
-	</Spacer>
-
-	<Spacer title="edit Voice" icon="UserRoundPen">
-		<Input id="editNamePrefix" label="Name Prefix" bind:value={editNamePrefix} />
-		<div class="image-preview-row">
-			{#if editImageSrc}
-				<img class="image-preview" src={getImage(editImageSrc)} alt="profile preview" />
-			{:else}
-				<div class="image-preview image-preview-empty" />
-			{/if}
-			<Input
-				id="editImageSrc"
-				label="Image URL"
-				bind:value={editImageSrc}
-				placeholder="https://..."
-			/>
-		</div>
-
-		<Spacer size={25} />
-
-		<Button disabled={editLoading || !selectedProfileId} onClick={handleSaveProfile}>
-			{editLoading ? 'Saving...' : 'Save Profile'}
-		</Button>
 	</Spacer>
 
 	<Spacer title="synthetize params" icon="SlidersHorizontal">
@@ -516,6 +426,96 @@
 			checked={localConfig.postprocessOutput}
 			onChange={(v) => (localConfig.postprocessOutput = v)}
 		/> -->
+	</Spacer>
+
+	<Spacer title="edit Voice" icon="UserRoundPen">
+		<Input id="editNamePrefix" label="Name Prefix" bind:value={editNamePrefix} />
+		<div class="image-preview-row">
+			{#if editImageSrc}
+				<img class="image-preview" src={getImage(editImageSrc)} alt="profile preview" />
+			{:else}
+				<div class="image-preview image-preview-empty" />
+			{/if}
+			<Input
+				id="editImageSrc"
+				label="Image URL"
+				bind:value={editImageSrc}
+				placeholder="https://..."
+			/>
+		</div>
+
+		<button
+			type="button"
+			class="delete-profile-btn"
+			onclick={handleDeleteProfile}
+			disabled={!selectedProfileId}
+			aria-label="Delete voice profile"
+			title="Delete voice profile"
+		>
+			<Icon name="Trash" />
+		</button>
+
+		<Spacer size={25} />
+
+		<div class="button-container">
+			<Button disabled={editLoading || !selectedProfileId} onClick={handleSaveProfile}>
+				{editLoading ? 'Saving...' : 'Save Profile'}
+			</Button>
+		</div>
+	</Spacer>
+
+	<Spacer title="add Voice" icon="UserRoundPlus">
+		<Input
+			id="videoUrl"
+			label="Video URL"
+			bind:value={ttsState.videoUrl}
+			placeholder="https://..."
+		/>
+		<div class="image-preview-row">
+			{#if ttsState.imageSrc}
+				<img class="image-preview" src={ttsState.imageSrc} alt="voice preview" />
+			{:else}
+				<div class="image-preview image-preview-empty" />
+			{/if}
+			<Input
+				id="imageSrc"
+				label="Image URL"
+				bind:value={ttsState.imageSrc}
+				placeholder="https://..."
+			/>
+		</div>
+
+		<div class="inline-grid">
+			<Input id="segment" label="Segment" bind:value={localSegment} />
+			<Input id="namePrefix" label="Name Prefix" bind:value={ttsState.namePrefix} />
+			<Input
+				id="chunkCount"
+				label="Chunk Count"
+				type="number"
+				min="1"
+				value={localChunkCount.toString()}
+				onChange={(v) => (localChunkCount = parseInt(v) || 1)}
+			/>
+		</div>
+
+		<div class="button-container">
+			<Button disabled={ttsState.addVoiceLoading} onClick={handleAddVoice}>
+				{ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
+			</Button>
+		</div>
+
+		<LoadingLine loading={ttsState.addVoiceLoading} />
+
+		{#if ttsState.addVoiceStatus}
+			<p
+				class="status"
+				class:error={ttsState.addVoiceStatus === 'error'}
+				class:done={ttsState.addVoiceStatus === 'done'}
+			>
+				{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
+					ttsState.addVoiceStatus}
+			</p>
+		{/if}
 	</Spacer>
 </div>
 
@@ -681,5 +681,10 @@
 	.delete-profile-btn:disabled {
 		opacity: 0.3;
 		cursor: not-allowed;
+	}
+
+	.button-container {
+		margin: auto;
+		width: 200px;
 	}
 </style>

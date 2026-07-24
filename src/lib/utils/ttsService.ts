@@ -45,7 +45,7 @@ export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 		}
 		const data: { profiles: VoiceProfile[] } = await res.json();
 
-		return data.profiles;
+		return data.profiles.reverse();
 	} catch (err) {
 		if (isAbort(err)) throw err;
 		if (err instanceof Error && err.message) throw err;

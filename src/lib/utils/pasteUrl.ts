@@ -40,6 +40,14 @@ export async function handlePasteUrl(
 
 	const validUrl = extractValidUrl(content);
 
+	if (validUrl && viewState.downloadTracksEnabled) {
+		viewState.lastHandledClipboardUrl = validUrl;
+		if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
+			viewState.urlQueue.push(validUrl);
+		}
+		return;
+	}
+
 	debugger;
 
 	if (validUrl && viewState.isRawMode) {

@@ -7,7 +7,7 @@
 	import Pill from '@/components/Pill.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { topologicalSortTasks } from '@/lib/utils/tasks/topologicalSortTasks';
-	import { createIaTask, createExtractorTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
 	import type { Task, TaskStatus } from '@/types/taskRunner.types';
 
 	let formMode = $state<'ia' | 'extractor' | null>(null);
@@ -111,13 +111,16 @@
 
 		const def =
 			formMode === 'extractor'
-				? createExtractorTask({
+				? defineTask({
 						name,
 						dependencies,
-						description: newTaskUserMessage.trim(),
-						count: Math.max(1, newTaskCount)
+						userMessage: newTaskUserMessage.trim(),
+						extractorConfig: {
+							count: Math.max(1, newTaskCount),
+							description: newTaskUserMessage.trim()
+						}
 					})
-				: createIaTask({
+				: defineTask({
 						name,
 						dependencies,
 						systemMessage: newTaskSystemMessage.trim() || undefined,

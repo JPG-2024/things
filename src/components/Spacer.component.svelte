@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import LuminousText from '@/components/LuminousText.svelte';
 	import { slide } from 'svelte/transition';
 
 	type Props = {
@@ -36,23 +37,26 @@
 			open = !open;
 		}
 	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			toggle();
+		}
+	}
 </script>
 
 {#if showOnlyContent}
 	<div class="spacer" style="padding-top: {resolvedSize}">
 		{@render children?.()}
 	</div>
-{:else if title || titleSlot}
+{:else if titleSlot}
 	<div class="spacer-accordion">
 		<button class="spacer-header" onclick={toggle}>
 			{#if icon}
 				<Icon name={icon} size={16} color="var(--primary-color)" />
 			{/if}
-			{#if titleSlot}
-				{@render titleSlot()}
-			{:else}
-				<span class="spacer-title">{title}</span>
-			{/if}
+			{@render titleSlot()}
 			<span class="collapse-icon">
 				<Icon
 					name="ChevronRight"
@@ -65,6 +69,41 @@
 				/>
 			</span>
 		</button>
+		{#if effectiveOpen}
+			<div class="spacer-content" transition:slide={{ axis: 'y', duration: 100 }}>
+				{@render children?.()}
+			</div>
+		{/if}
+	</div>
+{:else if title}
+	<div class="spacer-accordion spacer-accordion-centered">
+		<div
+			class="spacer-header-centered"
+			role="button"
+			tabindex="0"
+			onclick={toggle}
+			onkeydown={handleKeydown}
+		>
+			<span class="separator-line"></span>
+			{#if icon}
+				<Icon name={icon} size={16} color="var(--primary-color)" />
+			{/if}
+			<LuminousText mode={effectiveOpen ? 'on' : 'off'}>
+				<span class="spacer-title">{title}</span>
+			</LuminousText>
+			<span class="collapse-icon">
+				<Icon
+					name="ChevronRight"
+					size={14}
+					color="var(--primary-color)"
+					class="chevron"
+					style={open
+						? 'transform: rotate(90deg); transition: transform 0.2s'
+						: 'transition: transform 0.2s'}
+				/>
+			</span>
+			<span class="separator-line"></span>
+		</div>
 		{#if effectiveOpen}
 			<div class="spacer-content" transition:slide={{ axis: 'y', duration: 100 }}>
 				{@render children?.()}
@@ -86,6 +125,29 @@
 		flex-direction: column;
 		width: 100%;
 		padding-left: 1rem;
+	}
+
+	.spacer-accordion-centered {
+		padding-left: 1rem;
+	}
+
+	.spacer-header-centered {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		width: 100%;
+		outline: none;
+	}
+
+	.separator-line {
+		flex: 1;
+		height: 1px;
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.spacer-header-centered > .separator-line:first-child {
+		flex: 0 0 0.33rem;
 	}
 
 	.spacer-header {
@@ -123,6 +185,6 @@
 
 	.spacer-content {
 		width: 100%;
-		padding-top: 15px;
+		padding: 10px 0;
 	}
 </style>

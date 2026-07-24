@@ -14,7 +14,7 @@
 
 	const config = getCurrentStyle();
 
-	let { mode = $bindable<PlayerMode>('full') }: { mode?: PlayerMode } = $props();
+	let { mode = $bindable<PlayerMode>('mini') }: { mode?: PlayerMode } = $props();
 	let canvas: HTMLCanvasElement | null = $state(null);
 	let currentSource: AudioBufferSourceNode | null = $state(null);
 	let analyserNode: AnalyserNode | null = $state(null);
@@ -401,7 +401,6 @@
 	}
 
 	function handleStop() {
-		mode = 'full';
 		stopPlayback();
 	}
 
