@@ -90,7 +90,7 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 
 	const titleDef = createTitleTask({
 		dependencies: [SHARED_TASK_IDS.SUMMARY],
-		userMessage: 'Write a title for the content. star with an emoji.',
+		userMessage: 'Write a title of one sentence. star with an emoji.',
 		persist: true,
 		renderOrder: 0.1
 	});

@@ -3,7 +3,7 @@ import {
 	LlamaChatCompletionError,
 	type LlamaChatCompletionsRequest
 } from '@/lib/utils/inference/chat-completions-provider';
-import { stringArrayGbnf } from '@/lib/utils/gbnf';
+
 import type {
 	IaTask,
 	Task,
@@ -467,7 +467,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				if (typeof depData === 'string') {
 					parts.push(depData);
 				} else if (Array.isArray(depData)) {
-					parts.push(depData.join(' '));
+					parts.push(depData.join(', '));
 				}
 			}
 			runResult = parts.join('\n\n').trim();
@@ -479,30 +479,19 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			throw new Error(`No context available for task "${task.id}". Cannot run.`);
 		}
 
-		let systemMessage = task.systemMessage;
-		let userMessage = task.userMessage;
-		const completionOptions = { ...task.completionOptions };
-
-		if (task.extractorConfig) {
-			const { count, description } = task.extractorConfig;
-			systemMessage = `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`;
-			userMessage = `Extract ${count} ${description}. Respond in JSON format.`;
-			completionOptions.grammar = stringArrayGbnf(count);
-		}
-
-		const userContent = `context: ${runResult} ${userMessage}`;
+		const userContent = `context: ${runResult} ${task.userMessage}`;
 		const useStream =
 			options?.stream !== undefined
 				? options.stream === true
 				: task.completionOptions.stream === true;
 		const request: LlamaChatCompletionsRequest = {
-			...completionOptions,
+			...task.completionOptions,
 			stream: useStream,
 			think: false,
 			enable_thinking: false,
 			cache_prompt: false,
 			messages: [
-				{ role: 'system', content: systemMessage },
+				{ role: 'system', content: task.systemMessage },
 				{ role: 'user', content: userContent }
 			]
 		};

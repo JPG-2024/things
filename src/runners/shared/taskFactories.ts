@@ -70,10 +70,7 @@ export function createIaTask<
 	});
 }
 
-export type ExtractionTaskOptions = Omit<
-	IaTaskFactoryOptions<string[]>,
-	'subtype' | 'run' | 'resultParser'
-> & {
+export type ExtractionTaskOptions = Omit<IaTaskFactoryOptions<string[]>, 'run' | 'resultParser'> & {
 	extractor: { count: number; description: string };
 };
 
@@ -87,6 +84,7 @@ export function createExtractionTask(
 		userMessage,
 		completionOptions,
 		model,
+		subtype,
 		...rest
 	} = stripUndefined(options);
 	const sourceDependency = dependencies[0];
@@ -95,7 +93,7 @@ export function createExtractionTask(
 		component: 'keywords',
 		...rest,
 		dependencies,
-		subtype: 'extraction',
+		subtype: subtype ?? 'extraction',
 		extractorConfig: extractor,
 		output: z.array(z.string()),
 		systemMessage:
@@ -103,15 +101,6 @@ export function createExtractionTask(
 			`You are a data extraction assistant. Return only a JSON array of exactly ${extractor.count} ${extractor.description}. No markdown, no explanations.`,
 		userMessage:
 			userMessage ?? `Extract ${extractor.count} ${extractor.description}. Respond in JSON format.`,
-		run: ({ state, taskId }) => {
-			const content = state[sourceDependency];
-			if (typeof content !== 'string') {
-				throw new Error(
-					`Task "${taskId}" missing string content from dependency "${sourceDependency}".`
-				);
-			}
-			return content;
-		},
 		resultParser: (text) => parseStructuredArrayResponses(text),
 		completionOptions: completionOptions ?? {
 			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
@@ -202,6 +191,18 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 
 export type CreateCategoryTaskOptions = {
 	keywordsDependency?: string;
+	categoryNames?: string[];
+	maxItems?: number;
+	dependencies?: string[];
+	systemMessage?: MaybeFn<string>;
+	userMessage?: MaybeFn<string>;
+	completionOptions?: MaybeFn<Record<string, unknown>>;
+	model?: string;
+	name?: string;
+	component?: string;
+	componentProps?: MaybeFn<Record<string, unknown>>;
+	gridSpan?: 1 | 2 | 3;
+	enableTTS?: boolean;
 	persist?: boolean;
 	renderOrder?: number;
 };
@@ -209,34 +210,63 @@ export type CreateCategoryTaskOptions = {
 export function createCategoryTask(
 	options?: CreateCategoryTaskOptions
 ): IaTaskDef<z.ZodArray<z.ZodString>, unknown, string[]> {
-	const keywordsDependency = options?.keywordsDependency ?? 'keywords';
+	const {
+		keywordsDependency,
+		categoryNames: providedNames,
+		maxItems = 1,
+		dependencies: providedDeps,
+		systemMessage: providedSystemMessage,
+		userMessage: providedUserMessage,
+		completionOptions: providedCompletionOptions,
+		model,
+		persist,
+		renderOrder,
+		...rest
+	} = stripUndefined(options ?? {});
 
-	return createIaTask({
-		dependencies: [keywordsDependency],
-		component: 'keywords',
-		componentProps: { showPoint: false },
-		persist: options?.persist,
-		renderOrder: options?.renderOrder,
-		output: z.array(z.string()),
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
-		userMessage: () => {
-			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
-			return `Give a category from this ones: ${categoryNames}.`;
-		},
-		run: ({ state }) => {
-			const keywords = state[keywordsDependency] as string[];
-			return keywords.join(', ');
-		},
-		resultParser: (text) => parseStructuredArrayResponses(text),
-		completionOptions: () => ({
+	const deps = providedDeps ?? [keywordsDependency ?? 'keywords'];
+	const catDesc = maxItems === 1 ? 'category' : 'categories';
+	const countBasedSysMsg = maxItems === 1 ? 'a single category name' : `${maxItems} category names`;
+	const countBasedUserMsg = maxItems === 1 ? 'a category' : `${maxItems} categories`;
+
+	const getNames = providedNames
+		? () => providedNames
+		: () => viewState.categories.map((c) => c.name);
+
+	const systemMsg =
+		providedSystemMessage ??
+		`You are a data extraction assistant. Return only a JSON array with exactly ${countBasedSysMsg}. No markdown, no explanations.`;
+
+	const userMsg =
+		providedUserMessage ??
+		(() => {
+			const names = getNames();
+			return `Give ${countBasedUserMsg} from this ones: ${names.join(', ')}.`;
+		});
+
+	const completionOpts =
+		providedCompletionOptions ??
+		(() => ({
 			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-			grammar: arrayToGbnf(
-				viewState.categories.map((c) => c.name),
-				{ minItems: 1, maxItems: 1 }
-			)
-		})
+			...(model ? { model } : {}),
+			grammar: arrayToGbnf(getNames(), { minItems: maxItems, maxItems })
+		}));
+
+	const def = createExtractionTask({
+		...rest,
+		extractor: { count: maxItems, description: catDesc },
+		dependencies: deps,
+		component: rest.component ?? 'keywords',
+		componentProps: rest.componentProps ?? { showPoint: false },
+		persist,
+		renderOrder,
+		subtype: 'category',
+		systemMessage: systemMsg,
+		userMessage: userMsg,
+		completionOptions: completionOpts
 	});
+
+	return { ...def, categoryNames: providedNames };
 }
 
 export function buildTask(def: IaTaskDef, id: string): Task {

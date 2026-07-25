@@ -17,6 +17,7 @@ export type TemplateTaskDef = {
 	renderOrder?: number;
 	persist?: boolean;
 	extractorConfig?: { count: number; description: string };
+	categoryNames?: string[];
 	enableTTS: boolean;
 };
 

@@ -94,7 +94,7 @@ export async function runTemplateWorkflow(
 
 	const templateTasks = template
 		? buildTasksFromTemplate(template.tasks)
-		: options.defaultTasksFactory?.() ?? [];
+		: (options.defaultTasksFactory?.() ?? []);
 
 	const allTasks = [...initialTasks, ...templateTasks];
 

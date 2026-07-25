@@ -96,12 +96,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		}
 	};
 
-	return [
-		initTask,
-		thumbnailTask,
-		timedCaptionsTask,
-		contentTask
-	];
+	return [initTask, thumbnailTask, timedCaptionsTask, contentTask];
 }
 
 export async function youTubeRunner(

@@ -39,7 +39,7 @@ export const DEFAULT_IA_COMPLETION_OPTIONS = {
 export const DEFAULT_TITLE_COMPLETION_OPTIONS = {
 	temperature: 0.7,
 	top_p: 0.9,
-	max_tokens: 20,
+	max_tokens: 100,
 	frequency_penalty: 0.4,
 	presence_penalty: 0.2,
 	stop: ['\n', '. ', '? ', '! ', ': ']

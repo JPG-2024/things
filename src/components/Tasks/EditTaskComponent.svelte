@@ -8,7 +8,11 @@
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { buildTask, createExtractionTask } from '@/runners/shared/taskFactories';
+	import {
+		buildTask,
+		createCategoryTask,
+		createExtractionTask
+	} from '@/runners/shared/taskFactories';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Textarea from '@/components/inputs/Textarea.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
@@ -27,12 +31,14 @@
 	const isIaTask = $derived(_task.type === 'ia');
 	const isEditableIa = $derived(isIaTask && !(_task as IaTask).extractorConfig);
 	const isEditingExtraction = $derived(isIaTask && !!(_task as IaTask).extractorConfig);
+	const isEditingCategory = $derived(isIaTask && (_task as IaTask).subtype === 'category');
 	const isNew = $derived(isIaTask && (_task as IaTask).userMessage === '');
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
 	const tabs = [
 		{ id: 'custom', label: 'custom' },
-		{ id: 'extraction', label: 'extraction' }
+		{ id: 'extraction', label: 'extraction' },
+		{ id: 'category', label: 'category' }
 	];
 
 	let activeTab = $state('custom');
@@ -40,6 +46,8 @@
 	$effect(() => {
 		if (isEditingExtraction) {
 			activeTab = 'extraction';
+		} else if (isEditingCategory) {
+			activeTab = 'category';
 		}
 	});
 
@@ -73,6 +81,17 @@
 	let extOriginalDependencies = $state('');
 	let extOriginalRenderOrder = $state<number | undefined>(undefined);
 
+	let catName = $state('');
+	let catCategories = $state('');
+	let catMaxItems = $state('1');
+	let catDependencies = $state('');
+	let catRenderOrder = $state('');
+	let catOriginalName = $state('');
+	let catOriginalCategories = $state('');
+	let catOriginalMaxItems = $state('');
+	let catOriginalDependencies = $state('');
+	let catOriginalRenderOrder = $state<number | undefined>(undefined);
+
 	$effect(() => {
 		if (isEditableIa) {
 			const iaTask = _task as IaTask;
@@ -89,6 +108,23 @@
 			originalRenderOrder = iaTask.renderOrder;
 			originalName = iaTask.name ?? '';
 			originalEnableTTS = iaTask.enableTTS ?? false;
+		}
+	});
+
+	$effect(() => {
+		if (isEditingCategory) {
+			const ia = _task as IaTask;
+			const ec = ia.extractorConfig;
+			catName = ia.name ?? '';
+			catCategories = (ia.categoryNames ?? []).join(', ');
+			catMaxItems = String(ec?.count ?? 1);
+			catDependencies = (ia.dependencies ?? []).join(', ');
+			catRenderOrder = ia.renderOrder != null ? String(ia.renderOrder) : '';
+			catOriginalName = ia.name ?? '';
+			catOriginalCategories = (ia.categoryNames ?? []).join(', ');
+			catOriginalMaxItems = String(ec?.count ?? 1);
+			catOriginalDependencies = (ia.dependencies ?? []).join(', ');
+			catOriginalRenderOrder = ia.renderOrder;
 		}
 	});
 
@@ -225,6 +261,86 @@
 		workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 	}
 
+	function handleCreateCategory() {
+		if (!targetRunId) return;
+		const deps = catDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		const maxItems = Number(catMaxItems) || 1;
+		const categoryNames = catCategories
+			.split(',')
+			.map((c) => c.trim())
+			.filter(Boolean);
+		const renderOrder =
+			catRenderOrder !== '' ? Number(catRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
+		const def = createCategoryTask({
+			name: catName || undefined,
+			dependencies: deps.length > 0 ? deps : undefined,
+			model: viewState.aiModel,
+			renderOrder,
+			persist: true,
+			categoryNames: categoryNames.length > 0 ? categoryNames : undefined,
+			maxItems
+		});
+		const taskId = `${_task.id} > ${Date.now()}`;
+		const newTask = buildTask(def, taskId);
+		workflowManager.addTask(targetRunId, newTask);
+		void workflowManager.rerunTask(targetRunId, newTask.id);
+		workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+	}
+
+	async function handleSaveCategory() {
+		if (!targetRunId || !isEditingCategory) return;
+
+		const patch: Record<string, unknown> = {};
+
+		if (catName !== catOriginalName) {
+			patch.name = catName;
+		}
+
+		const deps = catDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		const originalDeps = catOriginalDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		if (JSON.stringify(deps) !== JSON.stringify(originalDeps)) {
+			patch.dependencies = deps;
+		}
+
+		const maxItems = Number(catMaxItems) || 1;
+		const originalMaxItems = Number(catOriginalMaxItems) || 1;
+		if (maxItems !== originalMaxItems) {
+			(patch as IaTask).extractorConfig = {
+				count: maxItems,
+				description: maxItems === 1 ? 'category' : 'categories'
+			};
+		}
+
+		const categoryNames = catCategories
+			.split(',')
+			.map((c) => c.trim())
+			.filter(Boolean);
+		const originalNames = catOriginalCategories
+			.split(',')
+			.map((c) => c.trim())
+			.filter(Boolean);
+		if (JSON.stringify(categoryNames) !== JSON.stringify(originalNames)) {
+			patch.categoryNames = categoryNames.length > 0 ? categoryNames : undefined;
+		}
+
+		const editedRenderOrder = catRenderOrder !== '' ? Number(catRenderOrder) : undefined;
+		if (editedRenderOrder !== catOriginalRenderOrder) {
+			patch.renderOrder = editedRenderOrder;
+		}
+
+		if (Object.keys(patch).length === 0) return;
+		void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+	}
+
 	void _componentProps;
 </script>
 
@@ -294,6 +410,25 @@
 					<Button onClick={handleSaveExtraction}>Save</Button>
 				{:else}
 					<Button onClick={handleCreateExtraction}>Create Extraction Task</Button>
+				{/if}
+			</div>
+		</div>
+	{:else if activeTab === 'category'}
+		<div class="tab-content">
+			<Input bind:value={catName} label="Task name" />
+			<Input
+				bind:value={catCategories}
+				label="Categories (comma-separated, leave empty for default)"
+			/>
+			<Input bind:value={catMaxItems} label="Max items" />
+			<Input bind:value={catDependencies} label="Dependencies (comma-separated)" />
+			<Input bind:value={catRenderOrder} label="Render order" />
+			<div class="actions">
+				<Button onClick={handleCancel}>Cancel</Button>
+				{#if isEditingCategory}
+					<Button onClick={handleSaveCategory}>Save</Button>
+				{:else}
+					<Button onClick={handleCreateCategory}>Create Category Task</Button>
 				{/if}
 			</div>
 		</div>

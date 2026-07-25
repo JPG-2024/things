@@ -137,13 +137,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		}
 	};
 
-	return [
-		initTask,
-		extractProfileTask,
-		metadataTask,
-		thumbnailTask,
-		contentTask
-	];
+	return [initTask, extractProfileTask, metadataTask, thumbnailTask, contentTask];
 }
 
 export async function webRunner(url: string, options: WebRunnerOptions = {}): Promise<Task[]> {

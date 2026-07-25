@@ -134,7 +134,8 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				renderOrder: task.renderOrder,
 				persist: true,
 				enableTTS: iaTask.enableTTS ?? false,
-				extractorConfig: iaTask.extractorConfig
+				extractorConfig: iaTask.extractorConfig,
+				categoryNames: iaTask.categoryNames
 			};
 			return def;
 		});

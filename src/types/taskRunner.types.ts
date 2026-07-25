@@ -16,6 +16,7 @@ export type IaTaskSubtype =
 	| 'title'
 	| 'translation'
 	| 'categorization'
+	| 'category'
 	| 'generation'
 	| 'custom';
 
@@ -115,6 +116,7 @@ export interface IaTask<
 	};
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
+	categoryNames?: string[];
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 	resultParser?: (
 		text: string,
