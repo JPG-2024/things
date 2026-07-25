@@ -714,7 +714,15 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 		this.patchTask(taskId, patch);
 
-		const affectedTaskIds = [taskId, ...this.getDescendantTaskIds(taskId)];
+		const effectiveTaskId = (patch as Task<TMap>)?.id ?? taskId;
+
+		if (effectiveTaskId !== taskId) {
+			for (const t of this.tasks) {
+				t.dependencies = t.dependencies.map((d) => (d === taskId ? effectiveTaskId : d));
+			}
+		}
+
+		const affectedTaskIds = [effectiveTaskId, ...this.getDescendantTaskIds(effectiveTaskId)];
 		this.resetTaskIds(affectedTaskIds);
 
 		return this.executeRunLoop({ Rebuild: false, ...options });

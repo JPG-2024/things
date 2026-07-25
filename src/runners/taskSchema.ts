@@ -85,7 +85,7 @@ type AnyTaskDef<TContext = unknown> =
 	| ScriptTaskDef<AnyZodOutput, TContext>
 	| IaTaskDef<AnyZodOutput, TContext>;
 
-type TaskRunContext<TContext, TState> = {
+export type TaskRunContext<TContext, TState> = {
 	runId: string;
 	taskId: string;
 	state: Readonly<TState>;
@@ -174,7 +174,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 	};
 }
 
-function buildIaTask<
+export function buildIaTask<
 	TMap extends TaskMapBase,
 	TId extends keyof TMap & string,
 	TContext,

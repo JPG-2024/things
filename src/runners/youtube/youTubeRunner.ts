@@ -2,6 +2,7 @@ import { runTemplateWorkflow } from '@/runners/templateRunner';
 import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { viewState } from '@/stores/viewStore.svelte';
+import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
@@ -95,7 +96,12 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		}
 	};
 
-	return [initTask, thumbnailTask, timedCaptionsTask, contentTask];
+	return [
+		initTask,
+		thumbnailTask,
+		timedCaptionsTask,
+		contentTask
+	];
 }
 
 export async function youTubeRunner(
@@ -112,6 +118,7 @@ export async function youTubeRunner(
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
+		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const saveOperations: Promise<unknown>[] = [
 				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),

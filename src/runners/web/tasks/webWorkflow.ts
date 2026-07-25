@@ -15,7 +15,7 @@ import {
 } from '@/runners/taskSchema';
 import { WebTaskNames, type WebTaskFactoryContext } from './webTasks.shared';
 import { DEFAULT_WEB_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
-import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
+import { createTitleTask, createSummaryTask } from '@/runners/shared/taskFactories';
 import { SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
 
 export { WebTaskNames };

@@ -25,7 +25,12 @@
 		inputValue?: string;
 	};
 
-	let { runId = undefined, task, componentProps = {}, inputValue = $bindable('') }: Props = $props();
+	let {
+		runId = undefined,
+		task,
+		componentProps = {},
+		inputValue = $bindable('')
+	}: Props = $props();
 
 	void runId;
 

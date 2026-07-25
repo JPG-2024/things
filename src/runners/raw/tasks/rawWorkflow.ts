@@ -4,7 +4,7 @@ import { ttsState } from '@/stores/ttsStore.svelte';
 import { TaskNames, type TaskFactoryContext } from './rawTasks.shared';
 import { DEFAULT_RAW_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { sharedTasks, sharedOutputSchemas, SHARED_TASK_IDS } from '@/runners/shared/sharedTasks';
-import { createSummaryTask } from '@/runners/shared/dynamicTasks';
+import { createSummaryTask } from '@/runners/shared/taskFactories';
 
 export { TaskNames };
 

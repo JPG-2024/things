@@ -5,10 +5,11 @@
 		disabled?: boolean;
 		onClick?: () => void;
 		type?: 'button' | 'submit' | 'reset';
+		size?: 'default' | 'small';
 		children: Snippet;
 	}
 
-	let { disabled = false, onClick, type = 'button', children }: Props = $props();
+	let { disabled = false, onClick, type = 'button', size = 'default', children }: Props = $props();
 
 	function handleClick() {
 		if (onClick && !disabled) {
@@ -17,7 +18,7 @@
 	}
 </script>
 
-<button class="btn" {type} {disabled} onclick={handleClick}>
+<button class="btn" class:btn-small={size === 'small'} {type} {disabled} onclick={handleClick}>
 	{@render children()}
 </button>
 
@@ -51,5 +52,12 @@
 	.btn:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.btn-small {
+		width: auto;
+		font-size: 0.85rem;
+		padding: 0.25rem 0.75rem;
+		border-radius: 8px;
 	}
 </style>

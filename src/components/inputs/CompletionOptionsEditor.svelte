@@ -1,6 +1,7 @@
 <script lang="ts">
 	import RangeSelector from './RangeSelector.svelte';
 	import Checkbox from './Checkbox.component.svelte';
+	import Input from './Input.component.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
 
 	interface CompletionOptionsEditorProps {
@@ -127,6 +128,25 @@
 		completionOptions['stream'] = v;
 		onChange?.();
 	}
+
+	function getStopString(): string {
+		const stop = completionOptions['stop'];
+		if (Array.isArray(stop)) return stop.join(', ');
+		if (typeof stop === 'string') return stop;
+		return '';
+	}
+
+	function handleStopChange(v: string) {
+		if (!v.trim()) {
+			completionOptions['stop'] = undefined;
+		} else {
+			completionOptions['stop'] = v
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean);
+		}
+		onChange?.();
+	}
 </script>
 
 {#each params as p (p.key)}
@@ -143,6 +163,19 @@
 		/>
 	</Tooltip>
 {/each}
+
+<Tooltip
+	content="Sequences that stop generation. Comma-separated. Ex: \n\n, END, </s>"
+	position="auto"
+>
+	<Input
+		id="completion-stop"
+		label="Stop Sequences"
+		placeholder="e.g. \n\n, END, </s>"
+		value={getStopString()}
+		onChange={handleStopChange}
+	/>
+</Tooltip>
 
 {#if showStream}
 	<Checkbox

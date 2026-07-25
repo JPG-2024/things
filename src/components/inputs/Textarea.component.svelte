@@ -68,6 +68,8 @@
 		font-family: inherit;
 		resize: vertical;
 		field-sizing: content;
+		min-height: 4rem; /* Keeps a baseline size when empty */
+		max-height: 300px;
 	}
 
 	.text-input:focus {

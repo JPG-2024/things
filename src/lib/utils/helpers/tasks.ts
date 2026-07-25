@@ -15,6 +15,7 @@ export function getTaskData<TMap extends TaskMapBase = TaskMapBase>(
 }
 
 export function parseStructuredArrayResponses(data: string): string[] {
+	console.log(data);
 	const codeBlockMatch = data.match(/```(?:json)?\s*([\s\S]*?)```/);
 	const jsonString = codeBlockMatch ? codeBlockMatch[1].trim() : data.trim();
 

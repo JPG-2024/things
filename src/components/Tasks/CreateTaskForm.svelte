@@ -8,7 +8,7 @@
 	import CompletionOptionsEditor from '@/components/inputs/CompletionOptionsEditor.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
-	import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import { buildTask, createExtractionTask, createIaTask } from '@/runners/shared/taskFactories';
 	import { DEFAULT_IA_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 
 	interface Props {
@@ -52,7 +52,7 @@
 			.map((d) => d.trim())
 			.filter(Boolean);
 		const renderOrder = parentRenderOrder + 0.01;
-		const def = defineTask({
+		const def = createIaTask({
 			name: iaName || undefined,
 			dependencies: deps.length > 0 ? deps : undefined,
 			systemMessage: iaSystemMessage,
@@ -76,13 +76,13 @@
 			.filter(Boolean);
 		const count = Number(extCount) || 3;
 		const renderOrder = parentRenderOrder + 0.01;
-		const def = defineTask({
+		const def = createExtractionTask({
 			name: extDescription,
 			dependencies: deps.length > 0 ? deps : undefined,
 			component: extComponent,
 			model: viewState.aiModel,
 			renderOrder,
-			extractorConfig: { count, description: extDescription }
+			extractor: { count, description: extDescription }
 		});
 		const taskId = `${parentTaskId ?? 'task'} > ${Date.now()}`;
 		const newTask = buildTask(def, taskId);

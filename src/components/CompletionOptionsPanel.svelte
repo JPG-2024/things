@@ -16,7 +16,8 @@
 		frequency_penalty: 0,
 		presence_penalty: 0,
 		repeat_penalty: 1.1,
-		stream: false
+		stream: false,
+		stop: undefined
 	});
 
 	$effect(() => {
@@ -96,6 +97,27 @@
 		/>
 	</div>
 
+	<div class="control-group">
+		<label for="stop">Stop Sequences</label>
+		<input
+			id="stop"
+			type="text"
+			placeholder="e.g. \n\n, END, </s>"
+			value={Array.isArray(params.stop) ? params.stop.join(', ') : (params.stop ?? '')}
+			oninput={(e) => {
+				const raw = e.currentTarget.value;
+				if (!raw.trim()) {
+					params.stop = undefined;
+				} else {
+					params.stop = raw
+						.split(',')
+						.map((s) => s.trim())
+						.filter(Boolean);
+				}
+			}}
+		/>
+	</div>
+
 	<div class="control-group checkbox">
 		<label for="stream">
 			<input id="stream" type="checkbox" bind:checked={params.stream} />
@@ -146,7 +168,8 @@
 	}
 
 	input[type='range'],
-	input[type='number'] {
+	input[type='number'],
+	input[type='text'] {
 		width: 100%;
 		padding: 0.5rem;
 		border: 1px solid var(--primary-color, #ccc);

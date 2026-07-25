@@ -1,9 +1,9 @@
 import type { TemplateTaskDef } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
-import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
+import { buildTask, createExtractionTask, createIaTask } from '@/runners/shared/taskFactories';
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
-	const taskDef = defineTask({
+	const options = {
 		name: def.name,
 		dependencies: def.dependencies,
 		subtype: def.subtype,
@@ -15,9 +15,11 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 		persist: def.persist,
 		enableTTS: def.enableTTS,
 		gridSpan: def.gridSpan,
-		componentProps: def.componentProps,
-		...(def.extractorConfig ? { extractorConfig: def.extractorConfig } : {})
-	});
+		componentProps: def.componentProps
+	};
+	const taskDef = def.extractorConfig
+		? createExtractionTask({ ...options, extractor: def.extractorConfig })
+		: createIaTask(options);
 	return buildTask(taskDef, def.id);
 }
 

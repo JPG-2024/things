@@ -55,7 +55,6 @@ export interface TaskRunOptions {
 export type TaskRerunPatch<TMap extends TaskMapBase = TaskMapBase> = Partial<
 	Omit<
 		Task<TMap>,
-		| 'id'
 		| 'dependencies'
 		| 'type'
 		| 'run'

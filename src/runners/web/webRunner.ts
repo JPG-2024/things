@@ -4,6 +4,7 @@ import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
 import { compactMarkdown } from '@/lib/utils/splitter';
+import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import { getMediaSrc, resolveMediaDirectory } from '@/lib/utils/files';
 import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 
@@ -136,7 +137,13 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		}
 	};
 
-	return [initTask, extractProfileTask, metadataTask, thumbnailTask, contentTask];
+	return [
+		initTask,
+		extractProfileTask,
+		metadataTask,
+		thumbnailTask,
+		contentTask
+	];
 }
 
 export async function webRunner(url: string, options: WebRunnerOptions = {}): Promise<Task[]> {
@@ -147,6 +154,7 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		makeActive: options.makeActive ?? true,
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
+		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const profileTask = runResult.tasks.find((task) => task.id === 'extract-web-profile');
 			const profileTaskData = profileTask?.data as { profileId?: string } | undefined;

@@ -9,7 +9,7 @@
 	import PopupMenu from '@/components/PopupMenu.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
-	import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import { buildTask, createIaTask } from '@/runners/shared/taskFactories';
 	import CreateTaskForm from '@/components/Tasks/CreateTaskForm.svelte';
 
 	const TOOLBAR_ICON_SIZE = 16;
@@ -50,7 +50,7 @@
 	function handleBranch() {
 		if (!targetRunId) return;
 		console.log(task);
-		const def = defineTask({
+		const def = createIaTask({
 			dependencies: [task.id],
 			userMessage: '',
 			model: viewState.aiModel,
@@ -175,7 +175,6 @@
 	.task-content {
 		min-width: 0;
 		width: 100%;
-		padding: 10px 0;
 	}
 
 	.task-toolbar {

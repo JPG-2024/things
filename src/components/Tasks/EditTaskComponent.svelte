@@ -8,7 +8,7 @@
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { defineTask, buildTask } from '@/runners/shared/dynamicTasks';
+	import { buildTask, createExtractionTask } from '@/runners/shared/taskFactories';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Textarea from '@/components/inputs/Textarea.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
@@ -55,6 +55,10 @@
 	let originalRenderOrder = $state<number | undefined>(undefined);
 	let originalName = $state('');
 	let originalEnableTTS = $state(false);
+
+	const derivedId = $derived(
+		editedTask.name?.trim() ? editedTask.name.toLowerCase().replace(/\s+/g, '-') : (_task.id ?? '')
+	);
 
 	let extName = $state('');
 	let extCount = $state('3');
@@ -131,6 +135,9 @@
 		if (editedTask.enableTTS !== originalEnableTTS) {
 			patch.enableTTS = editedTask.enableTTS;
 		}
+		if (derivedId !== _task.id) {
+			patch.id = derivedId;
+		}
 
 		if (Object.keys(patch).length === 0) return;
 		void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
@@ -200,15 +207,16 @@
 			.map((d) => d.trim())
 			.filter(Boolean);
 		const count = Number(extCount) || 3;
-		const renderOrder = extRenderOrder !== '' ? Number(extRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
-		const def = defineTask({
+		const renderOrder =
+			extRenderOrder !== '' ? Number(extRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
+		const def = createExtractionTask({
 			name: extName || undefined,
 			dependencies: deps.length > 0 ? deps : undefined,
 			component: extComponent,
 			model: viewState.aiModel,
 			renderOrder,
 			persist: true,
-			extractorConfig: { count, description: extDescription }
+			extractor: { count, description: extDescription }
 		});
 		const taskId = `${_task.id} > ${Date.now()}`;
 		const newTask = buildTask(def, taskId);
@@ -227,9 +235,14 @@
 		<div class="tab-content">
 			<Input bind:value={editedTask.name} label="Task name" />
 
-			<Textarea bind:value={editedTask.systemMessage} rows={5} label="System message" />
+			<div class="derived-id">
+				<span class="derived-id-label">Task id:</span>
+				<span class="derived-id-value">{derivedId}</span>
+			</div>
 
-			<Textarea bind:value={editedTask.userMessage} rows={4} label="User message" />
+			<Input bind:value={editedTask.systemMessage} label="System message" />
+
+			<Input bind:value={editedTask.userMessage} label="User message" />
 
 			<Checkbox
 				id="edit-stream"
@@ -330,5 +343,23 @@
 
 	.tts-hint.muted {
 		opacity: 0.4;
+	}
+
+	.derived-id {
+		font-size: 0.8rem;
+		color: var(--text-color-secondary, #888);
+		opacity: 0.7;
+		display: flex;
+		gap: 0.5rem;
+		align-items: baseline;
+		margin-top: -0.5rem;
+	}
+
+	.derived-id-label {
+		font-weight: 500;
+	}
+
+	.derived-id-value {
+		font-family: monospace;
 	}
 </style>

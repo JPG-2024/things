@@ -11,6 +11,7 @@ export interface RunTemplateWorkflowOptions {
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[] | null;
 	onRunResult?: (runResult: TaskRunSummary) => void | Promise<void>;
+	defaultTasksFactory?: () => Task[];
 }
 
 function pruneUnneededTasks(tasks: Task[]): void {
@@ -91,7 +92,9 @@ export async function runTemplateWorkflow(
 	const templateId = await getProfileTemplateId(profileId);
 	const template = templateId ? await getTemplate(templateId) : null;
 
-	const templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
+	const templateTasks = template
+		? buildTasksFromTemplate(template.tasks)
+		: options.defaultTasksFactory?.() ?? [];
 
 	const allTasks = [...initialTasks, ...templateTasks];
 

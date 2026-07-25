@@ -18,7 +18,7 @@
 
 	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
 	const title = $derived(
-		((article.persistedTasks?.find((t) => t.name === 'title')?.data as string | undefined) ?? '')
+		((article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? '')
 			.slice(0, 60)
 			.concat('...')
 	);

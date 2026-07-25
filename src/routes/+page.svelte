@@ -302,7 +302,11 @@
 		<div class="categories-container">
 			<Categories />
 		</div>
-		<AskComponent task={standaloneAskTask} componentProps={{ placeholder: 'Ask the model...' }} bind:inputValue={askInputValue} />
+		<AskComponent
+			task={standaloneAskTask}
+			componentProps={{ placeholder: 'Ask the model...' }}
+			bind:inputValue={askInputValue}
+		/>
 	</div>
 
 	{#if viewState.activeProfileArticleTab === 'profiles'}

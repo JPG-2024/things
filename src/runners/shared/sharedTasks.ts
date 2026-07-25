@@ -1,21 +1,24 @@
 import { z } from 'zod';
 import { iaTask } from '@/runners/taskSchema';
-import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
-import { arrayToGbnf } from '@/lib/utils/gbnf';
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
-	import { defineTask, createTitleTask } from '@/runners/shared/dynamicTasks';
 import {
-	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-	DEFAULT_EMOJI_COMPLETION_OPTIONS
-} from '@/lib/utils/inference/constants';
+	buildTask,
+	createCategoryTask,
+	createExtractionTask,
+	createSummaryTask,
+	createTitleTask
+} from '@/runners/shared/taskFactories';
+import type { Task } from '@/types/taskRunner.types';
+import { DEFAULT_EMOJI_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
 	CATEGORY: 'category',
 	EMOJIS: 'emojis',
 	TITLE: 'title',
-	EMOJI_FROM_STRING: 'emoji-from-string'
+	EMOJI_FROM_STRING: 'emoji-from-string',
+	SUMMARY: 'summary'
 } as const;
 
 export const sharedOutputSchemas = {
@@ -66,16 +69,48 @@ export async function generateEmojiForText(text: string): Promise<string> {
 	}
 }
 
+export function createDefaultTasks(contentDependency: string = 'content'): Task[] {
+	const summaryDef = createSummaryTask({
+		dependencies: [contentDependency],
+		systemMessage:
+			'You are a professional content summarizer. Write a concise summary in 2-3 sentences.',
+		userMessage: 'Summarize the following content briefly 2 paraphs.',
+		persist: true,
+		renderOrder: 3
+	});
+
+	const keywordsDef = createExtractionTask({
+		extractor: { count: 10, description: 'keywords' },
+		dependencies: [contentDependency],
+		persist: true,
+		renderOrder: 4
+	});
+
+	const categoryDef = createCategoryTask({ persist: true, renderOrder: 5 });
+
+	const titleDef = createTitleTask({
+		dependencies: [SHARED_TASK_IDS.SUMMARY],
+		userMessage: 'Write a title for the content. star with an emoji.',
+		persist: true,
+		renderOrder: 0.1
+	});
+
+	return [
+		buildTask(summaryDef, SHARED_TASK_IDS.SUMMARY),
+		buildTask(keywordsDef, SHARED_TASK_IDS.KEYWORDS),
+		buildTask(categoryDef, SHARED_TASK_IDS.CATEGORY),
+		buildTask(titleDef, SHARED_TASK_IDS.TITLE)
+	];
+}
+
 export const sharedTasks = {
-	[SHARED_TASK_IDS.KEYWORDS]: defineTask({
-		component: 'keywords',
-		extractorConfig: { count: 10, description: 'keywords' }
+	[SHARED_TASK_IDS.KEYWORDS]: createExtractionTask({
+		extractor: { count: 10, description: 'keywords' }
 	}),
 
-	[SHARED_TASK_IDS.EMOJIS]: defineTask({
-		dependencies: ['title-summary'],
-		component: 'keywords',
-		extractorConfig: { count: 5, description: 'Emojis' }
+	[SHARED_TASK_IDS.EMOJIS]: createExtractionTask({
+		extractor: { count: 5, description: 'Emojis' },
+		dependencies: ['title-summary']
 	}),
 
 	[SHARED_TASK_IDS.TITLE]: createTitleTask(),
@@ -94,31 +129,5 @@ export const sharedTasks = {
 		completionOptions: DEFAULT_EMOJI_COMPLETION_OPTIONS
 	}),
 
-	[SHARED_TASK_IDS.CATEGORY]: iaTask({
-		dependencies: [SHARED_TASK_IDS.KEYWORDS],
-		component: 'keywords',
-		output: sharedOutputSchemas[SHARED_TASK_IDS.CATEGORY],
-		componentProps: { showPoint: false },
-		systemMessage:
-			'You are a data extraction assistant. Return only a JSON array with a single category name. No markdown, no explanations.',
-		userMessage: () => {
-			const categoryNames = viewState.categories.map((c) => c.name).join(', ');
-			return `Give a category from this ones: ${categoryNames}.`;
-		},
-		run: ({ state }) => {
-			const keywords = state[SHARED_TASK_IDS.KEYWORDS] as string[];
-			return keywords.join(' ');
-		},
-		resultParser: (text) => {
-			console.log(text);
-			return parseStructuredArrayResponses(text);
-		},
-		completionOptions: () => ({
-			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-			grammar: arrayToGbnf(
-				viewState.categories.map((c) => c.name),
-				{ minItems: 1, maxItems: 1 }
-			)
-		})
-	})
+	[SHARED_TASK_IDS.CATEGORY]: createCategoryTask({ persist: true })
 };

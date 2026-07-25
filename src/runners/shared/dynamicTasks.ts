@@ -126,9 +126,8 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 	const defaultUserMessage: (ctx: {
 		context: unknown;
 		state: Readonly<Record<string, unknown>>;
-	}) => string = ({ context }) => {
-		const lang = (context as { language?: string })?.language;
-		return `Create a short title describing the content. No more than 10 words. Start with an emoji. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+	}) => string = () => {
+		return `Create a title of one sentence. start with an emoji.`;
 	};
 
 	return {

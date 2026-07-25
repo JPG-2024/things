@@ -10,7 +10,7 @@ import { TaskNames, type YouTubeTaskFactoryContext } from './youtubeTasks.shared
 import { DEFAULT_COMPLETION_OPTIONS } from '@/lib/utils/inference/llama-completions';
 import { YOUTUBE_STRUCTURED_OUTPUT_OPTIONS } from '@/lib/utils/inference/constants';
 import { sharedTasks, SHARED_TASK_IDS, sharedOutputSchemas } from '@/runners/shared/sharedTasks';
-import { createSummaryTask } from '@/runners/shared/dynamicTasks';
+import { createSummaryTask } from '@/runners/shared/taskFactories';
 
 export { TaskNames };
 

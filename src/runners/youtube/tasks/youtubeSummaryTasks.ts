@@ -1,5 +1,5 @@
 import { viewState } from '@/stores/viewStore.svelte';
-import { createTitleTask, createSummaryTask } from '@/runners/shared/dynamicTasks';
+import { createTitleTask, createSummaryTask } from '@/runners/shared/taskFactories';
 import { TaskNames, type YouTubeTaskRegistrySubset } from './youtubeTasks.shared';
 import { DEFAULT_YOUTUBE_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 

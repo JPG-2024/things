@@ -70,21 +70,4 @@
 		);
 		border-radius: 0 0 30px 0;
 	}
-
-	.drawer-panel::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		right: 0;
-		width: 100%;
-		height: 1px;
-		background: linear-gradient(
-			270deg,
-			color-mix(in srgb, var(--primary-color) 1%, transparent) 0%,
-			color-mix(in srgb, var(--primary-color) 90%, transparent) 50%,
-			color-mix(in srgb, var(--primary-color) 1%, transparent) 100%,
-			transparent 100%
-		);
-		border-radius: 0 0 30px 0;
-	}
 </style>
