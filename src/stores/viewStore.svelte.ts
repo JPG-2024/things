@@ -15,7 +15,7 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);
 	selectedTaskId = $state('title-summary');
-	ttsPlayerMode = $state<PlayerMode>('mini');
+	ttsPlayerMode = $state<PlayerMode>('full');
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
@@ -37,6 +37,7 @@ class ViewState {
 	forceLanguageEnabled = $state(false);
 	downloadTracksEnabled = $state(false);
 	enableTasksCollapse = $state(false);
+	chunkCountSplitTask = $state(4);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);

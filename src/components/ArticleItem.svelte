@@ -19,7 +19,7 @@
 	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
 	const title = $derived(
 		((article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? '')
-			.slice(0, 60)
+			.slice(0, 100)
 			.concat('...')
 	);
 </script>
@@ -62,6 +62,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		transition: transform 0.15s;
+		font-size: 0.8em;
 	}
 
 	.article-content {
@@ -87,7 +88,7 @@
 
 	.article-thumbnail {
 		display: block;
-		border-radius: 5px;
+		border-radius: 12px;
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;

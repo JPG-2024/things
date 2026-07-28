@@ -116,3 +116,32 @@ function mergeSmallChunks(chunks: string[]): string[] {
 
 	return merged;
 }
+
+export function splitIntoNChunks(text: string, n: number): string[] {
+	const trimmed = text.trim();
+	if (!trimmed) return [];
+	if (n <= 1) return [trimmed];
+
+	const paragraphs = splitByParagraphs(trimmed);
+	if (paragraphs.length <= n) {
+		return paragraphs.length === 0 ? [trimmed] : paragraphs;
+	}
+
+	const buckets: { paragraphs: string[]; totalChars: number }[] = Array.from({ length: n }, () => ({
+		paragraphs: [],
+		totalChars: 0
+	}));
+
+	for (const para of paragraphs) {
+		let shortest = 0;
+		for (let i = 1; i < buckets.length; i++) {
+			if (buckets[i].totalChars < buckets[shortest].totalChars) {
+				shortest = i;
+			}
+		}
+		buckets[shortest].paragraphs.push(para);
+		buckets[shortest].totalChars += para.length;
+	}
+
+	return buckets.map((b) => b.paragraphs.join('\n\n'));
+}

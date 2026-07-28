@@ -563,6 +563,8 @@ export async function chatCompletions(
 			...(acc.logprobs !== undefined ? { logprobs: acc.logprobs } : {})
 		}));
 
+	console.log('LLAMA_COMPLETIONS', choices, usage);
+
 	return {
 		id,
 		object: 'chat.completion',

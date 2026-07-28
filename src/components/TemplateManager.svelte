@@ -181,7 +181,6 @@
 					<Input bind:value={newName} placeholder="Template name..." label="Name" />
 				</div>
 				<Button
-					size="small"
 					onClick={handleCreate}
 					disabled={!newName.trim() || !workflowStore.focusedRunTasks?.length}
 				>
@@ -191,25 +190,18 @@
 
 			{#if selectedTemplateId}
 				<div class="field">
-					<Button size="small" onClick={handleCloneSelected} disabled={!newName.trim()}>
-						Clone selected
-					</Button>
+					<Button onClick={handleCloneSelected} disabled={!newName.trim()}>Clone selected</Button>
 				</div>
 			{/if}
 
 			<div class="field">
-				<Button
-					size="small"
-					onClick={handleAssign}
-					disabled={!viewState.domainUrl || !selectedTemplateId}
-				>
+				<Button onClick={handleAssign} disabled={!viewState.domainUrl || !selectedTemplateId}>
 					Assign to profile
 				</Button>
 			</div>
 
 			<div class="field">
 				<Button
-					size="small"
 					onClick={handleUpdate}
 					disabled={!selectedTemplateId || !workflowStore.focusedRunTasks?.length}
 				>

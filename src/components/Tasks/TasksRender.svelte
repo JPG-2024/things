@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
-	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
 	import TaskError from '@/components/Tasks/TaskError.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -33,7 +32,7 @@
 				({ task }) =>
 					task.id === viewState.selectedTaskId &&
 					task.status === 'done' &&
-					typeof task.data === 'string'
+					(typeof task.data === 'string' || (Array.isArray(task.data) && task.data.length > 0))
 			)
 	);
 
@@ -43,9 +42,11 @@
 			const entry = stackedTasks.find(
 				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
 			);
-			if (!entry?.task.data || typeof entry.task.data !== 'string') return;
+			if (!entry?.task.data) return;
+			const text = Array.isArray(entry.task.data) ? entry.task.data.join('. ') : entry.task.data;
+			if (typeof text !== 'string' || !text.trim()) return;
 			void ensureAudioContext();
-			ttsState.setTextContents([entry.task.data]);
+			ttsState.setTextContents([text]);
 			await ttsState.generateTTS(viewState.url!);
 		},
 		() => ({
@@ -138,6 +139,9 @@
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
 				transition:fade={{ duration: 250 }}
+				onmouseenter={() => {
+					viewState.selectedTaskId = task.id;
+				}}
 				// use:measureDoneHeight={taskKey}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
@@ -150,6 +154,9 @@
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
 				style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+				onmouseenter={() => {
+					viewState.selectedTaskId = task.id;
+				}}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 					{#if Renderer}
@@ -163,10 +170,11 @@
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
 				transition:fade={{ duration: 250 }}
+				onmouseenter={() => {
+					viewState.selectedTaskId = task.id;
+				}}
 			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-					<EditTaskComponent {task} runId={entry.runId} {componentProps} />
-				</BaseTaskComponent>
+				<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
 			</div>
 		{:else if task.status === 'pending'}
 			<div
@@ -174,6 +182,9 @@
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
 				transition:fade={{ duration: 250 }}
+				onmouseenter={() => {
+					viewState.selectedTaskId = task.id;
+				}}
 			>
 				<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
 			</div>
@@ -182,6 +193,9 @@
 				class="task-wrapper task-wrapper--error"
 				class:span-2={(task.gridSpan ?? 3) === 2}
 				class:span-3={(task.gridSpan ?? 3) === 3}
+				onmouseenter={() => {
+					viewState.selectedTaskId = task.id;
+				}}
 			>
 				<TaskError {task} runId={entry.runId} />
 			</div>

@@ -14,6 +14,7 @@ type AnyZodOutput = z.core.$ZodType;
 
 type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	name?: string;
+	subtype?: IaTaskSubtype;
 	dependencies?: string[];
 	component?: string;
 	componentProps?:
@@ -42,7 +43,6 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 	'output'
 > & {
 	output: TOutput;
-	subtype?: IaTaskSubtype;
 	systemMessage:
 		| string
 		| ((ctx: { context: TContext; state: Readonly<Record<string, unknown>> }) => string);
@@ -149,6 +149,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 		return {
 			id,
 			name: def.name,
+			subtype: def.subtype,
 			dependencies: def.dependencies ?? [],
 			type: 'script',
 			component: def.component,
@@ -173,6 +174,13 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			}
 		};
 	};
+}
+
+export function buildScriptTaskFromDef<
+	TMap extends TaskMapBase = TaskMapBase,
+	TId extends keyof TMap & string = keyof TMap & string
+>(id: TId, def: ScriptTaskDef): ScriptTask<TMap, TId> {
+	return buildScriptTask<TMap, TId, unknown>(id, def)(undefined);
 }
 
 export function buildIaTask<

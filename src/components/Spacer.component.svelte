@@ -84,7 +84,6 @@
 			onclick={toggle}
 			onkeydown={handleKeydown}
 		>
-			<span class="separator-line"></span>
 			{#if icon}
 				<Icon name={icon} size={16} color="var(--primary-color)" />
 			{/if}
@@ -124,11 +123,6 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		padding-left: 1rem;
-	}
-
-	.spacer-accordion-centered {
-		padding-left: 1rem;
 	}
 
 	.spacer-header-centered {
@@ -173,7 +167,8 @@
 	.spacer-title {
 		color: rgba(255, 255, 255, 0.9);
 		font-weight: bold;
-		font-size: 1em;
+		font-size: 0.9em;
+		text-transform: capitalize;
 	}
 
 	.collapse-icon {

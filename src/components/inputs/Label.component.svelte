@@ -19,7 +19,7 @@
 			<span class="label-value">{value}</span>
 		{/if}
 	</label>
-	{@render children()}
+	<div class="label-children">{@render children()}</div>
 </div>
 
 <style>
@@ -27,6 +27,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	.label-children {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		height: 38px;
 	}
 
 	.label-wrapper.inline {
@@ -42,7 +49,6 @@
 		font-size: 0.85rem;
 		color: inherit;
 		border-radius: 8px;
-		background-color: rgba(255, 255, 255, 0.02);
 		backdrop-filter: blur(4px);
 		gap: 0.5rem;
 	}

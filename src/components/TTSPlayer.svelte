@@ -29,7 +29,7 @@
 	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
-	const amplitudeScale = $derived(mode === 'mini' ? 1.4 : 0.4);
+	const amplitudeScale = $derived(mode === 'mini' ? 1.4 : 0.2);
 	const wavelengthScale = 300;
 
 	let showControls = $state(true);

@@ -6,7 +6,14 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Pill from '@/components/Pill.svelte';
 	import { topologicalSortTasks } from '@/lib/utils/tasks/topologicalSortTasks';
-	import type { Task, TaskStatus } from '@/types/taskRunner.types';
+	import {
+		statusToPillStatus,
+		formatDuration,
+		formatTimestamp,
+		dataPreview,
+		dataTypeLabel,
+		formatData
+	} from '@/lib/utils/tasks/taskStats';
 
 	const targetRunId = $derived(workflowStore.focusedRunId ?? workflowStore.stackedRunIds[0]);
 	const tasks = $derived(targetRunId ? (workflowManager.getTasks(targetRunId) ?? []) : []);
@@ -33,55 +40,6 @@
 		}
 		return runSummary.endedAt - runSummary.startedAt;
 	});
-
-	function statusToPillStatus(status?: TaskStatus): 'idle' | 'loading' | 'done' | 'error' {
-		switch (status) {
-			case 'running':
-				return 'loading';
-			case 'done':
-				return 'done';
-			case 'failed':
-			case 'blocked':
-				return 'error';
-			default:
-				return 'idle';
-		}
-	}
-
-	function formatDuration(ms: number | null | undefined): string {
-		if (ms == null) return '—';
-		if (ms < 1000) return `${ms}ms`;
-		return `${(ms / 1000).toFixed(1)}s`;
-	}
-
-	function formatTimestamp(ts: number | undefined): string {
-		if (!ts) return '—';
-		return new Date(ts).toLocaleTimeString();
-	}
-
-	function dataPreview(data: unknown): string {
-		if (data == null) return '';
-		if (typeof data === 'string') return data.length > 120 ? data.slice(0, 120) + '…' : data;
-		if (Array.isArray(data)) return `Array(${data.length})`;
-		if (typeof data === 'object') return 'Object';
-		return String(data);
-	}
-
-	function dataTypeLabel(data: unknown): string {
-		if (data == null) return 'none';
-		if (Array.isArray(data)) return `array[${data.length}]`;
-		return typeof data;
-	}
-
-	function formatData(data: unknown): string {
-		if (data == null) return '';
-		if (typeof data === 'string') return data;
-		try {
-			return JSON.stringify(data, null, 2);
-		} catch {
-			return String(data);
-		}
-	}
 
 	function handleClose() {
 		viewState.showAllTasks = false;

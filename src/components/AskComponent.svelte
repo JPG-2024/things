@@ -37,7 +37,7 @@
 	const DEFAULT_SYSTEM_PROMPT =
 		'You are a concise assistant. Answer the question in one short paragraph. Avoid preambles and filler. Use Markdown formatting when appropriate.';
 	const DEFAULT_MODEL = 'llama-server';
-	const DEFAULT_MAX_TOKENS = 180;
+	const DEFAULT_MAX_TOKENS = 500;
 	const DEFAULT_TEMPERATURE = 0.2;
 	const DEFAULT_TOP_P = 0.9;
 

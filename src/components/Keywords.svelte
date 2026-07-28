@@ -37,5 +37,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+		padding: 1rem 0;
 	}
 </style>

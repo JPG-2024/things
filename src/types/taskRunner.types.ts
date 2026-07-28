@@ -18,7 +18,8 @@ export type IaTaskSubtype =
 	| 'categorization'
 	| 'category'
 	| 'generation'
-	| 'custom';
+	| 'custom'
+	| 'recursive';
 
 export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'editing' | 'new';
 
@@ -74,6 +75,7 @@ export interface TaskRerunOptions extends TaskRunOptions {}
 export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & string> {
 	id: TId;
 	name?: string;
+	subtype?: IaTaskSubtype;
 	dependencies: (keyof TMap & string)[];
 	type: TaskType;
 	data?: TMap[TId];
@@ -108,7 +110,6 @@ export interface IaTask<
 	TParsed = TMap[TId]
 > extends TaskBase<TMap, TId> {
 	type: 'ia';
-	subtype?: IaTaskSubtype;
 	systemMessage: string;
 	userMessage: string;
 	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & {

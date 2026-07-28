@@ -81,13 +81,13 @@
 		outline: none;
 		border: none;
 		border-radius: 12px;
-		background: transparent;
+		background: rgba(128, 128, 128, 0.13);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		padding: 0.4rem 0.75rem;
 		width: 100%;
 		color: inherit;
-		font-size: 1rem;
+		font-size: 0.8rem;
 	}
 
 	.text-input:focus {

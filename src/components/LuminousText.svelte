@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	const BLINK_INTERVAL = 100;
+	const BLINK_INTERVAL = 70;
 
 	interface Props {
 		children: Snippet;

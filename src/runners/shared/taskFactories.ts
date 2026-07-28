@@ -1,14 +1,16 @@
 import { z } from 'zod';
-import { buildIaTask, iaTask } from '@/runners/taskSchema';
-import type { IaTaskDef, TaskRunContext } from '@/runners/taskSchema';
+import { buildIaTask, buildScriptTaskFromDef, iaTask, scriptTask } from '@/runners/taskSchema';
+import type { IaTaskDef, ScriptTaskDef, TaskRunContext } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
+import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import {
 	DEFAULT_IA_COMPLETION_OPTIONS,
 	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 	DEFAULT_TITLE_COMPLETION_OPTIONS,
 	SUMMARY_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
+import { splitIntoNChunks } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
@@ -187,6 +189,134 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 		persist: options?.persist,
 		renderOrder: options?.renderOrder
 	});
+}
+
+export type RecursiveContentResult = {
+	chunksSummaries: string[];
+	finalSummary: string;
+};
+
+export type CreateRecursiveContentTaskOptions = {
+	name?: string;
+	dependencies?: string[];
+	chunkCount?: number;
+	systemMessage?: string;
+	userMessage?: string;
+	finalUserMessage?: string;
+	completionOptions?: Record<string, unknown>;
+	persist?: boolean;
+	renderOrder?: number;
+	gridSpan?: 1 | 2 | 3;
+	componentProps?: MaybeFn<Record<string, unknown>>;
+	onComplete?: (params: {
+		result: unknown;
+		runResult: string;
+		context: unknown;
+		state: Readonly<Record<string, unknown>>;
+	}) => void | Promise<void>;
+};
+
+const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
+	chunksSummaries: z.array(z.string()),
+	finalSummary: z.string()
+});
+
+export function createRecursiveContentTask(
+	options?: CreateRecursiveContentTaskOptions
+): ScriptTaskDef<typeof RECURSIVE_CONTENT_OUTPUT_SCHEMA> {
+	const dependencies = options?.dependencies ?? ['content'];
+	const sourceDependency = dependencies[0];
+
+	return scriptTask({
+		name: options?.name,
+		subtype: 'recursive',
+		dependencies,
+		component: options?.componentProps ? 'taskBase' : undefined,
+		componentProps: options?.componentProps,
+		gridSpan: options?.gridSpan,
+		renderOrder: options?.renderOrder,
+		persist: options?.persist,
+		output: RECURSIVE_CONTENT_OUTPUT_SCHEMA,
+		run: async ({ state, update }) => {
+			const content = state[sourceDependency];
+			if (typeof content !== 'string')
+				throw new Error(`Missing content from dependency "${sourceDependency}"`);
+
+			const chunkCount = options?.chunkCount ?? viewState.chunkCountSplitTask;
+			const chunks = splitIntoNChunks(content, chunkCount);
+
+			const systemMsg =
+				options?.systemMessage ??
+				'You are a professional content summarizer. Write a concise and clear summary.';
+			const chunkPrompt = options?.userMessage ?? 'Summarize this section concisely.';
+			const finalPrompt =
+				options?.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
+			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
+			const baseOpts = options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS;
+
+			const chunksSummaries: string[] = [];
+
+			for (const chunk of chunks) {
+				const response = await chatCompletions({
+					...baseOpts,
+					model,
+					stream: false,
+					messages: [
+						{ role: 'system', content: systemMsg },
+						{ role: 'user', content: `${chunkPrompt}\n\n${chunk}` }
+					]
+				});
+				const text = response.choices?.[0]?.message?.content ?? '';
+				chunksSummaries.push(typeof text === 'string' ? text.trim() : '');
+			}
+
+			const combined = chunksSummaries.join('\n\n');
+			const finalResponse = await chatCompletions({
+				...baseOpts,
+				model,
+				stream: false,
+				messages: [
+					{ role: 'system', content: systemMsg },
+					{ role: 'user', content: `${finalPrompt}\n\n${combined}` }
+				]
+			});
+			const finalText = finalResponse.choices?.[0]?.message?.content ?? '';
+			const finalSummary = typeof finalText === 'string' ? finalText.trim() : '';
+
+			return { chunksSummaries, finalSummary };
+		}
+	});
+}
+
+export interface RecursiveConfig {
+	chunkCount: number;
+	userMessage: string;
+	finalUserMessage: string;
+}
+
+export function buildRecursiveTask(
+	id: string,
+	options: CreateRecursiveContentTaskOptions & { model?: string }
+): Task {
+	const chunkCount = options.chunkCount ?? viewState.chunkCountSplitTask;
+	const userMessage = options.userMessage ?? 'Summarize this section concisely.';
+	const finalUserMessage =
+		options.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
+
+	const def = createRecursiveContentTask({
+		...options,
+		completionOptions: options.completionOptions ?? {
+			...SUMMARY_COMPLETION_OPTIONS,
+			model: options.model ?? 'llama-server'
+		},
+		componentProps: {
+			...((typeof options.componentProps === 'object' && options.componentProps !== null
+				? options.componentProps
+				: {}) as Record<string, unknown>),
+			recursiveConfig: { chunkCount, userMessage, finalUserMessage } satisfies RecursiveConfig
+		}
+	});
+	return buildScriptTaskFromDef(id, def);
 }
 
 export type CreateCategoryTaskOptions = {
