@@ -12,9 +12,16 @@
 		trigger: Snippet;
 		content: Snippet;
 		open?: boolean;
+		compact?: boolean;
 	}
 
-	let { position = 'bottom', trigger, content, open = $bindable(false) }: Props = $props();
+	let {
+		position = 'bottom',
+		trigger,
+		content,
+		open = $bindable(false),
+		compact = false
+	}: Props = $props();
 
 	const popupCtx = $state({ open: false });
 	$effect(() => {
@@ -88,6 +95,7 @@
 		bind:this={panelEl}
 		use:portal
 		class="popup-menu panel-{effectivePosition}"
+		class:compact
 		style="left: {panelX}px; top: {panelY}px;"
 		onmouseleave={close}
 		role="menu"
@@ -118,6 +126,11 @@
 		min-width: 120px;
 		max-height: 500px;
 		overflow: auto;
+	}
+
+	.popup-menu.compact {
+		padding: 0.25rem;
+		min-width: unset;
 	}
 
 	.panel-top {

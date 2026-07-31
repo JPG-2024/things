@@ -18,6 +18,7 @@ import type {
 	TaskStatus,
 	TaskStatusUpdater
 } from '@/types/taskRunner.types';
+import { DependencyGraph } from '@/runners/DependencyGraph';
 
 /**
  * Convert various error shapes into a readable message string.
@@ -98,6 +99,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	lastRun = $state<TaskRunSummary<TMap> | undefined>(undefined);
 	private pendingTasksQueue: Task<TMap>[] = [];
 	private restartRequested = false;
+	readonly graph = new DependencyGraph();
 
 	constructor(id = createRunId()) {
 		this.id = id;
@@ -113,6 +115,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		this.running = false;
 		this.lastRun = undefined;
 		this.restartRequested = false;
+		this.graph.syncFromTasks([]);
 	}
 
 	/**
@@ -129,6 +132,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		})) as Task<TMap>[];
 		this.pendingTasksQueue = [];
 		this.restartRequested = false;
+		this.graph.syncFromTasks(this.tasks);
 	}
 
 	/**
@@ -177,6 +181,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 					status: task.status ?? 'pending'
 				}
 			];
+			this.graph.addTask(task.id, task.dependencies ?? []);
 			return;
 		}
 
@@ -185,6 +190,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			dependencies: [...(task.dependencies ?? [])],
 			status: task.status ?? this.tasks[index].status ?? 'pending'
 		};
+		this.graph.setDependencies(task.id, task.dependencies ?? []);
 	}
 
 	/**
@@ -198,6 +204,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		}
 
 		this.pendingTasksQueue = [];
+		this.graph.syncFromTasks(this.tasks);
 		this.validateTasks();
 	}
 
@@ -207,6 +214,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	removeTask(taskId: string) {
 		this.tasks = this.tasks.filter((task) => task.id !== taskId);
+		this.graph.removeTask(taskId);
 	}
 
 	/**
@@ -275,22 +283,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @returns Descendant task ids.
 	 */
 	private getDescendantTaskIds(taskId: string): string[] {
-		const descendants = new Set<string>();
-		const queue = [taskId];
-
-		while (queue.length > 0) {
-			const current = queue.shift();
-			if (!current) continue;
-
-			for (const task of this.tasks) {
-				if (task.dependencies.includes(current) && !descendants.has(task.id)) {
-					descendants.add(task.id);
-					queue.push(task.id);
-				}
-			}
-		}
-
-		return [...descendants];
+		return this.graph.getDescendants(taskId);
 	}
 
 	/**
@@ -356,54 +349,12 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @throws Error when validation fails.
 	 */
 	private validateTasks() {
-		const idSet = new Set<string>();
-		for (const task of this.tasks) {
-			if (!task.id?.trim()) {
-				throw new Error('Task id is required.');
-			}
-			if (idSet.has(task.id)) {
-				throw new Error(`Duplicated task id: ${task.id}`);
-			}
-			idSet.add(task.id);
-		}
-
-		for (const task of this.tasks) {
-			// Cached done tasks may reference factory dependencies that were pruned
-			// from the active task list. They are already satisfied, so skip validation.
-			if (task.status === 'done') {
-				continue;
-			}
-
-			for (const dependencyId of task.dependencies) {
-				if (!idSet.has(dependencyId)) {
-					throw new Error(`Task ${task.id} has unknown dependency: ${dependencyId}`);
-				}
-				if (dependencyId === task.id) {
-					throw new Error(`Task ${task.id} cannot depend on itself.`);
-				}
-			}
-		}
-
-		const visiting = new Set<string>();
-		const visited = new Set<string>();
-
-		const dfs = (taskId: string) => {
-			if (visiting.has(taskId)) {
-				throw new Error(`Cycle detected involving task: ${taskId}`);
-			}
-			if (visited.has(taskId)) return;
-
-			visiting.add(taskId);
-			const task = this.getTaskById(taskId);
-			for (const dependencyId of task?.dependencies ?? []) {
-				dfs(dependencyId);
-			}
-			visiting.delete(taskId);
-			visited.add(taskId);
-		};
-
-		for (const task of this.tasks) {
-			dfs(task.id);
+		const doneIds = new Set(
+			this.tasks.filter((t) => t.status === 'done').map((t) => t.id)
+		);
+		const result = this.graph.validate(doneIds);
+		if (!result.valid) {
+			throw new Error(result.errors[0]);
 		}
 	}
 
@@ -412,21 +363,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @param failedTaskId - Id of the task that failed.
 	 */
 	private markDescendantsBlocked(failedTaskId: string) {
-		const blocked = new Set<string>();
-		const queue = [failedTaskId];
-
-		while (queue.length > 0) {
-			const current = queue.shift();
-			if (!current) continue;
-
-			for (const task of this.tasks) {
-				if (task.dependencies.includes(current) && !blocked.has(task.id)) {
-					blocked.add(task.id);
-					queue.push(task.id);
-				}
-			}
-		}
-
+		const blocked = new Set(this.graph.getDescendants(failedTaskId));
 		for (const taskId of blocked) {
 			const task = this.getTaskById(taskId);
 			if (!task || (task.status !== 'pending' && task.status !== 'editing')) continue;
@@ -706,12 +643,13 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 		const effectiveTaskId = (patch as Task<TMap>)?.id ?? taskId;
 
 		if (effectiveTaskId !== taskId) {
+			this.graph.renameId(taskId, effectiveTaskId);
 			for (const t of this.tasks) {
-				t.dependencies = t.dependencies.map((d) => (d === taskId ? effectiveTaskId : d));
+				t.dependencies = this.graph.getDependencies(t.id);
 			}
 		}
 
-		const affectedTaskIds = [effectiveTaskId, ...this.getDescendantTaskIds(effectiveTaskId)];
+		const affectedTaskIds = [effectiveTaskId, ...this.graph.getDescendants(effectiveTaskId)];
 		this.resetTaskIds(affectedTaskIds);
 
 		return this.executeRunLoop({ Rebuild: false, ...options });

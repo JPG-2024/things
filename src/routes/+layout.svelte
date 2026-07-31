@@ -267,7 +267,7 @@
 		background-color: #000000;
 		overflow-y: auto;
 		height: 100vh;
-		padding: 2rem;
+		padding: 3rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 2rem;
 		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);

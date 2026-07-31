@@ -37,7 +37,6 @@ class ViewState {
 	forceLanguageEnabled = $state(false);
 	downloadTracksEnabled = $state(false);
 	enableTasksCollapse = $state(false);
-	chunkCountSplitTask = $state(4);
 	autoSpeechEnabled = $state(true);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);

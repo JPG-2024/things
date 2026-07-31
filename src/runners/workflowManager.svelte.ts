@@ -239,6 +239,17 @@ export class WorkflowManager {
 		record.runner.removeTask(taskId);
 	}
 
+	renameTaskId(id: string, oldId: string, newId: string): void {
+		const record = workflowStore.getRun(id);
+		if (!record || oldId === newId) return;
+		const task = record.runner.tasks.find((t) => t.id === oldId);
+		if (task) task.id = newId;
+		record.runner.graph.renameId(oldId, newId);
+		for (const t of record.runner.tasks) {
+			t.dependencies = record.runner.graph.getDependencies(t.id);
+		}
+	}
+
 	private syncRunStack(
 		runId: string,
 		options?: Pick<WorkflowRunOptions, 'makeActive' | 'parentRunId'>

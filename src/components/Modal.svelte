@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
-	import { onMount } from 'svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -11,30 +11,30 @@
 
 	let { show = false, onClose, children }: Props = $props();
 
-	onMount(() => {
-		const handleEscape = (e: KeyboardEvent) => {
-			if (e.key === 'Escape' && show) {
-				onClose();
-			}
-		};
+	const handleClose = () => {
+		onClose();
+	};
 
-		window.addEventListener('keydown', handleEscape);
-
-		return () => {
-			window.removeEventListener('keydown', handleEscape);
-		};
+	createHotkey('Escape', handleClose, {
+		stopPropagation: true,
+		preventDefault: true
 	});
 </script>
 
 {#if show}
-	<div class="backdrop" role="presentation" transition:fade={{ duration: 200 }} onclick={onClose}>
+	<div
+		class="backdrop"
+		role="presentation"
+		transition:fade={{ duration: 200 }}
+		onclick={handleClose}
+	>
 		<div
 			class="modal"
 			role="dialog"
 			transition:scale={{ start: 0.8, duration: 100 }}
 			onclick={(e) => e.stopPropagation()}
 		>
-			<button class="close-btn" onclick={onClose} aria-label="Close modal">×</button>
+			<button class="close-btn" onclick={handleClose} aria-label="Close modal">×</button>
 			<div class="modal-content">
 				{@render children?.()}
 			</div>
@@ -49,7 +49,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: rgba(0, 0, 0, 0.7);
+		background: rgba(0, 0, 0, 0.9);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
 		z-index: 9999;
@@ -65,9 +65,7 @@
 		overflow-y: auto;
 		border-radius: 8px;
 		z-index: 10000;
-		box-shadow: 1px -1px 20px 31px rgba(0, 0, 0, 0.98);
-		-webkit-box-shadow: 1px -1px 20px 31px rgba(0, 0, 0, 0.98);
-		-moz-box-shadow: 1px -1px 50px 31px rgba(0, 0, 0, 0.68);
+		background-color: rgb(23, 23, 23);
 	}
 
 	.modal-content {
@@ -80,12 +78,12 @@
 		right: 1rem;
 		background: none;
 		border: none;
-		font-size: 1.5rem;
+		font-size: 2rem;
 		cursor: pointer;
 		color: white;
 		padding: 0;
-		width: 2rem;
-		height: 2rem;
+		width: 2.5rem;
+		height: 2.5rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;

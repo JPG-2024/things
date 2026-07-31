@@ -2,14 +2,14 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
+	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import PopupMenu from '@/components/PopupMenu.svelte';
+	import Modal from '@/components/Modal.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import Pill from '@/components/Pill.svelte';
 	import { buildTask, createIaTask } from '@/runners/shared/taskFactories';
-	import CreateTaskForm from '@/components/Tasks/CreateTaskForm.svelte';
 	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
 	import Label from '@/components/inputs/Label.component.svelte';
 	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
@@ -35,13 +35,12 @@
 	let { runId = undefined, task, children, componentProps = {} }: Props = $props();
 
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
-	const isIaTask = $derived(task.type === 'ia');
 	const spacerDefaultOpen = $derived(
 		task.status === 'editing' || task.status === 'running' || task.status === 'failed'
 	);
 	const pillStatus = $derived(statusToPillStatus(task.status));
 
-	let menuOpen = $state(false);
+	let showEditModal = $state(false);
 
 	function handleRerun() {
 		if (!targetRunId) return;
@@ -50,14 +49,12 @@
 		});
 	}
 
-	function toggleTaskEdit() {
-		if (!targetRunId) return;
-		workflowManager.addTask(targetRunId, { ...task, status: 'editing' });
+	function openTaskEdit() {
+		showEditModal = true;
 	}
 
 	function handleBranch() {
 		if (!targetRunId) return;
-		console.log(task);
 		const def = createIaTask({
 			dependencies: [task.id],
 			userMessage: '',
@@ -83,56 +80,39 @@
 		<div class="task-info">
 			<div class="task-toolbar">
 				<Icon
-					name="GitBranch"
-					onClick={handleBranch}
-					tooltipProps={{ content: 'New task from' }}
-					size={TOOLBAR_ICON_SIZE}
-					color="var(--primary-color)"
-					class="task-action"
-				/>
-				<Icon
 					name="RefreshCw"
 					onClick={handleRerun}
 					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
-					title="Rerun task and descendants"
+					tooltipProps={{ content: 'Rerun task and descendants' }}
 					class="task-action"
 				/>
 				<Icon
 					name="Wrench"
-					onClick={toggleTaskEdit}
+					onClick={openTaskEdit}
 					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
-					title="Rerun task and descendants"
+					tooltipProps={{ content: 'edit task' }}
 					class="task-action"
 				/>
-				<PopupMenu position="bottom" bind:open={menuOpen}>
-					{#snippet trigger()}
-						<Icon
-							name="MessageSquarePlus"
-							size={TOOLBAR_ICON_SIZE}
-							color="var(--primary-color)"
-							tooltipProps={{ content: 'add message' }}
-							class="task-action"
-						/>
-					{/snippet}
-					{#snippet content()}
-						<CreateTaskForm
-							runId={targetRunId}
-							parentTaskId={task.id}
-							parentRenderOrder={task.renderOrder}
-							onClose={() => (menuOpen = false)}
-						/>
-					{/snippet}
-				</PopupMenu>
 				<Icon
-					name="Trash"
-					onClick={handleDelete}
+					name="GitBranch"
+					onClick={handleBranch}
 					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"
-					tooltipProps={{ content: 'delete task' }}
+					tooltipProps={{ content: 'New task from' }}
 					class="task-action"
 				/>
+				<div class="delete-action">
+					<Icon
+						name="Trash"
+						onClick={handleDelete}
+						size={TOOLBAR_ICON_SIZE}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'delete task' }}
+						class="task-action"
+					/>
+				</div>
 			</div>
 
 			<div class="task-stats">
@@ -153,13 +133,9 @@
 				/>
 
 				{#if task.data != null}
-					<details class="result-preview">
-						<summary>
-							data:
-							<span class="preview-hint">{dataPreview(task.data)}</span>
-						</summary>
+					<DetailsPanel label="data:" hint={dataPreview(task.data)}>
 						<pre class="result-data">{formatData(task.data)}</pre>
-					</details>
+					</DetailsPanel>
 				{/if}
 
 				{#if task.status === 'failed'}
@@ -174,10 +150,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#if isIaTask && task.status !== 'running'}
-				<EditTaskComponent {task} runId={targetRunId} {componentProps} />
-			{/if}
 		</div></Spacer
 	>
 
@@ -185,6 +157,25 @@
 		{@render children?.()}
 	</div>
 </div>
+
+<Modal show={showEditModal} onClose={() => (showEditModal = false)}>
+	<div class="edit-modal">
+		<div class="edit-modal-header">
+			<p class="eyebrow">Edit task</p>
+			<h2>{task.name ?? task.id}</h2>
+			<p class="edit-modal-meta">
+				<span>{task.type}</span>
+				<span>{task.status ?? 'pending'}</span>
+			</p>
+		</div>
+		<EditTaskComponent
+			{task}
+			runId={targetRunId}
+			{componentProps}
+			onClose={() => (showEditModal = false)}
+		/>
+	</div>
+</Modal>
 
 <style>
 	.task-shell {
@@ -196,9 +187,11 @@
 	}
 
 	.task-info {
-		padding: 1em;
+		padding: 0 2rem;
+		padding-bottom: 3rem;
 		border-radius: 5px;
-		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+		background-color: rgb(17, 17, 17);
 	}
 
 	.task-spacer-title {
@@ -221,8 +214,15 @@
 	.task-toolbar {
 		display: flex;
 		align-items: center;
-		gap: 2em;
-		padding: 1rem 0;
+		justify-content: flex-end;
+		gap: 1em;
+		padding: 1.5rem 0;
+	}
+
+	.delete-action {
+		display: inline-flex;
+		align-items: center;
+		margin-left: 1rem;
 	}
 
 	.task-action {
@@ -250,7 +250,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.8rem;
-		padding: 1rem 0;
 		font-size: 0.82rem;
 	}
 
@@ -275,30 +274,6 @@
 		flex-wrap: wrap;
 		gap: 0.4rem;
 		align-items: center;
-	}
-
-	.result-preview {
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 5px;
-		background: rgba(128, 128, 128, 0.13);
-		padding: 2px 10px;
-	}
-
-	.result-preview summary {
-		cursor: pointer;
-		font-size: 0.85rem;
-		opacity: 0.8;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.preview-hint {
-		opacity: 0.5;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 400px;
 	}
 
 	.result-data {
@@ -351,5 +326,41 @@
 		word-break: break-word;
 		font-family: 'CaskaydiaCove NFM Light', monospace;
 		line-height: 1.45;
+	}
+
+	.edit-modal {
+		display: grid;
+		gap: 1rem;
+		min-width: min(600px, 80vw);
+	}
+
+	.edit-modal-header {
+		display: grid;
+		gap: 0.25rem;
+		padding-bottom: 2rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.eyebrow {
+		margin: 0;
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		opacity: 0.6;
+	}
+
+	.edit-modal-header h2 {
+		margin: 0;
+		font-size: 1.1rem;
+		word-break: break-word;
+	}
+
+	.edit-modal-meta {
+		display: flex;
+		gap: 0.75rem;
+		margin: 0;
+		font-size: 0.78rem;
+		opacity: 0.7;
+		text-transform: capitalize;
 	}
 </style>

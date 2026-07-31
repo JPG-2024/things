@@ -1,5 +1,18 @@
 const MIN_CHUNK_CHARS = 50;
 
+export type EmbeddingChunk = {
+	text: string;
+	index: number;
+	startOffset: number;
+	endOffset: number;
+};
+
+export type SplitForEmbeddingsOptions = {
+	windowSize: number;
+	overlap: number;
+	respectBoundaries?: boolean;
+};
+
 export function splitTextIntoChunks(text: string, level = 0): string[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
@@ -117,31 +130,100 @@ function mergeSmallChunks(chunks: string[]): string[] {
 	return merged;
 }
 
-export function splitIntoNChunks(text: string, n: number): string[] {
+export function splitForEmbeddings(
+	text: string,
+	options: SplitForEmbeddingsOptions
+): EmbeddingChunk[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
-	if (n <= 1) return [trimmed];
 
-	const paragraphs = splitByParagraphs(trimmed);
-	if (paragraphs.length <= n) {
-		return paragraphs.length === 0 ? [trimmed] : paragraphs;
+	const { windowSize, overlap, respectBoundaries = true } = options;
+
+	if (windowSize <= 0) {
+		throw new Error('windowSize must be greater than 0');
+	}
+	if (overlap < 0) {
+		throw new Error('overlap must be non-negative');
+	}
+	if (overlap >= windowSize) {
+		throw new Error('overlap must be less than windowSize');
 	}
 
-	const buckets: { paragraphs: string[]; totalChars: number }[] = Array.from({ length: n }, () => ({
-		paragraphs: [],
-		totalChars: 0
-	}));
+	if (trimmed.length <= windowSize) {
+		return [
+			{
+				text: trimmed,
+				index: 0,
+				startOffset: 0,
+				endOffset: trimmed.length
+			}
+		];
+	}
 
-	for (const para of paragraphs) {
-		let shortest = 0;
-		for (let i = 1; i < buckets.length; i++) {
-			if (buckets[i].totalChars < buckets[shortest].totalChars) {
-				shortest = i;
+	const chunks: EmbeddingChunk[] = [];
+	const step = windowSize - overlap;
+	let position = 0;
+	let index = 0;
+
+	while (position < trimmed.length) {
+		let end = Math.min(position + windowSize, trimmed.length);
+
+		if (respectBoundaries && end < trimmed.length) {
+			const boundary = findSentenceBoundary(trimmed, position, end, windowSize);
+			if (boundary > position) {
+				end = boundary;
 			}
 		}
-		buckets[shortest].paragraphs.push(para);
-		buckets[shortest].totalChars += para.length;
+
+		const chunkText = trimmed.slice(position, end).trim();
+		if (chunkText) {
+			chunks.push({
+				text: chunkText,
+				index,
+				startOffset: position,
+				endOffset: end
+			});
+			index++;
+		}
+
+		if (end >= trimmed.length) break;
+		const nextPosition = end - overlap;
+		position = nextPosition > position ? nextPosition : position + step;
 	}
 
-	return buckets.map((b) => b.paragraphs.join('\n\n'));
+	return chunks;
+}
+
+function findSentenceBoundary(
+	text: string,
+	start: number,
+	end: number,
+	windowSize: number
+): number {
+	const tolerance = Math.max(50, Math.floor(windowSize * 0.1));
+	const minEnd = Math.max(start + 1, end - tolerance);
+	const maxEnd = Math.min(text.length, end + tolerance);
+
+	const searchRegion = text.slice(minEnd, maxEnd);
+
+	const sentenceMatch = searchRegion.match(/[.!?。！？]\s/);
+	if (sentenceMatch && sentenceMatch.index !== undefined) {
+		return minEnd + sentenceMatch.index + 1;
+	}
+
+	const relativeEnd = end - minEnd;
+
+	for (let i = relativeEnd; i >= 0; i--) {
+		if (/\s/.test(searchRegion[i])) {
+			return minEnd + i + 1;
+		}
+	}
+
+	for (let i = relativeEnd + 1; i < searchRegion.length; i++) {
+		if (/\s/.test(searchRegion[i])) {
+			return minEnd + i + 1;
+		}
+	}
+
+	return end;
 }

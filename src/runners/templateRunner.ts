@@ -14,23 +14,17 @@ export interface RunTemplateWorkflowOptions {
 	defaultTasksFactory?: () => Task[];
 }
 
+import { DependencyGraph } from '@/runners/DependencyGraph';
+
 function pruneUnneededTasks(tasks: Task[]): void {
+	const graph = new DependencyGraph();
+	graph.buildFromTasks(tasks);
+
 	const taskMap = new Map<string, Task>();
-	const dependentsMap = new Map<string, Set<string>>();
+	const satisfied = new Set<string>();
 
 	for (const task of tasks) {
 		taskMap.set(task.id, task);
-		dependentsMap.set(task.id, new Set());
-	}
-
-	for (const task of tasks) {
-		for (const depId of task.dependencies) {
-			dependentsMap.get(depId)?.add(task.id);
-		}
-	}
-
-	const satisfied = new Set<string>();
-	for (const task of tasks) {
 		if (task.status === 'done' && task.data !== undefined) {
 			satisfied.add(task.id);
 		}
@@ -54,8 +48,8 @@ function pruneUnneededTasks(tasks: Task[]): void {
 			return false;
 		}
 
-		const dependents = dependentsMap.get(taskId);
-		if (!dependents || dependents.size === 0) {
+		const dependents = graph.getDependents(taskId);
+		if (dependents.length === 0) {
 			needed.set(taskId, true);
 			return true;
 		}

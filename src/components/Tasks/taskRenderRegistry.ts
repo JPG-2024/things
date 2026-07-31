@@ -7,6 +7,7 @@ import VideoInfo from '@/components/youtube/VideoInfo.svelte';
 import Keywords from '@/components/Keywords.svelte';
 import ListItems from '@/components/ListItems.svelte';
 import ProfileTaskComponent from '@/components/Tasks/ProfileTaskComponent.svelte';
+import RecursiveTaskComponent from '@/components/Tasks/RecursiveTaskComponent.svelte';
 
 export const taskRenderRegistry: Record<string, Component<Record<string, unknown>>> = {
 	ask: AskComponent,
@@ -16,5 +17,6 @@ export const taskRenderRegistry: Record<string, Component<Record<string, unknown
 	videoInfo: VideoInfo,
 	keywords: Keywords,
 	listItems: ListItems,
-	profile: ProfileTaskComponent
+	profile: ProfileTaskComponent,
+	recursive: RecursiveTaskComponent
 };

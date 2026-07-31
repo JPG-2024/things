@@ -14,6 +14,7 @@
 		createExtractionTask
 	} from '@/runners/shared/taskFactories';
 	import type { RecursiveConfig } from '@/runners/shared/taskFactories';
+	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Label from '@/components/inputs/Label.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
@@ -22,12 +23,14 @@
 		task: Task;
 		runId?: string;
 		componentProps?: TaskComponentProps;
+		onClose?: () => void;
 	};
 
 	let {
 		task: _task,
 		runId: _runId = undefined,
-		componentProps: _componentProps = {}
+		componentProps: _componentProps = {},
+		onClose = undefined
 	}: Props = $props();
 
 	const isIaTask = $derived(_task.type === 'ia');
@@ -57,6 +60,7 @@
 		}
 	});
 
+	let commonId = $state('');
 	let commonName = $state('');
 	let commonSystemMessage = $state('');
 	let commonUserMessage = $state('');
@@ -66,6 +70,7 @@
 	let commonEnableTTS = $state(false);
 	let commonCompletionOptions = $state<Record<string, unknown>>({});
 
+	let originalId = $state('');
 	let originalName = $state('');
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
@@ -84,18 +89,18 @@
 	let catOriginalCategories = $state('');
 	let catOriginalMaxItems = $state('');
 
-	let recChunkCount = $state('4');
+	let recWindowSize = $state('2000');
+	let recOverlap = $state('200');
 	let recUserMessage = $state('');
 	let recFinalUserMessage = $state('');
-	let recOriginalChunkCount = $state('');
+	let recOriginalWindowSize = $state('');
+	let recOriginalOverlap = $state('');
 	let recOriginalUserMessage = $state('');
 	let recOriginalFinalUserMessage = $state('');
 
-	const derivedId = $derived(
-		commonName?.trim() ? commonName.toLowerCase().replace(/\s+/g, '-') : (_task.id ?? '')
-	);
-
 	$effect(() => {
+		commonId = _task.id ?? '';
+		originalId = _task.id ?? '';
 		commonName = _task.name ?? '';
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
@@ -148,18 +153,22 @@
 			const cfg = (_task.componentProps as Record<string, unknown>)?.recursiveConfig as
 				| RecursiveConfig
 				| undefined;
-			recChunkCount = cfg ? String(cfg.chunkCount) : '4';
+			recWindowSize = cfg ? String(cfg.windowSize) : '1000';
+			recOverlap = cfg ? String(cfg.overlap) : '100';
 			recUserMessage = cfg?.userMessage ?? 'Summarize this section concisely.';
 			recFinalUserMessage =
 				cfg?.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
-			recOriginalChunkCount = recChunkCount;
+			recOriginalWindowSize = recWindowSize;
+			recOriginalOverlap = recOverlap;
 			recOriginalUserMessage = recUserMessage;
 			recOriginalFinalUserMessage = recFinalUserMessage;
 		} else {
-			recChunkCount = '4';
+			recWindowSize = '1000';
+			recOverlap = '100';
 			recUserMessage = '';
 			recFinalUserMessage = '';
-			recOriginalChunkCount = '';
+			recOriginalWindowSize = '';
+			recOriginalOverlap = '';
 			recOriginalUserMessage = '';
 			recOriginalFinalUserMessage = '';
 		}
@@ -185,10 +194,24 @@
 		const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 		if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
-		if (derivedId !== _task.id) patch.id = derivedId;
+		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
-		if (Object.keys(patch).length === 0) return;
+		const deps = commonDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		const origDeps = originalDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		if (JSON.stringify(deps) !== JSON.stringify(origDeps)) patch.dependencies = deps;
+
+		if (Object.keys(patch).length === 0) {
+			onClose?.();
+			return;
+		}
 		void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+		onClose?.();
 	}
 
 	async function handleSaveExtraction() {
@@ -198,13 +221,21 @@
 			const patch: Record<string, unknown> = {};
 
 			if (commonName !== originalName) patch.name = commonName;
+			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
 			const countChanged = extCount !== extOriginalCount;
 			const descChanged = extDescription !== extOriginalDescription;
 			if (countChanged || descChanged) {
+				const newCount = Number(extCount) || 3;
 				(patch as IaTask).extractorConfig = {
-					count: Number(extCount) || 3,
+					count: newCount,
 					description: extDescription
+				};
+				patch.systemMessage = `You are a data extraction assistant. Return only a JSON array of exactly ${newCount} ${extDescription}. No markdown, no explanations.`;
+				patch.userMessage = `Extract ${newCount} ${extDescription}. Respond in JSON format.`;
+				patch.completionOptions = {
+					...(commonCompletionOptions as Record<string, unknown>),
+					grammar: stringArrayGbnf(newCount)
 				};
 			}
 
@@ -221,7 +252,10 @@
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 
-			if (Object.keys(patch).length === 0) return;
+			if (Object.keys(patch).length === 0) {
+				onClose?.();
+				return;
+			}
 			void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
 		} else {
 			const deps = commonDependencies
@@ -245,6 +279,7 @@
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 		}
+		onClose?.();
 	}
 
 	async function handleSaveCategory() {
@@ -254,6 +289,7 @@
 			const patch: Record<string, unknown> = {};
 
 			if (commonName !== originalName) patch.name = commonName;
+			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
 			const deps = commonDependencies
 				.split(',')
@@ -267,12 +303,7 @@
 
 			const maxItems = Number(catMaxItems) || 1;
 			const origMaxItems = Number(catOriginalMaxItems) || 1;
-			if (maxItems !== origMaxItems) {
-				(patch as IaTask).extractorConfig = {
-					count: maxItems,
-					description: maxItems === 1 ? 'category' : 'categories'
-				};
-			}
+			const maxChanged = maxItems !== origMaxItems;
 
 			const categoryNames = catCategories
 				.split(',')
@@ -282,14 +313,36 @@
 				.split(',')
 				.map((c) => c.trim())
 				.filter(Boolean);
-			if (JSON.stringify(categoryNames) !== JSON.stringify(origNames)) {
+			const namesChanged = JSON.stringify(categoryNames) !== JSON.stringify(origNames);
+
+			if (maxChanged || namesChanged) {
+				const effectiveNames =
+					categoryNames.length > 0 ? categoryNames : viewState.categories.map((c) => c.name);
+				const catDesc = maxItems === 1 ? 'category' : 'categories';
+				const countBasedSysMsg =
+					maxItems === 1 ? 'a single category name' : `${maxItems} category names`;
+				const countBasedUserMsg = maxItems === 1 ? 'a category' : `${maxItems} categories`;
+
+				(patch as IaTask).extractorConfig = {
+					count: maxItems,
+					description: catDesc
+				};
 				patch.categoryNames = categoryNames.length > 0 ? categoryNames : undefined;
+				patch.systemMessage = `You are a data extraction assistant. Return only a JSON array with exactly ${countBasedSysMsg}. No markdown, no explanations.`;
+				patch.userMessage = `Give ${countBasedUserMsg} from this ones: ${effectiveNames.join(', ')}.`;
+				patch.completionOptions = {
+					...(commonCompletionOptions as Record<string, unknown>),
+					grammar: arrayToGbnf(effectiveNames, { minItems: maxItems, maxItems })
+				};
 			}
 
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 
-			if (Object.keys(patch).length === 0) return;
+			if (Object.keys(patch).length === 0) {
+				onClose?.();
+				return;
+			}
 			void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
 		} else {
 			const deps = commonDependencies
@@ -318,6 +371,7 @@
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 		}
+		onClose?.();
 	}
 
 	async function handleSaveRecursive() {
@@ -330,25 +384,44 @@
 		const renderOrder =
 			commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
 
-		const newTask = buildRecursiveTask(
-			isEditingRecursive ? _task.id : `${_task.id} > ${Date.now()}`,
-			{
+		if (isEditingRecursive) {
+			const effectiveId = commonId.trim() || _task.id;
+
+			if (effectiveId !== _task.id) {
+				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
+			}
+
+			const newTask = buildRecursiveTask(effectiveId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				chunkCount: Number(recChunkCount) || 4,
+				windowSize: Number(recWindowSize) || 1000,
+				overlap: Number(recOverlap) || 100,
+				userMessage: recUserMessage,
+				finalUserMessage: recFinalUserMessage,
+				model: viewState.aiModel,
+				renderOrder:
+					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
+				persist: true
+			});
+			workflowManager.addTask(targetRunId, newTask);
+			void workflowManager.rerunTask(targetRunId, effectiveId);
+		} else {
+			const newTask = buildRecursiveTask(`${_task.id} > ${Date.now()}`, {
+				name: commonName || undefined,
+				dependencies: deps.length > 0 ? deps : undefined,
+				windowSize: Number(recWindowSize) || 1000,
+				overlap: Number(recOverlap) || 100,
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true
-			}
-		);
-		workflowManager.addTask(targetRunId, newTask);
-		void workflowManager.rerunTask(targetRunId, newTask.id);
-
-		if (!isEditingRecursive) {
+			});
+			workflowManager.addTask(targetRunId, newTask);
+			void workflowManager.rerunTask(targetRunId, newTask.id);
 			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 		}
+		onClose?.();
 	}
 
 	function handleCancel() {
@@ -358,6 +431,7 @@
 		} else {
 			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
 		}
+		onClose?.();
 	}
 </script>
 
@@ -378,6 +452,7 @@
 			/>
 		</Label>
 		<Input bind:value={commonName} label="Task name" />
+		<Input bind:value={commonId} label="Task id" />
 		<Input id="render-order" bind:value={commonRenderOrder} label="Render order" />
 	</div>
 
@@ -391,47 +466,50 @@
 		</div>
 	</Spacer>
 
-	<Tabs {tabs} bind:activeTab />
+	<div class="edit-tabs-container">
+		<Tabs {tabs} bind:activeTab />
 
-	{#if activeTab === 'custom'}
-		<div class="tab-content">
-			<div class="actions">
-				<Button onClick={handleCancel}>Cancel</Button>
-				<Button icon="Save" onClick={handleSave}>Save</Button>
+		{#if activeTab === 'custom'}
+			<div class="tab-content">
+				<div class="actions">
+					<Button onClick={handleCancel}>Cancel</Button>
+					<Button icon="Save" onClick={handleSave}>Save</Button>
+				</div>
 			</div>
-		</div>
-	{:else if activeTab === 'extraction'}
-		<div class="tab-content">
-			<Input bind:value={extCount} label="Count" />
-			<Input bind:value={extDescription} label="Description" />
-			<div class="actions">
-				<Button onClick={handleCancel}>Cancel</Button>
-				<Button onClick={handleSaveExtraction}>Save</Button>
+		{:else if activeTab === 'extraction'}
+			<div class="tab-content">
+				<Input bind:value={extCount} label="Count" />
+				<Input bind:value={extDescription} label="Description" />
+				<div class="actions">
+					<Button onClick={handleCancel}>Cancel</Button>
+					<Button onClick={handleSaveExtraction}>Save</Button>
+				</div>
 			</div>
-		</div>
-	{:else if activeTab === 'category'}
-		<div class="tab-content">
-			<Input
-				bind:value={catCategories}
-				label="Categories (comma-separated, leave empty for default)"
-			/>
-			<Input bind:value={catMaxItems} label="Max items" />
-			<div class="actions">
-				<Button onClick={handleCancel}>Cancel</Button>
-				<Button onClick={handleSaveCategory}>Save</Button>
+		{:else if activeTab === 'category'}
+			<div class="tab-content">
+				<Input
+					bind:value={catCategories}
+					label="Categories (comma-separated, leave empty for default)"
+				/>
+				<Input bind:value={catMaxItems} label="Max items" />
+				<div class="actions">
+					<Button onClick={handleCancel}>Cancel</Button>
+					<Button onClick={handleSaveCategory}>Save</Button>
+				</div>
 			</div>
-		</div>
-	{:else if activeTab === 'recursive'}
-		<div class="tab-content">
-			<Input bind:value={recChunkCount} label="Chunk count" />
-			<Input bind:value={recUserMessage} label="Per-chunk prompt" />
-			<Input bind:value={recFinalUserMessage} label="Final prompt" />
-			<div class="actions">
-				<Button onClick={handleCancel}>Cancel</Button>
-				<Button onClick={handleSaveRecursive}>Save</Button>
+		{:else if activeTab === 'recursive'}
+			<div class="tab-content">
+				<Input bind:value={recWindowSize} label="Window size (chars)" />
+				<Input bind:value={recOverlap} label="Overlap (chars)" />
+				<Input bind:value={recUserMessage} label="Per-chunk prompt" />
+				<Input bind:value={recFinalUserMessage} label="Final prompt" />
+				<div class="actions">
+					<Button onClick={handleCancel}>Cancel</Button>
+					<Button onClick={handleSaveRecursive}>Save</Button>
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -445,6 +523,10 @@
 	.tab-content {
 		display: grid;
 		gap: 0.75rem;
+	}
+
+	.edit-tabs-container {
+		padding: 2rem;
 	}
 
 	.form-grid {

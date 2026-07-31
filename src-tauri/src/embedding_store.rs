@@ -1,7 +1,10 @@
 use std::fs;
 use std::sync::Arc;
 
-use arrow::array::{FixedSizeListArray, Float32Array, Float64Array, Int64Array, RecordBatch, StringArray};
+use arrow::array::{
+	Array, FixedSizeListArray, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch,
+	StringArray,
+};
 use arrow::datatypes::{DataType, Field, Float32Type, Schema};
 use futures::StreamExt;
 use lancedb::connect;
@@ -20,6 +23,10 @@ pub struct ChunkInput {
 	pub chunk_text: String,
 	pub embedding: Vec<f32>,
 	pub created_at: Option<i64>,
+	pub category: Option<String>,
+	pub profile_id: Option<String>,
+	pub model_name: Option<String>,
+	pub model_dimensions: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +36,10 @@ pub struct SearchChunkResult {
 	pub article_url: String,
 	pub chunk_text: String,
 	pub distance: f64,
+	pub category: Option<String>,
+	pub profile_id: Option<String>,
+	pub model_name: Option<String>,
+	pub model_dimensions: Option<i32>,
 }
 
 fn now_millis() -> i64 {
@@ -58,6 +69,10 @@ fn chunk_schema(dim: i32) -> Arc<Schema> {
 			false,
 		),
 		Field::new("created_at", DataType::Int64, false),
+		Field::new("category", DataType::Utf8, true),
+		Field::new("profile_id", DataType::Utf8, true),
+		Field::new("model_name", DataType::Utf8, true),
+		Field::new("model_dimensions", DataType::Int32, true),
 	]))
 }
 
@@ -68,6 +83,10 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 	let mut texts: Vec<String> = Vec::with_capacity(count);
 	let mut embeddings: Vec<Option<Vec<Option<f32>>>> = Vec::with_capacity(count);
 	let mut created_ats: Vec<i64> = Vec::with_capacity(count);
+	let mut categories: Vec<Option<&str>> = Vec::with_capacity(count);
+	let mut profile_ids: Vec<Option<&str>> = Vec::with_capacity(count);
+	let mut model_names: Vec<Option<&str>> = Vec::with_capacity(count);
+	let mut model_dimensions_values: Vec<Option<i32>> = Vec::with_capacity(count);
 
 	let now = now_millis();
 
@@ -77,6 +96,10 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 		texts.push(chunk.chunk_text.clone());
 		embeddings.push(Some(chunk.embedding.iter().map(|&v| Some(v)).collect()));
 		created_ats.push(chunk.created_at.unwrap_or(now));
+		categories.push(chunk.category.as_deref());
+		profile_ids.push(chunk.profile_id.as_deref());
+		model_names.push(chunk.model_name.as_deref());
+		model_dimensions_values.push(chunk.model_dimensions);
 	}
 
 	let id_array = Arc::new(StringArray::from(ids));
@@ -87,10 +110,24 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 		dim,
 	));
 	let created_at_array = Arc::new(Int64Array::from(created_ats));
+	let category_array = Arc::new(StringArray::from(categories));
+	let profile_id_array = Arc::new(StringArray::from(profile_ids));
+	let model_name_array = Arc::new(StringArray::from(model_names));
+	let model_dimensions_array = Arc::new(Int32Array::from(model_dimensions_values));
 
 	RecordBatch::try_new(
 		schema.clone(),
-		vec![id_array, url_array, text_array, embedding_array, created_at_array],
+		vec![
+			id_array,
+			url_array,
+			text_array,
+			embedding_array,
+			created_at_array,
+			category_array,
+			profile_id_array,
+			model_name_array,
+			model_dimensions_array,
+		],
 	)
 	.map_err(|e: arrow::error::ArrowError| e.to_string())
 }
@@ -109,25 +146,15 @@ pub async fn index_chunks(app: AppHandle, chunks: Vec<ChunkInput>) -> Result<usi
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
 
-	match db.open_table(CHUNKS_TABLE).execute().await {
-		Ok(table) => {
-			let schema = chunk_schema(dim);
-			let batch = build_batch(&chunks, &schema, dim)?;
-			table
-				.add(vec![batch])
-				.execute()
-				.await
-				.map_err(|e: lancedb::Error| e.to_string())?;
-		}
-		Err(_) => {
-			let schema = chunk_schema(dim);
-			let batch = build_batch(&chunks, &schema, dim)?;
-			db.create_table(CHUNKS_TABLE, vec![batch])
-				.execute()
-				.await
-				.map_err(|e: lancedb::Error| e.to_string())?;
-		}
-	}
+	// Drop existing table and recreate fresh (schema migration strategy)
+	let _ = db.drop_table(CHUNKS_TABLE, &[] as &[String]).await;
+
+	let schema = chunk_schema(dim);
+	let batch = build_batch(&chunks, &schema, dim)?;
+	db.create_table(CHUNKS_TABLE, vec![batch])
+		.execute()
+		.await
+		.map_err(|e: lancedb::Error| e.to_string())?;
 
 	let table = db
 		.open_table(CHUNKS_TABLE)
@@ -142,12 +169,24 @@ pub async fn index_chunks(app: AppHandle, chunks: Vec<ChunkInput>) -> Result<usi
 	Ok(chunks.len())
 }
 
+fn build_filter_pair(column: &str, value: &str) -> String {
+	format!("{} = '{}'", column, value.replace('\'', "''"))
+}
+
+fn build_filter_pair_int(column: &str, value: i32) -> String {
+	format!("{} = {}", column, value)
+}
+
 #[tauri::command]
 pub async fn search_similar_chunks(
 	app: AppHandle,
 	embedding: Vec<f32>,
 	limit: Option<usize>,
 	article_url: Option<String>,
+	category: Option<String>,
+	profile_id: Option<String>,
+	model_name: Option<String>,
+	model_dimensions: Option<i32>,
 ) -> Result<Vec<SearchChunkResult>, String> {
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
@@ -157,10 +196,28 @@ pub async fn search_similar_chunks(
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
 
-	let mut query = table.query();
+	let mut filters: Vec<String> = Vec::new();
 
 	if let Some(ref url) = article_url {
-		query = query.only_if(format!("article_url = '{}'", escape_sql_ident(url)));
+		filters.push(build_filter_pair("article_url", url));
+	}
+	if let Some(ref cat) = category {
+		filters.push(build_filter_pair("category", cat));
+	}
+	if let Some(ref pid) = profile_id {
+		filters.push(build_filter_pair("profile_id", pid));
+	}
+	if let Some(ref mn) = model_name {
+		filters.push(build_filter_pair("model_name", mn));
+	}
+	if let Some(md) = model_dimensions {
+		filters.push(build_filter_pair_int("model_dimensions", md));
+	}
+
+	let mut query = table.query();
+
+	if !filters.is_empty() {
+		query = query.only_if(filters.join(" AND "));
 	}
 
 	let mut stream = query
@@ -195,6 +252,27 @@ pub async fn search_similar_chunks(
 			.downcast_ref::<StringArray>()
 			.ok_or("column 2 is not StringArray")?;
 
+		let categories: &StringArray = batch
+			.column(5)
+			.as_any()
+			.downcast_ref::<StringArray>()
+			.ok_or("column 5 is not StringArray")?;
+		let profile_ids: &StringArray = batch
+			.column(6)
+			.as_any()
+			.downcast_ref::<StringArray>()
+			.ok_or("column 6 is not StringArray")?;
+		let model_names: &StringArray = batch
+			.column(7)
+			.as_any()
+			.downcast_ref::<StringArray>()
+			.ok_or("column 7 is not StringArray")?;
+		let model_dimensions_col: &Int32Array = batch
+			.column(8)
+			.as_any()
+			.downcast_ref::<Int32Array>()
+			.ok_or("column 8 is not Int32Array")?;
+
 		let dist_col = batch
 			.column_by_name("_distance")
 			.ok_or("_distance column not found")?;
@@ -212,6 +290,10 @@ pub async fn search_similar_chunks(
 				article_url: urls.value(i).to_string(),
 				chunk_text: texts.value(i).to_string(),
 				distance: dist_values[i],
+				category: if categories.is_null(i) { None } else { Some(categories.value(i).to_string()) },
+				profile_id: if profile_ids.is_null(i) { None } else { Some(profile_ids.value(i).to_string()) },
+				model_name: if model_names.is_null(i) { None } else { Some(model_names.value(i).to_string()) },
+				model_dimensions: if model_dimensions_col.is_null(i) { None } else { Some(model_dimensions_col.value(i)) },
 			});
 		}
 	}

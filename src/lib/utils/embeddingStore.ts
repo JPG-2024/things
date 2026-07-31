@@ -5,6 +5,10 @@ export interface ChunkInput {
 	chunkText: string;
 	embedding: number[];
 	createdAt?: number;
+	category?: string;
+	profileId?: string;
+	modelName?: string;
+	modelDimensions?: number;
 }
 
 export interface SearchChunkResult {
@@ -12,12 +16,20 @@ export interface SearchChunkResult {
 	articleUrl: string;
 	chunkText: string;
 	distance: number;
+	category?: string;
+	profileId?: string;
+	modelName?: string;
+	modelDimensions?: number;
 }
 
 export interface SearchChunksParams {
 	embedding: number[];
 	limit?: number;
 	articleUrl?: string;
+	category?: string;
+	profileId?: string;
+	modelName?: string;
+	modelDimensions?: number;
 }
 
 export async function indexChunks(chunks: ChunkInput[]): Promise<number> {

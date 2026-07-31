@@ -10,7 +10,7 @@ import {
 	DEFAULT_TITLE_COMPLETION_OPTIONS,
 	SUMMARY_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
-import { splitIntoNChunks } from '@/lib/utils/splitText';
+import { splitForEmbeddings } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
@@ -192,14 +192,16 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 }
 
 export type RecursiveContentResult = {
-	chunksSummaries: string[];
-	finalSummary: string;
+	chunks: string[];
+	rawChunks: string[];
+	finalResponse: string;
 };
 
 export type CreateRecursiveContentTaskOptions = {
 	name?: string;
 	dependencies?: string[];
-	chunkCount?: number;
+	windowSize?: number;
+	overlap?: number;
 	systemMessage?: string;
 	userMessage?: string;
 	finalUserMessage?: string;
@@ -217,8 +219,9 @@ export type CreateRecursiveContentTaskOptions = {
 };
 
 const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
-	chunksSummaries: z.array(z.string()),
-	finalSummary: z.string()
+	chunks: z.array(z.string()),
+	rawChunks: z.array(z.string()),
+	finalResponse: z.string()
 });
 
 export function createRecursiveContentTask(
@@ -231,7 +234,7 @@ export function createRecursiveContentTask(
 		name: options?.name,
 		subtype: 'recursive',
 		dependencies,
-		component: options?.componentProps ? 'taskBase' : undefined,
+		component: 'recursive',
 		componentProps: options?.componentProps,
 		gridSpan: options?.gridSpan,
 		renderOrder: options?.renderOrder,
@@ -242,21 +245,24 @@ export function createRecursiveContentTask(
 			if (typeof content !== 'string')
 				throw new Error(`Missing content from dependency "${sourceDependency}"`);
 
-			const chunkCount = options?.chunkCount ?? viewState.chunkCountSplitTask;
-			const chunks = splitIntoNChunks(content, chunkCount);
+			const windowSize = options?.windowSize ?? 3000;
+			const overlap = options?.overlap ?? Math.floor(windowSize * 0.1);
+			const sections = splitForEmbeddings(content, { windowSize, overlap }).map((c) => c.text);
 
 			const systemMsg =
 				options?.systemMessage ??
-				'You are a professional content summarizer. Write a concise and clear summary.';
-			const chunkPrompt = options?.userMessage ?? 'Summarize this section concisely.';
+				'You are a professional content summarizer. Write a concise and clear summary, only summmary. no titles';
+			const chunkPrompt =
+				options?.userMessage ?? 'Summarize this section concisely, only summmary. no titles';
 			const finalPrompt =
-				options?.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
+				options?.finalUserMessage ??
+				'Combine these section summaries into one coherent summary. no title.';
 			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
 			const baseOpts = options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS;
 
-			const chunksSummaries: string[] = [];
+			const chunks: string[] = [];
 
-			for (const chunk of chunks) {
+			for (const chunk of sections) {
 				const response = await chatCompletions({
 					...baseOpts,
 					model,
@@ -267,11 +273,11 @@ export function createRecursiveContentTask(
 					]
 				});
 				const text = response.choices?.[0]?.message?.content ?? '';
-				chunksSummaries.push(typeof text === 'string' ? text.trim() : '');
+				chunks.push(typeof text === 'string' ? text.trim() : '');
 			}
 
-			const combined = chunksSummaries.join('\n\n');
-			const finalResponse = await chatCompletions({
+			const combined = chunks.join('\n\n');
+			const finalCompletion = await chatCompletions({
 				...baseOpts,
 				model,
 				stream: false,
@@ -280,16 +286,17 @@ export function createRecursiveContentTask(
 					{ role: 'user', content: `${finalPrompt}\n\n${combined}` }
 				]
 			});
-			const finalText = finalResponse.choices?.[0]?.message?.content ?? '';
-			const finalSummary = typeof finalText === 'string' ? finalText.trim() : '';
+			const finalText = finalCompletion.choices?.[0]?.message?.content ?? '';
+			const finalResponse = typeof finalText === 'string' ? finalText.trim() : '';
 
-			return { chunksSummaries, finalSummary };
+			return { chunks, rawChunks: sections, finalResponse };
 		}
 	});
 }
 
 export interface RecursiveConfig {
-	chunkCount: number;
+	windowSize: number;
+	overlap: number;
 	userMessage: string;
 	finalUserMessage: string;
 }
@@ -298,7 +305,8 @@ export function buildRecursiveTask(
 	id: string,
 	options: CreateRecursiveContentTaskOptions & { model?: string }
 ): Task {
-	const chunkCount = options.chunkCount ?? viewState.chunkCountSplitTask;
+	const windowSize = options.windowSize ?? 1000;
+	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
 	const userMessage = options.userMessage ?? 'Summarize this section concisely.';
 	const finalUserMessage =
 		options.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
@@ -313,7 +321,12 @@ export function buildRecursiveTask(
 			...((typeof options.componentProps === 'object' && options.componentProps !== null
 				? options.componentProps
 				: {}) as Record<string, unknown>),
-			recursiveConfig: { chunkCount, userMessage, finalUserMessage } satisfies RecursiveConfig
+			recursiveConfig: {
+				windowSize,
+				overlap,
+				userMessage,
+				finalUserMessage
+			} satisfies RecursiveConfig
 		}
 	});
 	return buildScriptTaskFromDef(id, def);
