@@ -12,7 +12,7 @@
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import TemplateManager from './TemplateManager.svelte';
 
-	const TOOLBAR_ICON_SIZE = 20;
+	const TOOLBAR_ICON_SIZE = 18;
 
 	interface Props {
 		headerContent?: any;

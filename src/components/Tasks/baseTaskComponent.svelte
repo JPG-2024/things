@@ -40,6 +40,7 @@
 	);
 	const pillStatus = $derived(statusToPillStatus(task.status));
 
+	let taskOpen = $state(false);
 	let showEditModal = $state(false);
 
 	function handleRerun() {
@@ -71,12 +72,20 @@
 		if (!targetRunId) return;
 		workflowManager.removeTask(targetRunId, task.id);
 	}
-
-	$inspect(task);
 </script>
 
 <div class="task-shell">
-	<Spacer title={task.name ?? task.id} defaultOpen={spacerDefaultOpen}>
+	<Spacer opened={taskOpen} defaultOpen={spacerDefaultOpen}>
+		{#snippet titleSlot()}
+			<span class="task-title-with-status">
+				<LuminousText mode={taskOpen ? 'on' : 'off'}>
+					<span>{task.name ?? task.id}</span>
+				</LuminousText>
+				<div class="pill-container">
+					<Pill status={pillStatus} text={task.status ?? 'pending'} showPoint />
+				</div>
+			</span>
+		{/snippet}
 		<div class="task-info">
 			<div class="task-toolbar">
 				<Icon
@@ -190,20 +199,17 @@
 		padding: 0 2rem;
 		padding-bottom: 3rem;
 		border-radius: 5px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-		background-color: rgb(17, 17, 17);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.5);
 	}
 
-	.task-spacer-title {
+	.pill-container {
+		padding-bottom: 2px;
+	}
+
+	.task-title-with-status {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		font-size: 0.9em;
-	}
-
-	.task-id-title {
-		color: rgb(255, 255, 255, 0.5);
-		text-transform: capitalize;
 	}
 
 	.task-content {
@@ -225,21 +231,6 @@
 		margin-left: 1rem;
 	}
 
-	.task-action {
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.04);
-		padding: 0.45rem 0.9rem;
-		color: inherit;
-		font: inherit;
-		font-size: 0.8rem;
-		cursor: pointer;
-		transition:
-			background 0.2s ease,
-			border-color 0.2s ease,
-			transform 0.2s ease;
-	}
-
 	.task-action:hover {
 		border-color: rgba(255, 255, 255, 0.3);
 		background: rgba(255, 255, 255, 0.08);
@@ -251,29 +242,6 @@
 		flex-direction: column;
 		gap: 0.8rem;
 		font-size: 0.82rem;
-	}
-
-	.task-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		align-items: center;
-	}
-
-	.dependencies-field {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.dependencies-field > span {
-		opacity: 0.82;
-	}
-
-	.dependency-pills {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
-		align-items: center;
 	}
 
 	.result-data {

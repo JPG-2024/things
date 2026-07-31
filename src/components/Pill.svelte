@@ -12,7 +12,7 @@
 </script>
 
 <span class={`pill ${status} ${tag ? 'tag' : ''} ${showPoint ? 'show-point' : ''}`}>
-	{text}
+	{text === 'done' ? '' : text}
 </span>
 
 <style>
@@ -26,14 +26,14 @@
 		background-size: 200% 200%;
 		line-height: 1.2;
 		width: max-content;
-		padding: 7px 15px;
+		padding: 4px 15px;
 		font-weight: bold;
 		text-transform: capitalize;
 	}
 
 	.pill.show-point::before {
 		content: '●';
-		font-size: 0.5rem;
+		font-size: 0.8rem;
 	}
 
 	.pill.show-point.loading::before {

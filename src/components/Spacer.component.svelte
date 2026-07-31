@@ -22,19 +22,26 @@
 		titleSlot,
 		icon,
 		defaultOpen = false,
-		opened,
+		opened = $bindable(),
 		forcedClosed = false,
 		showOnlyContent = false,
 		children
 	}: Props = $props();
 
-	let open = $state(opened || defaultOpen);
+	let open = $state(opened ?? defaultOpen);
 	let resolvedSize = $derived(typeof size === 'number' ? `${size}px` : size);
 	let effectiveOpen = $derived(forcedClosed ? false : open);
+
+	$effect(() => {
+		if (opened !== undefined) {
+			open = opened;
+		}
+	});
 
 	function toggle() {
 		if (!forcedClosed) {
 			open = !open;
+			opened = open;
 		}
 	}
 

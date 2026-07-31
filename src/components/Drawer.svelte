@@ -3,8 +3,17 @@
 	import { drawersState } from '@/stores/viewStore.svelte';
 	import type { Snippet } from 'svelte';
 
-	let { name, children, onClose }: { name: string; children?: Snippet; onClose?: () => void } =
-		$props();
+	let {
+		name,
+		children,
+		onClose,
+		side = 'left'
+	}: {
+		name: string;
+		children?: Snippet;
+		onClose?: () => void;
+		side?: 'bottom' | 'left';
+	} = $props();
 
 	const isOpen = $derived(drawersState.isOpen(name));
 	let wasOpen = $state(false);
@@ -15,7 +24,6 @@
 
 	$effect(() => {
 		if (wasOpen && !isOpen) {
-			console.log('Drawer closed, calling onClose');
 			onClose?.();
 		}
 		wasOpen = isOpen;
@@ -23,11 +31,13 @@
 </script>
 
 {#if isOpen}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="drawer-backdrop" role="presentation" onclick={handleClose}>
 		<div
 			class="drawer-panel"
-			in:slide={{ axis: 'y', duration: 150 }}
-			out:slide={{ axis: 'y', duration: 150 }}
+			class:left={side === 'left'}
+			in:slide={{ axis: side === 'left' ? 'x' : 'y', duration: 150 }}
+			out:slide={{ axis: side === 'left' ? 'x' : 'y', duration: 150 }}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{@render children?.()}
@@ -69,5 +79,29 @@
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;
+	}
+
+	.drawer-panel.left {
+		top: 0;
+		bottom: auto;
+		left: 0;
+		width: 400px;
+		height: 100%;
+	}
+
+	.drawer-panel.left::after {
+		top: 0;
+		right: 0;
+		left: auto;
+		width: 1px;
+		height: 100%;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--primary-color) 1%, transparent) 0%,
+			color-mix(in srgb, var(--primary-color) 90%, transparent) 50%,
+			color-mix(in srgb, var(--primary-color) 1%, transparent) 100%,
+			transparent 100%
+		);
+		border-radius: 0 0 0 30px;
 	}
 </style>
