@@ -26,8 +26,8 @@ class ArticleCacheStore {
 
 	private profilesFetchedAt = 0;
 	private articlesFetchedAt = 0;
-	private profilesFetching: Promise<void> | null = null;
-	private articlesFetching: Promise<void> | null = null;
+	private profilesFetchId = 0;
+	private articlesFetchId = 0;
 
 	async fetchProfilesWithArticles(options?: {
 		force?: boolean;
@@ -39,24 +39,7 @@ class ArticleCacheStore {
 			return;
 		}
 
-		if (this.profilesFetching) {
-			await this.profilesFetching;
-			return;
-		}
-
-		this.profilesFetching = this._doFetchProfiles(options);
-		try {
-			await this.profilesFetching;
-		} finally {
-			this.profilesFetching = null;
-		}
-	}
-
-	private async _doFetchProfiles(options?: {
-		force?: boolean;
-		loadMore?: boolean;
-		categoryIds?: string[];
-	}) {
+		const fetchId = ++this.profilesFetchId;
 		this.loadingProfiles = true;
 		try {
 			const offset = options?.loadMore ? this.profilesOffset : 0;
@@ -65,6 +48,10 @@ class ArticleCacheStore {
 				limit: PROFILES_PAGE_SIZE,
 				categoryIds: options?.categoryIds
 			});
+
+			if (fetchId !== this.profilesFetchId) {
+				return;
+			}
 
 			if (options?.loadMore) {
 				this.profilesWithArticles = [...this.profilesWithArticles, ...result];
@@ -76,7 +63,9 @@ class ArticleCacheStore {
 			this.hasMoreProfiles = result.length >= PROFILES_PAGE_SIZE;
 			this.profilesFetchedAt = Date.now();
 		} finally {
-			this.loadingProfiles = false;
+			if (fetchId === this.profilesFetchId) {
+				this.loadingProfiles = false;
+			}
 		}
 	}
 
@@ -91,25 +80,7 @@ class ArticleCacheStore {
 			return;
 		}
 
-		if (this.articlesFetching) {
-			await this.articlesFetching;
-			return;
-		}
-
-		this.articlesFetching = this._doFetchArticles(options);
-		try {
-			await this.articlesFetching;
-		} finally {
-			this.articlesFetching = null;
-		}
-	}
-
-	private async _doFetchArticles(options?: {
-		force?: boolean;
-		loadMore?: boolean;
-		categoryIds?: string[];
-		onlyWithoutProfile?: boolean;
-	}) {
+		const fetchId = ++this.articlesFetchId;
 		this.loadingArticles = true;
 		try {
 			const offset = options?.loadMore ? this.articlesOffset : 0;
@@ -119,6 +90,10 @@ class ArticleCacheStore {
 				limit: ARTICLES_PAGE_SIZE,
 				onlyWithoutProfile: options?.onlyWithoutProfile
 			});
+
+			if (fetchId !== this.articlesFetchId) {
+				return;
+			}
 
 			if (options?.loadMore) {
 				this.articlesWithoutProfile = [...this.articlesWithoutProfile, ...result.articles];
@@ -131,7 +106,9 @@ class ArticleCacheStore {
 			this.hasMoreArticles = this.articlesOffset < result.total;
 			this.articlesFetchedAt = Date.now();
 		} finally {
-			this.loadingArticles = false;
+			if (fetchId === this.articlesFetchId) {
+				this.loadingArticles = false;
+			}
 		}
 	}
 
