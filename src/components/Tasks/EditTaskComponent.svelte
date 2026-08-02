@@ -11,7 +11,8 @@
 		buildTask,
 		buildRecursiveTask,
 		createCategoryTask,
-		createExtractionTask
+		createExtractionTask,
+		createIaTask
 	} from '@/runners/shared/taskFactories';
 	import type { RecursiveConfig } from '@/runners/shared/taskFactories';
 	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
@@ -24,13 +25,15 @@
 		runId?: string;
 		componentProps?: TaskComponentProps;
 		onClose?: () => void;
+		mode?: 'create' | 'edit';
 	};
 
 	let {
 		task: _task,
 		runId: _runId = undefined,
 		componentProps: _componentProps = {},
-		onClose = undefined
+		onClose = undefined,
+		mode = 'edit'
 	}: Props = $props();
 
 	const isIaTask = $derived(_task.type === 'ia');
@@ -185,7 +188,35 @@
 	void _componentProps;
 
 	async function handleSave() {
-		if (!targetRunId || !isEditableIa) return;
+		if (!targetRunId) return;
+
+		const deps = commonDependencies
+			.split(',')
+			.map((d) => d.trim())
+			.filter(Boolean);
+
+		if (mode === 'create') {
+			const def = createIaTask({
+				name: commonName || undefined,
+				dependencies: deps.length > 0 ? deps : undefined,
+				component: commonComponent.trim() || undefined,
+				systemMessage: commonSystemMessage || undefined,
+				userMessage: commonUserMessage || undefined,
+				completionOptions: commonCompletionOptions,
+				model: viewState.aiModel,
+				renderOrder: commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined,
+				persist: true,
+				enableTTS: commonEnableTTS || undefined
+			});
+			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const newTask = buildTask(def, taskId);
+			workflowManager.addTask(targetRunId, newTask);
+			void workflowManager.rerunTask(targetRunId, newTask.id);
+			onClose?.();
+			return;
+		}
+
+		if (!isEditableIa) return;
 
 		const patch: Record<string, unknown> = {};
 
@@ -203,10 +234,6 @@
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
-		const deps = commonDependencies
-			.split(',')
-			.map((d) => d.trim())
-			.filter(Boolean);
 		const origDeps = originalDependencies
 			.split(',')
 			.map((d) => d.trim())
@@ -278,7 +305,6 @@
 			const def = createExtractionTask({
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				component: commonComponent.trim() || undefined,
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true,
@@ -288,7 +314,9 @@
 			const newTask = buildTask(def, taskId);
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
-			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			if (mode === 'edit') {
+				workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			}
 		}
 		onClose?.();
 	}
@@ -373,7 +401,6 @@
 			const def = createCategoryTask({
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				component: commonComponent.trim() || undefined,
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true,
@@ -384,7 +411,9 @@
 			const newTask = buildTask(def, taskId);
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
-			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			if (mode === 'edit') {
+				workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			}
 		}
 		onClose?.();
 	}
@@ -425,7 +454,6 @@
 			const newTask = buildRecursiveTask(`${_task.id} > ${Date.now()}`, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				userMessage: recUserMessage,
@@ -436,12 +464,18 @@
 			});
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
-			workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			if (mode === 'edit') {
+				workflowManager.addTask(targetRunId, { ..._task, status: 'done' });
+			}
 		}
 		onClose?.();
 	}
 
 	function handleCancel() {
+		if (mode === 'create') {
+			onClose?.();
+			return;
+		}
 		if (!targetRunId) return;
 		if (isNew) {
 			workflowManager.removeTask(targetRunId, _task.id);
@@ -478,11 +512,13 @@
 	<Input bind:value={commonUserMessage} label="User message" />
 	<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
 
-	<Spacer title="Completion Options" defaultOpen={false}>
-		<div class="form-grid">
-			<CompletionOptionsEditor completionOptions={commonCompletionOptions} showStream={false} />
-		</div>
-	</Spacer>
+	<div class="completion-options-container">
+		<Spacer title="Completion Options" defaultOpen={false}>
+			<div class="form-grid">
+				<CompletionOptionsEditor completionOptions={commonCompletionOptions} showStream={false} />
+			</div>
+		</Spacer>
+	</div>
 
 	<div class="edit-tabs-container">
 		<Tabs {tabs} bind:activeTab />
@@ -566,8 +602,7 @@
 		gap: 1.5rem;
 	}
 
-	.grow {
-		flex: 1;
-		min-width: 100px;
+	.completion-options-container {
+		padding-top: 1rem;
 	}
 </style>

@@ -42,6 +42,8 @@
 
 	let taskOpen = $state(false);
 	let showEditModal = $state(false);
+	let draftTask = $state<Task | null>(null);
+	let createMode = $state(false);
 
 	function handleRerun() {
 		if (!targetRunId) return;
@@ -51,26 +53,37 @@
 	}
 
 	function openTaskEdit() {
+		createMode = false;
+		draftTask = null;
 		showEditModal = true;
 	}
 
 	function handleBranch() {
 		if (!targetRunId) return;
+		taskOpen = false;
 		const def = createIaTask({
 			dependencies: [task.id],
 			userMessage: '',
 			model: viewState.aiModel,
-			renderOrder: task.renderOrder + 0.01,
+			renderOrder: (task.renderOrder ?? 0) + 0.01,
 			persist: true
 		});
 		const newTask = buildTask(def, `${task.id} > ${Date.now()}`);
 		newTask.status = 'editing';
-		workflowManager.addTask(targetRunId, newTask);
+		draftTask = newTask;
+		createMode = true;
+		showEditModal = true;
 	}
 
 	function handleDelete() {
 		if (!targetRunId) return;
 		workflowManager.removeTask(targetRunId, task.id);
+	}
+
+	function handleModalClose() {
+		showEditModal = false;
+		draftTask = null;
+		createMode = false;
 	}
 </script>
 
@@ -137,14 +150,17 @@
 							)
 						},
 						{ key: 'dependencies', value: task.dependencies.join(', ') },
+						...(task.renderOrder != null ? [{ key: 'renderOrder', value: task.renderOrder }] : []),
 						...(task.component ? [{ key: 'component', value: task.component }] : [])
 					]}
 				/>
 
 				{#if task.data != null}
-					<DetailsPanel label="data:" hint={dataPreview(task.data)}>
-						<pre class="result-data">{formatData(task.data)}</pre>
-					</DetailsPanel>
+					<div class="data-block-container">
+						<DetailsPanel label="data:" hint={dataPreview(task.data)}>
+							<pre class="result-data">{formatData(task.data)}</pre>
+						</DetailsPanel>
+					</div>
 				{/if}
 
 				{#if task.status === 'failed'}
@@ -167,21 +183,22 @@
 	</div>
 </div>
 
-<Modal show={showEditModal} onClose={() => (showEditModal = false)}>
+<Modal show={showEditModal} onClose={handleModalClose}>
 	<div class="edit-modal">
 		<div class="edit-modal-header">
-			<p class="eyebrow">Edit task</p>
-			<h2>{task.name ?? task.id}</h2>
+			<p class="eyebrow">{createMode ? 'New task from' : 'Edit task'}</p>
+			<h2>{(createMode && draftTask ? draftTask : task).name ?? (createMode && draftTask ? draftTask : task).id}</h2>
 			<p class="edit-modal-meta">
-				<span>{task.type}</span>
-				<span>{task.status ?? 'pending'}</span>
+				<span>{(createMode && draftTask ? draftTask : task).type}</span>
+				<span>{(createMode && draftTask ? draftTask : task).status ?? 'pending'}</span>
 			</p>
 		</div>
 		<EditTaskComponent
-			{task}
+			task={createMode && draftTask ? draftTask : task}
 			runId={targetRunId}
 			{componentProps}
-			onClose={() => (showEditModal = false)}
+			mode={createMode ? 'create' : 'edit'}
+			onClose={handleModalClose}
 		/>
 	</div>
 </Modal>
@@ -196,7 +213,7 @@
 	}
 
 	.task-info {
-		padding: 0 2rem;
+		padding: 0 1rem;
 		padding-bottom: 3rem;
 		border-radius: 5px;
 		border-bottom: 1px solid var(--primary-color);
@@ -223,6 +240,10 @@
 		justify-content: flex-end;
 		gap: 1em;
 		padding: 1.5rem 0;
+	}
+
+	.data-block-container {
+		margin-top: 0.5rem;
 	}
 
 	.delete-action {
