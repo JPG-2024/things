@@ -40,18 +40,10 @@
 {#if recursiveData}
 	<div class="recursive-shell">
 		<div class="view-toggle">
-			<button
-				class="toggle-btn"
-				class:active={!showRaw}
-				onclick={() => (showRaw = false)}
-			>
+			<button class="toggle-btn" class:active={!showRaw} onclick={() => (showRaw = false)}>
 				Summary
 			</button>
-			<button
-				class="toggle-btn"
-				class:active={showRaw}
-				onclick={() => (showRaw = true)}
-			>
+			<button class="toggle-btn" class:active={showRaw} onclick={() => (showRaw = true)}>
 				Raw
 			</button>
 		</div>

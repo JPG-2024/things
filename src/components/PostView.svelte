@@ -83,6 +83,7 @@
 			tooltipProps={{ content: 'show all tasks' }}
 		/>
 		<Icon
+			color="var(--primary-color)"
 			name="RefreshCcw"
 			size={TOOLBAR_ICON_SIZE}
 			onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
@@ -90,6 +91,7 @@
 		/>
 
 		<Icon
+			color="var(--primary-color)"
 			name="Save"
 			size={TOOLBAR_ICON_SIZE}
 			tooltipProps={{ content: 'template manager' }}
@@ -103,12 +105,18 @@
 				disabled={isDeleting}
 				title="Delete article"
 			>
-				<Icon name="Trash" size={TOOLBAR_ICON_SIZE} tooltipProps={{ content: 'delete article' }} />
+				<Icon
+					name="Trash"
+					color="var(--primary-color)"
+					size={TOOLBAR_ICON_SIZE}
+					tooltipProps={{ content: 'delete article' }}
+				/>
 			</button>
 		{/if}
 
 		<LinkIcon url={viewState.url!} size={TOOLBAR_ICON_SIZE} />
 		<Icon
+			color="var(--primary-color)"
 			name="Settings"
 			size={TOOLBAR_ICON_SIZE}
 			title="Settings"

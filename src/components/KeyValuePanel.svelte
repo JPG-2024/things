@@ -62,7 +62,8 @@
 		align-items: center;
 		gap: 0.3rem;
 		white-space: nowrap;
-		border: 1px solid rgba(255, 255, 255, 0.2);
+		border: 1px solid rgba(var(--color), 0.8);
+
 		padding: 2px 10px;
 		border-radius: 5px;
 	}
@@ -79,7 +80,7 @@
 	}
 
 	.kv-key {
-		font-size: 0.82rem;
+		color: var(--primary-color);
 		opacity: 0.55;
 		white-space: nowrap;
 	}
@@ -90,6 +91,5 @@
 		font-variant-numeric: tabular-nums;
 		word-break: break-word;
 		min-width: 0;
-		color: var(--primary-color);
 	}
 </style>

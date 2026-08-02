@@ -349,9 +349,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 * @throws Error when validation fails.
 	 */
 	private validateTasks() {
-		const doneIds = new Set(
-			this.tasks.filter((t) => t.status === 'done').map((t) => t.id)
-		);
+		const doneIds = new Set(this.tasks.filter((t) => t.status === 'done').map((t) => t.id));
 		const result = this.graph.validate(doneIds);
 		if (!result.valid) {
 			throw new Error(result.errors[0]);

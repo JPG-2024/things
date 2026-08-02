@@ -15,6 +15,8 @@ export interface TrackDownload {
 class MusicState {
 	downloads = $state<TrackDownload[]>([]);
 	isDownloading = $state(false);
+	downloadFolder = $state('');
+	downloadPlaylist = $state(true);
 	private abortController: AbortController | null = null;
 	private submittedUrls = new Set<string>();
 
@@ -27,7 +29,9 @@ class MusicState {
 	}
 
 	async downloadTracks(urls: string[]): Promise<void> {
-		const newUrls = urls.filter((u) => !this.submittedUrls.has(u));
+		const processedUrls = this.downloadPlaylist ? urls : urls.map((u) => u.split('?')[0]);
+
+		const newUrls = processedUrls.filter((u) => !this.submittedUrls.has(u));
 		if (newUrls.length === 0) return;
 
 		for (const url of newUrls) {
@@ -50,10 +54,15 @@ class MusicState {
 		this.isDownloading = true;
 
 		try {
+			const body: Record<string, unknown> = { urls: newUrls };
+			if (this.downloadFolder) {
+				body.folder_name = this.downloadFolder;
+			}
+
 			const res = await fetch(`${WHISPER_API_URL}/tracks/download`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ urls: newUrls }),
+				body: JSON.stringify(body),
 				signal: controller.signal
 			});
 

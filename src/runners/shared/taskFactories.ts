@@ -209,6 +209,7 @@ export type CreateRecursiveContentTaskOptions = {
 	persist?: boolean;
 	renderOrder?: number;
 	gridSpan?: 1 | 2 | 3;
+	component?: string;
 	componentProps?: MaybeFn<Record<string, unknown>>;
 	onComplete?: (params: {
 		result: unknown;
@@ -234,7 +235,7 @@ export function createRecursiveContentTask(
 		name: options?.name,
 		subtype: 'recursive',
 		dependencies,
-		component: 'recursive',
+		component: options?.component ?? 'recursive',
 		componentProps: options?.componentProps,
 		gridSpan: options?.gridSpan,
 		renderOrder: options?.renderOrder,

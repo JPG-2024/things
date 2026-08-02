@@ -4,7 +4,7 @@ import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
 type language = 'en' | 'es';
 
-export const DEFAULT_PRIMARY_COLOR = 'rgb(211 227 254)';
+export const DEFAULT_PRIMARY_COLOR = 'rgba(255, 228, 140, 0.79)';
 
 class ViewState {
 	language = $state<language>('es');

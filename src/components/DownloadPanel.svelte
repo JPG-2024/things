@@ -2,6 +2,8 @@
 	import { musicState } from '@/stores/musicStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 
 	function handleClose() {
 		drawersState.close('downloads');
@@ -24,6 +26,18 @@
 				<Icon name="X" size={20} />
 			</button>
 		</div>
+	</div>
+
+	<div class="download-controls">
+		<Input bind:value={musicState.downloadFolder} placeholder="folder name" />
+		<button type="button" class="toggle-btn" aria-label="Toggle keep URL params">
+			<ToggleIcon
+				name="Link"
+				bind:checked={musicState.downloadPlaylist}
+				size={18}
+				tooltipProps={{ content: 'keep URL params' }}
+			/>
+		</button>
 	</div>
 
 	{#if musicState.downloads.length === 0}
@@ -126,6 +140,32 @@
 	}
 
 	.close-btn:hover {
+		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+	}
+
+	.download-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.download-controls .text-input {
+		flex: 1;
+	}
+
+	.toggle-btn {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		padding: 0.4rem;
+		border-radius: 6px;
+		transition: background 0.15s;
+	}
+
+	.toggle-btn:hover {
 		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 	}
 

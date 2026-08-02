@@ -18,9 +18,9 @@
 
 	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
 	const title = $derived(
-		((article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? '')
-			.slice(0, 100)
-			.concat('...')
+		(
+			(article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? ''
+		).slice(0, 200)
 	);
 </script>
 
@@ -62,18 +62,18 @@
 		align-items: center;
 		gap: 0.5rem;
 		transition: transform 0.15s;
-		font-size: 0.8em;
+		font-size: 0.9em;
 	}
 
 	.article-content {
 		display: flex;
-		gap: 0.9rem;
 		align-items: center;
 		width: 100%;
 	}
 
 	.article-title {
 		flex: 1;
+		font-weight: bold;
 	}
 
 	.article-card:hover {
@@ -84,12 +84,13 @@
 		flex: 0 0 30%;
 		position: relative;
 		display: inline-flex;
+		width: fit-content;
 	}
 
 	.article-thumbnail {
 		display: block;
-		border-radius: 12px;
-		width: 100%;
+		border-radius: 15px;
+		width: 80%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
 	}

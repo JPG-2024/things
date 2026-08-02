@@ -199,7 +199,7 @@
 		padding: 0 2rem;
 		padding-bottom: 3rem;
 		border-radius: 5px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+		border-bottom: 1px solid var(--primary-color);
 	}
 
 	.pill-container {

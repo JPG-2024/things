@@ -62,6 +62,7 @@
 
 	let commonId = $state('');
 	let commonName = $state('');
+	let commonComponent = $state('');
 	let commonSystemMessage = $state('');
 	let commonUserMessage = $state('');
 	let commonRenderOrder = $state('');
@@ -72,6 +73,7 @@
 
 	let originalId = $state('');
 	let originalName = $state('');
+	let originalComponent = $state('');
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
 	let originalRenderOrder = $state<number | undefined>(undefined);
@@ -102,11 +104,13 @@
 		commonId = _task.id ?? '';
 		originalId = _task.id ?? '';
 		commonName = _task.name ?? '';
+		commonComponent = _task.component ?? '';
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
 		commonEnableTTS = _task.enableTTS ?? false;
 
 		originalName = _task.name ?? '';
+		originalComponent = _task.component ?? '';
 		originalRenderOrder = _task.renderOrder;
 		originalDependencies = (_task.dependencies ?? []).join(', ');
 		originalEnableTTS = _task.enableTTS ?? false;
@@ -186,6 +190,9 @@
 		const patch: Record<string, unknown> = {};
 
 		if (commonName !== originalName) patch.name = commonName;
+		const trimmedComponent = commonComponent.trim();
+		const origComponent = originalComponent.trim();
+		if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 		if (JSON.stringify(commonCompletionOptions) !== originalCompletionOptions)
 			patch.completionOptions = commonCompletionOptions;
 		if (commonSystemMessage !== originalSystemMessage) patch.systemMessage = commonSystemMessage;
@@ -222,6 +229,9 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
+			const trimmedComponent = commonComponent.trim();
+			const origComponent = originalComponent.trim();
+			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 
 			const countChanged = extCount !== extOriginalCount;
 			const descChanged = extDescription !== extOriginalDescription;
@@ -268,6 +278,7 @@
 			const def = createExtractionTask({
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
+				component: commonComponent.trim() || undefined,
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true,
@@ -290,6 +301,9 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
+			const trimmedComponent = commonComponent.trim();
+			const origComponent = originalComponent.trim();
+			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 
 			const deps = commonDependencies
 				.split(',')
@@ -359,6 +373,7 @@
 			const def = createCategoryTask({
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
+				component: commonComponent.trim() || undefined,
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true,
@@ -394,6 +409,7 @@
 			const newTask = buildRecursiveTask(effectiveId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
+				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				userMessage: recUserMessage,
@@ -409,6 +425,7 @@
 			const newTask = buildRecursiveTask(`${_task.id} > ${Date.now()}`, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
+				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				userMessage: recUserMessage,
@@ -452,6 +469,7 @@
 			/>
 		</Label>
 		<Input bind:value={commonName} label="Task name" />
+		<Input bind:value={commonComponent} label="Component" />
 		<Input bind:value={commonId} label="Task id" />
 		<Input id="render-order" bind:value={commonRenderOrder} label="Render order" />
 	</div>

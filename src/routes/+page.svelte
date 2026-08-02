@@ -250,11 +250,7 @@
 		onclick={() => drawersState.open('downloads')}
 		aria-label="Open downloads"
 	>
-		<Icon
-			name="ListMusic"
-			color={musicState.downloads.length > 0 ? 'var(--primary-color)' : 'white'}
-			size={20}
-		/>
+		<Icon name="ListMusic" color="var(--primary-color)" size={20} />
 	</button>
 	<button
 		type="button"
