@@ -48,8 +48,6 @@ export async function handlePasteUrl(
 		return;
 	}
 
-	debugger;
-
 	if (validUrl && viewState.isRawMode) {
 		viewState.processingUrl = true;
 		try {

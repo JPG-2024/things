@@ -187,7 +187,10 @@
 	<div class="edit-modal">
 		<div class="edit-modal-header">
 			<p class="eyebrow">{createMode ? 'New task from' : 'Edit task'}</p>
-			<h2>{(createMode && draftTask ? draftTask : task).name ?? (createMode && draftTask ? draftTask : task).id}</h2>
+			<h2>
+				{(createMode && draftTask ? draftTask : task).name ??
+					(createMode && draftTask ? draftTask : task).id}
+			</h2>
 			<p class="edit-modal-meta">
 				<span>{(createMode && draftTask ? draftTask : task).type}</span>
 				<span>{(createMode && draftTask ? draftTask : task).status ?? 'pending'}</span>

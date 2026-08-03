@@ -127,12 +127,18 @@
 		}
 	);
 
+	let consecutiveClipboardErrors = 0;
+	const MAX_CONSECUTIVE_CLIPBOARD_ERRORS = 5;
+
 	onMount(() => {
-		const pollClipboard = async () => {
+		let clipboardInterval: ReturnType<typeof setInterval>;
+
+		async function pollClipboard() {
 			if (!viewState.clipboardPollingEnabled || viewState.processingUrl) return;
 
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
+				consecutiveClipboardErrors = 0;
 				const trimmed = (clipboardText ?? '').trim();
 
 				if (!trimmed || trimmed === viewState.lastHandledClipboardUrl) {
@@ -153,33 +159,46 @@
 					) {
 						viewState.urlQueue.push(trimmed);
 					}
+					viewState.lastHandledClipboardUrl = trimmed;
 					return;
 				}
 
 				await handlePasteUrl(trimmed);
 				viewState.lastHandledClipboardUrl = trimmed;
-			} catch {
-				viewState.clipboardPollingEnabled = false;
+			} catch (error) {
+				consecutiveClipboardErrors += 1;
+				console.warn('[clipboard-poll] error', {
+					attempt: consecutiveClipboardErrors,
+					error
+				});
+				if (consecutiveClipboardErrors >= MAX_CONSECUTIVE_CLIPBOARD_ERRORS) {
+					viewState.clipboardPollingEnabled = false;
+					console.warn(
+						'[clipboard-poll] disabled after',
+						MAX_CONSECUTIVE_CLIPBOARD_ERRORS,
+						'consecutive failures'
+					);
+				}
 			}
-		};
+		}
 
 		void pollClipboard();
-		const clipboardInterval = setInterval(() => {
+		clipboardInterval = setInterval(() => {
 			void pollClipboard();
 		}, CLIPBOARD_POLL_INTERVAL_MS);
 
-		/* 		const flashyInterval = setInterval(() => {
-			if (viewState.loading) return;
-
-			flashy = true;
-			setTimeout(() => {
-				flashy = false;
-			}, 2000);
-		}, 18000); */
+		function handleVisible() {
+			if (document.visibilityState === 'visible') {
+				void pollClipboard();
+			}
+		}
+		document.addEventListener('visibilitychange', handleVisible);
+		window.addEventListener('focus', handleVisible);
 
 		return () => {
-			//clearInterval(flashyInterval);
 			clearInterval(clipboardInterval);
+			document.removeEventListener('visibilitychange', handleVisible);
+			window.removeEventListener('focus', handleVisible);
 		};
 	});
 </script>

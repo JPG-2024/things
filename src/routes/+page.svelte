@@ -19,6 +19,8 @@
 	import ArticleList from '@/components/ArticleList.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import Toolbar from '@/components/Toolbar.svelte';
+	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
 	import { musicState } from '@/stores/musicStore.svelte';
 	import type { Task } from '@/types/taskRunner.types';
@@ -127,8 +129,8 @@
 			}
 
 			await handlePasteUrl(trimmed);
-		} catch {
-			viewState.clipboardPollingEnabled = false;
+		} catch (error) {
+			console.warn('[clipboard-paste] error', error);
 		}
 	}
 
@@ -192,7 +194,7 @@
 	);
 </script>
 
-<div class="page-topbar">
+<Toolbar justify="end" class="page-topbar">
 	<!-- 	<button
 		type="button"
 		class="settings-trigger"
@@ -233,10 +235,10 @@
 			tooltipProps={{ content: 'read copied text' }}
 		/>
 	</button>
-	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
+	<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={20} />
-	</button>
-	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
+	</button> -->
+	<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 		<ToggleIcon
 			name="Download"
 			bind:checked={viewState.downloadTracksEnabled}
@@ -251,7 +253,8 @@
 		aria-label="Open downloads"
 	>
 		<Icon name="ListMusic" color="var(--primary-color)" size={20} />
-	</button>
+	</button> -->
+	<ToolbarDivider />
 	<button
 		type="button"
 		class="settings-trigger"
@@ -279,7 +282,7 @@
 			oninput={handleColorChange}
 		/>
 	</label>
-</div>
+</Toolbar>
 
 <div class="dashboard-container">
 	<div class="title-row">
@@ -367,9 +370,6 @@
 		right: 0;
 		left: 0;
 		z-index: 10;
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
 		min-height: 35px;
 		padding: 0.3rem 1rem;
 		margin: 1px;

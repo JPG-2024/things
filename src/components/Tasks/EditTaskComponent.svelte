@@ -172,8 +172,8 @@
 		} else {
 			recWindowSize = '1000';
 			recOverlap = '100';
-			recUserMessage = '';
-			recFinalUserMessage = '';
+			recUserMessage = 'Summarize this section concisely.';
+			recFinalUserMessage = 'Combine these section summaries into one coherent summary.';
 			recOriginalWindowSize = '';
 			recOriginalOverlap = '';
 			recOriginalUserMessage = '';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
-	import Tooltip from '@/components/Tooltip.svelte';
 	import { toVTName } from '@/lib/utils/url';
 	import { getTaskData } from '@/lib/utils/helpers/tasks';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		article: ArticleWithTasks;
@@ -14,9 +14,6 @@
 
 	let { article, displayMode = 'thumbnail', onClick, onHoverEnter, onHoverLeave }: Props = $props();
 
-	console.log('Article', article);
-
-	const icons = $derived(getTaskData(article.persistedTasks, 'emojis'));
 	const title = $derived(
 		(
 			(article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? ''
@@ -31,6 +28,8 @@
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
+	in:fade={{ duration: 100, easing: cubicOut }}
+	out:fade={{ duration: 200 }}
 >
 	<div class="article-content">
 		{#if displayMode === 'thumbnail' && article.thumbnailSrc}
@@ -63,6 +62,11 @@
 		gap: 0.5rem;
 		transition: transform 0.15s;
 		font-size: 0.9em;
+		background: rgba(255, 255, 255, 0.05);
+		border-radius: 12px;
+		padding: 1rem;
+		box-sizing: border-box;
+		border-left: 1px solid rgba(var(--primary-color), 0.5);
 	}
 
 	.article-content {

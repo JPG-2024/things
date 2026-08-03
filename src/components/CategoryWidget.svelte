@@ -13,6 +13,7 @@
 	} from '@/stores/webStore';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		categoryId: string;
@@ -58,6 +59,10 @@
 		viewState.currentProfileId = categoryId;
 		await urlRouter(article.url);
 		navigate(`/youtube/${encodeURIComponent(article.url)}`);
+	}
+
+	function handleNavigateToProfile() {
+		goto(`/profile/${categoryId}`);
 	}
 
 	async function handleDeleteProfile() {
@@ -107,12 +112,19 @@
 		{#if articles.length}
 			<div class="img-flex">
 				{#if profile?.profilePictureSrc}
-					<img
-						src={profile.profilePictureSrc}
-						alt={name}
-						class="profile-avatar"
-						style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
-					/>
+					<button
+						type="button"
+						class="avatar-button"
+						onclick={handleNavigateToProfile}
+						aria-label={`View all articles from ${name}`}
+					>
+						<img
+							src={profile.profilePictureSrc}
+							alt={name}
+							class="profile-avatar"
+							style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
+						/>
+					</button>
 				{/if}
 				{#each articles as article (article.url)}
 					<button
@@ -238,5 +250,19 @@
 		object-fit: cover;
 		flex-shrink: 0;
 		margin-right: 0.5rem;
+	}
+
+	.avatar-button {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		transition: transform 0.2s;
+	}
+
+	.avatar-button:hover {
+		transform: scale(1.05);
 	}
 </style>

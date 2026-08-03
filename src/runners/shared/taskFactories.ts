@@ -314,6 +314,8 @@ export function buildRecursiveTask(
 
 	const def = createRecursiveContentTask({
 		...options,
+		userMessage,
+		finalUserMessage,
 		completionOptions: options.completionOptions ?? {
 			...SUMMARY_COMPLETION_OPTIONS,
 			model: options.model ?? 'llama-server'
