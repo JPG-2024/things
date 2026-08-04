@@ -1,13 +1,39 @@
 import type { TemplateTaskDef } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
 import {
+	buildRecursiveTask,
 	buildTask,
 	createCategoryTask,
 	createExtractionTask,
 	createIaTask
 } from '@/runners/shared/taskFactories';
+import type { RecursiveContentTaskOptions } from '@/runners/shared/taskFactories';
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
+	if (def.type === 'script' && (def.scriptFactory === 'recursive' || def.subtype === 'recursive')) {
+		return buildRecursiveTask(def.id, {
+			...(def.scriptConfig as RecursiveContentTaskOptions),
+			name: def.name,
+			dependencies: def.dependencies,
+			component: def.component,
+			componentProps: def.componentProps,
+			gridSpan: def.gridSpan,
+			renderOrder: def.renderOrder,
+			persist: def.persist
+		});
+	}
+
+	if (def.type === 'script') {
+		console.warn(
+			`Unknown script template task "${def.scriptFactory ?? '?'}" for "${def.id}", skipping`
+		);
+		return {
+			id: def.id,
+			dependencies: def.dependencies,
+			type: 'script',
+			run: () => undefined
+		};
+	}
 	const options = {
 		name: def.name,
 		dependencies: def.dependencies,

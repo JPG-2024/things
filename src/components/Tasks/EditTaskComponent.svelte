@@ -103,6 +103,13 @@
 	let recOriginalUserMessage = $state('');
 	let recOriginalFinalUserMessage = $state('');
 
+	let recIsExtraction = $state(false);
+	let recExtCount = $state('3');
+	let recExtDescription = $state('keywords');
+	let recOriginalIsExtraction = $state(false);
+	let recOriginalExtCount = $state('');
+	let recOriginalExtDescription = $state('');
+
 	$effect(() => {
 		commonId = _task.id ?? '';
 		originalId = _task.id ?? '';
@@ -169,6 +176,14 @@
 			recOriginalOverlap = recOverlap;
 			recOriginalUserMessage = recUserMessage;
 			recOriginalFinalUserMessage = recFinalUserMessage;
+
+			const extCfg = cfg?.extractorConfig;
+			recIsExtraction = !!extCfg;
+			recExtCount = extCfg ? String(extCfg.count) : '3';
+			recExtDescription = extCfg?.description ?? 'keywords';
+			recOriginalIsExtraction = recIsExtraction;
+			recOriginalExtCount = recExtCount;
+			recOriginalExtDescription = recExtDescription;
 		} else {
 			recWindowSize = '1000';
 			recOverlap = '100';
@@ -178,6 +193,13 @@
 			recOriginalOverlap = '';
 			recOriginalUserMessage = '';
 			recOriginalFinalUserMessage = '';
+
+			recIsExtraction = false;
+			recExtCount = '3';
+			recExtDescription = 'keywords';
+			recOriginalIsExtraction = false;
+			recOriginalExtCount = '';
+			recOriginalExtDescription = '';
 		}
 	});
 
@@ -428,6 +450,10 @@
 		const renderOrder =
 			commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
 
+		const extractorConfig = recIsExtraction
+			? { count: Number(recExtCount) || 3, description: recExtDescription || 'keywords' }
+			: undefined;
+
 		if (isEditingRecursive) {
 			const effectiveId = commonId.trim() || _task.id;
 
@@ -444,6 +470,7 @@
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
+				extractorConfig,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
 				persist: true
@@ -459,6 +486,7 @@
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
+				extractorConfig,
 				renderOrder,
 				persist: true
 			});
@@ -555,6 +583,20 @@
 			<div class="tab-content">
 				<Input bind:value={recWindowSize} label="Window size (chars)" />
 				<Input bind:value={recOverlap} label="Overlap (chars)" />
+				<div class="extraction-toggle">
+					<Label text="Extraction mode">
+						<ToggleIcon
+							name="Search"
+							bind:checked={recIsExtraction}
+							size={20}
+							tooltipProps={{ content: 'Extract per chunk instead of summarizing' }}
+						/>
+					</Label>
+				</div>
+				{#if recIsExtraction}
+					<Input bind:value={recExtCount} label="Extract count" />
+					<Input bind:value={recExtDescription} label="Extract description" />
+				{/if}
 				<Input bind:value={recUserMessage} label="Per-chunk prompt" />
 				<Input bind:value={recFinalUserMessage} label="Final prompt" />
 				<div class="actions">
@@ -604,5 +646,11 @@
 
 	.completion-options-container {
 		padding-top: 1rem;
+	}
+
+	.extraction-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
 	}
 </style>

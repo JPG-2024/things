@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { buildIaTask, buildScriptTaskFromDef, iaTask, scriptTask } from '@/runners/taskSchema';
 import type { IaTaskDef, ScriptTaskDef, TaskRunContext } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
-import { arrayToGbnf, stringArrayGbnf } from '@/lib/utils/gbnf';
+import { arrayToGbnf } from '@/lib/utils/gbnf';
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import {
 	DEFAULT_IA_COMPLETION_OPTIONS,
@@ -10,6 +10,12 @@ import {
 	DEFAULT_TITLE_COMPLETION_OPTIONS,
 	SUMMARY_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
+import {
+	buildExtractionCompletionOptions,
+	buildExtractionSystemMessage,
+	buildExtractionUserMessage,
+	extractionHelper
+} from '@/lib/utils/inference/extraction-helper';
 import { splitForEmbeddings } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
@@ -99,16 +105,12 @@ export function createExtractionTask(
 		extractorConfig: extractor,
 		output: z.array(z.string()),
 		systemMessage:
-			systemMessage ??
-			`You are a data extraction assistant. Return only a JSON array of exactly ${extractor.count} ${extractor.description}. No markdown, no explanations.`,
-		userMessage:
-			userMessage ?? `Extract ${extractor.count} ${extractor.description}. Respond in JSON format.`,
+			systemMessage ?? buildExtractionSystemMessage(extractor.count, extractor.description),
+		userMessage: userMessage ?? buildExtractionUserMessage(extractor.count, extractor.description),
 		resultParser: (text) => parseStructuredArrayResponses(text),
-		completionOptions: completionOptions ?? {
-			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-			model: model ?? DEFAULT_DYNAMIC_MODEL,
-			grammar: stringArrayGbnf(extractor.count)
-		}
+		completionOptions:
+			completionOptions ??
+			buildExtractionCompletionOptions(extractor.count, model ?? DEFAULT_DYNAMIC_MODEL)
 	});
 }
 
@@ -197,7 +199,7 @@ export type RecursiveContentResult = {
 	finalResponse: string;
 };
 
-export type CreateRecursiveContentTaskOptions = {
+export type RecursiveContentTaskOptions = {
 	name?: string;
 	dependencies?: string[];
 	windowSize?: number;
@@ -206,6 +208,7 @@ export type CreateRecursiveContentTaskOptions = {
 	userMessage?: string;
 	finalUserMessage?: string;
 	completionOptions?: Record<string, unknown>;
+	extractorConfig?: { count: number; description: string };
 	persist?: boolean;
 	renderOrder?: number;
 	gridSpan?: 1 | 2 | 3;
@@ -226,10 +229,11 @@ const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
 });
 
 export function createRecursiveContentTask(
-	options?: CreateRecursiveContentTaskOptions
+	options?: RecursiveContentTaskOptions
 ): ScriptTaskDef<typeof RECURSIVE_CONTENT_OUTPUT_SCHEMA> {
 	const dependencies = options?.dependencies ?? ['content'];
 	const sourceDependency = dependencies[0];
+	const extractorConfig = options?.extractorConfig;
 
 	return scriptTask({
 		name: options?.name,
@@ -249,6 +253,50 @@ export function createRecursiveContentTask(
 			const windowSize = options?.windowSize ?? 3000;
 			const overlap = options?.overlap ?? Math.floor(windowSize * 0.1);
 			const sections = splitForEmbeddings(content, { windowSize, overlap }).map((c) => c.text);
+			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
+
+			if (extractorConfig) {
+				const { count, description } = extractorConfig;
+
+				const allExtractions: string[] = [];
+				const chunks: string[] = [];
+
+				for (const chunk of sections) {
+					const extracted = await extractionHelper(chunk, count, description, {
+						model
+					});
+					chunks.push(JSON.stringify(extracted));
+					allExtractions.push(...extracted);
+					update({ data: { chunks: [...chunks], rawChunks: sections, finalResponse: '' } });
+				}
+
+				const unique = [...new Set(allExtractions)];
+				const combined = unique.join(', ');
+
+				const finalPrompt =
+					options?.finalUserMessage ??
+					`From this list of extracted items, pick the most relevant ${count} ${description}. Return a JSON array.`;
+
+				const finalCompletion = await chatCompletions({
+					...buildExtractionCompletionOptions(count, model),
+					stream: false,
+					messages: [
+						{
+							role: 'system',
+							content: buildExtractionSystemMessage(count, description)
+						},
+						{
+							role: 'user',
+							content: `${finalPrompt}\n\n${combined}`
+						}
+					]
+				});
+				const finalText = finalCompletion.choices?.[0]?.message?.content ?? '';
+				const finalContent = typeof finalText === 'string' ? finalText : '';
+				const finalResponse = JSON.stringify(parseStructuredArrayResponses(finalContent));
+
+				return { chunks, rawChunks: sections, finalResponse };
+			}
 
 			const systemMsg =
 				options?.systemMessage ??
@@ -258,7 +306,6 @@ export function createRecursiveContentTask(
 			const finalPrompt =
 				options?.finalUserMessage ??
 				'Combine these section summaries into one coherent summary. no title.';
-			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
 			const baseOpts = options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS;
 
 			const chunks: string[] = [];
@@ -270,11 +317,12 @@ export function createRecursiveContentTask(
 					stream: false,
 					messages: [
 						{ role: 'system', content: systemMsg },
-						{ role: 'user', content: `${chunkPrompt}\n\n${chunk}` }
+						{ role: 'user', content: `${chunkPrompt}:\n\n${chunk}` }
 					]
 				});
 				const text = response.choices?.[0]?.message?.content ?? '';
 				chunks.push(typeof text === 'string' ? text.trim() : '');
+				update({ data: { chunks: [...chunks], rawChunks: sections, finalResponse: '' } });
 			}
 
 			const combined = chunks.join('\n\n');
@@ -300,17 +348,29 @@ export interface RecursiveConfig {
 	overlap: number;
 	userMessage: string;
 	finalUserMessage: string;
+	extractorConfig?: { count: number; description: string };
 }
 
 export function buildRecursiveTask(
 	id: string,
-	options: CreateRecursiveContentTaskOptions & { model?: string }
+	options: RecursiveContentTaskOptions & { model?: string }
 ): Task {
 	const windowSize = options.windowSize ?? 1000;
 	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
-	const userMessage = options.userMessage ?? 'Summarize this section concisely.';
-	const finalUserMessage =
-		options.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
+	const isExtraction = !!options.extractorConfig;
+
+	const userMessage = isExtraction
+		? (options.userMessage ??
+			buildExtractionUserMessage(
+				options.extractorConfig!.count,
+				options.extractorConfig!.description
+			))
+		: (options.userMessage ?? 'Summarize this section concisely.');
+
+	const finalUserMessage = isExtraction
+		? (options.finalUserMessage ??
+			`From this list of extracted items, pick the most relevant ${options.extractorConfig!.count} ${options.extractorConfig!.description}. Return a JSON array.`)
+		: (options.finalUserMessage ?? 'Combine these section summaries into one coherent summary.');
 
 	const def = createRecursiveContentTask({
 		...options,
@@ -328,7 +388,8 @@ export function buildRecursiveTask(
 				windowSize,
 				overlap,
 				userMessage,
-				finalUserMessage
+				finalUserMessage,
+				extractorConfig: options.extractorConfig
 			} satisfies RecursiveConfig
 		}
 	});

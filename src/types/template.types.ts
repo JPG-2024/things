@@ -1,6 +1,6 @@
 import type { IaTaskSubtype } from '@/types/taskRunner.types';
 
-export type TemplateTaskType = 'ia' | 'extractor';
+export type TemplateTaskType = 'ia' | 'extractor' | 'script';
 
 export type TemplateTaskDef = {
 	id: string;
@@ -19,6 +19,8 @@ export type TemplateTaskDef = {
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
 	enableTTS: boolean;
+	scriptFactory?: string;
+	scriptConfig?: Record<string, unknown>;
 };
 
 export type Template = {

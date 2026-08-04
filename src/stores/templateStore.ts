@@ -115,11 +115,10 @@ export async function removeTemplateFromProfile(profileId: string): Promise<bool
 }
 
 export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
-	return tasks
-		.filter((task) => task.type === 'ia')
-		.map((task) => {
+	return tasks.flatMap((task): TemplateTaskDef | TemplateTaskDef[] => {
+		if (task.type === 'ia') {
 			const iaTask = task as import('@/types/taskRunner.types').IaTask;
-			const def: TemplateTaskDef = {
+			return {
 				id: task.id,
 				name: task.name,
 				dependencies: task.dependencies as string[],
@@ -137,6 +136,31 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				extractorConfig: iaTask.extractorConfig,
 				categoryNames: iaTask.categoryNames
 			};
-			return def;
-		});
+		}
+
+		if (task.type === 'script' && task.subtype === 'recursive') {
+			const props = (task.componentProps ?? {}) as Record<string, unknown>;
+			const recursiveConfig = props.recursiveConfig as Record<string, unknown> | undefined;
+			const { recursiveConfig: _, ...restProps } = props;
+
+			return {
+				id: task.id,
+				name: task.name,
+				dependencies: task.dependencies as string[],
+				type: 'script',
+				subtype: 'recursive',
+				userMessage: '',
+				component: task.component,
+				componentProps: restProps,
+				gridSpan: task.gridSpan,
+				renderOrder: task.renderOrder,
+				persist: true,
+				enableTTS: false,
+				scriptFactory: 'recursive',
+				scriptConfig: recursiveConfig ?? {}
+			};
+		}
+
+		return [];
+	});
 }

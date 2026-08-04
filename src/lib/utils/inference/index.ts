@@ -16,3 +16,4 @@ export type {
 export { translateText } from './translation';
 export { iaCategorizer } from './helpers/categorizer';
 export { inferenceTitle } from './helpers/inferenceTitle';
+export { extractionHelper } from './extraction-helper';

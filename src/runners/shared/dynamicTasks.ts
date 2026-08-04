@@ -2,13 +2,16 @@ import { z } from 'zod';
 import { iaTask } from '@/runners/taskSchema';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
-import { stringArrayGbnf } from '@/lib/utils/gbnf';
 import {
 	SUMMARY_COMPLETION_OPTIONS,
-	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 	DEFAULT_IA_COMPLETION_OPTIONS,
 	DEFAULT_TITLE_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
+import {
+	buildExtractionCompletionOptions,
+	buildExtractionSystemMessage,
+	buildExtractionUserMessage
+} from '@/lib/utils/inference/extraction-helper';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
@@ -63,10 +66,10 @@ export function defineTask(options: DefineTaskOptions): IaTaskDef {
 			output: z.array(z.string()),
 			systemMessage:
 				options.systemMessage ??
-				`You are a data extraction assistant. Return only a JSON array of exactly ${extractor.count} ${extractor.description}. No markdown, no explanations.`,
+				buildExtractionSystemMessage(extractor.count, extractor.description),
 			userMessage:
 				options.userMessage ??
-				`Extract ${extractor.count} ${extractor.description}. Respond in JSON format.`,
+				buildExtractionUserMessage(extractor.count, extractor.description),
 			run: ({ state, taskId }) => {
 				const content = state[sourceDependency];
 				if (typeof content !== 'string') {
@@ -77,11 +80,8 @@ export function defineTask(options: DefineTaskOptions): IaTaskDef {
 				return content;
 			},
 			resultParser: (text) => parseStructuredArrayResponses(text),
-			completionOptions: options.completionOptions ?? {
-				...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-				model,
-				grammar: stringArrayGbnf(extractor.count)
-			},
+			completionOptions:
+				options.completionOptions ?? buildExtractionCompletionOptions(extractor.count, model),
 			extractorConfig: extractor,
 			...(options.persist != null && { persist: options.persist }),
 			...(options.enableTTS != null && { enableTTS: options.enableTTS }),
