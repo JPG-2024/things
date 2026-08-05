@@ -207,26 +207,15 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 }
 
 export function buildTask(def: IaTaskDef, id: string): Task {
-	const propsCtx = { context: undefined, state: {} as Record<string, unknown> };
-
-	const systemMessage =
-		typeof def.systemMessage === 'function' ? def.systemMessage(propsCtx) : def.systemMessage;
-	const userMessage =
-		typeof def.userMessage === 'function' ? def.userMessage(propsCtx) : def.userMessage;
-	const completionOptions =
-		typeof def.completionOptions === 'function'
-			? def.completionOptions(propsCtx)
-			: def.completionOptions;
-
 	return {
 		id,
 		name: def.name,
 		dependencies: def.dependencies ?? [],
 		type: 'ia' as const,
 		subtype: def.subtype,
-		systemMessage,
-		userMessage,
-		completionOptions: completionOptions as Task['completionOptions'],
+		systemMessage: def.systemMessage,
+		userMessage: def.userMessage,
+		completionOptions: def.completionOptions as Task['completionOptions'],
 		component: def.component,
 		...(def.renderOrder != null && { renderOrder: def.renderOrder }),
 		...(def.gridSpan != null && { gridSpan: def.gridSpan }),

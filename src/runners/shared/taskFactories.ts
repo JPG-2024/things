@@ -3,7 +3,6 @@ import { buildIaTask, buildScriptTaskFromDef, iaTask, scriptTask } from '@/runne
 import type { IaTaskDef, ScriptTaskDef, TaskRunContext } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
-import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import {
 	DEFAULT_IA_COMPLETION_OPTIONS,
 	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
@@ -13,12 +12,13 @@ import {
 import {
 	buildExtractionCompletionOptions,
 	buildExtractionSystemMessage,
-	buildExtractionUserMessage,
-	extractionHelper
+	buildExtractionUserMessage
 } from '@/lib/utils/inference/extraction-helper';
 import { splitForEmbeddings } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
+import { getProcessor } from '@/runners/shared/processors';
+import type { ProcessorType } from '@/runners/shared/processors';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 const DEFAULT_IA_SYSTEM_MESSAGE =
@@ -204,11 +204,14 @@ export type RecursiveContentTaskOptions = {
 	dependencies?: string[];
 	windowSize?: number;
 	overlap?: number;
+	processorType?: ProcessorType;
 	systemMessage?: string;
 	userMessage?: string;
 	finalUserMessage?: string;
 	completionOptions?: Record<string, unknown>;
 	extractorConfig?: { count: number; description: string };
+	targetLang?: string;
+	customSystemMsg?: string;
 	persist?: boolean;
 	renderOrder?: number;
 	gridSpan?: 1 | 2 | 3;
@@ -233,7 +236,7 @@ export function createRecursiveContentTask(
 ): ScriptTaskDef<typeof RECURSIVE_CONTENT_OUTPUT_SCHEMA> {
 	const dependencies = options?.dependencies ?? ['content'];
 	const sourceDependency = dependencies[0];
-	const extractorConfig = options?.extractorConfig;
+	const processorType: ProcessorType = options?.processorType ?? (options?.extractorConfig ? 'extraction' : 'summarize');
 
 	return scriptTask({
 		name: options?.name,
@@ -255,88 +258,26 @@ export function createRecursiveContentTask(
 			const sections = splitForEmbeddings(content, { windowSize, overlap }).map((c) => c.text);
 			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
 
-			if (extractorConfig) {
-				const { count, description } = extractorConfig;
-
-				const allExtractions: string[] = [];
-				const chunks: string[] = [];
-
-				for (const chunk of sections) {
-					const extracted = await extractionHelper(chunk, count, description, {
-						model
-					});
-					chunks.push(JSON.stringify(extracted));
-					allExtractions.push(...extracted);
-					update({ data: { chunks: [...chunks], rawChunks: sections, finalResponse: '' } });
-				}
-
-				const unique = [...new Set(allExtractions)];
-				const combined = unique.join(', ');
-
-				const finalPrompt =
-					options?.finalUserMessage ??
-					`From this list of extracted items, pick the most relevant ${count} ${description}. Return a JSON array.`;
-
-				const finalCompletion = await chatCompletions({
-					...buildExtractionCompletionOptions(count, model),
-					stream: false,
-					messages: [
-						{
-							role: 'system',
-							content: buildExtractionSystemMessage(count, description)
-						},
-						{
-							role: 'user',
-							content: `${finalPrompt}\n\n${combined}`
-						}
-					]
-				});
-				const finalText = finalCompletion.choices?.[0]?.message?.content ?? '';
-				const finalContent = typeof finalText === 'string' ? finalText : '';
-				const finalResponse = JSON.stringify(parseStructuredArrayResponses(finalContent));
-
-				return { chunks, rawChunks: sections, finalResponse };
-			}
-
-			const systemMsg =
-				options?.systemMessage ??
-				'You are a professional content summarizer. Write a concise and clear summary, only summmary. no titles';
-			const chunkPrompt =
-				options?.userMessage ?? 'Summarize this section concisely, only summmary. no titles';
-			const finalPrompt =
-				options?.finalUserMessage ??
-				'Combine these section summaries into one coherent summary. no title.';
-			const baseOpts = options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS;
+			const processorDef = getProcessor(processorType);
+			const processor = processorDef.build({
+				model,
+				userMessage: options?.userMessage,
+				finalUserMessage: options?.finalUserMessage,
+				extractorConfig: options?.extractorConfig,
+				targetLang: options?.targetLang,
+				customSystemMsg: options?.customSystemMsg,
+				completionOptions: options?.completionOptions
+			});
 
 			const chunks: string[] = [];
 
-			for (const chunk of sections) {
-				const response = await chatCompletions({
-					...baseOpts,
-					model,
-					stream: false,
-					messages: [
-						{ role: 'system', content: systemMsg },
-						{ role: 'user', content: `${chunkPrompt}:\n\n${chunk}` }
-					]
-				});
-				const text = response.choices?.[0]?.message?.content ?? '';
-				chunks.push(typeof text === 'string' ? text.trim() : '');
+			for (let i = 0; i < sections.length; i++) {
+				const result = await processor.processChunk(sections[i], i);
+				chunks.push(result);
 				update({ data: { chunks: [...chunks], rawChunks: sections, finalResponse: '' } });
 			}
 
-			const combined = chunks.join('\n\n');
-			const finalCompletion = await chatCompletions({
-				...baseOpts,
-				model,
-				stream: false,
-				messages: [
-					{ role: 'system', content: systemMsg },
-					{ role: 'user', content: `${finalPrompt}\n\n${combined}` }
-				]
-			});
-			const finalText = finalCompletion.choices?.[0]?.message?.content ?? '';
-			const finalResponse = typeof finalText === 'string' ? finalText.trim() : '';
+			const finalResponse = await processor.combineChunks(chunks, sections);
 
 			return { chunks, rawChunks: sections, finalResponse };
 		}
@@ -346,9 +287,12 @@ export function createRecursiveContentTask(
 export interface RecursiveConfig {
 	windowSize: number;
 	overlap: number;
+	processorType: ProcessorType;
 	userMessage: string;
 	finalUserMessage: string;
 	extractorConfig?: { count: number; description: string };
+	targetLang?: string;
+	customSystemMsg?: string;
 }
 
 export function buildRecursiveTask(
@@ -357,23 +301,17 @@ export function buildRecursiveTask(
 ): Task {
 	const windowSize = options.windowSize ?? 1000;
 	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
-	const isExtraction = !!options.extractorConfig;
+	const processorType: ProcessorType = options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize');
 
-	const userMessage = isExtraction
-		? (options.userMessage ??
-			buildExtractionUserMessage(
-				options.extractorConfig!.count,
-				options.extractorConfig!.description
-			))
-		: (options.userMessage ?? 'Summarize this section concisely.');
+	const processorDef = getProcessor(processorType);
+	const defaults = processorDef.defaults;
 
-	const finalUserMessage = isExtraction
-		? (options.finalUserMessage ??
-			`From this list of extracted items, pick the most relevant ${options.extractorConfig!.count} ${options.extractorConfig!.description}. Return a JSON array.`)
-		: (options.finalUserMessage ?? 'Combine these section summaries into one coherent summary.');
+	const userMessage = options.userMessage ?? defaults.userMessage ?? '';
+	const finalUserMessage = options.finalUserMessage ?? defaults.finalUserMessage ?? '';
 
 	const def = createRecursiveContentTask({
 		...options,
+		processorType,
 		userMessage,
 		finalUserMessage,
 		completionOptions: options.completionOptions ?? {
@@ -387,9 +325,12 @@ export function buildRecursiveTask(
 			recursiveConfig: {
 				windowSize,
 				overlap,
+				processorType,
 				userMessage,
 				finalUserMessage,
-				extractorConfig: options.extractorConfig
+				extractorConfig: options.extractorConfig,
+				targetLang: options.targetLang,
+				customSystemMsg: options.customSystemMsg
 			} satisfies RecursiveConfig
 		}
 	});

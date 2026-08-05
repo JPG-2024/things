@@ -19,6 +19,7 @@ import type {
 	TaskStatusUpdater
 } from '@/types/taskRunner.types';
 import { DependencyGraph } from '@/runners/DependencyGraph';
+import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 
 /**
  * Convert various error shapes into a readable message string.
@@ -399,11 +400,8 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			const parts: string[] = [];
 			for (const depId of task.dependencies) {
 				const depData = runtime.getTaskData(depId);
-				if (typeof depData === 'string') {
-					parts.push(depData);
-				} else if (Array.isArray(depData)) {
-					parts.push(depData.join(', '));
-				}
+				const text = extractDependencyText(depData);
+				if (text) parts.push(text);
 			}
 			runResult = parts.join('\n\n').trim();
 		} else {
@@ -414,19 +412,33 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			throw new Error(`No context available for task "${task.id}". Cannot run.`);
 		}
 
-		const userContent = `context: ${runResult} ${task.userMessage}`;
+		const resolveCtx = { context: undefined, state: runtime.state };
+		const resolvedSystem =
+			typeof task.systemMessage === 'function'
+				? task.systemMessage(resolveCtx)
+				: task.systemMessage;
+		const resolvedUser =
+			typeof task.userMessage === 'function'
+				? task.userMessage(resolveCtx)
+				: task.userMessage;
+		const resolvedCompletion =
+			typeof task.completionOptions === 'function'
+				? task.completionOptions(resolveCtx)
+				: task.completionOptions;
+
+		const userContent = `context: ${runResult} ${resolvedUser}`;
 		const useStream =
 			options?.stream !== undefined
 				? options.stream === true
-				: task.completionOptions.stream === true;
+				: resolvedCompletion.stream === true;
 		const request: LlamaChatCompletionsRequest = {
-			...task.completionOptions,
+			...resolvedCompletion,
 			stream: useStream,
 			think: false,
 			enable_thinking: false,
 			cache_prompt: false,
 			messages: [
-				{ role: 'system', content: task.systemMessage },
+				{ role: 'system', content: resolvedSystem },
 				{ role: 'user', content: userContent }
 			]
 		};

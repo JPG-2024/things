@@ -82,7 +82,7 @@
 		const model =
 			typeof componentProps.model === 'string' && componentProps.model.trim()
 				? componentProps.model.trim()
-				: 'completionOptions' in task && task.completionOptions?.model
+				: 'completionOptions' in task && typeof task.completionOptions !== 'function' && task.completionOptions?.model
 					? task.completionOptions.model
 					: DEFAULT_MODEL;
 		const maxTokens =

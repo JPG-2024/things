@@ -235,10 +235,11 @@
 			tooltipProps={{ content: 'read copied text' }}
 		/>
 	</button>
-	<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
+	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={20} />
-	</button> -->
-	<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
+	</button>
+	<ToolbarDivider />
+	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 		<ToggleIcon
 			name="Download"
 			bind:checked={viewState.downloadTracksEnabled}
@@ -253,7 +254,7 @@
 		aria-label="Open downloads"
 	>
 		<Icon name="ListMusic" color="var(--primary-color)" size={20} />
-	</button> -->
+	</button>
 	<ToolbarDivider />
 	<button
 		type="button"

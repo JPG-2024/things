@@ -104,17 +104,20 @@ export interface ScriptTask<
 	baseUrl?: never;
 }
 
+type ResolvableString = string | ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
+type ResolvableCompletionOptions =
+	| (Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string })
+	| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string });
+
 export interface IaTask<
 	TMap extends TaskMapBase = TaskMapBase,
 	TId extends keyof TMap & string = keyof TMap & string,
 	TParsed = TMap[TId]
 > extends TaskBase<TMap, TId> {
 	type: 'ia';
-	systemMessage: string;
-	userMessage: string;
-	completionOptions: Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & {
-		model: string;
-	};
+	systemMessage: ResolvableString;
+	userMessage: ResolvableString;
+	completionOptions: ResolvableCompletionOptions;
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];

@@ -110,7 +110,7 @@
 					class="task-action"
 				/>
 				<Icon
-					name="Wrench"
+					name="SquarePen"
 					onClick={openTaskEdit}
 					size={TOOLBAR_ICON_SIZE}
 					color="var(--primary-color)"

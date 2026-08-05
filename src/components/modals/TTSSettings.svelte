@@ -85,9 +85,18 @@
 
 			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
-				await selectProfile(match.id);
-			} else if (profiles.length > 0) {
-				await selectProfile(profiles[0].id);
+				selectedProfileId = match.id;
+				editNamePrefix = match.name_prefix;
+				editImageSrc = match.image_src ?? '';
+				if (match.language) {
+					localLanguage = match.language as 'en' | 'es';
+				}
+				await loadChunksForProfile(match.id);
+				const firstChunk = chunks[0];
+				if (firstChunk) {
+					localConfig.refAudioFilename = firstChunk.audio_file;
+					localConfig.refText = firstChunk.text_reference;
+				}
 			}
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
@@ -213,6 +222,9 @@
 		editLoading = true;
 		try {
 			await updateVoiceProfile(profile.id, patch);
+			if (patch.name_prefix) {
+				ttsState.namePrefix = patch.name_prefix;
+			}
 			await loadProfiles();
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to update voice profile';

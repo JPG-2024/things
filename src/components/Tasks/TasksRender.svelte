@@ -9,6 +9,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 	const sortedTasks = $derived(
@@ -32,7 +33,7 @@
 				({ task }) =>
 					task.id === viewState.selectedTaskId &&
 					task.status === 'done' &&
-					(typeof task.data === 'string' || (Array.isArray(task.data) && task.data.length > 0))
+					extractDependencyText(task.data).length > 0
 			)
 	);
 
@@ -43,8 +44,8 @@
 				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
 			);
 			if (!entry?.task.data) return;
-			const text = Array.isArray(entry.task.data) ? entry.task.data.join('. ') : entry.task.data;
-			if (typeof text !== 'string' || !text.trim()) return;
+			const text = extractDependencyText(entry.task.data);
+			if (!text.trim()) return;
 			void ensureAudioContext();
 			ttsState.setTextContents([text]);
 			await ttsState.generateTTS(viewState.url!);
@@ -79,14 +80,9 @@
 				!previousDoneKeys.has(key) &&
 				initialized
 			) {
-				let ttsText: string | undefined;
-				if (typeof task.data === 'string') {
-					ttsText = task.data;
-				} else if (Array.isArray(task.data)) {
-					ttsText = task.data.map(String).join(' ');
-				}
+				const ttsText = extractDependencyText(task.data);
 
-				if (ttsText?.trim()) {
+				if (ttsText.trim()) {
 					ttsState.setTextContents([ttsText.trim()]);
 					void ttsState.generateTTS(key);
 				}

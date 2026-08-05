@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import { toVTName } from '@/lib/utils/url';
-	import { getTaskData } from '@/lib/utils/helpers/tasks';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -28,7 +27,7 @@
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
-	in:fade={{ duration: 100, easing: cubicOut }}
+	in:fade={{ duration: 100 }}
 	out:fade={{ duration: 200 }}
 >
 	<div class="article-content">

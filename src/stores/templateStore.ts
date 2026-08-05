@@ -118,15 +118,28 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 	return tasks.flatMap((task): TemplateTaskDef | TemplateTaskDef[] => {
 		if (task.type === 'ia') {
 			const iaTask = task as import('@/types/taskRunner.types').IaTask;
+			const resolveCtx = { context: undefined, state: {} };
+			const systemMessage =
+				typeof iaTask.systemMessage === 'function'
+					? iaTask.systemMessage(resolveCtx)
+					: iaTask.systemMessage;
+			const userMessage =
+				typeof iaTask.userMessage === 'function'
+					? iaTask.userMessage(resolveCtx)
+					: iaTask.userMessage;
+			const completionOptions =
+				typeof iaTask.completionOptions === 'function'
+					? iaTask.completionOptions(resolveCtx)
+					: iaTask.completionOptions;
 			return {
 				id: task.id,
 				name: task.name,
 				dependencies: task.dependencies as string[],
 				type: iaTask.extractorConfig ? 'extractor' : 'ia',
 				subtype: iaTask.subtype,
-				systemMessage: iaTask.systemMessage,
-				userMessage: iaTask.userMessage,
-				completionOptions: iaTask.completionOptions as Record<string, unknown>,
+				systemMessage,
+				userMessage,
+				completionOptions: completionOptions as Record<string, unknown>,
 				component: task.component,
 				componentProps: task.componentProps,
 				gridSpan: task.gridSpan,

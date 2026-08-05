@@ -32,10 +32,21 @@
 		border: none;
 		cursor: pointer;
 		color: var(--primary-color);
+		border: 1px solid var(--primary-color);
+		border-radius: 12px;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
+		font-weight: bold;
+	}
+
+	button:hover {
+		background-color: var(--primary-color);
+		color: black;
+		transition:
+			background-color 0.5s,
+			color 0.2s;
 	}
 
 	button:disabled {

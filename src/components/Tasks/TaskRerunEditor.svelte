@@ -43,13 +43,24 @@
 
 	function syncFormFromTask() {
 		const iaTask = getIaTask(task);
+		const resolveCtx = { context: undefined, state: {} };
 
 		name = task.name;
 		component = task.component ?? '';
 		persist = task.persist ?? false;
-		userMessage = iaTask?.userMessage ?? '';
-		systemMessage = iaTask?.systemMessage ?? '';
-		completionOptionsJson = JSON.stringify(iaTask?.completionOptions ?? {}, null, 2);
+		userMessage =
+			typeof iaTask?.userMessage === 'function'
+				? iaTask.userMessage(resolveCtx)
+				: (iaTask?.userMessage ?? '');
+		systemMessage =
+			typeof iaTask?.systemMessage === 'function'
+				? iaTask.systemMessage(resolveCtx)
+				: (iaTask?.systemMessage ?? '');
+		const resolvedCompletion =
+			typeof iaTask?.completionOptions === 'function'
+				? iaTask.completionOptions(resolveCtx)
+				: iaTask?.completionOptions;
+		completionOptionsJson = JSON.stringify(resolvedCompletion ?? {}, null, 2);
 		extractorCount = iaTask?.extractorConfig?.count ?? 0;
 		extractorDescription = iaTask?.extractorConfig?.description ?? '';
 		errorMessage = '';

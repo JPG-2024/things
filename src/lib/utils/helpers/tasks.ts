@@ -14,6 +14,22 @@ export function getTaskData<TMap extends TaskMapBase = TaskMapBase>(
 	return key ? data?.[key] : data;
 }
 
+export function extractDependencyText(data: unknown): string {
+	if (typeof data === 'string') return data;
+	if (Array.isArray(data)) return data.join(', ');
+
+	if (data && typeof data === 'object') {
+		const obj = data as Record<string, unknown>;
+
+		if (typeof obj.finalResponse === 'string') return obj.finalResponse;
+		if (typeof obj.data === 'string') return obj.data;
+
+		if (obj.data !== undefined) return extractDependencyText(obj.data);
+	}
+
+	return '';
+}
+
 export function parseStructuredArrayResponses(data: string): string[] {
 	console.log(data);
 	const codeBlockMatch = data.match(/```(?:json)?\s*([\s\S]*?)```/);

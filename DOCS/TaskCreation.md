@@ -16,16 +16,57 @@
 | **Category** | `createCategoryTask()` | `category` | Subtipo de extraction: clasifica en categorías predefinidas usando grammar GBNF |
 | **Title** | `createTitleTask()` | `title` | Genera un título corto con emoji a partir de un resumen |
 | **Summary** | `createSummaryTask()` | — | Resume el contenido de una dependencia |
-| **Recursive** | `createRecursiveContentTask()` / `buildRecursiveTask()` | `recursive` | Divide el contenido en chunks, procesa cada uno (resumen o extracción), y combina los resultados |
+| **Recursive** | `createRecursiveContentTask()` / `buildRecursiveTask()` | `recursive` | Divide el contenido en chunks, procesa cada uno con un processor seleccionable, y combina los resultados |
 
-## Diferencias clave
+## ChunkProcessors
 
-- **IA tasks** usan `chatCompletions` con options del modelo. Son la base de todo.
-- **Extraction** agrega `extractorConfig` (count + description) y parsea arrays estructurados del output.
-- **Category** es extraction restringida a nombres de categorías válidos, con grammar GBNF para forzar output válido.
-- **Recursive** es un `scriptTask` (no IA task): ejecuta lógica custom que procesa chunks secuencialmente con `update()` para streaming de progreso.
-- **Title/Summary** son cases simples de IA task con system messages predefinidos.
+La tarea recursive usa un sistema de **processors** para procesar chunks. Cada processor define cómo procesar cada chunk y cómo combinar los resultados.
+
+### Processor Types
+
+| Type | Descripción |
+|---|---|
+| `summarize` | Resume cada chunk y combina los resúmenes |
+| `extraction` | Extrae items de cada chunk y combina los resultados |
+| `translate` | Traduce cada chunk a un idioma objetivo |
+| `custom` | USA system message personalizado para procesar chunks |
+
+### Registry
+
+Los processors se registran en `src/runners/shared/processors/index.ts`:
+
+```ts
+import { getProcessor, getProcessorTypes } from '@/runners/shared/processors';
+
+// Obtener un processor
+const processor = getProcessor('summarize');
+const instance = processor.build({ model: 'llama-server' });
+
+// Listar tipos disponibles
+const types = getProcessorTypes(); // ['summarize', 'extraction', 'translate', 'custom']
+```
+
+### Agregar un nuevo processor
+
+1. Crear archivo en `src/runners/shared/processors/mi-processor.ts`
+2. Implementar `ProcessorDef` interface
+3. Registrar en `src/runners/shared/processors/index.ts`
+
+```ts
+import type { ProcessorDef } from './types';
+
+export const miProcessor: ProcessorDef = {
+	type: 'mi-processor',
+	defaults: { userMessage: '...' },
+	build: (config) => ({
+		processChunk: async (chunk, index) => { /* ... */ },
+		combineChunks: async (results, rawChunks) => { /* ... */ }
+	})
+};
+```
 
 ## EditTaskComponent
 
 El componente `EditTaskComponent.svelte` detecta el tipo de tarea existente y muestra tabs con configuración específica para cada tipo. Crear una nueva tarea desde el editor usa `createIaTask` directamente (tab "custom"). Los tabs extraction/category/recursive usan sus factories correspondientes.
+
+El tab **recursive** muestra un selector de processor type con campos específicos para cada tipo.

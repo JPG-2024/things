@@ -193,17 +193,10 @@ export function buildIaTask<
 	def: IaTaskDef<AnyZodOutput, TContext, TParsed>
 ): (context: TContext) => IaTask<TMap, TId, TParsed> {
 	return (context: TContext) => {
-		const propsCtx = { context, state: {} };
-		const systemMessage =
-			typeof def.systemMessage === 'function' ? def.systemMessage(propsCtx) : def.systemMessage;
-		const userMessage =
-			typeof def.userMessage === 'function' ? def.userMessage(propsCtx) : def.userMessage;
 		const componentProps =
-			typeof def.componentProps === 'function' ? def.componentProps(propsCtx) : def.componentProps;
-		const completionOptions =
-			typeof def.completionOptions === 'function'
-				? def.completionOptions(propsCtx)
-				: def.completionOptions;
+			typeof def.componentProps === 'function'
+				? def.componentProps({ context, state: {} })
+				: def.componentProps;
 
 		return {
 			id,
@@ -211,9 +204,9 @@ export function buildIaTask<
 			dependencies: def.dependencies ?? [],
 			type: 'ia',
 			subtype: def.subtype,
-			systemMessage,
-			userMessage,
-			completionOptions: completionOptions as IaTask<TMap, TId>['completionOptions'],
+			systemMessage: def.systemMessage as IaTask<TMap, TId>['systemMessage'],
+			userMessage: def.userMessage as IaTask<TMap, TId>['userMessage'],
+			completionOptions: def.completionOptions as IaTask<TMap, TId>['completionOptions'],
 			baseUrl: def.baseUrl,
 			extractorConfig: def.extractorConfig,
 			categoryNames: def.categoryNames,

@@ -15,10 +15,13 @@
 		createIaTask
 	} from '@/runners/shared/taskFactories';
 	import type { RecursiveConfig } from '@/runners/shared/taskFactories';
+	import { getProcessorTypes } from '@/runners/shared/processors';
+	import type { ProcessorType } from '@/runners/shared/processors';
 	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Label from '@/components/inputs/Label.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
+	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
 
 	type Props = {
 		task: Task;
@@ -52,6 +55,7 @@
 	];
 
 	let activeTab = $state('custom');
+	let initialized = false;
 
 	$effect(() => {
 		if (isEditingExtraction) {
@@ -103,14 +107,21 @@
 	let recOriginalUserMessage = $state('');
 	let recOriginalFinalUserMessage = $state('');
 
-	let recIsExtraction = $state(false);
+	let recProcessorType = $state<ProcessorType>('summarize');
 	let recExtCount = $state('3');
 	let recExtDescription = $state('keywords');
-	let recOriginalIsExtraction = $state(false);
+	let recTargetLang = $state('Spanish');
+	let recCustomSystemMsg = $state('');
+	let recOriginalProcessorType = $state<ProcessorType>('summarize');
 	let recOriginalExtCount = $state('');
 	let recOriginalExtDescription = $state('');
+	let recOriginalTargetLang = $state('');
+	let recOriginalCustomSystemMsg = $state('');
 
 	$effect(() => {
+		if (initialized) return;
+		initialized = true;
+
 		commonId = _task.id ?? '';
 		originalId = _task.id ?? '';
 		commonName = _task.name ?? '';
@@ -127,15 +138,26 @@
 
 		if (isIaTask) {
 			const iaTask = _task as IaTask;
+			const resolveCtx = { context: undefined, state: {} };
 
-			commonSystemMessage = iaTask.systemMessage ?? '';
-			commonUserMessage = iaTask.userMessage ?? '';
-			commonStreamEnabled = iaTask.completionOptions?.stream === true;
-			commonCompletionOptions = { ...(iaTask.completionOptions ?? {}) };
+			commonSystemMessage =
+				typeof iaTask.systemMessage === 'function'
+					? iaTask.systemMessage(resolveCtx)
+					: (iaTask.systemMessage ?? '');
+			commonUserMessage =
+				typeof iaTask.userMessage === 'function'
+					? iaTask.userMessage(resolveCtx)
+					: (iaTask.userMessage ?? '');
+			const resolvedCompletion =
+				typeof iaTask.completionOptions === 'function'
+					? iaTask.completionOptions(resolveCtx)
+					: iaTask.completionOptions;
+			commonStreamEnabled = resolvedCompletion?.stream === true;
+			commonCompletionOptions = { ...(resolvedCompletion ?? {}) };
 
-			originalSystemMessage = iaTask.systemMessage ?? '';
-			originalUserMessage = iaTask.userMessage ?? '';
-			originalCompletionOptions = JSON.stringify(iaTask.completionOptions);
+			originalSystemMessage = commonSystemMessage;
+			originalUserMessage = commonUserMessage;
+			originalCompletionOptions = JSON.stringify(resolvedCompletion);
 
 			if (isEditingExtraction) {
 				const ec = iaTask.extractorConfig!;
@@ -177,13 +199,17 @@
 			recOriginalUserMessage = recUserMessage;
 			recOriginalFinalUserMessage = recFinalUserMessage;
 
+			recProcessorType = cfg?.processorType ?? 'summarize';
 			const extCfg = cfg?.extractorConfig;
-			recIsExtraction = !!extCfg;
 			recExtCount = extCfg ? String(extCfg.count) : '3';
 			recExtDescription = extCfg?.description ?? 'keywords';
-			recOriginalIsExtraction = recIsExtraction;
+			recTargetLang = cfg?.targetLang ?? 'Spanish';
+			recCustomSystemMsg = cfg?.customSystemMsg ?? '';
+			recOriginalProcessorType = recProcessorType;
 			recOriginalExtCount = recExtCount;
 			recOriginalExtDescription = recExtDescription;
+			recOriginalTargetLang = recTargetLang;
+			recOriginalCustomSystemMsg = recCustomSystemMsg;
 		} else {
 			recWindowSize = '1000';
 			recOverlap = '100';
@@ -194,12 +220,16 @@
 			recOriginalUserMessage = '';
 			recOriginalFinalUserMessage = '';
 
-			recIsExtraction = false;
+			recProcessorType = 'summarize';
 			recExtCount = '3';
 			recExtDescription = 'keywords';
-			recOriginalIsExtraction = false;
+			recTargetLang = 'Spanish';
+			recCustomSystemMsg = '';
+			recOriginalProcessorType = 'summarize';
 			recOriginalExtCount = '';
 			recOriginalExtDescription = '';
+			recOriginalTargetLang = '';
+			recOriginalCustomSystemMsg = '';
 		}
 	});
 
@@ -450,9 +480,10 @@
 		const renderOrder =
 			commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0) + 0.01;
 
-		const extractorConfig = recIsExtraction
-			? { count: Number(recExtCount) || 3, description: recExtDescription || 'keywords' }
-			: undefined;
+		const extractorConfig =
+			recProcessorType === 'extraction'
+				? { count: Number(recExtCount) || 3, description: recExtDescription || 'keywords' }
+				: undefined;
 
 		if (isEditingRecursive) {
 			const effectiveId = commonId.trim() || _task.id;
@@ -467,10 +498,13 @@
 				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
+				processorType: recProcessorType,
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
 				extractorConfig,
+				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
+				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
 				persist: true
@@ -483,10 +517,13 @@
 				dependencies: deps.length > 0 ? deps : undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
+				processorType: recProcessorType,
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
 				extractorConfig,
+				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
+				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
 				persist: true
 			});
@@ -583,19 +620,23 @@
 			<div class="tab-content">
 				<Input bind:value={recWindowSize} label="Window size (chars)" />
 				<Input bind:value={recOverlap} label="Overlap (chars)" />
-				<div class="extraction-toggle">
-					<Label text="Extraction mode">
-						<ToggleIcon
-							name="Search"
-							bind:checked={recIsExtraction}
-							size={20}
-							tooltipProps={{ content: 'Extract per chunk instead of summarizing' }}
-						/>
-					</Label>
-				</div>
-				{#if recIsExtraction}
+				<Dropdown
+					label="Processor type"
+					bind:value={recProcessorType}
+					options={[
+						{ label: 'Summarize', value: 'summarize' },
+						{ label: 'Extraction', value: 'extraction' },
+						{ label: 'Translate', value: 'translate' },
+						{ label: 'Custom', value: 'custom' }
+					]}
+				/>
+				{#if recProcessorType === 'extraction'}
 					<Input bind:value={recExtCount} label="Extract count" />
 					<Input bind:value={recExtDescription} label="Extract description" />
+				{:else if recProcessorType === 'translate'}
+					<Input bind:value={recTargetLang} label="Target language" />
+				{:else if recProcessorType === 'custom'}
+					<Input bind:value={recCustomSystemMsg} label="System message" />
 				{/if}
 				<Input bind:value={recUserMessage} label="Per-chunk prompt" />
 				<Input bind:value={recFinalUserMessage} label="Final prompt" />
@@ -648,9 +689,5 @@
 		padding-top: 1rem;
 	}
 
-	.extraction-toggle {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
+
 </style>

@@ -60,19 +60,20 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 }
 
 function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unknown>) {
-	const catOptions: Record<string, unknown> = {
-		...options,
+	return createCategoryTask({
 		categoryNames: def.categoryNames,
-		maxItems: def.extractorConfig!.count
-	};
-
-	if (!def.categoryNames) {
-		catOptions.systemMessage = def.systemMessage;
-		catOptions.userMessage = def.userMessage;
-		catOptions.completionOptions = def.completionOptions;
-	}
-
-	return createCategoryTask(catOptions);
+		maxItems: def.extractorConfig!.count,
+		...(!def.categoryNames && {
+			dependencies: def.dependencies,
+			name: def.name,
+			component: def.component,
+			renderOrder: def.renderOrder,
+			persist: def.persist,
+			enableTTS: def.enableTTS,
+			gridSpan: def.gridSpan,
+			componentProps: def.componentProps
+		})
+	});
 }
 
 export function buildTasksFromTemplate(
