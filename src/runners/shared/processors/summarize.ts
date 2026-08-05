@@ -1,5 +1,6 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import { combineResults } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const summarizeProcessor: ProcessorDef = {
@@ -29,6 +30,9 @@ export const summarizeProcessor: ProcessorDef = {
 			return typeof text === 'string' ? text.trim() : '';
 		},
 		combineChunks: async (results) => {
+			if (config.combineMode && config.combineMode !== 'llm') {
+				return combineResults(results, { mode: config.combineMode });
+			}
 			const combined = results.join('\n\n');
 			const res = await chatCompletions({
 				...SUMMARY_COMPLETION_OPTIONS,

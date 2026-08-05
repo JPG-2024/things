@@ -90,6 +90,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	debug?: string;
 	startedAt?: number;
 	endedAt?: number;
+	concurrencyGroup?: string;
 }
 
 export interface ScriptTask<
@@ -104,10 +105,15 @@ export interface ScriptTask<
 	baseUrl?: never;
 }
 
-type ResolvableString = string | ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
+type ResolvableString =
+	| string
+	| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
 type ResolvableCompletionOptions =
 	| (Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string })
-	| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string });
+	| ((ctx: {
+			context: unknown;
+			state: Readonly<Record<string, unknown>>;
+	  }) => Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string });
 
 export interface IaTask<
 	TMap extends TaskMapBase = TaskMapBase,

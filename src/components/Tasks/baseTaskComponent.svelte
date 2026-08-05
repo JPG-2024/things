@@ -40,7 +40,7 @@
 	);
 	const pillStatus = $derived(statusToPillStatus(task.status));
 
-	let taskOpen = $state(false);
+	let taskOpen = $state(spacerDefaultOpen);
 	let showEditModal = $state(false);
 	let draftTask = $state<Task | null>(null);
 	let createMode = $state(false);

@@ -66,9 +66,9 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 10px;
-		-webkit-backdrop-filter: blur(10px);
-		backdrop-filter: blur(10px);
-		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+		/* -webkit-backdrop-filter: blur(10px);
+		backdrop-filter: blur(10px); */
+		background: rgba(black, 0.8);
 		min-height: 30px;
 		right: 0;
 		left: 0;

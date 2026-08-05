@@ -1,5 +1,6 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import { combineResults } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const translateProcessor: ProcessorDef = {
@@ -31,8 +32,11 @@ export const translateProcessor: ProcessorDef = {
 				const text = res.choices?.[0]?.message?.content ?? '';
 				return typeof text === 'string' ? text.trim() : '';
 			},
-			combineChunks: async (results) => {
-				return results.join('\n\n');
+		combineChunks: async (results) => {
+			if (config.combineMode && config.combineMode !== 'llm') {
+				return combineResults(results, { mode: config.combineMode });
+			}
+			return results.join('\n\n');
 			}
 		};
 	}

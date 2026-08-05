@@ -3,6 +3,7 @@
 	import type { RecursiveContentResult } from '@/runners/shared/taskFactories';
 	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
+	import Keywords from '@/components/Keywords.svelte';
 
 	type Props = {
 		runId?: string;
@@ -23,14 +24,15 @@
 		const chunks = data.chunks;
 		const rawChunks = data.rawChunks;
 		const finalResponse = data.finalResponse;
-		if (!Array.isArray(chunks) || !Array.isArray(rawChunks) || typeof finalResponse !== 'string')
-			return null;
+		if (!Array.isArray(chunks) || !Array.isArray(rawChunks)) return null;
+		if (typeof finalResponse !== 'string' && !Array.isArray(finalResponse)) return null;
 		return { chunks, rawChunks, finalResponse };
 	});
 
 	const chunks = $derived(recursiveData?.chunks ?? []);
 	const rawChunks = $derived(recursiveData?.rawChunks ?? []);
 	const finalResponse = $derived(recursiveData?.finalResponse ?? '');
+	const isFinalArray = $derived(Array.isArray(finalResponse));
 
 	function chunkHint(text: string): string {
 		return text.length > 80 ? text.slice(0, 80) + '…' : text;
@@ -63,7 +65,11 @@
 
 		{#if finalResponse && !showRaw}
 			<div class="final-response">
-				<MarkdownRenderer content={finalResponse} />
+				{#if isFinalArray}
+					<Keywords keywords={finalResponse} />
+				{:else}
+					<MarkdownRenderer content={finalResponse} />
+				{/if}
 			</div>
 		{/if}
 	</div>

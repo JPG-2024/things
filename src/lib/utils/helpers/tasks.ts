@@ -21,6 +21,7 @@ export function extractDependencyText(data: unknown): string {
 	if (data && typeof data === 'object') {
 		const obj = data as Record<string, unknown>;
 
+		if (Array.isArray(obj.finalResponse)) return obj.finalResponse.join(', ');
 		if (typeof obj.finalResponse === 'string') return obj.finalResponse;
 		if (typeof obj.data === 'string') return obj.data;
 

@@ -18,7 +18,7 @@ import { splitForEmbeddings } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 import { getProcessor } from '@/runners/shared/processors';
-import type { ProcessorType } from '@/runners/shared/processors';
+import type { ProcessorType, CombineMode } from '@/runners/shared/processors';
 
 const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 const DEFAULT_IA_SYSTEM_MESSAGE =
@@ -196,7 +196,7 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 export type RecursiveContentResult = {
 	chunks: string[];
 	rawChunks: string[];
-	finalResponse: string;
+	finalResponse: string | string[];
 };
 
 export type RecursiveContentTaskOptions = {
@@ -205,6 +205,7 @@ export type RecursiveContentTaskOptions = {
 	windowSize?: number;
 	overlap?: number;
 	processorType?: ProcessorType;
+	combineMode?: CombineMode;
 	systemMessage?: string;
 	userMessage?: string;
 	finalUserMessage?: string;
@@ -228,7 +229,7 @@ export type RecursiveContentTaskOptions = {
 const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
 	chunks: z.array(z.string()),
 	rawChunks: z.array(z.string()),
-	finalResponse: z.string()
+	finalResponse: z.union([z.string(), z.array(z.string())])
 });
 
 export function createRecursiveContentTask(
@@ -236,7 +237,8 @@ export function createRecursiveContentTask(
 ): ScriptTaskDef<typeof RECURSIVE_CONTENT_OUTPUT_SCHEMA> {
 	const dependencies = options?.dependencies ?? ['content'];
 	const sourceDependency = dependencies[0];
-	const processorType: ProcessorType = options?.processorType ?? (options?.extractorConfig ? 'extraction' : 'summarize');
+	const processorType: ProcessorType =
+		options?.processorType ?? (options?.extractorConfig ? 'extraction' : 'summarize');
 
 	return scriptTask({
 		name: options?.name,
@@ -247,6 +249,7 @@ export function createRecursiveContentTask(
 		gridSpan: options?.gridSpan,
 		renderOrder: options?.renderOrder,
 		persist: options?.persist,
+		concurrencyGroup: 'recursive',
 		output: RECURSIVE_CONTENT_OUTPUT_SCHEMA,
 		run: async ({ state, update }) => {
 			const content = state[sourceDependency];
@@ -255,7 +258,9 @@ export function createRecursiveContentTask(
 
 			const windowSize = options?.windowSize ?? 3000;
 			const overlap = options?.overlap ?? Math.floor(windowSize * 0.1);
-			const sections = splitForEmbeddings(content, { windowSize, overlap }).map((c) => c.text);
+			const chunksResult = splitForEmbeddings(content, { windowSize, overlap });
+			const sections = chunksResult.map((c) => c.text);
+			console.log('chunksResult', chunksResult);
 			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
 
 			const processorDef = getProcessor(processorType);
@@ -266,7 +271,8 @@ export function createRecursiveContentTask(
 				extractorConfig: options?.extractorConfig,
 				targetLang: options?.targetLang,
 				customSystemMsg: options?.customSystemMsg,
-				completionOptions: options?.completionOptions
+				completionOptions: options?.completionOptions,
+				combineMode: options?.combineMode
 			});
 
 			const chunks: string[] = [];
@@ -288,6 +294,7 @@ export interface RecursiveConfig {
 	windowSize: number;
 	overlap: number;
 	processorType: ProcessorType;
+	combineMode?: CombineMode;
 	userMessage: string;
 	finalUserMessage: string;
 	extractorConfig?: { count: number; description: string };
@@ -301,7 +308,8 @@ export function buildRecursiveTask(
 ): Task {
 	const windowSize = options.windowSize ?? 1000;
 	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
-	const processorType: ProcessorType = options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize');
+	const processorType: ProcessorType =
+		options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize');
 
 	const processorDef = getProcessor(processorType);
 	const defaults = processorDef.defaults;
@@ -326,6 +334,7 @@ export function buildRecursiveTask(
 				windowSize,
 				overlap,
 				processorType,
+				combineMode: options.combineMode,
 				userMessage,
 				finalUserMessage,
 				extractorConfig: options.extractorConfig,

@@ -6,6 +6,7 @@ import {
 	buildExtractionSystemMessage,
 	buildExtractionUserMessage
 } from '@/lib/utils/inference/extraction-helper';
+import { combineResults, parseAndFlattenJsonArrays } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const extractionProcessor: ProcessorDef = {
@@ -25,8 +26,15 @@ export const extractionProcessor: ProcessorDef = {
 				});
 				return JSON.stringify(extracted);
 			},
-			combineChunks: async (results) => {
-				const allExtractions: string[] = [];
+		combineChunks: async (results) => {
+			if (config.combineMode && config.combineMode !== 'llm') {
+				const flat = parseAndFlattenJsonArrays(results);
+				if (config.combineMode === 'dedupe') {
+					return [...new Set(flat)];
+				}
+				return flat;
+			}
+			const allExtractions: string[] = [];
 				for (const r of results) {
 					try {
 						const parsed = JSON.parse(r);
@@ -55,7 +63,7 @@ export const extractionProcessor: ProcessorDef = {
 				});
 				const text = res.choices?.[0]?.message?.content ?? '';
 				const contentStr = typeof text === 'string' ? text : '';
-				return JSON.stringify(parseStructuredArrayResponses(contentStr));
+				return parseStructuredArrayResponses(contentStr);
 			}
 		};
 	}

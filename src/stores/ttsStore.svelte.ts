@@ -54,7 +54,7 @@ class TTSState {
 			'Vas a ver los ejercicios que hago, las series, las repeticiones, los kilos que levanto y lo más importante, como ajusto a la intensidad para poder recuperarme y entrenar de forma inteligente.  Hola chicas y chicos, bienvenidos a un nuevo vídeo del canal.',
 		numStep: 16,
 		denoise: true,
-		guidanceScale: 3.0,
+		guidanceScale: 2.0,
 		speed: 1.0,
 		preprocessPrompt: true,
 		postprocessOutput: true,

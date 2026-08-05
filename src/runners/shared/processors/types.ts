@@ -2,6 +2,8 @@ import type { LlamaChatCompletionsRequest } from '@/lib/utils/inference/llama-co
 
 export type ProcessorType = 'summarize' | 'extraction' | 'translate' | 'custom';
 
+export type CombineMode = 'llm' | 'join' | 'dedupe';
+
 export interface ChunkProcessorConfig {
 	model: string;
 	userMessage?: string;
@@ -10,11 +12,12 @@ export interface ChunkProcessorConfig {
 	targetLang?: string;
 	customSystemMsg?: string;
 	completionOptions?: Record<string, unknown>;
+	combineMode?: CombineMode;
 }
 
 export interface ChunkProcessor {
 	processChunk: (chunk: string, index: number) => Promise<string>;
-	combineChunks: (results: string[], rawChunks: string[]) => Promise<string>;
+	combineChunks: (results: string[], rawChunks: string[]) => Promise<string | string[]>;
 }
 
 export interface ProcessorDef {

@@ -16,7 +16,7 @@
 	} from '@/runners/shared/taskFactories';
 	import type { RecursiveConfig } from '@/runners/shared/taskFactories';
 	import { getProcessorTypes } from '@/runners/shared/processors';
-	import type { ProcessorType } from '@/runners/shared/processors';
+	import type { ProcessorType, CombineMode } from '@/runners/shared/processors';
 	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import Label from '@/components/inputs/Label.component.svelte';
@@ -108,11 +108,13 @@
 	let recOriginalFinalUserMessage = $state('');
 
 	let recProcessorType = $state<ProcessorType>('summarize');
+	let recCombineMode = $state<CombineMode>('llm');
 	let recExtCount = $state('3');
 	let recExtDescription = $state('keywords');
 	let recTargetLang = $state('Spanish');
 	let recCustomSystemMsg = $state('');
 	let recOriginalProcessorType = $state<ProcessorType>('summarize');
+	let recOriginalCombineMode = $state<CombineMode>('llm');
 	let recOriginalExtCount = $state('');
 	let recOriginalExtDescription = $state('');
 	let recOriginalTargetLang = $state('');
@@ -199,14 +201,16 @@
 			recOriginalUserMessage = recUserMessage;
 			recOriginalFinalUserMessage = recFinalUserMessage;
 
-			recProcessorType = cfg?.processorType ?? 'summarize';
-			const extCfg = cfg?.extractorConfig;
+		recProcessorType = cfg?.processorType ?? 'summarize';
+		recCombineMode = cfg?.combineMode ?? 'llm';
+		const extCfg = cfg?.extractorConfig;
 			recExtCount = extCfg ? String(extCfg.count) : '3';
 			recExtDescription = extCfg?.description ?? 'keywords';
 			recTargetLang = cfg?.targetLang ?? 'Spanish';
 			recCustomSystemMsg = cfg?.customSystemMsg ?? '';
-			recOriginalProcessorType = recProcessorType;
-			recOriginalExtCount = recExtCount;
+		recOriginalProcessorType = recProcessorType;
+		recOriginalCombineMode = recCombineMode;
+		recOriginalExtCount = recExtCount;
 			recOriginalExtDescription = recExtDescription;
 			recOriginalTargetLang = recTargetLang;
 			recOriginalCustomSystemMsg = recCustomSystemMsg;
@@ -220,13 +224,15 @@
 			recOriginalUserMessage = '';
 			recOriginalFinalUserMessage = '';
 
-			recProcessorType = 'summarize';
-			recExtCount = '3';
+		recProcessorType = 'summarize';
+		recCombineMode = 'llm';
+		recExtCount = '3';
 			recExtDescription = 'keywords';
 			recTargetLang = 'Spanish';
 			recCustomSystemMsg = '';
-			recOriginalProcessorType = 'summarize';
-			recOriginalExtCount = '';
+		recOriginalProcessorType = 'summarize';
+		recOriginalCombineMode = 'llm';
+		recOriginalExtCount = '';
 			recOriginalExtDescription = '';
 			recOriginalTargetLang = '';
 			recOriginalCustomSystemMsg = '';
@@ -362,7 +368,7 @@
 				persist: true,
 				extractor: { count, description: extDescription }
 			});
-			const taskId = `${_task.id} > ${Date.now()}`;
+			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -459,7 +465,7 @@
 				categoryNames: categoryNames.length > 0 ? categoryNames : undefined,
 				maxItems
 			});
-			const taskId = `${_task.id} > ${Date.now()}`;
+			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -499,6 +505,7 @@
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				processorType: recProcessorType,
+				combineMode: recCombineMode,
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
@@ -512,12 +519,14 @@
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, effectiveId);
 		} else {
-			const newTask = buildRecursiveTask(`${_task.id} > ${Date.now()}`, {
+			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const newTask = buildRecursiveTask(taskId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				processorType: recProcessorType,
+				combineMode: recCombineMode,
 				userMessage: recUserMessage,
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
@@ -620,6 +629,15 @@
 			<div class="tab-content">
 				<Input bind:value={recWindowSize} label="Window size (chars)" />
 				<Input bind:value={recOverlap} label="Overlap (chars)" />
+				<Dropdown
+					label="Combine mode"
+					bind:value={recCombineMode}
+					options={[
+						{ label: 'Default (LLM)', value: 'llm' },
+						{ label: 'Join', value: 'join' },
+						{ label: 'Dedupe', value: 'dedupe' }
+					]}
+				/>
 				<Dropdown
 					label="Processor type"
 					bind:value={recProcessorType}

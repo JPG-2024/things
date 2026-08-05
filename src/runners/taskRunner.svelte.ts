@@ -373,6 +373,26 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 
 	/**
+	 * Select one task per concurrency group; tasks without a group are all included.
+	 * @param tasks - Candidate tasks.
+	 * @returns Filtered list respecting concurrency constraints.
+	 */
+	private selectTasksRespectingConcurrency(tasks: Task<TMap>[]): Task<TMap>[] {
+		const grouped = new Map<string, Task<TMap>>();
+		const ungrouped: Task<TMap>[] = [];
+		for (const task of tasks) {
+			if (task.concurrencyGroup) {
+				if (!grouped.has(task.concurrencyGroup)) {
+					grouped.set(task.concurrencyGroup, task);
+				}
+			} else {
+				ungrouped.push(task);
+			}
+		}
+		return [...ungrouped, ...grouped.values()];
+	}
+
+	/**
 	 * Get tasks that are ready to run (pending and all dependencies done).
 	 * @returns Array of ready tasks.
 	 */
@@ -418,9 +438,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				? task.systemMessage(resolveCtx)
 				: task.systemMessage;
 		const resolvedUser =
-			typeof task.userMessage === 'function'
-				? task.userMessage(resolveCtx)
-				: task.userMessage;
+			typeof task.userMessage === 'function' ? task.userMessage(resolveCtx) : task.userMessage;
 		const resolvedCompletion =
 			typeof task.completionOptions === 'function'
 				? task.completionOptions(resolveCtx)
@@ -428,9 +446,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 
 		const userContent = `context: ${runResult} ${resolvedUser}`;
 		const useStream =
-			options?.stream !== undefined
-				? options.stream === true
-				: resolvedCompletion.stream === true;
+			options?.stream !== undefined ? options.stream === true : resolvedCompletion.stream === true;
 		const request: LlamaChatCompletionsRequest = {
 			...resolvedCompletion,
 			stream: useStream,
@@ -552,7 +568,9 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				const ready = this.getReadyTasks();
 				if (ready.length === 0) break;
 
-				const readyScripts = ready.filter((task) => task.type === 'script');
+				const readyScripts = this.selectTasksRespectingConcurrency(
+					ready.filter((task) => task.type === 'script')
+				);
 				if (readyScripts.length > 0) {
 					const results = await Promise.allSettled(
 						readyScripts.map((task) => this.executeTask(task, options))

@@ -25,4 +25,10 @@ export function getProcessorTypes(): ProcessorType[] {
 	return [...registry.keys()];
 }
 
-export type { ProcessorDef, ProcessorType, ChunkProcessorConfig, ChunkProcessor } from './types';
+export type {
+	ProcessorDef,
+	ProcessorType,
+	CombineMode,
+	ChunkProcessorConfig,
+	ChunkProcessor
+} from './types';

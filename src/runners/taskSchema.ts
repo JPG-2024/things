@@ -28,6 +28,7 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	persist?: boolean;
 	enableTTS?: boolean;
 	output: TOutput;
+	concurrencyGroup?: string;
 };
 
 type ScriptTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
@@ -158,6 +159,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			renderOrder: def.renderOrder,
 			persist: def.persist,
 			enableTTS: def.enableTTS,
+			concurrencyGroup: def.concurrencyGroup,
 			run: async (runtime: TaskRuntime<TMap, TId>) => {
 				const result = await def.run({
 					runId: runtime.runId,
@@ -216,6 +218,7 @@ export function buildIaTask<
 			renderOrder: def.renderOrder,
 			persist: def.persist,
 			enableTTS: def.enableTTS,
+			concurrencyGroup: def.concurrencyGroup,
 			run: def.run
 				? async (runtime: TaskRuntime<TMap, TId>) => {
 						return def.run!({

@@ -137,6 +137,7 @@ export function splitForEmbeddings(
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 
+	const trimOffset = text.indexOf(trimmed);
 	const { windowSize, overlap, respectBoundaries = true } = options;
 
 	if (windowSize <= 0) {
@@ -154,8 +155,8 @@ export function splitForEmbeddings(
 			{
 				text: trimmed,
 				index: 0,
-				startOffset: 0,
-				endOffset: trimmed.length
+				startOffset: trimOffset,
+				endOffset: trimOffset + trimmed.length
 			}
 		];
 	}
@@ -180,8 +181,8 @@ export function splitForEmbeddings(
 			chunks.push({
 				text: chunkText,
 				index,
-				startOffset: position,
-				endOffset: end
+				startOffset: position + trimOffset,
+				endOffset: end + trimOffset
 			});
 			index++;
 		}
