@@ -1,4 +1,5 @@
 import { viewState } from '@/stores/viewStore.svelte';
+import { musicState } from '@/stores/musicStore.svelte';
 import { navigate } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
@@ -36,17 +37,15 @@ export async function handlePasteUrl(
 	content: string,
 	{ replaceState = false }: HandlePasteUrlOptions = {}
 ): Promise<void> {
-	if (viewState.processingUrl) return;
-
 	const validUrl = extractValidUrl(content);
 
 	if (validUrl && viewState.downloadTracksEnabled) {
 		viewState.lastHandledClipboardUrl = validUrl;
-		if (viewState.urlQueue.length < viewState.maxUrlQueueSize) {
-			viewState.urlQueue.push(validUrl);
-		}
+		musicState.addToQueue([validUrl]);
 		return;
 	}
+
+	if (viewState.processingUrl) return;
 
 	if (validUrl && viewState.isRawMode) {
 		viewState.processingUrl = true;

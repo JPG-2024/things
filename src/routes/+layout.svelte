@@ -19,7 +19,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 
-	const CLIPBOARD_POLL_INTERVAL_MS = 5000;
+	const CLIPBOARD_POLL_INTERVAL_MS = 1500;
 
 	let { children } = $props();
 
@@ -134,7 +134,8 @@
 		let clipboardInterval: ReturnType<typeof setInterval>;
 
 		async function pollClipboard() {
-			if (!viewState.clipboardPollingEnabled || viewState.processingUrl) return;
+			if (!viewState.clipboardPollingEnabled) return;
+			if (viewState.processingUrl && !viewState.downloadTracksEnabled) return;
 
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
@@ -153,6 +154,10 @@
 				}
 
 				if (viewState.processingUrl || viewState.loading) {
+					if (viewState.downloadTracksEnabled) {
+						await handlePasteUrl(trimmed);
+						return;
+					}
 					if (
 						viewState.forceLanguageEnabled ||
 						viewState.urlQueue.length < viewState.maxUrlQueueSize
@@ -164,7 +169,6 @@
 				}
 
 				await handlePasteUrl(trimmed);
-				viewState.lastHandledClipboardUrl = trimmed;
 			} catch (error) {
 				consecutiveClipboardErrors += 1;
 				console.warn('[clipboard-poll] error', {

@@ -22,7 +22,6 @@
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
-	import { musicState } from '@/stores/musicStore.svelte';
 	import type { Task } from '@/types/taskRunner.types';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
@@ -73,16 +72,6 @@
 		if (!viewState.clipboardPollingEnabled) {
 			viewState.lastHandledClipboardUrl = '';
 		}
-	});
-
-	$effect(() => {
-		if (!viewState.downloadTracksEnabled) return;
-		if (viewState.urlQueue.length === 0) return;
-		if (musicState.isDownloading) return;
-
-		const urlsToDownload = [...viewState.urlQueue];
-		viewState.urlQueue = [];
-		void musicState.downloadTracks(urlsToDownload);
 	});
 
 	$effect(() => {
