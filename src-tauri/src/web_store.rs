@@ -1,9 +1,11 @@
 use std::fs;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use tauri::{AppHandle, Manager};
 
@@ -142,6 +144,34 @@ fn database_path(app: &AppHandle) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
     Ok(app_data_dir.join(DB_FILE).to_string_lossy().to_string())
+}
+
+fn raw_content_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("raw_content");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+fn raw_content_key(url: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(url.trim().as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn raw_content_path(app: &AppHandle, url: &str) -> Result<PathBuf, String> {
+    Ok(raw_content_dir(app)?.join(format!("{}.txt", raw_content_key(url))))
+}
+
+fn delete_raw_content_file(app: &AppHandle, url: &str) {
+    if let Ok(path) = raw_content_path(app, url) {
+        if path.exists() {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 fn get_db(app: &AppHandle) -> Result<Connection, String> {
@@ -1072,7 +1102,30 @@ pub async fn delete_web_store_tasks_by_url(
         .execute("DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE", params![url])
         .map_err(|error| error.to_string())?;
 
+    delete_raw_content_file(&app, &url);
+
     Ok(changes > 0)
+}
+
+#[tauri::command]
+pub async fn write_raw_content(app: AppHandle, url: String, text: String) -> Result<String, String> {
+    let key = raw_content_key(&url);
+    let dir = raw_content_dir(&app)?;
+    let path = dir.join(format!("{}.txt", key));
+    fs::write(&path, text).map_err(|error| error.to_string())?;
+    Ok(key)
+}
+
+#[tauri::command]
+pub async fn read_raw_content(app: AppHandle, key: String) -> Result<Option<String>, String> {
+    let dir = raw_content_dir(&app)?;
+    let path = dir.join(format!("{}.txt", key));
+    if !path.exists() {
+        return Ok(None);
+    }
+    fs::read_to_string(&path)
+        .map(Some)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

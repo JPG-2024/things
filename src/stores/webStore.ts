@@ -187,7 +187,19 @@ async function getTasksByUrlMap(): Promise<Map<string, string>> {
 	return _pendingTasksPromise;
 }
 
-export function parsePersistedTaskStates(raw: string | null): PersistedTaskState[] {
+export const RAW_CONTENT_REF = '__rawContentRef__';
+
+type RawContentRef = { [RAW_CONTENT_REF]: string };
+
+function isRawContentRef(value: unknown): value is RawContentRef {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		typeof (value as RawContentRef)[RAW_CONTENT_REF] === 'string'
+	);
+}
+
+export async function parsePersistedTaskStates(raw: string | null): Promise<PersistedTaskState[]> {
 	if (!raw) {
 		return [];
 	}
@@ -195,13 +207,24 @@ export function parsePersistedTaskStates(raw: string | null): PersistedTaskState
 	try {
 		const parsed = JSON.parse(raw) as StoredTask[];
 		if (Array.isArray(parsed)) {
-			return parsed.map((task, index) => ({
+			const tasks = parsed.map((task, index) => ({
 				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
 				name: task?.name,
 				data: task?.data,
 				status: task?.status ?? 'done',
 				renderOrder: task?.renderOrder
 			}));
+
+			for (const task of tasks) {
+				if (task.id === 'content' && isRawContentRef(task.data)) {
+					const text = await invoke<string | null>('read_raw_content', {
+						key: task.data[RAW_CONTENT_REF]
+					});
+					task.data = typeof text === 'string' ? text : '';
+				}
+			}
+
+			return tasks;
 		}
 	} catch (error) {
 		console.warn('Unable to parse stored tasks JSON', error);
@@ -445,16 +468,16 @@ export async function buildUpsertInput(params: {
 	};
 }
 
-export function mapStoredArticle(
+export async function mapStoredArticle(
 	row: WebStoreArticleRecord,
 	tasksJson?: string | null
-): ArticleWithTasks {
+): Promise<ArticleWithTasks> {
 	const resolvedTasksJson = tasksJson ?? '[]';
 
 	return {
 		...row,
 		profilePicture: row.profilePicture,
-		persistedTasks: parsePersistedTaskStates(resolvedTasksJson)
+		persistedTasks: await parsePersistedTaskStates(resolvedTasksJson)
 	};
 }
 
@@ -529,8 +552,8 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 			getTasksByUrlMap()
 		]);
 
-		const mappedArticles = articles.map((row) =>
-			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		const mappedArticles = await Promise.all(
+			articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 		);
 
 		return resolveArticleThumbnailBatch(mappedArticles);
@@ -603,8 +626,8 @@ export async function getArticlesByProfile(
 			getTasksByUrlMap()
 		]);
 
-		const mappedArticles = articles.map((row) =>
-			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		const mappedArticles = await Promise.all(
+			articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 		);
 
 		return resolveArticleThumbnailBatch(mappedArticles);
@@ -642,7 +665,7 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 			return null;
 		}
 
-		const article = mapStoredArticle(row, taskRecord?.tasksJson ?? null);
+		const article = await mapStoredArticle(row, taskRecord?.tasksJson ?? null);
 		return resolveArticleThumbnail(article);
 	} catch (error) {
 		console.error('Error querying article', error);
@@ -687,6 +710,13 @@ export async function saveTasks<TMap extends TaskMapBase>(
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
 		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
+
+		for (const task of tasksToSave) {
+			if (task.id === 'content' && typeof task.data === 'string' && task.data.length > 0) {
+				const key = await invoke<string>('write_raw_content', { url, text: task.data });
+				task.data = { [RAW_CONTENT_REF]: key };
+			}
+		}
 
 		await invoke('upsert_web_store_tasks', {
 			url,
@@ -736,7 +766,7 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 
 		const articles = await fetchWebStoreArticlesByProfile(profileId);
 		for (const article of articles) {
-			await deleteArticleMedia(mapStoredArticle(article));
+			await deleteArticleMedia(await mapStoredArticle(article));
 		}
 
 		return await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
@@ -875,8 +905,10 @@ export async function getArticlesWithProfiles(
 		const profilesWithArticles: ProfileWithArticles[] = [];
 		for (const profile of resolvedProfiles) {
 			const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
-			const mappedArticles = profile.articles.map((row) =>
-				mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+			const mappedArticles = await Promise.all(
+				profile.articles.map((row) =>
+					mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+				)
 			);
 			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
 
@@ -915,8 +947,8 @@ export async function getArticlesWithoutProfile(options?: {
 		});
 
 		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
-		const mappedArticles = result.articles.map((row) =>
-			mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+		const mappedArticles = await Promise.all(
+			result.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 		);
 		const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
 
