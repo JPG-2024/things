@@ -13,7 +13,6 @@ use lancedb::query::{ExecutableQuery, QueryBase};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-const CHUNKS_TABLE: &str = "article_chunks";
 const EMBEDDINGS_DIR: &str = "embeddings";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +26,8 @@ pub struct ChunkInput {
 	pub profile_id: Option<String>,
 	pub model_name: Option<String>,
 	pub model_dimensions: Option<i32>,
+	pub start_offset: Option<i32>,
+	pub end_offset: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +41,8 @@ pub struct SearchChunkResult {
 	pub profile_id: Option<String>,
 	pub model_name: Option<String>,
 	pub model_dimensions: Option<i32>,
+	pub start_offset: Option<i32>,
+	pub end_offset: Option<i32>,
 }
 
 fn now_millis() -> i64 {
@@ -73,6 +76,8 @@ fn chunk_schema(dim: i32) -> Arc<Schema> {
 		Field::new("profile_id", DataType::Utf8, true),
 		Field::new("model_name", DataType::Utf8, true),
 		Field::new("model_dimensions", DataType::Int32, true),
+		Field::new("start_offset", DataType::Int32, true),
+		Field::new("end_offset", DataType::Int32, true),
 	]))
 }
 
@@ -87,6 +92,8 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 	let mut profile_ids: Vec<Option<&str>> = Vec::with_capacity(count);
 	let mut model_names: Vec<Option<&str>> = Vec::with_capacity(count);
 	let mut model_dimensions_values: Vec<Option<i32>> = Vec::with_capacity(count);
+	let mut start_offsets: Vec<Option<i32>> = Vec::with_capacity(count);
+	let mut end_offsets: Vec<Option<i32>> = Vec::with_capacity(count);
 
 	let now = now_millis();
 
@@ -100,6 +107,8 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 		profile_ids.push(chunk.profile_id.as_deref());
 		model_names.push(chunk.model_name.as_deref());
 		model_dimensions_values.push(chunk.model_dimensions);
+		start_offsets.push(chunk.start_offset);
+		end_offsets.push(chunk.end_offset);
 	}
 
 	let id_array = Arc::new(StringArray::from(ids));
@@ -114,6 +123,8 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 	let profile_id_array = Arc::new(StringArray::from(profile_ids));
 	let model_name_array = Arc::new(StringArray::from(model_names));
 	let model_dimensions_array = Arc::new(Int32Array::from(model_dimensions_values));
+	let start_offset_array = Arc::new(Int32Array::from(start_offsets));
+	let end_offset_array = Arc::new(Int32Array::from(end_offsets));
 
 	RecordBatch::try_new(
 		schema.clone(),
@@ -127,6 +138,8 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 			profile_id_array,
 			model_name_array,
 			model_dimensions_array,
+			start_offset_array,
+			end_offset_array,
 		],
 	)
 	.map_err(|e: arrow::error::ArrowError| e.to_string())
@@ -137,7 +150,7 @@ fn escape_sql_ident(value: &str) -> String {
 }
 
 #[tauri::command]
-pub async fn index_chunks(app: AppHandle, chunks: Vec<ChunkInput>) -> Result<usize, String> {
+pub async fn index_chunks(app: AppHandle, table: String, chunks: Vec<ChunkInput>) -> Result<usize, String> {
 	if chunks.is_empty() {
 		return Ok(0);
 	}
@@ -146,25 +159,28 @@ pub async fn index_chunks(app: AppHandle, chunks: Vec<ChunkInput>) -> Result<usi
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
 
-	// Drop existing table and recreate fresh (schema migration strategy)
-	let _ = db.drop_table(CHUNKS_TABLE, &[] as &[String]).await;
-
 	let schema = chunk_schema(dim);
 	let batch = build_batch(&chunks, &schema, dim)?;
-	db.create_table(CHUNKS_TABLE, vec![batch])
-		.execute()
-		.await
-		.map_err(|e: lancedb::Error| e.to_string())?;
 
-	let table = db
-		.open_table(CHUNKS_TABLE)
-		.execute()
-		.await
-		.map_err(|e: lancedb::Error| e.to_string())?;
-	let _ = table
-		.create_index(&["embedding"], Index::Auto)
-		.execute()
-		.await;
+	match db.open_table(&table).execute().await {
+		Ok(tbl) => {
+			let article_url = &chunks[0].article_url;
+			let predicate = format!("article_url = '{}'", escape_sql_ident(article_url));
+			tbl.delete(&predicate).await.map_err(|e: lancedb::Error| e.to_string())?;
+			tbl.add(vec![batch]).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
+		}
+		Err(_) => {
+			let tbl = db
+				.create_table(&table, vec![batch])
+				.execute()
+				.await
+				.map_err(|e: lancedb::Error| e.to_string())?;
+			let _ = tbl
+				.create_index(&["embedding"], Index::Auto)
+				.execute()
+				.await;
+		}
+	}
 
 	Ok(chunks.len())
 }
@@ -180,6 +196,7 @@ fn build_filter_pair_int(column: &str, value: i32) -> String {
 #[tauri::command]
 pub async fn search_similar_chunks(
 	app: AppHandle,
+	table: String,
 	embedding: Vec<f32>,
 	limit: Option<usize>,
 	article_url: Option<String>,
@@ -190,8 +207,8 @@ pub async fn search_similar_chunks(
 ) -> Result<Vec<SearchChunkResult>, String> {
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
-	let table = db
-		.open_table(CHUNKS_TABLE)
+	let tbl = db
+		.open_table(&table)
 		.execute()
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
@@ -214,7 +231,7 @@ pub async fn search_similar_chunks(
 		filters.push(build_filter_pair_int("model_dimensions", md));
 	}
 
-	let mut query = table.query();
+	let mut query = tbl.query();
 
 	if !filters.is_empty() {
 		query = query.only_if(filters.join(" AND "));
@@ -272,6 +289,16 @@ pub async fn search_similar_chunks(
 			.as_any()
 			.downcast_ref::<Int32Array>()
 			.ok_or("column 8 is not Int32Array")?;
+		let start_offset_col: &Int32Array = batch
+			.column(9)
+			.as_any()
+			.downcast_ref::<Int32Array>()
+			.ok_or("column 9 is not Int32Array")?;
+		let end_offset_col: &Int32Array = batch
+			.column(10)
+			.as_any()
+			.downcast_ref::<Int32Array>()
+			.ok_or("column 10 is not Int32Array")?;
 
 		let dist_col = batch
 			.column_by_name("_distance")
@@ -294,6 +321,8 @@ pub async fn search_similar_chunks(
 				profile_id: if profile_ids.is_null(i) { None } else { Some(profile_ids.value(i).to_string()) },
 				model_name: if model_names.is_null(i) { None } else { Some(model_names.value(i).to_string()) },
 				model_dimensions: if model_dimensions_col.is_null(i) { None } else { Some(model_dimensions_col.value(i)) },
+				start_offset: if start_offset_col.is_null(i) { None } else { Some(start_offset_col.value(i)) },
+				end_offset: if end_offset_col.is_null(i) { None } else { Some(end_offset_col.value(i)) },
 			});
 		}
 	}
@@ -302,18 +331,17 @@ pub async fn search_similar_chunks(
 }
 
 #[tauri::command]
-pub async fn delete_chunks_by_article(app: AppHandle, article_url: String) -> Result<bool, String> {
+pub async fn delete_chunks_by_article(app: AppHandle, table: String, article_url: String) -> Result<bool, String> {
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
-	let table = db
-		.open_table(CHUNKS_TABLE)
+	let tbl = db
+		.open_table(&table)
 		.execute()
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
 
 	let predicate = format!("article_url = '{}'", escape_sql_ident(&article_url));
-	table
-		.delete(&predicate)
+	tbl.delete(&predicate)
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
 
@@ -321,18 +349,17 @@ pub async fn delete_chunks_by_article(app: AppHandle, article_url: String) -> Re
 }
 
 #[tauri::command]
-pub async fn delete_chunk(app: AppHandle, id: String) -> Result<bool, String> {
+pub async fn delete_chunk(app: AppHandle, table: String, id: String) -> Result<bool, String> {
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
-	let table = db
-		.open_table(CHUNKS_TABLE)
+	let tbl = db
+		.open_table(&table)
 		.execute()
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
 
 	let predicate = format!("id = '{}'", escape_sql_ident(&id));
-	table
-		.delete(&predicate)
+	tbl.delete(&predicate)
 		.await
 		.map_err(|e: lancedb::Error| e.to_string())?;
 

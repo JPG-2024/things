@@ -9,6 +9,8 @@ export interface ChunkInput {
 	profileId?: string;
 	modelName?: string;
 	modelDimensions?: number;
+	startOffset?: number;
+	endOffset?: number;
 }
 
 export interface SearchChunkResult {
@@ -20,9 +22,12 @@ export interface SearchChunkResult {
 	profileId?: string;
 	modelName?: string;
 	modelDimensions?: number;
+	startOffset?: number;
+	endOffset?: number;
 }
 
 export interface SearchChunksParams {
+	table: string;
 	embedding: number[];
 	limit?: number;
 	articleUrl?: string;
@@ -32,18 +37,18 @@ export interface SearchChunksParams {
 	modelDimensions?: number;
 }
 
-export async function indexChunks(chunks: ChunkInput[]): Promise<number> {
-	return invoke('index_chunks', { chunks });
+export async function indexChunks(table: string, chunks: ChunkInput[]): Promise<number> {
+	return invoke('index_chunks', { table, chunks });
 }
 
 export async function searchChunks(params: SearchChunksParams): Promise<SearchChunkResult[]> {
 	return invoke('search_similar_chunks', { ...params });
 }
 
-export async function deleteChunksByArticle(articleUrl: string): Promise<boolean> {
-	return invoke('delete_chunks_by_article', { articleUrl });
+export async function deleteChunksByArticle(table: string, articleUrl: string): Promise<boolean> {
+	return invoke('delete_chunks_by_article', { table, articleUrl });
 }
 
-export async function deleteChunk(id: string): Promise<boolean> {
-	return invoke('delete_chunk', { id });
+export async function deleteChunk(table: string, id: string): Promise<boolean> {
+	return invoke('delete_chunk', { table, id });
 }
