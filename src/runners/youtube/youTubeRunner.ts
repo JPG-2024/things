@@ -7,6 +7,8 @@ import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
+import { extractCategoryFromTasks, generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
 
 export interface YouTubeRunnerOptions {
 	profileId?: string;
@@ -126,6 +128,14 @@ export async function youTubeRunner(
 			}
 
 			await Promise.all(saveOperations);
+
+			if (viewState.embeddingsEnabled) {
+				await generateEmbeddingsFromTasks(runResult.tasks, cleanUrl, {
+					model: EMBEDDING_MODEL,
+					profileId,
+					category: extractCategoryFromTasks(runResult.tasks)
+				});
+			}
 		}
 	});
 }

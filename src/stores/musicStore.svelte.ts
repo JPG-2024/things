@@ -56,9 +56,7 @@ class MusicState {
 	}
 
 	addToQueue(rawUrls: string[]): { added: string[]; skipped: string[] } {
-		const processedUrls = this.downloadPlaylist
-			? rawUrls
-			: rawUrls.map(keepWatchParamOnly);
+		const processedUrls = this.downloadPlaylist ? rawUrls : rawUrls.map(keepWatchParamOnly);
 
 		const added: string[] = [];
 		const skipped: string[] = [];

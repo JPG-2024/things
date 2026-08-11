@@ -147,7 +147,8 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				persist: true,
 				enableTTS: iaTask.enableTTS ?? false,
 				extractorConfig: iaTask.extractorConfig,
-				categoryNames: iaTask.categoryNames
+				categoryNames: iaTask.categoryNames,
+				embeddingTable: task.embeddingTable
 			};
 		}
 
@@ -168,9 +169,10 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				gridSpan: task.gridSpan,
 				renderOrder: task.renderOrder,
 				persist: true,
-				enableTTS: false,
+				enableTTS: task.enableTTS ?? false,
 				scriptFactory: 'recursive',
-				scriptConfig: recursiveConfig ?? {}
+				scriptConfig: recursiveConfig ?? {},
+				embeddingTable: task.embeddingTable
 			};
 		}
 

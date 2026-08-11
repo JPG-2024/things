@@ -75,7 +75,7 @@
 	});
 
 	$effect(() => {
-		const categories = viewState.selectedCategories;
+		const categories = [...viewState.selectedCategories];
 		const tab = viewState.activeProfileArticleTab;
 		const onlyRaw = viewState.showOnlyRawArticles;
 
@@ -224,10 +224,18 @@
 			tooltipProps={{ content: 'read copied text' }}
 		/>
 	</button>
-	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
+	<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={20} />
+	</button> -->
+	<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
+		<ToggleIcon
+			name="BrainCircuit"
+			bind:checked={viewState.embeddingsEnabled}
+			size={20}
+			tooltipProps={{ content: 'generate embeddings' }}
+		/>
 	</button>
-	<ToolbarDivider />
+	<!-- 	<ToolbarDivider />
 	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 		<ToggleIcon
 			name="Download"
@@ -243,7 +251,7 @@
 		aria-label="Open downloads"
 	>
 		<Icon name="ListMusic" color="var(--primary-color)" size={20} />
-	</button>
+	</button> -->
 	<ToolbarDivider />
 	<button
 		type="button"
@@ -309,7 +317,7 @@
 			{:else}
 				{#if articleCacheStore.loadingProfiles}
 					<div class="empty-profiles-container">
-						<div class="loading-indicator"></div>
+						<!-- <div class="loading-indicator"></div> -->
 					</div>
 				{:else}
 					<div class="empty-profiles-container">
@@ -338,7 +346,7 @@
 		/>
 		{#if articleCacheStore.loadingArticles}
 			<div class="empty-profiles-container">
-				<div class="loading-indicator"></div>
+				<!-- <div class="loading-indicator"></div> -->
 			</div>
 		{:else if articleCacheStore.articlesWithoutProfile.length === 0}
 			<div class="empty-profiles-container">

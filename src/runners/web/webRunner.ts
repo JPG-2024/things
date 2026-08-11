@@ -7,6 +7,8 @@ import { compactMarkdown } from '@/lib/utils/splitter';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import { getMediaSrc, resolveMediaDirectory } from '@/lib/utils/files';
 import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
+import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
+import { extractCategoryFromTasks, generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
 
 type WebRunnerOptions = {
 	makeActive?: boolean;
@@ -169,6 +171,14 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 			}
 
 			await Promise.all(saveOperations);
+
+			if (viewState.embeddingsEnabled) {
+				await generateEmbeddingsFromTasks(runResult.tasks, url, {
+					model: EMBEDDING_MODEL,
+					profileId: effectiveProfile ?? undefined,
+					category: extractCategoryFromTasks(runResult.tasks)
+				});
+			}
 		}
 	});
 }

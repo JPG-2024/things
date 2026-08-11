@@ -18,6 +18,7 @@ export type TemplateTaskDef = {
 	persist?: boolean;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
+	embeddingTable?: string;
 	enableTTS: boolean;
 	scriptFactory?: string;
 	scriptConfig?: Record<string, unknown>;

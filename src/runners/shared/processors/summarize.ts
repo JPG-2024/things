@@ -18,7 +18,8 @@ export const summarizeProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
+						content:
+							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
 					},
 					{
 						role: 'user',
@@ -41,7 +42,8 @@ export const summarizeProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
+						content:
+							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
 					},
 					{
 						role: 'user',

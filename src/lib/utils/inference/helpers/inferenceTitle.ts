@@ -8,8 +8,6 @@ export async function inferenceTitle(
 ): Promise<string> {
 	const emojiInstruction = options.emoji ? 'Start with an emoji.' : '';
 
-	console.log(content);
-
 	const response = await chatCompletions({
 		model: viewState.aiModel,
 		...DEFAULT_TITLE_COMPLETION_OPTIONS,

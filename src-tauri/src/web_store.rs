@@ -1129,6 +1129,12 @@ pub async fn read_raw_content(app: AppHandle, key: String) -> Result<Option<Stri
 }
 
 #[tauri::command]
+pub async fn read_raw_content_by_url(app: AppHandle, url: String) -> Option<String> {
+    let key = raw_content_key(&url);
+    read_raw_content(app, key).await.ok().flatten()
+}
+
+#[tauri::command]
 pub async fn list_web_store_categories(
     app: AppHandle,
 ) -> Result<Vec<WebStoreCategoryRecord>, String> {

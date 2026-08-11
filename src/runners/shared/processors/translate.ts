@@ -32,11 +32,11 @@ export const translateProcessor: ProcessorDef = {
 				const text = res.choices?.[0]?.message?.content ?? '';
 				return typeof text === 'string' ? text.trim() : '';
 			},
-		combineChunks: async (results) => {
-			if (config.combineMode && config.combineMode !== 'llm') {
-				return combineResults(results, { mode: config.combineMode });
-			}
-			return results.join('\n\n');
+			combineChunks: async (results) => {
+				if (config.combineMode && config.combineMode !== 'llm') {
+					return combineResults(results, { mode: config.combineMode });
+				}
+				return results.join('\n\n');
 			}
 		};
 	}

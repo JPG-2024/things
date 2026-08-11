@@ -68,8 +68,7 @@ export function defineTask(options: DefineTaskOptions): IaTaskDef {
 				options.systemMessage ??
 				buildExtractionSystemMessage(extractor.count, extractor.description),
 			userMessage:
-				options.userMessage ??
-				buildExtractionUserMessage(extractor.count, extractor.description),
+				options.userMessage ?? buildExtractionUserMessage(extractor.count, extractor.description),
 			run: ({ state, taskId }) => {
 				const content = state[sourceDependency];
 				if (typeof content !== 'string') {

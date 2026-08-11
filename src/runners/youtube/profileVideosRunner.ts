@@ -48,8 +48,6 @@ export async function profileRunner(
 		parentRunId: runnerConfig?.parentRunId,
 		options,
 		onRunResult: async (runResult) => {
-			console.log('RESULT', runResult);
-
 			await saveTasks(url, runResult.tasks);
 			await runnerConfig?.onRunResult?.(runResult);
 		}

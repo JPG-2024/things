@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { RecursiveContentResult } from '@/runners/shared/taskFactories';
+	import type { RecursiveContentResult, ChunkOffset } from '@/runners/shared/taskFactories';
 	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
+	import Spacer from '@/components/Spacer.component.svelte';
 
 	type Props = {
 		runId?: string;
@@ -23,44 +24,54 @@
 		if (!data || typeof data !== 'object') return null;
 		const chunks = data.chunks;
 		const rawChunks = data.rawChunks;
+		const chunkOffsets = data.chunkOffsets;
 		const finalResponse = data.finalResponse;
 		if (!Array.isArray(chunks) || !Array.isArray(rawChunks)) return null;
+		if (!Array.isArray(chunkOffsets)) return null;
 		if (typeof finalResponse !== 'string' && !Array.isArray(finalResponse)) return null;
-		return { chunks, rawChunks, finalResponse };
+		return { chunks, rawChunks, chunkOffsets, finalResponse };
 	});
 
 	const chunks = $derived(recursiveData?.chunks ?? []);
 	const rawChunks = $derived(recursiveData?.rawChunks ?? []);
+	const chunkOffsets = $derived(recursiveData?.chunkOffsets ?? []);
 	const finalResponse = $derived(recursiveData?.finalResponse ?? '');
 	const isFinalArray = $derived(Array.isArray(finalResponse));
+	const chunksSpacerOpen = $derived(task.status === 'running');
 
 	function chunkHint(text: string): string {
 		return text.length > 80 ? text.slice(0, 80) + '…' : text;
+	}
+
+	function offsetLabel(offset: ChunkOffset | undefined): string {
+		if (!offset) return '';
+		return ` (${offset.startOffset}–${offset.endOffset})`;
 	}
 </script>
 
 {#if recursiveData}
 	<div class="recursive-shell">
-		<div class="view-toggle">
-			<button class="toggle-btn" class:active={!showRaw} onclick={() => (showRaw = false)}>
-				Summary
-			</button>
-			<button class="toggle-btn" class:active={showRaw} onclick={() => (showRaw = true)}>
-				Raw
-			</button>
-		</div>
-
 		{#if chunks.length > 0}
-			<div class="chunks-stack">
-				{#each chunks as chunk, i (i)}
-					<DetailsPanel
-						label="Chunk {i + 1}"
-						hint={chunkHint(showRaw ? (rawChunks[i] ?? '') : chunk)}
-					>
-						<MarkdownRenderer content={showRaw ? (rawChunks[i] ?? '') : chunk} />
-					</DetailsPanel>
-				{/each}
-			</div>
+			<Spacer title="Chunks" defaultOpen={chunksSpacerOpen}>
+				<div class="view-toggle">
+					<button class="toggle-btn" class:active={!showRaw} onclick={() => (showRaw = false)}>
+						Summary
+					</button>
+					<button class="toggle-btn" class:active={showRaw} onclick={() => (showRaw = true)}>
+						Raw
+					</button>
+				</div>
+				<div class="chunks-stack">
+					{#each chunks as chunk, i (i)}
+						<DetailsPanel
+							label="Chunk {i + 1}"
+							hint={chunkHint(showRaw ? (rawChunks[i] ?? '') : chunk)}
+						>
+							<MarkdownRenderer content={showRaw ? (rawChunks[i] ?? '') : chunk} />
+						</DetailsPanel>
+					{/each}
+				</div>
+			</Spacer>
 		{/if}
 
 		{#if finalResponse && !showRaw}

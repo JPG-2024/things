@@ -81,10 +81,10 @@
 		outline: none;
 		border: none;
 		border-radius: 12px;
-		background: rgba(128, 128, 128, 0.13);
+		background: rgba(128, 128, 128, 0.2);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		padding: 0.4rem 0.75rem;
+		border: 1px solid rgb(var(--primary-color) / 50%);
+		padding: 0.6rem 0.75rem;
 		width: 100%;
 		color: inherit;
 		font-size: 0.8rem;

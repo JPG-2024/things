@@ -35,9 +35,7 @@
 	let { runId = undefined, task, children, componentProps = {} }: Props = $props();
 
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
-	const spacerDefaultOpen = $derived(
-		task.status === 'editing' || task.status === 'running' || task.status === 'failed'
-	);
+	const spacerDefaultOpen = $derived(task.status === 'editing' || task.status === 'failed');
 	const pillStatus = $derived(statusToPillStatus(task.status));
 
 	let taskOpen = $state(spacerDefaultOpen);
@@ -91,8 +89,8 @@
 	<Spacer opened={taskOpen} defaultOpen={spacerDefaultOpen}>
 		{#snippet titleSlot()}
 			<span class="task-title-with-status">
-				<LuminousText mode={taskOpen ? 'on' : 'off'}>
-					<span>{task.name ?? task.id}</span>
+				<LuminousText mode="on">
+					<span class="task-title-name">{task.name ?? task.id}</span>
 				</LuminousText>
 				<div class="pill-container">
 					<Pill status={pillStatus} text={task.status ?? 'pending'} showPoint />
@@ -230,6 +228,10 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.task-title-name {
+		text-transform: capitalize;
 	}
 
 	.task-content {

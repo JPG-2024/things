@@ -5,14 +5,18 @@
 		label: string;
 		hint?: string;
 		defaultOpen?: boolean;
+		leading?: Snippet;
 		children: Snippet;
 	};
 
-	let { label, hint, defaultOpen = false, children }: Props = $props();
+	let { label, hint, defaultOpen = false, leading, children }: Props = $props();
 </script>
 
 <details class="details-panel" open={defaultOpen}>
 	<summary>
+		{#if leading}
+			{@render leading()}
+		{/if}
 		{label}
 		{#if hint}
 			<span class="details-hint">{hint}</span>

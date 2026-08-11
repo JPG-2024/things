@@ -563,8 +563,6 @@ export async function chatCompletions(
 			...(acc.logprobs !== undefined ? { logprobs: acc.logprobs } : {})
 		}));
 
-	console.log('LLAMA_COMPLETIONS', choices, usage);
-
 	return {
 		id,
 		object: 'chat.completion',
@@ -579,7 +577,7 @@ export async function createEmbeddings(
 	request: LlamaEmbeddingsRequest,
 	options?: LlamaEmbeddingsOptions
 ): Promise<LlamaEmbeddingsResponse> {
-	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8083';
+	const baseUrl = import.meta.env.VITE_EMBEDDINGS_URL ?? 'http://localhost:8083';
 	const url = joinUrl(baseUrl, '/v1/embeddings');
 
 	let res: Response;

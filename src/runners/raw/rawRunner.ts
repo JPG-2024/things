@@ -1,6 +1,9 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
 import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
+import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
+import { generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
 
 type RawRunnerOptions = {
 	makeActive?: boolean;
@@ -35,6 +38,13 @@ export async function rawRunner(
 		cachedTasks: options.cachedTasks,
 		onRunResult: async (runResult) => {
 			await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
+
+			if (viewState.embeddingsEnabled) {
+				await generateEmbeddingsFromTasks(runResult.tasks, rawId, {
+					model: EMBEDDING_MODEL,
+					profileId: RAW_TEXT_PROFILE
+				});
+			}
 		}
 	});
 }

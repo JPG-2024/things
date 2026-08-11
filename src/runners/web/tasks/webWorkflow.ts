@@ -79,8 +79,6 @@ export const webWorkflow = defineWorkflow({
 					selectors: ['body']
 				});
 
-				console.log(response.metadata, 'Extracted metadata:', response.metadata);
-
 				return {
 					url: ctx.url,
 					domainUrl: new URL(ctx.url).origin,

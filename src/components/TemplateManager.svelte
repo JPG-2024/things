@@ -94,7 +94,6 @@
 	async function handleAssign() {
 		if (!viewState.domainUrl || !selectedTemplateId) return;
 
-		console.log(viewState.domainUrl, selectedTemplateId);
 		const success = await assignTemplateToProfile(viewState.domainUrl, selectedTemplateId);
 		if (success) {
 			templateChanged = selectedTemplateId !== initialTemplateId;

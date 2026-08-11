@@ -19,7 +19,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 
-	const CLIPBOARD_POLL_INTERVAL_MS = 1500;
+	const CLIPBOARD_POLL_INTERVAL_MS = 3000;
 
 	let { children } = $props();
 
@@ -214,6 +214,7 @@
 	class:blur-active={blurActive}
 	class:flashy
 	class:loaded={viewState.loaded}
+	class:embeddings-processed={viewState.embeddingsProcessed}
 >
 	{@render children()}
 </main>
@@ -247,7 +248,7 @@
 <style>
 	:global(body) {
 		margin: 0;
-		font-size: 16px;
+		font-size: 14px;
 		font-family: 'Anonymous Pro', monospace;
 	}
 
@@ -284,7 +285,7 @@
 		gap: 1.5rem;
 		box-sizing: border-box;
 		margin: 0;
-		background-image: linear-gradient(-45deg, var(--primary-color) 10%, rgba(0, 0, 0, 0.68) 90%);
+		background-image: linear-gradient(0deg, rgba(155, 155, 59, 0.756), rgba(255, 0, 0, 0.077));
 		background-size: 400% 400%;
 		background-attachment: fixed;
 		background-color: #000000;
@@ -317,6 +318,25 @@
 			var(--primary-color) 30%,
 			rgba(255, 255, 255, 0) 70%,
 			rgba(255, 255, 255, 0) 100%
+		);
+		pointer-events: none;
+		content: '';
+	}
+
+	main.embeddings-processed::after {
+		position: fixed;
+		transform: translateY(-120%);
+		z-index: 9999;
+		mix-blend-mode: screen;
+		animation: sweep-overlay 1s ease-in-out forwards;
+		inset: 0;
+		background: linear-gradient(
+			0deg,
+			rgba(0, 255, 128, 0) 0%,
+			rgba(0, 255, 128, 0) 20%,
+			rgba(175, 140, 11, 0.4) 30%,
+			rgba(0, 255, 128, 0) 70%,
+			rgba(0, 255, 128, 0) 100%
 		);
 		pointer-events: none;
 		content: '';

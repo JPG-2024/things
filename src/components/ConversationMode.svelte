@@ -211,8 +211,6 @@
 				}
 			);
 
-			console.log(response);
-
 			const finalText = response.choices?.[0]?.message?.content;
 			if (typeof finalText === 'string' && finalText.trim()) {
 				streamedText = finalText;

@@ -15,7 +15,9 @@
 
 	const title = $derived(
 		(
-			(article.persistedTasks?.find((t) => t.name === 'Title')?.data as string | undefined) ?? ''
+			(article.persistedTasks?.find((t) => t.name?.toLocaleLowerCase() === 'title')?.data as
+				| string
+				| undefined) ?? ''
 		).slice(0, 200)
 	);
 </script>
@@ -70,7 +72,7 @@
 
 	.article-content {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		width: 100%;
 	}
 

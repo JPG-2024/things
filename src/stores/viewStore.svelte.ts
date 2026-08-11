@@ -4,7 +4,7 @@ import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
 type language = 'en' | 'es';
 
-export const DEFAULT_PRIMARY_COLOR = 'rgb(188, 201, 245)';
+export const DEFAULT_PRIMARY_COLOR = '#FFD4AC';
 
 class ViewState {
 	language = $state<language>('es');
@@ -36,8 +36,10 @@ class ViewState {
 	clipboardTtsEnabled = $state(false);
 	forceLanguageEnabled = $state(false);
 	downloadTracksEnabled = $state(false);
-	enableTasksCollapse = $state(false);
+	embeddingsEnabled = $state(false);
+	embeddingsProcessed = $state(false);
 	autoSpeechEnabled = $state(true);
+	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);
 	lastHandledClipboardUrl = $state('');

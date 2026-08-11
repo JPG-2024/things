@@ -203,7 +203,6 @@ class TTSState {
 		this._chunkRefs = allChunks.map(() => {
 			if (this.config.randomChunk && this.voiceChunks.length > 0) {
 				const v = this.voiceChunks[Math.floor(Math.random() * this.voiceChunks.length)];
-				console.log('CHUNK', v.audio_file);
 				return { refAudioFilename: v.audio_file, refText: v.text_reference };
 			}
 			return {

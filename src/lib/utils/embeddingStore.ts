@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 export interface ChunkInput {
 	articleUrl: string;
-	chunkText: string;
+	chunkText?: string;
 	embedding: number[];
 	createdAt?: number;
 	category?: string;

@@ -83,3 +83,5 @@ export const YOUTUBE_STRUCTURED_OUTPUT_OPTIONS = {
 	presence_penalty: 0,
 	stream: false
 } as const;
+
+export const EMBEDDING_MODEL = 'bge-m3';

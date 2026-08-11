@@ -175,8 +175,6 @@
 
 		localConfig.refAudioFilename = chunk.audio_file;
 		localConfig.refText = chunk.text_reference;
-
-		console.log(chunk.audio_file, chunk.text_reference);
 	}
 
 	async function handleDeleteProfile() {

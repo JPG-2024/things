@@ -14,7 +14,7 @@ import {
 	buildExtractionSystemMessage,
 	buildExtractionUserMessage
 } from '@/lib/utils/inference/extraction-helper';
-import { splitForEmbeddings } from '@/lib/utils/splitText';
+import { splitForEmbeddings, splitByString } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 import { getProcessor } from '@/runners/shared/processors';
@@ -37,6 +37,7 @@ export type IaTaskFactoryOptions<TParsed = string> = {
 	renderOrder?: number;
 	persist?: boolean;
 	enableTTS?: boolean;
+	embeddingTable?: string;
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
 	systemMessage?: MaybeFn<string>;
@@ -193,9 +194,15 @@ export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef
 	});
 }
 
+export type ChunkOffset = {
+	startOffset: number;
+	endOffset: number;
+};
+
 export type RecursiveContentResult = {
 	chunks: string[];
 	rawChunks: string[];
+	chunkOffsets: ChunkOffset[];
 	finalResponse: string | string[];
 };
 
@@ -204,6 +211,7 @@ export type RecursiveContentTaskOptions = {
 	dependencies?: string[];
 	windowSize?: number;
 	overlap?: number;
+	splitByString?: string;
 	processorType?: ProcessorType;
 	combineMode?: CombineMode;
 	systemMessage?: string;
@@ -218,6 +226,7 @@ export type RecursiveContentTaskOptions = {
 	gridSpan?: 1 | 2 | 3;
 	component?: string;
 	componentProps?: MaybeFn<Record<string, unknown>>;
+	embeddingTable?: string;
 	onComplete?: (params: {
 		result: unknown;
 		runResult: string;
@@ -229,6 +238,7 @@ export type RecursiveContentTaskOptions = {
 const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
 	chunks: z.array(z.string()),
 	rawChunks: z.array(z.string()),
+	chunkOffsets: z.array(z.object({ startOffset: z.number(), endOffset: z.number() })),
 	finalResponse: z.union([z.string(), z.array(z.string())])
 });
 
@@ -250,17 +260,24 @@ export function createRecursiveContentTask(
 		renderOrder: options?.renderOrder,
 		persist: options?.persist,
 		concurrencyGroup: 'recursive',
+		embeddingTable: options?.embeddingTable,
 		output: RECURSIVE_CONTENT_OUTPUT_SCHEMA,
 		run: async ({ state, update }) => {
 			const content = state[sourceDependency];
 			if (typeof content !== 'string')
 				throw new Error(`Missing content from dependency "${sourceDependency}"`);
 
-			const windowSize = options?.windowSize ?? 3000;
-			const overlap = options?.overlap ?? Math.floor(windowSize * 0.1);
-			const chunksResult = splitForEmbeddings(content, { windowSize, overlap });
+			const chunksResult = options?.splitByString
+				? splitByString(content, options.splitByString)
+				: splitForEmbeddings(content, {
+						windowSize: options?.windowSize ?? 3000,
+						overlap: options?.overlap ?? Math.floor((options?.windowSize ?? 3000) * 0.1)
+					});
 			const sections = chunksResult.map((c) => c.text);
-			console.log('chunksResult', chunksResult);
+			const chunkOffsets = chunksResult.map((c) => ({
+				startOffset: c.startOffset,
+				endOffset: c.endOffset
+			}));
 			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
 
 			const processorDef = getProcessor(processorType);
@@ -280,12 +297,14 @@ export function createRecursiveContentTask(
 			for (let i = 0; i < sections.length; i++) {
 				const result = await processor.processChunk(sections[i], i);
 				chunks.push(result);
-				update({ data: { chunks: [...chunks], rawChunks: sections, finalResponse: '' } });
+				update({
+					data: { chunks: [...chunks], rawChunks: sections, chunkOffsets, finalResponse: '' }
+				});
 			}
 
 			const finalResponse = await processor.combineChunks(chunks, sections);
 
-			return { chunks, rawChunks: sections, finalResponse };
+			return { chunks, rawChunks: sections, chunkOffsets, finalResponse };
 		}
 	});
 }
@@ -293,6 +312,7 @@ export function createRecursiveContentTask(
 export interface RecursiveConfig {
 	windowSize: number;
 	overlap: number;
+	splitByString?: string;
 	processorType: ProcessorType;
 	combineMode?: CombineMode;
 	userMessage: string;
@@ -304,7 +324,7 @@ export interface RecursiveConfig {
 
 export function buildRecursiveTask(
 	id: string,
-	options: RecursiveContentTaskOptions & { model?: string }
+	options: RecursiveContentTaskOptions & { model?: string; enableTTS?: boolean }
 ): Task {
 	const windowSize = options.windowSize ?? 1000;
 	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
@@ -333,6 +353,7 @@ export function buildRecursiveTask(
 			recursiveConfig: {
 				windowSize,
 				overlap,
+				splitByString: options.splitByString,
 				processorType,
 				combineMode: options.combineMode,
 				userMessage,
@@ -343,7 +364,11 @@ export function buildRecursiveTask(
 			} satisfies RecursiveConfig
 		}
 	});
-	return buildScriptTaskFromDef(id, def);
+	const task = buildScriptTaskFromDef(id, def);
+	if (options.enableTTS !== undefined) {
+		task.enableTTS = options.enableTTS;
+	}
+	return task;
 }
 
 export type CreateCategoryTaskOptions = {
@@ -362,6 +387,7 @@ export type CreateCategoryTaskOptions = {
 	enableTTS?: boolean;
 	persist?: boolean;
 	renderOrder?: number;
+	embeddingTable?: string;
 };
 
 export function createCategoryTask(

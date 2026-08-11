@@ -121,112 +121,112 @@
 	void stackedTasks;
 </script>
 
-<div class="tasks-grid">
-	{#each sortedTasks as entry (`${entry.runId}:${entry.task.id}`)}
-		{@const task = entry.task}
-		{@const componentKey = task.component?.trim()}
-		{@const componentProps = task.componentProps}
-		{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-		{@const taskKey = `${entry.runId}:${entry.task.id}`}
+<div class="tasks-container">
+	<div class="tasks-grid">
+		{#each sortedTasks as entry (`${entry.runId}:${entry.task.id}`)}
+			{@const task = entry.task}
+			{@const componentKey = task.component?.trim()}
+			{@const componentProps = task.componentProps}
+			{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+			{@const taskKey = `${entry.runId}:${entry.task.id}`}
 
-		{#if Renderer && task.status === 'done'}
-			<div
-				class="task-wrapper"
-				class:span-2={(task.gridSpan ?? 3) === 2}
-				class:span-3={(task.gridSpan ?? 3) === 3}
-				transition:fade={{ duration: 250 }}
-				onmouseenter={() => {
-					viewState.selectedTaskId = task.id;
-				}}
-				// use:measureDoneHeight={taskKey}
-			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-					<Renderer {task} runId={entry.runId} {componentProps} />
-				</BaseTaskComponent>
-			</div>
-		{:else if task.status === 'running'}
-			<div
-				class="task-wrapper"
-				class:span-2={(task.gridSpan ?? 3) === 2}
-				class:span-3={(task.gridSpan ?? 3) === 3}
-				style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
-				onmouseenter={() => {
-					viewState.selectedTaskId = task.id;
-				}}
-			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-					{#if Renderer}
+			{#if Renderer && task.status === 'done'}
+				<div
+					class="task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+					// use:measureDoneHeight={taskKey}
+				>
+					<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 						<Renderer {task} runId={entry.runId} {componentProps} />
-					{/if}
-				</BaseTaskComponent>
-			</div>
-		{:else if task.status === 'editing'}
-			<div
-				class="task-wrapper"
-				class:span-2={(task.gridSpan ?? 3) === 2}
-				class:span-3={(task.gridSpan ?? 3) === 3}
-				transition:fade={{ duration: 250 }}
-				onmouseenter={() => {
-					viewState.selectedTaskId = task.id;
-				}}
-			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-			</div>
-		{:else if task.status === 'pending'}
-			<div
-				class="task-wrapper"
-				class:span-2={(task.gridSpan ?? 3) === 2}
-				class:span-3={(task.gridSpan ?? 3) === 3}
-				transition:fade={{ duration: 250 }}
-				onmouseenter={() => {
-					viewState.selectedTaskId = task.id;
-				}}
-			>
-				<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-			</div>
-		{:else if task.status === 'failed'}
-			<div
-				class="task-wrapper task-wrapper--error"
-				class:span-2={(task.gridSpan ?? 3) === 2}
-				class:span-3={(task.gridSpan ?? 3) === 3}
-				onmouseenter={() => {
-					viewState.selectedTaskId = task.id;
-				}}
-			>
-				<TaskError {task} runId={entry.runId} />
-			</div>
-		{/if}
-	{/each}
+					</BaseTaskComponent>
+				</div>
+			{:else if task.status === 'running'}
+				<div
+					class="task-wrapper"
+					style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+						{#if Renderer}
+							<Renderer {task} runId={entry.runId} {componentProps} />
+						{/if}
+					</BaseTaskComponent>
+				</div>
+			{:else if task.status === 'editing'}
+				<div
+					class="task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+				</div>
+			{:else if task.status === 'pending'}
+				<div
+					class="task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+				</div>
+			{:else if task.status === 'failed'}
+				<div
+					class="task-wrapper task-wrapper--error"
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<TaskError {task} runId={entry.runId} />
+				</div>
+			{/if}
+		{/each}
+	</div>
 </div>
 
 <!-- <div bind:this={bottomAnchor} aria-hidden="true"></div> -->
 
 <style>
+	.tasks-container {
+		container-type: inline-size;
+		width: 100%;
+	}
+
 	.tasks-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1rem;
+		column-count: 1;
+		column-gap: 2rem;
+		column-fill: auto;
 		width: 100%;
 		padding: 0 2rem;
+	}
+
+	@container (min-width: 500px) {
+		.tasks-grid {
+			column-count: 2;
+		}
 	}
 
 	.task-wrapper {
 		min-width: 0;
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		padding-top: 1rem;
+		break-inside: avoid;
 	}
 
 	.task-wrapper--error {
 		align-items: stretch;
 	}
 
-	.task-wrapper.span-2 {
-		grid-column: span 2;
-	}
-
-	.task-wrapper.span-3 {
-		grid-column: span 3;
+	.task-wrapper.span-full {
+		column-span: all;
 	}
 
 	.pending-placeholder {

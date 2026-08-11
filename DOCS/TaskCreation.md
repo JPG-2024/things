@@ -9,14 +9,14 @@
 
 ## Tipos de tareas
 
-| Tipo | Factory | Subtype | Qué hace |
-|---|---|---|---|
-| **IA (custom)** | `createIaTask()` | — | Tarea genérica: envía system+user message a un modelo y devuelve la respuesta |
-| **Extraction** | `createExtractionTask()` | `extraction` | Extrae N items (strings) del contenido. Devuelve `string[]` |
-| **Category** | `createCategoryTask()` | `category` | Subtipo de extraction: clasifica en categorías predefinidas usando grammar GBNF |
-| **Title** | `createTitleTask()` | `title` | Genera un título corto con emoji a partir de un resumen |
-| **Summary** | `createSummaryTask()` | — | Resume el contenido de una dependencia |
-| **Recursive** | `createRecursiveContentTask()` / `buildRecursiveTask()` | `recursive` | Divide el contenido en chunks, procesa cada uno con un processor seleccionable, y combina los resultados |
+| Tipo            | Factory                                                 | Subtype      | Qué hace                                                                                                 |
+| --------------- | ------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------- |
+| **IA (custom)** | `createIaTask()`                                        | —            | Tarea genérica: envía system+user message a un modelo y devuelve la respuesta                            |
+| **Extraction**  | `createExtractionTask()`                                | `extraction` | Extrae N items (strings) del contenido. Devuelve `string[]`                                              |
+| **Category**    | `createCategoryTask()`                                  | `category`   | Subtipo de extraction: clasifica en categorías predefinidas usando grammar GBNF                          |
+| **Title**       | `createTitleTask()`                                     | `title`      | Genera un título corto con emoji a partir de un resumen                                                  |
+| **Summary**     | `createSummaryTask()`                                   | —            | Resume el contenido de una dependencia                                                                   |
+| **Recursive**   | `createRecursiveContentTask()` / `buildRecursiveTask()` | `recursive`  | Divide el contenido en chunks, procesa cada uno con un processor seleccionable, y combina los resultados |
 
 ## ChunkProcessors
 
@@ -24,12 +24,12 @@ La tarea recursive usa un sistema de **processors** para procesar chunks. Cada p
 
 ### Processor Types
 
-| Type | Descripción |
-|---|---|
-| `summarize` | Resume cada chunk y combina los resúmenes |
-| `extraction` | Extrae items de cada chunk y combina los resultados |
-| `translate` | Traduce cada chunk a un idioma objetivo |
-| `custom` | USA system message personalizado para procesar chunks |
+| Type         | Descripción                                           |
+| ------------ | ----------------------------------------------------- |
+| `summarize`  | Resume cada chunk y combina los resúmenes             |
+| `extraction` | Extrae items de cada chunk y combina los resultados   |
+| `translate`  | Traduce cada chunk a un idioma objetivo               |
+| `custom`     | USA system message personalizado para procesar chunks |
 
 ### Registry
 
@@ -59,8 +59,12 @@ export const miProcessor: ProcessorDef = {
 	type: 'mi-processor',
 	defaults: { userMessage: '...' },
 	build: (config) => ({
-		processChunk: async (chunk, index) => { /* ... */ },
-		combineChunks: async (results, rawChunks) => { /* ... */ }
+		processChunk: async (chunk, index) => {
+			/* ... */
+		},
+		combineChunks: async (results, rawChunks) => {
+			/* ... */
+		}
 	})
 };
 ```

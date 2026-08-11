@@ -11,7 +11,10 @@ use lancedb::connect;
 use lancedb::index::Index;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tauri::{AppHandle, Manager};
+
+use crate::web_store::read_raw_content_by_url;
 
 const EMBEDDINGS_DIR: &str = "embeddings";
 
@@ -19,7 +22,7 @@ const EMBEDDINGS_DIR: &str = "embeddings";
 #[serde(rename_all = "camelCase")]
 pub struct ChunkInput {
 	pub article_url: String,
-	pub chunk_text: String,
+	pub chunk_text: Option<String>,
 	pub embedding: Vec<f32>,
 	pub created_at: Option<i64>,
 	pub category: Option<String>,
@@ -62,7 +65,7 @@ fn chunk_schema(dim: i32) -> Arc<Schema> {
 	Arc::new(Schema::new(vec![
 		Field::new("id", DataType::Utf8, false),
 		Field::new("article_url", DataType::Utf8, false),
-		Field::new("chunk_text", DataType::Utf8, false),
+		Field::new("chunk_text", DataType::Utf8, true),
 		Field::new(
 			"embedding",
 			DataType::FixedSizeList(
@@ -85,7 +88,7 @@ fn build_batch(chunks: &[ChunkInput], schema: &Arc<Schema>, dim: i32) -> Result<
 	let count = chunks.len();
 	let mut ids: Vec<String> = Vec::with_capacity(count);
 	let mut urls: Vec<String> = Vec::with_capacity(count);
-	let mut texts: Vec<String> = Vec::with_capacity(count);
+	let mut texts: Vec<Option<String>> = Vec::with_capacity(count);
 	let mut embeddings: Vec<Option<Vec<Option<f32>>>> = Vec::with_capacity(count);
 	let mut created_ats: Vec<i64> = Vec::with_capacity(count);
 	let mut categories: Vec<Option<&str>> = Vec::with_capacity(count);
@@ -193,6 +196,22 @@ fn build_filter_pair_int(column: &str, value: i32) -> String {
 	format!("{} = {}", column, value)
 }
 
+/// Extract a substring from raw content using char-based (Unicode scalar) offsets.
+/// Returns None when offsets are missing or invalid so the caller can fall back.
+fn extract_chunk_text(content: &str, start: Option<i32>, end: Option<i32>) -> Option<String> {
+	let (s, e) = match (start, end) {
+		(Some(s), Some(e)) if e > s => (s as usize, e as usize),
+		_ => return None,
+	};
+	let chars: Vec<char> = content.chars().collect();
+	let s = s.min(chars.len());
+	let e = e.min(chars.len());
+	if e <= s {
+		return None;
+	}
+	Some(chars[s..e].iter().collect())
+}
+
 #[tauri::command]
 pub async fn search_similar_chunks(
 	app: AppHandle,
@@ -249,6 +268,8 @@ pub async fn search_similar_chunks(
 	while let Some(batch_result) = stream.next().await {
 		batches.push(batch_result.map_err(|e: lancedb::Error| e.to_string())?);
 	}
+
+	let mut raw_cache: HashMap<String, Option<String>> = HashMap::new();
 
 	let mut results = Vec::new();
 	for batch in &batches {
@@ -312,17 +333,45 @@ pub async fn search_similar_chunks(
 		};
 
 		for i in 0..batch.num_rows() {
+			let start_offset = if start_offset_col.is_null(i) {
+				None
+			} else {
+				Some(start_offset_col.value(i))
+			};
+			let end_offset = if end_offset_col.is_null(i) {
+				None
+			} else {
+				Some(end_offset_col.value(i))
+			};
+
+			let chunk_text = if texts.is_null(i) {
+				let url = urls.value(i).to_string();
+				let content = if let Some(cached) = raw_cache.get(&url) {
+					cached.clone()
+				} else {
+					let loaded = read_raw_content_by_url(app.clone(), url.clone()).await;
+					raw_cache.insert(url.clone(), loaded.clone());
+					loaded
+				};
+				content
+					.as_ref()
+					.and_then(|c| extract_chunk_text(c, start_offset, end_offset))
+					.unwrap_or_default()
+			} else {
+				texts.value(i).to_string()
+			};
+
 			results.push(SearchChunkResult {
 				id: ids.value(i).to_string(),
 				article_url: urls.value(i).to_string(),
-				chunk_text: texts.value(i).to_string(),
+				chunk_text,
 				distance: dist_values[i],
 				category: if categories.is_null(i) { None } else { Some(categories.value(i).to_string()) },
 				profile_id: if profile_ids.is_null(i) { None } else { Some(profile_ids.value(i).to_string()) },
 				model_name: if model_names.is_null(i) { None } else { Some(model_names.value(i).to_string()) },
 				model_dimensions: if model_dimensions_col.is_null(i) { None } else { Some(model_dimensions_col.value(i)) },
-				start_offset: if start_offset_col.is_null(i) { None } else { Some(start_offset_col.value(i)) },
-				end_offset: if end_offset_col.is_null(i) { None } else { Some(end_offset_col.value(i)) },
+				start_offset,
+				end_offset,
 			});
 		}
 	}

@@ -195,6 +195,64 @@ export function splitForEmbeddings(
 	return chunks;
 }
 
+export function splitByString(text: string, delimiter: string): EmbeddingChunk[] {
+	const trimmed = text.trim();
+	if (!trimmed || !delimiter) return [];
+
+	const trimOffset = text.indexOf(trimmed);
+	const indices: number[] = [];
+	let searchStart = 0;
+
+	while (searchStart < trimmed.length) {
+		const idx = trimmed.indexOf(delimiter, searchStart);
+		if (idx === -1) break;
+		indices.push(idx);
+		searchStart = idx + delimiter.length;
+	}
+
+	if (indices.length === 0) {
+		return [
+			{
+				text: trimmed,
+				index: 0,
+				startOffset: trimOffset,
+				endOffset: trimOffset + trimmed.length
+			}
+		];
+	}
+
+	const rawPieces: string[] = [];
+
+	if (indices[0] > 0) {
+		rawPieces.push(trimmed.slice(0, indices[0]));
+	}
+
+	for (let i = 0; i < indices.length; i++) {
+		const start = indices[i];
+		const end = i + 1 < indices.length ? indices[i + 1] : trimmed.length;
+		rawPieces.push(trimmed.slice(start, end));
+	}
+
+	const merged = mergeSmallChunks(rawPieces);
+
+	const chunks: EmbeddingChunk[] = [];
+	let index = 0;
+
+	for (const piece of merged) {
+		const startIdx = trimmed.indexOf(piece);
+		if (startIdx === -1) continue;
+		chunks.push({
+			text: piece,
+			index,
+			startOffset: startIdx + trimOffset,
+			endOffset: startIdx + piece.length + trimOffset
+		});
+		index++;
+	}
+
+	return chunks;
+}
+
 function findSentenceBoundary(
 	text: string,
 	start: number,

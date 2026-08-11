@@ -95,7 +95,7 @@ async function generateEmbeddingsBatch(params: GenerateEmbeddingsBatchParams): P
 
 			const batchEmbeddings = await invoke<number[][]>('generate_embeddings_batch', {
 				texts: batch,
-				model: params.model || 'nomic-embed-text',
+				model: params.model || 'bge-m3',
 				ollama_url: params.ollama_url
 			});
 

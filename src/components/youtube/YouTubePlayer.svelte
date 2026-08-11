@@ -14,8 +14,6 @@
 	let showIframe = $state(false);
 	const playerData = $derived((task.data ?? {}) as Partial<YouTubePlayerContext>);
 
-	console.log(playerData);
-
 	void runId;
 	void componentProps;
 </script>

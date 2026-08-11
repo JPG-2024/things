@@ -13,7 +13,8 @@ export const extractionProcessor: ProcessorDef = {
 	type: 'extraction',
 	defaults: {
 		userMessage: 'Extract items from this content.',
-		finalUserMessage: 'From this list of extracted items, pick the most relevant ones. Return a JSON array.'
+		finalUserMessage:
+			'From this list of extracted items, pick the most relevant ones. Return a JSON array.'
 	},
 	build: (config) => {
 		const count = config.extractorConfig?.count ?? 3;
@@ -26,15 +27,15 @@ export const extractionProcessor: ProcessorDef = {
 				});
 				return JSON.stringify(extracted);
 			},
-		combineChunks: async (results) => {
-			if (config.combineMode && config.combineMode !== 'llm') {
-				const flat = parseAndFlattenJsonArrays(results);
-				if (config.combineMode === 'dedupe') {
-					return [...new Set(flat)];
+			combineChunks: async (results) => {
+				if (config.combineMode && config.combineMode !== 'llm') {
+					const flat = parseAndFlattenJsonArrays(results);
+					if (config.combineMode === 'dedupe') {
+						return [...new Set(flat)];
+					}
+					return flat;
 				}
-				return flat;
-			}
-			const allExtractions: string[] = [];
+				const allExtractions: string[] = [];
 				for (const r of results) {
 					try {
 						const parsed = JSON.parse(r);

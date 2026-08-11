@@ -77,6 +77,8 @@
 	let commonStreamEnabled = $state(false);
 	let commonEnableTTS = $state(false);
 	let commonCompletionOptions = $state<Record<string, unknown>>({});
+	let commonEmbeddingTable = $state('');
+	let originalEmbeddingTable = $state('');
 
 	let originalId = $state('');
 	let originalName = $state('');
@@ -100,10 +102,12 @@
 
 	let recWindowSize = $state('2000');
 	let recOverlap = $state('200');
+	let recSplitByString = $state('');
 	let recUserMessage = $state('');
 	let recFinalUserMessage = $state('');
 	let recOriginalWindowSize = $state('');
 	let recOriginalOverlap = $state('');
+	let recOriginalSplitByString = $state('');
 	let recOriginalUserMessage = $state('');
 	let recOriginalFinalUserMessage = $state('');
 
@@ -131,6 +135,9 @@
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
 		commonEnableTTS = _task.enableTTS ?? false;
+
+		commonEmbeddingTable = _task.embeddingTable ?? '';
+		originalEmbeddingTable = _task.embeddingTable ?? '';
 
 		originalName = _task.name ?? '';
 		originalComponent = _task.component ?? '';
@@ -193,46 +200,50 @@
 				| undefined;
 			recWindowSize = cfg ? String(cfg.windowSize) : '1000';
 			recOverlap = cfg ? String(cfg.overlap) : '100';
+			recSplitByString = cfg?.splitByString ?? '';
 			recUserMessage = cfg?.userMessage ?? 'Summarize this section concisely.';
 			recFinalUserMessage =
 				cfg?.finalUserMessage ?? 'Combine these section summaries into one coherent summary.';
 			recOriginalWindowSize = recWindowSize;
 			recOriginalOverlap = recOverlap;
+			recOriginalSplitByString = recSplitByString;
 			recOriginalUserMessage = recUserMessage;
 			recOriginalFinalUserMessage = recFinalUserMessage;
 
-		recProcessorType = cfg?.processorType ?? 'summarize';
-		recCombineMode = cfg?.combineMode ?? 'llm';
-		const extCfg = cfg?.extractorConfig;
+			recProcessorType = cfg?.processorType ?? 'summarize';
+			recCombineMode = cfg?.combineMode ?? 'llm';
+			const extCfg = cfg?.extractorConfig;
 			recExtCount = extCfg ? String(extCfg.count) : '3';
 			recExtDescription = extCfg?.description ?? 'keywords';
 			recTargetLang = cfg?.targetLang ?? 'Spanish';
 			recCustomSystemMsg = cfg?.customSystemMsg ?? '';
-		recOriginalProcessorType = recProcessorType;
-		recOriginalCombineMode = recCombineMode;
-		recOriginalExtCount = recExtCount;
+			recOriginalProcessorType = recProcessorType;
+			recOriginalCombineMode = recCombineMode;
+			recOriginalExtCount = recExtCount;
 			recOriginalExtDescription = recExtDescription;
 			recOriginalTargetLang = recTargetLang;
 			recOriginalCustomSystemMsg = recCustomSystemMsg;
 		} else {
 			recWindowSize = '1000';
 			recOverlap = '100';
+			recSplitByString = '';
 			recUserMessage = 'Summarize this section concisely.';
 			recFinalUserMessage = 'Combine these section summaries into one coherent summary.';
 			recOriginalWindowSize = '';
 			recOriginalOverlap = '';
+			recOriginalSplitByString = '';
 			recOriginalUserMessage = '';
 			recOriginalFinalUserMessage = '';
 
-		recProcessorType = 'summarize';
-		recCombineMode = 'llm';
-		recExtCount = '3';
+			recProcessorType = 'summarize';
+			recCombineMode = 'llm';
+			recExtCount = '3';
 			recExtDescription = 'keywords';
 			recTargetLang = 'Spanish';
 			recCustomSystemMsg = '';
-		recOriginalProcessorType = 'summarize';
-		recOriginalCombineMode = 'llm';
-		recOriginalExtCount = '';
+			recOriginalProcessorType = 'summarize';
+			recOriginalCombineMode = 'llm';
+			recOriginalExtCount = '';
 			recOriginalExtDescription = '';
 			recOriginalTargetLang = '';
 			recOriginalCustomSystemMsg = '';
@@ -268,6 +279,7 @@
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
+			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			onClose?.();
@@ -292,6 +304,9 @@
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
+		if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
+			patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
+
 		const origDeps = originalDependencies
 			.split(',')
 			.map((d) => d.trim())
@@ -314,6 +329,8 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
+			if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
+				patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
 			const trimmedComponent = commonComponent.trim();
 			const origComponent = originalComponent.trim();
 			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
@@ -346,6 +363,7 @@
 
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
+			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 
 			if (Object.keys(patch).length === 0) {
 				onClose?.();
@@ -366,10 +384,12 @@
 				model: viewState.aiModel,
 				renderOrder,
 				persist: true,
-				extractor: { count, description: extDescription }
+				extractor: { count, description: extDescription },
+				enableTTS: commonEnableTTS || undefined
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
+			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			if (mode === 'edit') {
@@ -387,6 +407,8 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
+			if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
+				patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
 			const trimmedComponent = commonComponent.trim();
 			const origComponent = originalComponent.trim();
 			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
@@ -438,6 +460,7 @@
 
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
+			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 
 			if (Object.keys(patch).length === 0) {
 				onClose?.();
@@ -463,10 +486,12 @@
 				renderOrder,
 				persist: true,
 				categoryNames: categoryNames.length > 0 ? categoryNames : undefined,
-				maxItems
+				maxItems,
+				enableTTS: commonEnableTTS || undefined
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
+			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			if (mode === 'edit') {
@@ -504,6 +529,7 @@
 				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
+				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,
 				combineMode: recCombineMode,
 				userMessage: recUserMessage,
@@ -514,7 +540,9 @@
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
-				persist: true
+				embeddingTable: commonEmbeddingTable.trim() || undefined,
+				persist: true,
+				enableTTS: commonEnableTTS || undefined
 			});
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, effectiveId);
@@ -525,6 +553,7 @@
 				dependencies: deps.length > 0 ? deps : undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
+				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,
 				combineMode: recCombineMode,
 				userMessage: recUserMessage,
@@ -534,7 +563,9 @@
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
-				persist: true
+				embeddingTable: commonEmbeddingTable.trim() || undefined,
+				persist: true,
+				enableTTS: commonEnableTTS || undefined
 			});
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -585,6 +616,7 @@
 	<Input bind:value={commonSystemMessage} label="System message" />
 	<Input bind:value={commonUserMessage} label="User message" />
 	<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
+	<Input bind:value={commonEmbeddingTable} label="Embedding table (optional)" />
 
 	<div class="completion-options-container">
 		<Spacer title="Completion Options" defaultOpen={false}>
@@ -627,8 +659,14 @@
 			</div>
 		{:else if activeTab === 'recursive'}
 			<div class="tab-content">
-				<Input bind:value={recWindowSize} label="Window size (chars)" />
-				<Input bind:value={recOverlap} label="Overlap (chars)" />
+				<Input
+					bind:value={recSplitByString}
+					label="Split by string (leave empty for window-based)"
+				/>
+				{#if !recSplitByString}
+					<Input bind:value={recWindowSize} label="Window size (chars)" />
+					<Input bind:value={recOverlap} label="Overlap (chars)" />
+				{/if}
 				<Dropdown
 					label="Combine mode"
 					bind:value={recCombineMode}
@@ -706,6 +744,4 @@
 	.completion-options-container {
 		padding-top: 1rem;
 	}
-
-
 </style>

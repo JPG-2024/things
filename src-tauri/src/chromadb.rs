@@ -11,7 +11,7 @@ pub async fn store_embeddings(
     model: Option<String>,
     collection_name: String,
 ) -> Result<String, String> {
-    let model = model.unwrap_or_else(|| "nomic-embed-text".to_string());
+    let model = model.unwrap_or_else(|| "bge-m3".to_string());
 
     // 1. Generate Embeddings
     let embeddings = crate::llama_cpp::llama_cpp_embeddings(
@@ -81,7 +81,7 @@ pub async fn similarity_search(
     model: Option<String>,
     ollama_url: Option<String>,
 ) -> Result<Value, String> {
-    let model = model.unwrap_or_else(|| "nomic-embed-text".to_string());
+    let model = model.unwrap_or_else(|| "bge-m3".to_string());
 
     // 1. Generate embedding for query text
     let embeddings = crate::ollama_rs::generate_embeddings_batch(

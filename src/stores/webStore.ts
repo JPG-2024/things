@@ -615,7 +615,6 @@ export async function getArticlesByProfile(
 	}
 ): Promise<ArticleWithTasks[]> {
 	try {
-		console.log('OPTIONS', options);
 		const [articles, tasksByUrl] = await Promise.all([
 			fetchWebStoreArticlesByProfile(
 				profileId,
@@ -906,9 +905,7 @@ export async function getArticlesWithProfiles(
 		for (const profile of resolvedProfiles) {
 			const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
 			const mappedArticles = await Promise.all(
-				profile.articles.map((row) =>
-					mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
-				)
+				profile.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 			);
 			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
 

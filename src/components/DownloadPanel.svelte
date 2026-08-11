@@ -149,7 +149,11 @@
 	{:else}
 		<div class="downloads-list">
 			{#each musicState.downloads as track (track.id)}
-				<div class="download-item" class:error={track.status === 'error'} class:done={track.status === 'done'}>
+				<div
+					class="download-item"
+					class:error={track.status === 'error'}
+					class:done={track.status === 'done'}
+				>
 					<div class="track-info">
 						<div class="track-url" title={track.url}>
 							{track.url}
@@ -581,4 +585,3 @@
 		}
 	}
 </style>
-

@@ -123,6 +123,7 @@ export async function urlRouter(
 			}
 
 			viewState.url = url;
+			viewState.isCachedArticle = Boolean(cachedTasks);
 			if (!cachedTasks) {
 				viewState.loading = true;
 				viewState.loaded = false;

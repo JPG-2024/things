@@ -19,7 +19,9 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 			componentProps: def.componentProps,
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
-			persist: def.persist
+			persist: def.persist,
+			embeddingTable: def.embeddingTable,
+			enableTTS: def.enableTTS
 		});
 	}
 
@@ -46,7 +48,8 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 		persist: def.persist,
 		enableTTS: def.enableTTS,
 		gridSpan: def.gridSpan,
-		componentProps: def.componentProps
+		componentProps: def.componentProps,
+		embeddingTable: def.embeddingTable
 	};
 
 	if (def.subtype === 'category' && def.extractorConfig) {
@@ -63,16 +66,15 @@ function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unkn
 	return createCategoryTask({
 		categoryNames: def.categoryNames,
 		maxItems: def.extractorConfig!.count,
-		...(!def.categoryNames && {
-			dependencies: def.dependencies,
-			name: def.name,
-			component: def.component,
-			renderOrder: def.renderOrder,
-			persist: def.persist,
-			enableTTS: def.enableTTS,
-			gridSpan: def.gridSpan,
-			componentProps: def.componentProps
-		})
+		dependencies: def.dependencies,
+		name: def.name,
+		component: def.component,
+		renderOrder: def.renderOrder,
+		persist: def.persist,
+		enableTTS: def.enableTTS,
+		gridSpan: def.gridSpan,
+		componentProps: def.componentProps,
+		embeddingTable: def.embeddingTable
 	});
 }
 

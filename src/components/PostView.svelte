@@ -4,13 +4,21 @@
 	import Icon from './Icon.svelte';
 	import LinkIcon from './LinkIcon.svelte';
 	import Topbar from './layout/Topbar.svelte';
+	import Toolbar from './Toolbar.svelte';
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
 	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import {
+		generateEmbeddingsFromTasks,
+		extractCategoryFromTasks
+	} from '@/lib/utils/embeddingTasks';
+	import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 	import TemplateManager from './TemplateManager.svelte';
+	import ToolbarDivider from './ToolbarDivider.svelte';
 
 	const TOOLBAR_ICON_SIZE = 18;
 
@@ -48,6 +56,20 @@
 		};
 	});
 
+	async function handleGenerateEmbeddings() {
+		const tasks = workflowStore.focusedRunTasks;
+		if (!viewState.url || !tasks.length) return;
+		await generateEmbeddingsFromTasks(tasks, viewState.url, {
+			model: EMBEDDING_MODEL,
+			profileId: viewState.currentProfileId ?? undefined,
+			category: extractCategoryFromTasks(tasks)
+		});
+		viewState.embeddingsProcessed = true;
+		setTimeout(() => {
+			viewState.embeddingsProcessed = false;
+		}, 1200);
+	}
+
 	async function handleDelete() {
 		console.log('handleDelete');
 		if (!viewState.url || isDeleting) return;
@@ -70,59 +92,65 @@
 
 <article>
 	<Topbar>
-		<ToggleIcon
-			name="FoldVertical"
-			size={TOOLBAR_ICON_SIZE}
-			bind:checked={viewState.enableTasksCollapse}
-			tooltipProps={{ content: 'toggle tasks collapse' }}
-		/>
-		<ToggleIcon
-			name="ListChecks"
-			size={TOOLBAR_ICON_SIZE}
-			bind:checked={viewState.showAllTasks}
-			tooltipProps={{ content: 'show all tasks' }}
-		/>
-		<Icon
-			color="var(--primary-color)"
-			name="RefreshCcw"
-			size={TOOLBAR_ICON_SIZE}
-			onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
-			tooltipProps={{ content: 'refresh article' }}
-		/>
+		<Toolbar justify="end">
+			<ToggleIcon
+				name="ListChecks"
+				size={TOOLBAR_ICON_SIZE}
+				bind:checked={viewState.showAllTasks}
+				tooltipProps={{ content: 'show all tasks' }}
+			/>
+			<Icon
+				color="var(--primary-color)"
+				name="RefreshCcw"
+				size={TOOLBAR_ICON_SIZE}
+				onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
+				tooltipProps={{ content: 'refresh article' }}
+			/>
 
-		<Icon
-			color="var(--primary-color)"
-			name="Save"
-			size={TOOLBAR_ICON_SIZE}
-			tooltipProps={{ content: 'template manager' }}
-			onClick={() => (showTemplateManager = true)}
-		/>
+			<Icon
+				color="var(--primary-color)"
+				name="Save"
+				size={TOOLBAR_ICON_SIZE}
+				tooltipProps={{ content: 'template manager' }}
+				onClick={() => (showTemplateManager = true)}
+			/>
 
-		{#if viewState.url && !viewState.loading}
-			<button
-				class="delete-btn"
-				onclick={handleDelete}
-				disabled={isDeleting}
-				title="Delete article"
-			>
-				<Icon
-					name="Trash"
-					color="var(--primary-color)"
-					size={TOOLBAR_ICON_SIZE}
-					tooltipProps={{ content: 'delete article' }}
-				/>
-			</button>
-		{/if}
+			<Icon
+				color="var(--primary-color)"
+				name="Brain"
+				size={TOOLBAR_ICON_SIZE}
+				onClick={handleGenerateEmbeddings}
+				tooltipProps={{ content: 'generate embeddings' }}
+			/>
 
-		<LinkIcon url={viewState.url!} size={TOOLBAR_ICON_SIZE} />
-		<Icon
-			color="var(--primary-color)"
-			name="Settings"
-			size={TOOLBAR_ICON_SIZE}
-			title="Settings"
-			onClick={() => drawersState.open('settings')}
-			tooltipProps={{ content: 'settings' }}
-		/>
+			{#if viewState.url && !viewState.loading}
+				<button
+					class="delete-btn"
+					onclick={handleDelete}
+					disabled={isDeleting}
+					title="Delete article"
+				>
+					<Icon
+						name="Trash"
+						color="var(--primary-color)"
+						size={TOOLBAR_ICON_SIZE}
+						tooltipProps={{ content: 'delete article' }}
+					/>
+				</button>
+			{/if}
+
+			<ToolbarDivider />
+
+			<LinkIcon url={viewState.url!} size={TOOLBAR_ICON_SIZE} />
+			<Icon
+				color="var(--primary-color)"
+				name="Settings"
+				size={TOOLBAR_ICON_SIZE}
+				title="Settings"
+				onClick={() => drawersState.open('settings')}
+				tooltipProps={{ content: 'settings' }}
+			/>
+		</Toolbar>
 	</Topbar>
 
 	<div class="header">
@@ -146,7 +174,6 @@
 		box-sizing: border-box;
 		padding-top: 50px;
 		width: 100%;
-		max-width: 800px;
 		margin: 0 auto;
 		margin-bottom: 30px;
 	}

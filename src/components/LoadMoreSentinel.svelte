@@ -35,7 +35,7 @@
 
 <div bind:this={sentinel} class="load-more-sentinel">
 	{#if disabled}
-		<div class="loading-indicator"></div>
+		<!-- <div class="loading-indicator"></div> -->
 	{/if}
 </div>
 
