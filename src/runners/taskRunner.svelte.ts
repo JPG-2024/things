@@ -215,7 +215,10 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	 */
 	removeTask(taskId: string) {
 		this.tasks = this.tasks.filter((task) => task.id !== taskId);
-		this.graph.removeTask(taskId);
+		for (const task of this.tasks) {
+			task.dependencies = task.dependencies.filter((dep) => dep !== taskId);
+		}
+		this.graph.syncFromTasks(this.tasks);
 	}
 
 	/**

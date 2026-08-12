@@ -217,7 +217,7 @@
 		min-width: 0;
 		display: flex;
 		align-items: flex-start;
-		padding-top: 1rem;
+		padding-top: 2rem;
 		break-inside: avoid;
 	}
 

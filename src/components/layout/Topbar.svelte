@@ -68,7 +68,7 @@
 		gap: 10px;
 		/* -webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px); */
-		background: rgba(black, 0.8);
+		background: black;
 		min-height: 30px;
 		right: 0;
 		left: 0;

@@ -23,7 +23,7 @@
 		formatData
 	} from '@/lib/utils/tasks/taskStats';
 
-	const TOOLBAR_ICON_SIZE = 20;
+	const TOOLBAR_ICON_SIZE = 14;
 
 	type Props = {
 		runId?: string;
@@ -95,46 +95,45 @@
 				<div class="pill-container">
 					<Pill status={pillStatus} text={task.status ?? 'pending'} showPoint />
 				</div>
+				<div class="task-toolbar" onclick={(e) => e.stopPropagation()}>
+					<Icon
+						name="RefreshCw"
+						onClick={handleRerun}
+						size={TOOLBAR_ICON_SIZE}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'Rerun task and descendants' }}
+						class="task-action"
+					/>
+					<Icon
+						name="SquarePen"
+						onClick={openTaskEdit}
+						size={TOOLBAR_ICON_SIZE}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'edit task' }}
+						class="task-action"
+					/>
+					<Icon
+						name="GitBranch"
+						onClick={handleBranch}
+						size={TOOLBAR_ICON_SIZE}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'New task from' }}
+						class="task-action"
+					/>
+					<div class="delete-action">
+						<Icon
+							name="Trash"
+							onClick={handleDelete}
+							size={TOOLBAR_ICON_SIZE}
+							color="var(--primary-color)"
+							tooltipProps={{ content: 'delete task' }}
+							class="task-action"
+						/>
+					</div>
+				</div>
 			</span>
 		{/snippet}
 		<div class="task-info">
-			<div class="task-toolbar">
-				<Icon
-					name="RefreshCw"
-					onClick={handleRerun}
-					size={TOOLBAR_ICON_SIZE}
-					color="var(--primary-color)"
-					tooltipProps={{ content: 'Rerun task and descendants' }}
-					class="task-action"
-				/>
-				<Icon
-					name="SquarePen"
-					onClick={openTaskEdit}
-					size={TOOLBAR_ICON_SIZE}
-					color="var(--primary-color)"
-					tooltipProps={{ content: 'edit task' }}
-					class="task-action"
-				/>
-				<Icon
-					name="GitBranch"
-					onClick={handleBranch}
-					size={TOOLBAR_ICON_SIZE}
-					color="var(--primary-color)"
-					tooltipProps={{ content: 'New task from' }}
-					class="task-action"
-				/>
-				<div class="delete-action">
-					<Icon
-						name="Trash"
-						onClick={handleDelete}
-						size={TOOLBAR_ICON_SIZE}
-						color="var(--primary-color)"
-						tooltipProps={{ content: 'delete task' }}
-						class="task-action"
-					/>
-				</div>
-			</div>
-
 			<div class="task-stats">
 				<KeyValuePanel
 					row
@@ -214,10 +213,9 @@
 	}
 
 	.task-info {
-		padding: 0 1rem;
-		padding-bottom: 3rem;
-		border-radius: 5px;
-		border-bottom: 1px solid var(--primary-color);
+		padding: 1rem;
+		border-radius: 10px;
+		border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
 	.pill-container {
@@ -242,9 +240,15 @@
 	.task-toolbar {
 		display: flex;
 		align-items: center;
-		justify-content: flex-end;
 		gap: 1em;
-		padding: 1.5rem 0;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s ease;
+	}
+
+	.task-title-with-status:hover .task-toolbar {
+		opacity: 1;
+		pointer-events: auto;
 	}
 
 	.data-block-container {

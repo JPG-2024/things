@@ -38,7 +38,7 @@ class ViewState {
 	downloadTracksEnabled = $state(false);
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
-	autoSpeechEnabled = $state(true);
+	autoSpeechEnabled = $state(false);
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);

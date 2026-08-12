@@ -6,7 +6,7 @@ import { rawRunner } from '@/runners/raw/rawRunner';
 import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 import { RAW_PROCESS_LIMIT } from '@/constants';
-import { playCoinSound } from '@/lib/utils/coinSound';
+import { playCoinSound, playCoinLostSound } from '@/lib/utils/coinSound';
 
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -82,7 +82,6 @@ export async function handlePasteUrl(
 	const rawId = `raw-${Date.now()}`;
 
 	try {
-		playCoinSound();
 		viewState.lastHandledClipboardUrl = trimmed;
 		viewState.url = rawId;
 		viewState.loading = true;
@@ -91,6 +90,7 @@ export async function handlePasteUrl(
 		await rawRunner(rawId, trimmed);
 		articleCacheStore.invalidate();
 	} finally {
+		playCoinLostSound();
 		viewState.loaded = true;
 		viewState.loading = false;
 		viewState.processingUrl = false;

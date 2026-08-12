@@ -91,5 +91,6 @@
 		font-variant-numeric: tabular-nums;
 		word-break: break-word;
 		min-width: 0;
+		font-weight: bold;
 	}
 </style>

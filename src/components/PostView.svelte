@@ -35,7 +35,6 @@
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
 				window.removeEventListener('scroll', handleScroll);
-				articleCacheStore.invalidate();
 				void goto('/');
 			}
 		}
@@ -49,9 +48,7 @@
 	$effect(() => {
 		return () => {
 			if (viewState.url) {
-				void markArticleAsViewed(viewState.url).then(() => {
-					articleCacheStore.invalidate();
-				});
+				void markArticleAsViewed(viewState.url);
 			}
 		};
 	});

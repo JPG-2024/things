@@ -39,3 +39,31 @@ export function playCoinSound(): void {
 		void ctx.close();
 	};
 }
+
+export function playCoinLostSound(): void {
+	const AudioCtx =
+		window.AudioContext ||
+		(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+	const ctx = new AudioCtx();
+	const now = ctx.currentTime;
+
+	const osc = ctx.createOscillator();
+	const gain = ctx.createGain();
+
+	osc.type = 'square';
+	osc.frequency.setValueAtTime(1975.5, now);
+	osc.frequency.exponentialRampToValueAtTime(400, now + 0.25);
+
+	gain.gain.setValueAtTime(0, now);
+	gain.gain.linearRampToValueAtTime(0.025, now + 0.01);
+	gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+	osc.connect(gain);
+	gain.connect(ctx.destination);
+	osc.start(now);
+	osc.stop(now + 0.25);
+
+	osc.onended = () => {
+		void ctx.close();
+	};
+}

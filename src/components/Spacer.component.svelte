@@ -60,10 +60,6 @@
 {:else if titleSlot}
 	<div class="spacer-accordion">
 		<button class="spacer-header" onclick={toggle}>
-			{#if icon}
-				<Icon name={icon} size={16} color="var(--primary-color)" />
-			{/if}
-			{@render titleSlot()}
 			<span class="collapse-icon">
 				<Icon
 					name="ChevronRight"
@@ -75,6 +71,10 @@
 						: 'transition: transform 0.2s'}
 				/>
 			</span>
+			{#if icon}
+				<Icon name={icon} size={16} color="var(--primary-color)" />
+			{/if}
+			{@render titleSlot()}
 		</button>
 		{#if effectiveOpen}
 			<div class="spacer-content" transition:slide={{ axis: 'y', duration: 100 }}>
