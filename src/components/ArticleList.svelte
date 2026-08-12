@@ -19,25 +19,48 @@
 	}: Props = $props();
 </script>
 
-<div class="articles-grid">
-	{#each articles as article (article.url)}
-		<ArticleItem
-			{article}
-			{displayMode}
-			onClick={onArticleClick}
-			onHoverEnter={onArticleHoverEnter}
-			onHoverLeave={onArticleHoverLeave}
-		/>
-	{/each}
+<div class="articles-container">
+	<div class="articles-grid">
+		{#each articles as article (article.url)}
+			<div class="article-wrapper">
+				<ArticleItem
+					{article}
+					{displayMode}
+					onClick={onArticleClick}
+					onHoverEnter={onArticleHoverEnter}
+					onHoverLeave={onArticleHoverLeave}
+				/>
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
+	.articles-container {
+		container-type: inline-size;
+		width: 100%;
+	}
+
 	.articles-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 2rem;
+		column-count: 1;
+		column-gap: 2rem;
+		column-fill: auto;
 		width: 100%;
 		max-width: 1200px;
 		padding-bottom: 20%;
+	}
+
+	@container (min-width: 500px) {
+		.articles-grid {
+			column-count: 2;
+		}
+	}
+
+	.article-wrapper {
+		min-width: 0;
+		display: flex;
+		align-items: flex-start;
+		padding-bottom: 2rem;
+		break-inside: avoid;
 	}
 </style>
