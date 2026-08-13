@@ -31,6 +31,12 @@
 	let isDeleting = $state(false);
 	let showTemplateManager = $state(false);
 
+	const titleText = $derived.by(() => {
+		const tasks = workflowStore.focusedRunTasks;
+		const titleTask = tasks.find((t) => t.id === 'title');
+		return titleTask?.status === 'done' ? (titleTask.data as string) : undefined;
+	});
+
 	$effect.pre(() => {
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
@@ -88,7 +94,7 @@
 </script>
 
 <article>
-	<Topbar>
+	<Topbar title={titleText}>
 		<Toolbar justify="end">
 			<ToggleIcon
 				name="ListChecks"

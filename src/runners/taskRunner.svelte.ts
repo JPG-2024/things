@@ -424,7 +424,7 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			for (const depId of task.dependencies) {
 				const depData = runtime.getTaskData(depId);
 				const text = extractDependencyText(depData);
-				if (text) parts.push(text);
+				if (text) parts.push(`## ${depId}\n${text}`);
 			}
 			runResult = parts.join('\n\n').trim();
 		} else {

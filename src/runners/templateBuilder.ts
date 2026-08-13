@@ -11,7 +11,7 @@ import type { RecursiveContentTaskOptions } from '@/runners/shared/taskFactories
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	if (def.type === 'script' && (def.scriptFactory === 'recursive' || def.subtype === 'recursive')) {
-		return buildRecursiveTask(def.id, {
+		const task = buildRecursiveTask(def.id, {
 			...(def.scriptConfig as RecursiveContentTaskOptions),
 			name: def.name,
 			dependencies: def.dependencies,
@@ -23,6 +23,8 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 			embeddingTable: def.embeddingTable,
 			enableTTS: def.enableTTS
 		});
+		task.visible = def.visible ?? true;
+		return task;
 	}
 
 	if (def.type === 'script') {
@@ -33,7 +35,8 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 			id: def.id,
 			dependencies: def.dependencies,
 			type: 'script',
-			run: () => undefined
+			run: () => undefined,
+			visible: def.visible ?? true
 		};
 	}
 	const options = {
@@ -53,13 +56,17 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	};
 
 	if (def.subtype === 'category' && def.extractorConfig) {
-		return buildTask(buildCategoryTaskDef(def, options), def.id);
+		const task = buildTask(buildCategoryTaskDef(def, options), def.id);
+		task.visible = def.visible ?? true;
+		return task;
 	}
 
 	const taskDef = def.extractorConfig
 		? createExtractionTask({ ...options, extractor: def.extractorConfig })
 		: createIaTask(options);
-	return buildTask(taskDef, def.id);
+	const task = buildTask(taskDef, def.id);
+	task.visible = def.visible ?? true;
+	return task;
 }
 
 function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unknown>) {

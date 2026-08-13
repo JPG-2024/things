@@ -20,6 +20,10 @@
 				| undefined) ?? ''
 		).slice(0, 200)
 	);
+
+	const categories = $derived(
+		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
+	);
 </script>
 
 <button
@@ -33,23 +37,27 @@
 	out:fade={{ duration: 200 }}
 >
 	<div class="article-content">
-		{#if displayMode === 'thumbnail' && article.thumbnailSrc}
-			<div class="article-thumbnail-container">
-				<!-- 			{#if !article.viewed}
-				<span class="unread-dot"></span>
-			{/if} -->
-				<!-- <Tooltip content={article.title ?? ''} position="auto"> -->
-				<img
-					src={article.thumbnailSrc}
-					alt="Article"
-					class="article-thumbnail"
-					style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-				/>
-				<!-- </Tooltip> -->
+		<div class="article-item-info">
+			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
+				<div class="article-thumbnail-container">
+					<img
+						src={article.thumbnailSrc}
+						alt="Article"
+						class="article-thumbnail"
+						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+					/>
+				</div>
+			{/if}
+			{#if categories.length > 0}
+				<div class="article-categories">
+					{#each categories as category}
+						<span class="article-category-pill">{category}</span>
+					{/each}
+				</div>
+			{/if}
+			<div class="article-title">
+				<span>{title}</span>
 			</div>
-		{/if}
-		<div class="article-title">
-			<span>{title}</span>
 		</div>
 	</div>
 </button>
@@ -76,6 +84,11 @@
 		width: 100%;
 	}
 
+	.article-item-info {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.article-title {
 		flex: 1;
 		font-weight: bold;
@@ -95,7 +108,7 @@
 	.article-thumbnail {
 		display: block;
 		border-radius: 15px;
-		width: 80%;
+		width: fit-content;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
 	}
@@ -117,5 +130,21 @@
 		-webkit-box-orient: vertical;
 		line-clamp: 4;
 		grid-column: span 2;
+	}
+
+	.article-categories {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin: 1rem 0;
+	}
+
+	.article-category-pill {
+		border-radius: 12px;
+		font-size: 1.2em;
+		font-weight: 500;
+		text-transform: capitalize;
+		background: rgba(var(--primary-color), 0.2);
+		color: rgba(255, 255, 255, 0.8);
 	}
 </style>

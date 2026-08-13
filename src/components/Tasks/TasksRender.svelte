@@ -125,67 +125,71 @@
 	<div class="tasks-grid">
 		{#each sortedTasks as entry (`${entry.runId}:${entry.task.id}`)}
 			{@const task = entry.task}
+			{@const skipRender =
+				task.visible === false && task.status !== 'running' && task.status !== 'pending'}
 			{@const componentKey = task.component?.trim()}
 			{@const componentProps = task.componentProps}
 			{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
 			{@const taskKey = `${entry.runId}:${entry.task.id}`}
 
-			{#if Renderer && task.status === 'done'}
-				<div
-					class="task-wrapper"
-					transition:fade={{ duration: 250 }}
-					onmouseenter={() => {
-						viewState.selectedTaskId = task.id;
-					}}
-					// use:measureDoneHeight={taskKey}
-				>
-					<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-						<Renderer {task} runId={entry.runId} {componentProps} />
-					</BaseTaskComponent>
-				</div>
-			{:else if task.status === 'running'}
-				<div
-					class="task-wrapper"
-					style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
-					onmouseenter={() => {
-						viewState.selectedTaskId = task.id;
-					}}
-				>
-					<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-						{#if Renderer}
+			{#if !skipRender}
+				{#if Renderer && task.status === 'done'}
+					<div
+						class="task-wrapper"
+						transition:fade={{ duration: 250 }}
+						onmouseenter={() => {
+							viewState.selectedTaskId = task.id;
+						}}
+						// use:measureDoneHeight={taskKey}
+					>
+						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 							<Renderer {task} runId={entry.runId} {componentProps} />
-						{/if}
-					</BaseTaskComponent>
-				</div>
-			{:else if task.status === 'editing'}
-				<div
-					class="task-wrapper"
-					transition:fade={{ duration: 250 }}
-					onmouseenter={() => {
-						viewState.selectedTaskId = task.id;
-					}}
-				>
-					<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-				</div>
-			{:else if task.status === 'pending'}
-				<div
-					class="task-wrapper"
-					transition:fade={{ duration: 250 }}
-					onmouseenter={() => {
-						viewState.selectedTaskId = task.id;
-					}}
-				>
-					<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-				</div>
-			{:else if task.status === 'failed'}
-				<div
-					class="task-wrapper task-wrapper--error"
-					onmouseenter={() => {
-						viewState.selectedTaskId = task.id;
-					}}
-				>
-					<TaskError {task} runId={entry.runId} />
-				</div>
+						</BaseTaskComponent>
+					</div>
+				{:else if task.status === 'running'}
+					<div
+						class="task-wrapper"
+						style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+						onmouseenter={() => {
+							viewState.selectedTaskId = task.id;
+						}}
+					>
+						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+							{#if Renderer}
+								<Renderer {task} runId={entry.runId} {componentProps} />
+							{/if}
+						</BaseTaskComponent>
+					</div>
+				{:else if task.status === 'editing'}
+					<div
+						class="task-wrapper"
+						transition:fade={{ duration: 250 }}
+						onmouseenter={() => {
+							viewState.selectedTaskId = task.id;
+						}}
+					>
+						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+					</div>
+				{:else if task.status === 'pending'}
+					<div
+						class="task-wrapper"
+						transition:fade={{ duration: 250 }}
+						onmouseenter={() => {
+							viewState.selectedTaskId = task.id;
+						}}
+					>
+						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+					</div>
+				{:else if task.status === 'failed'}
+					<div
+						class="task-wrapper task-wrapper--error"
+						onmouseenter={() => {
+							viewState.selectedTaskId = task.id;
+						}}
+					>
+						<TaskError {task} runId={entry.runId} />
+					</div>
+				{/if}
 			{/if}
 		{/each}
 	</div>
@@ -197,6 +201,7 @@
 	.tasks-container {
 		container-type: inline-size;
 		width: 100%;
+		padding-top: 2%;
 	}
 
 	.tasks-grid {

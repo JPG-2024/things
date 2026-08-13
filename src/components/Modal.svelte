@@ -49,7 +49,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: rgba(0, 0, 0, 0.9);
+		background: rgba(0, 0, 0, 0.85);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
 		z-index: 9999;
@@ -65,7 +65,6 @@
 		overflow-y: auto;
 		border-radius: 8px;
 		z-index: 10000;
-		background-color: rgb(23, 23, 23);
 	}
 
 	.modal-content {

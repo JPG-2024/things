@@ -5,7 +5,10 @@
 	import Modal from '@/components/Modal.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Pill from '@/components/Pill.svelte';
+	import Icon from '@/components/Icon.svelte';
+	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
 	import { topologicalSortTasks } from '@/lib/utils/tasks/topologicalSortTasks';
+	import type { Task } from '@/types/taskRunner.types';
 	import {
 		statusToPillStatus,
 		formatDuration,
@@ -40,6 +43,19 @@
 		}
 		return runSummary.endedAt - runSummary.startedAt;
 	});
+
+	let showEditModal = $state(false);
+	let editingTask = $state<Task | null>(null);
+
+	function openTaskEdit(task: Task) {
+		editingTask = task;
+		showEditModal = true;
+	}
+
+	function handleEditModalClose() {
+		showEditModal = false;
+		editingTask = null;
+	}
 
 	function handleClose() {
 		viewState.showAllTasks = false;
@@ -87,10 +103,22 @@
 					<p class="hint">No tasks in this workflow run.</p>
 				{:else}
 					{#each orderedTasks as task (task.id)}
-						<Spacer
-							title={task.id}
-							defaultOpen={task.status === 'running' || task.status === 'failed'}
-						>
+						<Spacer defaultOpen={task.status === 'running' || task.status === 'failed'}>
+							{#snippet titleSlot()}
+								<span class="task-title-with-status">
+									<span class="task-title-name">{task.id}</span>
+									<div class="task-toolbar" onclick={(e) => e.stopPropagation()}>
+										<Icon
+											name="SquarePen"
+											onClick={() => openTaskEdit(task)}
+											size={14}
+											color="var(--primary-color)"
+											tooltipProps={{ content: 'edit task' }}
+											class="task-action"
+										/>
+									</div>
+								</span>
+							{/snippet}
 							<div class="task-body">
 								<div class="task-meta">
 									<Pill
@@ -173,6 +201,27 @@
 	</div>
 </Modal>
 
+{#if editingTask}
+	<Modal show={showEditModal} onClose={handleEditModalClose}>
+		<div class="edit-modal">
+			<div class="edit-modal-header">
+				<p class="eyebrow">Edit task</p>
+				<h2>{editingTask.name ?? editingTask.id}</h2>
+				<p class="edit-modal-meta">
+					<span>{editingTask.type}</span>
+					<span>{editingTask.status ?? 'pending'}</span>
+				</p>
+			</div>
+			<EditTaskComponent
+				task={editingTask}
+				runId={targetRunId}
+				mode="edit"
+				onClose={handleEditModalClose}
+			/>
+		</div>
+	</Modal>
+{/if}
+
 <style>
 	.logger-shell {
 		display: flex;
@@ -240,6 +289,36 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		padding: 0.5rem 0 1rem;
+	}
+
+	.task-title-with-status {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.task-title-name {
+		text-transform: capitalize;
+	}
+
+	.task-toolbar {
+		display: flex;
+		align-items: center;
+		gap: 1em;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s ease;
+	}
+
+	.task-title-with-status:hover .task-toolbar {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.task-action:hover {
+		border-color: rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.08);
+		transform: translateY(-1px);
 	}
 
 	.task-meta {
@@ -368,5 +447,33 @@
 	.hint {
 		opacity: 0.7;
 		font-size: 0.9rem;
+	}
+
+	.edit-modal {
+		display: grid;
+		gap: 1rem;
+		min-width: min(600px, 80vw);
+	}
+
+	.edit-modal-header {
+		display: grid;
+		gap: 0.25rem;
+		padding-bottom: 2rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.edit-modal-header h2 {
+		margin: 0;
+		font-size: 1.1rem;
+		word-break: break-word;
+	}
+
+	.edit-modal-meta {
+		display: flex;
+		gap: 0.75rem;
+		margin: 0;
+		font-size: 0.78rem;
+		opacity: 0.7;
+		text-transform: capitalize;
 	}
 </style>

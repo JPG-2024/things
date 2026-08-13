@@ -76,6 +76,7 @@
 	let commonDependencies = $state('');
 	let commonStreamEnabled = $state(false);
 	let commonEnableTTS = $state(false);
+	let commonVisible = $state(true);
 	let commonCompletionOptions = $state<Record<string, unknown>>({});
 	let commonEmbeddingTable = $state('');
 	let originalEmbeddingTable = $state('');
@@ -88,6 +89,7 @@
 	let originalRenderOrder = $state<number | undefined>(undefined);
 	let originalDependencies = $state('');
 	let originalEnableTTS = $state(false);
+	let originalVisible = $state(true);
 	let originalCompletionOptions = $state('');
 
 	let extCount = $state('3');
@@ -135,6 +137,7 @@
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
 		commonEnableTTS = _task.enableTTS ?? false;
+		commonVisible = _task.visible ?? true;
 
 		commonEmbeddingTable = _task.embeddingTable ?? '';
 		originalEmbeddingTable = _task.embeddingTable ?? '';
@@ -144,6 +147,7 @@
 		originalRenderOrder = _task.renderOrder;
 		originalDependencies = (_task.dependencies ?? []).join(', ');
 		originalEnableTTS = _task.enableTTS ?? false;
+		originalVisible = _task.visible ?? true;
 
 		if (isIaTask) {
 			const iaTask = _task as IaTask;
@@ -280,6 +284,7 @@
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			onClose?.();
@@ -302,6 +307,7 @@
 		const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 		if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
+		if (commonVisible !== originalVisible) patch.visible = commonVisible;
 		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
 		if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
@@ -364,6 +370,7 @@
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
+			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
 			if (Object.keys(patch).length === 0) {
 				onClose?.();
@@ -390,6 +397,7 @@
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			if (mode === 'edit') {
@@ -461,6 +469,7 @@
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
+			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
 			if (Object.keys(patch).length === 0) {
 				onClose?.();
@@ -492,6 +501,7 @@
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			if (mode === 'edit') {
@@ -544,6 +554,7 @@
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
+			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, effectiveId);
 		} else {
@@ -567,6 +578,7 @@
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
+			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
 			if (mode === 'edit') {
@@ -605,6 +617,12 @@
 				bind:checked={commonEnableTTS}
 				size={20}
 				tooltipProps={{ content: 'auto speech' }}
+			/>
+			<ToggleIcon
+				name="Eye"
+				bind:checked={commonVisible}
+				size={20}
+				tooltipProps={{ content: 'visible' }}
 			/>
 		</Label>
 		<Input bind:value={commonName} label="Task name" />

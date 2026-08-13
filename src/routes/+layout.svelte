@@ -14,6 +14,7 @@
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadPanel from '@/components/DownloadPanel.svelte';
 	import Drawer from '@/components/Drawer.svelte';
+	import Modal from '@/components/Modal.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -30,6 +31,11 @@
 	$effect(() => {
 		const color = viewState.primaryColor;
 		document.documentElement.style.setProperty('--primary-color', color);
+	});
+
+	$effect(() => {
+		const bgColor = viewState.backgroundColor;
+		document.documentElement.style.setProperty('--bg-color', bgColor);
 	});
 
 	/* 	$effect(() => {
@@ -229,13 +235,13 @@
 	<ConversationMode onExit={() => (conversationMode = false)} />
 {/if}
 
-<Drawer name="tts-settings">
+<Modal show={drawersState.isOpen('tts-settings')} onClose={() => drawersState.close('tts-settings')}>
 	<TTSSettings />
-</Drawer>
+</Modal>
 
-<Drawer name="settings">
+<Modal show={drawersState.isOpen('settings')} onClose={() => drawersState.close('settings')}>
 	<SettingsModal />
-</Drawer>
+</Modal>
 
 <Drawer name="conversation-settings">
 	<ConversationSettings />
@@ -285,10 +291,13 @@
 		gap: 1.5rem;
 		box-sizing: border-box;
 		margin: 0;
-		background-image: linear-gradient(0deg, rgba(155, 155, 59, 0.756), rgba(255, 0, 0, 0.077));
-		background-size: 400% 400%;
+		background-image: linear-gradient(
+			180deg,
+			rgba(0, 0, 0),
+			color-mix(in srgb, var(--bg-color) 20%, transparent)
+		);
+		background-size: 100% 150%;
 		background-attachment: fixed;
-		background-color: #000000;
 		overflow-y: auto;
 		height: 100vh;
 		padding: 3rem;

@@ -4,7 +4,8 @@ import type { WebStoreCategoryRecord } from '@/stores/webStore';
 
 type language = 'en' | 'es';
 
-export const DEFAULT_PRIMARY_COLOR = '#FFD4AC';
+export const DEFAULT_PRIMARY_COLOR = 'rgb(170, 255, 187)';
+export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
 
 class ViewState {
 	language = $state<language>('es');
@@ -31,6 +32,7 @@ class ViewState {
 	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
+	backgroundColor = $state(DEFAULT_BG_COLOR);
 	blur = $state(false);
 	clipboardPollingEnabled = $state(false);
 	clipboardTtsEnabled = $state(false);

@@ -175,6 +175,8 @@
 
 		localConfig.refAudioFilename = chunk.audio_file;
 		localConfig.refText = chunk.text_reference;
+		ttsState.config.refAudioFilename = chunk.audio_file;
+		ttsState.config.refText = chunk.text_reference;
 	}
 
 	async function handleDeleteProfile() {
@@ -266,7 +268,7 @@
 				{/each}
 			</div>
 
-			<div class="profile-row">
+			<div class="profile-config">
 				<ToggleIcon name="Shuffle" bind:checked={localConfig.randomChunk} label="Random chunk" />
 			</div>
 
@@ -558,8 +560,7 @@
 	.voice-selector {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-
+		gap: 2rem;
 		height: fit-content;
 	}
 
@@ -659,10 +660,9 @@
 		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
-	.profile-row {
+	.profile-config {
 		display: flex;
 		gap: 0.5rem;
-		align-items: flex-end;
 	}
 
 	.delete-profile-btn {
@@ -694,7 +694,7 @@
 	}
 
 	.button-container {
-		margin: auto;
-		width: 200px;
+		display: flex;
+		gap: 2rem;
 	}
 </style>

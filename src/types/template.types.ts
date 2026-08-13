@@ -16,6 +16,7 @@ export type TemplateTaskDef = {
 	gridSpan?: 1 | 2 | 3;
 	renderOrder?: number;
 	persist?: boolean;
+	visible?: boolean;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
 	embeddingTable?: string;

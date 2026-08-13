@@ -55,6 +55,14 @@
 		viewState.primaryColor = `rgb(${r}, ${g}, ${b})`;
 	}
 
+	function handleBgColorChange(e: Event) {
+		const hex = (e.target as HTMLInputElement).value;
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		viewState.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+	}
+
 	let skipEffectFetch = $state(true);
 	let askInputValue = $state('');
 
@@ -271,6 +279,7 @@
 		<Icon name="Cog" color="var(--primary-color)" size={20} />
 	</button>
 
+	<ToolbarDivider />
 	<label class="color-dot-trigger" aria-label="Change primary color">
 		<span class="color-dot" style:background-color={viewState.primaryColor}></span>
 		<input
@@ -278,6 +287,15 @@
 			class="color-picker-input"
 			value={rgbToHex(viewState.primaryColor)}
 			oninput={handleColorChange}
+		/>
+	</label>
+	<label class="color-dot-trigger" aria-label="Change background color">
+		<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
+		<input
+			type="color"
+			class="color-picker-input"
+			value={rgbToHex(viewState.backgroundColor)}
+			oninput={handleBgColorChange}
 		/>
 	</label>
 </Toolbar>
