@@ -1,5 +1,6 @@
-import { extractTopics } from '@/lib/utils/podcast/topicExtractor';
+import { extractTopics, generateFreeTopics } from '@/lib/utils/podcast/topicExtractor';
 import { generateExchange, type DialogExchange } from '@/lib/utils/podcast/dialogGenerator';
+import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 import {
 	fetchVoiceProfiles,
 	fetchVoiceChunks,
@@ -10,6 +11,7 @@ import {
 import { splitTextIntoChunks } from '@/lib/utils/splitText';
 import { ensureAudioContext, getAudioContext, closeAudioContext } from '@/lib/audioContextManager';
 import { ttsState } from './ttsStore.svelte';
+import { workflowStore } from '@/stores/workflowStore.svelte';
 
 export interface PodcastConfig {
 	topicCount: number;
@@ -17,6 +19,8 @@ export interface PodcastConfig {
 	mode: 'interview' | 'smalltalk';
 	hostAProfileId: string;
 	hostBProfileId: string;
+	contextSource: 'content' | 'summary' | 'none';
+	summaryTaskId: string;
 }
 
 export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | 'paused';
@@ -39,10 +43,12 @@ class PodcastState {
 
 	config = $state<PodcastConfig>({
 		topicCount: 3,
-		interactionsPerTopic: 4,
+		interactionsPerTopic: 15,
 		mode: 'interview',
 		hostAProfileId: '',
-		hostBProfileId: ''
+		hostBProfileId: '',
+		contextSource: 'content',
+		summaryTaskId: ''
 	});
 
 	profiles = $state<VoiceProfile[]>([]);
@@ -116,9 +122,95 @@ class PodcastState {
 		return profile?.image_src;
 	}
 
-	async start(content: string): Promise<void> {
+	get contentTaskText(): string {
+		const seen = new Set<string>();
+		const allTasks = [
+			...workflowStore.stackedTasks.map((e) => e.task),
+			...workflowStore.focusedRunTasks
+		].filter((t) => {
+			if (seen.has(t.id)) return false;
+			seen.add(t.id);
+			return true;
+		});
+
+		const contentTask = allTasks.find((t) => t.id === 'content' && t.status === 'done' && t.data);
+		if (contentTask) return extractDependencyText(contentTask.data) ?? '';
+
+		return allTasks
+			.filter((t) => t.status === 'done' && t.data)
+			.map((t) => extractDependencyText(t.data))
+			.filter(Boolean)
+			.join('\n\n');
+	}
+
+	get summaryTaskOptions(): { id: string; label: string }[] {
+		const seen = new Set<string>();
+		const allTasks = [
+			...workflowStore.stackedTasks.map((e) => e.task),
+			...workflowStore.focusedRunTasks
+		].filter((t) => {
+			if (seen.has(t.id)) return false;
+			seen.add(t.id);
+			return true;
+		});
+		return allTasks
+			.filter((t) => {
+				const needle = (t.id + (t.name ?? '')).toLowerCase();
+				return needle.includes('summary') && t.data;
+			})
+			.map((t) => ({ id: t.id, label: (t.name ?? t.id) as string }));
+	}
+
+	get contextText(): string {
+		const { contextSource, summaryTaskId } = this.config;
+		if (contextSource === 'content') return this.contentTaskText;
+
+		if (contextSource === 'summary' && summaryTaskId) {
+			const seen = new Set<string>();
+			const allTasks = [
+				...workflowStore.stackedTasks.map((e) => e.task),
+				...workflowStore.focusedRunTasks
+			].filter((t) => {
+				if (seen.has(t.id)) return false;
+				seen.add(t.id);
+				return true;
+			});
+			const task = allTasks.find((t) => t.id === summaryTaskId && t.data);
+			if (task) return extractDependencyText(task.data) ?? '';
+		}
+
+		return '';
+	}
+
+	private async resolveTopics(content: string, signal: AbortSignal): Promise<string[]> {
+		const topicsTask = workflowStore.stackedTasks.find(({ task }) => task.id === 'topics');
+		if (topicsTask) {
+			const fromTask = normalizeTopicsFromData(topicsTask.task.data);
+			if (fromTask) return fromTask;
+		}
+
+		const focusedTopicsTask = workflowStore.focusedRunTasks.find((task) => task.id === 'topics');
+		if (focusedTopicsTask) {
+			const fromTask = normalizeTopicsFromData(focusedTopicsTask.data);
+			if (fromTask) return fromTask;
+		}
+
+		if (!content) {
+			return generateFreeTopics(this.config.topicCount, signal);
+		}
+
+		return extractTopics(content, this.config.topicCount, signal);
+	}
+
+	async start(): Promise<void> {
 		if (!this.config.hostAProfileId || !this.config.hostBProfileId) {
 			this.errorMessage = 'Please select both host voices';
+			return;
+		}
+
+		const source = this.contextText;
+		if (this.config.contextSource !== 'none' && !source) {
+			this.errorMessage = 'No source content available for the selected context';
 			return;
 		}
 
@@ -131,7 +223,7 @@ class PodcastState {
 			const llmAbort = new AbortController();
 			this._llmAbort = llmAbort;
 
-			this.topics = await extractTopics(content, this.config.topicCount, llmAbort.signal);
+			this.topics = await this.resolveTopics(source, llmAbort.signal);
 			this.dialogs = [];
 			this.currentTopicIndex = 0;
 			this.currentExchangeIndex = 0;
@@ -210,14 +302,15 @@ class PodcastState {
 			}
 
 			if (!this.dialogs[topicIdx][exchangeIdx]) {
-				const nextSpeaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
+				const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
 				const exchange = await generateExchange({
 					topic: this.topics[topicIdx],
 					mode: this.config.mode,
 					previousExchanges: this.dialogs[topicIdx],
-					nextSpeaker,
+					speaker,
 					hostAName: this.getProfileName('A'),
 					hostBName: this.getProfileName('B'),
+					context: this.contextText || undefined,
 					signal: this._llmAbort?.signal
 				});
 				if (this._session !== session) return;
@@ -360,14 +453,7 @@ class PodcastState {
 		this._preparePromises.delete(key);
 
 		const prevExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
-		const nextSpeaker: 'A' | 'B' =
-			this.config.mode === 'interview'
-				? exchangeIdx % 2 === 0
-					? 'A'
-					: 'B'
-				: exchangeIdx % 2 === 0
-					? 'A'
-					: 'B';
+		const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
 
 		this.status = 'generating';
 		this.isGenerating = true;
@@ -378,9 +464,10 @@ class PodcastState {
 				topic: this.topics[topicIdx],
 				mode: this.config.mode,
 				previousExchanges: prevExchanges,
-				nextSpeaker,
+				speaker,
 				hostAName: this.getProfileName('A'),
 				hostBName: this.getProfileName('B'),
+				context: this.contextText || undefined,
 				signal: this._llmAbort?.signal
 			});
 
@@ -489,3 +576,26 @@ class PodcastState {
 }
 
 export const podcastState = new PodcastState();
+
+function normalizeTopicsFromData(data: unknown): string[] | null {
+	if (Array.isArray(data)) {
+		const items = data
+			.filter((d): d is string => typeof d === 'string')
+			.map((d) => d.trim())
+			.filter(Boolean);
+		return items.length > 0 ? items : null;
+	}
+
+	if (data && typeof data === 'object') {
+		const topics = (data as Record<string, unknown>).topics;
+		if (Array.isArray(topics)) {
+			const items = topics
+				.filter((d): d is string => typeof d === 'string')
+				.map((d) => d.trim())
+				.filter(Boolean);
+			return items.length > 0 ? items : null;
+		}
+	}
+
+	return null;
+}

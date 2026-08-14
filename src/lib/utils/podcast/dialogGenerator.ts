@@ -9,52 +9,105 @@ export interface GenerateExchangeParams {
 	topic: string;
 	mode: 'interview' | 'smalltalk';
 	previousExchanges: DialogExchange[];
-	nextSpeaker: 'A' | 'B';
+	speaker: 'A' | 'B';
 	hostAName: string;
 	hostBName: string;
+	context?: string;
 	signal?: AbortSignal;
 }
 
+const CONTEXT_CAP = 6000;
+
+function capContext(context: string): string {
+	if (context.length <= CONTEXT_CAP) return context;
+	return context.slice(0, CONTEXT_CAP) + '…';
+}
+
 function buildSystemMessage(params: GenerateExchangeParams): string {
-	const { topic, mode, hostAName, hostBName } = params;
+	const { topic, mode, speaker, hostAName, hostBName, context } = params;
+	const currentName = speaker === 'A' ? hostAName : hostBName;
+	const otherName = speaker === 'A' ? hostBName : hostAName;
+
+	const contextBlock = context
+		? `\n\nReference material:\n${capContext(context)}\n\nUse this material to ground your response. Draw specific facts or ideas from it, but stay conversational.`
+		: '';
 
 	if (mode === 'interview') {
-		return `You are writing a podcast interview transcript.
-Host A is "${hostAName}", the interviewer who asks insightful questions.
-Host B is "${hostBName}", the expert who provides informative answers.
-Topic: "${topic}".
+		const role =
+			speaker === 'A'
+				? 'the interviewer who asks insightful questions'
+				: 'the expert who provides informative answers';
+		return `You are hosting a podcast interview about "${topic}".
+You are ${currentName} (Host ${speaker}), ${role}.
+The other host is ${otherName} (Host ${speaker === 'A' ? 'B' : 'A'}).
 Rules:
-- Keep each exchange to 2-3 sentences maximum.
+- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
+- Keep it to 2-3 sentences maximum.
 - Be conversational and natural.
-- Host A asks focused questions. Host B gives clear, engaging answers.
-- The dialogue should feel dynamic and interesting.`;
+- If you are the interviewer, ask a focused question. If you are the expert, give a clear, engaging answer.
+- Build on what the other host just said.${contextBlock}`;
 	}
 
-	return `You are writing a casual podcast discussion transcript.
-Host A is "${hostAName}". Host B is "${hostBName}".
-Topic: "${topic}".
+	return `You are hosting a casual podcast discussion about "${topic}".
+You are ${currentName} (Host ${speaker}). The other host is ${otherName}.
 Rules:
-- Keep each exchange to 2-3 sentences maximum.
+- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
+- Keep it to 2-3 sentences maximum.
 - Be conversational and natural, like two friends chatting.
-- Each host builds on what the other said.
-- Each turn ends with a question, thought, or prompt for the other host.
-- The dialogue should feel energetic and engaging.`;
+- Build on what the other host said.
+- End your turn with a question, thought, or prompt for the other host.
+- Keep it energetic and engaging.${contextBlock}`;
 }
 
 function buildUserMessage(params: GenerateExchangeParams): string {
-	const { previousExchanges, nextSpeaker } = params;
+	const { previousExchanges } = params;
 
 	if (previousExchanges.length === 0) {
-		return `Start the conversation. The first speaker is Host ${nextSpeaker}.`;
+		return 'Start the conversation with your opening line.';
 	}
 
-	const transcript = previousExchanges.map((e) => `Host ${e.speaker}: "${e.text}"`).join('\n');
+	const transcript = previousExchanges
+		.map((e) => `Host ${e.speaker}: ${e.text}`)
+		.join('\n');
 
-	return `Previous conversation:\n${transcript}\n\nContinue the conversation. Next speaker: Host ${nextSpeaker}. Keep it brief and natural.`;
+	return `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
+}
+
+function cleanExchangeText(raw: string, speaker: 'A' | 'B', hostAName: string, hostBName: string): string {
+	let text = raw.trim();
+
+	text = text.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+	if (
+		(text.startsWith('"') && text.endsWith('"')) ||
+		(text.startsWith("'") && text.endsWith("'"))
+	) {
+		text = text.slice(1, -1).trim();
+	}
+
+	const name = speaker === 'A' ? hostAName : hostBName;
+	const otherName = speaker === 'A' ? hostBName : hostAName;
+	const prefixes = [
+		`Host ${speaker}:`,
+		`Host ${speaker} -`,
+		`${name}:`,
+		`${name} -`,
+		`${otherName}:`,
+		`${otherName} -`
+	];
+
+	for (const prefix of prefixes) {
+		if (text.startsWith(prefix)) {
+			text = text.slice(prefix.length).trim();
+			break;
+		}
+	}
+
+	return text;
 }
 
 export async function generateExchange(params: GenerateExchangeParams): Promise<DialogExchange> {
-	const { signal } = params;
+	const { speaker, hostAName, hostBName, signal } = params;
 
 	const response = await chatCompletions(
 		{
@@ -62,37 +115,19 @@ export async function generateExchange(params: GenerateExchangeParams): Promise<
 				{ role: 'system', content: buildSystemMessage(params) },
 				{ role: 'user', content: buildUserMessage(params) }
 			],
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'exchange',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							speaker: { type: 'string', enum: ['A', 'B'] },
-							text: { type: 'string' }
-						},
-						required: ['speaker', 'text'],
-						additionalProperties: false
-					}
-				}
-			},
 			stream: false,
 			temperature: 0.8
 		},
 		{ signal }
 	);
 
-	const text = response.choices?.[0]?.message?.content ?? '';
-	const parsed = JSON.parse(text);
+	const rawContent = response.choices?.[0]?.message?.content;
+	const raw = typeof rawContent === 'string' ? rawContent : '';
+	const text = cleanExchangeText(raw, speaker, hostAName, hostBName);
 
-	const speaker = parsed.speaker === 'B' ? 'B' : 'A';
-	const exchangeText = String(parsed.text ?? '').trim();
-
-	if (!exchangeText) {
+	if (!text) {
 		throw new Error('Generated exchange has empty text');
 	}
 
-	return { speaker, text: exchangeText };
+	return { speaker, text };
 }

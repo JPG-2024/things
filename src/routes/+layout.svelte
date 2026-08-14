@@ -270,14 +270,12 @@
 	<ConversationSettings />
 </Drawer>
 
-<Drawer name="podcast-settings">
-	<PodcastSettings
-		onStart={() => {
-			drawersState.close('podcast-settings');
-			podcastMode = true;
-		}}
-	/>
-</Drawer>
+<Modal
+	show={drawersState.isOpen('podcast-settings')}
+	onClose={() => drawersState.close('podcast-settings')}
+>
+	<PodcastSettings onStart={() => (podcastMode = true)} />
+</Modal>
 
 <Drawer name="downloads">
 	<DownloadPanel />

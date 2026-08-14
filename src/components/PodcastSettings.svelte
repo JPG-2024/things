@@ -2,8 +2,6 @@
 	import { onMount } from 'svelte';
 	import { podcastState } from '@/stores/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
-	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 	import { getImage } from '@/lib/utils/ttsService';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
@@ -12,14 +10,6 @@
 	let { onStart }: { onStart?: () => void } = $props();
 
 	let loading = $state(false);
-
-	const content = $derived(() => {
-		const texts = workflowStore.stackedTasks
-			.filter(({ task }) => task.status === 'done' && task.data)
-			.map(({ task }) => extractDependencyText(task.data))
-			.filter(Boolean);
-		return texts.join('\n\n');
-	});
 
 	onMount(() => {
 		void podcastState.loadProfiles();
@@ -42,15 +32,18 @@
 		return trimmed.length ? trimmed[0].toUpperCase() : '?';
 	}
 
-	async function handleStart() {
-		const text = content();
-		if (!text.trim()) {
-			podcastState.errorMessage = 'No article content available';
-			return;
+	function handleContextSourceChange(source: 'content' | 'summary' | 'none') {
+		podcastState.config.contextSource = source;
+		if (source === 'summary' && !podcastState.config.summaryTaskId) {
+			const opts = podcastState.summaryTaskOptions;
+			if (opts.length > 0) podcastState.config.summaryTaskId = opts[0].id;
 		}
+	}
+
+	async function handleStart() {
 		loading = true;
 		drawersState.close('podcast-settings');
-		await podcastState.start(text);
+		await podcastState.start();
 		loading = false;
 		onStart?.();
 	}
@@ -86,6 +79,50 @@
 	</div>
 
 	<div class="section">
+		<div class="section-label">Context</div>
+		<div class="mode-toggle">
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.contextSource === 'content'}
+				onclick={() => handleContextSourceChange('content')}
+			>
+				<Icon name="FileText" size={18} />
+				Content
+			</button>
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.contextSource === 'summary'}
+				onclick={() => handleContextSourceChange('summary')}
+			>
+				<Icon name="AlignLeft" size={18} />
+				Summary
+			</button>
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.contextSource === 'none'}
+				onclick={() => handleContextSourceChange('none')}
+			>
+				<Icon name="X" size={18} />
+				None
+			</button>
+		</div>
+		{#if podcastState.config.contextSource === 'summary'}
+			{#if podcastState.summaryTaskOptions.length > 0}
+				<select class="summary-select" bind:value={podcastState.config.summaryTaskId}>
+					{#each podcastState.summaryTaskOptions as opt (opt.id)}
+						<option value={opt.id}>{opt.label}</option>
+					{/each}
+				</select>
+			{:else}
+				<p class="hint">No summary tasks available</p>
+			{/if}
+		{/if}
+	</div>
+
+	<div class="section">
 		<RangeSelector
 			id="podcast-topics"
 			label="Topics"
@@ -104,8 +141,8 @@
 			label="Interactions per topic"
 			value={podcastState.config.interactionsPerTopic}
 			min={2}
-			max={12}
-			step={2}
+			max={15}
+			step={1}
 			format={(v) => v.toString()}
 			onChange={(v) => (podcastState.config.interactionsPerTopic = v)}
 		/>
@@ -202,6 +239,36 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+
+	.section-label {
+		font-size: 0.8rem;
+		color: rgba(255, 255, 255, 0.5);
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.summary-select {
+		all: unset;
+		cursor: pointer;
+		padding: 0.5rem 0.75rem;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.04);
+		color: rgba(255, 255, 255, 0.8);
+		font-size: 0.85rem;
+	}
+
+	.summary-select option {
+		background: #1a1a2e;
+		color: rgba(255, 255, 255, 0.8);
+	}
+
+	.hint {
+		color: rgba(255, 255, 255, 0.4);
+		font-size: 0.8rem;
+		margin: 0;
 	}
 
 	.mode-toggle {

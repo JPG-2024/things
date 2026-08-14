@@ -40,3 +40,22 @@ export function stringArrayGbnf(count: number, ruleName = 'root'): string {
 
 	return `${ruleName} ::= "["${items} ws "]"\nstring ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})\nws ::= [ \\t\\n\\r]*`;
 }
+
+export function objectWithEnumAndStringGbnf(
+	enumKey: string,
+	enumValues: string[],
+	stringKey: string,
+	ruleName = 'root'
+): string {
+	const escapedEnumKey = escapeGbnfString(enumKey);
+	const escapedStringKey = escapeGbnfString(stringKey);
+	const enumAlts = enumValues.map((v) => `"\\"${escapeGbnfString(v)}\\""`).join(' | ');
+
+	return [
+		`${ruleName} ::= "{" ws "\\"${escapedEnumKey}\\"" ws ":" ws enum-value ws "," ws "\\"${escapedStringKey}\\"" ws ":" ws string-value ws "}"`,
+		`enum-value ::= ${enumAlts}`,
+		`string-value ::= "\\"" string-chars "\\""\nstring-chars ::= [^"\\\\\\x7F\\x00-\\x1F] | "\\\\" escape`,
+		`escape ::= ["\\\\bfnrt] | "u" [0-9a-fA-F]{4}`,
+		`ws ::= [ \\t\\n\\r]*`
+	].join('\n');
+}

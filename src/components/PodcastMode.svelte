@@ -16,6 +16,7 @@
 	let canvas = $state<HTMLCanvasElement | null>(null);
 	let transcriptContainer = $state<HTMLDivElement | null>(null);
 	let animationFrame: number | null = null;
+	let showTranscript = $state(false);
 
 	const amplitudeScale = 0.1;
 	const wavelengthScale = 300;
@@ -48,6 +49,8 @@
 				? HOST_B_COLOR
 				: IDLE_COLOR
 	);
+
+	const hasContent = $derived(podcastState.status !== 'idle' || podcastState.dialogs.length > 0);
 
 	createHotkey(
 		'Space',
@@ -345,15 +348,19 @@
 			{/if}
 		</div>
 
-		<div class="header-center">
-			{#if podcastState.topics.length > 0}
-				<span class="topic-badge">
-					Topic {podcastState.currentTopicIndex + 1}/{podcastState.topics.length}
-				</span>
-			{/if}
-		</div>
-
 		<div class="header-right">
+			<button
+				type="button"
+				class="header-btn"
+				onclick={() => (showTranscript = !showTranscript)}
+				aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'}
+			>
+				<Icon
+					name={showTranscript ? 'MessageSquare' : 'MessageSquareOff'}
+					size={20}
+					color={viewState.primaryColor}
+				/>
+			</button>
 			<button
 				type="button"
 				class="header-btn"
@@ -368,109 +375,110 @@
 		</div>
 	</div>
 
-	<div class="podcast-speakers">
-		<div class="speaker-card" class:active={podcastState.activeSpeaker === 'A'}>
-			<div class="speaker-avatar-wrap">
+	<div class="podcast-stage">
+		<div class="podcast-speakers">
+			<button
+				type="button"
+				class="speaker-thumb"
+				class:active={podcastState.activeSpeaker === 'A'}
+				onclick={() => drawersState.open('podcast-settings')}
+				aria-label="Configure podcast hosts"
+			>
 				{#if podcastState.hostAProfile?.image_src}
-					<img class="speaker-avatar" src={getImage(podcastState.hostAProfile.image_src)} alt="" />
+					<img class="thumb-avatar" src={getImage(podcastState.hostAProfile.image_src)} alt="" />
 				{:else}
 					<div
-						class="speaker-avatar fallback"
+						class="thumb-avatar fallback"
 						style="background: {colorFor(podcastState.hostAProfile?.id ?? '')}"
 					>
 						{initialFor(podcastState.hostAProfile?.name_prefix ?? 'A')}
 					</div>
 				{/if}
-			</div>
-			<span class="speaker-name">{podcastState.getProfileName('A')}</span>
-		</div>
-
-		<div class="vs-separator">VS</div>
-
-		<div class="speaker-card" class:active={podcastState.activeSpeaker === 'B'}>
-			<div class="speaker-avatar-wrap">
+			</button>
+			<span class="vs-separator">VS</span>
+			<button
+				type="button"
+				class="speaker-thumb"
+				class:active={podcastState.activeSpeaker === 'B'}
+				onclick={() => drawersState.open('podcast-settings')}
+				aria-label="Configure podcast hosts"
+			>
 				{#if podcastState.hostBProfile?.image_src}
-					<img class="speaker-avatar" src={getImage(podcastState.hostBProfile.image_src)} alt="" />
+					<img class="thumb-avatar" src={getImage(podcastState.hostBProfile.image_src)} alt="" />
 				{:else}
 					<div
-						class="speaker-avatar fallback"
+						class="thumb-avatar fallback"
 						style="background: {colorFor(podcastState.hostBProfile?.id ?? '')}"
 					>
 						{initialFor(podcastState.hostBProfile?.name_prefix ?? 'B')}
 					</div>
 				{/if}
-			</div>
-			<span class="speaker-name">{podcastState.getProfileName('B')}</span>
+			</button>
+		</div>
+
+		<div class="podcast-canvas-container">
+			<canvas bind:this={canvas} class="podcast-canvas" aria-hidden="true"></canvas>
+
+			{#if !hasContent && !showTranscript}
+				<div class="podcast-idle-hint">
+					<p>Open settings to pick hosts and start the podcast</p>
+					<span class="idle-hint-keys">Space to play · R to regenerate · Esc to exit</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	<div class="podcast-canvas-container">
-		<canvas bind:this={canvas} class="podcast-canvas" aria-hidden="true"></canvas>
-	</div>
-
-	<div class="podcast-transcript" bind:this={transcriptContainer}>
-		{#if podcastState.currentExchanges.length === 0 && podcastState.status === 'idle'}
-			<div class="transcript-empty">
-				<p>Select settings and start the podcast</p>
-			</div>
-		{/if}
-
-		{#each podcastState.currentExchanges as exchange, i (i)}
-			<div
-				class="exchange"
-				class:exchange-a={exchange.speaker === 'A'}
-				class:exchange-b={exchange.speaker === 'B'}
-				class:active={i === podcastState.currentExchangeIndex && podcastState.status !== 'idle'}
-			>
-				<div class="exchange-header">
-					<span
-						class="exchange-speaker"
-						class:speaker-a={exchange.speaker === 'A'}
-						class:speaker-b={exchange.speaker === 'B'}
-					>
-						Host {exchange.speaker}
-					</span>
-					{#if i === podcastState.currentExchangeIndex && (podcastState.status === 'playing' || podcastState.status === 'paused')}
-						<button
-							type="button"
-							class="regen-btn"
-							onclick={() =>
-								void podcastState.regenerateExchange(podcastState.currentTopicIndex, i)}
-							aria-label="Regenerate exchange"
-							title="Regenerate (R)"
-						>
-							<Icon name="RotateCcw" size={14} />
-						</button>
-					{/if}
+	{#if showTranscript}
+		<div class="podcast-transcript" bind:this={transcriptContainer}>
+			{#if podcastState.currentExchanges.length === 0 && podcastState.status === 'idle'}
+				<div class="transcript-empty">
+					<p>Select settings and start the podcast</p>
 				</div>
-				<p class="exchange-text">{exchange.text}</p>
-			</div>
-		{/each}
+			{/if}
 
-		{#if podcastState.isGenerating}
-			<div class="exchange generating-indicator">
-				<span class="typing-dots">
-					<span></span><span></span><span></span>
-				</span>
-			</div>
-		{/if}
-	</div>
-
-	{#if podcastState.progress.total > 0}
-		<div class="podcast-progress">
-			<div class="progress-bar">
+			{#each podcastState.currentExchanges as exchange, i (i)}
 				<div
-					class="progress-fill"
-					style="width: {(podcastState.progress.current / podcastState.progress.total) * 100}%"
-				></div>
-			</div>
-			<span class="progress-text"
-				>{podcastState.progress.current}/{podcastState.progress.total}</span
-			>
+					class="exchange"
+					class:exchange-a={exchange.speaker === 'A'}
+					class:exchange-b={exchange.speaker === 'B'}
+					class:active={i === podcastState.currentExchangeIndex && podcastState.status !== 'idle'}
+				>
+					<div class="exchange-header">
+						<span
+							class="exchange-speaker"
+							class:speaker-a={exchange.speaker === 'A'}
+							class:speaker-b={exchange.speaker === 'B'}
+						>
+							Host {exchange.speaker}
+						</span>
+						{#if i === podcastState.currentExchangeIndex && (podcastState.status === 'playing' || podcastState.status === 'paused')}
+							<button
+								type="button"
+								class="regen-btn"
+								onclick={() =>
+									void podcastState.regenerateExchange(podcastState.currentTopicIndex, i)}
+								aria-label="Regenerate exchange"
+								title="Regenerate (R)"
+							>
+								<Icon name="RotateCcw" size={14} />
+							</button>
+						{/if}
+					</div>
+					<p class="exchange-text">{exchange.text}</p>
+				</div>
+			{/each}
+
+			{#if podcastState.isGenerating}
+				<div class="exchange generating-indicator">
+					<span class="typing-dots">
+						<span></span><span></span><span></span>
+					</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	{#if podcastState.status !== 'idle' || podcastState.dialogs.length > 0}
+	{#if hasContent}
 		<div class="podcast-controls">
 			<button
 				type="button"
@@ -547,34 +555,29 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		min-width: 180px;
-	}
-
-	.header-center {
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		min-width: 200px;
 	}
 
 	.header-right {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		min-width: 180px;
+		min-width: 200px;
 		justify-content: flex-end;
+	}
+
+	.podcast-speakers {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1.5rem;
+		padding: 0.5rem 0;
+		flex-shrink: 0;
 	}
 
 	.status-label {
 		color: rgba(255, 255, 255, 0.5);
 		font-size: 0.8rem;
-	}
-
-	.topic-badge {
-		font-size: 0.75rem;
-		color: rgba(255, 255, 255, 0.5);
-		padding: 0.25rem 0.75rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.active-speaker-badge {
@@ -627,45 +630,33 @@
 		opacity: 1;
 	}
 
-	.podcast-speakers {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 2rem;
-		padding: 0.5rem 2rem;
-		flex-shrink: 0;
-	}
-
-	.speaker-card {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.4rem;
-		opacity: 0.5;
-		transition:
-			opacity 0.3s,
-			transform 0.3s;
-	}
-
-	.speaker-card.active {
-		opacity: 1;
-		transform: scale(1.05);
-	}
-
-	.speaker-avatar-wrap {
+	.speaker-thumb {
+		all: unset;
+		cursor: pointer;
+		box-sizing: border-box;
 		width: 64px;
 		height: 64px;
 		border-radius: 50%;
 		overflow: hidden;
 		border: 2px solid rgba(255, 255, 255, 0.1);
-		transition: border-color 0.3s;
+		opacity: 0.45;
+		transition:
+			opacity 0.3s,
+			border-color 0.3s,
+			transform 0.3s;
 	}
 
-	.speaker-card.active .speaker-avatar-wrap {
+	.speaker-thumb:hover {
+		opacity: 0.85;
+	}
+
+	.speaker-thumb.active {
+		opacity: 1;
+		transform: scale(1.08);
 		border-color: var(--primary-color);
 	}
 
-	.speaker-avatar {
+	.thumb-avatar {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
@@ -677,15 +668,9 @@
 		justify-content: center;
 		color: white;
 		font-weight: bold;
-		font-size: 1.2rem;
+		font-size: 1rem;
 		width: 100%;
 		height: 100%;
-	}
-
-	.speaker-name {
-		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.7);
-		font-weight: 500;
 	}
 
 	.vs-separator {
@@ -695,16 +680,50 @@
 		letter-spacing: 0.1em;
 	}
 
+	.podcast-stage {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 0;
+		gap: 1rem;
+	}
+
 	.podcast-canvas-container {
 		width: 100%;
-		height: 100px;
+		height: 140px;
 		flex-shrink: 0;
+		position: relative;
 	}
 
 	.podcast-canvas {
 		width: 100%;
 		height: 100%;
 		display: block;
+	}
+
+	.podcast-idle-hint {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		text-align: center;
+		pointer-events: none;
+	}
+
+	.podcast-idle-hint p {
+		margin: 0;
+		color: rgba(255, 255, 255, 0.4);
+		font-size: 0.95rem;
+	}
+
+	.idle-hint-keys {
+		color: rgba(255, 255, 255, 0.25);
+		font-size: 0.75rem;
 	}
 
 	.podcast-transcript {
@@ -844,83 +863,42 @@
 		}
 	}
 
-	.podcast-progress {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0 2rem;
-		flex-shrink: 0;
-	}
-
-	.progress-bar {
-		flex: 1;
-		height: 4px;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 2px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
-		height: 100%;
-		background: var(--primary-color);
-		border-radius: 2px;
-		transition: width 0.3s ease;
-	}
-
-	.progress-text {
-		font-size: 0.7rem;
-		color: rgba(255, 255, 255, 0.4);
-		min-width: 40px;
-		text-align: right;
-	}
-
 	.podcast-controls {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 1.5rem;
-		padding: 0.75rem 2rem;
+		gap: 1.75rem;
+		padding: 1rem 2rem;
 		flex-shrink: 0;
 	}
 
 	.control-btn {
 		all: unset;
 		cursor: pointer;
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 44px;
-		height: 44px;
+		width: 50px;
+		height: 50px;
 		border-radius: 50%;
-		color: rgba(255, 255, 255, 0.6);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(255, 255, 255, 0.04);
-		transition: all 0.2s;
+		color: var(--primary-color);
+		transition:
+			background 0.2s,
+			transform 0.2s;
 	}
 
 	.control-btn:hover {
-		color: rgba(255, 255, 255, 0.9);
-		border-color: rgba(255, 255, 255, 0.2);
 		background: rgba(255, 255, 255, 0.08);
 	}
 
 	.control-btn-main {
-		width: 56px;
-		height: 56px;
-		color: var(--primary-color);
-		border-color: var(--primary-color);
-		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-	}
-
-	.control-btn-main:hover {
-		background: color-mix(in srgb, var(--primary-color) 20%, transparent);
-		color: var(--primary-color);
-		border-color: var(--primary-color);
+		width: 60px;
+		height: 60px;
 	}
 
 	.podcast-error {
 		position: absolute;
-		bottom: 5rem;
+		bottom: 6rem;
 		left: 50%;
 		transform: translateX(-50%);
 		display: flex;
