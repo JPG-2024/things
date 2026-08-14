@@ -98,7 +98,7 @@ export interface LlamaChatMessage {
 }
 
 export interface LlamaChatCompletionsRequest {
-	model: string; // Model identifier to run the completion with.
+	model?: string; // Model identifier to run the completion with.
 	messages: LlamaChatMessage[]; // Conversation history sent to the model.
 
 	tools?: LlamaTool[]; // Tool definitions the model may call.

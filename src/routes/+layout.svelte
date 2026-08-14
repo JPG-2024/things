@@ -7,6 +7,8 @@
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
+	import PodcastMode from '@/components/PodcastMode.svelte';
+	import PodcastSettings from '@/components/PodcastSettings.svelte';
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
@@ -27,6 +29,7 @@
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
 	let conversationMode = $state(false);
+	let podcastMode = $state(false);
 
 	$effect(() => {
 		const color = viewState.primaryColor;
@@ -79,7 +82,8 @@
 			drawersState.isOpen('tts-settings') ||
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
-			conversationMode
+			conversationMode ||
+			podcastMode
 	);
 
 	createHotkey(
@@ -125,6 +129,18 @@
 		'M',
 		() => {
 			conversationMode = !conversationMode;
+		},
+		{
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		}
+	);
+
+	createHotkey(
+		'P',
+		() => {
+			podcastMode = !podcastMode;
 		},
 		{
 			ignoreInputs: true,
@@ -235,7 +251,14 @@
 	<ConversationMode onExit={() => (conversationMode = false)} />
 {/if}
 
-<Modal show={drawersState.isOpen('tts-settings')} onClose={() => drawersState.close('tts-settings')}>
+{#if podcastMode}
+	<PodcastMode onExit={() => (podcastMode = false)} />
+{/if}
+
+<Modal
+	show={drawersState.isOpen('tts-settings')}
+	onClose={() => drawersState.close('tts-settings')}
+>
 	<TTSSettings />
 </Modal>
 
@@ -245,6 +268,15 @@
 
 <Drawer name="conversation-settings">
 	<ConversationSettings />
+</Drawer>
+
+<Drawer name="podcast-settings">
+	<PodcastSettings
+		onStart={() => {
+			drawersState.close('podcast-settings');
+			podcastMode = true;
+		}}
+	/>
 </Drawer>
 
 <Drawer name="downloads">
