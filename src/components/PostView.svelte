@@ -94,7 +94,7 @@
 </script>
 
 <article>
-	<Topbar title={titleText}>
+	<Topbar title={titleText} loading={viewState.embeddingsLoading}>
 		<Toolbar justify="end">
 			<ToggleIcon
 				name="ListChecks"

@@ -37,7 +37,7 @@ export type IaTaskFactoryOptions<TParsed = string> = {
 	renderOrder?: number;
 	persist?: boolean;
 	enableTTS?: boolean;
-	embeddingTable?: string;
+	embeddings?: boolean;
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
 	systemMessage?: MaybeFn<string>;
@@ -226,7 +226,7 @@ export type RecursiveContentTaskOptions = {
 	gridSpan?: 1 | 2 | 3;
 	component?: string;
 	componentProps?: MaybeFn<Record<string, unknown>>;
-	embeddingTable?: string;
+	embeddings?: boolean;
 	onComplete?: (params: {
 		result: unknown;
 		runResult: string;
@@ -260,7 +260,7 @@ export function createRecursiveContentTask(
 		renderOrder: options?.renderOrder,
 		persist: options?.persist,
 		concurrencyGroup: 'recursive',
-		embeddingTable: options?.embeddingTable,
+		embeddings: options?.embeddings,
 		output: RECURSIVE_CONTENT_OUTPUT_SCHEMA,
 		run: async ({ state, update }) => {
 			const content = state[sourceDependency];
@@ -387,7 +387,7 @@ export type CreateCategoryTaskOptions = {
 	enableTTS?: boolean;
 	persist?: boolean;
 	renderOrder?: number;
-	embeddingTable?: string;
+	embeddings?: boolean;
 };
 
 export function createCategoryTask(

@@ -18,13 +18,13 @@
 	let animationFrame: number | null = null;
 	let showTranscript = $state(false);
 
-	const amplitudeScale = 0.1;
+	const amplitudeScale = 0.8;
 	const wavelengthScale = 300;
 	const SINE_FILL_ALPHA = 0.24;
 	const WAVE_STROKE_WIDTH = 4;
-	const SPLINE_SAMPLE_STEP = 0.1;
+	const SPLINE_SAMPLE_STEP = 0.3;
 	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
-	const MAX_WAVE_AMPLITUDE_PX = 10;
+	const MAX_WAVE_AMPLITUDE_PX = 15;
 
 	const HOST_A_COLOR = 'hsl(220, 70%, 60%)';
 	const HOST_B_COLOR = 'hsl(160, 70%, 50%)';
@@ -375,6 +375,15 @@
 		</div>
 	</div>
 
+	{#if hasContent && podcastState.currentTopic}
+		<div class="current-topic-bar">
+			<span class="topic-index"
+				>Topic {podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
+			>
+			<span class="topic-text">{podcastState.currentTopic}</span>
+		</div>
+	{/if}
+
 	<div class="podcast-stage">
 		<div class="podcast-speakers">
 			<button
@@ -678,6 +687,31 @@
 		color: rgba(255, 255, 255, 0.25);
 		font-weight: bold;
 		letter-spacing: 0.1em;
+	}
+
+	.current-topic-bar {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		padding: 0.5rem 1.5rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		background: rgba(255, 255, 255, 0.02);
+		flex-shrink: 0;
+	}
+
+	.topic-index {
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--primary-color);
+		font-weight: 600;
+	}
+
+	.topic-text {
+		font-size: 0.95rem;
+		color: rgba(255, 255, 255, 0.85);
+		font-weight: 500;
+		line-height: 1.3;
 	}
 
 	.podcast-stage {

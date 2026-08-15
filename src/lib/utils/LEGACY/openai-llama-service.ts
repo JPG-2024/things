@@ -286,7 +286,6 @@ export async function completion(
 		if (options?.signal?.aborted) break;
 		// console.log('Received chunk:', chunk);
 		const text = chunk.content ?? '';
-		console.log('Received text chunk:', text);
 		if (text) {
 			aggregated += text;
 			onToken?.(text);

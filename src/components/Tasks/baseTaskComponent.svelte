@@ -13,6 +13,7 @@
 	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
 	import Label from '@/components/inputs/Label.component.svelte';
 	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import {
 		statusToPillStatus,
@@ -158,6 +159,14 @@
 							<pre class="result-data">{formatData(task.data)}</pre>
 						</DetailsPanel>
 					</div>
+				{/if}
+
+				{#if task.embeddings}
+					<SimilarEmbeddingsComponent
+						id={task.id}
+						data={task.data}
+						enabled={task.embeddings === true}
+					/>
 				{/if}
 
 				{#if task.status === 'failed'}

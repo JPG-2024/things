@@ -46,7 +46,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		font-size: 0.85rem;
+		font-size: 1rem;
 		color: inherit;
 		border-radius: 8px;
 		backdrop-filter: blur(4px);

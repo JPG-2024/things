@@ -33,6 +33,8 @@
 	let localSegment = $state(ttsState.segment);
 	let localChunkCount = $state(ttsState.chunkCount);
 	let localConfig = $state<TTSConfig>({ ...ttsState.config });
+	let localPauseBetweenSentences = $state(ttsState.pauseSettings.betweenSentences);
+	let localPauseBetweenParagraphs = $state(ttsState.pauseSettings.betweenParagraphs);
 	let localLanguage = $state(viewState.language);
 
 	let editNamePrefix = $state('');
@@ -75,6 +77,8 @@
 		ttsState.segment = localSegment;
 		ttsState.chunkCount = localChunkCount;
 		ttsState.config = { ...localConfig };
+		ttsState.pauseSettings.betweenSentences = localPauseBetweenSentences;
+		ttsState.pauseSettings.betweenParagraphs = localPauseBetweenParagraphs;
 		viewState.language = localLanguage;
 	});
 
@@ -339,6 +343,28 @@
 			]}
 			value={String(localConfig.splitLevel)}
 			onChange={(v) => (localConfig.splitLevel = Number(v) as 0 | 1 | 2 | 3)}
+		/>
+
+		<RangeSelector
+			id="pauseBetweenSentences"
+			label="Pause between sentences (s)"
+			value={localPauseBetweenSentences}
+			min={0}
+			max={1}
+			step={0.01}
+			format={(v) => v.toFixed(2)}
+			onChange={(v) => (localPauseBetweenSentences = v)}
+		/>
+
+		<RangeSelector
+			id="pauseBetweenParagraphs"
+			label="Pause between paragraphs (s)"
+			value={localPauseBetweenParagraphs}
+			min={0}
+			max={2}
+			step={0.01}
+			format={(v) => v.toFixed(2)}
+			onChange={(v) => (localPauseBetweenParagraphs = v)}
 		/>
 
 		<!-- 		<RangeSelector

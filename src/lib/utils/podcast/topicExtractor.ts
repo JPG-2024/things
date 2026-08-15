@@ -51,10 +51,7 @@ export async function extractTopics(
 	return parsed.topics.map((t: unknown) => String(t).trim()).filter(Boolean);
 }
 
-export async function generateFreeTopics(
-	count: number,
-	signal?: AbortSignal
-): Promise<string[]> {
+export async function generateFreeTopics(count: number, signal?: AbortSignal): Promise<string[]> {
 	const response = await chatCompletions(
 		{
 			messages: [

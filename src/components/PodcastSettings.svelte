@@ -149,6 +149,36 @@
 	</div>
 
 	<div class="section">
+		<div class="section-label">Pause between hosts</div>
+		<RangeSelector
+			id="podcast-min-gap"
+			label="Min gap"
+			value={podcastState.config.minGapMs}
+			min={0}
+			max={3000}
+			step={50}
+			format={(v) => (v / 1000).toFixed(1) + 's'}
+			onChange={(v) => {
+				podcastState.config.minGapMs = v;
+				if (podcastState.config.maxGapMs < v) podcastState.config.maxGapMs = v;
+			}}
+		/>
+		<RangeSelector
+			id="podcast-max-gap"
+			label="Max gap"
+			value={podcastState.config.maxGapMs}
+			min={0}
+			max={3000}
+			step={50}
+			format={(v) => (v / 1000).toFixed(1) + 's'}
+			onChange={(v) => {
+				podcastState.config.maxGapMs = v;
+				if (podcastState.config.minGapMs > v) podcastState.config.minGapMs = v;
+			}}
+		/>
+	</div>
+
+	<div class="section">
 		<div class="host-label">
 			<span class="host-indicator host-a"></span>
 			Host A — {podcastState.getProfileName('A')}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
-	import DetailsPanel from '@/components/DetailsPanel.svelte';
+	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import {
 		chatCompletions,
@@ -57,10 +57,6 @@
 	let retrievedChunks = $state<SearchChunkResult[]>([]);
 	let searchEnabled = $state(true);
 	let chunkThumbnails = $state<Record<string, string | null>>({});
-
-	function chunkHint(text: string): string {
-		return text.length > 80 ? text.slice(0, 80) + '…' : text;
-	}
 
 	async function loadChunkThumbnails(chunks: SearchChunkResult[]) {
 		const urls = [...new Set(chunks.map((c) => c.articleUrl))];
@@ -131,7 +127,9 @@
 		const embeddingTable =
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()
-				: 'questions';
+				: 'topics';
+
+		console.log(embeddingTable);
 		const searchLimit =
 			typeof componentProps.searchLimit === 'number' && componentProps.searchLimit > 0
 				? componentProps.searchLimit
@@ -240,60 +238,41 @@
 	{/if}
 
 	{#if retrievedChunks.length > 0}
-		<div class="retrieved-chunks">
-			<span class="chunks-label">Retrieved context ({retrievedChunks.length})</span>
-			<div class="chunks-stack">
-				{#each retrievedChunks as chunk, i (chunk.id)}
-					<DetailsPanel label="Chunk {i + 1}" hint={chunkHint(chunk.chunkText)}>
-						{#snippet leading()}
-							{#if chunkThumbnails[chunk.articleUrl]}
-								<button
-									type="button"
-									class="chunk-thumb-btn"
-									aria-label="Open article"
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										navigateToArticle(chunk.articleUrl, chunk.profileId);
-									}}
-								>
-									<img class="chunk-thumb" src={chunkThumbnails[chunk.articleUrl]} alt="" />
-								</button>
-							{:else}
-								<button
-									type="button"
-									class="chunk-thumb-btn"
-									aria-label="Open article"
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										navigateToArticle(chunk.articleUrl, chunk.profileId);
-									}}
-								>
-									<div class="chunk-thumb chunk-thumb-fallback"></div>
-								</button>
-							{/if}
-						{/snippet}
-						<div class="chunk-content">
-							<p class="chunk-text">{chunk.chunkText}</p>
-							<span
-								class="chunk-source"
-								role="button"
-								tabindex={0}
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									navigateToArticle(chunk.articleUrl, chunk.profileId);
-								}}
-								onkeydown={(e) => {
-									if (e.key === 'Enter') navigateToArticle(chunk.articleUrl, chunk.profileId);
-								}}>{chunk.articleUrl}</span
-							>
-						</div>
-					</DetailsPanel>
-				{/each}
-			</div>
-		</div>
+		<ChunkList
+			title="Retrieved context ({retrievedChunks.length})"
+			defaultOpen
+			chunks={retrievedChunks.map(
+				(chunk): ChunkEntry => ({
+					id: chunk.id,
+					summary: chunk.chunkText,
+					thumbnail: chunkThumbnails[chunk.articleUrl] ?? undefined
+				})
+			)}
+			onItemOpen={(_, i) => {
+				const original = retrievedChunks[i];
+				navigateToArticle(original.articleUrl, original.profileId);
+			}}
+		>
+			{#snippet itemContent(chunk, i)}
+				{@const original = retrievedChunks[i]}
+				<div class="chunk-content">
+					<p class="chunk-text">{chunk.summary}</p>
+					<span
+						class="chunk-source"
+						role="button"
+						tabindex={0}
+						onclick={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							navigateToArticle(original.articleUrl, original.profileId);
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') navigateToArticle(original.articleUrl, original.profileId);
+						}}>{original.articleUrl}</span
+					>
+				</div>
+			{/snippet}
+		</ChunkList>
 	{/if}
 </div>
 
@@ -362,25 +341,6 @@
 	.ask-response {
 	}
 
-	.retrieved-chunks {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.chunks-label {
-		font-size: 0.8rem;
-		opacity: 0.6;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-	}
-
-	.chunks-stack {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
 	.chunk-content {
 		display: flex;
 		flex-direction: column;
@@ -400,26 +360,5 @@
 		word-break: break-all;
 		cursor: pointer;
 		text-decoration: underline;
-	}
-
-	.chunk-thumb-btn {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-
-	.chunk-thumb {
-		width: 32px;
-		height: 32px;
-		border-radius: 6px;
-		object-fit: cover;
-		flex-shrink: 0;
-	}
-
-	.chunk-thumb-fallback {
-		background: rgba(255, 255, 255, 0.1);
 	}
 </style>

@@ -20,7 +20,7 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
 			persist: def.persist,
-			embeddingTable: def.embeddingTable,
+			embeddings: def.embeddings,
 			enableTTS: def.enableTTS
 		});
 		task.visible = def.visible ?? true;
@@ -52,7 +52,7 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 		enableTTS: def.enableTTS,
 		gridSpan: def.gridSpan,
 		componentProps: def.componentProps,
-		embeddingTable: def.embeddingTable
+		embeddings: def.embeddings
 	};
 
 	if (def.subtype === 'category' && def.extractorConfig) {
@@ -81,7 +81,7 @@ function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unkn
 		enableTTS: def.enableTTS,
 		gridSpan: def.gridSpan,
 		componentProps: def.componentProps,
-		embeddingTable: def.embeddingTable
+		embeddings: def.embeddings
 	});
 }
 

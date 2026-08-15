@@ -51,6 +51,7 @@
 	let totalPlaybackDuration = $state(0);
 	let nextChunkPrefetchRequested = false;
 	let currentChunkDuration = 0;
+	let interChunkTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async function decodeBlob(blob: Blob, ctx: AudioContext): Promise<AudioBuffer> {
 		const arrayBuffer = await blob.arrayBuffer();
@@ -62,18 +63,35 @@
 		console.error('[TTS]', err);
 	}
 
+	function clearInterChunkTimeout() {
+		if (interChunkTimeout !== null) {
+			clearTimeout(interChunkTimeout);
+			interChunkTimeout = null;
+		}
+	}
+
 	function recomputeChunkOffsets() {
 		chunkOffsets = [];
 		let cumulative = 0;
-		for (const buf of decodedChunks) {
+		const count = decodedChunks.length;
+		for (let i = 0; i < count; i++) {
 			chunkOffsets.push(cumulative);
-			cumulative += buf?.duration ?? 0;
+			cumulative += decodedChunks[i]?.duration ?? 0;
+			if (i < count - 1) {
+				cumulative += ttsState.pauseAfter(i);
+			}
 		}
 	}
 
 	function computeTotalDuration(): number {
 		let total = 0;
-		for (const buf of decodedChunks) total += buf?.duration ?? 0;
+		const count = decodedChunks.length;
+		for (let i = 0; i < count; i++) {
+			total += decodedChunks[i]?.duration ?? 0;
+			if (i < count - 1) {
+				total += ttsState.pauseAfter(i);
+			}
+		}
 		return total;
 	}
 
@@ -173,7 +191,15 @@
 		const nextIdx = currentChunkIndex + 1;
 		if (nextIdx < ttsState.blobs.length) {
 			if (decodedChunks[nextIdx] || ttsState.blobs[nextIdx]) {
-				void playChunkAt(nextIdx);
+				const delay = ttsState.pauseAfter(currentChunkIndex) * 1000;
+				if (delay > 0) {
+					interChunkTimeout = setTimeout(() => {
+						interChunkTimeout = null;
+						void playChunkAt(nextIdx);
+					}, delay);
+				} else {
+					void playChunkAt(nextIdx);
+				}
 			} else {
 				waitingForChunk = true;
 			}
@@ -207,6 +233,7 @@
 		ttsState.isPaused = true;
 		ttsState.isPlaying = false;
 		clearCountdown();
+		clearInterChunkTimeout();
 		if (hideControlsTimeout !== null) {
 			clearTimeout(hideControlsTimeout);
 			hideControlsTimeout = null;
@@ -255,6 +282,7 @@
 		}
 		cleanupAnalyser();
 		clearCountdown();
+		clearInterChunkTimeout();
 		if (hideControlsTimeout !== null) {
 			clearTimeout(hideControlsTimeout);
 			hideControlsTimeout = null;

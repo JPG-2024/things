@@ -8,7 +8,7 @@
 		children?: Snippet;
 	}
 
-	let { justify = 'end', gap = '0.5rem', class: className = '', children }: Props = $props();
+	let { justify = 'end', gap = '0.8rem', class: className = '', children }: Props = $props();
 </script>
 
 <div class="toolbar {className}" style:justify-content={justify} style:gap>

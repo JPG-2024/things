@@ -92,7 +92,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	startedAt?: number;
 	endedAt?: number;
 	concurrencyGroup?: string;
-	embeddingTable?: string;
+	embeddings?: boolean;
 }
 
 export interface ScriptTask<

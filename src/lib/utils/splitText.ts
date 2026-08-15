@@ -13,7 +13,12 @@ export type SplitForEmbeddingsOptions = {
 	respectBoundaries?: boolean;
 };
 
-export function splitTextIntoChunks(text: string, level = 0): string[] {
+export type SplitChunk = {
+	text: string;
+	endsParagraph: boolean;
+};
+
+export function splitTextIntoChunksMeta(text: string, level = 0): SplitChunk[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 
@@ -21,33 +26,51 @@ export function splitTextIntoChunks(text: string, level = 0): string[] {
 
 	if (level === 0) {
 		if (paragraphs.length > 1) {
-			return mergeSmallChunks(paragraphs);
+			const paraChunks: SplitChunk[] = paragraphs.map((p) => ({
+				text: p,
+				endsParagraph: true
+			}));
+			return mergeSmallChunksMeta(paraChunks);
 		}
 
-		const sentences = splitBySentences(trimmed);
-		if (sentences.length > 1) {
-			return mergeSmallChunks(sentences);
+		const rawSentences = trimmed
+			.split(/(?<=[.!?。！？])\s+/)
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
+		if (rawSentences.length > 1) {
+			const sentChunks: SplitChunk[] = rawSentences.map((s, i) => ({
+				text: s,
+				endsParagraph: i === rawSentences.length - 1
+			}));
+			return mergeSmallChunksMeta(sentChunks);
 		}
 
-		return [trimmed];
+		return [{ text: trimmed, endsParagraph: true }];
 	}
 
-	const allChunks: string[] = [];
+	const allChunks: SplitChunk[] = [];
 	for (const para of paragraphs) {
-		allChunks.push(...splitByDots(para));
+		const sentences = splitByDots(para);
+		sentences.forEach((s, i) => {
+			allChunks.push({ text: s, endsParagraph: i === sentences.length - 1 });
+		});
 	}
 
 	if (level === 1) {
-		return mergeSmallChunks(allChunks);
+		return mergeSmallChunksMeta(allChunks);
 	}
 
-	let pieces = allChunks.flatMap((chunk) => splitByClauses(chunk));
+	let pieces = allChunks.flatMap(splitByClausesMeta);
 
 	if (level >= 3) {
-		pieces = pieces.flatMap((chunk) => splitBySoftBreaks(chunk));
+		pieces = pieces.flatMap(splitBySoftBreaksMeta);
 	}
 
-	return mergeSmallChunks(pieces);
+	return mergeSmallChunksMeta(pieces);
+}
+
+export function splitTextIntoChunks(text: string, level = 0): string[] {
+	return splitTextIntoChunksMeta(text, level).map((c) => c.text);
 }
 
 function splitByParagraphs(text: string): string[] {
@@ -94,11 +117,33 @@ function splitByClauses(text: string): string[] {
 		.filter((s) => s.length > 0);
 }
 
+function splitByClausesMeta(chunk: SplitChunk): SplitChunk[] {
+	return chunk.text
+		.split(/(?<=[,;:])\s+/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0)
+		.map((s, i, arr) => ({
+			text: s,
+			endsParagraph: i === arr.length - 1 ? chunk.endsParagraph : false
+		}));
+}
+
 function splitBySoftBreaks(text: string): string[] {
 	return text
 		.split(/(?<=\s[—–-])\s+/)
 		.map((s) => s.trim())
 		.filter((s) => s.length > 0);
+}
+
+function splitBySoftBreaksMeta(chunk: SplitChunk): SplitChunk[] {
+	return chunk.text
+		.split(/(?<=\s[—–-])\s+/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0)
+		.map((s, i, arr) => ({
+			text: s,
+			endsParagraph: i === arr.length - 1 ? chunk.endsParagraph : false
+		}));
 }
 
 function mergeSmallChunks(chunks: string[]): string[] {
@@ -122,6 +167,37 @@ function mergeSmallChunks(chunks: string[]): string[] {
 	if (buffer) {
 		if (merged.length > 0) {
 			merged[merged.length - 1] += ' ' + buffer;
+		} else {
+			merged.push(buffer);
+		}
+	}
+
+	return merged;
+}
+
+function mergeSmallChunksMeta(chunks: SplitChunk[]): SplitChunk[] {
+	const merged: SplitChunk[] = [];
+	let buffer: SplitChunk | null = null;
+
+	for (const chunk of chunks) {
+		if (buffer) {
+			buffer.text += ' ' + chunk.text;
+			buffer.endsParagraph = chunk.endsParagraph;
+			if (buffer.text.length >= MIN_CHUNK_CHARS) {
+				merged.push(buffer);
+				buffer = null;
+			}
+		} else if (chunk.text.length < MIN_CHUNK_CHARS) {
+			buffer = { ...chunk };
+		} else {
+			merged.push({ ...chunk });
+		}
+	}
+
+	if (buffer) {
+		if (merged.length > 0) {
+			merged[merged.length - 1].text += ' ' + buffer.text;
+			merged[merged.length - 1].endsParagraph = buffer.endsParagraph;
 		} else {
 			merged.push(buffer);
 		}

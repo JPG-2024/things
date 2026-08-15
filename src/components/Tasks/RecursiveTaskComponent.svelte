@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import type { RecursiveContentResult, ChunkOffset } from '@/runners/shared/taskFactories';
-	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
-	import Spacer from '@/components/Spacer.component.svelte';
+	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 
 	type Props = {
 		runId?: string;
@@ -39,9 +39,13 @@
 	const isFinalArray = $derived(Array.isArray(finalResponse));
 	const chunksSpacerOpen = $derived(task.status === 'running');
 
-	function chunkHint(text: string): string {
-		return text.length > 80 ? text.slice(0, 80) + '…' : text;
-	}
+	const chunkEntries = $derived<ChunkEntry[]>(
+		chunks.map((chunk, i) => ({
+			id: i,
+			summary: chunk,
+			raw: rawChunks[i] ?? undefined
+		}))
+	);
 
 	function offsetLabel(offset: ChunkOffset | undefined): string {
 		if (!offset) return '';
@@ -52,26 +56,15 @@
 {#if recursiveData}
 	<div class="recursive-shell">
 		{#if chunks.length > 0}
-			<Spacer title="Chunks" defaultOpen={chunksSpacerOpen}>
-				<div class="view-toggle">
-					<button class="toggle-btn" class:active={!showRaw} onclick={() => (showRaw = false)}>
-						Summary
-					</button>
-					<button class="toggle-btn" class:active={showRaw} onclick={() => (showRaw = true)}>
-						Raw
-					</button>
-				</div>
-				<div class="chunks-stack">
-					{#each chunks as chunk, i (i)}
-						<DetailsPanel
-							label="Chunk {i + 1}"
-							hint={chunkHint(showRaw ? (rawChunks[i] ?? '') : chunk)}
-						>
-							<MarkdownRenderer content={showRaw ? (rawChunks[i] ?? '') : chunk} />
-						</DetailsPanel>
-					{/each}
-				</div>
-			</Spacer>
+			<ChunkList title="Chunks" defaultOpen={chunksSpacerOpen} chunks={chunkEntries} bind:showRaw />
+		{/if}
+		{#if task.embeddings}
+			<SimilarEmbeddingsComponent
+				id={task.id}
+				data={task.data}
+				enabled={task.embeddings === true}
+				maxDistance={0.3}
+			/>
 		{/if}
 
 		{#if finalResponse && !showRaw}
@@ -92,45 +85,6 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		padding: 1rem 0;
-	}
-
-	.view-toggle {
-		display: flex;
-		gap: 0.25rem;
-		padding: 0.25rem;
-		background: rgba(255, 255, 255, 0.04);
-		border-radius: 6px;
-		width: fit-content;
-	}
-
-	.toggle-btn {
-		padding: 0.4rem 0.9rem;
-		border: none;
-		border-radius: 4px;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		font-size: 0.8rem;
-		cursor: pointer;
-		opacity: 0.6;
-		transition:
-			background 0.2s ease,
-			opacity 0.2s ease;
-	}
-
-	.toggle-btn:hover {
-		opacity: 0.85;
-	}
-
-	.toggle-btn.active {
-		background: rgba(255, 255, 255, 0.1);
-		opacity: 1;
-	}
-
-	.chunks-stack {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
 	}
 
 	.final-response {

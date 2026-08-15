@@ -21,6 +21,8 @@ export interface PodcastConfig {
 	hostBProfileId: string;
 	contextSource: 'content' | 'summary' | 'none';
 	summaryTaskId: string;
+	minGapMs: number;
+	maxGapMs: number;
 }
 
 export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | 'paused';
@@ -48,7 +50,9 @@ class PodcastState {
 		hostAProfileId: '',
 		hostBProfileId: '',
 		contextSource: 'content',
-		summaryTaskId: ''
+		summaryTaskId: '',
+		minGapMs: 300,
+		maxGapMs: 900
 	});
 
 	profiles = $state<VoiceProfile[]>([]);
@@ -63,6 +67,7 @@ class PodcastState {
 	private _currentSource: AudioBufferSourceNode | null = null;
 	private _analyserNode: AnalyserNode | null = null;
 	private _playbackAbort: AbortController | null = null;
+	private _gapTimers: Set<ReturnType<typeof setTimeout>> = new Set();
 
 	get hostAProfile(): VoiceProfile | undefined {
 		return this.profiles.find((p) => p.id === this.config.hostAProfileId);
@@ -191,8 +196,7 @@ class PodcastState {
 
 		const focusedTopicsTask = workflowStore.focusedRunTasks.find((task) => task.id === 'topics');
 		if (focusedTopicsTask) {
-			const fromTask = normalizeTopicsFromData(focusedTopicsTask.data);
-			if (fromTask) return fromTask;
+			if (focusedTopicsTask) return focusedTopicsTask.data.finalResponse;
 		}
 
 		if (!content) {
@@ -224,6 +228,7 @@ class PodcastState {
 			this._llmAbort = llmAbort;
 
 			this.topics = await this.resolveTopics(source, llmAbort.signal);
+			console.log(this.topics);
 			this.dialogs = [];
 			this.currentTopicIndex = 0;
 			this.currentExchangeIndex = 0;
@@ -279,6 +284,13 @@ class PodcastState {
 				if (this._session !== session) return;
 
 				this.progress.current = t * interactionCount + e + 1;
+
+				const hasNextExchange = e + 1 < interactionCount || t + 1 < this.topics.length;
+				if (hasNextExchange) {
+					this.activeSpeaker = null;
+					await this.waitGap(session);
+					if (this._session !== session) return;
+				}
 			}
 		}
 
@@ -535,6 +547,9 @@ class PodcastState {
 	stop(): void {
 		this._session++;
 
+		for (const timer of this._gapTimers) clearTimeout(timer);
+		this._gapTimers.clear();
+
 		if (this._genAbort) {
 			this._genAbort.abort();
 			this._genAbort = null;
@@ -560,6 +575,8 @@ class PodcastState {
 
 	fullReset(): void {
 		this.stop();
+		for (const timer of this._gapTimers) clearTimeout(timer);
+		this._gapTimers.clear();
 		this.topics = [];
 		this.dialogs = [];
 		this.currentTopicIndex = 0;
@@ -572,6 +589,21 @@ class PodcastState {
 
 	getAnalyserNode(): AnalyserNode | null {
 		return this._analyserNode;
+	}
+
+	private waitGap(session: number): Promise<void> {
+		const { minGapMs, maxGapMs } = this.config;
+		const min = Math.max(0, Math.min(minGapMs, maxGapMs));
+		const max = Math.max(minGapMs, maxGapMs);
+		const delay = min + Math.random() * (max - min);
+
+		return new Promise<void>((resolve) => {
+			const timer = setTimeout(() => {
+				this._gapTimers.delete(timer);
+				resolve();
+			}, delay);
+			this._gapTimers.add(timer);
+		});
 	}
 }
 

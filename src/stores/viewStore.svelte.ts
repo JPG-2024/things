@@ -40,6 +40,7 @@ class ViewState {
 	downloadTracksEnabled = $state(false);
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
+	embeddingsLoading = $state(false);
 	autoSpeechEnabled = $state(false);
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);

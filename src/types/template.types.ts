@@ -19,7 +19,7 @@ export type TemplateTaskDef = {
 	visible?: boolean;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
-	embeddingTable?: string;
+	embeddings?: boolean;
 	enableTTS: boolean;
 	scriptFactory?: string;
 	scriptConfig?: Record<string, unknown>;

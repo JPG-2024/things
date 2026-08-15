@@ -57,6 +57,7 @@
 		transform: translateZ(0);
 		transition: filter 0.2s ease;
 		filter: none;
+		flex-shrink: 0;
 	}
 	.icon-glow.glow {
 		filter: drop-shadow(0 0 5px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color))

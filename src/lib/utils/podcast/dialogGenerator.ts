@@ -66,17 +66,23 @@ function buildUserMessage(params: GenerateExchangeParams): string {
 		return 'Start the conversation with your opening line.';
 	}
 
-	const transcript = previousExchanges
-		.map((e) => `Host ${e.speaker}: ${e.text}`)
-		.join('\n');
+	const transcript = previousExchanges.map((e) => `Host ${e.speaker}: ${e.text}`).join('\n');
 
 	return `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
 }
 
-function cleanExchangeText(raw: string, speaker: 'A' | 'B', hostAName: string, hostBName: string): string {
+function cleanExchangeText(
+	raw: string,
+	speaker: 'A' | 'B',
+	hostAName: string,
+	hostBName: string
+): string {
 	let text = raw.trim();
 
-	text = text.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/i, '').trim();
+	text = text
+		.replace(/^```(?:json|text)?\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim();
 
 	if (
 		(text.startsWith('"') && text.endsWith('"')) ||

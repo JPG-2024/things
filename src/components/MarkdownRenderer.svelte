@@ -7,7 +7,7 @@
 	}
 
 	export type MarkdownRendererProps = Props;
-	const DEFAULT_FONT_SIZE = 1;
+	const DEFAULT_FONT_SIZE = 1.1;
 
 	let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props();
 
@@ -59,6 +59,7 @@
 		text-align: left;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
+		font-size: 1.1rem;
 	}
 
 	.markdown-container :global(thead th) {

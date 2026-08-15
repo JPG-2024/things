@@ -76,13 +76,12 @@ await deleteChunk('questions', 'uuid-here');
 
 ## Generating embeddings from tasks
 
-A task can be marked for automatic indexing by setting `embeddingTable` on its
-definition (e.g. `createRecursiveContentTask({ embeddingTable: 'summaries' })`).
-The value is any string and selects (creating if needed) the LanceDB table.
+A task can be marked for automatic indexing by setting `embeddings: true` on its
+definition (e.g. `createRecursiveContentTask({ embeddings: true })`).
+The task's `id` is used as the LanceDB table name.
 
 After a run, `generateEmbeddingsFromTasks(tasks, articleUrl, { model, profileId?, category? })`
-(from `src/lib/utils/embeddingTasks.ts`) scans the tasks: for each one with an
-`embeddingTable` whose result is recursive-shaped (`chunks` + `chunkOffsets`
+(from `src/lib/utils/embeddingTasks.ts`) scans the tasks: for each one with `embeddings: true` whose result is recursive-shaped (`chunks` + `chunkOffsets`
 arrays), it batch-embeds `data.chunks` via `createEmbeddings` and writes the
 chunks (without `chunkText`, with offsets) through `indexChunks`.
 

@@ -10,9 +10,10 @@
 		children?: Snippet;
 		title?: string;
 		autoHide?: boolean;
+		loading?: boolean;
 	}
 
-	let { children, title, autoHide = true }: Props = $props();
+	let { children, title, autoHide = true, loading = false }: Props = $props();
 
 	let faviconSrc = $state<string | null>(null);
 	let isHidden = $state(false);
@@ -93,6 +94,8 @@
 	{/if}
 
 	{@render children?.()}
+
+	<div class="topbar-progress" class:is-loading={loading}></div>
 </div>
 
 <style>
@@ -183,5 +186,30 @@
 		margin-right: auto;
 		max-width: 70vw;
 		padding: 0.6rem;
+	}
+
+	.topbar-progress {
+		position: absolute;
+		bottom: 0;
+		left: -100%;
+		width: 100%;
+		height: 2px;
+		background: linear-gradient(90deg, transparent, var(--primary-color, #7c6af7), transparent);
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	.topbar-progress.is-loading {
+		opacity: 1;
+		animation: topbar-progress 1.2s linear infinite;
+	}
+
+	@keyframes topbar-progress {
+		from {
+			left: -100%;
+		}
+		to {
+			left: 100%;
+		}
 	}
 </style>

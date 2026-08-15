@@ -1,6 +1,6 @@
 import { viewState } from './viewStore.svelte';
 import { addVoice, generateSpeech, parseSSE, type Voice } from '@/lib/utils/ttsService';
-import { splitTextIntoChunks } from '@/lib/utils/splitText';
+import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
 
 export interface TTSRefConfig {
@@ -64,9 +64,23 @@ class TTSState {
 	configSig = $derived(JSON.stringify(this.config));
 	private generatedConfigSig = $state('');
 
+	pauseSettings = $state({ betweenSentences: 0.12, betweenParagraphs: 0.45 });
+	private _chunkEndsParagraph: boolean[] = [];
+
 	get averageGenerationTime(): number {
 		if (this._generationTimes.length === 0) return 0;
 		return this._generationTimes.reduce((a, b) => a + b, 0) / this._generationTimes.length;
+	}
+
+	get chunkEndsParagraph(): readonly boolean[] {
+		return this._chunkEndsParagraph;
+	}
+
+	pauseAfter(index: number): number {
+		if (index >= this.totalChunks - 1) return 0;
+		return this._chunkEndsParagraph[index]
+			? this.pauseSettings.betweenParagraphs
+			: this.pauseSettings.betweenSentences;
 	}
 
 	voiceChunks = $state<Voice[]>([]);
@@ -117,6 +131,7 @@ class TTSState {
 		this.blobs = [];
 		this._allChunks = [];
 		this._nextChunkIndex = 0;
+		this._chunkEndsParagraph = [];
 	}
 
 	async forceRegenerate(id: string): Promise<void> {
@@ -194,11 +209,18 @@ class TTSState {
 			: this.textContents;
 
 		const allChunks: string[] = [];
+		const endsParagraph: boolean[] = [];
 		for (const text of textsToProcess) {
-			allChunks.push(...splitTextIntoChunks(text, this.config.splitLevel));
+			const meta = splitTextIntoChunksMeta(text, this.config.splitLevel);
+			for (const c of meta) {
+				allChunks.push(c.text);
+				endsParagraph.push(c.endsParagraph);
+			}
 		}
 
 		if (allChunks.length === 0) return;
+
+		this._chunkEndsParagraph = endsParagraph;
 
 		this._chunkRefs = allChunks.map(() => {
 			if (this.config.randomChunk && this.voiceChunks.length > 0) {
@@ -274,10 +296,9 @@ class TTSState {
 	}
 
 	async generateFromClipboard(text: string): Promise<void> {
-		const chunks = splitTextIntoChunks(text, this.config.splitLevel);
-		if (chunks.length === 0) return;
+		if (!text.trim()) return;
 
-		this.setTextContents(chunks);
+		this.setTextContents([text]);
 		await this.generateTTS('clipboard-direct');
 	}
 

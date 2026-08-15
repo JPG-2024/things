@@ -87,7 +87,7 @@
 		padding: 0.6rem 0.75rem;
 		width: 100%;
 		color: inherit;
-		font-size: 0.8rem;
+		font-size: 1rem;
 	}
 
 	.text-input:focus {

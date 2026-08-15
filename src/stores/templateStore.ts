@@ -148,7 +148,7 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				enableTTS: iaTask.enableTTS ?? false,
 				extractorConfig: iaTask.extractorConfig,
 				categoryNames: iaTask.categoryNames,
-				embeddingTable: task.embeddingTable,
+				embeddings: task.embeddings ?? false,
 				visible: task.visible ?? true
 			};
 		}
@@ -173,7 +173,7 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 				enableTTS: task.enableTTS ?? false,
 				scriptFactory: 'recursive',
 				scriptConfig: recursiveConfig ?? {},
-				embeddingTable: task.embeddingTable,
+				embeddings: task.embeddings ?? false,
 				visible: task.visible ?? true
 			};
 		}

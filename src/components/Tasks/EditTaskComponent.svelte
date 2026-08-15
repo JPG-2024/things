@@ -78,8 +78,8 @@
 	let commonEnableTTS = $state(false);
 	let commonVisible = $state(true);
 	let commonCompletionOptions = $state<Record<string, unknown>>({});
-	let commonEmbeddingTable = $state('');
-	let originalEmbeddingTable = $state('');
+	let commonEmbeddings = $state(false);
+	let originalEmbeddings = $state(false);
 
 	let originalId = $state('');
 	let originalName = $state('');
@@ -139,8 +139,8 @@
 		commonEnableTTS = _task.enableTTS ?? false;
 		commonVisible = _task.visible ?? true;
 
-		commonEmbeddingTable = _task.embeddingTable ?? '';
-		originalEmbeddingTable = _task.embeddingTable ?? '';
+		commonEmbeddings = _task.embeddings ?? false;
+		originalEmbeddings = _task.embeddings ?? false;
 
 		originalName = _task.name ?? '';
 		originalComponent = _task.component ?? '';
@@ -283,7 +283,7 @@
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
-			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -310,8 +310,7 @@
 		if (commonVisible !== originalVisible) patch.visible = commonVisible;
 		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
-		if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
-			patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
+		if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
 
 		const origDeps = originalDependencies
 			.split(',')
@@ -335,8 +334,7 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
-			if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
-				patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
 			const trimmedComponent = commonComponent.trim();
 			const origComponent = originalComponent.trim();
 			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
@@ -396,7 +394,7 @@
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
-			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -415,8 +413,7 @@
 
 			if (commonName !== originalName) patch.name = commonName;
 			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
-			if (commonEmbeddingTable.trim() !== originalEmbeddingTable.trim())
-				patch.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
 			const trimmedComponent = commonComponent.trim();
 			const origComponent = originalComponent.trim();
 			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
@@ -500,7 +497,7 @@
 			});
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
-			newTask.embeddingTable = commonEmbeddingTable.trim() || undefined;
+			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
 			void workflowManager.rerunTask(targetRunId, newTask.id);
@@ -550,7 +547,7 @@
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
-				embeddingTable: commonEmbeddingTable.trim() || undefined,
+				embeddings: commonEmbeddings,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
@@ -574,7 +571,7 @@
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
-				embeddingTable: commonEmbeddingTable.trim() || undefined,
+				embeddings: commonEmbeddings,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
@@ -624,6 +621,12 @@
 				size={20}
 				tooltipProps={{ content: 'visible' }}
 			/>
+			<ToggleIcon
+				name="Brain"
+				bind:checked={commonEmbeddings}
+				size={20}
+				tooltipProps={{ content: 'generate embeddings' }}
+			/>
 		</Label>
 		<Input bind:value={commonName} label="Task name" />
 		<Input bind:value={commonComponent} label="Component" />
@@ -634,7 +637,6 @@
 	<Input bind:value={commonSystemMessage} label="System message" />
 	<Input bind:value={commonUserMessage} label="User message" />
 	<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
-	<Input bind:value={commonEmbeddingTable} label="Embedding table (optional)" />
 
 	<div class="completion-options-container">
 		<Spacer title="Completion Options" defaultOpen={false}>

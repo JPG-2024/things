@@ -206,7 +206,7 @@
 
 	.tasks-grid {
 		column-count: 1;
-		column-gap: 2rem;
+		column-gap: 4rem;
 		column-fill: auto;
 		width: 100%;
 		padding: 0 2rem;

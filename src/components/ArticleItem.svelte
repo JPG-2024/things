@@ -70,7 +70,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		transition: transform 0.15s;
-		font-size: 0.9em;
+		font-size: 1.1em;
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: 12px;
 		padding: 1rem;
@@ -141,7 +141,7 @@
 
 	.article-category-pill {
 		border-radius: 12px;
-		font-size: 1.2em;
+		font-size: 0.8rem;
 		font-weight: 500;
 		text-transform: capitalize;
 		background: rgba(var(--primary-color), 0.2);
