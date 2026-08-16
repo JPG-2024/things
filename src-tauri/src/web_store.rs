@@ -703,8 +703,7 @@ pub async fn get_web_store_profile(
     query_profile_by_id(&conn, &profile_id)
 }
 
-#[tauri::command]
-pub async fn list_web_store_articles_by_profile(
+async fn list_web_store_articles_by_profile(
     app: AppHandle,
     profile_id: String,
     date_from: Option<String>,
@@ -1490,17 +1489,29 @@ pub async fn list_articles_without_profile(
     offset: Option<usize>,
     limit: Option<usize>,
     only_without_profile: Option<bool>,
+    profile_id: Option<String>,
+    date_from: Option<String>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let filter_only_without_profile = only_without_profile.unwrap_or(true);
-
     let mut where_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-    if filter_only_without_profile {
+    if let Some(ref pid) = profile_id {
+        let normalized = pid.trim().to_lowercase();
+        if !normalized.is_empty() {
+            where_clauses.push("LOWER(a.profile) = ?".to_string());
+            params.push(Box::new(normalized));
+            where_clauses.push("a.profile IS NOT NULL".to_string());
+        }
+    } else if only_without_profile.unwrap_or(true) {
         where_clauses.push("a.profile IS NULL".to_string());
+    }
+
+    if let Some(ref from) = date_from {
+        where_clauses.push("a.date >= ?".to_string());
+        params.push(Box::new(from.clone()));
     }
 
     if let Some(ref cats) = category_ids {

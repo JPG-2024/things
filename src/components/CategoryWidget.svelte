@@ -6,7 +6,7 @@
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
 		deleteProfileById,
-		getArticlesByProfile,
+		getArticlesWithoutProfile,
 		getProfiles,
 		type ArticleWithTasks,
 		type ArticleProfile
@@ -33,13 +33,15 @@
 		isLoading = true;
 		try {
 			const [articlesResult, profilesResult] = await Promise.all([
-				getArticlesByProfile(categoryId, {
+				getArticlesWithoutProfile({
+					profileId: categoryId,
 					limit: 20,
-					dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0]
+					dateFrom: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString().split('T')[0],
+					onlyWithoutProfile: false
 				}),
 				getProfiles()
 			]);
-			articles = articlesResult;
+			articles = articlesResult.articles;
 			profile = profilesResult.find((p) => p.id === categoryId) ?? null;
 		} finally {
 			isLoading = false;
@@ -55,6 +57,7 @@
 	}
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
+		console.log(article);
 		if (!article.url) return;
 		viewState.currentProfileId = categoryId;
 		await urlRouter(article.url);

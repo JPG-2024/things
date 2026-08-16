@@ -517,34 +517,6 @@ async function resolveProfilePictureBatch<T extends { profilePicture?: string | 
 	return Promise.all(profiles.map(resolveProfilePictureField));
 }
 
-export async function fetchWebStoreArticlesByProfile(
-	profileId: string,
-	fields?: string[],
-	dateFrom?: string,
-	limit?: number
-): Promise<WebStoreArticleRecord[]> {
-	const payload: {
-		profileId: string;
-		fields?: string[];
-		dateFrom?: string;
-		limit?: number;
-	} = { profileId };
-
-	if (fields) {
-		payload.fields = fields;
-	}
-
-	if (typeof dateFrom === 'string') {
-		payload.dateFrom = dateFrom;
-	}
-
-	if (typeof limit === 'number') {
-		payload.limit = limit;
-	}
-
-	return invoke<WebStoreArticleRecord[]>('list_web_store_articles_by_profile', payload);
-}
-
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const [articles, tasksByUrl] = await Promise.all([
@@ -603,35 +575,6 @@ export async function getProfilesWithArticlesAfter(
 		return resolveProfilePictureBatch(result);
 	} catch (error) {
 		console.error('Error querying profiles with articles after date', error);
-		return [];
-	}
-}
-
-export async function getArticlesByProfile(
-	profileId: string,
-	options?: {
-		dateFrom?: string;
-		limit?: number;
-	}
-): Promise<ArticleWithTasks[]> {
-	try {
-		const [articles, tasksByUrl] = await Promise.all([
-			fetchWebStoreArticlesByProfile(
-				profileId,
-				['id', 'url', 'title', 'thumbnail', 'mediaDirectory', 'viewed'],
-				options?.dateFrom,
-				options?.limit
-			),
-			getTasksByUrlMap()
-		]);
-
-		const mappedArticles = await Promise.all(
-			articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-		);
-
-		return resolveArticleThumbnailBatch(mappedArticles);
-	} catch (error) {
-		console.error('Error querying profile articles', error);
 		return [];
 	}
 }
@@ -763,9 +706,13 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 			await deleteMediaFile(profile.profilePicture);
 		}
 
-		const articles = await fetchWebStoreArticlesByProfile(profileId);
+		const { articles } = await getArticlesWithoutProfile({
+			profileId,
+			onlyWithoutProfile: false,
+			limit: 1000
+		});
 		for (const article of articles) {
-			await deleteArticleMedia(await mapStoredArticle(article));
+			await deleteArticleMedia(article);
 		}
 
 		return await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
@@ -931,6 +878,8 @@ export async function getArticlesWithoutProfile(options?: {
 	offset?: number;
 	limit?: number;
 	onlyWithoutProfile?: boolean;
+	profileId?: string;
+	dateFrom?: string;
 }): Promise<ArticlesWithoutProfileResponse> {
 	try {
 		const result = await invoke<{
@@ -940,7 +889,9 @@ export async function getArticlesWithoutProfile(options?: {
 			categoryIds: options?.categoryIds ?? null,
 			offset: options?.offset ?? null,
 			limit: options?.limit ?? null,
-			onlyWithoutProfile: options?.onlyWithoutProfile ?? null
+			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
+			profileId: options?.profileId ?? null,
+			dateFrom: options?.dateFrom ?? null
 		});
 
 		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);

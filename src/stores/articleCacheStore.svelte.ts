@@ -28,6 +28,8 @@ class ArticleCacheStore {
 	private articlesFetchedAt = 0;
 	private profilesFetchId = 0;
 	private articlesFetchId = 0;
+	private articlesProfileId: string | undefined = undefined;
+	private articlesDateFrom: string | undefined = undefined;
 
 	async fetchProfilesWithArticles(options?: {
 		force?: boolean;
@@ -74,10 +76,17 @@ class ArticleCacheStore {
 		loadMore?: boolean;
 		categoryIds?: string[];
 		onlyWithoutProfile?: boolean;
+		profileId?: string;
+		dateFrom?: string;
 	}) {
 		const now = Date.now();
 		if (!options?.force && !options?.loadMore && now - this.articlesFetchedAt < CACHE_TTL) {
 			return;
+		}
+
+		if (!options?.loadMore) {
+			this.articlesProfileId = options?.profileId;
+			this.articlesDateFrom = options?.dateFrom;
 		}
 
 		const fetchId = ++this.articlesFetchId;
@@ -88,7 +97,9 @@ class ArticleCacheStore {
 				categoryIds: options?.categoryIds,
 				offset,
 				limit: ARTICLES_PAGE_SIZE,
-				onlyWithoutProfile: options?.onlyWithoutProfile
+				onlyWithoutProfile: options?.onlyWithoutProfile,
+				profileId: options?.loadMore ? this.articlesProfileId : options?.profileId,
+				dateFrom: options?.loadMore ? this.articlesDateFrom : options?.dateFrom
 			});
 
 			if (fetchId !== this.articlesFetchId) {
@@ -146,6 +157,8 @@ class ArticleCacheStore {
 		this.articlesWithoutProfile = [];
 		this.totalArticlesWithoutProfile = 0;
 		this.hasMoreArticles = true;
+		this.articlesProfileId = undefined;
+		this.articlesDateFrom = undefined;
 	}
 }
 

@@ -4,29 +4,22 @@
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
-	import {
-		getProfile,
-		getArticlesByProfile,
-		type ArticleProfile,
-		type ArticleWithTasks
-	} from '@/stores/webStore';
+	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import { getProfile, type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
-	let articles = $state<ArticleWithTasks[]>([]);
 	let loading = $state(true);
 
 	onMount(async () => {
 		loading = true;
 		try {
-			const [profileResult, articlesResult] = await Promise.all([
-				getProfile(profileId),
-				getArticlesByProfile(profileId)
-			]);
+			const profileResult = await getProfile(profileId);
 			profile = profileResult;
-			articles = articlesResult;
+			await articleCacheStore.fetchArticlesWithoutProfile({ profileId, force: true });
 		} finally {
 			loading = false;
 		}
@@ -69,9 +62,9 @@
 		</div>
 
 		<div class="articles-container">
-			{#if articles.length > 0}
+			{#if articleCacheStore.articlesWithoutProfile.length > 0}
 				<ArticleList
-					{articles}
+					articles={articleCacheStore.articlesWithoutProfile}
 					onArticleClick={handleNavigateToArticle}
 					onArticleHoverEnter={(a) => {
 						viewState.hoveredArticleUrl = a.url ?? null;
@@ -81,10 +74,21 @@
 						viewState.hoveredArticleUrl = null;
 					}}
 				/>
-			{:else}
+			{:else if !articleCacheStore.loadingArticles}
 				<div class="empty-state">
 					<div class="empty-state-pill">No articles</div>
 				</div>
+			{/if}
+			{#if articleCacheStore.loadingArticles && articleCacheStore.articlesWithoutProfile.length === 0}
+				<div class="loading-container">
+					<div class="loading-indicator"></div>
+				</div>
+			{/if}
+			{#if articleCacheStore.hasMoreArticles}
+				<LoadMoreSentinel
+					onLoadMore={() => articleCacheStore.loadMoreArticles()}
+					disabled={articleCacheStore.loadingArticles}
+				/>
 			{/if}
 		</div>
 	{:else}

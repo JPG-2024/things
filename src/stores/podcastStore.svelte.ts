@@ -313,18 +313,21 @@ class PodcastState {
 				this.dialogs[topicIdx] = [];
 			}
 
-			if (!this.dialogs[topicIdx][exchangeIdx]) {
-				const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
-				const exchange = await generateExchange({
-					topic: this.topics[topicIdx],
-					mode: this.config.mode,
-					previousExchanges: this.dialogs[topicIdx],
-					speaker,
-					hostAName: this.getProfileName('A'),
-					hostBName: this.getProfileName('B'),
-					context: this.contextText || undefined,
-					signal: this._llmAbort?.signal
-				});
+		if (!this.dialogs[topicIdx][exchangeIdx]) {
+			const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
+			const interactionCount = this.config.interactionsPerTopic;
+			const exchange = await generateExchange({
+				topic: this.topics[topicIdx],
+				mode: this.config.mode,
+				previousExchanges: this.dialogs[topicIdx],
+				speaker,
+				hostAName: this.getProfileName('A'),
+				hostBName: this.getProfileName('B'),
+				context: this.contextText || undefined,
+				signal: this._llmAbort?.signal,
+				isLastInteractionOfTopic: exchangeIdx + 1 === interactionCount,
+				isFirstInteractionOfTopic: exchangeIdx === 0
+			});
 				if (this._session !== session) return;
 				this.dialogs[topicIdx][exchangeIdx] = exchange;
 				this.dialogs = [...this.dialogs];
@@ -466,6 +469,7 @@ class PodcastState {
 
 		const prevExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
 		const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
+		const interactionCount = this.config.interactionsPerTopic;
 
 		this.status = 'generating';
 		this.isGenerating = true;
@@ -480,7 +484,9 @@ class PodcastState {
 				hostAName: this.getProfileName('A'),
 				hostBName: this.getProfileName('B'),
 				context: this.contextText || undefined,
-				signal: this._llmAbort?.signal
+				signal: this._llmAbort?.signal,
+				isLastInteractionOfTopic: exchangeIdx + 1 === interactionCount,
+				isFirstInteractionOfTopic: exchangeIdx === 0
 			});
 
 			if (this._session !== session) return;

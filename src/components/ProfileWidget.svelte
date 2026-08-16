@@ -39,11 +39,7 @@
 
 	async function goToprofile() {
 		viewState.currentProfileId = profileWithArticles.profileId;
-		const profileUrl = getProfileUrl(profileWithArticles.profileName);
-		goto(`/youtube/${encodeURIComponent(profileUrl)}`);
-		await urlRouter(profileUrl, {
-			runnerOptions: { videosAmount: 20, profileId: profileWithArticles.profileId }
-		});
+		goto(`/profile/${profileWithArticles.profileId}`);
 	}
 
 	async function handleRefresh() {

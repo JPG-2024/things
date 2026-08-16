@@ -14,6 +14,8 @@ export interface GenerateExchangeParams {
 	hostBName: string;
 	context?: string;
 	signal?: AbortSignal;
+	isFirstInteractionOfTopic?: boolean;
+	isLastInteractionOfTopic?: boolean;
 }
 
 const CONTEXT_CAP = 6000;
@@ -24,12 +26,20 @@ function capContext(context: string): string {
 }
 
 function buildSystemMessage(params: GenerateExchangeParams): string {
-	const { topic, mode, speaker, hostAName, hostBName, context } = params;
+	const { topic, mode, speaker, hostAName, hostBName, context, isLastInteractionOfTopic, isFirstInteractionOfTopic } = params;
 	const currentName = speaker === 'A' ? hostAName : hostBName;
 	const otherName = speaker === 'A' ? hostBName : hostAName;
 
 	const contextBlock = context
 		? `\n\nReference material:\n${capContext(context)}\n\nUse this material to ground your response. Draw specific facts or ideas from it, but stay conversational.`
+		: '';
+
+	const introBlock = isFirstInteractionOfTopic
+		? `\n\nThis is the opening exchange of a new topic: "${topic}". Open by briefly introducing the topic with a natural phrase like "Now let's talk about ${topic}" as part of your spoken line, then continue the conversation. Keep the introduction to 1-2 short sentences and do not use labels or stage directions.`
+		: '';
+
+	const conclusionBlock = isLastInteractionOfTopic
+		? `\n\nThis is the final exchange of this topic. Do NOT ask a question and do NOT introduce new information or answers. Briefly summarize the key points discussed in this topic and end with a short, concise conclusion. Keep it to 2-3 sentences. Ignore any earlier instructions to ask questions or provide answers.`
 		: '';
 
 	if (mode === 'interview') {
@@ -45,7 +55,7 @@ Rules:
 - Keep it to 2-3 sentences maximum.
 - Be conversational and natural.
 - If you are the interviewer, ask a focused question. If you are the expert, give a clear, engaging answer.
-- Build on what the other host just said.${contextBlock}`;
+- Build on what the other host just said.${contextBlock}${introBlock}${conclusionBlock}`;
 	}
 
 	return `You are hosting a casual podcast discussion about "${topic}".
@@ -56,7 +66,7 @@ Rules:
 - Be conversational and natural, like two friends chatting.
 - Build on what the other host said.
 - End your turn with a question, thought, or prompt for the other host.
-- Keep it energetic and engaging.${contextBlock}`;
+- Keep it energetic and engaging.${contextBlock}${introBlock}${conclusionBlock}`;
 }
 
 function buildUserMessage(params: GenerateExchangeParams): string {
