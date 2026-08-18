@@ -42,7 +42,7 @@ async function handleStart() {
 **`podcastStore.svelte.ts:209-248`** — `start()`:
 
 1. **Validate voices** — Both `hostAProfileId` and `hostBProfileId` must be set, otherwise `errorMessage = 'Please select both host voices'` and abort.
-2. **Resolve context** — `contextText` getter (`podcastStore.svelte.ts:169-188`) builds the source text from `contextSource` + `summaryTaskId`.
+2. **Resolve context** — The source text for topic extraction and validation is the full content (`contentTaskText`, `podcastStore.svelte.ts`). In `summary` mode the per-topic summary is generated lazily (see section 4b).
 3. **Validate context** — If `contextSource !== 'none'` and the resolved source is empty, `errorMessage = 'No source content available…'` and abort.
 4. **Reset** — `stop()` bumps `_session` (invalidating any in-flight async work) and clears playback state.
 5. **Extract topics** — `resolveTopics()` (see section 3).
@@ -190,16 +190,15 @@ A random silence between `minGapMs` and `maxGapMs` is inserted after every excha
 
 Every control in `PodcastSettings.svelte` writes directly into `podcastState.config`. The table below maps each UI control to the field it sets and the exact stage of the flow it alters.
 
-| UI control | Config field | Stage affected | Effect on the flow |
-| --- | --- | --- | --- |
-| **Interview** / **Small Talk** | `mode` | §5 `buildSystemMessage` | Switches host personas (interviewer/expert vs casual friends) and whether each turn must end with a question |
-| **Content** / **Summary** / **None** | `contextSource` | §2 `contextText` | Chooses the source text fed into every `generateExchange`: workflow `content` tasks, a chosen `summary` task, or empty |
-| **Summary task dropdown** | `summaryTaskId` | §2 `contextText` | Selects which summary task's data becomes context (only used when `contextSource === 'summary'`) |
-| **Topics** | `topicCount` | §3 `resolveTopics` | Number of topics requested from the LLM; sets the outer loop size and `progress.total` |
-| **Interactions per topic** | `interactionsPerTopic` | §4 `playAllTopics` | Number of exchanges per topic; also sets the `isFirst`/`isLast` flags that trigger intro/conclusion prompt blocks |
-| **Min gap** / **Max gap** | `minGapMs` / `maxGapMs` | §7 `waitGap` | Random silence duration inserted between exchanges (between-host pause) |
-| **Host A voice grid** | `hostAProfileId` | §4 `getVoiceRef` / §5 names | Voice reference (random chunk) for TTS of Host A's lines and the host name embedded in prompts; required to start |
-| **Host B voice grid** | `hostBProfileId` | §4 `getVoiceRef` / §5 names | Same as Host A, for Host B |
+| UI control                           | Config field            | Stage affected              | Effect on the flow                                                                                                                                                                                                                      |
+| ------------------------------------ | ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Interview** / **Small Talk**       | `mode`                  | §5 `buildSystemMessage`     | Switches host personas (interviewer/expert vs casual friends) and whether each turn must end with a question                                                                                                                            |
+| **Content** / **Summary** / **None** | `contextSource`         | §2 / §4b `topicContext`     | Chooses the source text fed into every `generateExchange`: full workflow `content` tasks, or empty. In `summary` mode a per-topic summary is generated once from the content (see §4b) and reused as context for that topic's exchanges |
+| **Topics**                           | `topicCount`            | §3 `resolveTopics`          | Number of topics requested from the LLM; sets the outer loop size and `progress.total`                                                                                                                                                  |
+| **Interactions per topic**           | `interactionsPerTopic`  | §4 `playAllTopics`          | Number of exchanges per topic; also sets the `isFirst`/`isLast` flags that trigger intro/conclusion prompt blocks                                                                                                                       |
+| **Min gap** / **Max gap**            | `minGapMs` / `maxGapMs` | §7 `waitGap`                | Random silence duration inserted between exchanges (between-host pause)                                                                                                                                                                 |
+| **Host A voice grid**                | `hostAProfileId`        | §4 `getVoiceRef` / §5 names | Voice reference (random chunk) for TTS of Host A's lines and the host name embedded in prompts; required to start                                                                                                                       |
+| **Host B voice grid**                | `hostBProfileId`        | §4 `getVoiceRef` / §5 names | Same as Host A, for Host B                                                                                                                                                                                                              |
 
 ### Settings flow at a glance
 
@@ -207,7 +206,7 @@ Every control in `PodcastSettings.svelte` writes directly into `podcastState.con
 flowchart TD
     S[PodcastSettings UI] -->|writes| C[podcastState.config]
     C --> M[mode]
-    C --> CS[contextSource + summaryTaskId]
+    C --> CS[contextSource]
     C --> TC[topicCount]
     C --> IP[interactionsPerTopic]
     C --> G[minGapMs / maxGapMs]

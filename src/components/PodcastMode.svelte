@@ -9,6 +9,12 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import { closeAudioContext } from '@/lib/audioContextManager';
+	import {
+		drawWaveform as drawWaveformShared,
+		drawGeneratingWave as drawGeneratingWaveShared,
+		drawIdleLine as drawIdleLineShared,
+		type WaveformDrawConfig
+	} from '@/lib/canvasWaveform';
 
 	let { onExit }: { onExit: () => void } = $props();
 
@@ -20,11 +26,15 @@
 
 	const amplitudeScale = 0.8;
 	const wavelengthScale = 300;
-	const SINE_FILL_ALPHA = 0.24;
-	const WAVE_STROKE_WIDTH = 4;
-	const SPLINE_SAMPLE_STEP = 0.3;
-	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
-	const MAX_WAVE_AMPLITUDE_PX = 15;
+
+	const waveDrawConfig: WaveformDrawConfig = {
+		splineSampleStep: 0.3,
+		amplitudeScale,
+		maxWaveAmplitudePx: 15,
+		wavelengthScale,
+		sineFillAlpha: 0.24,
+		strokeWidth: 4
+	};
 
 	const HOST_A_COLOR = 'hsl(220, 70%, 60%)';
 	const HOST_B_COLOR = 'hsl(160, 70%, 50%)';
@@ -106,168 +116,19 @@
 		return trimmed.length ? trimmed[0].toUpperCase() : '?';
 	}
 
-	function catmullRomSpline(p0: number, p1: number, p2: number, p3: number, t: number): number {
-		const t2 = t * t;
-		const t3 = t2 * t;
-		return (
-			0.5 *
-			(2 * p1 +
-				(-p0 + p2) * t +
-				(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-				(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-		);
-	}
-
-	function resizeCanvas(ctx: CanvasRenderingContext2D, width: number, height: number) {
-		const pixelRatio = window.devicePixelRatio || 1;
-		const scaledWidth = Math.floor(width * pixelRatio);
-		const scaledHeight = Math.floor(height * pixelRatio);
-
-		if (canvas!.width !== scaledWidth || canvas!.height !== scaledHeight) {
-			canvas!.width = scaledWidth;
-			canvas!.height = scaledHeight;
-			ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-		}
-	}
-
-	function drawWaveform(analyser: AnalyserNode, color: string) {
+	function drawLocalWaveform(analyser: AnalyserNode, color: string) {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		resizeCanvas(ctx, width, height);
-
-		const bufferLength = analyser.frequencyBinCount;
-		const dataArray = new Uint8Array(bufferLength);
-		analyser.getByteTimeDomainData(dataArray);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
-		const points: number[] = [];
-
-		for (let i = 0; i < bufferLength; i += sampleStep) {
-			const value = dataArray[i];
-			const normalized = (value / 255 - 0.5) * height * amplitudeScale;
-			const y = height / 2 - normalized;
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const t = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, t);
-					const x = (i + t) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = color;
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawWaveformShared(canvas, analyser, color, waveDrawConfig);
 	}
 
-	function drawGeneratingWave(color: string) {
+	function drawLocalGeneratingWave(color: string) {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		const t = performance.now() / 1000;
-		const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
-		const pointCount = config.pointCount;
-		const phaseSpeed = config.baseSpeed;
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const points: number[] = [];
-		for (let i = 0; i < pointCount; i += 1) {
-			const u = pointCount === 1 ? 0 : i / (pointCount - 1);
-			let y = height / 2;
-			for (const h of config.harmonics) {
-				y +=
-					amplitude *
-					h.amplitudeRatio *
-					Math.sin(2 * Math.PI * h.cycles * u - t * phaseSpeed * h.speedRatio);
-			}
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const tt = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, tt);
-					const x = (i + tt) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = color;
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawGeneratingWaveShared(canvas, color, config, waveDrawConfig);
 	}
 
-	function drawIdleLine(color: string) {
+	function drawLocalIdleLine(color: string) {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const path = new Path2D();
-		path.moveTo(0, height / 2);
-		path.lineTo(width, height / 2);
-
-		ctx.strokeStyle = color;
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawIdleLineShared(canvas, color, waveDrawConfig);
 	}
 
 	function startAnimation() {
@@ -278,11 +139,11 @@
 			const color = waveColor;
 
 			if (analyser && podcastState.status === 'playing') {
-				drawWaveform(analyser, color);
+				drawLocalWaveform(analyser, color);
 			} else if (podcastState.status === 'generating' || podcastState.status === 'extracting') {
-				drawGeneratingWave(color);
+				drawLocalGeneratingWave(color);
 			} else {
-				drawIdleLine(color);
+				drawLocalIdleLine(color);
 			}
 			animationFrame = requestAnimationFrame(step);
 		};
@@ -378,7 +239,8 @@
 	{#if hasContent && podcastState.currentTopic}
 		<div class="current-topic-bar">
 			<span class="topic-index"
-				>Topic {podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
+				>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'} {podcastState.currentTopicIndex +
+					1}/{podcastState.topics.length}</span
 			>
 			<span class="topic-text">{podcastState.currentTopic}</span>
 		</div>

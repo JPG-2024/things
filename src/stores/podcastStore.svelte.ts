@@ -1,28 +1,38 @@
 import { extractTopics, generateFreeTopics } from '@/lib/utils/podcast/topicExtractor';
-import { generateExchange, type DialogExchange } from '@/lib/utils/podcast/dialogGenerator';
+import { generateTopicSummary } from '@/lib/utils/podcast/summaryGenerator';
+import { generateExchange, type DialogExchange, type GenerateExchangeParams } from '@/lib/utils/podcast/dialogGenerator';
 import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 import {
 	fetchVoiceProfiles,
 	fetchVoiceChunks,
 	generateSpeech,
+	buildSpeechParams,
 	type VoiceProfile,
 	type Voice
 } from '@/lib/utils/ttsService';
-import { splitTextIntoChunks } from '@/lib/utils/splitText';
+import {
+	createAnalyserNode,
+	teardownSource,
+	teardownAnalyser,
+	decodeBlob,
+	waitMs
+} from '@/lib/audioNodeHelpers';
+import { splitTextIntoChunksMeta, reconstructChunks } from '@/lib/utils/splitText';
 import { ensureAudioContext, getAudioContext, closeAudioContext } from '@/lib/audioContextManager';
+import { SvelteSet } from 'svelte/reactivity';
 import { ttsState } from './ttsStore.svelte';
 import { workflowStore } from '@/stores/workflowStore.svelte';
+import type { Task } from '@/types/taskRunner.types';
 
 export interface PodcastConfig {
 	topicCount: number;
 	interactionsPerTopic: number;
-	mode: 'interview' | 'smalltalk';
+	topicGapMs: number;
+	exchangeGapMs: number;
+	mode: 'interview' | 'smalltalk' | 'guided';
 	hostAProfileId: string;
 	hostBProfileId: string;
 	contextSource: 'content' | 'summary' | 'none';
-	summaryTaskId: string;
-	minGapMs: number;
-	maxGapMs: number;
 }
 
 export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | 'paused';
@@ -30,6 +40,7 @@ export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | '
 interface AudioBlobEntry {
 	blobs: Blob[];
 	combined: Blob | null;
+	chunkEndsParagraph: boolean[];
 }
 
 class PodcastState {
@@ -39,20 +50,23 @@ class PodcastState {
 	currentTopicIndex = $state(0);
 	currentExchangeIndex = $state(0);
 	dialogs = $state<DialogExchange[][]>([]);
+
+	chunkRawTexts = $state<string[]>([]);
+	chunkQuestions = $state<string[][]>([]);
+	exchangeCounts = $state<number[]>([]);
 	activeSpeaker = $state<'A' | 'B' | null>(null);
 	isGenerating = $state(false);
 	progress = $state({ current: 0, total: 0 });
 
 	config = $state<PodcastConfig>({
 		topicCount: 3,
-		interactionsPerTopic: 15,
+		interactionsPerTopic: 4,
+		topicGapMs: 2000,
+		exchangeGapMs: 1500,
 		mode: 'interview',
 		hostAProfileId: '',
 		hostBProfileId: '',
-		contextSource: 'content',
-		summaryTaskId: '',
-		minGapMs: 300,
-		maxGapMs: 900
+		contextSource: 'content'
 	});
 
 	profiles = $state<VoiceProfile[]>([]);
@@ -67,7 +81,6 @@ class PodcastState {
 	private _currentSource: AudioBufferSourceNode | null = null;
 	private _analyserNode: AnalyserNode | null = null;
 	private _playbackAbort: AbortController | null = null;
-	private _gapTimers: Set<ReturnType<typeof setTimeout>> = new Set();
 
 	get hostAProfile(): VoiceProfile | undefined {
 		return this.profiles.find((p) => p.id === this.config.hostAProfileId);
@@ -148,43 +161,28 @@ class PodcastState {
 			.join('\n\n');
 	}
 
-	get summaryTaskOptions(): { id: string; label: string }[] {
-		const seen = new Set<string>();
-		const allTasks = [
-			...workflowStore.stackedTasks.map((e) => e.task),
-			...workflowStore.focusedRunTasks
-		].filter((t) => {
-			if (seen.has(t.id)) return false;
-			seen.add(t.id);
-			return true;
-		});
-		return allTasks
-			.filter((t) => {
-				const needle = (t.id + (t.name ?? '')).toLowerCase();
-				return needle.includes('summary') && t.data;
-			})
-			.map((t) => ({ id: t.id, label: (t.name ?? t.id) as string }));
-	}
+	private _topicSummaries: Map<number, string> = new Map();
 
 	get contextText(): string {
-		const { contextSource, summaryTaskId } = this.config;
+		return this.topicContext(this.currentTopicIndex);
+	}
+
+	private topicContext(topicIdx: number): string {
+		const { contextSource } = this.config;
 		if (contextSource === 'content') return this.contentTaskText;
-
-		if (contextSource === 'summary' && summaryTaskId) {
-			const seen = new Set<string>();
-			const allTasks = [
-				...workflowStore.stackedTasks.map((e) => e.task),
-				...workflowStore.focusedRunTasks
-			].filter((t) => {
-				if (seen.has(t.id)) return false;
-				seen.add(t.id);
-				return true;
-			});
-			const task = allTasks.find((t) => t.id === summaryTaskId && t.data);
-			if (task) return extractDependencyText(task.data) ?? '';
-		}
-
+		if (contextSource === 'summary') return this._topicSummaries.get(topicIdx) ?? '';
 		return '';
+	}
+
+	private async ensureTopicSummary(topicIdx: number, session: number): Promise<void> {
+		if (this.config.contextSource !== 'summary') return;
+		if (this._topicSummaries.has(topicIdx)) return;
+
+		const topic = this.topics[topicIdx];
+		const content = this.contentTaskText;
+		const summary = await generateTopicSummary(topic, content, this._llmAbort?.signal);
+		if (this._session !== session) return;
+		this._topicSummaries.set(topicIdx, summary);
 	}
 
 	private async resolveTopics(content: string, signal: AbortSignal): Promise<string[]> {
@@ -206,16 +204,134 @@ class PodcastState {
 		return extractTopics(content, this.config.topicCount, signal);
 	}
 
+	private getAllTasks(): Task[] {
+		const seen = new SvelteSet<string>();
+		return [
+			...workflowStore.stackedTasks.map((e) => e.task),
+			...workflowStore.focusedRunTasks
+		].filter((t) => {
+			if (seen.has(t.id)) return false;
+			seen.add(t.id);
+			return true;
+		});
+	}
+
+	get hasQuestionsTask(): boolean {
+		return this.getAllTasks().some(
+			(t) => t.id === 'questions' && t.status === 'done' && t.data
+		);
+	}
+
+	private getQuestionsTask(): Task | undefined {
+		return this.getAllTasks().find(
+			(t) => t.id === 'questions' && t.status === 'done' && t.data
+		);
+	}
+
+	private getTaskById(id: string): Task | undefined {
+		return this.getAllTasks().find((t) => t.id === id);
+	}
+
+	private getSourceText(taskId: string): string {
+		const task = this.getTaskById(taskId);
+		if (!task || !task.data) return '';
+		return extractDependencyText(task.data) ?? '';
+	}
+
+	private normalizeChunkQuestions(data: unknown): string[] {
+		if (Array.isArray(data)) {
+			return data
+				.filter((q): q is string => typeof q === 'string')
+				.map((q) => q.trim())
+				.filter(Boolean);
+		}
+
+		if (typeof data === 'string') {
+			const trimmed = data.trim();
+			if (!trimmed) return [];
+			try {
+				const parsed = JSON.parse(trimmed);
+				if (Array.isArray(parsed)) {
+					return parsed
+						.filter((q): q is string => typeof q === 'string')
+						.map((q) => q.trim())
+						.filter(Boolean);
+				}
+			} catch {
+				// fall through to line-split fallback
+			}
+			return trimmed.split(/\r?\n/).map((q) => q.trim()).filter(Boolean);
+		}
+
+		return [];
+	}
+
+	private buildQuestionsSegments(): boolean {
+		const questionsTask = this.getQuestionsTask();
+		if (!questionsTask) return false;
+
+		const data = questionsTask.data as
+			| { chunks?: Array<{ key?: { startOffset: number; endOffset: number }; data?: unknown }> }
+			| undefined;
+		const chunks = data?.chunks;
+		if (!Array.isArray(chunks) || chunks.length === 0) return false;
+
+		const sourceId = questionsTask.dependencies?.[0];
+		const sourceText = sourceId ? this.getSourceText(sourceId) : this.contentTaskText;
+		if (!sourceText) return false;
+
+		const rawTexts: string[] = [];
+		const questions: string[][] = [];
+		const labels: string[] = [];
+		const counts: number[] = [];
+
+		for (const chunk of chunks) {
+			const key = chunk.key;
+			const raw =
+				key && typeof key.startOffset === 'number' && typeof key.endOffset === 'number'
+					? (reconstructChunks(sourceText, [key])[0] ?? '')
+					: '';
+			if (!raw) continue;
+
+			const qs = this.normalizeChunkQuestions(chunk.data);
+			if (qs.length === 0) continue;
+
+			rawTexts.push(raw);
+			questions.push(qs);
+			const label = raw.slice(0, 70).trim();
+			labels.push(label + (raw.length > 70 ? '…' : ''));
+			counts.push(qs.length * 2);
+		}
+
+		if (rawTexts.length === 0) return false;
+
+		this.chunkRawTexts = rawTexts;
+		this.chunkQuestions = questions;
+		this.exchangeCounts = counts;
+		this.topics = labels;
+		return true;
+	}
+
+	private get totalExchangeCount(): number {
+		if (this.config.mode === 'guided') {
+			return this.exchangeCounts.reduce((acc, n) => acc + n, 0);
+		}
+		return this.topics.length * this.config.interactionsPerTopic;
+	}
+
 	async start(): Promise<void> {
 		if (!this.config.hostAProfileId || !this.config.hostBProfileId) {
 			this.errorMessage = 'Please select both host voices';
 			return;
 		}
 
-		const source = this.contextText;
-		if (this.config.contextSource !== 'none' && !source) {
-			this.errorMessage = 'No source content available for the selected context';
-			return;
+		let source = '';
+		if (this.config.mode !== 'guided') {
+			source = this.config.contextSource === 'none' ? '' : this.contentTaskText;
+			if (this.config.contextSource !== 'none' && !source) {
+				this.errorMessage = 'No source content available for the selected context';
+				return;
+			}
 		}
 
 		this.stop();
@@ -227,14 +343,26 @@ class PodcastState {
 			const llmAbort = new AbortController();
 			this._llmAbort = llmAbort;
 
-			this.topics = await this.resolveTopics(source, llmAbort.signal);
+			if (this.config.mode === 'guided') {
+				const ok = this.buildQuestionsSegments();
+				if (!ok) {
+					this.errorMessage = 'No questions task available to drive the guided podcast';
+					this.status = 'idle';
+					return;
+				}
+			} else {
+				this.topics = await this.resolveTopics(source, llmAbort.signal);
+				this.chunkRawTexts = [];
+				this.chunkQuestions = [];
+				this.exchangeCounts = [];
+			}
 			console.log(this.topics);
 			this.dialogs = [];
 			this.currentTopicIndex = 0;
 			this.currentExchangeIndex = 0;
 			this.progress = {
 				current: 0,
-				total: this.topics.length * this.config.interactionsPerTopic
+				total: this.totalExchangeCount
 			};
 
 			await this.playAllTopics();
@@ -283,12 +411,23 @@ class PodcastState {
 				await this.playExchange(t, e, session);
 				if (this._session !== session) return;
 
-				this.progress.current = t * interactionCount + e + 1;
+				const priorExchanges =
+					this.config.mode === 'guided'
+						? this.exchangeCounts.slice(0, t).reduce((acc, n) => acc + n, 0)
+						: t * this.config.interactionsPerTopic;
+				this.progress.current = priorExchanges + e + 1;
 
 				const hasNextExchange = e + 1 < interactionCount || t + 1 < this.topics.length;
 				if (hasNextExchange) {
 					this.activeSpeaker = null;
-					await this.waitGap(session);
+					const isLastExchangeOfTopic = e + 1 >= interactionCount;
+					if (isLastExchangeOfTopic && t + 1 < this.topics.length) {
+						await waitMs(this.config.topicGapMs, this._playbackAbort?.signal);
+					} else if (e > 0) {
+						await waitMs(this.config.exchangeGapMs, this._playbackAbort?.signal);
+					} else {
+						await this.waitGap(session);
+					}
 					if (this._session !== session) return;
 				}
 			}
@@ -296,6 +435,52 @@ class PodcastState {
 
 		this.status = 'idle';
 		this.activeSpeaker = null;
+	}
+
+	private buildExchangeParams(
+		topicIdx: number,
+		exchangeIdx: number,
+		interactionCount: number
+	): GenerateExchangeParams {
+		const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
+		const isFirst = exchangeIdx === 0;
+		const isLast = exchangeIdx + 1 === interactionCount;
+		const previousExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
+
+		if (this.config.mode === 'guided') {
+			const raw = this.chunkRawTexts[topicIdx] ?? '';
+			const questions = this.chunkQuestions[topicIdx] ?? [];
+			const questionIndex = Math.floor(exchangeIdx / 2);
+			const question = speaker === 'A' ? questions[questionIndex] ?? '' : '';
+
+			return {
+				topic: this.topics[topicIdx] ?? '',
+				mode: this.config.mode,
+				previousExchanges,
+				speaker,
+				hostAName: this.getProfileName('A'),
+				hostBName: this.getProfileName('B'),
+				context: raw || undefined,
+				signal: this._llmAbort?.signal,
+				isFirstInteractionOfTopic: isFirst,
+				isLastInteractionOfTopic: isLast,
+				isNewChunkAfterFirst: topicIdx > 0 && isFirst,
+				question: question || undefined
+			};
+		}
+
+		return {
+			topic: this.topics[topicIdx],
+			mode: this.config.mode,
+			previousExchanges,
+			speaker,
+			hostAName: this.getProfileName('A'),
+			hostBName: this.getProfileName('B'),
+			context: this.topicContext(topicIdx) || undefined,
+			signal: this._llmAbort?.signal,
+			isFirstInteractionOfTopic: isFirst,
+			isLastInteractionOfTopic: isLast
+		};
 	}
 
 	private async prepareExchange(
@@ -313,21 +498,18 @@ class PodcastState {
 				this.dialogs[topicIdx] = [];
 			}
 
-		if (!this.dialogs[topicIdx][exchangeIdx]) {
-			const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
-			const interactionCount = this.config.interactionsPerTopic;
-			const exchange = await generateExchange({
-				topic: this.topics[topicIdx],
-				mode: this.config.mode,
-				previousExchanges: this.dialogs[topicIdx],
-				speaker,
-				hostAName: this.getProfileName('A'),
-				hostBName: this.getProfileName('B'),
-				context: this.contextText || undefined,
-				signal: this._llmAbort?.signal,
-				isLastInteractionOfTopic: exchangeIdx + 1 === interactionCount,
-				isFirstInteractionOfTopic: exchangeIdx === 0
-			});
+			if (!this.dialogs[topicIdx][exchangeIdx]) {
+				const interactionCount =
+					this.config.mode === 'guided' ? this.exchangeCounts[topicIdx] : this.config.interactionsPerTopic;
+
+				if (this.config.mode !== 'guided' && this.config.contextSource === 'summary' && exchangeIdx === 0) {
+					await this.ensureTopicSummary(topicIdx, session);
+					if (this._session !== session) return;
+				}
+
+				const exchange = await generateExchange(
+					this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount)
+				);
 				if (this._session !== session) return;
 				this.dialogs[topicIdx][exchangeIdx] = exchange;
 				this.dialogs = [...this.dialogs];
@@ -356,33 +538,28 @@ class PodcastState {
 		const key = `${topicIdx}:${exchangeIdx}`;
 		let entry = this._blobs.get(key);
 
-		if (!entry || !entry.combined) {
+		if (!entry || entry.blobs.length === 0) {
 			await this.prepareExchange(topicIdx, exchangeIdx, session);
 			entry = this._blobs.get(key);
 		}
 
-		if (!entry?.combined || entry.combined.size === 0) return;
+		if (!entry || entry.blobs.length === 0) return;
 
 		this.status = 'playing';
 
 		await ensureAudioContext();
 		const ctx = getAudioContext();
 
-		try {
-			const arrayBuffer = await entry.combined.arrayBuffer();
-			const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+		for (let i = 0; i < entry.blobs.length; i++) {
+			if (this._session !== session) return;
 
+			const audioBuffer = await decodeBlob(entry.blobs[i], ctx);
 			if (this._session !== session) return;
 
 			const source = ctx.createBufferSource();
 			source.buffer = audioBuffer;
 
-			const analyser = ctx.createAnalyser();
-			analyser.fftSize = 1024;
-			analyser.smoothingTimeConstant = 0.8;
-			analyser.minDecibels = -90;
-			analyser.maxDecibels = -10;
-
+			const analyser = createAnalyserNode(ctx);
 			source.connect(analyser);
 			analyser.connect(ctx.destination);
 
@@ -399,9 +576,15 @@ class PodcastState {
 				};
 				source.start(0);
 			});
-		} catch (err) {
+
 			if (this._session !== session) return;
-			throw err;
+
+			if (i < entry.blobs.length - 1) {
+				const delay = entry.chunkEndsParagraph[i]
+					? ttsState.paragraphGapMs()
+					: ttsState.sentenceGapMs();
+				await waitMs(delay, this._playbackAbort?.signal);
+			}
 		}
 	}
 
@@ -409,10 +592,11 @@ class PodcastState {
 		exchange: DialogExchange,
 		session: number
 	): Promise<AudioBlobEntry> {
-		const chunks = splitTextIntoChunks(exchange.text, ttsState.config.splitLevel);
+		const meta = splitTextIntoChunksMeta(exchange.text, ttsState.config.splitLevel);
 		const blobs: Blob[] = [];
+		const chunkEndsParagraph: boolean[] = [];
 
-		for (const chunk of chunks) {
+		for (const chunk of meta) {
 			if (this._session !== session) break;
 
 			const voiceRef = this.getVoiceRef(exchange.speaker);
@@ -425,29 +609,15 @@ class PodcastState {
 
 			try {
 				const res = await generateSpeech(
-					{
-						text: chunk,
-						ref_audio: voiceRef.ref_audio,
-						ref_text: voiceRef.ref_text,
-						num_step: ttsState.config.numStep,
-						denoise: ttsState.config.denoise,
-						guidance_scale: ttsState.config.guidanceScale,
-						speed: ttsState.config.speed,
-						preprocess_prompt: ttsState.config.preprocessPrompt,
-						postprocess_output: ttsState.config.postprocessOutput,
-						t_shift: ttsState.config.tShift,
-						position_temperature: ttsState.config.positionTemperature,
-						class_temperature: ttsState.config.classTemperature,
-						layer_penalty_factor: ttsState.config.layerPenaltyFactor,
-						duration: ttsState.config.duration,
-						audio_chunk_duration: ttsState.config.audioChunkDuration,
-						audio_chunk_threshold: ttsState.config.audioChunkThreshold
-					},
+					buildSpeechParams(ttsState.config, chunk.text, voiceRef.ref_audio, voiceRef.ref_text),
 					abort.signal
 				);
 
 				if (this._session !== session) break;
-				if (res.blob.size > 0) blobs.push(res.blob);
+				if (res.blob.size > 0) {
+					blobs.push(res.blob);
+					chunkEndsParagraph.push(chunk.endsParagraph);
+				}
 			} finally {
 				if (this._genAbort === abort) {
 					this._genAbort = null;
@@ -457,7 +627,7 @@ class PodcastState {
 
 		const combined = blobs.length > 0 ? new Blob(blobs, { type: 'audio/mpeg' }) : null;
 
-		return { blobs, combined };
+		return { blobs, combined, chunkEndsParagraph };
 	}
 
 	async regenerateExchange(topicIdx: number, exchangeIdx: number): Promise<void> {
@@ -467,27 +637,22 @@ class PodcastState {
 		this._blobs.delete(key);
 		this._preparePromises.delete(key);
 
-		const prevExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
-		const speaker: 'A' | 'B' = exchangeIdx % 2 === 0 ? 'A' : 'B';
-		const interactionCount = this.config.interactionsPerTopic;
+		const interactionCount =
+			this.config.mode === 'guided' ? this.exchangeCounts[topicIdx] : this.config.interactionsPerTopic;
 
 		this.status = 'generating';
 		this.isGenerating = true;
 		this.errorMessage = '';
 
 		try {
-			const exchange = await generateExchange({
-				topic: this.topics[topicIdx],
-				mode: this.config.mode,
-				previousExchanges: prevExchanges,
-				speaker,
-				hostAName: this.getProfileName('A'),
-				hostBName: this.getProfileName('B'),
-				context: this.contextText || undefined,
-				signal: this._llmAbort?.signal,
-				isLastInteractionOfTopic: exchangeIdx + 1 === interactionCount,
-				isFirstInteractionOfTopic: exchangeIdx === 0
-			});
+			if (this.config.mode !== 'guided' && this.config.contextSource === 'summary') {
+				await this.ensureTopicSummary(topicIdx, session);
+				if (this._session !== session) return;
+			}
+
+			const exchange = await generateExchange(
+				this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount)
+			);
 
 			if (this._session !== session) return;
 
@@ -519,24 +684,12 @@ class PodcastState {
 	}
 
 	private _pausePlayback(): void {
+		teardownSource(this._currentSource);
 		if (this._currentSource) {
-			this._currentSource.onended = null;
-			try {
-				this._currentSource.stop();
-			} catch {
-				// ignore
-			}
-			this._currentSource.disconnect();
 			this._currentSource = null;
 		}
-		if (this._analyserNode) {
-			try {
-				this._analyserNode.disconnect();
-			} catch {
-				// ignore
-			}
-			this._analyserNode = null;
-		}
+		teardownAnalyser(this._analyserNode);
+		this._analyserNode = null;
 	}
 
 	resume(): void {
@@ -552,9 +705,6 @@ class PodcastState {
 
 	stop(): void {
 		this._session++;
-
-		for (const timer of this._gapTimers) clearTimeout(timer);
-		this._gapTimers.clear();
 
 		if (this._genAbort) {
 			this._genAbort.abort();
@@ -572,6 +722,7 @@ class PodcastState {
 		this._pausePlayback();
 
 		this._preparePromises.clear();
+		this._topicSummaries.clear();
 
 		this.status = 'idle';
 		this.activeSpeaker = null;
@@ -581,15 +732,17 @@ class PodcastState {
 
 	fullReset(): void {
 		this.stop();
-		for (const timer of this._gapTimers) clearTimeout(timer);
-		this._gapTimers.clear();
 		this.topics = [];
 		this.dialogs = [];
+		this.chunkRawTexts = [];
+		this.chunkQuestions = [];
+		this.exchangeCounts = [];
 		this.currentTopicIndex = 0;
 		this.currentExchangeIndex = 0;
 		this._blobs.clear();
 		this._voiceChunks.clear();
 		this._preparePromises.clear();
+		this._topicSummaries.clear();
 		this.progress = { current: 0, total: 0 };
 	}
 
@@ -598,18 +751,7 @@ class PodcastState {
 	}
 
 	private waitGap(session: number): Promise<void> {
-		const { minGapMs, maxGapMs } = this.config;
-		const min = Math.max(0, Math.min(minGapMs, maxGapMs));
-		const max = Math.max(minGapMs, maxGapMs);
-		const delay = min + Math.random() * (max - min);
-
-		return new Promise<void>((resolve) => {
-			const timer = setTimeout(() => {
-				this._gapTimers.delete(timer);
-				resolve();
-			}, delay);
-			this._gapTimers.add(timer);
-		});
+		return waitMs(ttsState.sentenceGapMs(), this._playbackAbort?.signal);
 	}
 }
 

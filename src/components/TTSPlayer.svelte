@@ -10,6 +10,20 @@
 		resetAudioContext,
 		closeAudioContext
 	} from '@/lib/audioContextManager';
+	import {
+		createAnalyserNode,
+		teardownSource,
+		teardownAnalyser,
+		decodeBlob,
+		waitMs
+	} from '@/lib/audioNodeHelpers';
+	import {
+		drawWaveform as drawWaveformShared,
+		drawGeneratingWave as drawGeneratingWaveShared,
+		drawIdleLine as drawIdleLineShared,
+		clearCanvas,
+		type WaveformDrawConfig
+	} from '@/lib/canvasWaveform';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 
 	const config = getCurrentStyle();
@@ -29,21 +43,25 @@
 	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
-	const amplitudeScale = $derived(mode === 'mini' ? 1.4 : 0.2);
+	const amplitudeScale = $derived(mode === 'mini' ? 1.5 : 0.2);
 	const wavelengthScale = 300;
+
+	const waveDrawConfig: WaveformDrawConfig = $derived({
+		splineSampleStep: 0.1,
+		amplitudeScale,
+		maxWaveAmplitudePx: 80,
+		wavelengthScale,
+		sineFillAlpha: 0.24,
+		strokeWidth: 4
+	});
+
+	function waveColor(): string {
+		return viewState.primaryColorAlpha(config.strokeAlpha);
+	}
 
 	let showControls = $state(true);
 	let hideControlsTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	const SINE_FILL_ALPHA = 0.24;
-	const WAVE_STROKE_WIDTH = 4;
-	//const WAVE_STROKE_COLOR = 'white';
-
-	const SPLINE_SAMPLE_STEP = 0.1;
-	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
-	const MIN_WAVE_POINTS = 4;
-
-	const MAX_WAVE_AMPLITUDE_PX = 80;
 	const SEEK_SECONDS = 5;
 	const PREBUFFER_RATIO = 0.3;
 	const MIN_PREBUFFER = 1.5;
@@ -51,22 +69,17 @@
 	let totalPlaybackDuration = $state(0);
 	let nextChunkPrefetchRequested = false;
 	let currentChunkDuration = 0;
-	let interChunkTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	async function decodeBlob(blob: Blob, ctx: AudioContext): Promise<AudioBuffer> {
-		const arrayBuffer = await blob.arrayBuffer();
-		return ctx.decodeAudioData(arrayBuffer);
-	}
+	let gapAbort: AbortController | null = null;
 
 	function setTtsError(err: unknown, fallback: string) {
 		ttsState.errorMessage = err instanceof Error ? err.message : fallback;
 		console.error('[TTS]', err);
 	}
 
-	function clearInterChunkTimeout() {
-		if (interChunkTimeout !== null) {
-			clearTimeout(interChunkTimeout);
-			interChunkTimeout = null;
+	function cancelGap() {
+		if (gapAbort) {
+			gapAbort.abort();
+			gapAbort = null;
 		}
 	}
 
@@ -127,27 +140,18 @@
 			}
 
 			if (currentSource) {
-				currentSource.onended = null;
-				try {
-					currentSource.stop();
-				} catch {
-					// ignore
-				}
-				currentSource.disconnect();
+				teardownSource(currentSource);
 				currentSource = null;
 			}
 
-			cleanupAnalyser();
+			teardownAnalyser(analyserNode);
+			analyserNode = null;
 
 			const ctx = getAudioContext();
 			const source = ctx.createBufferSource();
 			source.buffer = buf;
 
-			const analyser = ctx.createAnalyser();
-			analyser.fftSize = 1024;
-			analyser.smoothingTimeConstant = 0.8;
-			analyser.minDecibels = -90;
-			analyser.maxDecibels = -10;
+			const analyser = createAnalyserNode(ctx);
 
 			source.connect(analyser);
 			analyser.connect(ctx.destination);
@@ -181,22 +185,21 @@
 	}
 
 	function handleChunkEnded() {
-		if (currentSource) {
-			currentSource.onended = null;
-			currentSource.disconnect();
-			currentSource = null;
-		}
-		cleanupAnalyser();
+		teardownSource(currentSource);
+		currentSource = null;
+		teardownAnalyser(analyserNode);
+		analyserNode = null;
 
 		const nextIdx = currentChunkIndex + 1;
 		if (nextIdx < ttsState.blobs.length) {
 			if (decodedChunks[nextIdx] || ttsState.blobs[nextIdx]) {
 				const delay = ttsState.pauseAfter(currentChunkIndex) * 1000;
 				if (delay > 0) {
-					interChunkTimeout = setTimeout(() => {
-						interChunkTimeout = null;
+					gapAbort = new AbortController();
+					void waitMs(delay, gapAbort.signal).then(() => {
+						gapAbort = null;
 						void playChunkAt(nextIdx);
-					}, delay);
+					});
 				} else {
 					void playChunkAt(nextIdx);
 				}
@@ -233,21 +236,16 @@
 		ttsState.isPaused = true;
 		ttsState.isPlaying = false;
 		clearCountdown();
-		clearInterChunkTimeout();
+		cancelGap();
 		if (hideControlsTimeout !== null) {
 			clearTimeout(hideControlsTimeout);
 			hideControlsTimeout = null;
 		}
 		showControls = true;
-		currentSource.onended = null;
-		try {
-			currentSource.stop();
-		} catch {
-			// ignore stop errors
-		}
-		currentSource.disconnect();
+		teardownSource(currentSource);
 		currentSource = null;
-		cleanupAnalyser();
+		teardownAnalyser(analyserNode);
+		analyserNode = null;
 	}
 
 	async function resumePlayback() {
@@ -262,27 +260,13 @@
 		}
 	}
 
-	function cleanupAnalyser() {
-		if (analyserNode) {
-			try {
-				analyserNode.disconnect();
-			} catch {
-				// ignore disconnect errors
-			}
-			analyserNode = null;
-		}
-	}
-
 	function cleanupPlayback() {
-		if (currentSource) {
-			currentSource.onended = null;
-			currentSource.stop();
-			currentSource.disconnect();
-			currentSource = null;
-		}
-		cleanupAnalyser();
+		teardownSource(currentSource);
+		currentSource = null;
+		teardownAnalyser(analyserNode);
+		analyserNode = null;
 		clearCountdown();
-		clearInterChunkTimeout();
+		cancelGap();
 		if (hideControlsTimeout !== null) {
 			clearTimeout(hideControlsTimeout);
 			hideControlsTimeout = null;
@@ -305,7 +289,7 @@
 		cleanupPlayback();
 		ttsState.fullReset();
 		closeAudioContext();
-		clearCanvas();
+		clearLocalCanvas();
 	}
 
 	function startCountdown() {
@@ -374,11 +358,10 @@
 			try {
 				await ensureDecodedChunk(chunkIndex);
 				if (currentSource) {
-					currentSource.onended = null;
-					currentSource.stop();
-					currentSource.disconnect();
+					teardownSource(currentSource);
 					currentSource = null;
-					cleanupAnalyser();
+					teardownAnalyser(analyserNode);
+					analyserNode = null;
 				}
 				await playChunkAt(chunkIndex, offsetInChunk);
 			} catch (err) {
@@ -475,185 +458,24 @@
 		preventDefault: true
 	});
 
-	function catmullRomSpline(p0: number, p1: number, p2: number, p3: number, t: number): number {
-		const t2 = t * t;
-		const t3 = t2 * t;
-		return (
-			0.5 *
-			(2 * p1 +
-				(-p0 + p2) * t +
-				(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-				(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-		);
+	function drawLocalWaveform() {
+		if (!canvas || !analyserNode) return;
+		drawWaveformShared(canvas, analyserNode, waveColor(), waveDrawConfig);
 	}
 
-	function resizeCanvas(ctx: CanvasRenderingContext2D, width: number, height: number) {
-		const pixelRatio = window.devicePixelRatio || 1;
-		const scaledWidth = Math.floor(width * pixelRatio);
-		const scaledHeight = Math.floor(height * pixelRatio);
-
-		if (canvas!.width !== scaledWidth || canvas!.height !== scaledHeight) {
-			canvas!.width = scaledWidth;
-			canvas!.height = scaledHeight;
-			ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-		}
-	}
-
-	function drawWaveform() {
-		if (!canvas || !analyserNode) {
-			return;
-		}
-
-		const ctx = canvas.getContext('2d');
-		if (!ctx) {
-			return;
-		}
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		resizeCanvas(ctx, width, height);
-
-		const bufferLength = analyserNode.frequencyBinCount;
-		const dataArray = new Uint8Array(bufferLength);
-		analyserNode.getByteTimeDomainData(dataArray);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		let sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
-		if (bufferLength / sampleStep < MIN_WAVE_POINTS) {
-			sampleStep = Math.floor(bufferLength / MIN_WAVE_POINTS);
-		}
-		const points: number[] = [];
-
-		for (let i = 0; i < bufferLength; i += sampleStep) {
-			const value = dataArray[i];
-			const normalized = (value / 255 - 0.5) * height * amplitudeScale;
-			const y = height / 2 - normalized;
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const t = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, t);
-					const x = (i + t) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
-	}
-
-	function drawGeneratingWave() {
+	function drawLocalGeneratingWave() {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		const t = performance.now() / 1000;
-		const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
-		const pointCount = config.pointCount;
-		const phaseSpeed = config.baseSpeed;
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const points: number[] = [];
-		for (let i = 0; i < pointCount; i += 1) {
-			const u = pointCount === 1 ? 0 : i / (pointCount - 1);
-			let y = height / 2;
-			for (const h of config.harmonics) {
-				y +=
-					amplitude *
-					h.amplitudeRatio *
-					Math.sin(2 * Math.PI * h.cycles * u - t * phaseSpeed * h.speedRatio);
-			}
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const tt = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, tt);
-					const x = (i + tt) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawGeneratingWaveShared(canvas, waveColor(), config, waveDrawConfig);
 	}
 
-	function clearCanvas() {
+	function drawLocalIdleLine() {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-		ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+		drawIdleLineShared(canvas, waveColor(), waveDrawConfig);
 	}
 
-	function drawIdleLine() {
+	function clearLocalCanvas() {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const path = new Path2D();
-		path.moveTo(0, height / 2);
-		path.lineTo(width, height / 2);
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		clearCanvas(canvas);
 	}
 
 	function startAnimation() {
@@ -661,14 +483,14 @@
 
 		const step = () => {
 			if (analyserNode && ttsState.isPlaying && !ttsState.isPaused) {
-				drawWaveform();
+				drawLocalWaveform();
 			} else if (
 				ttsState.addVoiceLoading ||
 				(ttsState.isGenerating && ttsState.chunksGenerated === 0)
 			) {
-				drawGeneratingWave();
+				drawLocalGeneratingWave();
 			} else if (ttsState.isGenerating || waitingForChunk) {
-				drawIdleLine();
+				drawLocalIdleLine();
 			}
 			animationFrame = requestAnimationFrame(step);
 		};

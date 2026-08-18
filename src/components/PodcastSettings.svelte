@@ -34,10 +34,6 @@
 
 	function handleContextSourceChange(source: 'content' | 'summary' | 'none') {
 		podcastState.config.contextSource = source;
-		if (source === 'summary' && !podcastState.config.summaryTaskId) {
-			const opts = podcastState.summaryTaskOptions;
-			if (opts.length > 0) podcastState.config.summaryTaskId = opts[0].id;
-		}
 	}
 
 	async function handleStart() {
@@ -75,6 +71,17 @@
 				<Icon name="MessagesSquare" size={18} />
 				Small Talk
 			</button>
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.mode === 'guided'}
+				disabled={!podcastState.hasQuestionsTask}
+				title={podcastState.hasQuestionsTask ? '' : 'Requires a completed "questions" task'}
+				onclick={() => (podcastState.config.mode = 'guided')}
+			>
+				<Icon name="ListCheck" size={18} />
+				Guided
+			</button>
 		</div>
 	</div>
 
@@ -109,72 +116,59 @@
 				None
 			</button>
 		</div>
-		{#if podcastState.config.contextSource === 'summary'}
-			{#if podcastState.summaryTaskOptions.length > 0}
-				<select class="summary-select" bind:value={podcastState.config.summaryTaskId}>
-					{#each podcastState.summaryTaskOptions as opt (opt.id)}
-						<option value={opt.id}>{opt.label}</option>
-					{/each}
-				</select>
-			{:else}
-				<p class="hint">No summary tasks available</p>
-			{/if}
-		{/if}
 	</div>
+
+	{#if podcastState.config.mode !== 'guided'}
+		<div class="section">
+			<RangeSelector
+				id="podcast-topics"
+				label="Topics"
+				value={podcastState.config.topicCount}
+				min={1}
+				max={10}
+				step={1}
+				format={(v) => v.toString()}
+				onChange={(v) => (podcastState.config.topicCount = v)}
+			/>
+		</div>
+
+		<div class="section">
+			<RangeSelector
+				id="podcast-interactions"
+				label="Interactions per topic"
+				value={podcastState.config.interactionsPerTopic}
+				min={2}
+				max={15}
+				step={1}
+				format={(v) => v.toString()}
+				onChange={(v) => (podcastState.config.interactionsPerTopic = v)}
+			/>
+		</div>
+	{/if}
 
 	<div class="section">
 		<RangeSelector
-			id="podcast-topics"
-			label="Topics"
-			value={podcastState.config.topicCount}
-			min={1}
-			max={10}
-			step={1}
-			format={(v) => v.toString()}
-			onChange={(v) => (podcastState.config.topicCount = v)}
+			id="podcast-topic-gap"
+			label="Topic gap"
+			value={podcastState.config.topicGapMs}
+			min={0}
+			max={5000}
+			step={250}
+			format={(v) => (v / 1000).toFixed(1) + 's'}
+			onChange={(v) => (podcastState.config.topicGapMs = v)}
 		/>
 	</div>
 
 	<div class="section">
 		<RangeSelector
-			id="podcast-interactions"
-			label="Interactions per topic"
-			value={podcastState.config.interactionsPerTopic}
-			min={2}
-			max={15}
-			step={1}
-			format={(v) => v.toString()}
-			onChange={(v) => (podcastState.config.interactionsPerTopic = v)}
-		/>
-	</div>
-
-	<div class="section">
-		<div class="section-label">Pause between hosts</div>
-		<RangeSelector
-			id="podcast-min-gap"
-			label="Min gap"
-			value={podcastState.config.minGapMs}
+			id="podcast-exchange-gap"
+			label="Exchange gap"
+			value={podcastState.config.exchangeGapMs}
 			min={0}
 			max={3000}
-			step={50}
+			step={250}
 			format={(v) => (v / 1000).toFixed(1) + 's'}
-			onChange={(v) => {
-				podcastState.config.minGapMs = v;
-				if (podcastState.config.maxGapMs < v) podcastState.config.maxGapMs = v;
-			}}
-		/>
-		<RangeSelector
-			id="podcast-max-gap"
-			label="Max gap"
-			value={podcastState.config.maxGapMs}
-			min={0}
-			max={3000}
-			step={50}
-			format={(v) => (v / 1000).toFixed(1) + 's'}
-			onChange={(v) => {
-				podcastState.config.maxGapMs = v;
-				if (podcastState.config.minGapMs > v) podcastState.config.minGapMs = v;
-			}}
+			onChange={(v) => (podcastState.config.exchangeGapMs = v)}
 		/>
 	</div>
 
@@ -277,28 +271,6 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
-	}
-
-	.summary-select {
-		all: unset;
-		cursor: pointer;
-		padding: 0.5rem 0.75rem;
-		border-radius: 8px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(255, 255, 255, 0.04);
-		color: rgba(255, 255, 255, 0.8);
-		font-size: 0.85rem;
-	}
-
-	.summary-select option {
-		background: #1a1a2e;
-		color: rgba(255, 255, 255, 0.8);
-	}
-
-	.hint {
-		color: rgba(255, 255, 255, 0.4);
-		font-size: 0.8rem;
-		margin: 0;
 	}
 
 	.mode-toggle {

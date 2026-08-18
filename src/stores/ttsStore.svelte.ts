@@ -1,5 +1,11 @@
 import { viewState } from './viewStore.svelte';
-import { addVoice, generateSpeech, parseSSE, type Voice } from '@/lib/utils/ttsService';
+import {
+	addVoice,
+	generateSpeech,
+	buildSpeechParams,
+	parseSSE,
+	type Voice
+} from '@/lib/utils/ttsService';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
 
@@ -64,7 +70,7 @@ class TTSState {
 	configSig = $derived(JSON.stringify(this.config));
 	private generatedConfigSig = $state('');
 
-	pauseSettings = $state({ betweenSentences: 0.12, betweenParagraphs: 0.45 });
+	pauseSettings = $state({ minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 });
 	private _chunkEndsParagraph: boolean[] = [];
 
 	get averageGenerationTime(): number {
@@ -78,9 +84,22 @@ class TTSState {
 
 	pauseAfter(index: number): number {
 		if (index >= this.totalChunks - 1) return 0;
-		return this._chunkEndsParagraph[index]
-			? this.pauseSettings.betweenParagraphs
-			: this.pauseSettings.betweenSentences;
+		if (this._chunkEndsParagraph[index]) return this.pauseSettings.betweenParagraphs;
+		const { minGapMs, maxGapMs } = this.pauseSettings;
+		const min = Math.min(minGapMs, maxGapMs);
+		const max = Math.max(minGapMs, maxGapMs);
+		return min + Math.random() * (max - min);
+	}
+
+	sentenceGapMs(): number {
+		const { minGapMs, maxGapMs } = this.pauseSettings;
+		const min = Math.min(minGapMs, maxGapMs);
+		const max = Math.max(minGapMs, maxGapMs);
+		return (min + Math.random() * (max - min)) * 1000;
+	}
+
+	paragraphGapMs(): number {
+		return this.pauseSettings.betweenParagraphs * 1000;
 	}
 
 	voiceChunks = $state<Voice[]>([]);
@@ -243,24 +262,12 @@ class TTSState {
 
 		try {
 			const res = await generateSpeech(
-				{
-					text: allChunks[0],
-					ref_audio: this._chunkRefs[0].refAudioFilename,
-					ref_text: this._chunkRefs[0].refText,
-					num_step: this.config.numStep,
-					denoise: this.config.denoise,
-					guidance_scale: this.config.guidanceScale,
-					t_shift: this.config.tShift,
-					position_temperature: this.config.positionTemperature,
-					class_temperature: this.config.classTemperature,
-					layer_penalty_factor: this.config.layerPenaltyFactor,
-					duration: this.config.duration,
-					speed: this.config.speed,
-					preprocess_prompt: this.config.preprocessPrompt,
-					postprocess_output: this.config.postprocessOutput,
-					audio_chunk_duration: this.config.audioChunkDuration,
-					audio_chunk_threshold: this.config.audioChunkThreshold
-				},
+				buildSpeechParams(
+					this.config,
+					allChunks[0],
+					this._chunkRefs[0].refAudioFilename,
+					this._chunkRefs[0].refText
+				),
 				abort.signal
 			);
 
@@ -320,24 +327,12 @@ class TTSState {
 		try {
 			const genStart = performance.now();
 			const res = await generateSpeech(
-				{
-					text: this._allChunks[i],
-					ref_audio: this._chunkRefs[i]?.refAudioFilename ?? this.config.refAudioFilename,
-					ref_text: this._chunkRefs[i]?.refText ?? this.config.refText,
-					num_step: this.config.numStep,
-					denoise: this.config.denoise,
-					guidance_scale: this.config.guidanceScale,
-					t_shift: this.config.tShift,
-					position_temperature: this.config.positionTemperature,
-					class_temperature: this.config.classTemperature,
-					layer_penalty_factor: this.config.layerPenaltyFactor,
-					duration: this.config.duration,
-					speed: this.config.speed,
-					preprocess_prompt: this.config.preprocessPrompt,
-					postprocess_output: this.config.postprocessOutput,
-					audio_chunk_duration: this.config.audioChunkDuration,
-					audio_chunk_threshold: this.config.audioChunkThreshold
-				},
+				buildSpeechParams(
+					this.config,
+					this._allChunks[i],
+					this._chunkRefs[i]?.refAudioFilename ?? this.config.refAudioFilename,
+					this._chunkRefs[i]?.refText ?? this.config.refText
+				),
 				abort.signal
 			);
 			const genElapsed = (performance.now() - genStart) / 1000;

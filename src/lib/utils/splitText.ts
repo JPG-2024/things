@@ -362,3 +362,10 @@ function findSentenceBoundary(
 
 	return end;
 }
+
+export function reconstructChunks(
+	content: string,
+	offsets: { startOffset: number; endOffset: number }[]
+): string[] {
+	return offsets.map(({ startOffset, endOffset }) => content.slice(startOffset, endOffset));
+}

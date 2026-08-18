@@ -3,6 +3,10 @@ import type { Task } from '@/types/taskRunner.types';
 import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/stores/webStore';
 import { youTubeRunner, type YouTubeRunnerOptions } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
+import {
+	socialMediaRunner,
+	type SocialMediaRunnerOptions
+} from '@/runners/socialMedia/socialMediaRunner';
 import { webRunner } from '@/runners/web/webRunner';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
@@ -13,6 +17,8 @@ const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
 const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
 const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
+const TIKTOK_URL_REGEX = /tiktok\.com\/.*\/video\//;
+const INSTAGRAM_REEL_REGEX = /instagram\.com\/reel\//;
 
 type UrlRouteCondition = RegExp | ((url: string) => boolean);
 
@@ -74,6 +80,24 @@ const routeDefinitions: UrlRoute[] = [
 				cachedTasks
 			});
 		}
+	},
+	{
+		name: 'tiktokVideo',
+		condition: TIKTOK_URL_REGEX,
+		handler: (url, context) =>
+			socialMediaRunner(url, 'tiktok', {
+				cachedTasks: context?.cachedTasks,
+				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined
+			})
+	},
+	{
+		name: 'instagramReel',
+		condition: INSTAGRAM_REEL_REGEX,
+		handler: (url, context) =>
+			socialMediaRunner(url, 'instagram', {
+				cachedTasks: context?.cachedTasks,
+				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined
+			})
 	},
 	{
 		name: 'defaultBlog',

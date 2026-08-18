@@ -3,6 +3,7 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
+	import { reconstructChunks } from '@/lib/utils/splitText';
 
 	export type ChunkEntry = {
 		id: string | number;
@@ -17,6 +18,8 @@
 		defaultOpen?: boolean;
 		chunks: ChunkEntry[];
 		showRaw?: boolean;
+		sourceContent?: string;
+		chunkOffsets?: { startOffset: number; endOffset: number }[];
 		onItemOpen?: (chunk: ChunkEntry, index: number) => void;
 		itemContent?: Snippet<[ChunkEntry, number]>;
 	};
@@ -26,11 +29,33 @@
 		defaultOpen = false,
 		chunks,
 		showRaw = $bindable(false),
+		sourceContent,
+		chunkOffsets,
 		onItemOpen,
 		itemContent
 	}: Props = $props();
 
-	const hasRaw = $derived(chunks.some((c) => typeof c.raw === 'string'));
+	const hasRawData = $derived(chunks.some((c) => typeof c.raw === 'string'));
+	const canReconstruct = $derived(
+		typeof sourceContent === 'string' &&
+			sourceContent.length > 0 &&
+			Array.isArray(chunkOffsets) &&
+			chunkOffsets.length > 0
+	);
+	const hasRaw = $derived(hasRawData || canReconstruct);
+
+	const reconstructedChunks = $derived.by((): string[] => {
+		if (!showRaw || !canReconstruct) return [];
+		return reconstructChunks(sourceContent!, chunkOffsets!);
+	});
+
+	function getDisplayed(chunk: ChunkEntry, index: number): string {
+		if (showRaw) {
+			if (reconstructedChunks[index]) return reconstructedChunks[index];
+			if (typeof chunk.raw === 'string') return chunk.raw;
+		}
+		return chunk.summary;
+	}
 
 	function chunkHint(text: string): string {
 		return text.length > 80 ? text.slice(0, 80) + '…' : text;
@@ -50,9 +75,9 @@
 	{/if}
 	<div class="chunks-stack">
 		{#each chunks as chunk, i (chunk.id)}
-			{@const displayed = showRaw && typeof chunk.raw === 'string' ? chunk.raw : chunk.summary}
+			{@const displayed = getDisplayed(chunk, i)}
 			<DetailsPanel
-				label={chunk.thumbnail ? (chunk.meta ?? '') : `Chunk ${i + 1}`}
+				label={chunk.thumbnail ? (chunk.meta ?? '') : `${i + 1}`}
 				hint={chunkHint(displayed)}
 			>
 				{#snippet leading()}
@@ -88,8 +113,8 @@
 <style>
 	.view-toggle {
 		display: flex;
-		gap: 0.25rem;
-		padding: 0.25rem;
+		margin-bottom: 0.5rem;
+		padding: 0.25rem 0;
 		background: rgba(255, 255, 255, 0.04);
 		border-radius: 6px;
 		width: fit-content;

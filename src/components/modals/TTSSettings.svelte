@@ -33,8 +33,9 @@
 	let localSegment = $state(ttsState.segment);
 	let localChunkCount = $state(ttsState.chunkCount);
 	let localConfig = $state<TTSConfig>({ ...ttsState.config });
-	let localPauseBetweenSentences = $state(ttsState.pauseSettings.betweenSentences);
-	let localPauseBetweenParagraphs = $state(ttsState.pauseSettings.betweenParagraphs);
+	let localMinGapMs = $state(ttsState.pauseSettings.minGapMs);
+	let localMaxGapMs = $state(ttsState.pauseSettings.maxGapMs);
+	let localBetweenParagraphs = $state(ttsState.pauseSettings.betweenParagraphs);
 	let localLanguage = $state(viewState.language);
 
 	let editNamePrefix = $state('');
@@ -77,8 +78,9 @@
 		ttsState.segment = localSegment;
 		ttsState.chunkCount = localChunkCount;
 		ttsState.config = { ...localConfig };
-		ttsState.pauseSettings.betweenSentences = localPauseBetweenSentences;
-		ttsState.pauseSettings.betweenParagraphs = localPauseBetweenParagraphs;
+		ttsState.pauseSettings.minGapMs = localMinGapMs;
+		ttsState.pauseSettings.maxGapMs = localMaxGapMs;
+		ttsState.pauseSettings.betweenParagraphs = localBetweenParagraphs;
 		viewState.language = localLanguage;
 	});
 
@@ -346,25 +348,36 @@
 		/>
 
 		<RangeSelector
-			id="pauseBetweenSentences"
-			label="Pause between sentences (s)"
-			value={localPauseBetweenSentences}
+			id="minGapMs"
+			label="Min gap between sentences (s)"
+			value={localMinGapMs}
 			min={0}
 			max={1}
 			step={0.01}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localPauseBetweenSentences = v)}
+			onChange={(v) => (localMinGapMs = v)}
 		/>
 
 		<RangeSelector
-			id="pauseBetweenParagraphs"
+			id="maxGapMs"
+			label="Max gap between sentences (s)"
+			value={localMaxGapMs}
+			min={0}
+			max={1}
+			step={0.01}
+			format={(v) => v.toFixed(2)}
+			onChange={(v) => (localMaxGapMs = v)}
+		/>
+
+		<RangeSelector
+			id="betweenParagraphs"
 			label="Pause between paragraphs (s)"
-			value={localPauseBetweenParagraphs}
+			value={localBetweenParagraphs}
 			min={0}
 			max={2}
 			step={0.01}
 			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localPauseBetweenParagraphs = v)}
+			onChange={(v) => (localBetweenParagraphs = v)}
 		/>
 
 		<!-- 		<RangeSelector

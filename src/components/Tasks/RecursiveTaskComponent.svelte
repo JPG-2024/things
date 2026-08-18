@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { RecursiveContentResult, ChunkOffset } from '@/runners/shared/taskFactories';
+	import type { RecursiveContentResult } from '@/runners/shared/taskFactories';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import { workflowStore } from '@/stores/workflowStore.svelte';
 
 	type Props = {
 		runId?: string;
@@ -14,49 +15,60 @@
 
 	let { runId = undefined, task, componentProps = {} }: Props = $props();
 
-	void runId;
 	void componentProps;
 
 	let showRaw = $state(false);
+
+	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 
 	const recursiveData = $derived.by((): RecursiveContentResult | null => {
 		const data = task.data as Record<string, unknown> | undefined;
 		if (!data || typeof data !== 'object') return null;
 		const chunks = data.chunks;
-		const rawChunks = data.rawChunks;
-		const chunkOffsets = data.chunkOffsets;
 		const finalResponse = data.finalResponse;
-		if (!Array.isArray(chunks) || !Array.isArray(rawChunks)) return null;
-		if (!Array.isArray(chunkOffsets)) return null;
+		if (!Array.isArray(chunks)) return null;
 		if (typeof finalResponse !== 'string' && !Array.isArray(finalResponse)) return null;
-		return { chunks, rawChunks, chunkOffsets, finalResponse };
+		return { chunks, finalResponse };
 	});
 
 	const chunks = $derived(recursiveData?.chunks ?? []);
-	const rawChunks = $derived(recursiveData?.rawChunks ?? []);
-	const chunkOffsets = $derived(recursiveData?.chunkOffsets ?? []);
+	const chunkOffsets = $derived(chunks.map((c) => c.key));
 	const finalResponse = $derived(recursiveData?.finalResponse ?? '');
 	const isFinalArray = $derived(Array.isArray(finalResponse));
 	const chunksSpacerOpen = $derived(task.status === 'running');
 
+	const sourceContent = $derived.by((): string => {
+		if (!targetRunId) return '';
+		const depId = task.dependencies?.[0] ?? 'content';
+		const depData = workflowStore.getTaskData(targetRunId, depId);
+		if (typeof depData === 'string') return depData;
+		if (depData && typeof depData === 'object') {
+			const obj = depData as Record<string, unknown>;
+			if (typeof obj.content === 'string') return obj.content;
+			if (typeof obj.data === 'string') return obj.data;
+		}
+		return '';
+	});
+
 	const chunkEntries = $derived<ChunkEntry[]>(
 		chunks.map((chunk, i) => ({
 			id: i,
-			summary: chunk,
-			raw: rawChunks[i] ?? undefined
+			summary: chunk.data
 		}))
 	);
-
-	function offsetLabel(offset: ChunkOffset | undefined): string {
-		if (!offset) return '';
-		return ` (${offset.startOffset}–${offset.endOffset})`;
-	}
 </script>
 
 {#if recursiveData}
 	<div class="recursive-shell">
 		{#if chunks.length > 0}
-			<ChunkList title="Chunks" defaultOpen={chunksSpacerOpen} chunks={chunkEntries} bind:showRaw />
+			<ChunkList
+				title="Chunks"
+				defaultOpen={chunksSpacerOpen}
+				chunks={chunkEntries}
+				{sourceContent}
+				{chunkOffsets}
+				bind:showRaw
+			/>
 		{/if}
 		{#if task.embeddings}
 			<SimilarEmbeddingsComponent
@@ -67,7 +79,7 @@
 			/>
 		{/if}
 
-		{#if finalResponse && !showRaw}
+		{#if finalResponse}
 			<div class="final-response">
 				{#if isFinalArray}
 					<Keywords keywords={finalResponse} />

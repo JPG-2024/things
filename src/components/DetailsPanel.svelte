@@ -31,6 +31,8 @@
 		border-radius: 5px;
 		background: rgba(128, 128, 128, 0.13);
 		padding: 2px 10px;
+		max-height: 300px;
+		overflow-y: auto;
 	}
 
 	.details-panel summary {

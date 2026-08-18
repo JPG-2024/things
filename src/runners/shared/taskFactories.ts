@@ -199,10 +199,13 @@ export type ChunkOffset = {
 	endOffset: number;
 };
 
+export type RecursiveChunk = {
+	key: ChunkOffset;
+	data: string;
+};
+
 export type RecursiveContentResult = {
-	chunks: string[];
-	rawChunks: string[];
-	chunkOffsets: ChunkOffset[];
+	chunks: RecursiveChunk[];
 	finalResponse: string | string[];
 };
 
@@ -236,9 +239,12 @@ export type RecursiveContentTaskOptions = {
 };
 
 const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
-	chunks: z.array(z.string()),
-	rawChunks: z.array(z.string()),
-	chunkOffsets: z.array(z.object({ startOffset: z.number(), endOffset: z.number() })),
+	chunks: z.array(
+		z.object({
+			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
+			data: z.string()
+		})
+	),
 	finalResponse: z.union([z.string(), z.array(z.string())])
 });
 
@@ -292,19 +298,22 @@ export function createRecursiveContentTask(
 				combineMode: options?.combineMode
 			});
 
-			const chunks: string[] = [];
+			const chunks: RecursiveChunk[] = [];
 
 			for (let i = 0; i < sections.length; i++) {
 				const result = await processor.processChunk(sections[i], i);
-				chunks.push(result);
+				chunks.push({ key: chunkOffsets[i], data: result });
 				update({
-					data: { chunks: [...chunks], rawChunks: sections, chunkOffsets, finalResponse: '' }
+					data: { chunks: [...chunks], finalResponse: '' }
 				});
 			}
 
-			const finalResponse = await processor.combineChunks(chunks, sections);
+			const finalResponse = await processor.combineChunks(
+				chunks.map((c) => c.data),
+				sections
+			);
 
-			return { chunks, rawChunks: sections, chunkOffsets, finalResponse };
+			return { chunks, finalResponse };
 		}
 	});
 }

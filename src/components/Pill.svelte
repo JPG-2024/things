@@ -24,11 +24,10 @@
 		border-radius: 12px;
 		background-color: transparent;
 		background-size: 200% 200%;
-		line-height: 1.2;
 		width: max-content;
 		padding: 4px 15px;
-		font-weight: bold;
 		text-transform: capitalize;
+		font-size: 0.9rem;
 	}
 
 	.pill.show-point::before {

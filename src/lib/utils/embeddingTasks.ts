@@ -33,21 +33,33 @@ interface ChunkOffset {
 	endOffset?: number;
 }
 
-interface RecursiveLikeData {
-	chunks?: unknown;
-	chunkOffsets?: unknown;
+interface RecursiveChunkEntry {
+	key?: ChunkOffset;
+	data?: unknown;
 }
 
-function isRecursiveData(data: unknown): data is { chunks: string[]; chunkOffsets: ChunkOffset[] } {
+interface RecursiveLikeData {
+	chunks?: unknown;
+}
+
+function isChunkEntry(entry: unknown): entry is RecursiveChunkEntry {
+	if (!entry || typeof entry !== 'object') return false;
+	const record = entry as Record<string, unknown>;
+	return 'key' in record || 'data' in record;
+}
+
+function isRecursiveData(
+	data: unknown
+): data is { chunks: Array<{ key: ChunkOffset; data: string }> } {
 	if (!data || typeof data !== 'object') return false;
 	const record = data as Record<string, unknown>;
 	const chunks = record.chunks;
-	const offsets = record.chunkOffsets;
-	return (
-		Array.isArray(chunks) &&
-		chunks.every((chunk) => typeof chunk === 'string') &&
-		Array.isArray(offsets)
-	);
+	if (!Array.isArray(chunks) || chunks.length === 0) return false;
+	return chunks.every((entry) => {
+		if (!isChunkEntry(entry)) return false;
+		const e = entry as RecursiveChunkEntry;
+		return typeof e.data === 'string' && e.key && typeof e.key === 'object';
+	});
 }
 
 /**
@@ -55,8 +67,8 @@ function isRecursiveData(data: unknown): data is { chunks: string[]; chunkOffset
  *
  * Iterates over the provided tasks and, for each task with `embeddings: true`,
  * embeds its result chunks and writes them to a table named after the task id.
- * Only recursive-shaped results (`chunks` + `chunkOffsets`) are supported for
- * now; other task shapes are skipped.
+ * Only recursive-shaped results (`chunks` with `{ key, data }` entries) are
+ * supported for now; other task shapes are skipped.
  *
  * `chunkText` is intentionally omitted from the stored chunks: the search side
  * reconstructs the text from the raw article content using `startOffset` /
@@ -76,21 +88,23 @@ export async function generateEmbeddingsFromTasks(
 			const data = task.data as RecursiveLikeData | undefined;
 			if (!isRecursiveData(data)) continue;
 
-			const { chunks, chunkOffsets } = data;
+			const { chunks } = data;
 			if (chunks.length === 0) continue;
+
+			const texts = chunks.map((c) => c.data);
 
 			let response;
 			try {
-				response = await createEmbeddings({ model: options.model, input: chunks });
+				response = await createEmbeddings({ model: options.model, input: texts });
 			} catch (error) {
 				console.error(`[embeddings] failed to embed task "${task.id}" for table "${table}"`, error);
 				continue;
 			}
 
 			const ordered = [...response.data].sort((a, b) => a.index - b.index);
-			const inputs: ChunkInput[] = chunks.map((text, i) => {
+			const inputs: ChunkInput[] = chunks.map((entry, i) => {
 				const embedding = ordered[i]?.embedding ?? [];
-				const offset = chunkOffsets[i] ?? {};
+				const offset = entry.key ?? {};
 				return {
 					articleUrl,
 					embedding,
@@ -134,7 +148,7 @@ export function extractCategoryFromTasks(tasks: Task[]): string | undefined {
 /**
  * Derive a list of query strings to embed from a task's data.
  *
- * Handles the recursive result shape (`chunks: string[]`), a bare string, or an
+ * Handles the recursive result shape (`chunks` with `{ key, data }` entries), a bare string, or an
  * array of strings. Anything else yields an empty list (nothing to compare).
  */
 export function extractQueryChunks(data: unknown): string[] {
@@ -147,7 +161,12 @@ export function extractQueryChunks(data: unknown): string[] {
 		const record = data as Record<string, unknown>;
 		const chunks = record.chunks;
 		if (Array.isArray(chunks)) {
-			return chunks.filter((chunk): chunk is string => typeof chunk === 'string');
+			return chunks
+				.filter(
+					(entry): entry is { key: ChunkOffset; data: string } =>
+						isChunkEntry(entry) && typeof (entry as RecursiveChunkEntry).data === 'string'
+				)
+				.map((entry) => entry.data);
 		}
 	}
 	return [];

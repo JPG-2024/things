@@ -1,5 +1,6 @@
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
+const TRANSCRIBE_API_URL = import.meta.env.VITE_TRANSCRIBE_API_URL ?? 'http://localhost:8001';
 
 export interface VoiceProfile {
 	id: string;
@@ -200,6 +201,48 @@ export async function addVoice(
 	}
 }
 
+export interface SpeechConfigInput {
+	numStep: number;
+	denoise: boolean;
+	guidanceScale: number;
+	speed: number;
+	preprocessPrompt: boolean;
+	postprocessOutput: boolean;
+	tShift?: number;
+	positionTemperature?: number;
+	classTemperature?: number;
+	layerPenaltyFactor?: number;
+	duration?: number;
+	audioChunkDuration?: number;
+	audioChunkThreshold?: number;
+}
+
+export function buildSpeechParams(
+	config: SpeechConfigInput,
+	text: string,
+	refAudio: string,
+	refText: string
+): Parameters<typeof generateSpeech>[0] {
+	return {
+		text,
+		ref_audio: refAudio,
+		ref_text: refText,
+		num_step: config.numStep,
+		denoise: config.denoise,
+		guidance_scale: config.guidanceScale,
+		t_shift: config.tShift,
+		position_temperature: config.positionTemperature,
+		class_temperature: config.classTemperature,
+		layer_penalty_factor: config.layerPenaltyFactor,
+		duration: config.duration,
+		speed: config.speed,
+		preprocess_prompt: config.preprocessPrompt,
+		postprocess_output: config.postprocessOutput,
+		audio_chunk_duration: config.audioChunkDuration,
+		audio_chunk_threshold: config.audioChunkThreshold
+	};
+}
+
 export async function generateSpeech(
 	params: {
 		text: string;
@@ -244,6 +287,36 @@ export async function generateSpeech(
 		if (isAbort(err)) throw err;
 		if (err instanceof Error && err.message) throw err;
 		await setErrorFrom(err, 'Failed to generate speech');
+		throw err;
+	}
+}
+
+export interface TranscribeLinkResult {
+	text: string;
+	language: string;
+}
+
+export async function transcribeLink(
+	url: string,
+	signal?: AbortSignal
+): Promise<TranscribeLinkResult> {
+	try {
+		const res = await fetch(`${TRANSCRIBE_API_URL}/transcribe-link`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ url }),
+			signal
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to transcribe link');
+			throw new Error(message);
+		}
+		return (await res.json()) as TranscribeLinkResult;
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to transcribe link');
 		throw err;
 	}
 }

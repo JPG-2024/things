@@ -39,6 +39,8 @@
 	.articles-container {
 		container-type: inline-size;
 		width: 100%;
+		display: flex;
+		justify-content: center;
 	}
 
 	.articles-grid {
@@ -57,7 +59,7 @@
 	}
 
 	.article-wrapper {
-		min-width: 0;
+		min-width: 500px;
 		display: flex;
 		align-items: flex-start;
 		padding-bottom: 2rem;

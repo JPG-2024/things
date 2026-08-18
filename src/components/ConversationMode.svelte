@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { startMicRecording, stopMicRecording, sendAudio } from '@/lib/utils/micService';
-	import { generateSpeech } from '@/lib/utils/ttsService';
+	import { generateSpeech, buildSpeechParams } from '@/lib/utils/ttsService';
 	import { splitTextIntoChunks } from '@/lib/utils/splitText';
 	import {
 		chatCompletions,
@@ -17,6 +17,18 @@
 		ensureAudioContext,
 		closeAudioContext
 	} from '@/lib/audioContextManager';
+	import {
+		createAnalyserNode,
+		teardownSource,
+		teardownAnalyser,
+		decodeBlob
+	} from '@/lib/audioNodeHelpers';
+	import {
+		drawWaveform as drawWaveformShared,
+		drawGeneratingWave as drawGeneratingWaveShared,
+		drawIdleLine as drawIdleLineShared,
+		type WaveformDrawConfig
+	} from '@/lib/canvasWaveform';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
@@ -57,11 +69,15 @@
 
 	const amplitudeScale = 0.1;
 	const wavelengthScale = 300;
-	const SINE_FILL_ALPHA = 0.24;
-	const WAVE_STROKE_WIDTH = 4;
-	const SPLINE_SAMPLE_STEP = 0.1;
-	const SPLINE_SAMPLE_COUNT = Math.round(1 / SPLINE_SAMPLE_STEP);
-	const MAX_WAVE_AMPLITUDE_PX = 10;
+
+	const waveDrawConfig: WaveformDrawConfig = {
+		splineSampleStep: 0.1,
+		amplitudeScale,
+		maxWaveAmplitudePx: 10,
+		wavelengthScale,
+		sineFillAlpha: 0.24,
+		strokeWidth: 4
+	};
 
 	function generateId(): string {
 		return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -277,24 +293,12 @@
 			try {
 				const voiceRef = ttsState.getVoiceRef();
 				const res = await generateSpeech(
-					{
-						text: chunks[i],
-						ref_audio: voiceRef.refAudioFilename,
-						ref_text: voiceRef.refText,
-						num_step: ttsState.config.numStep,
-						denoise: ttsState.config.denoise,
-						guidance_scale: ttsState.config.guidanceScale,
-						t_shift: ttsState.config.tShift,
-						position_temperature: ttsState.config.positionTemperature,
-						class_temperature: ttsState.config.classTemperature,
-						layer_penalty_factor: ttsState.config.layerPenaltyFactor,
-						duration: ttsState.config.duration,
-						speed: ttsState.config.speed,
-						preprocess_prompt: ttsState.config.preprocessPrompt,
-						postprocess_output: ttsState.config.postprocessOutput,
-						audio_chunk_duration: ttsState.config.audioChunkDuration,
-						audio_chunk_threshold: ttsState.config.audioChunkThreshold
-					},
+					buildSpeechParams(
+						ttsState.config,
+						chunks[i],
+						voiceRef.refAudioFilename,
+						voiceRef.refText
+					),
 					signal
 				);
 				if (signal?.aborted) break;
@@ -339,17 +343,12 @@
 	async function playBlob(blob: Blob) {
 		await ensureAudioContext();
 		const ctx = getAudioContext();
-		const arrayBuffer = await blob.arrayBuffer();
-		const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+		const audioBuffer = await decodeBlob(blob, ctx);
 
 		const source = ctx.createBufferSource();
 		source.buffer = audioBuffer;
 
-		const analyser = ctx.createAnalyser();
-		analyser.fftSize = 1024;
-		analyser.smoothingTimeConstant = 0.8;
-		analyser.minDecibels = -90;
-		analyser.maxDecibels = -10;
+		const analyser = createAnalyserNode(ctx);
 
 		source.connect(analyser);
 		analyser.connect(ctx.destination);
@@ -359,7 +358,7 @@
 				if (currentSource === source) {
 					currentSource = null;
 					analyserNode = null;
-					cleanupAnalyser();
+					teardownAnalyser(analyser);
 				}
 				resolve();
 			};
@@ -381,29 +380,11 @@
 			resolve();
 		}
 		convGenDone = true;
-		if (currentSource) {
-			currentSource.onended = null;
-			try {
-				currentSource.stop();
-			} catch {
-				// ignore
-			}
-			currentSource.disconnect();
-			currentSource = null;
-		}
-		cleanupAnalyser();
+		teardownSource(currentSource);
+		currentSource = null;
+		teardownAnalyser(analyserNode);
+		analyserNode = null;
 		status = 'idle';
-	}
-
-	function cleanupAnalyser() {
-		if (analyserNode) {
-			try {
-				analyserNode.disconnect();
-			} catch {
-				// ignore
-			}
-			analyserNode = null;
-		}
 	}
 
 	function handleExit() {
@@ -424,169 +405,23 @@
 		onExit();
 	}
 
-	function catmullRomSpline(p0: number, p1: number, p2: number, p3: number, t: number): number {
-		const t2 = t * t;
-		const t3 = t2 * t;
-		return (
-			0.5 *
-			(2 * p1 +
-				(-p0 + p2) * t +
-				(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-				(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-		);
+	function waveColor(): string {
+		return viewState.primaryColorAlpha(config.strokeAlpha);
 	}
 
-	function resizeCanvas(ctx: CanvasRenderingContext2D, width: number, height: number) {
-		const pixelRatio = window.devicePixelRatio || 1;
-		const scaledWidth = Math.floor(width * pixelRatio);
-		const scaledHeight = Math.floor(height * pixelRatio);
-
-		if (canvas!.width !== scaledWidth || canvas!.height !== scaledHeight) {
-			canvas!.width = scaledWidth;
-			canvas!.height = scaledHeight;
-			ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-		}
-	}
-
-	function drawWaveform(analyser: AnalyserNode) {
+	function drawLocalWaveform(analyser: AnalyserNode) {
 		if (!canvas) return;
-
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		resizeCanvas(ctx, width, height);
-
-		const bufferLength = analyser.frequencyBinCount;
-		const dataArray = new Uint8Array(bufferLength);
-		analyser.getByteTimeDomainData(dataArray);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * wavelengthScale));
-		const points: number[] = [];
-
-		for (let i = 0; i < bufferLength; i += sampleStep) {
-			const value = dataArray[i];
-			const normalized = (value / 255 - 0.5) * height * amplitudeScale;
-			const y = height / 2 - normalized;
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const t = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, t);
-					const x = (i + t) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawWaveformShared(canvas, analyser, waveColor(), waveDrawConfig);
 	}
 
-	function drawGeneratingWave() {
+	function drawLocalGeneratingWave() {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		const t = performance.now() / 1000;
-		const amplitude = Math.min(height * config.amplitude, MAX_WAVE_AMPLITUDE_PX);
-		const pointCount = config.pointCount;
-		const phaseSpeed = config.baseSpeed;
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const points: number[] = [];
-		for (let i = 0; i < pointCount; i += 1) {
-			const u = pointCount === 1 ? 0 : i / (pointCount - 1);
-			let y = height / 2;
-			for (const h of config.harmonics) {
-				y +=
-					amplitude *
-					h.amplitudeRatio *
-					Math.sin(2 * Math.PI * h.cycles * u - t * phaseSpeed * h.speedRatio);
-			}
-			points.push(y);
-		}
-
-		const path = new Path2D();
-		const pixelStep = width / (points.length - 1);
-
-		if (points.length >= 2) {
-			path.moveTo(0, points[0]);
-			for (let i = 0; i < points.length - 1; i += 1) {
-				const p0 = points[i - 1] ?? points[0];
-				const p1 = points[i];
-				const p2 = points[i + 1];
-				const p3 = points[i + 2] ?? points[points.length - 1];
-
-				for (let j = 1; j <= SPLINE_SAMPLE_COUNT; j += 1) {
-					const tt = j * SPLINE_SAMPLE_STEP;
-					const y = catmullRomSpline(p0, p1, p2, p3, tt);
-					const x = (i + tt) * pixelStep;
-					path.lineTo(x, y);
-				}
-			}
-		}
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawGeneratingWaveShared(canvas, waveColor(), config, waveDrawConfig);
 	}
 
-	function drawIdleLine() {
+	function drawLocalIdleLine() {
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		const width = canvas.clientWidth;
-		const height = canvas.clientHeight;
-		if (width === 0 || height === 0) return;
-
-		resizeCanvas(ctx, width, height);
-
-		ctx.clearRect(0, 0, width, height);
-		ctx.fillStyle = `rgba(0, 0, 0, ${SINE_FILL_ALPHA})`;
-		ctx.fillRect(0, 0, width, height);
-
-		const path = new Path2D();
-		path.moveTo(0, height / 2);
-		path.lineTo(width, height / 2);
-
-		ctx.strokeStyle = viewState.primaryColorAlpha(config.strokeAlpha);
-		ctx.lineWidth = WAVE_STROKE_WIDTH;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.stroke(path);
+		drawIdleLineShared(canvas, waveColor(), waveDrawConfig);
 	}
 
 	function startAnimation() {
@@ -594,14 +429,13 @@
 
 		const step = () => {
 			if (analyserNode && status === 'speaking') {
-				drawWaveform(analyserNode);
+				drawLocalWaveform(analyserNode);
 			} else if (micAnalyserNode && status === 'recording') {
-				drawWaveform(micAnalyserNode);
+				drawLocalWaveform(micAnalyserNode);
 			} else if (status === 'transcribing' || status === 'thinking') {
-				drawGeneratingWave();
-				//drawIdleLine();
+				drawLocalGeneratingWave();
 			} else {
-				drawIdleLine();
+				drawLocalIdleLine();
 			}
 			animationFrame = requestAnimationFrame(step);
 		};

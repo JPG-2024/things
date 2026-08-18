@@ -16,6 +16,11 @@ export function navigate(route: string, options?: { replaceState?: boolean }) {
 	return goto(route, { replaceState: options?.replaceState ?? false });
 }
 
+export function stripQueryParams(url: string): string {
+	const idx = url.indexOf('?');
+	return idx >= 0 ? url.substring(0, idx) : url;
+}
+
 export function getRouteForDomain(domainUrl: string): string {
 	// Ensure the domainUrl has a protocol for URL parsing
 	const urlObj =

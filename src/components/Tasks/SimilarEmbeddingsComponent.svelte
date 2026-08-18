@@ -71,6 +71,9 @@
 				maxDistance,
 				excludeArticleUrl: articleUrl ?? undefined
 			});
+
+			console.log(results);
+
 			void loadSimilarThumbnails(results);
 			hasSearched = true;
 		} catch (err) {

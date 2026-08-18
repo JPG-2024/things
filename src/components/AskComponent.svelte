@@ -124,12 +124,12 @@
 		streamedText = '';
 		retrievedChunks = [];
 
-		const embeddingTable =
+		const embeddingTableRaw =
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()
 				: 'topics';
+		const tables = embeddingTableRaw.split(',').map((t) => t.trim()).filter(Boolean);
 
-		console.log(embeddingTable);
 		const searchLimit =
 			typeof componentProps.searchLimit === 'number' && componentProps.searchLimit > 0
 				? componentProps.searchLimit
@@ -137,10 +137,16 @@
 
 		let searchContext = '';
 		if (searchEnabled) {
-			const searchResults = await searchRelevantChunks(trimmedPrompt, embeddingTable, searchLimit);
-			retrievedChunks = searchResults;
-			loadChunkThumbnails(searchResults);
-			searchContext = searchResults
+			const allResults: SearchChunkResult[] = [];
+			for (const table of tables) {
+				const results = await searchRelevantChunks(trimmedPrompt, table, searchLimit);
+				allResults.push(...results);
+			}
+			allResults.sort((a, b) => a.distance - b.distance);
+			const merged = allResults.slice(0, searchLimit);
+			retrievedChunks = merged;
+			loadChunkThumbnails(merged);
+			searchContext = merged
 				.map((r) => r.chunkText)
 				.filter(Boolean)
 				.join('\n\n');
