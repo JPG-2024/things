@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import {
 		fetchVoiceProfiles,
 		fetchVoiceChunks,
-		deleteVoiceChunk,
 		deleteVoiceProfile,
 		updateVoiceProfile,
 		getImage,
@@ -14,17 +12,15 @@
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
 	import Button from '../inputs/Button.component.svelte';
-	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Input from '../inputs/Input.component.svelte';
 	import LoadingLine from '@/components/LoadingLine.svelte';
-	import RangeSelector from '../inputs/RangeSelector.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import VoiceSelector from '@/components/VoiceSelector.svelte';
+	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
 
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
-	let hoveredVoiceName = $state<string | null>(null);
 
 	let voicesLoading = $state(false);
 
@@ -33,14 +29,24 @@
 	let localSegment = $state(ttsState.segment);
 	let localChunkCount = $state(ttsState.chunkCount);
 	let localConfig = $state<TTSConfig>({ ...ttsState.config });
-	let localMinGapMs = $state(ttsState.pauseSettings.minGapMs);
-	let localMaxGapMs = $state(ttsState.pauseSettings.maxGapMs);
-	let localBetweenParagraphs = $state(ttsState.pauseSettings.betweenParagraphs);
 	let localLanguage = $state(viewState.language);
 
 	let editNamePrefix = $state('');
 	let editImageSrc = $state('');
 	let editLoading = $state(false);
+
+	let wheelInitial = $derived<WheelSelection>({
+		profileId: selectedProfileId,
+		audioFile: localConfig.refAudioFilename,
+		randomChunk: localConfig.randomChunk,
+		synthParams: {
+			numStep: localConfig.numStep,
+			guidanceScale: localConfig.guidanceScale,
+			speed: localConfig.speed,
+			splitLevel: localConfig.splitLevel
+		},
+		pauseSettings: { ...ttsState.pauseSettings }
+	});
 
 	$effect(() => {
 		const profile = profiles.find((p) => p.id === selectedProfileId);
@@ -50,26 +56,6 @@
 		}
 	});
 
-	createHotkey(
-		'D',
-		async () => {
-			if (!hoveredVoiceName) return;
-			try {
-				await deleteVoiceChunk(hoveredVoiceName);
-				hoveredVoiceName = null;
-				await reloadChunks();
-			} catch (err) {
-				ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to delete voice chunk';
-			}
-		},
-		() => ({
-			enabled: hoveredVoiceName !== null,
-			ignoreInputs: true,
-			stopPropagation: true,
-			preventDefault: true
-		})
-	);
-
 	onMount(() => {
 		loadProfiles();
 	});
@@ -78,9 +64,6 @@
 		ttsState.segment = localSegment;
 		ttsState.chunkCount = localChunkCount;
 		ttsState.config = { ...localConfig };
-		ttsState.pauseSettings.minGapMs = localMinGapMs;
-		ttsState.pauseSettings.maxGapMs = localMaxGapMs;
-		ttsState.pauseSettings.betweenParagraphs = localBetweenParagraphs;
 		viewState.language = localLanguage;
 	});
 
@@ -147,42 +130,33 @@
 		}
 	}
 
-	function hashHue(input: string): number {
-		let hash = 5381;
-		for (let i = 0; i < input.length; i++) {
-			hash = (hash * 33) ^ input.charCodeAt(i);
+	async function handleWheelCommit(sel: WheelSelection) {
+		await selectProfile(sel.profileId);
+
+		localConfig.randomChunk = sel.randomChunk;
+		ttsState.config.randomChunk = sel.randomChunk;
+		localConfig.numStep = sel.synthParams.numStep;
+		ttsState.config.numStep = sel.synthParams.numStep;
+		localConfig.guidanceScale = sel.synthParams.guidanceScale;
+		ttsState.config.guidanceScale = sel.synthParams.guidanceScale;
+		localConfig.speed = sel.synthParams.speed;
+		ttsState.config.speed = sel.synthParams.speed;
+		localConfig.splitLevel = sel.synthParams.splitLevel;
+		ttsState.config.splitLevel = sel.synthParams.splitLevel;
+
+		ttsState.pauseSettings.minGapMs = sel.pauseSettings.minGapMs;
+		ttsState.pauseSettings.maxGapMs = sel.pauseSettings.maxGapMs;
+		ttsState.pauseSettings.betweenParagraphs = sel.pauseSettings.betweenParagraphs;
+
+		if (sel.audioFile && sel.audioFile !== chunks[0]?.audio_file) {
+			const picked = chunks.find((c) => c.audio_file === sel.audioFile);
+			if (picked) {
+				localConfig.refAudioFilename = picked.audio_file;
+				localConfig.refText = picked.text_reference;
+				ttsState.config.refAudioFilename = picked.audio_file;
+				ttsState.config.refText = picked.text_reference;
+			}
 		}
-		return Math.abs(hash) % 360;
-	}
-
-	function colorFor(id: string): string {
-		return `hsl(${hashHue(id)}, 60%, 50%)`;
-	}
-
-	function initialFor(label: string): string {
-		const trimmed = label.trim();
-		return trimmed.length ? trimmed[0].toUpperCase() : '?';
-	}
-
-	async function handleNamePrefixChange(id: string) {
-		await selectProfile(id);
-	}
-
-	function selectVoiceByIndex(index: number) {
-		const voice = chunks[index];
-
-		if (!voice) return;
-		handleVoiceChange(voice.audio_file);
-	}
-
-	function handleVoiceChange(audioFile: string) {
-		const chunk = chunks.find((c) => c.audio_file === audioFile);
-		if (!chunk) return;
-
-		localConfig.refAudioFilename = chunk.audio_file;
-		localConfig.refText = chunk.text_reference;
-		ttsState.config.refAudioFilename = chunk.audio_file;
-		ttsState.config.refText = chunk.text_reference;
 	}
 
 	async function handleDeleteProfile() {
@@ -251,232 +225,13 @@
 	{/if}
 
 	<Spacer title="voices" defaultOpen icon="Podcast">
-		<div class="voice-selector">
-			<div class="voice-grid">
-				{#each profiles as profile (profile.id)}
-					<button
-						type="button"
-						class="voice-grid-item"
-						class:selected={profile.id === selectedProfileId}
-						onclick={() => handleNamePrefixChange(profile.id)}
-					>
-						<div class="avatar-wrap">
-							{#if profile.image_src}
-								<img class="avatar" src={getImage(profile.image_src)} alt={profile.name_prefix} />
-							{:else}
-								<div class="avatar fallback" style="background: {colorFor(profile.id)}">
-									<span class="fallback-letter">{initialFor(profile.name_prefix)}</span>
-								</div>
-							{/if}
-						</div>
-						<span class="label">{profile.name_prefix}</span>
-					</button>
-				{/each}
-			</div>
-
-			<div class="profile-config">
-				<ToggleIcon name="Shuffle" bind:checked={localConfig.randomChunk} label="Random chunk" />
-			</div>
-
-			{#if !localConfig.randomChunk}
-				<div class="voice-buttons">
-					{#each chunks as voice, i (voice.name)}
-						<div class="button-container">
-							<Button onClick={() => selectVoiceByIndex(i)}>
-								<div
-									role="button"
-									class="voice-button"
-									tabindex={i}
-									onmouseenter={() => (hoveredVoiceName = voice.name)}
-								>
-									{i + 1}
-								</div>
-							</Button>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<Spacer size={25} />
-	</Spacer>
-
-	<Spacer title="synthetize params" icon="SlidersHorizontal">
-		<RangeSelector
-			id="numStep"
-			label="Num Steps"
-			value={localConfig.numStep}
-			min={1}
-			max={64}
-			step={1}
-			format={(v) => v.toString()}
-			onChange={(v) => (localConfig.numStep = v)}
+		<VoiceSelector
+			{profiles}
+			{chunks}
+			selection={wheelInitial}
+			onChange={handleWheelCommit}
+			onChunksChanged={reloadChunks}
 		/>
-
-		<RangeSelector
-			id="guidanceScale"
-			label="Guidance Scale"
-			value={localConfig.guidanceScale}
-			min={0}
-			max={5}
-			step={0.5}
-			format={(v) => v.toFixed(1)}
-			onChange={(v) => (localConfig.guidanceScale = v)}
-		/>
-
-		<RangeSelector
-			id="speed"
-			label="Speed"
-			value={localConfig.speed}
-			min={0.25}
-			max={2}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.speed = v)}
-		/>
-
-		<Dropdown
-			label="Chunk split level"
-			options={[
-				{ label: 'Coarse (paragraphs only)', value: '0' },
-				{ label: 'Default (paragraphs + sentences)', value: '1' },
-				{ label: 'Medium (+ clauses)', value: '2' },
-				{ label: 'Fine (+ soft breaks)', value: '3' }
-			]}
-			value={String(localConfig.splitLevel)}
-			onChange={(v) => (localConfig.splitLevel = Number(v) as 0 | 1 | 2 | 3)}
-		/>
-
-		<RangeSelector
-			id="minGapMs"
-			label="Min gap between sentences (s)"
-			value={localMinGapMs}
-			min={0}
-			max={1}
-			step={0.01}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localMinGapMs = v)}
-		/>
-
-		<RangeSelector
-			id="maxGapMs"
-			label="Max gap between sentences (s)"
-			value={localMaxGapMs}
-			min={0}
-			max={1}
-			step={0.01}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localMaxGapMs = v)}
-		/>
-
-		<RangeSelector
-			id="betweenParagraphs"
-			label="Pause between paragraphs (s)"
-			value={localBetweenParagraphs}
-			min={0}
-			max={2}
-			step={0.01}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localBetweenParagraphs = v)}
-		/>
-
-		<!-- 		<RangeSelector
-			id="tShift"
-			label="T Shift"
-			value={localConfig.tShift ?? 0}
-			min={0}
-			max={2}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.tShift = v)}
-		/>
-
-		<RangeSelector
-			id="positionTemperature"
-			label="Position Temperature"
-			value={localConfig.positionTemperature ?? 0}
-			min={0}
-			max={2}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.positionTemperature = v)}
-		/>
-
-		<RangeSelector
-			id="classTemperature"
-			label="Class Temperature"
-			value={localConfig.classTemperature ?? 0}
-			min={0}
-			max={2}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.classTemperature = v)}
-		/>
-
-		<RangeSelector
-			id="layerPenaltyFactor"
-			label="Layer Penalty Factor"
-			value={localConfig.layerPenaltyFactor ?? 0}
-			min={0}
-			max={2}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.layerPenaltyFactor = v)}
-		/>
-
-		<RangeSelector
-			id="duration"
-			label="Duration"
-			value={localConfig.duration ?? 0}
-			min={0}
-			max={60}
-			step={1}
-			format={(v) => `${v.toFixed(0)}s`}
-			onChange={(v) => (localConfig.duration = v)}
-		/>
-
-		<RangeSelector
-			id="audioChunkDuration"
-			label="Audio Chunk Duration"
-			value={localConfig.audioChunkDuration ?? 0}
-			min={0}
-			max={30}
-			step={0.5}
-			format={(v) => `${v.toFixed(1)}s`}
-			onChange={(v) => (localConfig.audioChunkDuration = v)}
-		/>
-
-		<RangeSelector
-			id="audioChunkThreshold"
-			label="Audio Chunk Threshold"
-			value={localConfig.audioChunkThreshold ?? 0}
-			min={1.05}
-			max={5}
-			step={0.05}
-			format={(v) => v.toFixed(2)}
-			onChange={(v) => (localConfig.audioChunkThreshold = v)}
-		/>
-
-		<Checkbox
-			id="denoise"
-			label="Denoise"
-			checked={localConfig.denoise}
-			onChange={(v) => (localConfig.denoise = v)}
-		/>
-
-		<Checkbox
-			id="preprocessPrompt"
-			label="Preprocess Prompt"
-			checked={localConfig.preprocessPrompt}
-			onChange={(v) => (localConfig.preprocessPrompt = v)}
-		/>
-
-		<Checkbox
-			id="postprocessOutput"
-			label="Postprocess Output"
-			checked={localConfig.postprocessOutput}
-			onChange={(v) => (localConfig.postprocessOutput = v)}
-		/> -->
 	</Spacer>
 
 	<Spacer title="edit Voice" icon="UserRoundPen">
@@ -485,7 +240,7 @@
 			{#if editImageSrc}
 				<img class="image-preview" src={getImage(editImageSrc)} alt="profile preview" />
 			{:else}
-				<div class="image-preview image-preview-empty" />
+				<div class="image-preview image-preview-empty"></div>
 			{/if}
 			<Input
 				id="editImageSrc"
@@ -526,7 +281,7 @@
 			{#if ttsState.imageSrc}
 				<img class="image-preview" src={ttsState.imageSrc} alt="voice preview" />
 			{:else}
-				<div class="image-preview image-preview-empty" />
+				<div class="image-preview image-preview-empty"></div>
 			{/if}
 			<Input
 				id="imageSrc"
@@ -596,90 +351,6 @@
 		gap: 1rem;
 	}
 
-	.voice-selector {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
-		height: fit-content;
-	}
-
-	.voice-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-		gap: 1rem;
-		max-height: 300px;
-		overflow-y: auto;
-		padding-right: 0.5rem;
-	}
-
-	.voice-grid-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.5rem;
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		border-radius: 12px;
-		transition: transform 0.15s ease;
-		color: inherit;
-	}
-
-	.voice-grid-item:hover {
-		transform: translateY(-2px);
-	}
-
-	.voice-grid-item.selected .avatar-wrap {
-		outline: 2px solid var(--primary-color);
-		outline-offset: 2px;
-		box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 25%, transparent);
-	}
-
-	.avatar-wrap {
-		width: 64px;
-		height: 64px;
-		border-radius: 999px;
-		overflow: hidden;
-	}
-
-	.avatar {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.fallback {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		font-weight: bold;
-		font-size: 1.5rem;
-	}
-
-	.label {
-		font-size: 0.75rem;
-		text-align: center;
-		opacity: 0.85;
-		max-width: 80px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.voice-grid-item.selected .label {
-		opacity: 1;
-		font-weight: bold;
-	}
-
-	.voice-buttons {
-		display: flex;
-		gap: 0.25rem;
-		flex: 1;
-	}
-
 	.image-preview-row {
 		display: flex;
 		gap: 0.75rem;
@@ -697,11 +368,6 @@
 	.image-preview-empty {
 		background: rgba(154, 154, 154, 0.12);
 		border: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.profile-config {
-		display: flex;
-		gap: 0.5rem;
 	}
 
 	.delete-profile-btn {

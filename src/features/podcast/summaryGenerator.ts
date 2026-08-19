@@ -1,4 +1,10 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import {
+	topicSummarySystemPrompt,
+	topicSummaryUserPrompt,
+	chunkSummarySystemPrompt,
+	chunkSummaryUserPrompt
+} from './prompts';
 
 const SUMMARY_CAP = 8000;
 
@@ -14,11 +20,11 @@ export async function generateTopicSummary(
 			messages: [
 				{
 					role: 'system',
-					content: `You are a research assistant preparing briefing notes for a podcast. Given the source content and a specific topic, write a concise factual summary of the source material that is relevant to the topic. Include key facts, figures, context, and viewpoints the hosts can reference. Keep it focused and under 400 words. Respond with plain text only, no headings or markdown.`
+					content: topicSummarySystemPrompt()
 				},
 				{
 					role: 'user',
-					content: `Topic: ${topic}\n\nSource content:\n${capped}`
+					content: topicSummaryUserPrompt(topic, capped)
 				}
 			],
 			stream: false,
@@ -32,22 +38,17 @@ export async function generateTopicSummary(
 	return text.trim();
 }
 
-const CHUNK_SUMMARY_CAP = 8000;
-
 export async function generateChunkSummary(content: string, signal?: AbortSignal): Promise<string> {
-	/* 	const capped =
-		content.length > CHUNK_SUMMARY_CAP ? content.slice(0, CHUNK_SUMMARY_CAP) + '…' : content; */
-
 	const response = await chatCompletions(
 		{
 			messages: [
 				{
 					role: 'system',
-					content: `You are preparing topic labels for a podcast. Given a segment of source material, summary that captures its main subject. Respond with plain text only, no headings or markdown. Maximum 10 words.`
+					content: chunkSummarySystemPrompt()
 				},
 				{
 					role: 'user',
-					content: `Source segment:\n${content}. maximum 10 words.`
+					content: chunkSummaryUserPrompt(content)
 				}
 			],
 			stream: false,

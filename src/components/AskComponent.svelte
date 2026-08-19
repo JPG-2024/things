@@ -128,7 +128,10 @@
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()
 				: 'topics';
-		const tables = embeddingTableRaw.split(',').map((t) => t.trim()).filter(Boolean);
+		const tables = embeddingTableRaw
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
 
 		const searchLimit =
 			typeof componentProps.searchLimit === 'number' && componentProps.searchLimit > 0

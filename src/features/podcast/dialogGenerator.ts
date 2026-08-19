@@ -1,4 +1,20 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import {
+	formatTranscript,
+	referenceMaterialBlock,
+	introTopicBlock,
+	newChunkAnnouncementBlock,
+	guidedForcedQuestionBlock,
+	topicConclusionBlock,
+	singularRules,
+	hookSystemPrompt,
+	interviewModeSystemPrompt,
+	smalltalkModeSystemPrompt,
+	initialHookUserMessage,
+	finalHookUserMessage,
+	openingConversationUserMessage,
+	transcriptUserMessage
+} from './prompts';
 
 export interface DialogExchange {
 	speaker: 'A' | 'B';
@@ -24,31 +40,15 @@ export interface GenerateExchangeParams {
 	customSystemPrompt?: string;
 }
 
-const CONTEXT_CAP = 6000;
-
-function capContext(context: string): string {
-	if (context.length <= CONTEXT_CAP) return context;
-	return context.slice(0, CONTEXT_CAP) + '…';
-}
-
-function defaultHookPrompt(kind: 'initial' | 'final'): string {
-	if (kind === 'final') {
-		return `You are closing a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).
-Rules:
-- Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Warmly wrap up the episode, thank the audience, and hint at what comes next. Do not introduce new topics.
-- Do not ask any questions. Deliver a statement, never a question.`;
-	}
-	return `You are opening a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).
-Rules:
-- Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Welcome the audience and set expectations for the episode. Do not ask a question yet.`;
-}
-
+/**
+ * Constructs the system message for the LLM based on the current conversation state.
+ *
+ * Builds role-specific instructions for interview, guided, or smalltalk modes,
+ * including context blocks, intro/outro hooks, and singular-speaking rules.
+ *
+ * @param params - The generation parameters including topic, mode, speaker, and context.
+ * @returns The formatted system message string.
+ */
 function buildSystemMessage(params: GenerateExchangeParams): string {
 	const {
 		topic,
@@ -68,91 +68,86 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 	const otherName = speaker === 'A' ? hostBName : hostAName;
 
 	if (hookKind) {
-		const base = (customSystemPrompt?.trim() || defaultHookPrompt(hookKind))
+		const base = (customSystemPrompt?.trim() || hookSystemPrompt(hookKind))
 			.replace('__NAME__', currentName)
 			.replace('__SPEAKER__', speaker);
 		return base + '\n- Do not ask any questions. Deliver a statement, never a question.';
 	}
 
-	const contextBlock = context
-		? `\n\nReference material:\n${capContext(context)}\n\nUse this material to ground your response. Draw specific facts or ideas from it, but stay conversational.`
-		: '';
+	const contextBlock = referenceMaterialBlock(context);
 
-	const introBlock = isFirstInteractionOfTopic
-		? `\n\nThis is the opening exchange of a new topic: "${topic}". Open by briefly introducing the topic with a natural phrase like "Now let's talk about ${topic}" as part of your spoken line, then continue the conversation. Keep the introduction to 1-2 short sentences and do not use labels or stage directions. avoid questions.`
-		: '';
+	const introBlock = isFirstInteractionOfTopic ? introTopicBlock(topic) : '';
 
 	const newChunkBlock =
-		mode === 'guided' && speaker === 'A' && isNewChunkAfterFirst
-			? `\n\nbriefly announce the new topic or section in 1 sentence, drawing it from the reference material above. Do not use labels or stage directions.`
-			: '';
+		mode === 'guided' && speaker === 'A' && isNewChunkAfterFirst ? newChunkAnnouncementBlock() : '';
 
 	const forcedQuestionBlock =
-		mode === 'guided' && speaker === 'A' && question
-			? `\n\nYou must pose this specific question to your co-host (you may rephrase it naturally but keep its meaning): "${question}". Ground your lead-in in the reference material, then ask the question.`
-			: '';
+		mode === 'guided' && speaker === 'A' && question ? guidedForcedQuestionBlock(question) : '';
 
-	const conclusionBlock = isLastInteractionOfTopic
-		? `\n\nThis is the final exchange of this topic. Do NOT ask a question and do NOT introduce new information or answers. Briefly summarize the key points discussed in this topic and end with a short, concise conclusion. Keep it to 2-3 sentences. Ignore any earlier instructions to ask questions or provide answers.`
-		: '';
+	const conclusionBlock = isLastInteractionOfTopic ? topicConclusionBlock() : '';
 
-	const singularRules = `
-- Speak in singular form: address only your co-host directly, never "you all", "we", "everyone", or "guys". Avoid plural audience references.
-- Optionally, you may naturally address the other host by name once in a while (e.g., "What do you think, ${otherName}?") to make it feel like a real two-person conversation, but do not overdo it.`;
+	const sRules = singularRules(otherName);
 
 	if (mode === 'interview' || mode === 'guided') {
-		const role =
-			speaker === 'A'
-				? 'the interviewer who asks insightful questions'
-				: 'the expert who provides informative answers';
-		return `You are hosting a podcast interview about "${topic}".
-You are ${currentName} (Host ${speaker}), ${role}.
-The other host is ${otherName} (Host ${speaker === 'A' ? 'B' : 'A'}).
-Rules:
-- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural.
-- If you are the interviewer, ask a focused question. If you are the expert, give a clear, engaging answer.
-- Build on what the other host just said.${singularRules}${contextBlock}${introBlock}${newChunkBlock}${forcedQuestionBlock}${conclusionBlock}`;
+		return interviewModeSystemPrompt(topic, currentName, speaker, otherName, {
+			singularRules: sRules,
+			contextBlock,
+			introBlock,
+			newChunkBlock,
+			forcedQuestionBlock,
+			conclusionBlock
+		});
 	}
 
-	return `You are hosting a casual podcast discussion about "${topic}".
-You are ${currentName} (Host ${speaker}). The other host is ${otherName}.
-Rules:
-- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural, like two friends chatting.
-- Build on what the other host said.
-- End your turn with a question, thought, or prompt for the other host.
-- Keep it energetic and engaging.${singularRules}${contextBlock}${introBlock}${conclusionBlock}`;
+	return smalltalkModeSystemPrompt(topic, currentName, speaker, otherName, {
+		singularRules: sRules,
+		contextBlock,
+		introBlock,
+		conclusionBlock
+	});
 }
 
+/**
+ * Constructs the user message with conversation history for the LLM.
+ *
+ * Includes the full transcript of previous exchanges and instructions
+ * for the current turn, including any forced question to answer.
+ *
+ * @param params - The generation parameters with previous exchanges and speaker info.
+ * @returns The formatted user message string.
+ */
 function buildUserMessage(params: GenerateExchangeParams): string {
 	const { previousExchanges, question, speaker, hookKind } = params;
 
 	if (hookKind === 'initial') {
-		return 'Deliver your opening intro for the podcast episode.';
+		return initialHookUserMessage();
 	}
 
 	if (hookKind === 'final') {
-		return 'Deliver your closing remarks to wrap up the podcast episode.';
+		return finalHookUserMessage();
 	}
 
 	if (previousExchanges.length === 0) {
-		return 'Start the conversation with your opening line.';
+		return openingConversationUserMessage();
 	}
 
-	const transcript = previousExchanges.map((e) => `Host ${e.speaker}: ${e.text}`).join('\n');
+	const transcript = formatTranscript(previousExchanges);
 
-	let base = `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
-
-	if (question && speaker === 'B') {
-		base += `\n\nThe interviewer asked this exact question — answer it directly:\n"${question}"`;
-	}
-
-	return base;
+	return transcriptUserMessage(transcript, question, speaker);
 }
 
+/**
+ * Strips formatting artifacts from raw LLM output.
+ *
+ * Removes code fences, surrounding quotes, and host name prefixes
+ * to extract the clean spoken dialogue text.
+ *
+ * @param raw - The raw response string from the LLM.
+ * @param speaker - The speaker identifier ('A' or 'B').
+ * @param hostAName - The display name of Host A.
+ * @param hostBName - The display name of Host B.
+ * @returns The cleaned dialogue text without labels or formatting.
+ */
 function cleanExchangeText(
 	raw: string,
 	speaker: 'A' | 'B',
@@ -194,6 +189,16 @@ function cleanExchangeText(
 	return text;
 }
 
+/**
+ * Generates a single dialog exchange by calling the LLM.
+ *
+ * Builds system and user messages, sends them to the chat completions API,
+ * and returns a cleaned DialogExchange with the speaker's line.
+ *
+ * @param params - The generation parameters including topic, mode, speaker, and history.
+ * @returns A DialogExchange with the speaker identifier and cleaned text.
+ * @throws {Error} If the generated exchange text is empty.
+ */
 export async function generateExchange(params: GenerateExchangeParams): Promise<DialogExchange> {
 	const { speaker, hostAName, hostBName, signal } = params;
 
@@ -204,7 +209,7 @@ export async function generateExchange(params: GenerateExchangeParams): Promise<
 				{ role: 'user', content: buildUserMessage(params) }
 			],
 			stream: false,
-			temperature: 0.8
+			temperature: 0.2
 		},
 		{ signal }
 	);

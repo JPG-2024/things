@@ -1,4 +1,10 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import {
+	extractTopicsSystemPrompt,
+	extractTopicsUserPrompt,
+	freeTopicsSystemPrompt,
+	freeTopicsUserPrompt
+} from './prompts';
 
 export async function extractTopics(
 	content: string,
@@ -10,11 +16,11 @@ export async function extractTopics(
 			messages: [
 				{
 					role: 'system',
-					content: `You are a content analyst. Extract exactly ${count} distinct discussion topics from the provided content. Topics should be specific enough for a brief podcast discussion. Each topic should be a concise phrase (5-10 words). Return only valid JSON matching the schema.`
+					content: extractTopicsSystemPrompt(count)
 				},
 				{
 					role: 'user',
-					content: `Content:\n${content}\n\nExtract exactly ${count} topics.`
+					content: extractTopicsUserPrompt(content, count)
 				}
 			],
 			response_format: {
@@ -57,11 +63,11 @@ export async function generateFreeTopics(count: number, signal?: AbortSignal): P
 			messages: [
 				{
 					role: 'system',
-					content: `You are a creative podcast producer. Suggest exactly ${count} interesting, specific discussion topics for a podcast episode. Each topic should be a concise phrase (5-10 words). Return only valid JSON matching the schema.`
+					content: freeTopicsSystemPrompt(count)
 				},
 				{
 					role: 'user',
-					content: `Suggest exactly ${count} interesting podcast topics.`
+					content: freeTopicsUserPrompt(count)
 				}
 			],
 			response_format: {

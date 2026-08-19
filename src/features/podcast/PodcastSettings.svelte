@@ -123,10 +123,7 @@
 		{#each podcastState.hookSlots as slot}
 			<div class="hook-row">
 				<label class="hook-toggle">
-					<input
-						type="checkbox"
-						bind:checked={podcastState.config.hooks[slot].enabled}
-					/>
+					<input type="checkbox" bind:checked={podcastState.config.hooks[slot].enabled} />
 					<span>{slot === 'initial' ? 'Opening hook' : 'Closing hook'}</span>
 				</label>
 				{#if podcastState.config.hooks[slot].enabled}

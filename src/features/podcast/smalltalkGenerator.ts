@@ -1,18 +1,10 @@
-import type {
-	DialogExchange,
-	Segment,
-	TurnPlan,
-	TurnPrompts,
-	TurnPromptBuildInput,
-	PodcastPromptContext
-} from './types';
-
-const CONTEXT_CAP = 6000;
-
-function capContext(context: string): string {
-	if (context.length <= CONTEXT_CAP) return context;
-	return context.slice(0, CONTEXT_CAP) + '…';
-}
+import type { Segment, TurnPlan, TurnPrompts, TurnPromptBuildInput } from './types';
+import {
+	formatTranscript,
+	smalltalkHookSystemPrompt,
+	smalltalkCasualSystemPrompt,
+	smalltalkUserPrompt
+} from './prompts';
 
 export function planSmalltalkTopic(
 	segment: Segment,
@@ -31,52 +23,52 @@ export function planSmalltalkTopic(
 	return plans;
 }
 
+/**
+ * Constructs the system prompt for the LLM based on the current turn role.
+ *
+ * @param role - The type of turn: 'hook' or 'casual'.
+ * @param ctx - The podcast prompt context with host names and context text.
+ * @returns The formatted system prompt string.
+ */
 function buildSystemPrompt(
 	role: 'hook' | 'casual',
-	segment: Segment,
-	ctx: PodcastPromptContext
+	ctx: { hostAName: string; hostBName: string; contextText?: string; hookSummary?: string }
 ): string {
 	if (role === 'hook') {
-		const contextBlock = ctx.hookSummary ? `\n\nSegment overview:\n${ctx.hookSummary}` : '';
-		return `You are hosting a casual podcast.
-You are ${ctx.hostAName} (Host A). The other host is ${ctx.hostBName} (Host B).
-Rules:
-- Respond with ONLY the spoken line for ${ctx.hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- This is the HOOK for a new topic. Open casually in 1-2 short sentences, like a friend inviting your co-host to chat. Do not ask a question; that comes next.${contextBlock}`;
+		return smalltalkHookSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.hookSummary);
 	}
-
-	const contextBlock = ctx.contextText
-		? `\n\nReference material (you may draw on it lightly, but stay casual):\n${capContext(ctx.contextText)}`
-		: '';
-
-	return `You are hosting a casual podcast.
-You are one of the hosts (Host A is ${ctx.hostAName}, Host B is ${ctx.hostBName}).
-Rules:
-- Respond with ONLY your spoken line. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural, like two friends chatting.
-- Build on what the other host just said.
-- End your turn with a question, thought, or prompt for the other host to keep the conversation flowing.
-- Keep it energetic and engaging.${contextBlock}`;
+	return smalltalkCasualSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.contextText);
 }
 
-function buildUserPrompt(role: 'hook' | 'casual', previousExchanges: DialogExchange[]): string {
-	if (previousExchanges.length === 0) {
-		if (role === 'hook') return 'Deliver your hook introducing the new topic.';
-		return 'Open the conversation with your opening line.';
-	}
-	const transcript = previousExchanges.map((e) => `Host ${e.speaker}: ${e.text}`).join('\n');
-	if (role === 'hook') {
-		return `Previous conversation:\n${transcript}\n\nDeliver your hook introducing the next topic.`;
-	}
-	return `Previous conversation:\n${transcript}\n\nContinue the conversation briefly and naturally.`;
+/**
+ * Constructs the user prompt with conversation history for the LLM.
+ *
+ * @param role - The current turn role: 'hook' or 'casual'.
+ * @param previousExchanges - Array of prior dialog exchanges for context.
+ * @returns The formatted user prompt string.
+ */
+function buildUserPrompt(
+	role: 'hook' | 'casual',
+	previousExchanges: { speaker: string; text: string }[]
+): string {
+	const transcript = previousExchanges.length > 0 ? formatTranscript(previousExchanges) : undefined;
+	return smalltalkUserPrompt(role, transcript);
 }
 
+/**
+ * Main entry point for building smalltalk prompts.
+ *
+ * Combines system and user prompts for the current turn based on the plan,
+ * context, and conversation history.
+ *
+ * @param input - The turn prompt build input containing plan, segment, context, and history.
+ * @returns Object with systemPrompt and userPrompt strings.
+ */
 export function buildSmalltalkPrompts(input: TurnPromptBuildInput): TurnPrompts {
-	const { plan, ctx, previousExchanges, segment } = input;
+	const { plan, ctx, previousExchanges } = input;
 	const role = plan.role as 'hook' | 'casual';
 	return {
-		systemPrompt: buildSystemPrompt(role, segment, ctx),
+		systemPrompt: buildSystemPrompt(role, ctx),
 		userPrompt: buildUserPrompt(role, previousExchanges)
 	};
 }

@@ -1,19 +1,23 @@
-import type {
-	DialogExchange,
-	Segment,
-	TurnPlan,
-	TurnPrompts,
-	TurnPromptBuildInput,
-	PodcastPromptContext
-} from './types';
+import type { Segment, TurnPlan, TurnPrompts, TurnPromptBuildInput } from './types';
+import {
+	formatTranscript,
+	interviewHookSystemPrompt,
+	interviewQuestionSystemPrompt,
+	interviewAnswerSystemPrompt,
+	interviewUserPrompt
+} from './prompts';
 
-const CONTEXT_CAP = 6000;
-
-function capContext(context: string): string {
-	if (context.length <= CONTEXT_CAP) return context;
-	return context.slice(0, CONTEXT_CAP) + '…';
-}
-
+/**
+ * Builds a turn plan array for an interview segment.
+ *
+ * Generates a sequence of hook, question, and answer turns based on the segment's
+ * questions and the configured interaction count.
+ *
+ * @param segment - The segment containing topic and questions.
+ * @param hookEnabled - Whether to include an opening hook turn.
+ * @param fallbackInteractions - Default number of Q&A pairs when segment has no questions.
+ * @returns Array of TurnPlan objects describing each turn's role and speaker.
+ */
 export function planInterviewTopic(
 	segment: Segment,
 	hookEnabled: boolean,
@@ -37,81 +41,64 @@ export function planInterviewTopic(
 	return plans;
 }
 
-function singularRules(otherName: string): string {
-	return `
-- Speak in singular form: address only your co-host directly, never "you all", "we", "everyone", or "guys". Avoid plural audience references.
-- Optionally, you may naturally address the other host by name once in a while (e.g., "What do you think, ${otherName}?") to make it feel like a real two-person conversation, but do not overdo it.`;
-}
-
+/**
+ * Constructs the system prompt for the LLM based on the current turn role.
+ *
+ * @param role - The type of turn: 'hook', 'question', or 'answer'.
+ * @param plan - The turn plan containing role and optional question.
+ * @param ctx - The podcast prompt context with host names and context text.
+ * @returns The formatted system prompt string.
+ */
 function buildSystemPrompt(
 	role: 'hook' | 'question' | 'answer',
 	plan: TurnPlan,
-	segment: Segment,
-	ctx: PodcastPromptContext
+	ctx: { hostAName: string; hostBName: string; contextText?: string; hookSummary?: string }
 ): string {
 	if (role === 'hook') {
-		const contextBlock = ctx.hookSummary
-			? `\n\nSegment overview (use to ground the introduction):\n${ctx.hookSummary}`
-			: '';
-		return `You are hosting a podcast interview.
-You are ${ctx.hostAName} (Host A), the interviewer. Your co-host is ${ctx.hostBName} (Host B).
-Rules:
-- Respond with ONLY the spoken line for ${ctx.hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- This is the HOOK turn for a brand-new topic. Briefly introduce the topic in 1-2 short sentences, conversational and inviting, without quoting the segment overview verbatim.
-- Do not ask a question in this turn; the interviewer's first question follows in the next turn.${singularRules(ctx.hostBName)}${contextBlock}`;
+		return interviewHookSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.hookSummary);
 	}
 
 	if (role === 'question') {
-		const forced =
-			plan.question !== undefined
-				? `\n\nYou must pose this specific question to your co-host (you may rephrase it naturally but keep its meaning): "${plan.question}".`
-				: '';
-		const contextBlock = ctx.contextText
-			? `\n\nReference material (ground your question in it; do not quote verbatim):\n${capContext(ctx.contextText)}`
-			: '';
-		return `You are hosting a podcast interview.
-You are ${ctx.hostAName} (Host A), the interviewer. Your co-host is ${ctx.hostBName} (Host B), the expert.
-Rules:
-- Respond with ONLY the spoken line for ${ctx.hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Ask a focused, insightful question that advances the discussion.${singularRules(ctx.hostBName)}${contextBlock}${forced}
-- Always end with the question.
-`;
+		return interviewQuestionSystemPrompt(
+			ctx.hostAName,
+			ctx.hostBName,
+			ctx.contextText,
+			plan.question
+		);
 	}
 
-	const contextBlock = ctx.contextText
-		? `\n\nReference material (draw specific facts from it, but stay conversational):\n${capContext(ctx.contextText)}`
-		: '';
-
-	return `You are hosting a podcast interview.
-You are ${ctx.hostBName} (Host B), the expert. Your co-host is ${ctx.hostAName} (Host A), the interviewer.
-Rules:
-- Respond with ONLY the spoken line for ${ctx.hostBName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Answer the interviewer's most recent question with a clear, engaging reply grounded in the reference material.${singularRules(ctx.hostAName)}${contextBlock}`;
+	return interviewAnswerSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.contextText);
 }
 
+/**
+ * Constructs the user prompt with conversation history for the LLM.
+ *
+ * @param role - The current turn role: 'hook', 'question', or 'answer'.
+ * @param previousExchanges - Array of prior dialog exchanges for context.
+ * @returns The formatted user prompt string with transcript and turn instruction.
+ */
 function buildUserPrompt(
 	role: 'hook' | 'question' | 'answer',
-	previousExchanges: DialogExchange[]
+	previousExchanges: { speaker: string; text: string }[]
 ): string {
-	if (previousExchanges.length === 0) {
-		if (role === 'hook') return 'Deliver your hook introducing the new topic.';
-		if (role === 'question') return 'Open with your first interview question.';
-		return 'Open with your first answer.';
-	}
-	const transcript = previousExchanges.map((e) => `Host ${e.speaker}: ${e.text}`).join('\n');
-	if (role === 'hook') {
-		return `Previous conversation:\n${transcript}\n\nDeliver your hook introducing the next topic.`;
-	}
-	return `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
+	const transcript = previousExchanges.length > 0 ? formatTranscript(previousExchanges) : undefined;
+	return interviewUserPrompt(role, transcript);
 }
 
+/**
+ * Main entry point for building interview prompts.
+ *
+ * Combines system and user prompts for the current turn based on the plan,
+ * context, and conversation history.
+ *
+ * @param input - The turn prompt build input containing plan, segment, context, and history.
+ * @returns Object with systemPrompt and userPrompt strings.
+ */
 export function buildInterviewPrompts(input: TurnPromptBuildInput): TurnPrompts {
-	const { plan, ctx, previousExchanges, segment } = input;
+	const { plan, ctx, previousExchanges } = input;
 	const role = plan.role as 'hook' | 'question' | 'answer';
 	return {
-		systemPrompt: buildSystemPrompt(role, plan, segment, ctx),
+		systemPrompt: buildSystemPrompt(role, plan, ctx),
 		userPrompt: buildUserPrompt(role, previousExchanges)
 	};
 }

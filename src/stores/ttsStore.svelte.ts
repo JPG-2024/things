@@ -55,9 +55,9 @@ class TTSState {
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
-		refAudioFilename: '920d866c-fdc3-4e22-ab7a-838ef0d3fc7b_1.mp3',
+		refAudioFilename: '042dee8a-d68d-4419-941b-eff42003d10e_0.mp3',
 		refText:
-			'Vas a ver los ejercicios que hago, las series, las repeticiones, los kilos que levanto y lo más importante, como ajusto a la intensidad para poder recuperarme y entrenar de forma inteligente.  Hola chicas y chicos, bienvenidos a un nuevo vídeo del canal.',
+			' Tenemos una novedad de un laboratorio de inteligencia artificial japonés llamado Sakana,  que acaba de lanzar algo conocido como Sakan…',
 		numStep: 16,
 		denoise: true,
 		guidanceScale: 2.0,
@@ -107,7 +107,7 @@ class TTSState {
 
 	videoUrl = $state('');
 	segment = $state('00:00-01:00');
-	namePrefix = $state('jessica_martin');
+	namePrefix = $state('@ia_innova');
 	chunkCount = $state(1);
 	imageSrc = $state('');
 	addVoiceStatus = $state<'' | 'downloading' | 'transcribing' | 'chunking' | 'done' | 'error'>('');

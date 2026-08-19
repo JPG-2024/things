@@ -265,6 +265,7 @@ export async function generateSpeech(
 	},
 	signal?: AbortSignal
 ): Promise<{ blob: Blob; durationSeconds: number | null }> {
+	console.log(params);
 	try {
 		const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
 			method: 'POST',

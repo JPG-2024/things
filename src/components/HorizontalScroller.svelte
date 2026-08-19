@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { colorFor, initialFor } from '@/lib/utils/avatar';
+
 	interface ScrollerItem {
 		id: string;
 		label: string;
@@ -26,23 +28,6 @@
 		showIndex = false,
 		fullWidth = true
 	}: Props = $props();
-
-	function hashHue(input: string): number {
-		let hash = 5381;
-		for (let i = 0; i < input.length; i++) {
-			hash = (hash * 33) ^ input.charCodeAt(i);
-		}
-		return Math.abs(hash) % 360;
-	}
-
-	function colorFor(id: string): string {
-		return `hsl(${hashHue(id)}, 60%, 50%)`;
-	}
-
-	function initialFor(label: string): string {
-		const trimmed = label.trim();
-		return trimmed.length ? trimmed[0].toUpperCase() : '?';
-	}
 
 	function handleClick(id: string) {
 		selectedId = id;
