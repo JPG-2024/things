@@ -7,8 +7,8 @@
 	import TTSPlayer from '@/components/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
-	import PodcastMode from '@/components/PodcastMode.svelte';
-	import PodcastSettings from '@/components/PodcastSettings.svelte';
+	import PodcastMode from '@/features/podcast/PodcastMode.svelte';
+	import PodcastSettings from '@/features/podcast/PodcastSettings.svelte';
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 

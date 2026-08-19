@@ -31,3 +31,32 @@ export async function generateTopicSummary(
 	const text = typeof rawContent === 'string' ? rawContent : '';
 	return text.trim();
 }
+
+const CHUNK_SUMMARY_CAP = 8000;
+
+export async function generateChunkSummary(content: string, signal?: AbortSignal): Promise<string> {
+	/* 	const capped =
+		content.length > CHUNK_SUMMARY_CAP ? content.slice(0, CHUNK_SUMMARY_CAP) + '…' : content; */
+
+	const response = await chatCompletions(
+		{
+			messages: [
+				{
+					role: 'system',
+					content: `You are preparing topic labels for a podcast. Given a segment of source material, summary that captures its main subject. Respond with plain text only, no headings or markdown. Maximum 10 words.`
+				},
+				{
+					role: 'user',
+					content: `Source segment:\n${content}. maximum 10 words.`
+				}
+			],
+			stream: false,
+			temperature: 0.3
+		},
+		{ signal }
+	);
+
+	const rawContent = response.choices?.[0]?.message?.content;
+	const text = typeof rawContent === 'string' ? rawContent : '';
+	return text.trim();
+}

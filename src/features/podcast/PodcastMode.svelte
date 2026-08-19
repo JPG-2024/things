@@ -3,7 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { onMount, onDestroy } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import { podcastState } from '@/stores/podcastStore.svelte';
+	import { podcastState } from '@/features/podcast/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import { getImage } from '@/lib/utils/ttsService';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -239,8 +239,8 @@
 	{#if hasContent && podcastState.currentTopic}
 		<div class="current-topic-bar">
 			<span class="topic-index"
-				>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'} {podcastState.currentTopicIndex +
-					1}/{podcastState.topics.length}</span
+				>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'}
+				{podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
 			>
 			<span class="topic-text">{podcastState.currentTopic}</span>
 		</div>

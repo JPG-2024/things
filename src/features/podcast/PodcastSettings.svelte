@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { podcastState } from '@/stores/podcastStore.svelte';
+	import { podcastState } from '@/features/podcast/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import { getImage } from '@/lib/utils/ttsService';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
@@ -116,6 +116,31 @@
 				None
 			</button>
 		</div>
+	</div>
+
+	<div class="section">
+		<div class="section-label">Episode hooks (Host A)</div>
+		{#each podcastState.hookSlots as slot}
+			<div class="hook-row">
+				<label class="hook-toggle">
+					<input
+						type="checkbox"
+						bind:checked={podcastState.config.hooks[slot].enabled}
+					/>
+					<span>{slot === 'initial' ? 'Opening hook' : 'Closing hook'}</span>
+				</label>
+				{#if podcastState.config.hooks[slot].enabled}
+					<textarea
+						class="hook-prompt"
+						rows="4"
+						value={podcastState.config.hooks[slot].prompts[podcastState.config.mode]}
+						oninput={(e) =>
+							(podcastState.config.hooks[slot].prompts[podcastState.config.mode] =
+								e.currentTarget.value)}
+					></textarea>
+				{/if}
+			</div>
+		{/each}
 	</div>
 
 	{#if podcastState.config.mode !== 'guided'}
@@ -271,6 +296,39 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+	}
+
+	.hook-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.hook-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.85rem;
+		color: rgba(255, 255, 255, 0.75);
+		cursor: pointer;
+	}
+
+	.hook-toggle input {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--primary-color);
+	}
+
+	.hook-prompt {
+		width: 100%;
+		resize: vertical;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.04);
+		color: rgba(255, 255, 255, 0.85);
+		padding: 0.6rem;
+		font-size: 0.8rem;
+		font-family: inherit;
 	}
 
 	.mode-toggle {
