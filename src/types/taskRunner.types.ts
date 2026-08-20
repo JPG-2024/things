@@ -129,6 +129,7 @@ export interface IaTask<
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
+	directResult?(runtime: TaskRuntime<TMap, TId>): TParsed | Promise<TParsed> | null;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;
 	resultParser?: (
 		text: string,

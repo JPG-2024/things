@@ -52,6 +52,10 @@
 		viewState.selectedCategories = viewState.selectedCategories.filter((c) => c !== id);
 	}
 
+	function clearSelectedCategories() {
+		viewState.selectedCategories = [];
+	}
+
 	$effect(() => {
 		loadCategories();
 	});
@@ -82,6 +86,15 @@
 			onClick={() => (isEditing = !isEditing)}
 			style="opacity: {isEditing ? 1 : 0.5}"
 		/>
+		{#if viewState.selectedCategories.length > 0}
+			<Icon
+				name="X"
+				size={16}
+				color="var(--primary-color)"
+				onClick={clearSelectedCategories}
+				style="opacity: 0.5"
+			/>
+		{/if}
 	</div>
 	<div class="category-list">
 		{#each viewState.categories as category (category.id)}

@@ -463,7 +463,12 @@ export function createCategoryTask(
 		completionOptions: completionOpts
 	});
 
-	return { ...def, categoryNames: providedNames };
+	return {
+		...def,
+		categoryNames: providedNames,
+		directResult: () =>
+			viewState.selectedCategories.length > 0 ? viewState.selectedCategories : null
+	};
 }
 
 export function buildTask(def: IaTaskDef, id: string): Task {

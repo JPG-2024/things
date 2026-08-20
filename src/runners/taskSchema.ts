@@ -60,6 +60,9 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 	baseUrl?: string;
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
+	directResult?: (
+		ctx: TaskRunContext<TContext, Record<string, unknown>>
+	) => TParsed | Promise<TParsed> | null;
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
 	resultParser?: (
 		text: string,
@@ -214,6 +217,20 @@ export function buildIaTask<
 			baseUrl: def.baseUrl,
 			extractorConfig: def.extractorConfig,
 			categoryNames: def.categoryNames,
+			directResult: def.directResult
+				? (runtime: TaskRuntime<TMap, TId>) =>
+						def.directResult!({
+							runId: runtime.runId,
+							taskId: runtime.taskId,
+							state: runtime.state,
+							context,
+							update: runtime.update,
+							enqueueTasks: runtime.enqueueTasks as (
+								tasks: Task<TaskMapBase>[],
+								options?: { restart?: boolean }
+							) => void
+						})
+				: undefined,
 			component: def.component,
 			componentProps,
 			gridSpan: def.gridSpan,

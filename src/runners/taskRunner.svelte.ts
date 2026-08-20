@@ -415,6 +415,17 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	private async runIaTask(task: IaTask<TMap>, options?: TaskRunOptions): Promise<void> {
 		const runtime = this.runtimeFor(task.id);
 
+		if (task.directResult) {
+			const direct = await task.directResult(runtime);
+			if (direct !== null && direct !== undefined) {
+				this.setTaskFields(task.id, { data: direct as TMap[keyof TMap & string] });
+				if (task.onComplete) {
+					await task.onComplete?.({ result: direct, runResult: '', state: runtime.state });
+				}
+				return;
+			}
+		}
+
 		let runResult: string;
 		if (task.run) {
 			const raw = await task.run(runtime);
