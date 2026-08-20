@@ -8,6 +8,15 @@ export const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
 	seed: 42
 } as const;
 
+export const DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS = {
+	temperature: 0.2,
+	top_p: 0.9,
+	max_tokens: 64,
+	frequency_penalty: 0,
+	presence_penalty: 0,
+	stop: ['\n', '. ']
+} satisfies Record<string, unknown>;
+
 export const SUMMARY_COMPLETION_OPTIONS = {
 	temperature: 0.2,
 	top_k: 40,

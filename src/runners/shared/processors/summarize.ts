@@ -28,7 +28,7 @@ export const summarizeProcessor: ProcessorDef = {
 				]
 			});
 			const text = res.choices?.[0]?.message?.content ?? '';
-			return typeof text === 'string' ? text.trim() : '';
+			return [typeof text === 'string' ? text.trim() : ''];
 		},
 		combineChunks: async (results) => {
 			if (config.combineMode && config.combineMode !== 'llm') {

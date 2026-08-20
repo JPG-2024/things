@@ -76,25 +76,6 @@ function normalizeQuestions(data: unknown): string[] {
 			.map((q) => q.trim())
 			.filter(Boolean);
 	}
-	if (typeof data === 'string') {
-		const trimmed = data.trim();
-		if (!trimmed) return [];
-		try {
-			const parsed = JSON.parse(trimmed);
-			if (Array.isArray(parsed)) {
-				return parsed
-					.filter((q): q is string => typeof q === 'string')
-					.map((q) => q.trim())
-					.filter(Boolean);
-			}
-		} catch {
-			// fall through
-		}
-		return trimmed
-			.split(/\r?\n/)
-			.map((q) => q.trim())
-			.filter(Boolean);
-	}
 	return [];
 }
 

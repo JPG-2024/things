@@ -16,7 +16,7 @@ export interface ChunkProcessorConfig {
 }
 
 export interface ChunkProcessor {
-	processChunk: (chunk: string, index: number) => Promise<string>;
+	processChunk: (chunk: string, index: number) => Promise<string[]>;
 	combineChunks: (results: string[], rawChunks: string[]) => Promise<string | string[]>;
 }
 

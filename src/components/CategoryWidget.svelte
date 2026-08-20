@@ -57,7 +57,6 @@
 	}
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
-		console.log(article);
 		if (!article.url) return;
 		viewState.currentProfileId = categoryId;
 		await urlRouter(article.url);

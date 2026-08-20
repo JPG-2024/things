@@ -50,7 +50,7 @@ function isChunkEntry(entry: unknown): entry is RecursiveChunkEntry {
 
 function isRecursiveData(
 	data: unknown
-): data is { chunks: Array<{ key: ChunkOffset; data: string }> } {
+): data is { chunks: Array<{ key: ChunkOffset; data: string[] }> } {
 	if (!data || typeof data !== 'object') return false;
 	const record = data as Record<string, unknown>;
 	const chunks = record.chunks;
@@ -58,7 +58,7 @@ function isRecursiveData(
 	return chunks.every((entry) => {
 		if (!isChunkEntry(entry)) return false;
 		const e = entry as RecursiveChunkEntry;
-		return typeof e.data === 'string' && e.key && typeof e.key === 'object';
+		return Array.isArray(e.data) && e.key && typeof e.key === 'object';
 	});
 }
 
@@ -91,27 +91,36 @@ export async function generateEmbeddingsFromTasks(
 			const { chunks } = data;
 			if (chunks.length === 0) continue;
 
-			const texts = chunks.map((c) => c.data);
+			const flatTexts: string[] = [];
+			const textChunkMap: number[] = [];
+			for (let ci = 0; ci < chunks.length; ci++) {
+				for (const item of chunks[ci].data) {
+					flatTexts.push(item);
+					textChunkMap.push(ci);
+				}
+			}
+			if (flatTexts.length === 0) continue;
 
 			let response;
 			try {
-				response = await createEmbeddings({ model: options.model, input: texts });
+				response = await createEmbeddings({ model: options.model, input: flatTexts });
 			} catch (error) {
 				console.error(`[embeddings] failed to embed task "${task.id}" for table "${table}"`, error);
 				continue;
 			}
 
 			const ordered = [...response.data].sort((a, b) => a.index - b.index);
-			const inputs: ChunkInput[] = chunks.map((entry, i) => {
-				const embedding = ordered[i]?.embedding ?? [];
-				const offset = entry.key ?? {};
+			const inputs: ChunkInput[] = ordered.map((entry, i) => {
+				const chunkIndex = textChunkMap[i];
+				const chunk = chunks[chunkIndex];
+				const offset = chunk.key ?? {};
 				return {
 					articleUrl,
-					embedding,
+					embedding: entry.embedding,
 					startOffset: offset.startOffset,
 					endOffset: offset.endOffset,
 					modelName: options.model,
-					modelDimensions: embedding.length,
+					modelDimensions: entry.embedding.length,
 					profileId: options.profileId,
 					category: options.category
 				};
@@ -163,10 +172,10 @@ export function extractQueryChunks(data: unknown): string[] {
 		if (Array.isArray(chunks)) {
 			return chunks
 				.filter(
-					(entry): entry is { key: ChunkOffset; data: string } =>
-						isChunkEntry(entry) && typeof (entry as RecursiveChunkEntry).data === 'string'
+					(entry): entry is { key: ChunkOffset; data: string[] } =>
+						isChunkEntry(entry) && Array.isArray((entry as RecursiveChunkEntry).data)
 				)
-				.map((entry) => entry.data);
+				.flatMap((entry) => (entry as RecursiveChunkEntry).data as string[]);
 		}
 	}
 	return [];
@@ -198,6 +207,8 @@ export async function findSimilarChunks(
 		category,
 		maxQueryChunks = 20
 	} = options;
+
+	console.log(options);
 
 	if (queryChunks.length === 0) return [];
 	const capped = queryChunks.slice(0, maxQueryChunks);

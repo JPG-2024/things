@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
+import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
@@ -112,6 +113,7 @@ export type WebStoreProfileSummary = {
 export type WebStoreCategoryRecord = {
 	id: string;
 	name: string;
+	description?: string | null;
 	lastModified: number;
 	deletedAt: number | null;
 };
@@ -119,6 +121,7 @@ export type WebStoreCategoryRecord = {
 export type UpsertWebStoreCategoryInput = {
 	id: string;
 	name: string;
+	description?: string | null;
 };
 
 export type ProfileCategoryInput = {
@@ -676,7 +679,8 @@ export async function deleteArticleByUrl(url: string): Promise<{ success: boolea
 
 		await Promise.all([
 			invoke('delete_web_store_article_by_url', { url }),
-			invoke('delete_web_store_tasks_by_url', { url })
+			invoke('delete_web_store_tasks_by_url', { url }),
+			deleteArticleEmbeddings(url).catch(() => false)
 		]);
 
 		return { success: true };

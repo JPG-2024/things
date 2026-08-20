@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
-	import { generateEmojiForText } from '@/runners/shared/sharedTasks';
+	import type { WebStoreCategoryRecord } from '@/stores/webStore';
+	import { generateCategoryDescription, generateEmojiForText } from '@/runners/shared/sharedTasks';
 	import Icon from './Icon.svelte';
+	import Tooltip from './Tooltip.svelte';
 
 	let newCategoryName = $state('');
 	let isEditing = $state(false);
@@ -11,17 +13,27 @@
 		viewState.categories = await getCategories();
 	}
 
-	async function addCategory(name: string) {
+	async function addCategory(name: string, description?: string) {
 		const trimmed = name.trim();
 		if (!trimmed) return;
 		const id = trimmed.toLowerCase().replace(/\s+/g, '-');
-		await saveCategory({ id, name: trimmed });
+		await saveCategory({ id, name: trimmed, description });
 		await loadCategories();
 	}
 
 	async function removeCategory(id: string) {
 		pruneCategory(id);
 		await deleteCategory(id);
+		await loadCategories();
+	}
+
+	async function saveCategoryDescription(category: WebStoreCategoryRecord) {
+		let description = category.description?.trim() ?? '';
+		if (!description) {
+			description = await generateCategoryDescription(category.name);
+			category.description = description;
+		}
+		await saveCategory({ id: category.id, name: category.name, description });
 		await loadCategories();
 	}
 
@@ -49,7 +61,8 @@
 		if (!trimmed) return;
 		const emoji = await generateEmojiForText(trimmed);
 		const name = emoji ? `${emoji} ${trimmed}` : trimmed;
-		await addCategory(name);
+		const description = await generateCategoryDescription(trimmed);
+		await addCategory(name, description);
 		newCategoryName = '';
 	}
 
@@ -73,15 +86,17 @@
 	<div class="category-list">
 		{#each viewState.categories as category (category.id)}
 			<span class="category-pill">
-				<button
-					type="button"
-					class="pill tag"
-					class:pill--active={isSelected(category.id)}
-					disabled={isEditing}
-					onclick={() => toggleCategory(category.id)}
-				>
-					{category.name}
-				</button>
+				<Tooltip content={category.description ?? ''}>
+					<button
+						type="button"
+						class="pill tag"
+						class:pill--active={isSelected(category.id)}
+						disabled={isEditing}
+						onclick={() => toggleCategory(category.id)}
+					>
+						{category.name}
+					</button>
+				</Tooltip>
 				{#if isEditing}
 					<button
 						class="remove-btn"
@@ -100,6 +115,22 @@
 		{/if}
 	</div>
 	{#if isEditing}
+		{#each viewState.categories as category (category.id)}
+			<div class="category-edit">
+				<input
+					autocomplete="off"
+					type="text"
+					bind:value={category.description}
+					onblur={() => saveCategoryDescription(category)}
+					onkeydown={(event) => {
+						if (event.key === 'Enter') saveCategoryDescription(category);
+					}}
+					placeholder="Description (auto if empty)"
+					class="add-input"
+				/>
+				<span class="category-edit-name">{category.name}</span>
+			</div>
+		{/each}
 		<div class="add-form">
 			<input
 				autocomplete="one-time-code"
@@ -215,6 +246,20 @@
 	.add-form {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.category-edit {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.category-edit-name {
+		color: var(--primary-color);
+		font-size: 0.8rem;
+		opacity: 0.7;
+		text-transform: capitalize;
+		white-space: nowrap;
 	}
 
 	.add-input {

@@ -28,8 +28,8 @@
 
 	const layouts = [
 		{ width: 200, columns: 5, padding: '1.2rem' },
-		{ width: 350, columns: 3, padding: '1.5rem' },
-		{ width: 500, columns: 2, padding: '2rem' }
+		{ width: 400, columns: 3, padding: '1.5rem' },
+		{ width: 480, columns: 2, padding: '2rem' }
 	];
 
 	let currentLayout = $derived(layouts[layoutIndex]);
@@ -82,6 +82,7 @@
 
 	$effect(() => {
 		articles;
+		currentLayout;
 		tick().then(() => {
 			resizeAll();
 		});
@@ -99,7 +100,6 @@
 		style:grid-template-columns={`repeat(${currentLayout.columns}, 1fr)`}
 		style:gap={currentLayout.padding}
 		style:padding-bottom={currentLayout.padding}
-		style:--content-width={`${currentLayout.width}px`}
 	>
 		{#each articles as article, i (article.url)}
 			<div class="article-wrapper" bind:this={wrapperEls[i]}>

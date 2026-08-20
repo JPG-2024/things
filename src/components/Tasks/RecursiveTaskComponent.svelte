@@ -53,7 +53,7 @@
 	const chunkEntries = $derived<ChunkEntry[]>(
 		chunks.map((chunk, i) => ({
 			id: i,
-			summary: chunk.data
+			summary: chunk.data.join('\n')
 		}))
 	);
 </script>
@@ -74,7 +74,7 @@
 			<SimilarEmbeddingsComponent
 				id={task.id}
 				data={task.data}
-				enabled={task.embeddings === true}
+				manual={task.embeddings === true}
 				maxDistance={0.3}
 			/>
 		{/if}

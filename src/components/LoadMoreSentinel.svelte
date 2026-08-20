@@ -28,6 +28,12 @@
 		observer.observe(sentinel);
 	});
 
+	$effect(() => {
+		if (!sentinel || !observer || disabled) return;
+		observer.unobserve(sentinel);
+		observer.observe(sentinel);
+	});
+
 	onDestroy(() => {
 		observer?.disconnect();
 	});

@@ -1,18 +1,13 @@
 <script lang="ts">
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
-	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import {
 		chatCompletions,
 		type LlamaChatCompletionsRequest
 	} from '@/lib/utils/inference/chat-completions-provider';
-	import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
-	import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
-	import { searchChunks, type SearchChunkResult } from '@/lib/utils/embeddingStore';
-	import { goto } from '$app/navigation';
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { getArticleWithTasksByUrl } from '@/stores/webStore';
+	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
@@ -26,6 +21,7 @@
 		placeholder?: string;
 		embeddingTable?: string;
 		searchLimit?: number;
+		maxDistance?: number;
 	};
 
 	type Props = {
@@ -51,48 +47,38 @@
 	const DEFAULT_TEMPERATURE = 0.2;
 	const DEFAULT_TOP_P = 0.9;
 
+	type SimilarEmbeddingsHandle = {
+		run: (query?: string) => Promise<SearchChunkResult[]>;
+	};
+
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let streamedText = $state('');
-	let retrievedChunks = $state<SearchChunkResult[]>([]);
-	let searchEnabled = $state(true);
-	let chunkThumbnails = $state<Record<string, string | null>>({});
+	let searchEnabled = $state(false);
+	let tableInstances: SimilarEmbeddingsHandle[] = [];
 
-	async function loadChunkThumbnails(chunks: SearchChunkResult[]) {
-		const urls = [...new Set(chunks.map((c) => c.articleUrl))];
-		const entries = await Promise.all(
-			urls.map(async (url) => {
-				const article = await getArticleWithTasksByUrl(url);
-				return [url, article?.thumbnailSrc ?? null] as const;
-			})
-		);
-		chunkThumbnails = Object.fromEntries(entries);
-	}
+	const tables = $derived.by(() => {
+		const raw =
+			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
+				? componentProps.embeddingTable.trim()
+				: 'topics';
+		return raw
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
+	});
 
-	async function navigateToArticle(url: string, profileId?: string) {
-		if (profileId) viewState.currentProfileId = profileId;
-		urlRouter(url);
-		if (url.startsWith('raw-')) goto(`/raw/${url}`);
-		else goto(`/youtube/${encodeURIComponent(url)}`);
-	}
+	const searchLimit = $derived(
+		typeof componentProps.searchLimit === 'number' && componentProps.searchLimit > 0
+			? componentProps.searchLimit
+			: 5
+	);
 
-	async function searchRelevantChunks(
-		prompt: string,
-		table: string,
-		limit: number
-	): Promise<SearchChunkResult[]> {
-		try {
-			const embeddingResponse = await createEmbeddings({
-				model: EMBEDDING_MODEL,
-				input: prompt
-			});
-			const embedding = embeddingResponse.data[0]?.embedding;
-			if (!embedding) return [];
-			return await searchChunks({ table, embedding, limit });
-		} catch {
-			return [];
-		}
-	}
+	const maxDistance = $derived(
+		typeof componentProps.maxDistance === 'number' && Number.isFinite(componentProps.maxDistance)
+			? componentProps.maxDistance
+			: 0.32
+	);
 
 	function collectContext(content: Task['data']): string {
 		if (typeof content === 'string') return content.trim();
@@ -122,33 +108,15 @@
 		loading = true;
 		error = null;
 		streamedText = '';
-		retrievedChunks = [];
-
-		const embeddingTableRaw =
-			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
-				? componentProps.embeddingTable.trim()
-				: 'topics';
-		const tables = embeddingTableRaw
-			.split(',')
-			.map((t) => t.trim())
-			.filter(Boolean);
-
-		const searchLimit =
-			typeof componentProps.searchLimit === 'number' && componentProps.searchLimit > 0
-				? componentProps.searchLimit
-				: 5;
 
 		let searchContext = '';
 		if (searchEnabled) {
-			const allResults: SearchChunkResult[] = [];
-			for (const table of tables) {
-				const results = await searchRelevantChunks(trimmedPrompt, table, searchLimit);
-				allResults.push(...results);
-			}
+			const settled = await Promise.all(
+				tables.map((_, i) => tableInstances[i]?.run(trimmedPrompt) ?? Promise.resolve([]))
+			);
+			const allResults = settled.flat();
 			allResults.sort((a, b) => a.distance - b.distance);
 			const merged = allResults.slice(0, searchLimit);
-			retrievedChunks = merged;
-			loadChunkThumbnails(merged);
 			searchContext = merged
 				.map((r) => r.chunkText)
 				.filter(Boolean)
@@ -246,42 +214,19 @@
 		</div>
 	{/if}
 
-	{#if retrievedChunks.length > 0}
-		<ChunkList
-			title="Retrieved context ({retrievedChunks.length})"
-			defaultOpen
-			chunks={retrievedChunks.map(
-				(chunk): ChunkEntry => ({
-					id: chunk.id,
-					summary: chunk.chunkText,
-					thumbnail: chunkThumbnails[chunk.articleUrl] ?? undefined
-				})
-			)}
-			onItemOpen={(_, i) => {
-				const original = retrievedChunks[i];
-				navigateToArticle(original.articleUrl, original.profileId);
-			}}
-		>
-			{#snippet itemContent(chunk, i)}
-				{@const original = retrievedChunks[i]}
-				<div class="chunk-content">
-					<p class="chunk-text">{chunk.summary}</p>
-					<span
-						class="chunk-source"
-						role="button"
-						tabindex={0}
-						onclick={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							navigateToArticle(original.articleUrl, original.profileId);
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') navigateToArticle(original.articleUrl, original.profileId);
-						}}>{original.articleUrl}</span
-					>
-				</div>
-			{/snippet}
-		</ChunkList>
+	{#if searchEnabled}
+		{#each tables as table, i (table)}
+			<SimilarEmbeddingsComponent
+				id={table}
+				data={task.data}
+				enabled={false}
+				articleUrl={null}
+				limit={searchLimit}
+				maxResults={searchLimit}
+				{maxDistance}
+				bind:this={tableInstances[i]}
+			/>
+		{/each}
 	{/if}
 </div>
 
@@ -352,26 +297,5 @@
 		background: rgba(255, 255, 255, 0.05);
 		padding: 1rem;
 		border-radius: 10px;
-	}
-
-	.chunk-content {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-		padding: 0.25rem 0;
-	}
-
-	.chunk-text {
-		margin: 0;
-		font-size: 0.85rem;
-		line-height: 1.5;
-	}
-
-	.chunk-source {
-		font-size: 0.75rem;
-		opacity: 0.5;
-		word-break: break-all;
-		cursor: pointer;
-		text-decoration: underline;
 	}
 </style>

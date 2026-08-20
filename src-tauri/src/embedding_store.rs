@@ -398,6 +398,26 @@ pub async fn delete_chunks_by_article(app: AppHandle, table: String, article_url
 }
 
 #[tauri::command]
+pub async fn delete_article_embeddings(app: AppHandle, article_url: String) -> Result<bool, String> {
+	let path = embeddings_path(&app)?;
+	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;
+
+	let tables: Vec<String> = db
+		.table_names()
+		.execute()
+		.await
+		.map_err(|e: lancedb::Error| e.to_string())?;
+
+	let predicate = format!("article_url = '{}'", escape_sql_ident(&article_url));
+	for table in tables {
+		if let Ok(tbl) = db.open_table(&table).execute().await {
+			let _ = tbl.delete(&predicate).await;
+		}
+	}
+	Ok(true)
+}
+
+#[tauri::command]
 pub async fn delete_chunk(app: AppHandle, table: String, id: String) -> Result<bool, String> {
 	let path = embeddings_path(&app)?;
 	let db = connect(&path).execute().await.map_err(|e: lancedb::Error| e.to_string())?;

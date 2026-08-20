@@ -10,7 +10,7 @@ import {
 	createTitleTask
 } from '@/runners/shared/taskFactories';
 import type { Task } from '@/types/taskRunner.types';
-import { DEFAULT_EMOJI_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import { DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS, DEFAULT_EMOJI_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',
@@ -64,6 +64,30 @@ export async function generateEmojiForText(text: string): Promise<string> {
 		const rawContent = response.choices?.[0]?.message?.content ?? '';
 		const content = typeof rawContent === 'string' ? rawContent : '';
 		return parseEmojiResponse(content);
+	} catch {
+		return '';
+	}
+}
+
+export async function generateCategoryDescription(name: string): Promise<string> {
+	const trimmed = name.trim();
+	if (!trimmed) return '';
+	try {
+		const response = await chatCompletions({
+			model: viewState.aiModel,
+			...DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
+			stream: false,
+			messages: [
+				{
+					role: 'system',
+					content:
+						'Write a short one-sentence description for the given category name. Respond with only the description, no quotes, no prefixes.'
+				},
+				{ role: 'user', content: trimmed }
+			]
+		});
+		const rawContent = response.choices?.[0]?.message?.content ?? '';
+		return typeof rawContent === 'string' ? rawContent.trim() : '';
 	} catch {
 		return '';
 	}

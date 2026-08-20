@@ -83,6 +83,7 @@ pub struct ArticlesWithoutProfileResponse {
 pub struct WebStoreCategoryRecord {
     pub id: String,
     pub name: String,
+    pub description: Option<String>,
     pub last_modified: i64,
     pub deleted_at: Option<i64>,
 }
@@ -92,6 +93,7 @@ pub struct WebStoreCategoryRecord {
 pub struct UpsertWebStoreCategoryInput {
     pub id: String,
     pub name: String,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,6 +273,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_profile_url_column(conn)?;
     migrate_viewed_column(conn)?;
     migrate_date_column(conn)?;
+    migrate_category_description_column(conn)?;
 
     Ok(())
 }
@@ -359,6 +362,21 @@ fn migrate_date_column(conn:&Connection) -> Result<(), String> {
 
     if !has_date_column {
         conn.execute_batch("ALTER TABLE web_articles ADD COLUMN date TEXT")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_category_description_column(conn:&Connection) -> Result<(), String> {
+    let has_description_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_categories') WHERE name='description'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_description_column {
+        conn.execute_batch("ALTER TABLE web_categories ADD COLUMN description TEXT")
             .map_err(|error| error.to_string())?;
     }
 
@@ -1141,7 +1159,7 @@ pub async fn list_web_store_categories(
     init_schema(&conn)?;
 
     let mut stmt = conn
-        .prepare("SELECT id, name, last_modified, deleted_at FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC")
+        .prepare("SELECT id, name, description, last_modified, deleted_at FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC")
         .map_err(|error| error.to_string())?;
 
     let category_iter = stmt
@@ -1149,8 +1167,9 @@ pub async fn list_web_store_categories(
             Ok(WebStoreCategoryRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                last_modified: row.get(2)?,
-                deleted_at: row.get(3)?,
+                description: row.get(2)?,
+                last_modified: row.get(3)?,
+                deleted_at: row.get(4)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -1166,18 +1185,20 @@ pub async fn list_web_store_categories(
 #[tauri::command]
 pub async fn upsert_web_store_category(
     app: AppHandle,
-    input: UpsertWebStoreCategoryInput,
+    mut input: UpsertWebStoreCategoryInput,
 ) -> Result<(), String> {
+    input.description = normalize_optional_string(input.description);
+
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
     let now = chrono_like_now();
 
     conn.execute(
-        "INSERT INTO web_categories (id, name, last_modified, deleted_at) 
-         VALUES (?1, ?2, ?3, NULL)
-         ON CONFLICT(id) DO UPDATE SET name = ?2, last_modified = ?3, deleted_at = NULL",
-        params![input.id, input.name, now],
+        "INSERT INTO web_categories (id, name, description, last_modified, deleted_at) 
+         VALUES (?1, ?2, ?4, ?3, NULL)
+         ON CONFLICT(id) DO UPDATE SET name = ?2, description = ?4, last_modified = ?3, deleted_at = NULL",
+        params![input.id, input.name, now, input.description],
     )
     .map_err(|error| error.to_string())?;
 
@@ -1298,7 +1319,7 @@ pub async fn list_categories_by_profile(
 
     let mut stmt = conn
         .prepare(
-            "SELECT c.id, c.name, c.last_modified, c.deleted_at 
+            "SELECT c.id, c.name, c.description, c.last_modified, c.deleted_at 
              FROM web_categories c
              INNER JOIN profile_category pc ON c.id = pc.category_id
              WHERE pc.profile_id = ?1 AND c.deleted_at IS NULL
@@ -1311,8 +1332,9 @@ pub async fn list_categories_by_profile(
             Ok(WebStoreCategoryRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                last_modified: row.get(2)?,
-                deleted_at: row.get(3)?,
+                description: row.get(2)?,
+                last_modified: row.get(3)?,
+                deleted_at: row.get(4)?,
             })
         })
         .map_err(|error| error.to_string())?;

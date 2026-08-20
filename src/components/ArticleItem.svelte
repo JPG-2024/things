@@ -87,6 +87,7 @@
 		box-sizing: border-box;
 		border-left: 1px solid rgba(var(--primary-color), 0.5);
 		min-height: 120px;
+		width: 100%;
 	}
 
 	.article-content {

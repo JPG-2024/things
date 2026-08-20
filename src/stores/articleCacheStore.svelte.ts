@@ -30,6 +30,9 @@ class ArticleCacheStore {
 	private articlesFetchId = 0;
 	private articlesProfileId: string | undefined = undefined;
 	private articlesDateFrom: string | undefined = undefined;
+	private articlesCategoryIds: string[] | undefined = undefined;
+	private articlesOnlyWithoutProfile: boolean | undefined = undefined;
+	private profilesCategoryIds: string[] | undefined = undefined;
 
 	async fetchProfilesWithArticles(options?: {
 		force?: boolean;
@@ -44,11 +47,14 @@ class ArticleCacheStore {
 		const fetchId = ++this.profilesFetchId;
 		this.loadingProfiles = true;
 		try {
+			if (!options?.loadMore) {
+				this.profilesCategoryIds = options?.categoryIds;
+			}
 			const offset = options?.loadMore ? this.profilesOffset : 0;
 			const result = await getArticlesWithProfiles(ARTICLE_COUNT_PER_PROFILE, {
 				offset,
 				limit: PROFILES_PAGE_SIZE,
-				categoryIds: options?.categoryIds
+				categoryIds: options?.loadMore ? this.profilesCategoryIds : options?.categoryIds
 			});
 
 			if (fetchId !== this.profilesFetchId) {
@@ -87,6 +93,8 @@ class ArticleCacheStore {
 		if (!options?.loadMore) {
 			this.articlesProfileId = options?.profileId;
 			this.articlesDateFrom = options?.dateFrom;
+			this.articlesCategoryIds = options?.categoryIds;
+			this.articlesOnlyWithoutProfile = options?.onlyWithoutProfile;
 		}
 
 		const fetchId = ++this.articlesFetchId;
@@ -94,10 +102,12 @@ class ArticleCacheStore {
 		try {
 			const offset = options?.loadMore ? this.articlesOffset : 0;
 			const result = await getArticlesWithoutProfile({
-				categoryIds: options?.categoryIds,
+				categoryIds: options?.loadMore ? this.articlesCategoryIds : options?.categoryIds,
 				offset,
 				limit: ARTICLES_PAGE_SIZE,
-				onlyWithoutProfile: options?.onlyWithoutProfile,
+				onlyWithoutProfile: options?.loadMore
+					? this.articlesOnlyWithoutProfile
+					: options?.onlyWithoutProfile,
 				profileId: options?.loadMore ? this.articlesProfileId : options?.profileId,
 				dateFrom: options?.loadMore ? this.articlesDateFrom : options?.dateFrom
 			});
@@ -142,6 +152,7 @@ class ArticleCacheStore {
 		this.articlesWithoutProfile = [];
 		this.hasMoreProfiles = true;
 		this.hasMoreArticles = true;
+		this.profilesCategoryIds = undefined;
 	}
 
 	invalidateProfiles() {
@@ -149,6 +160,7 @@ class ArticleCacheStore {
 		this.profilesOffset = 0;
 		this.profilesWithArticles = [];
 		this.hasMoreProfiles = true;
+		this.profilesCategoryIds = undefined;
 	}
 
 	invalidateArticles() {
@@ -159,6 +171,8 @@ class ArticleCacheStore {
 		this.hasMoreArticles = true;
 		this.articlesProfileId = undefined;
 		this.articlesDateFrom = undefined;
+		this.articlesCategoryIds = undefined;
+		this.articlesOnlyWithoutProfile = undefined;
 	}
 }
 

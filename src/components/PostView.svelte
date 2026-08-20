@@ -74,7 +74,6 @@
 	}
 
 	async function handleDelete() {
-		console.log('handleDelete');
 		if (!viewState.url || isDeleting) return;
 		try {
 			isDeleting = true;

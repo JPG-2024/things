@@ -10,8 +10,9 @@
 
 	type Props = {
 		id: string;
-		data: unknown;
-		enabled: boolean;
+		data?: unknown;
+		enabled?: boolean;
+		manual?: boolean;
 		articleUrl?: string | null;
 		model?: string;
 		limit?: number;
@@ -22,7 +23,8 @@
 	let {
 		id,
 		data,
-		enabled,
+		enabled = false,
+		manual = false,
 		articleUrl = viewState.url,
 		model,
 		limit = 5,
@@ -34,7 +36,6 @@
 	const hasQuery = $derived(queryChunks.length > 0);
 
 	let results = $state<SearchChunkResult[]>([]);
-	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let hasSearched = $state(false);
 	let similarThumbnails = $state<Record<string, string | null>>({});
@@ -57,14 +58,14 @@
 		else goto(`/youtube/${encodeURIComponent(url)}`);
 	}
 
-	async function runSearch() {
-		if (!hasQuery) return;
-		loading = true;
+	async function runSearch(overrideQuery?: string): Promise<SearchChunkResult[]> {
+		const chunks = overrideQuery ? [overrideQuery] : queryChunks;
+		if (chunks.length === 0) return [];
 		error = null;
 		try {
-			results = await findSimilarChunks({
+			const found = await findSimilarChunks({
 				table: id,
-				queryChunks,
+				queryChunks: chunks,
 				model,
 				limit,
 				maxResults,
@@ -72,21 +73,24 @@
 				excludeArticleUrl: articleUrl ?? undefined
 			});
 
-			console.log(results);
-
-			void loadSimilarThumbnails(results);
+			results = found;
+			void loadSimilarThumbnails(found);
 			hasSearched = true;
+			return found;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to search similar chunks';
 			results = [];
 			hasSearched = true;
-		} finally {
-			loading = false;
+			return [];
 		}
 	}
 
+	export function run(overrideQuery?: string): Promise<SearchChunkResult[]> {
+		return runSearch(overrideQuery);
+	}
+
 	$effect(() => {
-		if (enabled && hasQuery) {
+		if (!manual && enabled && hasQuery) {
 			void runSearch();
 		}
 	});
@@ -97,6 +101,18 @@
 </script>
 
 <div class="similar-embeddings">
+	{#if manual && !hasSearched}
+		<div class="manual-trigger">
+			<Icon
+				name="FileDigit"
+				size={16}
+				color="var(--primary-color)"
+				onClick={() => void runSearch()}
+				tooltipProps={{ content: 'retrieve similar' }}
+			/>
+		</div>
+	{/if}
+
 	<!-- 	<div class="similar-controls">
 		<button class="find-similar" onclick={runSearch} disabled={!hasQuery || loading}>
 			<Icon name="Search" size={12} color="var(--primary-color)" />
@@ -143,6 +159,11 @@
 <style>
 	.similar-embeddings {
 		margin-top: 0.5rem;
+	}
+
+	.manual-trigger {
+		display: inline-flex;
+		align-items: center;
 	}
 
 	.similar-controls {

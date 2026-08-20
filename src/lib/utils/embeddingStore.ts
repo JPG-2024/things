@@ -52,3 +52,7 @@ export async function deleteChunksByArticle(table: string, articleUrl: string): 
 export async function deleteChunk(table: string, id: string): Promise<boolean> {
 	return invoke('delete_chunk', { table, id });
 }
+
+export async function deleteArticleEmbeddings(articleUrl: string): Promise<boolean> {
+	return invoke('delete_article_embeddings', { articleUrl });
+}

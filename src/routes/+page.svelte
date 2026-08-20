@@ -319,7 +319,7 @@
 		</div>
 		<AskComponent
 			task={standaloneAskTask}
-			componentProps={{ placeholder: 'Ask the model...' }}
+			componentProps={{ placeholder: 'Ask the model...', embeddingTable: 'summary, questions' }}
 			bind:inputValue={askInputValue}
 		/>
 	</div>

@@ -29,7 +29,7 @@ pub use crate::web_store::{
 mod embedding_store;
 mod llama_server;
 pub use crate::embedding_store::{
-	delete_chunk, delete_chunks_by_article, index_chunks, search_similar_chunks,
+	delete_article_embeddings, delete_chunk, delete_chunks_by_article, index_chunks, search_similar_chunks,
 };
 pub use crate::llama_server::launch_llama_server;
 use crate::llama_server::{stop_llama_server, LlamaServerState};
@@ -104,6 +104,7 @@ pub fn run() {
 			index_chunks,
 			search_similar_chunks,
 			delete_chunks_by_article,
+			delete_article_embeddings,
 			delete_chunk,
 		])
 		.build(tauri::generate_context!())

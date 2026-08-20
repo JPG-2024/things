@@ -3,10 +3,8 @@ import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import {
 	buildExtractionCompletionOptions,
-	buildExtractionSystemMessage,
-	buildExtractionUserMessage
+	buildExtractionSystemMessage
 } from '@/lib/utils/inference/extraction-helper';
-import { combineResults, parseAndFlattenJsonArrays } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const extractionProcessor: ProcessorDef = {
@@ -22,29 +20,18 @@ export const extractionProcessor: ProcessorDef = {
 
 		return {
 			processChunk: async (chunk) => {
-				const extracted = await extractionHelper(chunk, count, description, {
+				return await extractionHelper(chunk, count, description, {
 					model: config.model
 				});
-				return JSON.stringify(extracted);
 			},
 			combineChunks: async (results) => {
 				if (config.combineMode && config.combineMode !== 'llm') {
-					const flat = parseAndFlattenJsonArrays(results);
 					if (config.combineMode === 'dedupe') {
-						return [...new Set(flat)];
+						return [...new Set(results)];
 					}
-					return flat;
+					return results;
 				}
-				const allExtractions: string[] = [];
-				for (const r of results) {
-					try {
-						const parsed = JSON.parse(r);
-						if (Array.isArray(parsed)) allExtractions.push(...parsed);
-					} catch {
-						allExtractions.push(r);
-					}
-				}
-				const unique = [...new Set(allExtractions)];
+				const unique = [...new Set(results)];
 				const combined = unique.join(', ');
 
 				const res = await chatCompletions({

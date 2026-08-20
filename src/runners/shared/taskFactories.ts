@@ -201,7 +201,7 @@ export type ChunkOffset = {
 
 export type RecursiveChunk = {
 	key: ChunkOffset;
-	data: string;
+	data: string[];
 };
 
 export type RecursiveContentResult = {
@@ -242,7 +242,7 @@ const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
 	chunks: z.array(
 		z.object({
 			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
-			data: z.string()
+			data: z.array(z.string())
 		})
 	),
 	finalResponse: z.union([z.string(), z.array(z.string())])
@@ -309,7 +309,7 @@ export function createRecursiveContentTask(
 			}
 
 			const finalResponse = await processor.combineChunks(
-				chunks.map((c) => c.data),
+				chunks.flatMap((c) => c.data),
 				sections
 			);
 
@@ -425,6 +425,11 @@ export function createCategoryTask(
 		? () => providedNames
 		: () => viewState.categories.map((c) => c.name);
 
+	const getListed = providedNames
+		? () => providedNames
+		: () =>
+				viewState.categories.map((c) => (c.description ? `${c.name}: (${c.description})` : c.name));
+
 	const systemMsg =
 		providedSystemMessage ??
 		`You are a data extraction assistant. Return only a JSON array with exactly ${countBasedSysMsg}. No markdown, no explanations.`;
@@ -432,8 +437,8 @@ export function createCategoryTask(
 	const userMsg =
 		providedUserMessage ??
 		(() => {
-			const names = getNames();
-			return `Give ${countBasedUserMsg} from this ones: ${names.join(', ')}.`;
+			const listed = getListed();
+			return `Give ${countBasedUserMsg} from this ones: ${listed.join(', ')}.`;
 		});
 
 	const completionOpts =

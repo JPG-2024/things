@@ -59,7 +59,6 @@
 			});
 
 			streamedText = result.choices[0]?.message?.content ?? '';
-			console.log('Final completion result:', result);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Unknown error occurred';
 			console.error('Completion error:', err);
