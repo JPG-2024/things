@@ -62,6 +62,7 @@ class PodcastState {
 	exchangeCounts = $state<number[]>([]);
 	activeSpeaker = $state<'A' | 'B' | null>(null);
 	isGenerating = $state(false);
+	lastVoiceChunkIndex = $state<number | null>(null);
 	progress = $state({ current: 0, total: 0 });
 
 	config = $state<PodcastConfig>({
@@ -78,7 +79,7 @@ class PodcastState {
 				enabled: true,
 				prompts: {
 					interview:
-						'Just say welcome to "things" podcast. or something similar mentioning always the name of the podcast. maximum 10 words. Do not ask a question.',
+						'Just say welcome to "things" the AI podcast. maximum 10 words. Do not ask a question. mention explicit "things" name.',
 					smalltalk:
 						'You are opening a casual podcast episode. Welcome the audience in a relaxed, friendly tone and hint at what you and your co-host will chat about. 2-3 sentences. Do not ask a question.',
 					guided:
@@ -154,10 +155,13 @@ class PodcastState {
 		const chunks = this._voiceChunks.get(profileId) ?? [];
 
 		if (chunks.length > 0) {
-			const c = chunks[Math.floor(Math.random() * chunks.length)];
+			const idx = Math.floor(Math.random() * chunks.length);
+			const c = chunks[idx];
+			this.lastVoiceChunkIndex = idx;
 			return { ref_audio: c.audio_file, ref_text: c.text_reference };
 		}
 
+		this.lastVoiceChunkIndex = -1;
 		return { ref_audio: '', ref_text: '' };
 	}
 
@@ -169,6 +173,10 @@ class PodcastState {
 	getProfileImage(speaker: 'A' | 'B'): string | undefined {
 		const profile = speaker === 'A' ? this.hostAProfile : this.hostBProfile;
 		return profile?.image_src;
+	}
+
+	getChunksForProfile(profileId: string): Voice[] {
+		return this._voiceChunks.get(profileId) ?? [];
 	}
 
 	get contentTaskText(): string {
@@ -924,6 +932,7 @@ class PodcastState {
 		this.activeSpeaker = null;
 		this.isGenerating = false;
 		this.errorMessage = '';
+		this.lastVoiceChunkIndex = null;
 	}
 
 	fullReset(): void {
@@ -941,6 +950,7 @@ class PodcastState {
 		this._topicSummaries.clear();
 		this._turnPlans = [];
 		this.progress = { current: 0, total: 0 };
+		this.lastVoiceChunkIndex = null;
 	}
 
 	getAnalyserNode(): AnalyserNode | null {

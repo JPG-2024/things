@@ -220,6 +220,12 @@
 
 <div class="ask-task">
 	<div class="ask-input-row">
+		<ToggleIcon
+			name="FileDigit"
+			bind:checked={searchEnabled}
+			size={18}
+			tooltipProps={{ content: 'search context' }}
+		/>
 		<div class="ask-input" class:is-loading={loading}>
 			<Input
 				placeholder={componentProps?.placeholder ?? 'Ask about this content...'}
@@ -228,12 +234,6 @@
 				onEnter={handleSubmit}
 			/>
 		</div>
-		<ToggleIcon
-			name="BrainCircuit"
-			bind:checked={searchEnabled}
-			size={18}
-			tooltipProps={{ content: 'search context' }}
-		/>
 	</div>
 
 	{#if error}
@@ -297,7 +297,7 @@
 	.ask-input-row {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 1rem;
 		width: 100%;
 	}
 
@@ -348,6 +348,10 @@
 	}
 
 	.ask-response {
+		font-weight: 200;
+		background: rgba(255, 255, 255, 0.05);
+		padding: 1rem;
+		border-radius: 10px;
 	}
 
 	.chunk-content {

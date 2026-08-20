@@ -13,9 +13,19 @@
 		selection: WheelSelection;
 		onChange: (selection: WheelSelection) => void;
 		onChunksChanged?: () => void;
+		isActive?: boolean;
+		activeColor?: string;
 	};
 
-	let { profiles, chunks, selection, onChange, onChunksChanged }: Props = $props();
+	let {
+		profiles,
+		chunks,
+		selection,
+		onChange,
+		onChunksChanged,
+		isActive = false,
+		activeColor
+	}: Props = $props();
 
 	let showWheel = $state(false);
 
@@ -33,7 +43,13 @@
 			: 'Choose voice'}
 	>
 		{#if selectedProfile}
-			<div class="avatar-wrap">
+			<div
+				class="avatar-wrap"
+				class:active={isActive}
+				style:border-color={isActive && activeColor ? activeColor : undefined}
+				style:border-width={isActive && activeColor ? '2px' : undefined}
+				style:border-style={isActive && activeColor ? 'solid' : undefined}
+			>
 				{#if selectedProfile.image_src}
 					<img
 						class="avatar"
@@ -78,7 +94,7 @@
 	.voice-selector {
 		display: flex;
 		flex-direction: column;
-		gap: 2rem;
+		gap: 0.5rem;
 		height: fit-content;
 		width: fit-content;
 	}
@@ -87,25 +103,21 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 1rem;
-		padding: 0.6rem 1rem;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid rgba(255, 255, 255, 0.08);
+		padding: 1.4rem;
+		background: none;
+		border: none;
 		border-radius: 12px;
 		color: inherit;
 		font: inherit;
 		text-align: left;
 		cursor: pointer;
-		transition:
-			background 0.2s ease,
-			border-color 0.2s ease,
-			transform 0.15s ease;
+		transition: opacity 0.2s ease;
 		max-width: 100%;
+		height: fit-content;
 	}
 
 	.current-profile-card:hover:not(:disabled) {
-		background: rgba(255, 255, 255, 0.06);
-		border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
-		transform: translateY(-1px);
+		opacity: 0.8;
 	}
 
 	.current-profile-card:focus-visible {
@@ -128,7 +140,7 @@
 	}
 
 	.current-profile-name {
-		font-size: 1rem;
+		font-size: 0.85rem;
 		font-weight: 600;
 		color: white;
 	}
@@ -149,16 +161,22 @@
 	}
 
 	.avatar-wrap {
-		width: 64px;
-		height: 64px;
+		width: 100px;
+		height: 100px;
 		border-radius: 999px;
 		overflow: hidden;
 		flex-shrink: 0;
+		transition: transform 0.25s ease;
+	}
+
+	.avatar-wrap.active {
+		transform: scale(1.1);
+		transition: transform 0.25s ease;
 	}
 
 	.avatar {
-		width: 100%;
-		height: 100%;
+		width: 100px;
+		height: 100px;
 		object-fit: cover;
 		border: 1px solid rgba(255, 255, 255, 0.1);
 	}

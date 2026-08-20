@@ -237,7 +237,7 @@
 	</button> -->
 	<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
 		<ToggleIcon
-			name="BrainCircuit"
+			name="FileDigit"
 			bind:checked={viewState.embeddingsEnabled}
 			size={20}
 			tooltipProps={{ content: 'generate embeddings' }}

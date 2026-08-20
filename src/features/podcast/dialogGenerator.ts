@@ -209,7 +209,7 @@ export async function generateExchange(params: GenerateExchangeParams): Promise<
 				{ role: 'user', content: buildUserMessage(params) }
 			],
 			stream: false,
-			temperature: 0.2
+			temperature: 0.1
 		},
 		{ signal }
 	);

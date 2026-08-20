@@ -46,11 +46,13 @@ class TTSState {
 	chunksGenerated = $state(0);
 	totalChunks = $state(0);
 	chunkNotifyVersion = $state(0);
+	lastVoiceChunkIndex = $state<number | null>(null);
 	private _generationAbort: AbortController | null = null;
 	private _allChunks: string[] = [];
 	private _nextChunkIndex = 0;
 	private _generationSession = 0;
 	private _generationTimes: number[] = [];
+	private _chunkVoiceIndices: number[] = [];
 	private readonly _MAX_TRACKED_TIMES = 5;
 
 	language = $derived(viewState.language);
@@ -140,6 +142,7 @@ class TTSState {
 		this.chunksGenerated = 0;
 		this.totalChunks = 0;
 		this.chunkNotifyVersion = 0;
+		this.lastVoiceChunkIndex = null;
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		this._chunkRefs = [];
@@ -151,6 +154,7 @@ class TTSState {
 		this._allChunks = [];
 		this._nextChunkIndex = 0;
 		this._chunkEndsParagraph = [];
+		this._chunkVoiceIndices = [];
 	}
 
 	async forceRegenerate(id: string): Promise<void> {
@@ -179,6 +183,7 @@ class TTSState {
 		this.chunksGenerated = 0;
 		this.totalChunks = 0;
 		this.chunkNotifyVersion = 0;
+		this.lastVoiceChunkIndex = null;
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		this._chunkRefs = [];
@@ -241,16 +246,22 @@ class TTSState {
 
 		this._chunkEndsParagraph = endsParagraph;
 
-		this._chunkRefs = allChunks.map(() => {
+		this._chunkRefs = [];
+		this._chunkVoiceIndices = [];
+		for (let j = 0; j < allChunks.length; j++) {
 			if (this.config.randomChunk && this.voiceChunks.length > 0) {
-				const v = this.voiceChunks[Math.floor(Math.random() * this.voiceChunks.length)];
-				return { refAudioFilename: v.audio_file, refText: v.text_reference };
+				const idx = Math.floor(Math.random() * this.voiceChunks.length);
+				const v = this.voiceChunks[idx];
+				this._chunkRefs.push({ refAudioFilename: v.audio_file, refText: v.text_reference });
+				this._chunkVoiceIndices.push(idx);
+			} else {
+				this._chunkRefs.push({
+					refAudioFilename: this.config.refAudioFilename,
+					refText: this.config.refText
+				});
+				this._chunkVoiceIndices.push(-1);
 			}
-			return {
-				refAudioFilename: this.config.refAudioFilename,
-				refText: this.config.refText
-			};
-		});
+		}
 
 		this.totalChunks = allChunks.length;
 		this.isGenerating = true;
@@ -282,6 +293,7 @@ class TTSState {
 			this.blobs.push(res.blob);
 			this.chunksGenerated = 1;
 			this.chunkNotifyVersion++;
+			this.lastVoiceChunkIndex = this._chunkVoiceIndices[0];
 			this.generatedId = id;
 			this.generatedConfigSig = this.configSig;
 			this.isPlaying = true;
@@ -352,6 +364,7 @@ class TTSState {
 			this.blobs.push(res.blob);
 			this.chunksGenerated = i + 1;
 			this.chunkNotifyVersion++;
+			this.lastVoiceChunkIndex = this._chunkVoiceIndices[i];
 			this._nextChunkIndex = i + 1;
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {

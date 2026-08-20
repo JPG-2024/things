@@ -142,11 +142,12 @@
 		() => {
 			podcastMode = !podcastMode;
 		},
-		{
+		() => ({
 			ignoreInputs: true,
 			stopPropagation: true,
-			preventDefault: true
-		}
+			preventDefault: true,
+			enabled: !podcastMode
+		})
 	);
 
 	let consecutiveClipboardErrors = 0;
@@ -247,6 +248,14 @@
 
 <TTSPlayer bind:mode={viewState.ttsPlayerMode} />
 
+{#if ttsState.lastVoiceChunkIndex !== null}
+	<div class="tts-chunk-log">
+		{ttsState.lastVoiceChunkIndex >= 0
+			? `Voice: #${ttsState.lastVoiceChunkIndex}`
+			: 'Voice: default'}
+	</div>
+{/if}
+
 {#if conversationMode}
 	<ConversationMode onExit={() => (conversationMode = false)} />
 {/if}
@@ -274,7 +283,7 @@
 	show={drawersState.isOpen('podcast-settings')}
 	onClose={() => drawersState.close('podcast-settings')}
 >
-	<PodcastSettings onStart={() => (podcastMode = true)} />
+	<PodcastSettings />
 </Modal>
 
 <Drawer name="downloads">
@@ -425,5 +434,20 @@
 	main > * {
 		position: relative;
 		z-index: 1;
+	}
+
+	.tts-chunk-log {
+		position: fixed;
+		bottom: 1rem;
+		right: 1rem;
+		color: var(--primary-color);
+		font-size: 0.7rem;
+		max-width: 300px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0.8;
+		z-index: 99999;
 	}
 </style>

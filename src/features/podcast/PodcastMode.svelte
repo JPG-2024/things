@@ -3,6 +3,8 @@
 	import { cubicOut } from 'svelte/easing';
 	import { onMount, onDestroy } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import VoiceSelector from '@/components/VoiceSelector.svelte';
+	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
 	import { podcastState } from '@/features/podcast/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import { getImage } from '@/lib/utils/ttsService';
@@ -23,6 +25,25 @@
 	let transcriptContainer = $state<HTMLDivElement | null>(null);
 	let animationFrame: number | null = null;
 	let showTranscript = $state(false);
+
+	let hostAChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostAProfileId));
+	let hostBChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostBProfileId));
+
+	let hostASelection = $derived<WheelSelection>({
+		profileId: podcastState.config.hostAProfileId,
+		audioFile: hostAChunks[0]?.audio_file ?? '',
+		randomChunk: true,
+		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
+		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
+	});
+
+	let hostBSelection = $derived<WheelSelection>({
+		profileId: podcastState.config.hostBProfileId,
+		audioFile: hostBChunks[0]?.audio_file ?? '',
+		randomChunk: true,
+		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
+		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
+	});
 
 	const amplitudeScale = 0.8;
 	const wavelengthScale = 300;
@@ -99,6 +120,16 @@
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
 	);
 
+	createHotkey(
+		'P',
+		() => {
+			if (podcastState.status === 'idle') {
+				void podcastState.start();
+			}
+		},
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+	);
+
 	function hashHue(input: string): number {
 		let hash = 5381;
 		for (let i = 0; i < input.length; i++) {
@@ -170,7 +201,16 @@
 		onExit();
 	}
 
+	function handleHostAChange(sel: WheelSelection) {
+		podcastState.config.hostAProfileId = sel.profileId;
+	}
+
+	function handleHostBChange(sel: WheelSelection) {
+		podcastState.config.hostBProfileId = sel.profileId;
+	}
+
 	onMount(() => {
+		void podcastState.loadProfiles();
 		startAnimation();
 	});
 
@@ -246,55 +286,81 @@
 		</div>
 	{/if}
 
-	<div class="podcast-stage">
-		<div class="podcast-speakers">
-			<button
-				type="button"
-				class="speaker-thumb"
-				class:active={podcastState.activeSpeaker === 'A'}
-				onclick={() => drawersState.open('podcast-settings')}
-				aria-label="Configure podcast hosts"
-			>
-				{#if podcastState.hostAProfile?.image_src}
-					<img class="thumb-avatar" src={getImage(podcastState.hostAProfile.image_src)} alt="" />
-				{:else}
-					<div
-						class="thumb-avatar fallback"
-						style="background: {colorFor(podcastState.hostAProfile?.id ?? '')}"
-					>
-						{initialFor(podcastState.hostAProfile?.name_prefix ?? 'A')}
-					</div>
+	<div class="podcast-body" class:flex-1={!showTranscript}>
+		<div class="podcast-stage">
+			<div class="podcast-speakers">
+			<VoiceSelector
+				profiles={podcastState.profiles}
+				chunks={hostAChunks}
+				selection={hostASelection}
+				onChange={handleHostAChange}
+				isActive={podcastState.activeSpeaker === 'A'}
+				activeColor={HOST_A_COLOR}
+			/>
+				<span class="vs-separator">VS</span>
+			<VoiceSelector
+				profiles={podcastState.profiles}
+				chunks={hostBChunks}
+				selection={hostBSelection}
+				onChange={handleHostBChange}
+				isActive={podcastState.activeSpeaker === 'B'}
+				activeColor={HOST_B_COLOR}
+			/>
+			</div>
+
+			<div class="podcast-canvas-container">
+				{#if hasContent}
+					<canvas bind:this={canvas} class="podcast-canvas" aria-hidden="true"></canvas>
 				{/if}
-			</button>
-			<span class="vs-separator">VS</span>
-			<button
-				type="button"
-				class="speaker-thumb"
-				class:active={podcastState.activeSpeaker === 'B'}
-				onclick={() => drawersState.open('podcast-settings')}
-				aria-label="Configure podcast hosts"
-			>
-				{#if podcastState.hostBProfile?.image_src}
-					<img class="thumb-avatar" src={getImage(podcastState.hostBProfile.image_src)} alt="" />
-				{:else}
-					<div
-						class="thumb-avatar fallback"
-						style="background: {colorFor(podcastState.hostBProfile?.id ?? '')}"
-					>
-						{initialFor(podcastState.hostBProfile?.name_prefix ?? 'B')}
-					</div>
-				{/if}
-			</button>
+			</div>
 		</div>
 
-		<div class="podcast-canvas-container">
-			<canvas bind:this={canvas} class="podcast-canvas" aria-hidden="true"></canvas>
+		<div class="podcast-controls">
+			{#if hasContent}
+				<button
+					type="button"
+					class="control-btn"
+					onclick={() => {
+						podcastState.stop();
+					}}
+					aria-label="Stop"
+				>
+					<Icon name="Square" size={20} />
+				</button>
+			{/if}
 
-			{#if !hasContent && !showTranscript}
-				<div class="podcast-idle-hint">
-					<p>Open settings to pick hosts and start the podcast</p>
-					<span class="idle-hint-keys">Space to play · R to regenerate · Esc to exit</span>
-				</div>
+			<button
+				type="button"
+				class="control-btn control-btn-main"
+				onclick={() => {
+					if (podcastState.status === 'idle') {
+						void podcastState.start();
+					} else if (podcastState.status === 'playing') {
+						podcastState.pause();
+					} else if (podcastState.status === 'paused') {
+						podcastState.resume();
+					}
+				}}
+				aria-label={podcastState.status === 'playing' ? 'Pause' : 'Play'}
+			>
+				<Icon name={podcastState.status === 'playing' ? 'Pause' : 'Play'} size={28} />
+			</button>
+
+			{#if hasContent}
+				<button
+					type="button"
+					class="control-btn"
+					onclick={() => {
+						const t = podcastState.currentTopicIndex;
+						const e = podcastState.currentExchangeIndex;
+						if (podcastState.dialogs[t]?.[e]) {
+							void podcastState.regenerateExchange(t, e);
+						}
+					}}
+					aria-label="Regenerate current exchange"
+				>
+					<Icon name="RotateCcw" size={20} />
+				</button>
 			{/if}
 		</div>
 	</div>
@@ -349,55 +415,18 @@
 		</div>
 	{/if}
 
-	{#if hasContent}
-		<div class="podcast-controls">
-			<button
-				type="button"
-				class="control-btn"
-				onclick={() => {
-					podcastState.stop();
-				}}
-				aria-label="Stop"
-			>
-				<Icon name="Square" size={20} />
-			</button>
-
-			<button
-				type="button"
-				class="control-btn control-btn-main"
-				onclick={() => {
-					if (podcastState.status === 'playing') {
-						podcastState.pause();
-					} else if (podcastState.status === 'paused') {
-						podcastState.resume();
-					}
-				}}
-				aria-label={podcastState.status === 'playing' ? 'Pause' : 'Play'}
-			>
-				<Icon name={podcastState.status === 'playing' ? 'Pause' : 'Play'} size={28} />
-			</button>
-
-			<button
-				type="button"
-				class="control-btn"
-				onclick={() => {
-					const t = podcastState.currentTopicIndex;
-					const e = podcastState.currentExchangeIndex;
-					if (podcastState.dialogs[t]?.[e]) {
-						void podcastState.regenerateExchange(t, e);
-					}
-				}}
-				aria-label="Regenerate current exchange"
-			>
-				<Icon name="RotateCcw" size={20} />
-			</button>
-		</div>
-	{/if}
-
 	{#if podcastState.errorMessage}
 		<div class="podcast-error">
 			<span>{podcastState.errorMessage}</span>
 			<button type="button" onclick={() => (podcastState.errorMessage = '')}>×</button>
+		</div>
+	{/if}
+
+	{#if podcastState.lastVoiceChunkIndex !== null}
+		<div class="voice-chunk-log">
+			{podcastState.lastVoiceChunkIndex >= 0
+				? `Voice: #${podcastState.lastVoiceChunkIndex}`
+				: 'Voice: default'}
 		</div>
 	{/if}
 </div>
@@ -412,6 +441,18 @@
 		background: rgba(14, 14, 14, 0.97);
 		z-index: 1100;
 		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	}
+
+	.podcast-body {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 0;
+	}
+
+	.podcast-body.flex-1 {
+		flex: 1;
 	}
 
 	.podcast-header {
@@ -501,49 +542,6 @@
 		opacity: 1;
 	}
 
-	.speaker-thumb {
-		all: unset;
-		cursor: pointer;
-		box-sizing: border-box;
-		width: 64px;
-		height: 64px;
-		border-radius: 50%;
-		overflow: hidden;
-		border: 2px solid rgba(255, 255, 255, 0.1);
-		opacity: 0.45;
-		transition:
-			opacity 0.3s,
-			border-color 0.3s,
-			transform 0.3s;
-	}
-
-	.speaker-thumb:hover {
-		opacity: 0.85;
-	}
-
-	.speaker-thumb.active {
-		opacity: 1;
-		transform: scale(1.08);
-		border-color: var(--primary-color);
-	}
-
-	.thumb-avatar {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.fallback {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		font-weight: bold;
-		font-size: 1rem;
-		width: 100%;
-		height: 100%;
-	}
-
 	.vs-separator {
 		font-size: 0.7rem;
 		color: rgba(255, 255, 255, 0.25);
@@ -577,7 +575,6 @@
 	}
 
 	.podcast-stage {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -597,29 +594,6 @@
 		width: 100%;
 		height: 100%;
 		display: block;
-	}
-
-	.podcast-idle-hint {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.4rem;
-		text-align: center;
-		pointer-events: none;
-	}
-
-	.podcast-idle-hint p {
-		margin: 0;
-		color: rgba(255, 255, 255, 0.4);
-		font-size: 0.95rem;
-	}
-
-	.idle-hint-keys {
-		color: rgba(255, 255, 255, 0.25);
-		font-size: 0.75rem;
 	}
 
 	.podcast-transcript {
@@ -819,5 +793,16 @@
 
 	.podcast-error button:hover {
 		opacity: 1;
+	}
+
+	.voice-chunk-log {
+		position: fixed;
+		bottom: 1rem;
+		right: 1rem;
+		color: var(--primary-color);
+		font-size: 0.7rem;
+		pointer-events: none;
+		opacity: 0.8;
+		z-index: 1101;
 	}
 </style>

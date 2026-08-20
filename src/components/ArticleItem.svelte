@@ -6,12 +6,20 @@
 	interface Props {
 		article: ArticleWithTasks;
 		displayMode?: 'thumbnail' | 'title';
+		thumbnailOnly?: boolean;
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
 		onHoverLeave: () => void;
 	}
 
-	let { article, displayMode = 'thumbnail', onClick, onHoverEnter, onHoverLeave }: Props = $props();
+	let {
+		article,
+		displayMode = 'thumbnail',
+		thumbnailOnly = false,
+		onClick,
+		onHoverEnter,
+		onHoverLeave
+	}: Props = $props();
 
 	const title = $derived(
 		(
@@ -37,7 +45,7 @@
 	out:fade={{ duration: 200 }}
 >
 	<div class="article-content">
-		<div class="article-item-info">
+		<div class="article-item-info" class:thumbnail-only={thumbnailOnly}>
 			{#if displayMode === 'thumbnail' && article.thumbnailSrc}
 				<div class="article-thumbnail-container">
 					<img
@@ -48,16 +56,18 @@
 					/>
 				</div>
 			{/if}
-			{#if categories.length > 0}
-				<div class="article-categories">
-					{#each categories as category}
-						<span class="article-category-pill">{category}</span>
-					{/each}
+			{#if !thumbnailOnly || !article.thumbnailSrc}
+				<div class="article-title">
+					<span>{title}</span>
 				</div>
+				{#if categories.length > 0}
+					<div class="article-categories">
+						{#each categories as category}
+							<span class="article-category-pill">{category}</span>
+						{/each}
+					</div>
+				{/if}
 			{/if}
-			<div class="article-title">
-				<span>{title}</span>
-			</div>
 		</div>
 	</div>
 </button>
@@ -76,6 +86,7 @@
 		padding: 1rem;
 		box-sizing: border-box;
 		border-left: 1px solid rgba(var(--primary-color), 0.5);
+		min-height: 120px;
 	}
 
 	.article-content {
@@ -92,6 +103,7 @@
 	.article-title {
 		flex: 1;
 		font-weight: bold;
+		padding: 1rem 0;
 	}
 
 	.article-card:hover {
@@ -102,15 +114,19 @@
 		flex: 0 0 30%;
 		position: relative;
 		display: inline-flex;
-		width: fit-content;
+		width: 100%;
 	}
 
 	.article-thumbnail {
 		display: block;
 		border-radius: 15px;
-		width: fit-content;
+		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
+	}
+
+	.thumbnail-only .article-thumbnail-container {
+		flex: 1;
 	}
 
 	.article-thumbnail-raw {
@@ -136,7 +152,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.25rem;
-		margin: 1rem 0;
 	}
 
 	.article-category-pill {

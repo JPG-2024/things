@@ -73,6 +73,7 @@
 	let wasOpen = $state(false);
 	let hoveredChunkName = $state<string | null>(null);
 	let filterText = $state('');
+	let filterInputEl = $state<HTMLInputElement | null>(null);
 
 	let filteredProfiles = $derived(
 		filterText.trim() === ''
@@ -91,10 +92,11 @@
 			draftSynthParams = { ...initial.synthParams };
 			draftPauseSettings = { ...initial.pauseSettings };
 			hoveredChunkName = null;
-			committed = false;
-			filterText = '';
-		}
-		wasOpen = show;
+		committed = false;
+		filterText = '';
+		filterInputEl?.focus();
+	}
+	wasOpen = show;
 	});
 
 	$effect(() => {
@@ -244,7 +246,7 @@
 		const scale = abs === 0 ? 1 : abs === 1 ? 0.82 : abs === 2 ? 0.66 : 0.52;
 		const opacity = abs === 0 ? 1 : abs === 1 ? 0.55 : abs === 2 ? 0.3 : 0.12;
 		const translateY = `calc(-50% + ${offset * ITEM_HEIGHT}px)`;
-		return `transform: translateY(${translateY}) scale(${scale}); opacity: ${opacity};`;
+		return `transform: translate(-50%, -50%) translateY(${offset * ITEM_HEIGHT}px) scale(${scale}); opacity: ${opacity};`;
 	}
 
 	const SPLIT_OPTIONS = [
@@ -385,12 +387,16 @@
 				<div class="profiles-column">
 					{#if profiles.length > 0}
 						<div class="filter-wrap">
-							<input
-								type="text"
-								class="filter-input"
-								placeholder="Filter voices..."
-								bind:value={filterText}
-							/>
+						<input
+							type="text"
+							class="filter-input"
+							placeholder="Filter voices..."
+							bind:value={filterText}
+							bind:this={filterInputEl}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') commitAndClose();
+							}}
+						/>
 							{#if filterText}
 								<button class="filter-clear" type="button" onclick={() => (filterText = '')}>
 									×
@@ -654,10 +660,11 @@
 	.wheel-item {
 		position: absolute;
 		top: 50%;
-		left: 15%;
+		left: 50%;
 		transform-origin: center center;
 		display: flex;
 		align-items: center;
+
 		gap: 1rem;
 		padding: 0.5rem 0.75rem;
 		background: transparent;
@@ -678,8 +685,8 @@
 
 	.avatar-wrap {
 		flex-shrink: 0;
-		width: 72px;
-		height: 72px;
+		width: 40px;
+		height: 40px;
 		border-radius: 999px;
 		overflow: hidden;
 		transition: box-shadow 240ms ease;

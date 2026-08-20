@@ -161,7 +161,6 @@
 		padding: 7px 20px;
 		width: max-content;
 		color: var(--primary-color);
-		font-weight: bold;
 		font-size: 0.88rem;
 		line-height: 1.2;
 	}
