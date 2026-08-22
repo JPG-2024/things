@@ -16,6 +16,9 @@
 		[...stackedTasks].sort((a, b) => (a.task.renderOrder ?? 0) - (b.task.renderOrder ?? 0))
 	);
 
+	const contentTask = $derived(sortedTasks.find((e) => e.task.id === 'content'));
+	const otherTasks = $derived(sortedTasks.filter((e) => e.task.id !== 'content'));
+
 	const taskHeights = $state<Record<string, number>>({});
 
 	function measureDoneHeight(node: HTMLDivElement, key: string) {
@@ -122,8 +125,79 @@
 </script>
 
 <div class="tasks-container">
+	{#if contentTask}
+		{@const task = contentTask.task}
+		{@const skipRender =
+			task.visible === false && task.status !== 'running' && task.status !== 'pending'}
+		{@const componentKey = task.component?.trim()}
+		{@const componentProps = task.componentProps}
+		{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+		{@const taskKey = `${contentTask.runId}:${task.id}`}
+
+		{#if !skipRender}
+			{#if Renderer && task.status === 'done'}
+				<div
+					class="task-wrapper content-task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}>
+						<Renderer {task} runId={contentTask.runId} {componentProps} />
+					</BaseTaskComponent>
+				</div>
+			{:else if task.status === 'running'}
+				<div
+					class="task-wrapper content-task-wrapper"
+					style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}>
+						{#if Renderer}
+							<Renderer {task} runId={contentTask.runId} {componentProps} />
+						{/if}
+					</BaseTaskComponent>
+				</div>
+			{:else if task.status === 'editing'}
+				<div
+					class="task-wrapper content-task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}
+					></BaseTaskComponent>
+				</div>
+			{:else if task.status === 'pending'}
+				<div
+					class="task-wrapper content-task-wrapper"
+					transition:fade={{ duration: 250 }}
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}
+					></BaseTaskComponent>
+				</div>
+			{:else if task.status === 'failed'}
+				<div
+					class="task-wrapper content-task-wrapper task-wrapper--error"
+					onmouseenter={() => {
+						viewState.selectedTaskId = task.id;
+					}}
+				>
+					<TaskError {task} runId={contentTask.runId} />
+				</div>
+			{/if}
+		{/if}
+	{/if}
+
 	<div class="tasks-grid">
-		{#each sortedTasks as entry (`${entry.runId}:${entry.task.id}`)}
+		{#each otherTasks as entry (`${entry.runId}:${entry.task.id}`)}
 			{@const task = entry.task}
 			{@const skipRender =
 				task.visible === false && task.status !== 'running' && task.status !== 'pending'}
@@ -224,6 +298,10 @@
 		align-items: flex-start;
 		padding-top: 2rem;
 		break-inside: avoid;
+	}
+
+	.content-task-wrapper {
+		width: 100%;
 	}
 
 	.task-wrapper--error {
