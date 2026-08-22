@@ -5,6 +5,7 @@
 		label: string;
 		value: string;
 		icon?: string;
+		emoji?: string;
 	}
 
 	interface Props {
@@ -115,7 +116,11 @@
 				aria-expanded={open}
 				aria-haspopup="listbox"
 			>
-				{#if selectedOption?.icon}
+				{#if selectedOption?.emoji}
+					<span class="option-emoji" style="font-size: {iconSize}px;" aria-hidden="true"
+						>{selectedOption.emoji}</span
+					>
+				{:else if selectedOption?.icon}
 					<img
 						src={selectedOption.icon}
 						alt=""
@@ -143,7 +148,11 @@
 							onclick={() => select(option)}
 							onmouseenter={() => (highlightIndex = i)}
 						>
-							{#if option.icon}
+							{#if option.emoji}
+								<span class="option-emoji" style="font-size: {iconSize}px;" aria-hidden="true"
+									>{option.emoji}</span
+								>
+							{:else if option.icon}
 								<img
 									src={option.icon}
 									alt=""
@@ -171,7 +180,11 @@
 			aria-expanded={open}
 			aria-haspopup="listbox"
 		>
-			{#if selectedOption?.icon}
+			{#if selectedOption?.emoji}
+				<span class="option-emoji" style="font-size: {iconSize}px;" aria-hidden="true"
+					>{selectedOption.emoji}</span
+				>
+			{:else if selectedOption?.icon}
 				<img
 					src={selectedOption.icon}
 					alt=""
@@ -199,7 +212,11 @@
 						onclick={() => select(option)}
 						onmouseenter={() => (highlightIndex = i)}
 					>
-						{#if option.icon}
+						{#if option.emoji}
+							<span class="option-emoji" style="font-size: {iconSize}px;" aria-hidden="true"
+								>{option.emoji}</span
+							>
+						{:else if option.icon}
 							<img
 								src={option.icon}
 								alt=""
@@ -230,7 +247,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(154, 154, 154, 0.12);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		border-radius: 12px;
+		border-radius: 5px;
 		padding: 0.2rem 0.75rem;
 		width: 100%;
 		color: inherit;
@@ -275,6 +292,12 @@
 		border-radius: 4px;
 	}
 
+	.option-emoji {
+		flex-shrink: 0;
+		display: inline-block;
+		line-height: 1;
+	}
+
 	.panel {
 		position: absolute;
 		top: 102%;
@@ -287,7 +310,7 @@
 		max-height: 300px;
 		overflow-y: auto;
 		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-		border-radius: 12px;
+		border-radius: 5px;
 	}
 
 	.option {

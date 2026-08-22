@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
@@ -8,6 +7,16 @@
 		{ label: 'Llama', value: 'llama' },
 		{ label: 'OpenRouter', value: 'openrouter' }
 	];
+
+	const languageOptions = [
+		{ label: 'Spanish', value: 'es', emoji: '🇪🇸' },
+		{ label: 'English', value: 'en', emoji: '🇬🇧' },
+		{ label: 'French', value: 'fr', emoji: '🇫🇷' },
+		{ label: 'German', value: 'de', emoji: '🇩🇪' },
+		{ label: 'Portuguese', value: 'pt', emoji: '🇵🇹' },
+		{ label: 'Italian', value: 'it', emoji: '🇮🇹' },
+		{ label: 'Japanese', value: 'ja', emoji: '🇯🇵' }
+	];
 </script>
 
 <div class="drawer-inner">
@@ -15,11 +24,10 @@
 		<Icon name="Cog" size={30} color={viewState.primaryColor} />
 		Settings
 	</h2>
-	<Dropdown
-		options={[
-			{ label: 'Spanish', value: 'es' },
-			{ label: 'English', value: 'en' }
-		]}
+	<IconDropdown
+		label="Language"
+		options={languageOptions}
+		iconSize={20}
 		bind:value={viewState.language}
 	/>
 	<div class="inference-section">
