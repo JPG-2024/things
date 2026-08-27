@@ -32,7 +32,7 @@
 	.toggle-slider {
 		position: relative;
 		transition: background-color 0.3s;
-		border-radius: 1rem;
+		border-radius: var(--radius-lg);
 		background-color: #ccc;
 		width: 2.5rem;
 		height: 1.4rem;

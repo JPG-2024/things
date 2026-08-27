@@ -134,7 +134,7 @@
 		gap: 1rem;
 		padding: 1.5rem;
 		border: 1px solid var(--primary-color, #ccc);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 	}
 
@@ -173,7 +173,7 @@
 		width: 100%;
 		padding: 0.5rem;
 		border: 1px solid var(--primary-color, #ccc);
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		font-size: 0.9rem;
 	}
 

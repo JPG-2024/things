@@ -191,7 +191,7 @@
 		<ToggleIcon
 			name="FileDigit"
 			bind:checked={searchEnabled}
-			size={18}
+			size={22}
 			tooltipProps={{ content: 'search context' }}
 		/>
 		<div class="ask-input" class:is-loading={loading}>
@@ -248,7 +248,7 @@
 
 	.ask-input {
 		flex: 1;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		position: relative;
 		overflow: hidden;
 	}
@@ -286,7 +286,7 @@
 
 	.ask-error {
 		padding: 0.75rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 0, 0, 0.1);
 		color: #ff5a5a;
 		border: 1px solid rgba(255, 0, 0, 0.3);
@@ -296,6 +296,8 @@
 		font-weight: 200;
 		background: rgba(255, 255, 255, 0.05);
 		padding: 1rem;
-		border-radius: 10px;
+		border-radius: var(--radius-sm);
+		border-left: 1px solid rgb(118, 118, 118);
+		border-right: 1px solid rgb(118, 118, 118);
 	}
 </style>

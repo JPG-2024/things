@@ -5,9 +5,12 @@
 	import { generateCategoryDescription, generateEmojiForText } from '@/runners/shared/sharedTasks';
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
+	import Input from './inputs/Input.component.svelte';
+	import Button from './inputs/Button.component.svelte';
+	import EmojiString from './EmojiString.svelte';
 
-	let newCategoryName = $state('');
 	let isEditing = $state(false);
+	let categoryFilter = $state('');
 
 	async function loadCategories() {
 		viewState.categories = await getCategories();
@@ -44,8 +47,11 @@
 	function toggleCategory(id: string) {
 		const list = viewState.selectedCategories;
 		const i = list.indexOf(id);
-		if (i >= 0) list.splice(i, 1);
-		else list.push(id);
+		if (i >= 0) {
+			viewState.selectedCategories = list.filter((_, idx) => idx !== i);
+		} else {
+			viewState.selectedCategories = [...list, id];
+		}
 	}
 
 	function pruneCategory(id: string) {
@@ -56,58 +62,67 @@
 		viewState.selectedCategories = [];
 	}
 
+	let filteredCategories = $derived(
+		isEditing
+			? viewState.categories.filter((c) => viewState.selectedCategories.includes(c.id))
+			: categoryFilter
+				? viewState.categories.filter((c) => {
+						const term = categoryFilter.trim().toLowerCase();
+						return (
+							c.name.toLowerCase().includes(term) || c.description?.toLowerCase().includes(term)
+						);
+					})
+				: viewState.categories
+	);
+
+	$effect(() => {
+		if (viewState.selectedCategories.length === 0) {
+			isEditing = false;
+		}
+	});
+
 	$effect(() => {
 		loadCategories();
 	});
 
-	async function handleAdd() {
-		const trimmed = newCategoryName.trim();
+	async function handleCreateFromFilter() {
+		const trimmed = categoryFilter.trim();
 		if (!trimmed) return;
 		const emoji = await generateEmojiForText(trimmed);
 		const name = emoji ? `${emoji} ${trimmed}` : trimmed;
 		const description = await generateCategoryDescription(trimmed);
 		await addCategory(name, description);
-		newCategoryName = '';
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			handleAdd();
-		}
+		categoryFilter = '';
 	}
 </script>
 
 <div class="categories">
-	<div class="categories-header">
-		<Icon
-			name="Edit"
-			size={16}
-			color="var(--primary-color)"
-			onClick={() => (isEditing = !isEditing)}
-			style="opacity: {isEditing ? 1 : 0.5}"
-		/>
-		{#if viewState.selectedCategories.length > 0}
-			<Icon
-				name="X"
-				size={16}
-				color="var(--primary-color)"
-				onClick={clearSelectedCategories}
-				style="opacity: 0.5"
-			/>
-		{/if}
-	</div>
 	<div class="category-list">
-		{#each viewState.categories as category (category.id)}
+		<span class="category-pill filter-pill">
+			<Input type="text" bind:value={categoryFilter} placeholder="Filter" search />
+		</span>
+
+		<span class="category-pill icon-pill">
+			{#if viewState.selectedCategories.length > 0}
+				<Icon
+					name="Edit"
+					size={16}
+					onClick={() => (isEditing = !isEditing)}
+					style="opacity: {isEditing ? 1 : 0.5}"
+				/>
+			{/if}
+		</span>
+
+		{#each filteredCategories as category (category.id)}
 			<span class="category-pill">
 				<Tooltip content={category.description ?? ''}>
 					<button
 						type="button"
 						class="pill tag"
-						class:pill--active={isSelected(category.id)}
 						disabled={isEditing}
 						onclick={() => toggleCategory(category.id)}
 					>
-						{category.name}
+						<EmojiString value={category.name} active={isSelected(category.id)} />
 					</button>
 				</Tooltip>
 				{#if isEditing}
@@ -116,20 +131,36 @@
 						onclick={() => removeCategory(category.id)}
 						aria-label="Remove {category.name}"
 					>
-						&times;
+						<Icon name="Trash" size={14} />
 					</button>
 				{/if}
 			</span>
 		{/each}
-		{#if viewState.categories.length === 0}
-			<button type="button" class="pill add-categories-pill" onclick={() => (isEditing = true)}>
-				+ add categories
-			</button>
+
+		{#if viewState.selectedCategories.length > 0}
+			<span class="category-pill icon-pill">
+				<Icon name="X" size={16} onClick={clearSelectedCategories} style="opacity: 0.5" />
+			</span>
+		{/if}
+
+		{#if filteredCategories.length === 0}
+			{#if !isEditing && categoryFilter.trim()}
+				<Button onClick={handleCreateFromFilter} icon="Plus">
+					Create "{categoryFilter.trim()}"
+				</Button>
+			{:else}
+				<button type="button" class="pill add-categories-pill" onclick={() => (isEditing = true)}>
+					+ add categories
+				</button>
+			{/if}
 		{/if}
 	</div>
 	{#if isEditing}
-		{#each viewState.categories as category (category.id)}
+		{#each filteredCategories as category (category.id)}
 			<div class="category-edit">
+				<span class="category-edit-name"
+					><EmojiString value={category.name} active={isSelected(category.id)} /></span
+				>
 				<input
 					autocomplete="off"
 					type="text"
@@ -141,20 +172,8 @@
 					placeholder="Description (auto if empty)"
 					class="add-input"
 				/>
-				<span class="category-edit-name">{category.name}</span>
 			</div>
 		{/each}
-		<div class="add-form">
-			<input
-				autocomplete="one-time-code"
-				type="text"
-				bind:value={newCategoryName}
-				onkeydown={handleKeydown}
-				placeholder="New category"
-				class="add-input"
-			/>
-			<button class="add-btn" onclick={handleAdd}>Add</button>
-		</div>
 	{/if}
 </div>
 
@@ -165,27 +184,28 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		width: 100%;
+		padding-top: 3rem;
 	}
 
-	.categories-header {
+	.filter-pill {
 		display: flex;
-		position: absolute;
-		top: 0;
-		right: 0;
 		align-items: center;
-		opacity: 0;
-		z-index: 1;
-		transition: opacity 0.15s;
+		min-width: 80px;
+		padding: 0 1rem;
 	}
 
-	.categories:hover .categories-header {
-		opacity: 1;
+	.icon-pill {
+		display: flex;
+		align-items: center;
+		padding: 7px 8px;
 	}
 
 	.category-list {
+		width: 100%;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: 0.8rem;
+		justify-items: flex-start;
 	}
 
 	.category-pill {
@@ -199,27 +219,15 @@
 		text-transform: capitalize;
 		cursor: pointer;
 		border: none;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background-size: 200% 200%;
 		background-color: transparent;
 		padding: 7px 20px;
 		width: max-content;
-		color: var(--primary-color);
-		font-size: 0.88rem;
-		line-height: 1.2;
 	}
 
 	.pill:disabled {
 		cursor: default;
-	}
-
-	.pill--active {
-		text-shadow:
-			0 0 5px var(--primary-color),
-			0 0 10px var(--primary-color),
-			0 0 20px var(--primary-color),
-			0 0 40px var(--primary-color),
-			0 0 80px white;
 	}
 
 	.pill.error {
@@ -227,7 +235,7 @@
 	}
 
 	.pill.tag {
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 	}
 	.add-categories-pill {
 		opacity: 0.6;
@@ -256,11 +264,6 @@
 		opacity: 1;
 	}
 
-	.add-form {
-		display: flex;
-		gap: 0.5rem;
-	}
-
 	.category-edit {
 		display: flex;
 		align-items: center;
@@ -273,13 +276,14 @@
 		opacity: 0.7;
 		text-transform: capitalize;
 		white-space: nowrap;
+		min-width: 100px;
 	}
 
 	.add-input {
 		flex: 1;
 		outline: none;
 		border: 1px solid var(--primary-color);
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		background: black;
 		padding: 6px 12px;
 		color: var(--primary-color);
@@ -294,21 +298,5 @@
 	.add-input:focus {
 		box-shadow: 0 0 0 1px var(--primary-color);
 		border-color: var(--primary-color);
-	}
-
-	.add-btn {
-		transition: opacity 0.15s;
-		cursor: pointer;
-		border: none;
-		border-radius: 4px;
-		background: var(--primary-color);
-		padding: 6px 16px;
-		color: black;
-		font-weight: bold;
-		font-size: 0.88rem;
-	}
-
-	.add-btn:hover {
-		opacity: 0.85;
 	}
 </style>

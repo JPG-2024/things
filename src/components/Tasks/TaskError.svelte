@@ -63,7 +63,7 @@
 				title="Rerun from this task (cascades to dependencies)"
 				aria-label="Rerun task"
 			>
-				<Icon name="RefreshCw" size={18} color="var(--primary-color)" />
+				<Icon name="RefreshCw" size={18} />
 				<span class="action-label">Rerun</span>
 			</button>
 		</div>
@@ -88,7 +88,7 @@
 	.task-shell--error {
 		padding: 0.75rem 0.9rem;
 		border: 1px solid rgba(255, 143, 143, 0.25);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: rgba(255, 143, 143, 0.05);
 	}
 
@@ -127,7 +127,7 @@
 
 	.debug-block {
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 10px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 255, 255, 0.03);
 		padding: 0.5rem 0.75rem;
 

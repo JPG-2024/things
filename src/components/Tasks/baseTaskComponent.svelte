@@ -1,28 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import Spacer from '@/components/Spacer.component.svelte';
-	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { updateTaskDataById } from '@/stores/webStore';
 	import Modal from '@/components/Modal.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import Pill from '@/components/Pill.svelte';
 	import { buildTask, createIaTask } from '@/runners/shared/taskFactories';
 	import EditTaskComponent from '@/components/Tasks/EditTaskComponent.svelte';
-	import Label from '@/components/inputs/Label.component.svelte';
-	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
-	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import {
-		statusToPillStatus,
-		formatDuration,
-		formatTimestamp,
-		dataPreview,
-		dataTypeLabel,
-		formatData
-	} from '@/lib/utils/tasks/taskStats';
+	import { statusToPillStatus } from '@/lib/utils/tasks/taskStats';
 
 	const TOOLBAR_ICON_SIZE = 14;
 
@@ -36,19 +25,23 @@
 	let { runId = undefined, task, children, componentProps = {} }: Props = $props();
 
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
-	const spacerDefaultOpen = $derived(task.status === 'editing' || task.status === 'failed');
 	const pillStatus = $derived(statusToPillStatus(task.status));
 
-	let taskOpen = $state(spacerDefaultOpen);
 	let showEditModal = $state(false);
 	let draftTask = $state<Task | null>(null);
 	let createMode = $state(false);
 
-	function handleRerun() {
+	async function handleRerun() {
 		if (!targetRunId) return;
-		void workflowManager.rerunTask(targetRunId, task.id).catch((error) => {
+		try {
+			const summary = await workflowManager.rerunTask(targetRunId, task.id);
+			const updatedTask = summary.tasks.find((t) => t.id === task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
+			}
+		} catch (error) {
 			console.error('Task rerun failed', error);
-		});
+		}
 	}
 
 	function openTaskEdit() {
@@ -59,7 +52,6 @@
 
 	function handleBranch() {
 		if (!targetRunId) return;
-		taskOpen = false;
 		const def = createIaTask({
 			dependencies: [task.id],
 			userMessage: '',
@@ -87,102 +79,46 @@
 </script>
 
 <div class="task-shell">
-	<Spacer opened={taskOpen} defaultOpen={spacerDefaultOpen}>
-		{#snippet titleSlot()}
-			<span class="task-title-with-status">
-				<LuminousText mode="on">
-					<span class="task-title-name">{task.name ?? task.id}</span>
-				</LuminousText>
-				<div class="pill-container">
-					<Pill status={pillStatus} text={task.status ?? 'pending'} showPoint />
-				</div>
-				<div class="task-toolbar" onclick={(e) => e.stopPropagation()}>
-					<Icon
-						name="RefreshCw"
-						onClick={handleRerun}
-						size={TOOLBAR_ICON_SIZE}
-						color="var(--primary-color)"
-						tooltipProps={{ content: 'Rerun task and descendants' }}
-						class="task-action"
-					/>
-					<Icon
-						name="SquarePen"
-						onClick={openTaskEdit}
-						size={TOOLBAR_ICON_SIZE}
-						color="var(--primary-color)"
-						tooltipProps={{ content: 'edit task' }}
-						class="task-action"
-					/>
-					<Icon
-						name="GitBranch"
-						onClick={handleBranch}
-						size={TOOLBAR_ICON_SIZE}
-						color="var(--primary-color)"
-						tooltipProps={{ content: 'New task from' }}
-						class="task-action"
-					/>
-					<div class="delete-action">
-						<Icon
-							name="Trash"
-							onClick={handleDelete}
-							size={TOOLBAR_ICON_SIZE}
-							color="var(--primary-color)"
-							tooltipProps={{ content: 'delete task' }}
-							class="task-action"
-						/>
-					</div>
-				</div>
-			</span>
-		{/snippet}
-		<div class="task-info">
-			<div class="task-stats">
-				<KeyValuePanel
-					row
-					items={[
-						{ key: 'id', value: task.id },
-						{ key: 'type', value: task.type },
-						{
-							key: 'duration',
-							value: formatDuration(
-								task.startedAt && task.endedAt ? task.endedAt - task.startedAt : null
-							)
-						},
-						{ key: 'dependencies', value: task.dependencies.join(', ') },
-						...(task.renderOrder != null ? [{ key: 'renderOrder', value: task.renderOrder }] : []),
-						...(task.component ? [{ key: 'component', value: task.component }] : [])
-					]}
+	<div class="task-title-with-status">
+		<LuminousText mode="on">
+			<span class="task-title-name">{task.name ?? task.id}</span>
+		</LuminousText>
+		<div class="pill-container">
+			<Pill status={pillStatus} text={task.status ?? 'pending'} showPoint />
+		</div>
+		<div class="task-toolbar" onclick={(e) => e.stopPropagation()}>
+			<Icon
+				name="RefreshCw"
+				onClick={handleRerun}
+				size={TOOLBAR_ICON_SIZE}
+				tooltipProps={{ content: 'Rerun task and descendants' }}
+				class="task-action"
+			/>
+			<Icon
+				name="SquarePen"
+				onClick={openTaskEdit}
+				size={TOOLBAR_ICON_SIZE}
+				tooltipProps={{ content: 'edit task' }}
+				class="task-action"
+			/>
+			<Icon
+				name="GitBranch"
+				onClick={handleBranch}
+				size={TOOLBAR_ICON_SIZE}
+				tooltipProps={{ content: 'New task from' }}
+				class="task-action"
+			/>
+			<div class="delete-action">
+				<Icon
+					name="Trash"
+					onClick={handleDelete}
+					size={TOOLBAR_ICON_SIZE}
+					tooltipProps={{ content: 'delete task' }}
+					class="task-action"
 				/>
-
-				{#if task.data != null}
-					<div class="data-block-container">
-						<DetailsPanel label="data:" hint={dataPreview(task.data)}>
-							<pre class="result-data">{formatData(task.data)}</pre>
-						</DetailsPanel>
-					</div>
-				{/if}
-
-				{#if task.embeddings}
-					<SimilarEmbeddingsComponent
-						id={task.id}
-						data={task.data}
-						enabled={task.embeddings === true}
-					/>
-				{/if}
-
-				{#if task.status === 'failed'}
-					<div class="error-block">
-						<p class="error-message">{task.error ?? 'Unknown error'}</p>
-						{#if task.debug}
-							<details class="debug-block">
-								<summary>Debug</summary>
-								<pre>{task.debug}</pre>
-							</details>
-						{/if}
-					</div>
-				{/if}
 			</div>
-		</div></Spacer
-	>
+		</div>
+	</div>
 
 	<div class="task-content">
 		{@render children?.()}
@@ -221,12 +157,6 @@
 		box-sizing: border-box;
 	}
 
-	.task-info {
-		padding: 1rem;
-		border-radius: 10px;
-		border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
-	}
-
 	.pill-container {
 		padding-bottom: 2px;
 	}
@@ -239,6 +169,7 @@
 
 	.task-title-name {
 		text-transform: capitalize;
+		font-size: 1.1rem;
 	}
 
 	.task-content {
@@ -274,65 +205,6 @@
 		border-color: rgba(255, 255, 255, 0.3);
 		background: rgba(255, 255, 255, 0.08);
 		transform: translateY(-1px);
-	}
-
-	.task-stats {
-		display: flex;
-		flex-direction: column;
-		gap: 0.8rem;
-		font-size: 0.82rem;
-	}
-
-	.result-data {
-		margin: 0.5rem 0 0;
-		max-height: 20rem;
-		overflow: auto;
-		font-size: 0.85rem;
-		white-space: pre-wrap;
-		word-break: break-word;
-		font-family: 'CaskaydiaCove NFM Light', monospace;
-		line-height: 1.45;
-	}
-
-	.error-block {
-		display: grid;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border: 1px solid rgba(255, 143, 143, 0.25);
-		border-radius: 10px;
-		background: rgba(255, 143, 143, 0.05);
-	}
-
-	.error-message {
-		margin: 0;
-		color: #ff8f8f;
-		font-size: 0.9rem;
-		line-height: 1.45;
-		word-break: break-word;
-	}
-
-	.debug-block {
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
-		padding: 0.4rem 0.6rem;
-	}
-
-	.debug-block summary {
-		cursor: pointer;
-		font-size: 0.82rem;
-		opacity: 0.7;
-	}
-
-	.debug-block pre {
-		margin: 0.4rem 0 0;
-		max-height: 12rem;
-		overflow: auto;
-		font-size: 0.82rem;
-		white-space: pre-wrap;
-		word-break: break-word;
-		font-family: 'CaskaydiaCove NFM Light', monospace;
-		line-height: 1.45;
 	}
 
 	.edit-modal {

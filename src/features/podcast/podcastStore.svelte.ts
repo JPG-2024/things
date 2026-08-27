@@ -37,6 +37,10 @@ export interface PodcastConfig {
 	mode: 'interview' | 'smalltalk' | 'guided';
 	hostAProfileId: string;
 	hostBProfileId: string;
+	hostAChunkFile: string;
+	hostBChunkFile: string;
+	hostARandomChunk: boolean;
+	hostBRandomChunk: boolean;
 	contextSource: 'content' | 'summary' | 'none';
 	hooks: Record<HookSlot, PodcastHookConfig>;
 }
@@ -73,6 +77,10 @@ class PodcastState {
 		mode: 'interview',
 		hostAProfileId: '',
 		hostBProfileId: '',
+		hostAChunkFile: '',
+		hostBChunkFile: '',
+		hostARandomChunk: true,
+		hostBRandomChunk: true,
 		contextSource: 'content',
 		hooks: {
 			initial: {
@@ -153,9 +161,16 @@ class PodcastState {
 	getVoiceRef(speaker: 'A' | 'B'): { ref_audio: string; ref_text: string } {
 		const profileId = speaker === 'A' ? this.config.hostAProfileId : this.config.hostBProfileId;
 		const chunks = this._voiceChunks.get(profileId) ?? [];
+		const randomChunk = speaker === 'A' ? this.config.hostARandomChunk : this.config.hostBRandomChunk;
+		const pinnedFile = speaker === 'A' ? this.config.hostAChunkFile : this.config.hostBChunkFile;
 
 		if (chunks.length > 0) {
-			const idx = Math.floor(Math.random() * chunks.length);
+			let idx = -1;
+			if (!randomChunk && pinnedFile) {
+				const pinnedIdx = chunks.findIndex((c) => c.audio_file === pinnedFile);
+				if (pinnedIdx >= 0) idx = pinnedIdx;
+			}
+			if (idx < 0) idx = Math.floor(Math.random() * chunks.length);
 			const c = chunks[idx];
 			this.lastVoiceChunkIndex = idx;
 			return { ref_audio: c.audio_file, ref_text: c.text_reference };

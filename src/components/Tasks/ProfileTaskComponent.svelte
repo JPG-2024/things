@@ -118,7 +118,7 @@
 		gap: 0.4rem;
 		width: 320px;
 		cursor: pointer;
-		border-radius: 0.5rem;
+		border-radius: var(--radius-md);
 		transition: transform 0.15s ease;
 	}
 
@@ -129,7 +129,7 @@
 	.video-thumb {
 		width: 320px;
 		height: 180px;
-		border-radius: 0.5rem;
+		border-radius: var(--radius-md);
 		object-fit: cover;
 		display: block;
 	}

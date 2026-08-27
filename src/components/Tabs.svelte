@@ -1,15 +1,24 @@
 <script lang="ts">
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
+
 	interface Tab {
 		id: string;
 		label: string;
+		icon?: string;
 	}
 
 	interface Props {
 		tabs: Tab[];
 		activeTab: string;
+		iconOnly?: boolean;
 	}
 
-	let { tabs, activeTab = $bindable() }: Props = $props();
+	let { tabs, activeTab = $bindable(), iconOnly = false }: Props = $props();
+
+	function handleTabClick(tabId: string, e: MouseEvent) {
+		e.stopPropagation();
+		activeTab = tabId;
+	}
 </script>
 
 <div class="tabs">
@@ -20,7 +29,17 @@
 			class:pill--active={activeTab === tab.id}
 			onclick={() => (activeTab = tab.id)}
 		>
-			{tab.label}
+			{#if tab.icon}
+				<ToggleIcon
+					name={tab.icon}
+					checked={activeTab === tab.id}
+					onClick={(e) => handleTabClick(tab.id, e)}
+					label={!iconOnly ? tab.label : null}
+					size={18}
+				/>
+			{:else if !iconOnly}
+				{tab.label}
+			{/if}
 		</button>
 	{/each}
 </div>
@@ -30,29 +49,27 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-		justify-content: center;
+		justify-content: flex-start;
 	}
 
 	.pill {
 		text-transform: capitalize;
 		cursor: pointer;
 		border: none;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background-color: transparent;
-		padding: 7px 20px;
+		padding: 7px 10px;
 		width: max-content;
 		color: var(--primary-color);
 		font-weight: bold;
 		font-size: 1rem;
 		line-height: 1.2;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 
 	.pill--active {
-		text-shadow:
-			0 0 5px var(--primary-color),
-			0 0 10px var(--primary-color),
-			0 0 20px var(--primary-color),
-			0 0 40px var(--primary-color),
-			0 0 80px white;
+		opacity: 1;
 	}
 </style>

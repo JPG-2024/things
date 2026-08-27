@@ -7,6 +7,7 @@
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { updateTaskDataById } from '@/stores/webStore';
 	import {
 		buildTask,
 		buildRecursiveTask,
@@ -22,6 +23,10 @@
 	import Label from '@/components/inputs/Label.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
+	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
+	import DetailsPanel from '@/components/DetailsPanel.svelte';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import { formatDuration, dataPreview, formatData } from '@/lib/utils/tasks/taskStats';
 
 	type Props = {
 		task: Task;
@@ -48,10 +53,10 @@
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
 	const tabs = [
-		{ id: 'custom', label: 'custom' },
-		{ id: 'extraction', label: 'extraction' },
-		{ id: 'category', label: 'category' },
-		{ id: 'recursive', label: 'recursive' }
+		{ id: 'custom', label: 'custom', icon: 'Pencil' },
+		{ id: 'extraction', label: 'extraction', icon: 'Download' },
+		{ id: 'category', label: 'category', icon: 'Tag' },
+		{ id: 'recursive', label: 'recursive', icon: 'Repeat' }
 	];
 
 	let activeTab = $state('custom');
@@ -322,7 +327,11 @@
 			onClose?.();
 			return;
 		}
-		void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+		const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+		const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+		if (updatedTask?.persist) {
+			await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+		}
 		onClose?.();
 	}
 
@@ -374,7 +383,11 @@
 				onClose?.();
 				return;
 			}
-			void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+			const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+			const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+			}
 		} else {
 			const deps = commonDependencies
 				.split(',')
@@ -472,7 +485,11 @@
 				onClose?.();
 				return;
 			}
-			void workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+			const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
+			const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+			}
 		} else {
 			const deps = commonDependencies
 				.split(',')
@@ -553,7 +570,11 @@
 			});
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
-			void workflowManager.rerunTask(targetRunId, effectiveId);
+			const summary = await workflowManager.rerunTask(targetRunId, effectiveId);
+			const updatedTask = summary.tasks.find((t) => t.id === effectiveId);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, effectiveId, updatedTask.data);
+			}
 		} else {
 			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
 			const newTask = buildRecursiveTask(taskId, {
@@ -601,6 +622,55 @@
 </script>
 
 <div class="edit-task">
+	<div class="task-info">
+		<div class="task-stats">
+			<KeyValuePanel
+				row
+				items={[
+					{ key: 'id', value: _task.id },
+					{ key: 'type', value: _task.type },
+					{
+						key: 'duration',
+						value: formatDuration(
+							_task.startedAt && _task.endedAt ? _task.endedAt - _task.startedAt : null
+						)
+					},
+					{ key: 'dependencies', value: _task.dependencies.join(', ') },
+					...(_task.renderOrder != null ? [{ key: 'renderOrder', value: _task.renderOrder }] : []),
+					...(_task.component ? [{ key: 'component', value: _task.component }] : [])
+				]}
+			/>
+
+			{#if _task.data != null}
+				<div class="data-block-container">
+					<DetailsPanel label="data:" hint={dataPreview(_task.data)}>
+						<pre class="result-data">{formatData(_task.data)}</pre>
+					</DetailsPanel>
+				</div>
+			{/if}
+
+			{#if _task.embeddings}
+				<SimilarEmbeddingsComponent
+					id={_task.id}
+					data={_task.data}
+					enabled={_task.embeddings === true}
+				/>
+			{/if}
+
+			{#if _task.status === 'failed'}
+				<div class="error-block">
+					<p class="error-message">{_task.error ?? 'Unknown error'}</p>
+					{#if _task.debug}
+						<details class="debug-block">
+							<summary>Debug</summary>
+							<pre>{_task.debug}</pre>
+						</details>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
+
 	<div class="row">
 		<Label text="Options">
 			<ToggleIcon
@@ -634,8 +704,14 @@
 		<Input id="render-order" bind:value={commonRenderOrder} label="Render order" />
 	</div>
 
-	<Input bind:value={commonSystemMessage} label="System message" />
-	<Input bind:value={commonUserMessage} label="User message" />
+	<div class="edit-tabs-container">
+		<Tabs {tabs} bind:activeTab />
+	</div>
+
+	{#if activeTab === 'custom'}
+		<Input bind:value={commonSystemMessage} label="System message" />
+		<Input bind:value={commonUserMessage} label="User message" />
+	{/if}
 	<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
 
 	<div class="completion-options-container">
@@ -647,8 +723,6 @@
 	</div>
 
 	<div class="edit-tabs-container">
-		<Tabs {tabs} bind:activeTab />
-
 		{#if activeTab === 'custom'}
 			<div class="tab-content">
 				<div class="actions">
@@ -730,7 +804,76 @@
 		width: 100%;
 		display: grid;
 		gap: 0.75rem;
-		border-radius: 15px;
+		border-radius: var(--radius-lg);
+	}
+
+	.task-info {
+		padding: 1rem;
+		border-radius: var(--radius-md);
+		border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
+	}
+
+	.task-stats {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		font-size: 0.82rem;
+	}
+
+	.data-block-container {
+		margin-top: 0.5rem;
+	}
+
+	.result-data {
+		margin: 0.5rem 0 0;
+		max-height: 20rem;
+		overflow: auto;
+		font-size: 0.85rem;
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-family: 'CaskaydiaCove NFM Light', monospace;
+		line-height: 1.45;
+	}
+
+	.error-block {
+		display: grid;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid rgba(255, 143, 143, 0.25);
+		border-radius: var(--radius-md);
+		background: rgba(255, 143, 143, 0.05);
+	}
+
+	.error-message {
+		margin: 0;
+		color: #ff8f8f;
+		font-size: 0.9rem;
+		line-height: 1.45;
+		word-break: break-word;
+	}
+
+	.debug-block {
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.03);
+		padding: 0.4rem 0.6rem;
+	}
+
+	.debug-block summary {
+		cursor: pointer;
+		font-size: 0.82rem;
+		opacity: 0.7;
+	}
+
+	.debug-block pre {
+		margin: 0.4rem 0 0;
+		max-height: 12rem;
+		overflow: auto;
+		font-size: 0.82rem;
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-family: 'CaskaydiaCove NFM Light', monospace;
+		line-height: 1.45;
 	}
 
 	.tab-content {

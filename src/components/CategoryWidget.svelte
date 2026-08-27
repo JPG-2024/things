@@ -229,7 +229,7 @@
 		background: none;
 		padding: 0;
 		cursor: pointer;
-		border-radius: 0.5rem;
+		border-radius: var(--radius-md);
 		overflow: hidden;
 		transition: transform 0.2s;
 	}

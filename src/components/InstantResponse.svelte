@@ -103,7 +103,7 @@
 
 	.error {
 		padding: 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 0, 0, 0.1);
 		color: #ff4444;
 		border: 1px solid rgba(255, 0, 0, 0.3);
@@ -111,7 +111,7 @@
 
 	.response {
 		padding: 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(154, 154, 154, 0.2);
 		backdrop-filter: blur(8px);
 		border: 1px solid rgba(154, 154, 154, 0.3);

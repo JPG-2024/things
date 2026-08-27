@@ -20,19 +20,18 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		color: var(--primary-color);
-		border-radius: 12px;
+		color: rgb(195, 195, 195);
+
 		background-color: transparent;
 		background-size: 200% 200%;
 		width: max-content;
 		padding: 4px 15px;
 		text-transform: capitalize;
 		font-size: 0.9rem;
+		border-left: 1px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
 	}
 
 	.pill.show-point::before {
-		content: '●';
-		font-size: 0.8rem;
 	}
 
 	.pill.show-point.loading::before {
@@ -59,6 +58,7 @@
 			rgb(from var(--primary-color) r g b / 0.08) 100%
 		);
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
+		border-left: none;
 	}
 
 	.pill.error {
@@ -69,10 +69,11 @@
 	}
 
 	.pill.done {
+		border-left: none;
 	}
 
 	.pill.tag {
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 	}
 
 	@keyframes pill-loading-gradient {

@@ -1,11 +1,32 @@
 import type { PlayerMode } from '@/lib/ttsPlayerConfig';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import { isoDateDaysAgo } from '@/lib/utils/date';
 import type { WebStoreCategoryRecord } from '@/stores/webStore';
+import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
 
-type language = 'en' | 'es';
+type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
 export const DEFAULT_PRIMARY_COLOR = 'rgb(170, 255, 187)';
 export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
+
+export function rgbToHue(rgb: string): number {
+	const match = rgb.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+	if (!match) return 0;
+	const r = +match[1] / 255;
+	const g = +match[2] / 255;
+	const b = +match[3] / 255;
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	const delta = max - min;
+	if (delta === 0) return 0;
+	let hue: number;
+	if (max === r) hue = ((g - b) / delta) % 6;
+	else if (max === g) hue = (b - r) / delta + 2;
+	else hue = (r - g) / delta + 4;
+	hue *= 60;
+	return hue < 0 ? hue + 360 : hue;
+}
 
 class ViewState {
 	language = $state<language>('es');
@@ -17,6 +38,7 @@ class ViewState {
 	collapseProfiles = $state(true);
 	selectedTaskId = $state('title-summary');
 	ttsPlayerMode = $state<PlayerMode>('full');
+	masonryLayoutIndex = $state(1);
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
@@ -33,6 +55,8 @@ class ViewState {
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	backgroundColor = $state(DEFAULT_BG_COLOR);
+	tintHue = $derived(rgbToHue(this.backgroundColor));
+	primaryTintHue = $derived(rgbToHue(this.primaryColor));
 	blur = $state(false);
 	clipboardPollingEnabled = $state(false);
 	clipboardTtsEnabled = $state(false);
@@ -75,8 +99,9 @@ class ViewState {
 				: null
 	);
 
-	activeProfileArticleTab = $state<'profiles' | 'articles'>('articles');
+	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories'>('articles');
 	showOnlyRawArticles = $state(false);
+	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 
@@ -128,3 +153,49 @@ class DrawersState {
 }
 
 export const drawersState = new DrawersState();
+
+const DEFAULT_SELECTION: WheelSelection = {
+	profileId: '',
+	audioFile: '',
+	randomChunk: false,
+	synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
+	pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
+};
+
+class VoiceWheelState {
+	open = $state(false);
+	profiles = $state<VoiceProfile[]>([]);
+	chunks = $state<Voice[]>([]);
+	selection = $state<WheelSelection>({ ...DEFAULT_SELECTION });
+	private _onCommit: ((sel: WheelSelection) => void) | null = null;
+	private _onChunksChanged: (() => void) | undefined;
+
+	openWheel(
+		profiles: VoiceProfile[],
+		chunks: Voice[],
+		selection: WheelSelection,
+		onCommit: (sel: WheelSelection) => void,
+		onChunksChanged?: () => void
+	) {
+		this.profiles = profiles;
+		this.chunks = chunks;
+		this.selection = selection;
+		this._onCommit = onCommit;
+		this._onChunksChanged = onChunksChanged;
+		this.open = true;
+	}
+
+	commit(sel: WheelSelection) {
+		this._onCommit?.(sel);
+	}
+
+	close() {
+		this.open = false;
+	}
+
+	get onChunksChanged(): (() => void) | undefined {
+		return this._onChunksChanged;
+	}
+}
+
+export const voiceWheelState = new VoiceWheelState();

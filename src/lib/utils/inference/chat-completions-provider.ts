@@ -27,7 +27,12 @@ export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o';
 
 const LANGUAGE_MAP: Record<string, string> = {
 	en: 'English',
-	es: 'Spanish'
+	es: 'Spanish',
+	fr: 'French',
+	de: 'German',
+	pt: 'Portuguese',
+	it: 'Italian',
+	ja: 'Japanese'
 };
 
 const LLAMA_SPECIFIC_FIELDS = new Set([

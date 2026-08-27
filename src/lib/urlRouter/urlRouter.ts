@@ -10,6 +10,7 @@ import {
 import { webRunner } from '@/runners/web/webRunner';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
+import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 
 type RouterResult = { data: { url: string | null; tasks?: Task[] }; cached: boolean };
 
@@ -125,6 +126,10 @@ export async function urlRouter(
 	{ forceRunTasks = false, runnerOptions, routine }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
 	workflowManager.clearStack();
+
+	if (YOUTUBE_URL_REGEX.test(url)) {
+		url = normalizeYouTubeUrl(url);
+	}
 
 	if (inProgressRequests.has(url)) {
 		return inProgressRequests.get(url) as Promise<RouterResult>;

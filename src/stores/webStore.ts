@@ -42,6 +42,12 @@ export interface ArticlesWithoutProfileResponse {
 	articles: ArticleWithTasks[];
 	total: number;
 }
+
+export interface CategoryWithArticles {
+	categoryId: string;
+	categoryName: string;
+	articles: ArticleWithTasks[];
+}
 export const WEB_STORE_UNKNOWN_PROFILE_ID = '__unknown_profile__';
 export const WEB_STORE_UNKNOWN_PROFILE_LABEL = 'Unknown profile';
 //div[contains(concat(" ", normalize-space(@class), " "), " hp-hero-title_wrapper ")]/div[contains(concat(" ", normalize-space(@class), " "), " t-body-large ")]
@@ -672,6 +678,39 @@ export async function saveTasks<TMap extends TaskMapBase>(
 	}
 }
 
+export async function updateTaskDataById(
+	url: string,
+	taskId: string,
+	data: unknown
+): Promise<void> {
+	try {
+		const taskRecord = await invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', {
+			url
+		});
+
+		if (!taskRecord) return;
+
+		const tasks = JSON.parse(taskRecord.tasksJson) as StoredTask[];
+		const task = tasks.find((t) => t.id === taskId);
+
+		if (!task) return;
+
+		task.data = data;
+
+		if (taskId === 'content' && typeof task.data === 'string' && task.data.length > 0) {
+			const key = await invoke<string>('write_raw_content', { url, text: task.data });
+			task.data = { [RAW_CONTENT_REF]: key };
+		}
+
+		await invoke('upsert_web_store_tasks', {
+			url,
+			tasksJson: JSON.stringify(tasks)
+		});
+	} catch (error) {
+		console.error('Error updating task data:', error);
+	}
+}
+
 export async function deleteArticleByUrl(url: string): Promise<{ success: boolean }> {
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
@@ -908,5 +947,44 @@ export async function getArticlesWithoutProfile(options?: {
 	} catch (error) {
 		console.error('Error fetching articles without profile:', error);
 		return { articles: [], total: 0 };
+	}
+}
+
+export async function getArticlesByCategories(
+	categoryIds: string[],
+	articleCount: number,
+	createdAtFrom?: number
+): Promise<CategoryWithArticles[]> {
+	try {
+		const result = await invoke<
+			Array<{
+				categoryId: string;
+				categoryName: string;
+				articles: WebStoreArticleRecord[];
+			}>
+		>('list_articles_by_categories', {
+			categoryIds,
+			articleCount,
+			createdAtFrom: createdAtFrom ?? null
+		});
+
+		const categoriesWithArticles: CategoryWithArticles[] = [];
+		for (const category of result) {
+			const mappedArticles = await Promise.all(
+				category.articles.map((row) => mapStoredArticle(row, null))
+			);
+			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+
+			categoriesWithArticles.push({
+				categoryId: category.categoryId,
+				categoryName: category.categoryName,
+				articles: resolvedArticles
+			});
+		}
+
+		return categoriesWithArticles;
+	} catch (error) {
+		console.error('Error fetching articles by categories:', error);
+		return [];
 	}
 }

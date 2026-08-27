@@ -112,7 +112,6 @@
 											name="SquarePen"
 											onClick={() => openTaskEdit(task)}
 											size={14}
-											color="var(--primary-color)"
 											tooltipProps={{ content: 'edit task' }}
 											class="task-action"
 										/>
@@ -261,7 +260,7 @@
 		flex-wrap: wrap;
 		padding: 0.75rem 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: rgba(255, 255, 255, 0.03);
 	}
 
@@ -369,7 +368,7 @@
 
 	.result-preview {
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 10px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 255, 255, 0.03);
 		padding: 0.5rem 0.75rem;
 	}
@@ -408,7 +407,7 @@
 		gap: 0.5rem;
 		padding: 0.5rem 0.75rem;
 		border: 1px solid rgba(255, 143, 143, 0.25);
-		border-radius: 10px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 143, 143, 0.05);
 	}
 
@@ -422,7 +421,7 @@
 
 	.debug-block {
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 255, 255, 0.03);
 		padding: 0.4rem 0.6rem;
 	}

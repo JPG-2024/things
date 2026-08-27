@@ -692,7 +692,7 @@
 	.conversation-mode__message {
 		max-width: 75%;
 		padding: 0.6rem 1rem;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		line-height: 1.5;
 	}
 
@@ -751,7 +751,7 @@
 		padding: 0.5rem 1rem;
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 80, 80, 0.4);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		color: #ff5a5a;
 		font-size: 0.85rem;
 		z-index: 5;

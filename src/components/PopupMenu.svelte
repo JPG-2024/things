@@ -116,7 +116,7 @@
 		box-sizing: border-box;
 		outline: none;
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: rgba(21, 21, 21);
 		color: var(--primary-color);
 		padding: 1rem;

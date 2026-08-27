@@ -1,6 +1,5 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
 import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
-import { removeYTTimeParam } from '@/lib/utils/youtube/helpers';
 import { viewState } from '@/stores/viewStore.svelte';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import type { Task } from '@/types/taskRunner.types';
@@ -105,7 +104,7 @@ export async function youTubeRunner(
 	url: string,
 	config?: YouTubeRunnerCallConfig
 ): Promise<Task[]> {
-	const cleanUrl = removeYTTimeParam(url);
+	const cleanUrl = url;
 	const { options } = config ?? {};
 
 	const profileId = options?.profileId ?? viewState.domainUrl ?? '';

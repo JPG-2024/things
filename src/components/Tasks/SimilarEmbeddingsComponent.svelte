@@ -106,7 +106,6 @@
 			<Icon
 				name="FileDigit"
 				size={16}
-				color="var(--primary-color)"
 				onClick={() => void runSearch()}
 				tooltipProps={{ content: 'retrieve similar' }}
 			/>
@@ -115,7 +114,7 @@
 
 	<!-- 	<div class="similar-controls">
 		<button class="find-similar" onclick={runSearch} disabled={!hasQuery || loading}>
-			<Icon name="Search" size={12} color="var(--primary-color)" />
+			<Icon name="Search" size={12} />
 			{loading ? 'Searching…' : 'Find similar'}
 		</button>
 		{#if !hasQuery}
@@ -177,7 +176,7 @@
 		align-items: center;
 		gap: 0.35rem;
 		padding: 0.25rem 0.6rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
 		background: rgba(255, 255, 255, 0.03);
 		color: var(--primary-color);

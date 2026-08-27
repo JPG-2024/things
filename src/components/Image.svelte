@@ -48,7 +48,7 @@
 	.image-wrapper {
 		position: relative;
 		width: 100%;
-		border-radius: 20px;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
 		background: color-mix(in srgb, var(--color-surface, #111) 18%, transparent);
 	}
@@ -65,6 +65,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		border-radius: 20px;
+		border-radius: var(--radius-lg);
 	}
 </style>

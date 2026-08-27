@@ -3,7 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import ArticleList from '@/components/ArticleList.svelte';
+	import MasonryGrid from '@/components/MasonryGrid.svelte';
+	import ArticleItem from '@/components/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { getProfile, type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -63,17 +64,22 @@
 
 		<div class="articles-container">
 			{#if articleCacheStore.articlesWithoutProfile.length > 0}
-				<ArticleList
-					articles={articleCacheStore.articlesWithoutProfile}
-					onArticleClick={handleNavigateToArticle}
-					onArticleHoverEnter={(a) => {
-						viewState.hoveredArticleUrl = a.url ?? null;
-						viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
-					}}
-					onArticleHoverLeave={() => {
-						viewState.hoveredArticleUrl = null;
-					}}
-				/>
+				<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+{#snippet children(article: ArticleWithTasks, _i: number, _layoutIndex: number, layoutKey: string)}
+					<ArticleItem
+						{article}
+						{layoutKey}
+							onClick={handleNavigateToArticle}
+							onHoverEnter={(a) => {
+								viewState.hoveredArticleUrl = a.url ?? null;
+								viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
+							}}
+							onHoverLeave={() => {
+								viewState.hoveredArticleUrl = null;
+							}}
+						/>
+					{/snippet}
+				</MasonryGrid>
 			{:else if !articleCacheStore.loadingArticles}
 				<div class="empty-state">
 					<div class="empty-state-pill">No articles</div>
@@ -190,7 +196,7 @@
 	.empty-state-pill {
 		opacity: 0.6;
 		border: 1px dashed var(--primary-color);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		padding: 7px 20px;
 		color: var(--primary-color);
 		font-weight: bold;

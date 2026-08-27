@@ -64,7 +64,6 @@
 				<Icon
 					name="ChevronRight"
 					size={14}
-					color="var(--primary-color)"
 					class="chevron"
 					style={open
 						? 'transform: rotate(90deg); transition: transform 0.2s'
@@ -72,7 +71,7 @@
 				/>
 			</span>
 			{#if icon}
-				<Icon name={icon} size={16} color="var(--primary-color)" />
+				<Icon name={icon} size={16} />
 			{/if}
 			{@render titleSlot()}
 		</button>
@@ -92,7 +91,7 @@
 			onkeydown={handleKeydown}
 		>
 			{#if icon}
-				<Icon name={icon} size={16} color="var(--primary-color)" />
+				<Icon name={icon} size={16} />
 			{/if}
 			<LuminousText mode={effectiveOpen ? 'on' : 'off'}>
 				<span class="spacer-title">{title}</span>
@@ -101,7 +100,6 @@
 				<Icon
 					name="ChevronRight"
 					size={14}
-					color="var(--primary-color)"
 					class="chevron"
 					style={open
 						? 'transform: rotate(90deg); transition: transform 0.2s'

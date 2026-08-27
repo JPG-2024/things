@@ -10,7 +10,10 @@ import {
 	createTitleTask
 } from '@/runners/shared/taskFactories';
 import type { Task } from '@/types/taskRunner.types';
-import { DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS, DEFAULT_EMOJI_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import {
+	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
+	DEFAULT_EMOJI_COMPLETION_OPTIONS
+} from '@/lib/utils/inference/constants';
 
 export const SHARED_TASK_IDS = {
 	KEYWORDS: 'keywords',

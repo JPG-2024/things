@@ -59,7 +59,7 @@
 		text-align: left;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-		font-size: 1.1rem;
+		font-size: 1rem;
 	}
 
 	.markdown-container :global(thead th) {
@@ -70,7 +70,7 @@
 	.markdown-container :global(.thought-process) {
 		margin-bottom: 1rem;
 		border: 1px solid #333;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		background-color: #1a1a1a;
 	}
 
@@ -108,7 +108,7 @@
 	}
 
 	.markdown-container :global(code) {
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 
 		padding: 2px 6px;
 		color: #fafafa;
@@ -117,7 +117,7 @@
 	.markdown-container :global(pre) {
 		margin: 1rem 0;
 
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 
 		padding: 15px;
 		overflow-x: auto;
@@ -168,7 +168,7 @@
 
 	.markdown-container :global(img) {
 		margin: 1rem 0;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		height: auto;
 	}
 
@@ -191,7 +191,7 @@
 	}
 
 	.markdown-container :global(code) {
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 
 		padding: 2px 6px;
 		color: #fafafa;
@@ -200,7 +200,7 @@
 	.markdown-container :global(pre) {
 		margin: 1em 0;
 
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 
 		padding: 15px;
 		overflow-x: auto;
@@ -254,7 +254,7 @@
 
 	.markdown-container :global(img) {
 		margin: 1em 0;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		height: auto;
 	}
 

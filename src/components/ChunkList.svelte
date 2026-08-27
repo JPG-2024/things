@@ -116,14 +116,14 @@
 		margin-bottom: 0.5rem;
 		padding: 0.25rem 0;
 		background: rgba(255, 255, 255, 0.04);
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		width: fit-content;
 	}
 
 	.toggle-btn {
 		padding: 0.4rem 0.9rem;
 		border: none;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		background: transparent;
 		color: inherit;
 		font: inherit;
@@ -162,7 +162,7 @@
 	.chunk-thumb {
 		width: 32px;
 		height: 32px;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		object-fit: cover;
 		flex-shrink: 0;
 	}

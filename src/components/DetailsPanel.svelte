@@ -28,7 +28,7 @@
 <style>
 	.details-panel {
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 5px;
+		border-radius: var(--radius-sm);
 		background: rgba(128, 128, 128, 0.13);
 		padding: 2px 10px;
 		max-height: 300px;

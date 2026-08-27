@@ -237,7 +237,7 @@
 	.message {
 		max-width: 85%;
 		padding: 0.75rem 1rem;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		line-height: 1.6;
 	}
 
@@ -277,7 +277,7 @@
 	.error-message {
 		align-self: center;
 		padding: 0.5rem 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 0, 0, 0.1);
 		color: #ff5a5a;
 		border: 1px solid rgba(255, 0, 0, 0.3);

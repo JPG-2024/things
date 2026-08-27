@@ -1,7 +1,6 @@
 <script lang="ts">
-	import VoiceProfileWheel, {
-		type WheelSelection
-	} from '@/components/modals/VoiceProfileWheel.svelte';
+	import { voiceWheelState } from '@/stores/viewStore.svelte';
+	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
 	import { getImage, type Voice, type VoiceProfile } from '@/lib/utils/ttsService';
 	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import Icon from '@/components/Icon.svelte';
@@ -27,29 +26,25 @@
 		activeColor
 	}: Props = $props();
 
-	let showWheel = $state(false);
-
 	let selectedProfile = $derived(profiles.find((p) => p.id === selection.profileId) ?? null);
+
+	function openWheel() {
+		voiceWheelState.openWheel(profiles, chunks, selection, onChange, onChunksChanged);
+	}
 </script>
 
 <div class="voice-selector">
 	<button
 		type="button"
 		class="current-profile-card"
-		onclick={() => (showWheel = true)}
+		onclick={openWheel}
 		disabled={profiles.length === 0}
 		aria-label={selectedProfile
 			? `Change voice. Currently ${selectedProfile.name_prefix}`
 			: 'Choose voice'}
 	>
 		{#if selectedProfile}
-			<div
-				class="avatar-wrap"
-				class:active={isActive}
-				style:border-color={isActive && activeColor ? activeColor : undefined}
-				style:border-width={isActive && activeColor ? '2px' : undefined}
-				style:border-style={isActive && activeColor ? 'solid' : undefined}
-			>
+			<div class="avatar-wrap" class:active={isActive}>
 				{#if selectedProfile.image_src}
 					<img
 						class="avatar"
@@ -78,16 +73,6 @@
 			<Icon name="ChevronRight" size={18} color={viewState.primaryColor} />
 		</div>
 	</button>
-
-	<VoiceProfileWheel
-		show={showWheel}
-		{profiles}
-		{chunks}
-		initial={selection}
-		onCommit={onChange}
-		{onChunksChanged}
-		onClose={() => (showWheel = false)}
-	/>
 </div>
 
 <style>
@@ -106,7 +91,7 @@
 		padding: 1.4rem;
 		background: none;
 		border: none;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		color: inherit;
 		font: inherit;
 		text-align: left;
@@ -170,7 +155,7 @@
 	}
 
 	.avatar-wrap.active {
-		transform: scale(1.1);
+		transform: scale(1.2);
 		transition: transform 0.25s ease;
 	}
 

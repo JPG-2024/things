@@ -20,6 +20,10 @@ const ABSOLUTE_ES_RE =
 const RELATIVE_ES_RE =
 	/^(?:(?:transmitido|streamed|premiere)\s+)?hace\s+(\d+)\s+(segundos?|minutos?|horas?|d[ií]as?|semanas?|meses?|a[ñn]os?)$/i;
 
+export function isoDateDaysAgo(days: number): string {
+	return new Date(Date.now() - days * 86_400_000).toISOString().split('T')[0];
+}
+
 export function calculateDaysAgo(uploadDate: string): string {
 	let uploadTime = NaN;
 	const match = uploadDate.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);

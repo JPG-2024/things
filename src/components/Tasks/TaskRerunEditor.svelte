@@ -159,7 +159,6 @@
 	name="Settings2"
 	onClick={openEditor}
 	size={18}
-	color="var(--primary-color)"
 	title="Edit and rerun task"
 	class="task-action"
 />
@@ -324,7 +323,7 @@
 	input,
 	textarea {
 		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-radius: 14px;
+		border-radius: var(--radius-lg);
 		background: rgba(255, 255, 255, 0.04);
 		padding: 0.85rem 1rem;
 		width: 100%;
@@ -353,7 +352,7 @@
 	.actions {
 		padding: 0.9rem 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 16px;
+		border-radius: var(--radius-lg);
 		background: rgba(255, 255, 255, 0.03);
 	}
 
@@ -375,7 +374,7 @@
 
 	pre {
 		margin: 0;
-		border-radius: 18px;
+		border-radius: var(--radius-lg);
 		background: rgba(255, 255, 255, 0.04);
 		padding: 1rem;
 		max-height: 22rem;

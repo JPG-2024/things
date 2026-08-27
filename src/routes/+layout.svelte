@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState, voiceWheelState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 
@@ -13,6 +13,7 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	import TTSSettings from '@/components/modals/TTSSettings.svelte';
+	import VoiceProfileWheel from '@/components/modals/VoiceProfileWheel.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadPanel from '@/components/DownloadPanel.svelte';
 	import Drawer from '@/components/Drawer.svelte';
@@ -248,6 +249,19 @@
 
 <TTSPlayer bind:mode={viewState.ttsPlayerMode} />
 
+<VoiceProfileWheel
+	show={voiceWheelState.open}
+	profiles={voiceWheelState.profiles}
+	chunks={voiceWheelState.chunks}
+	initial={voiceWheelState.selection}
+	onCommit={(sel) => {
+		voiceWheelState.commit(sel);
+		voiceWheelState.close();
+	}}
+	onClose={() => voiceWheelState.close()}
+	onChunksChanged={voiceWheelState.onChunksChanged}
+/>
+
 {#if ttsState.lastVoiceChunkIndex !== null}
 	<div class="tts-chunk-log">
 		{ttsState.lastVoiceChunkIndex >= 0
@@ -315,6 +329,10 @@
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
+		--radius-sm: 4px;
+		--radius-md: 8px;
+		--radius-lg: 12px;
+
 		font-synthesis: none;
 		text-rendering: optimizeLegibility;
 		-webkit-font-smoothing: antialiased;
@@ -333,15 +351,17 @@
 		background-image: linear-gradient(
 			180deg,
 			rgba(0, 0, 0),
-			color-mix(in srgb, var(--bg-color) 20%, transparent)
+			rgba(0, 0, 0),
+			color-mix(in srgb, var(--bg-color) 40%, transparent)
 		);
 		background-size: 100% 150%;
 		background-attachment: fixed;
 		overflow-y: auto;
 		height: 100vh;
 		padding: 3rem;
+		padding-top: 1.5rem;
 		scroll-behavior: smooth;
-		scroll-padding-top: 2rem;
+		scroll-padding-top: 5rem;
 		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
 		border-bottom: none;
 		border-top: none;
@@ -363,7 +383,7 @@
 			0deg,
 			rgba(255, 255, 255, 0) 0%,
 			rgba(255, 255, 255, 0) 20%,
-			var(--primary-color) 30%,
+			var(--bg-color) 20%,
 			rgba(255, 255, 255, 0) 70%,
 			rgba(255, 255, 255, 0) 100%
 		);
@@ -382,7 +402,7 @@
 			0deg,
 			rgba(0, 255, 128, 0) 0%,
 			rgba(0, 255, 128, 0) 20%,
-			var(--primary-color) 30%,
+			var(--bg-color) 30%,
 			rgba(0, 255, 128, 0) 70%,
 			rgba(0, 255, 128, 0) 100%
 		);

@@ -65,7 +65,7 @@
 		border: 1px solid rgba(var(--color), 0.8);
 
 		padding: 2px 10px;
-		border-radius: 5px;
+		border-radius: var(--radius-sm);
 	}
 
 	.kv-sep {

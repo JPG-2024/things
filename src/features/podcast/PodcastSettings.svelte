@@ -171,7 +171,7 @@
 		flex-direction: column;
 		gap: 1.25rem;
 		padding: 3rem 1.5rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 	}
 
@@ -222,7 +222,7 @@
 	.hook-prompt {
 		width: 100%;
 		resize: vertical;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.04);
 		color: rgba(255, 255, 255, 0.85);
@@ -243,7 +243,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(255, 255, 255, 0.04);
 		color: rgba(255, 255, 255, 0.6);

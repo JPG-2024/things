@@ -92,11 +92,11 @@
 			draftSynthParams = { ...initial.synthParams };
 			draftPauseSettings = { ...initial.pauseSettings };
 			hoveredChunkName = null;
-		committed = false;
-		filterText = '';
-		filterInputEl?.focus();
-	}
-	wasOpen = show;
+			committed = false;
+			filterText = '';
+			filterInputEl?.focus();
+		}
+		wasOpen = show;
 	});
 
 	$effect(() => {
@@ -387,16 +387,16 @@
 				<div class="profiles-column">
 					{#if profiles.length > 0}
 						<div class="filter-wrap">
-						<input
-							type="text"
-							class="filter-input"
-							placeholder="Filter voices..."
-							bind:value={filterText}
-							bind:this={filterInputEl}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') commitAndClose();
-							}}
-						/>
+							<input
+								type="text"
+								class="filter-input"
+								placeholder="Filter voices..."
+								bind:value={filterText}
+								bind:this={filterInputEl}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') commitAndClose();
+								}}
+							/>
 							{#if filterText}
 								<button class="filter-clear" type="button" onclick={() => (filterText = '')}>
 									×
@@ -478,7 +478,7 @@
 		background: rgba(0, 0, 0, 0.92);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		z-index: 1100;
+		z-index: 100000;
 	}
 
 	.wheel-modal {
@@ -486,11 +486,11 @@
 		width: fit-content;
 		max-width: 92vw;
 		min-width: 680px;
-		max-height: 90vh;
+		min-height: 100vh;
 		overflow-y: auto;
 		background: rgba(14, 14, 14, 0.98);
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 16px;
+		border-radius: var(--radius-lg);
 		padding: 2rem 1.5rem 1.5rem;
 		display: flex;
 		flex-direction: column;
@@ -547,9 +547,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		transition: background-color 0.2s;
-		z-index: 2;
+		z-index: 100000;
 	}
 
 	.close-btn:hover {
@@ -581,7 +581,7 @@
 		padding: 0.5rem 2rem 0.5rem 0.75rem;
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		color: white;
 		font-size: 0.9rem;
 		outline: none;
@@ -615,7 +615,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		transition: background-color 0.2s;
 	}
 
@@ -676,7 +676,7 @@
 			transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
 			opacity 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 		will-change: transform, opacity;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 	}
 
 	.wheel-item.active {
@@ -776,7 +776,7 @@
 		min-width: 36px;
 		height: 36px;
 		padding: 0 0.6rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(154, 154, 154, 0.12);
 		color: white;
@@ -813,7 +813,7 @@
 		font-size: 0.7rem;
 		font-family: inherit;
 		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		background: rgba(255, 255, 255, 0.05);
 	}
 

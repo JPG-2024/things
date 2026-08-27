@@ -21,8 +21,8 @@
 	let { runId, parentTaskId, parentRenderOrder = 0, onClose }: Props = $props();
 
 	const tabs = [
-		{ id: 'ia', label: 'ia' },
-		{ id: 'extraction', label: 'extraction' }
+		{ id: 'ia', label: 'ia', icon: 'Brain' },
+		{ id: 'extraction', label: 'extraction', icon: 'Download' }
 	];
 
 	let activeTab = $state('ia');

@@ -56,7 +56,7 @@
 		font-size: 0.9rem;
 		color: inherit;
 		padding: 8px 12px;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 		backdrop-filter: blur(4px);
 		cursor: pointer;
@@ -74,7 +74,7 @@
 		-webkit-appearance: none;
 		width: 18px;
 		height: 18px;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		border: 2px solid rgba(255, 255, 255, 0.2);
 		background: rgba(255, 255, 255, 0.05);
 		cursor: pointer;

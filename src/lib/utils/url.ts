@@ -31,3 +31,27 @@ export function getRouteForDomain(domainUrl: string): string {
 
 	return SITES_ROUTES[domain] || 'article';
 }
+
+export function isUrlList(text: string): boolean {
+	const lines = text
+		.trim()
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+
+	if (lines.length === 0) return false;
+
+	const urlRegex = /^https?:\/\/[^\s]+$/i;
+
+	return lines.every((line) => urlRegex.test(line));
+}
+
+export function extractUrlList(text: string): string[] {
+	if (!isUrlList(text)) return [];
+
+	return text
+		.trim()
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+}

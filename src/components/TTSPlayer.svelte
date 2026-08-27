@@ -1,7 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { fade, fly } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
+	import VoiceSelector from '@/components/VoiceSelector.svelte';
+	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+	import {
+		fetchVoiceProfiles,
+		fetchVoiceChunks,
+		type Voice,
+		type VoiceProfile
+	} from '@/lib/utils/ttsService';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle, type PlayerMode } from '@/lib/ttsPlayerConfig';
 	import {
@@ -43,6 +52,24 @@
 	let waitingForChunk = $state(false);
 
 	let animationFrame: number | null = null;
+
+	let profiles = $state<VoiceProfile[]>([]);
+	let chunks = $state<Voice[]>([]);
+	let selectedProfileId = $state('');
+
+	const wheelInitial = $derived<WheelSelection>({
+		profileId: selectedProfileId,
+		audioFile: ttsState.config.refAudioFilename,
+		randomChunk: ttsState.config.randomChunk,
+		synthParams: {
+			numStep: ttsState.config.numStep,
+			guidanceScale: ttsState.config.guidanceScale,
+			speed: ttsState.config.speed,
+			splitLevel: ttsState.config.splitLevel
+		},
+		pauseSettings: { ...ttsState.pauseSettings }
+	});
+
 	const amplitudeScale = $derived(mode === 'mini' ? 1.5 : 0.2);
 	const wavelengthScale = 300;
 
@@ -337,6 +364,90 @@
 			showControls = false;
 		}, 1000);
 	}
+
+	async function loadChunksForProfile(profileId: string) {
+		try {
+			chunks = await fetchVoiceChunks(profileId);
+			ttsState.setVoiceChunks(chunks);
+		} catch (err) {
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voice chunks';
+		}
+	}
+
+	async function handleVoiceChange(sel: WheelSelection) {
+		const profile = profiles.find((p) => p.id === sel.profileId);
+		if (profile) {
+			selectedProfileId = profile.id;
+			ttsState.namePrefix = profile.name_prefix;
+			await loadChunksForProfile(profile.id);
+			const firstChunk = chunks[0];
+			if (firstChunk) {
+				ttsState.config.refAudioFilename = firstChunk.audio_file;
+				ttsState.config.refText = firstChunk.text_reference;
+			}
+		}
+
+		ttsState.config.randomChunk = sel.randomChunk;
+		ttsState.config.numStep = sel.synthParams.numStep;
+		ttsState.config.guidanceScale = sel.synthParams.guidanceScale;
+		ttsState.config.speed = sel.synthParams.speed;
+		ttsState.config.splitLevel = sel.synthParams.splitLevel;
+
+		ttsState.pauseSettings.minGapMs = sel.pauseSettings.minGapMs;
+		ttsState.pauseSettings.maxGapMs = sel.pauseSettings.maxGapMs;
+		ttsState.pauseSettings.betweenParagraphs = sel.pauseSettings.betweenParagraphs;
+
+		if (sel.audioFile && sel.audioFile !== chunks[0]?.audio_file) {
+			const picked = chunks.find((c) => c.audio_file === sel.audioFile);
+			if (picked) {
+				ttsState.config.refAudioFilename = picked.audio_file;
+				ttsState.config.refText = picked.text_reference;
+			}
+		}
+	}
+
+	function handleLiveVoiceChange(sel: WheelSelection) {
+		const isActive = ttsState.isGenerating || ttsState.isPlaying;
+		if (!isActive) {
+			void handleVoiceChange(sel);
+			return;
+		}
+
+		const profile = profiles.find((p) => p.id === sel.profileId);
+		if (profile && profile.id !== selectedProfileId) {
+			selectedProfileId = profile.id;
+			ttsState.namePrefix = profile.name_prefix;
+			void loadChunksForProfile(profile.id).then(() => {
+				const idx = sel.randomChunk
+					? Math.floor(Math.random() * ttsState.voiceChunks.length)
+					: sel.audioFile
+						? ttsState.voiceChunks.findIndex((c) => c.audio_file === sel.audioFile)
+						: 0;
+				ttsState.updatePendingVoiceRefs(idx >= 0 ? idx : 0);
+			});
+			return;
+		}
+
+		const idx = sel.randomChunk
+			? Math.floor(Math.random() * ttsState.voiceChunks.length)
+			: sel.audioFile
+				? chunks.findIndex((c) => c.audio_file === sel.audioFile)
+				: 0;
+		ttsState.updatePendingVoiceRefs(idx >= 0 ? idx : 0);
+	}
+
+	onMount(async () => {
+		try {
+			profiles = await fetchVoiceProfiles();
+			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
+			if (match) {
+				selectedProfileId = match.id;
+				await loadChunksForProfile(match.id);
+			}
+		} catch (err) {
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
+		}
+	});
 
 	function handlePlayerMouseMove() {
 		showControls = true;
@@ -642,9 +753,14 @@
 	>
 		{#if mode === 'full'}
 			<div class="tts-player__header">
-				<!-- 			<div class="tts-player__picture-container">
-					<img src={viewState.hoveredPictureSrc} alt="article" class="tts-player__content-picture" />
-				</div> -->
+				<VoiceSelector
+					{profiles}
+					{chunks}
+					selection={wheelInitial}
+					onChange={handleLiveVoiceChange}
+					isActive={ttsState.isPlaying}
+					activeColor={viewState.primaryColor}
+				/>
 			</div>
 
 			<div class="tts-player__canvas-container">
@@ -703,8 +819,25 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="tts-player-mini__canvas-clip" transition:fly={{ duration: 200, y: -200 }}>
-				<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
+			<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="tts-player-mini__voice"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+				>
+					<VoiceSelector
+						{profiles}
+						{chunks}
+						selection={wheelInitial}
+						onChange={handleLiveVoiceChange}
+						isActive={ttsState.isPlaying}
+						activeColor={viewState.primaryColor}
+					/>
+				</div>
+				<div class="tts-player-mini__canvas-clip">
+					<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
+				</div>
 			</div>
 
 			{#if ttsState.errorMessage}
@@ -751,7 +884,7 @@
 	.tts-player__picture-container {
 		width: 250px;
 		height: 150px;
-		border-radius: 20px;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
 		position: relative;
 		display: block;
@@ -831,7 +964,7 @@
 		color: var(--primary-color);
 		font-size: 0.9rem;
 		padding: 0.5rem 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		z-index: 5;
 	}
 
@@ -842,7 +975,7 @@
 		font-weight: bold;
 		font-variant-numeric: tabular-nums;
 		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 	}
 
 	.tts-player__error {
@@ -856,7 +989,7 @@
 		padding: 0.5rem 1rem;
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 80, 80, 0.4);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		color: #ff5a5a;
 		font-size: 0.85rem;
 	}
@@ -880,12 +1013,17 @@
 		bottom: 1.5rem;
 		left: 50%;
 		transform: translateX(-50%);
-		width: 200px;
+		background: transparent;
+		/* background: color-mix(in srgb, var(--bg-color) 10%, transparent); */
+		padding: 5px;
+		border-radius: var(--radius-md);
+		width: 260px;
 		height: 70px;
-		border-radius: 30%;
-		background: rgba(14, 14, 14, 0.9);
-		box-shadow: 0 4px 35px rgba(0, 0, 0, 0.8);
 		cursor: pointer;
+		display: flex;
+		align-items: center;
+		padding-left: 8px;
+		gap: 4px;
 	}
 
 	.tts-player--mini:focus-visible {
@@ -893,10 +1031,48 @@
 		outline-offset: 4px;
 	}
 
+	.tts-player-mini__content {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		height: 100%;
+		gap: 4px;
+	}
+
+	.tts-player-mini__voice {
+		flex-shrink: 0;
+		pointer-events: auto;
+	}
+
+	.tts-player-mini__voice :global(.voice-selector) {
+		gap: 0;
+	}
+
+	.tts-player-mini__voice :global(.current-profile-card) {
+		padding: 0.4rem;
+		gap: 0;
+	}
+
+	.tts-player-mini__voice :global(.avatar-wrap) {
+		width: 36px;
+		height: 36px;
+	}
+
+	.tts-player-mini__voice :global(.avatar) {
+		width: 36px;
+		height: 36px;
+	}
+
+	.tts-player-mini__voice :global(.current-profile-meta),
+	.tts-player-mini__voice :global(.current-profile-action) {
+		display: none;
+	}
+
 	.tts-player-mini__canvas-clip {
-		position: absolute;
-		inset: 0;
-		border-radius: 50%;
+		flex: 1;
+		height: 100%;
+		position: relative;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
 	}
 
@@ -920,7 +1096,7 @@
 		padding: 0.25rem 0.75rem;
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 80, 80, 0.4);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		color: #ff5a5a;
 		font-size: 0.75rem;
 		z-index: 5;

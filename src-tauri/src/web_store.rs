@@ -80,6 +80,14 @@ pub struct ArticlesWithoutProfileResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CategoryWithArticles {
+    pub category_id: String,
+    pub category_name: String,
+    pub articles: Vec<WebStoreArticleRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebStoreCategoryRecord {
     pub id: String,
     pub name: String,
@@ -1594,6 +1602,102 @@ pub async fn list_articles_without_profile(
     Ok(ArticlesWithoutProfileResponse { articles, total })
 }
 
+#[tauri::command]
+pub async fn list_articles_by_categories(
+    app: AppHandle,
+    category_ids: Vec<String>,
+    article_count: usize,
+    created_at_from: Option<i64>,
+) -> Result<Vec<CategoryWithArticles>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    query_categories_with_articles(&conn, &category_ids, article_count, created_at_from)
+}
+
+fn query_categories_with_articles(
+    conn: &Connection,
+    category_ids: &[String],
+    article_count: usize,
+    created_at_from: Option<i64>,
+) -> Result<Vec<CategoryWithArticles>, String> {
+    let categories_sql = if category_ids.is_empty() {
+        "SELECT id, name FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC".to_string()
+    } else {
+        let placeholders = category_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        format!(
+            "SELECT id, name FROM web_categories WHERE id IN ({}) AND deleted_at IS NULL ORDER BY name ASC",
+            placeholders
+        )
+    };
+
+    let mut category_stmt = conn
+        .prepare(&categories_sql)
+        .map_err(|error| error.to_string())?;
+
+    let category_params: Vec<&String> = category_ids.iter().collect();
+    let category_rows = category_stmt
+        .query_map(rusqlite::params_from_iter(category_params), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut result = Vec::new();
+    for category_result in category_rows {
+        let (category_id, category_name) = category_result.map_err(|error| error.to_string())?;
+        let articles = query_articles_for_category(conn, &category_id, article_count, created_at_from)?;
+        result.push(CategoryWithArticles {
+            category_id,
+            category_name,
+            articles,
+        });
+    }
+
+    Ok(result)
+}
+
+fn query_articles_for_category(
+    conn: &Connection,
+    category_id: &str,
+    article_count: usize,
+    created_at_from: Option<i64>,
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let mut articles_sql = String::from(
+        "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
+                a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
+                a.viewed, a.date
+         FROM web_articles a
+         INNER JOIN article_category ac ON ac.article_url = a.url
+         WHERE ac.category_id = ?1",
+    );
+    if created_at_from.is_some() {
+        articles_sql.push_str(" AND a.created_at >= ?2");
+    }
+    articles_sql.push_str(" ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT ?");
+
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(category_id.to_string())];
+    if let Some(from) = created_at_from {
+        params.push(Box::new(from));
+    }
+    params.push(Box::new(article_count as i64));
+
+    let mut article_stmt = conn
+        .prepare(&articles_sql)
+        .map_err(|error| error.to_string())?;
+    let article_rows = article_stmt
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            row_to_stored_article,
+        )
+        .map_err(|error| error.to_string())?;
+
+    let mut articles = Vec::new();
+    for article_result in article_rows {
+        articles.push(article_result.map_err(|error| error.to_string())?);
+    }
+    Ok(articles)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebStoreTemplateRecord {
@@ -1828,6 +1932,74 @@ mod tests {
             params![id, id, created_at, format!("title-{}", id), None::<String>, profile, date],
         )
         .expect("insert article");
+    }
+
+    fn insert_category(conn: &Connection, id: &str, name: &str) {
+        conn.execute(
+            "INSERT INTO web_categories (id, name, last_modified, deleted_at)
+             VALUES (?1, ?2, 0, NULL)",
+            params![id, name],
+        )
+        .expect("insert category");
+    }
+
+    fn link_article_to_category(conn: &Connection, article_url: &str, category_id: &str) {
+        conn.execute(
+            "INSERT INTO article_category (article_url, category_id) VALUES (?1, ?2)",
+            params![article_url, category_id],
+        )
+        .expect("link article to category");
+    }
+
+    #[test]
+    fn query_categories_with_articles_returns_all_when_ids_empty() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_category(&conn, "cat-b", "Beta");
+        insert_category(&conn, "cat-deleted", "Deleted");
+
+        for i in 0..5 {
+            insert_article(&conn, &format!("a-{i}"), "channel", 2_000_000_000_000 + i, None);
+            link_article_to_category(&conn, &format!("a-{i}"), "cat-a");
+        }
+        insert_article(&conn, "b-1", "channel", 3_000_000_000_000, None);
+        link_article_to_category(&conn, "b-1", "cat-b");
+
+        conn.execute(
+            "UPDATE web_categories SET deleted_at = 1 WHERE id = 'cat-deleted'",
+            [],
+        )
+        .expect("mark category deleted");
+
+        let result = query_categories_with_articles(&conn, &[], 4, None).expect("query");
+
+        let names: Vec<&str> = result.iter().map(|c| c.category_name.as_str()).collect();
+        assert_eq!(names, vec!["Alpha", "Beta"], "expected all non-deleted categories");
+
+        let alpha = result.iter().find(|c| c.category_id == "cat-a").unwrap();
+        assert_eq!(alpha.articles.len(), 4, "expected article count capped at 4");
+    }
+
+    #[test]
+    fn query_categories_with_articles_filters_by_created_at() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+
+        insert_article(&conn, "old-article", "channel", 1_000_000_000_000, None);
+        insert_article(&conn, "new-article", "channel", 2_000_000_000_000, None);
+        link_article_to_category(&conn, "old-article", "cat-a");
+        link_article_to_category(&conn, "new-article", "cat-a");
+
+        let result = query_categories_with_articles(&conn, &["cat-a".to_string()], 4, Some(1_500_000_000_000))
+            .expect("query");
+
+        let category = &result[0];
+        let urls: Vec<&str> = category
+            .articles
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(urls, vec!["new-article"], "expected only articles created after the cutoff");
     }
 
     #[test]

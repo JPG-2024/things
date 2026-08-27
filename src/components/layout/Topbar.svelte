@@ -4,49 +4,17 @@
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
+	import { autoHide } from '@/lib/actions/autoHide';
 	import Icon from '@/components/Icon.svelte';
-	import LuminousText from '@/components/LuminousText.svelte';
 	interface Props {
 		children?: Snippet;
-		title?: string;
 		autoHide?: boolean;
 		loading?: boolean;
 	}
 
-	let { children, title, autoHide = true, loading = false }: Props = $props();
+	let { children, autoHide: autoHideEnabled = true, loading = false }: Props = $props();
 
 	let faviconSrc = $state<string | null>(null);
-	let isHidden = $state(false);
-	let lastScrollY = 0;
-
-	$effect(() => {
-		if (!autoHide) return;
-
-		const scrollContainer = document.getElementById('layout-main');
-		if (!scrollContainer) return;
-
-		function handleScroll() {
-			const currentScrollY = scrollContainer!.scrollTop;
-			const threshold = window.innerHeight * 0.1;
-
-			if (currentScrollY > threshold) {
-				if (currentScrollY > lastScrollY) {
-					isHidden = true;
-				} else {
-					isHidden = false;
-				}
-			} else {
-				isHidden = false;
-			}
-
-			lastScrollY = currentScrollY;
-		}
-
-		scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-		return () => {
-			scrollContainer.removeEventListener('scroll', handleScroll);
-		};
-	});
 
 	$effect(() => {
 		if (!viewState.domainUrl || viewState.isRawMode) {
@@ -76,7 +44,7 @@
 	}); */
 </script>
 
-<div class="top-bar" class:hidden={isHidden}>
+<div class="top-bar" use:autoHide={{ enabled: autoHideEnabled }}>
 	<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button>
 
 	<button type="button" class="favicon-btn" aria-label="Navigate back">
@@ -86,12 +54,6 @@
 			<Icon name="ClipboardType" />
 		{/if}
 	</button>
-
-	{#if title}
-		<div class="topbar-title">
-			{title}
-		</div>
-	{/if}
 
 	{@render children?.()}
 
@@ -110,13 +72,12 @@
 		gap: 10px;
 		/* -webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px); */
-		background: color-mix(in srgb, var(--primary-color), black 90%);
+		background: color-mix(in srgb, var(--bg-color), black 90%);
 		min-height: 30px;
 		right: 0;
 		left: 0;
 		z-index: 10;
-		padding: 8px 10px;
-		padding-right: 2em;
+		padding: 1rem 1.5rem;
 		box-sizing: border-box;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
@@ -127,7 +88,7 @@
 			opacity 250ms ease-out;
 	}
 
-	.top-bar.hidden {
+	.top-bar:global(.hidden) {
 		transform: translateY(-100%);
 		opacity: 0;
 		pointer-events: none;
@@ -142,9 +103,9 @@
 		height: 1px;
 		background: linear-gradient(
 			270deg,
-			color-mix(in srgb, var(--primary-color) 1%, transparent) 0%,
-			color-mix(in srgb, var(--primary-color) 90%, transparent) 50%,
-			color-mix(in srgb, var(--primary-color) 1%, transparent) 100%,
+			color-mix(in srgb, var(--bg-color) 1%, transparent) 0%,
+			color-mix(in srgb, var(--bg-color) 90%, transparent) 50%,
+			color-mix(in srgb, var(--bg-color) 1%, transparent) 100%,
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;
@@ -153,7 +114,7 @@
 	.back-navigation {
 		all: unset;
 		cursor: pointer;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		padding: 0px 5px;
 		font-size: 25px;
 		text-decoration: none;
@@ -162,7 +123,7 @@
 	.favicon-btn {
 		all: unset;
 		cursor: pointer;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		padding: 0;
 		display: inline-flex;
 		align-items: center;
@@ -170,22 +131,16 @@
 	}
 
 	.favicon {
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		width: 20px;
 		height: 20px;
 	}
 
 	.favicon-placeholder {
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		width: 28px;
 		height: 28px;
-		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
-	}
-
-	.topbar-title {
-		margin-right: auto;
-		max-width: 70vw;
-		padding: 0.6rem;
+		background: color-mix(in srgb, var(--bg-color) 15%, transparent);
 	}
 
 	.topbar-progress {
@@ -194,7 +149,7 @@
 		left: -100%;
 		width: 100%;
 		height: 2px;
-		background: linear-gradient(90deg, transparent, var(--primary-color, #7c6af7), transparent);
+		background: linear-gradient(90deg, transparent, var(--bg-color, #7c6af7), transparent);
 		opacity: 0;
 		transition: opacity 0.2s;
 	}

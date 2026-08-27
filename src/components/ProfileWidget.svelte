@@ -249,7 +249,7 @@
 		transition: transform 0.1s;
 		cursor: pointer;
 		border: none;
-		border-radius: 0.5rem;
+		border-radius: var(--radius-md);
 		background: none;
 		padding: 0;
 	}
@@ -261,7 +261,7 @@
 
 	.mini-img {
 		display: block;
-		border-radius: 10px;
+		border-radius: var(--radius-md);
 		width: 5rem;
 		height: 4rem;
 		object-fit: cover;
@@ -271,7 +271,7 @@
 		display: -webkit-box;
 		justify-content: center;
 		align-items: center;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		width: 5rem;
 		height: 4rem;
 		padding: 0.25rem;

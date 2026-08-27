@@ -197,6 +197,30 @@ class TTSState {
 		this.resetGenerationState(true);
 	}
 
+	updatePendingVoiceRefs(voiceIndex: number | null): void {
+		const start = this._nextChunkIndex;
+		if (start >= this._allChunks.length) return;
+
+		for (let i = start; i < this._allChunks.length; i++) {
+			if (voiceIndex !== null && this.voiceChunks.length > 0) {
+				const clamped = Math.min(voiceIndex, this.voiceChunks.length - 1);
+				const v = this.voiceChunks[clamped];
+				this._chunkRefs[i] = { refAudioFilename: v.audio_file, refText: v.text_reference };
+				this._chunkVoiceIndices[i] = clamped;
+			} else {
+				this._chunkRefs[i] = {
+					refAudioFilename: this.config.refAudioFilename,
+					refText: this.config.refText
+				};
+				this._chunkVoiceIndices[i] = -1;
+			}
+		}
+
+		if (this._chunkVoiceIndices.length > 0) {
+			this.lastVoiceChunkIndex = this._chunkVoiceIndices[start] ?? null;
+		}
+	}
+
 	getVoiceRef(): { refAudioFilename: string; refText: string } {
 		if (this.config.randomChunk && this.voiceChunks.length > 0) {
 			const v = this.voiceChunks[Math.floor(Math.random() * this.voiceChunks.length)];

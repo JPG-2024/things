@@ -66,7 +66,7 @@ export function drawWaveform(
 	analyser.getByteTimeDomainData(dataArray);
 
 	ctx.clearRect(0, 0, width, height);
-	ctx.fillStyle = `rgba(0, 0, 0, ${c.sineFillAlpha})`;
+	ctx.fillStyle = `rgba(0, 0, 0`;
 	ctx.fillRect(0, 0, width, height);
 
 	const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * c.wavelengthScale));

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Label from './Label.component.svelte';
+	import Icon from '@/components/Icon.svelte';
 
 	interface Props {
 		id?: string;
@@ -10,6 +11,7 @@
 		min?: string;
 		label?: string;
 		labelPosition?: 'top' | 'inline';
+		search?: boolean;
 		onChange?: (value: string) => void;
 		onEnter?: (value: string) => void;
 	}
@@ -23,6 +25,7 @@
 		min,
 		label,
 		labelPosition = 'top',
+		search = false,
 		onChange,
 		onEnter
 	}: Props = $props();
@@ -48,9 +51,41 @@
 
 {#if label}
 	<Label text={label} position={labelPosition}>
+		{#if search}
+			<div class="search-wrapper">
+				<Icon name="Search" size={16} color="gray" />
+				<input
+					{id}
+					class="text-input search-input"
+					{type}
+					{min}
+					bind:value
+					{placeholder}
+					{disabled}
+					oninput={handleInput}
+					onkeydown={handleKeydown}
+				/>
+			</div>
+		{:else}
+			<input
+				{id}
+				class="text-input"
+				{type}
+				{min}
+				bind:value
+				{placeholder}
+				{disabled}
+				oninput={handleInput}
+				onkeydown={handleKeydown}
+			/>
+		{/if}
+	</Label>
+{:else if search}
+	<div class="search-wrapper">
+		<Icon name="Search" size={14} color="gray" />
 		<input
 			{id}
-			class="text-input"
+			class="text-input search-input"
 			{type}
 			{min}
 			bind:value
@@ -58,8 +93,9 @@
 			{disabled}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
+			autocomplete="off"
 		/>
-	</Label>
+	</div>
 {:else}
 	<input
 		{id}
@@ -80,23 +116,43 @@
 		box-sizing: border-box;
 		outline: none;
 		border: none;
-		border-radius: 12px;
-		background: rgba(128, 128, 128, 0.2);
-		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		border: 1px solid rgb(var(--primary-color) / 50%);
-		padding: 0.6rem 0.75rem;
+		border-radius: var(--radius-sm);
+		background: rgba(128, 128, 128, 0.15);
+		border: 1px solid rgb(19, 19, 19);
+		/* 		border-left: 1px solid rgb(118, 118, 118);
+		border-right: 1px solid rgb(118, 118, 118); */
+		padding: 0.16rem 1rem;
 		width: 100%;
 		color: inherit;
 		font-size: 1rem;
 	}
 
 	.text-input:focus {
-		box-shadow: inset 0 -1px 2px 0px var(--primary-color);
+		/* box-shadow: inset 0 -1px 2px 0px var(--primary-color); */
 		transition: all 0.3s ease;
+		border-left: 1px solid var(--primary-color);
+		border-right: 1px solid var(--primary-color);
 	}
 
 	.text-input:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.search-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+	}
+
+	.search-wrapper :global(svg) {
+		position: absolute;
+		left: 0.5rem;
+		pointer-events: none;
+	}
+
+	.search-input {
+		padding-left: 1.75rem;
 	}
 </style>

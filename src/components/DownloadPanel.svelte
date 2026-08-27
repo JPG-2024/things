@@ -259,7 +259,7 @@
 		all: unset;
 		cursor: pointer;
 		padding: 0.4rem 0.8rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		font-size: 0.85rem;
 		color: var(--primary-color);
 		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
@@ -277,7 +277,7 @@
 		justify-content: center;
 		cursor: pointer;
 		padding: 0.4rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		color: var(--primary-color);
 		transition: background 0.15s;
 	}
@@ -304,7 +304,7 @@
 		justify-content: center;
 		cursor: pointer;
 		padding: 0.4rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		transition: background 0.15s;
 	}
 
@@ -323,7 +323,7 @@
 		flex: 1;
 		resize: none;
 		padding: 0.5rem 0.7rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		border: 1px solid rgba(255, 255, 255, 0.12);
 		background: rgba(255, 255, 255, 0.04);
 		color: rgba(255, 255, 255, 0.95);
@@ -351,7 +351,7 @@
 		gap: 0.4rem;
 		cursor: pointer;
 		padding: 0 0.9rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		font-size: 0.85rem;
 		font-weight: 500;
 		color: var(--primary-color);
@@ -375,7 +375,7 @@
 		gap: 0.75rem;
 		padding: 0.5rem 0.75rem;
 		margin-bottom: 0.75rem;
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		font-size: 0.8rem;
 		background: rgba(255, 255, 255, 0.04);
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -402,7 +402,7 @@
 		cursor: pointer;
 		padding: 0.7rem 1rem;
 		margin-bottom: 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		font-size: 0.9rem;
 		font-weight: 600;
 		color: #0a0a0a;
@@ -462,7 +462,7 @@
 		align-items: center;
 		gap: 1rem;
 		padding: 0.75rem 1rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background: rgba(255, 255, 255, 0.04);
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		transition: border-color 0.15s;
@@ -523,7 +523,7 @@
 		cursor: pointer;
 		width: 24px;
 		height: 24px;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		color: rgba(255, 255, 255, 0.6);
 		transition:
 			background 0.15s,

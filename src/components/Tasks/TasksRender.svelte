@@ -12,6 +12,12 @@
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
+
+	const titleText = $derived(
+		stackedTasks.find((e) => e.task.id === 'title' && e.task.status === 'done')?.task.data as
+			| string
+			| undefined
+	);
 	const sortedTasks = $derived(
 		[...stackedTasks].sort((a, b) => (a.task.renderOrder ?? 0) - (b.task.renderOrder ?? 0))
 	);
@@ -125,6 +131,10 @@
 </script>
 
 <div class="tasks-container">
+	{#if titleText}
+		<div class="tasks-title">{titleText}</div>
+	{/if}
+
 	{#if contentTask}
 		{@const task = contentTask.task}
 		{@const skipRender =
@@ -169,8 +179,7 @@
 						viewState.selectedTaskId = task.id;
 					}}
 				>
-					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}
-					></BaseTaskComponent>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}></BaseTaskComponent>
 				</div>
 			{:else if task.status === 'pending'}
 				<div
@@ -180,8 +189,7 @@
 						viewState.selectedTaskId = task.id;
 					}}
 				>
-					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}
-					></BaseTaskComponent>
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}></BaseTaskComponent>
 				</div>
 			{:else if task.status === 'failed'}
 				<div
@@ -276,6 +284,13 @@
 		container-type: inline-size;
 		width: 100%;
 		padding-top: 2%;
+	}
+
+	.tasks-title {
+		font-size: 1.2rem;
+		margin-right: auto;
+		width: 100%;
+		padding: 0.6rem;
 	}
 
 	.tasks-grid {

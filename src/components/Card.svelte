@@ -24,18 +24,6 @@
 		<div class="widget-title">{title}</div>
 	{/if}
 	{@render children?.()}
-	<div class="widget-corner"></div>
-	<svg class="widget-curve-tl" viewBox="0 0 60 60" preserveAspectRatio="none">
-		<path d="M 0 30 Q 0 0, 30 0" stroke="rgba(255, 255, 255, 0.8)" stroke-width="1" fill="none" />
-	</svg>
-	<svg class="widget-curve-br" viewBox="0 0 60 60" preserveAspectRatio="none">
-		<path
-			d="M 60 30 Q 60 60, 30 60"
-			stroke="rgba(255, 255, 255, 0.8)"
-			stroke-width="1"
-			fill="none"
-		/>
-	</svg>
 </div>
 
 <style>
@@ -50,12 +38,15 @@
 		max-width: 100%;
 		max-height: 100%;
 		box-sizing: border-box;
-		background: rgba(255, 255, 255, 0.09);
+		background-image: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			rgba(0, 0, 0),
+			rgba(0, 0, 0)
+		);
 		background-size: 200% 200%;
 		backdrop-filter: blur(20px);
-		border-radius: 12px;
-		padding: 7px;
-		padding-right: 8px;
+		padding: 18px;
 		overflow: hidden;
 	}
 

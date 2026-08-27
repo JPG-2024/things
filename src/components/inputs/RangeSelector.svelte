@@ -52,7 +52,7 @@
 		position: relative;
 		width: 100%;
 		padding-bottom: 10px;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 		backdrop-filter: blur(4px);
 	}
@@ -62,7 +62,7 @@
 		-webkit-appearance: none;
 		appearance: none;
 		height: 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		background: rgba(255, 255, 255, 0.1);
 		outline: none;
 		cursor: pointer;
@@ -101,7 +101,7 @@
 
 	input[type='range']::-moz-range-track {
 		height: 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		background: rgba(255, 255, 255, 0.1);
 	}
 </style>

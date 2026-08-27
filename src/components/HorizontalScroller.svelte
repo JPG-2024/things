@@ -134,7 +134,7 @@
 		cursor: pointer;
 		outline: none;
 		scroll-snap-align: start;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		transition: transform 0.15s ease;
 		color: inherit;
 		font: inherit;

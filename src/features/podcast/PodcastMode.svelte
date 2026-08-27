@@ -31,16 +31,16 @@
 
 	let hostASelection = $derived<WheelSelection>({
 		profileId: podcastState.config.hostAProfileId,
-		audioFile: hostAChunks[0]?.audio_file ?? '',
-		randomChunk: true,
+		audioFile: podcastState.config.hostAChunkFile || hostAChunks[0]?.audio_file || '',
+		randomChunk: podcastState.config.hostARandomChunk,
 		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
 		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
 	});
 
 	let hostBSelection = $derived<WheelSelection>({
 		profileId: podcastState.config.hostBProfileId,
-		audioFile: hostBChunks[0]?.audio_file ?? '',
-		randomChunk: true,
+		audioFile: podcastState.config.hostBChunkFile || hostBChunks[0]?.audio_file || '',
+		randomChunk: podcastState.config.hostBRandomChunk,
 		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
 		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
 	});
@@ -202,11 +202,25 @@
 	}
 
 	function handleHostAChange(sel: WheelSelection) {
-		podcastState.config.hostAProfileId = sel.profileId;
+		if (sel.profileId !== podcastState.config.hostAProfileId) {
+			podcastState.config.hostAProfileId = sel.profileId;
+			podcastState.config.hostAChunkFile = '';
+			podcastState.config.hostARandomChunk = true;
+			return;
+		}
+		podcastState.config.hostAChunkFile = sel.audioFile;
+		podcastState.config.hostARandomChunk = sel.randomChunk;
 	}
 
 	function handleHostBChange(sel: WheelSelection) {
-		podcastState.config.hostBProfileId = sel.profileId;
+		if (sel.profileId !== podcastState.config.hostBProfileId) {
+			podcastState.config.hostBProfileId = sel.profileId;
+			podcastState.config.hostBChunkFile = '';
+			podcastState.config.hostBRandomChunk = true;
+			return;
+		}
+		podcastState.config.hostBChunkFile = sel.audioFile;
+		podcastState.config.hostBRandomChunk = sel.randomChunk;
 	}
 
 	onMount(() => {
@@ -289,23 +303,23 @@
 	<div class="podcast-body" class:flex-1={!showTranscript}>
 		<div class="podcast-stage">
 			<div class="podcast-speakers">
-			<VoiceSelector
-				profiles={podcastState.profiles}
-				chunks={hostAChunks}
-				selection={hostASelection}
-				onChange={handleHostAChange}
-				isActive={podcastState.activeSpeaker === 'A'}
-				activeColor={HOST_A_COLOR}
-			/>
+				<VoiceSelector
+					profiles={podcastState.profiles}
+					chunks={hostAChunks}
+					selection={hostASelection}
+					onChange={handleHostAChange}
+					isActive={podcastState.activeSpeaker === 'A'}
+					activeColor={HOST_A_COLOR}
+				/>
 				<span class="vs-separator">VS</span>
-			<VoiceSelector
-				profiles={podcastState.profiles}
-				chunks={hostBChunks}
-				selection={hostBSelection}
-				onChange={handleHostBChange}
-				isActive={podcastState.activeSpeaker === 'B'}
-				activeColor={HOST_B_COLOR}
-			/>
+				<VoiceSelector
+					profiles={podcastState.profiles}
+					chunks={hostBChunks}
+					selection={hostBSelection}
+					onChange={handleHostBChange}
+					isActive={podcastState.activeSpeaker === 'B'}
+					activeColor={HOST_B_COLOR}
+				/>
 			</div>
 
 			<div class="podcast-canvas-container">
@@ -618,7 +632,7 @@
 	.exchange {
 		max-width: 80%;
 		padding: 0.5rem 0.75rem;
-		border-radius: 10px;
+		border-radius: var(--radius-md);
 		line-height: 1.5;
 		transition: opacity 0.2s;
 	}
@@ -777,7 +791,7 @@
 		padding: 0.5rem 1rem;
 		background: rgba(255, 80, 80, 0.15);
 		border: 1px solid rgba(255, 80, 80, 0.4);
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		color: #ff5a5a;
 		font-size: 0.85rem;
 		z-index: 5;

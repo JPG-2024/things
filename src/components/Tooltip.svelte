@@ -93,6 +93,7 @@
 		display: flex;
 		align-items: center;
 		position: relative;
+		text-transform: capitalize;
 	}
 
 	.tooltip {
@@ -101,8 +102,9 @@
 		box-sizing: border-box;
 		outline: none;
 		border: none;
-		border-radius: 12px;
-		background: var(--primary-color);
+		border-radius: var(--radius-lg);
+		background: white;
+
 		color: rgba(21, 21, 21);
 		padding: 0.4rem 0.7rem;
 		font-size: 0.8rem;

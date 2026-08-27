@@ -347,7 +347,7 @@
 		gap: 0.35rem;
 		padding: 0.5rem 0.6rem;
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: rgba(154, 154, 154, 0.12);
 		color: rgba(255, 255, 255, 0.6);
 		cursor: pointer;
@@ -422,7 +422,7 @@
 		gap: 0.5rem;
 		padding: 0.6rem 1rem;
 		border: 1px solid var(--primary-color);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: none;
 		color: var(--primary-color);
 		cursor: pointer;

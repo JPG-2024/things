@@ -63,7 +63,7 @@
 		height: fit-content;
 		max-height: 90vh;
 		overflow-y: auto;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		z-index: 10000;
 	}
 
@@ -86,7 +86,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		transition: background-color 0.2s;
 	}
 

@@ -161,7 +161,7 @@
 		flex-direction: column;
 		gap: 1rem;
 		padding: 3rem 1.5rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 	}
 
@@ -191,7 +191,7 @@
 		box-sizing: border-box;
 		outline: none;
 		border: none;
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: transparent;
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
 		border: 1px solid rgba(255, 255, 255, 0.1);
@@ -225,7 +225,7 @@
 	.field-range {
 		width: 100%;
 		height: 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		background: rgba(255, 255, 255, 0.1);
 		outline: none;
 		-webkit-appearance: none;

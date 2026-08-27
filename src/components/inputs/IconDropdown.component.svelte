@@ -247,7 +247,7 @@
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(154, 154, 154, 0.12);
 		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		border-radius: 5px;
+		border-radius: var(--radius-sm);
 		padding: 0.2rem 0.75rem;
 		width: 100%;
 		color: inherit;
@@ -289,7 +289,7 @@
 	.option-icon {
 		flex-shrink: 0;
 		object-fit: contain;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 	}
 
 	.option-emoji {
@@ -310,7 +310,7 @@
 		max-height: 300px;
 		overflow-y: auto;
 		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-		border-radius: 5px;
+		border-radius: var(--radius-sm);
 	}
 
 	.option {

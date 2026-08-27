@@ -1,6 +1,6 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import { musicState } from '@/stores/musicStore.svelte';
-import { navigate } from '@/lib/utils/url';
+import { navigate, extractUrlList } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
@@ -37,6 +37,34 @@ export async function handlePasteUrl(
 	content: string,
 	{ replaceState = false }: HandlePasteUrlOptions = {}
 ): Promise<void> {
+	const urlList = extractUrlList(content);
+
+	if (urlList.length > 1) {
+		const clipboardToken = content.trim();
+		viewState.lastHandledClipboardUrl = clipboardToken;
+
+		if (viewState.downloadTracksEnabled) {
+			musicState.addToQueue(urlList);
+			return;
+		}
+
+		const capacity = Math.max(0, viewState.maxUrlQueueSize - viewState.urlQueue.length);
+
+		if (viewState.processingUrl || viewState.loading) {
+			viewState.urlQueue.push(...urlList.slice(0, capacity));
+			return;
+		}
+
+		const [firstUrl, ...restUrls] = urlList;
+		viewState.urlQueue.push(...restUrls.slice(0, capacity));
+		try {
+			await handlePasteUrl(firstUrl, { replaceState });
+		} finally {
+			viewState.lastHandledClipboardUrl = clipboardToken;
+		}
+		return;
+	}
+
 	const validUrl = extractValidUrl(content);
 
 	if (validUrl && viewState.downloadTracksEnabled) {

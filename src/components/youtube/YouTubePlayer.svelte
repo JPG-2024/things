@@ -2,6 +2,7 @@
 	import { toVTName } from '@/lib/utils/url';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
+	import { fade } from 'svelte/transition';
 
 	type Props = {
 		runId?: string;
@@ -18,7 +19,7 @@
 	void componentProps;
 </script>
 
-<div class="yt-wrapper">
+<div class="yt-wrapper" transition:fade={{ duration: 1000 }}>
 	{#if showIframe}
 		<iframe
 			class="yt-video"
@@ -36,12 +37,7 @@
 			}}
 			aria-label="Play video"
 		>
-			<img
-				src={playerData.thumbnailImageSrc}
-				alt="YouTube thumbnail"
-				class="yt-thumbnail"
-				style={`view-transition-name: vt-main-image-${toVTName(playerData.url ?? '')}`}
-			/>
+			<img src={playerData.thumbnailImageSrc} alt="YouTube thumbnail" class="yt-thumbnail" />
 		</button>
 
 		<!-- 		<button
@@ -62,7 +58,7 @@
 	.yt-wrapper {
 		position: relative;
 		width: 100%;
-		border-radius: 20px;
+		border-radius: var(--radius-md);
 		overflow: hidden;
 		border: none;
 	}
@@ -72,7 +68,7 @@
 		display: block;
 		padding-top: 56.25%; /* 16:9 */
 		content: '';
-		border-radius: 20px;
+		border-radius: var(--radius-md);
 	}
 
 	.yt-wrapper img {
@@ -83,7 +79,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		border-radius: 15px;
+		border-radius: var(--radius-lg);
 	}
 
 	/* Make iframe fill the wrapper */

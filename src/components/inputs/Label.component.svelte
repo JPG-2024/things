@@ -48,7 +48,7 @@
 		align-items: center;
 		font-size: 1rem;
 		color: inherit;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		backdrop-filter: blur(4px);
 		gap: 0.5rem;
 	}

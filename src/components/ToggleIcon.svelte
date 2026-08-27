@@ -9,6 +9,7 @@
 		size?: number;
 		label?: string | null;
 		tooltipProps?: Omit<TooltipProps, 'children'>;
+		onClick?: (event: MouseEvent) => void;
 		[key: string]: unknown;
 	}
 
@@ -16,14 +17,25 @@
 		name,
 		checked = $bindable(false),
 		color = 'var(--primary-color)',
-		size = 18,
+		size,
 		label = null,
 		tooltipProps = undefined,
+		onClick = undefined,
 		...props
 	}: Props = $props();
 </script>
 
-<button type="button" class="toggle-wrapper" onclick={() => (checked = !checked)}>
+<button
+	type="button"
+	class="toggle-wrapper"
+	onclick={(e) => {
+		if (onClick) {
+			onClick(e);
+		} else {
+			checked = !checked;
+		}
+	}}
+>
 	<span class="icon-glow" class:glow={checked}>
 		<Icon {name} {...props} {color} {size} {tooltipProps} />
 	</span>

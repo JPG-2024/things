@@ -20,8 +20,6 @@
 	import TemplateManager from './TemplateManager.svelte';
 	import ToolbarDivider from './ToolbarDivider.svelte';
 
-	const TOOLBAR_ICON_SIZE = 18;
-
 	interface Props {
 		headerContent?: any;
 		contentSnippet?: any;
@@ -30,12 +28,6 @@
 	const { headerContent, contentSnippet } = $props();
 	let isDeleting = $state(false);
 	let showTemplateManager = $state(false);
-
-	const titleText = $derived.by(() => {
-		const tasks = workflowStore.focusedRunTasks;
-		const titleTask = tasks.find((t) => t.id === 'title');
-		return titleTask?.status === 'done' ? (titleTask.data as string) : undefined;
-	});
 
 	$effect.pre(() => {
 		function handleScroll() {
@@ -93,34 +85,27 @@
 </script>
 
 <article>
-	<Topbar title={titleText} loading={viewState.embeddingsLoading}>
-		<Toolbar justify="end">
+	<Topbar loading={viewState.embeddingsLoading}>
+		<Toolbar justify="end" iconSize={20}>
 			<ToggleIcon
 				name="ListChecks"
-				size={TOOLBAR_ICON_SIZE}
 				bind:checked={viewState.showAllTasks}
 				tooltipProps={{ content: 'show all tasks' }}
 			/>
 			<Icon
-				color="var(--primary-color)"
 				name="RefreshCcw"
-				size={TOOLBAR_ICON_SIZE}
 				onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
 				tooltipProps={{ content: 'refresh article' }}
 			/>
 
 			<Icon
-				color="var(--primary-color)"
 				name="Save"
-				size={TOOLBAR_ICON_SIZE}
 				tooltipProps={{ content: 'template manager' }}
 				onClick={() => (showTemplateManager = true)}
 			/>
 
 			<Icon
-				color="var(--primary-color)"
 				name="Brain"
-				size={TOOLBAR_ICON_SIZE}
 				onClick={handleGenerateEmbeddings}
 				tooltipProps={{ content: 'generate embeddings' }}
 			/>
@@ -134,8 +119,6 @@
 				>
 					<Icon
 						name="Trash"
-						color="var(--primary-color)"
-						size={TOOLBAR_ICON_SIZE}
 						tooltipProps={{ content: 'delete article' }}
 					/>
 				</button>
@@ -143,11 +126,9 @@
 
 			<ToolbarDivider />
 
-			<LinkIcon url={viewState.url!} size={TOOLBAR_ICON_SIZE} />
+			<LinkIcon url={viewState.url!} />
 			<Icon
-				color="var(--primary-color)"
 				name="Settings"
-				size={TOOLBAR_ICON_SIZE}
 				title="Settings"
 				onClick={() => drawersState.open('settings')}
 				tooltipProps={{ content: 'settings' }}
@@ -173,8 +154,8 @@
 		justify-content: center;
 		align-items: flex-start;
 		gap: 0.2em;
+		padding-top: 33px;
 		box-sizing: border-box;
-		padding-top: 50px;
 		width: 100%;
 		margin: 0 auto;
 		margin-bottom: 30px;
@@ -190,7 +171,7 @@
 	.delete-btn {
 		all: unset;
 		cursor: pointer;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		padding: 6px 10px;
 		color: white;
 		line-height: 1;

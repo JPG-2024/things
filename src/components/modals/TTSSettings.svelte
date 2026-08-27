@@ -332,7 +332,7 @@
 		flex-direction: column;
 		gap: 1rem;
 		padding: 3rem 1.5rem;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		background-color: rgba(255, 255, 255, 0.02);
 	}
 
@@ -360,7 +360,7 @@
 	.image-preview {
 		width: 40px;
 		height: 40px;
-		border-radius: 8px;
+		border-radius: var(--radius-md);
 		object-fit: cover;
 		flex-shrink: 0;
 	}
@@ -379,7 +379,7 @@
 		height: 36px;
 		padding: 0;
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 12px;
+		border-radius: var(--radius-lg);
 		background: rgba(154, 154, 154, 0.12);
 		color: var(--primary-color);
 		cursor: pointer;
