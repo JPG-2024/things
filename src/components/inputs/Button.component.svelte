@@ -33,7 +33,6 @@
 		cursor: pointer;
 		color: var(--primary-color);
 		border: 1px solid var(--primary-color);
-		border-radius: var(--radius-lg);
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;

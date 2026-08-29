@@ -598,7 +598,7 @@
 	}
 
 	.podcast-canvas-container {
-		width: 100%;
+		width: 80%;
 		height: 140px;
 		flex-shrink: 0;
 		position: relative;

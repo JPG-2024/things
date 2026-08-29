@@ -18,6 +18,7 @@
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
+	import ProfilesBar from '@/components/ProfilesBar.svelte';
 	import type { Task } from '@/types/taskRunner.types';
 	import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
@@ -265,6 +266,8 @@
 </div>
 
 <div class="dashboard-container">
+	<AskComponent></AskComponent>
+	<ProfilesBar />
 	<div class="categories-container">
 		<Categories />
 	</div>

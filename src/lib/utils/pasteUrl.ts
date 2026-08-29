@@ -3,7 +3,6 @@ import { musicState } from '@/stores/musicStore.svelte';
 import { navigate, extractUrlList } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
-import { enrichRawWithUrl } from '@/lib/utils/enrichRawWithUrl';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 import { RAW_PROCESS_LIMIT } from '@/constants';
 import { playCoinSound, playCoinLostSound } from '@/lib/utils/coinSound';
@@ -74,19 +73,6 @@ export async function handlePasteUrl(
 	}
 
 	if (viewState.processingUrl) return;
-
-	if (validUrl && viewState.isRawMode) {
-		viewState.processingUrl = true;
-		try {
-			viewState.lastHandledClipboardUrl = validUrl;
-			await enrichRawWithUrl(viewState.url!, validUrl);
-			articleCacheStore.invalidate();
-		} finally {
-			viewState.processingUrl = false;
-			await processQueue({ replaceState });
-		}
-		return;
-	}
 
 	if (validUrl) {
 		playCoinSound();

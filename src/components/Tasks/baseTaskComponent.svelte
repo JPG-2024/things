@@ -13,7 +13,7 @@
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import { statusToPillStatus } from '@/lib/utils/tasks/taskStats';
 
-	const TOOLBAR_ICON_SIZE = 14;
+	const TOOLBAR_ICON_SIZE = 18;
 
 	type Props = {
 		runId?: string;
@@ -127,7 +127,7 @@
 
 <Modal show={showEditModal} onClose={handleModalClose}>
 	<div class="edit-modal">
-		<div class="edit-modal-header">
+		<!-- 		<div class="edit-modal-header">
 			<p class="eyebrow">{createMode ? 'New task from' : 'Edit task'}</p>
 			<h2>
 				{(createMode && draftTask ? draftTask : task).name ??
@@ -137,7 +137,7 @@
 				<span>{(createMode && draftTask ? draftTask : task).type}</span>
 				<span>{(createMode && draftTask ? draftTask : task).status ?? 'pending'}</span>
 			</p>
-		</div>
+		</div> -->
 		<EditTaskComponent
 			task={createMode && draftTask ? draftTask : task}
 			runId={targetRunId}

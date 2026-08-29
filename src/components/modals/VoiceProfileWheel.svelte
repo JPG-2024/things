@@ -510,7 +510,7 @@
 	.config-column {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 1.5rem;
 	}
 
 	.profiles-column {
@@ -626,7 +626,7 @@
 
 	.stage {
 		position: relative;
-		height: var(--stage-height);
+		height: 80vh;
 		width: 100%;
 		overflow: hidden;
 		-webkit-mask-image: linear-gradient(
@@ -769,7 +769,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.35rem;
-		margin-top: 0.25rem;
+		margin-top: 1rem;
 	}
 
 	.chunk-btn {

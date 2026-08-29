@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
 import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
+import type { RecursiveChunk } from '@/runners/shared/taskFactories';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
@@ -21,6 +22,7 @@ export interface ArticleWithTasks {
 	mediaDirectory?: string | null;
 	profileId?: string | null;
 	profilePicture?: string | null;
+	profilePictureSrc?: string | null;
 	primaryColor?: string | null;
 	mainColor?: string | null;
 	date?: string | null;
@@ -486,6 +488,7 @@ export async function mapStoredArticle(
 	return {
 		...row,
 		profilePicture: row.profilePicture,
+		profileId: row.profile,
 		persistedTasks: await parsePersistedTaskStates(resolvedTasksJson)
 	};
 }
@@ -505,6 +508,12 @@ async function resolveArticleThumbnailBatch(
 	articles: ArticleWithTasks[]
 ): Promise<ArticleWithTasks[]> {
 	return Promise.all(articles.map(resolveArticleThumbnail));
+}
+
+async function resolveArticleProfilePictureBatch(
+	articles: ArticleWithTasks[]
+): Promise<ArticleWithTasks[]> {
+	return Promise.all(articles.map(resolveProfilePictureField));
 }
 
 async function resolveProfilePictureField<T extends { profilePicture?: string | null }>(
@@ -601,6 +610,19 @@ export async function getTasksByUrl(url: string): Promise<PersistedTaskState[] |
 		return parsePersistedTaskStates(taskRecord.tasksJson);
 	} catch (error) {
 		console.error('Error querying tasks', error);
+		return null;
+	}
+}
+
+export async function getTaskChunks(url: string, taskId: string): Promise<RecursiveChunk[] | null> {
+	try {
+		const chunks = await invoke<unknown>('get_web_store_task_chunks', { url, taskId });
+		if (!Array.isArray(chunks)) {
+			return null;
+		}
+		return chunks as RecursiveChunk[];
+	} catch (error) {
+		console.error('Error fetching task chunks', error);
 		return null;
 	}
 }
@@ -897,7 +919,9 @@ export async function getArticlesWithProfiles(
 			const mappedArticles = await Promise.all(
 				profile.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 			);
-			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+			const resolvedArticles = await resolveArticleProfilePictureBatch(
+				await resolveArticleThumbnailBatch(mappedArticles)
+			);
 
 			profilesWithArticles.push({
 				profileId: profile.profileId,
@@ -941,7 +965,9 @@ export async function getArticlesWithoutProfile(options?: {
 		const mappedArticles = await Promise.all(
 			result.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 		);
-		const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+		const resolvedArticles = await resolveArticleProfilePictureBatch(
+			await resolveArticleThumbnailBatch(mappedArticles)
+		);
 
 		return { articles: resolvedArticles, total: result.total };
 	} catch (error) {
@@ -973,7 +999,9 @@ export async function getArticlesByCategories(
 			const mappedArticles = await Promise.all(
 				category.articles.map((row) => mapStoredArticle(row, null))
 			);
-			const resolvedArticles = await resolveArticleThumbnailBatch(mappedArticles);
+			const resolvedArticles = await resolveArticleProfilePictureBatch(
+				await resolveArticleThumbnailBatch(mappedArticles)
+			);
 
 			categoriesWithArticles.push({
 				categoryId: category.categoryId,

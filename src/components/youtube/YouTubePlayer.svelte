@@ -59,6 +59,7 @@
 		position: relative;
 		width: 100%;
 		border-radius: var(--radius-md);
+		padding: 1rem;
 		overflow: hidden;
 		border: none;
 	}

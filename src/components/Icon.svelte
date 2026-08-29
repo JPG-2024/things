@@ -63,4 +63,7 @@
 		justify-content: center;
 		flex-shrink: 0;
 	}
+	.icon-button:hover :global(svg) {
+		color: white !important;
+	}
 </style>

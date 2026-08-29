@@ -4,6 +4,7 @@
 	import CompletionOptionsEditor from '@/components/inputs/CompletionOptionsEditor.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Tabs from '@/components/Tabs.svelte';
+	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -20,7 +21,6 @@
 	import type { ProcessorType, CombineMode } from '@/runners/shared/processors';
 	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
 	import Input from '@/components/inputs/Input.component.svelte';
-	import Label from '@/components/inputs/Label.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
 	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
@@ -52,11 +52,13 @@
 	const isNew = $derived(isIaTask && (_task as IaTask).userMessage === '');
 	const targetRunId = $derived(_runId ?? workflowStore.focusedRunId);
 
+	const slugifyId = (name: string): string => name.trim().toLowerCase().replace(/\s+/g, '-');
+
 	const tabs = [
-		{ id: 'custom', label: 'custom', icon: 'Pencil' },
-		{ id: 'extraction', label: 'extraction', icon: 'Download' },
-		{ id: 'category', label: 'category', icon: 'Tag' },
-		{ id: 'recursive', label: 'recursive', icon: 'Repeat' }
+		{ id: 'custom', label: 'Custom', icon: 'TextAlignStart' },
+		{ id: 'extraction', label: 'Extraction', icon: 'GripVertical' },
+		{ id: 'category', label: 'Category', icon: 'Tag' },
+		{ id: 'recursive', label: 'Recursive', icon: 'ListCollapse' }
 	];
 
 	let activeTab = $state('custom');
@@ -72,9 +74,7 @@
 		}
 	});
 
-	let commonId = $state('');
 	let commonName = $state('');
-	let commonComponent = $state('');
 	let commonSystemMessage = $state('');
 	let commonUserMessage = $state('');
 	let commonRenderOrder = $state('');
@@ -86,9 +86,7 @@
 	let commonEmbeddings = $state(false);
 	let originalEmbeddings = $state(false);
 
-	let originalId = $state('');
 	let originalName = $state('');
-	let originalComponent = $state('');
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
 	let originalRenderOrder = $state<number | undefined>(undefined);
@@ -135,10 +133,7 @@
 		if (initialized) return;
 		initialized = true;
 
-		commonId = _task.id ?? '';
-		originalId = _task.id ?? '';
 		commonName = _task.name ?? '';
-		commonComponent = _task.component ?? '';
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
 		commonEnableTTS = _task.enableTTS ?? false;
@@ -148,7 +143,6 @@
 		originalEmbeddings = _task.embeddings ?? false;
 
 		originalName = _task.name ?? '';
-		originalComponent = _task.component ?? '';
 		originalRenderOrder = _task.renderOrder;
 		originalDependencies = (_task.dependencies ?? []).join(', ');
 		originalEnableTTS = _task.enableTTS ?? false;
@@ -277,7 +271,6 @@
 			const def = createIaTask({
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				component: commonComponent.trim() || undefined,
 				systemMessage: commonSystemMessage || undefined,
 				userMessage: commonUserMessage || undefined,
 				completionOptions: commonCompletionOptions,
@@ -286,7 +279,7 @@
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
-			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
@@ -298,12 +291,14 @@
 
 		if (!isEditableIa) return;
 
+		const effectiveId = slugifyId(commonName) || _task.id;
+		if (effectiveId !== _task.id) {
+			workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
+		}
+
 		const patch: Record<string, unknown> = {};
 
 		if (commonName !== originalName) patch.name = commonName;
-		const trimmedComponent = commonComponent.trim();
-		const origComponent = originalComponent.trim();
-		if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 		if (JSON.stringify(commonCompletionOptions) !== originalCompletionOptions)
 			patch.completionOptions = commonCompletionOptions;
 		if (commonSystemMessage !== originalSystemMessage) patch.systemMessage = commonSystemMessage;
@@ -313,7 +308,6 @@
 		if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 		if (commonVisible !== originalVisible) patch.visible = commonVisible;
-		if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 
 		if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
 
@@ -323,14 +317,18 @@
 			.filter(Boolean);
 		if (JSON.stringify(deps) !== JSON.stringify(origDeps)) patch.dependencies = deps;
 
-		if (Object.keys(patch).length === 0) {
+		if (Object.keys(patch).length === 0 && effectiveId === _task.id) {
 			onClose?.();
 			return;
 		}
-		const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
-		const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+		const summary = await workflowManager.rerunTask(
+			targetRunId,
+			effectiveId,
+			patch as TaskRerunPatch
+		);
+		const updatedTask = summary.tasks.find((t) => t.id === effectiveId);
 		if (updatedTask?.persist) {
-			await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+			await updateTaskDataById(targetRunId, effectiveId, updatedTask.data);
 		}
 		onClose?.();
 	}
@@ -339,14 +337,15 @@
 		if (!targetRunId) return;
 
 		if (isEditingExtraction) {
+			const effectiveId = slugifyId(commonName) || _task.id;
+			if (effectiveId !== _task.id) {
+				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
+			}
+
 			const patch: Record<string, unknown> = {};
 
 			if (commonName !== originalName) patch.name = commonName;
-			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 			if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
-			const trimmedComponent = commonComponent.trim();
-			const origComponent = originalComponent.trim();
-			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 
 			const countChanged = extCount !== extOriginalCount;
 			const descChanged = extDescription !== extOriginalDescription;
@@ -379,14 +378,18 @@
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
-			if (Object.keys(patch).length === 0) {
+			if (Object.keys(patch).length === 0 && effectiveId === _task.id) {
 				onClose?.();
 				return;
 			}
-			const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
-			const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+			const summary = await workflowManager.rerunTask(
+				targetRunId,
+				effectiveId,
+				patch as TaskRerunPatch
+			);
+			const updatedTask = summary.tasks.find((t) => t.id === effectiveId);
 			if (updatedTask?.persist) {
-				await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+				await updateTaskDataById(targetRunId, effectiveId, updatedTask.data);
 			}
 		} else {
 			const deps = commonDependencies
@@ -405,7 +408,7 @@
 				extractor: { count, description: extDescription },
 				enableTTS: commonEnableTTS || undefined
 			});
-			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
@@ -422,14 +425,15 @@
 		if (!targetRunId) return;
 
 		if (isEditingCategory) {
+			const effectiveId = slugifyId(commonName) || _task.id;
+			if (effectiveId !== _task.id) {
+				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
+			}
+
 			const patch: Record<string, unknown> = {};
 
 			if (commonName !== originalName) patch.name = commonName;
-			if (commonId.trim() !== '' && commonId !== originalId) patch.id = commonId.trim();
 			if (commonEmbeddings !== originalEmbeddings) patch.embeddings = commonEmbeddings;
-			const trimmedComponent = commonComponent.trim();
-			const origComponent = originalComponent.trim();
-			if (trimmedComponent !== origComponent) patch.component = trimmedComponent || undefined;
 
 			const deps = commonDependencies
 				.split(',')
@@ -481,14 +485,18 @@
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
-			if (Object.keys(patch).length === 0) {
+			if (Object.keys(patch).length === 0 && effectiveId === _task.id) {
 				onClose?.();
 				return;
 			}
-			const summary = await workflowManager.rerunTask(targetRunId, _task.id, patch as TaskRerunPatch);
-			const updatedTask = summary.tasks.find((t) => t.id === _task.id);
+			const summary = await workflowManager.rerunTask(
+				targetRunId,
+				effectiveId,
+				patch as TaskRerunPatch
+			);
+			const updatedTask = summary.tasks.find((t) => t.id === effectiveId);
 			if (updatedTask?.persist) {
-				await updateTaskDataById(targetRunId, _task.id, updatedTask.data);
+				await updateTaskDataById(targetRunId, effectiveId, updatedTask.data);
 			}
 		} else {
 			const deps = commonDependencies
@@ -512,7 +520,7 @@
 				maxItems,
 				enableTTS: commonEnableTTS || undefined
 			});
-			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
 			const newTask = buildTask(def, taskId);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
@@ -541,7 +549,7 @@
 				: undefined;
 
 		if (isEditingRecursive) {
-			const effectiveId = commonId.trim() || _task.id;
+			const effectiveId = slugifyId(commonName) || _task.id;
 
 			if (effectiveId !== _task.id) {
 				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
@@ -550,7 +558,6 @@
 			const newTask = buildRecursiveTask(effectiveId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				component: commonComponent.trim() || undefined,
 				windowSize: Number(recWindowSize) || 1000,
 				overlap: Number(recOverlap) || 100,
 				splitByString: recSplitByString.trim() || undefined,
@@ -576,7 +583,7 @@
 				await updateTaskDataById(targetRunId, effectiveId, updatedTask.data);
 			}
 		} else {
-			const taskId = commonId.trim() || `${_task.id} > ${Date.now()}`;
+			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
 			const newTask = buildRecursiveTask(taskId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
@@ -671,49 +678,6 @@
 		</div>
 	</div>
 
-	<div class="row">
-		<Label text="Options">
-			<ToggleIcon
-				name="TextCursor"
-				bind:checked={commonStreamEnabled}
-				size={20}
-				tooltipProps={{ content: 'Stream' }}
-			/>
-			<ToggleIcon
-				name="Speech"
-				bind:checked={commonEnableTTS}
-				size={20}
-				tooltipProps={{ content: 'auto speech' }}
-			/>
-			<ToggleIcon
-				name="Eye"
-				bind:checked={commonVisible}
-				size={20}
-				tooltipProps={{ content: 'visible' }}
-			/>
-			<ToggleIcon
-				name="Brain"
-				bind:checked={commonEmbeddings}
-				size={20}
-				tooltipProps={{ content: 'generate embeddings' }}
-			/>
-		</Label>
-		<Input bind:value={commonName} label="Task name" />
-		<Input bind:value={commonComponent} label="Component" />
-		<Input bind:value={commonId} label="Task id" />
-		<Input id="render-order" bind:value={commonRenderOrder} label="Render order" />
-	</div>
-
-	<div class="edit-tabs-container">
-		<Tabs {tabs} bind:activeTab />
-	</div>
-
-	{#if activeTab === 'custom'}
-		<Input bind:value={commonSystemMessage} label="System message" />
-		<Input bind:value={commonUserMessage} label="User message" />
-	{/if}
-	<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
-
 	<div class="completion-options-container">
 		<Spacer title="Completion Options" defaultOpen={false}>
 			<div class="form-grid">
@@ -722,9 +686,50 @@
 		</Spacer>
 	</div>
 
+	<div class="row">
+		<Input bind:value={commonName} label="Task name" />
+		<Input bind:value={commonRenderOrder} label="Render order" />
+		<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
+	</div>
+
+	<div class="edit-tabs-container">
+		<div class="tabs-row">
+			<Tabs {tabs} bind:activeTab iconOnly />
+			<ToolbarDivider />
+			<div class="options-toolbar">
+				<ToggleIcon
+					name="Eye"
+					bind:checked={commonVisible}
+					size={20}
+					tooltipProps={{ content: 'Visible' }}
+				/>
+				<ToggleIcon
+					name="TextCursor"
+					bind:checked={commonStreamEnabled}
+					size={20}
+					tooltipProps={{ content: 'Stream' }}
+				/>
+				<ToggleIcon
+					name="Speech"
+					bind:checked={commonEnableTTS}
+					size={20}
+					tooltipProps={{ content: 'Auto speech' }}
+				/>
+				<ToggleIcon
+					name="FileDigit"
+					bind:checked={commonEmbeddings}
+					size={20}
+					tooltipProps={{ content: 'Auto generate embeddings' }}
+				/>
+			</div>
+		</div>
+	</div>
+
 	<div class="edit-tabs-container">
 		{#if activeTab === 'custom'}
 			<div class="tab-content">
+				<Input bind:value={commonSystemMessage} label="System message" />
+				<Input bind:value={commonUserMessage} label="User message" />
 				<div class="actions">
 					<Button onClick={handleCancel}>Cancel</Button>
 					<Button icon="Save" onClick={handleSave}>Save</Button>
@@ -788,8 +793,10 @@
 				{:else if recProcessorType === 'custom'}
 					<Input bind:value={recCustomSystemMsg} label="System message" />
 				{/if}
-				<Input bind:value={recUserMessage} label="Per-chunk prompt" />
-				<Input bind:value={recFinalUserMessage} label="Final prompt" />
+				{#if recProcessorType === 'summarize'}
+					<Input bind:value={recUserMessage} label="Per-chunk prompt" />
+					<Input bind:value={recFinalUserMessage} label="Final prompt" />
+				{/if}
 				<div class="actions">
 					<Button onClick={handleCancel}>Cancel</Button>
 					<Button onClick={handleSaveRecursive}>Save</Button>
@@ -803,14 +810,11 @@
 	.edit-task {
 		width: 100%;
 		display: grid;
-		gap: 0.75rem;
+		gap: 1rem;
 		border-radius: var(--radius-lg);
 	}
 
 	.task-info {
-		padding: 1rem;
-		border-radius: var(--radius-md);
-		border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
 	.task-stats {
@@ -859,6 +863,13 @@
 		padding: 0.4rem 0.6rem;
 	}
 
+	.options-toolbar {
+		padding: 0 1rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
 	.debug-block summary {
 		cursor: pointer;
 		font-size: 0.82rem;
@@ -878,17 +889,23 @@
 
 	.tab-content {
 		display: grid;
-		gap: 0.75rem;
+		gap: 1.4rem;
+	}
+
+	.tabs-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.edit-tabs-container {
-		padding: 2rem;
+		padding: 1rem;
 	}
 
 	.form-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 0.75rem;
+		gap: 2rem;
 	}
 
 	.actions {
@@ -905,6 +922,6 @@
 	}
 
 	.completion-options-container {
-		padding-top: 1rem;
+		padding: 1rem 0;
 	}
 </style>

@@ -34,7 +34,7 @@
 
 <style>
 	.keywords {
-		font-size: 1.1rem;
+		font-size: 1rem;
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.8rem;

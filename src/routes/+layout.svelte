@@ -357,6 +357,7 @@
 		background-size: 100% 150%;
 		background-attachment: fixed;
 		overflow-y: auto;
+		scrollbar-gutter: stable;
 		height: 100vh;
 		padding: 3rem;
 		padding-top: 1.5rem;

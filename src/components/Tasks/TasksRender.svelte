@@ -283,7 +283,7 @@
 	.tasks-container {
 		container-type: inline-size;
 		width: 100%;
-		padding-top: 2%;
+		padding-top: 3.5rem;
 	}
 
 	.tasks-title {

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { RecursiveContentResult } from '@/runners/shared/taskFactories';
+	import type { RecursiveChunk, RecursiveContentResult } from '@/runners/shared/taskFactories';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { getTaskChunks } from '@/stores/webStore';
 
 	type Props = {
 		runId?: string;
@@ -18,20 +20,46 @@
 	void componentProps;
 
 	let showRaw = $state(false);
+	let fetchedChunks = $state<RecursiveChunk[]>([]);
+	let chunksRequested = false;
+	let chunksRequestedKey = '';
 
 	const targetRunId = $derived(runId ?? workflowStore.focusedRunId);
 
 	const recursiveData = $derived.by((): RecursiveContentResult | null => {
 		const data = task.data as Record<string, unknown> | undefined;
 		if (!data || typeof data !== 'object') return null;
-		const chunks = data.chunks;
 		const finalResponse = data.finalResponse;
-		if (!Array.isArray(chunks)) return null;
 		if (typeof finalResponse !== 'string' && !Array.isArray(finalResponse)) return null;
+		const chunks = Array.isArray(data.chunks) ? data.chunks : [];
 		return { chunks, finalResponse };
 	});
 
-	const chunks = $derived(recursiveData?.chunks ?? []);
+	$effect(() => {
+		const data = task.data as Record<string, unknown> | undefined;
+		const url = viewState.url;
+		const key = `${url}:${task.id}`;
+		if (key !== chunksRequestedKey) {
+			chunksRequestedKey = key;
+			chunksRequested = false;
+			fetchedChunks = [];
+		}
+
+		const hasChunks = Array.isArray(data?.chunks) && (data.chunks as unknown[]).length > 0;
+		const hasFinalResponse =
+			typeof data?.finalResponse === 'string' || Array.isArray(data?.finalResponse);
+		if (hasChunks || !hasFinalResponse || task.status !== 'done') return;
+		if (!url || chunksRequested) return;
+
+		chunksRequested = true;
+		void getTaskChunks(url, task.id).then((chunks) => {
+			if (chunks) fetchedChunks = chunks;
+		});
+	});
+
+	const chunks = $derived(
+		recursiveData?.chunks && recursiveData.chunks.length > 0 ? recursiveData.chunks : fetchedChunks
+	);
 	const chunkOffsets = $derived(chunks.map((c) => c.key));
 	const finalResponse = $derived(recursiveData?.finalResponse ?? '');
 	const isFinalArray = $derived(Array.isArray(finalResponse));

@@ -55,4 +55,8 @@
 		font-weight: bold;
 		text-decoration: underline;
 	}
+
+	.active .emoji-string__emoji {
+		font-size: 1.1rem;
+	}
 </style>

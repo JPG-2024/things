@@ -105,7 +105,7 @@
 			/>
 
 			<Icon
-				name="Brain"
+				name="FileDigit"
 				onClick={handleGenerateEmbeddings}
 				tooltipProps={{ content: 'generate embeddings' }}
 			/>
@@ -117,10 +117,7 @@
 					disabled={isDeleting}
 					title="Delete article"
 				>
-					<Icon
-						name="Trash"
-						tooltipProps={{ content: 'delete article' }}
-					/>
+					<Icon name="Trash" tooltipProps={{ content: 'delete article' }} />
 				</button>
 			{/if}
 

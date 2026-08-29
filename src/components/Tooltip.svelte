@@ -102,7 +102,7 @@
 		box-sizing: border-box;
 		outline: none;
 		border: none;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-sm);
 		background: white;
 
 		color: rgba(21, 21, 21);

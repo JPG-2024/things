@@ -16,8 +16,8 @@ pub use crate::web_store::{
 	delete_web_store_article_by_url, delete_web_store_category, delete_web_store_profile,
 	delete_web_store_template, delete_web_store_tasks_by_url, get_web_profile_template,
 	get_web_store_article_by_url, get_web_store_profile, get_web_store_tasks_by_url,
-	get_web_store_template, list_articles_by_categories, list_articles_with_profiles,
-	list_articles_without_profile,
+	get_web_store_task_chunks, get_web_store_template, list_articles_by_categories,
+	list_articles_with_profiles, list_articles_without_profile,
 	list_categories_by_profile, list_profiles_by_categories, list_web_store_articles,
 	list_web_store_categories, list_web_store_profiles,
 	list_web_store_profiles_with_articles_after, list_web_store_tasks, list_web_store_templates,
@@ -51,6 +51,11 @@ async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+	#[cfg(target_os = "linux")]
+	{
+		std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+	}
+
 	dotenv::dotenv().ok();
 
 	let app = tauri::Builder::default()
@@ -75,6 +80,7 @@ pub fn run() {
 			delete_web_store_profile,
 			list_web_store_tasks,
 			get_web_store_tasks_by_url,
+			get_web_store_task_chunks,
 			upsert_web_store_tasks,
 			delete_web_store_tasks_by_url,
 			write_raw_content,

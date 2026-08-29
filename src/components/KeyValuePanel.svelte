@@ -80,7 +80,7 @@
 	}
 
 	.kv-key {
-		color: var(--primary-color);
+		color: rgba(207, 205, 205, 0.602);
 		opacity: 0.55;
 		white-space: nowrap;
 	}

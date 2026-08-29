@@ -35,6 +35,7 @@
 					checked={activeTab === tab.id}
 					onClick={(e) => handleTabClick(tab.id, e)}
 					label={!iconOnly ? tab.label : null}
+					tooltipProps={{ content: tab.label }}
 					size={18}
 				/>
 			{:else if !iconOnly}

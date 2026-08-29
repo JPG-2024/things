@@ -58,6 +58,9 @@
 	.toggle-wrapper:focus {
 		outline: none;
 	}
+	.toggle-wrapper:hover :global(svg) {
+		color: white !important;
+	}
 	.icon-glow {
 		display: inline-flex;
 		align-items: center;

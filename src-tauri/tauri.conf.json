@@ -8,7 +8,8 @@
 			{
 				"title": "Things",
 				"width": 1050,
-				"height": 900
+				"height": 900,
+				"incognito": true
 			}
 		],
 		"security": {

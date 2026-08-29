@@ -26,7 +26,8 @@
 	.label-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.3rem;
+		flex: 1;
 	}
 
 	.label-children {
@@ -46,7 +47,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		font-size: 1rem;
+		font-size: 0.8rem;
 		color: inherit;
 		border-radius: var(--radius-md);
 		backdrop-filter: blur(4px);
@@ -54,7 +55,7 @@
 	}
 
 	.label-text {
-		color: var(--primary-color, #000);
+		color: rgba(207, 205, 205, 0.602);
 	}
 
 	.label-value {

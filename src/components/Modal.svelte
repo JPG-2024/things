@@ -48,8 +48,8 @@
 		inset: 0;
 		display: flex;
 		justify-content: center;
-		align-items: center;
-		background: rgba(0, 0, 0, 0.85);
+		align-items: flex-start;
+		background: rgba(0, 0, 0, 0.9);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
 		z-index: 9999;

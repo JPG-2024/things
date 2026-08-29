@@ -1,15 +1,18 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import { toVTName } from '@/lib/utils/url';
+	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import EmojiString from './EmojiString.svelte';
+	import Keywords from './Keywords.svelte';
+	import type { LayoutKey } from './MasonryGrid.svelte';
 
 	interface Props {
 		article: ArticleWithTasks;
 		displayMode?: 'thumbnail' | 'title';
 		thumbnailOnly?: boolean;
 		withBackground?: boolean;
-		layoutKey?: string;
+		layoutKey?: LayoutKey;
 		animate?: boolean;
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
@@ -28,8 +31,6 @@
 		onHoverLeave
 	}: Props = $props();
 
-	console.log(article);
-
 	let isRowMode = $derived(layoutKey === 'row');
 
 	const title = $derived(
@@ -43,6 +44,50 @@
 	const categories = $derived(
 		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
 	);
+
+	function shuffle<T>(list: T[]): T[] {
+		const copy = [...list];
+		for (let i = copy.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[copy[i], copy[j]] = [copy[j], copy[i]];
+		}
+		return copy;
+	}
+
+	const allQuestions = $derived.by(() => {
+		const task = article.persistedTasks?.find((t) => t.id === 'questions');
+		const data = task?.data as
+			| { chunks?: Array<{ data?: unknown }>; finalResponse?: unknown }
+			| string[]
+			| undefined;
+		if (Array.isArray(data)) {
+			return data.filter((q): q is string => typeof q === 'string');
+		}
+		if (!data) return [];
+		if (Array.isArray(data.finalResponse)) {
+			return data.finalResponse.filter((q): q is string => typeof q === 'string');
+		}
+		if (typeof data.finalResponse === 'string') {
+			return [data.finalResponse];
+		}
+		if (!Array.isArray(data.chunks)) return [];
+		return data.chunks
+			.flatMap((chunk) => (Array.isArray(chunk.data) ? chunk.data : []))
+			.filter((q): q is string => typeof q === 'string' && q.trim().length > 0);
+	});
+
+	// shuffled picks are memoized per article+question-count so unrelated article
+	// object updates (store refreshes) don't re-shuffle and re-wrap the pills
+	let randomQuestionsKey = '';
+	let randomQuestionsMemo: string[] = [];
+	const randomQuestions = $derived.by(() => {
+		const key = `${article.url ?? ''}:${allQuestions.length}`;
+		if (key !== randomQuestionsKey) {
+			randomQuestionsKey = key;
+			randomQuestionsMemo = shuffle(allQuestions).slice(0, 2);
+		}
+		return randomQuestionsMemo;
+	});
 </script>
 
 <button
@@ -52,9 +97,27 @@
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
-	/* 	in:fade={{ duration: animate ? 100 : 0 }}
-	out:fade={{ duration: animate ? 200 : 0 }} */
 >
+	{#if article.profilePictureSrc}
+		<span
+			class="article-profile-avatar"
+			role="button"
+			tabindex="0"
+			aria-label="Go to profile"
+			onclick={(event) => {
+				event.stopPropagation();
+				if (article.profileId) goto(`/profile/${article.profileId}`);
+			}}
+			onkeydown={(event) => {
+				if (event.key !== 'Enter' && event.key !== ' ') return;
+				event.preventDefault();
+				event.stopPropagation();
+				if (article.profileId) goto(`/profile/${article.profileId}`);
+			}}
+		>
+			<img src={article.profilePictureSrc} alt="" />
+		</span>
+	{/if}
 	{#if isRowMode}
 		<div class="article-content">
 			{#if article.thumbnailSrc}
@@ -70,6 +133,25 @@
 			<div class="article-title">
 				<span>{title}</span>
 			</div>
+		</div>
+	{:else if layoutKey === 'grid-3'}
+		<div class="article-content article-content-stacked">
+			{#if article.thumbnailSrc}
+				<div class="article-thumbnail-container">
+					<img
+						src={article.thumbnailSrc}
+						alt="Article"
+						class="article-thumbnail"
+						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+					/>
+				</div>
+			{/if}
+			<div class="article-title">
+				<span>{title}</span>
+			</div>
+			{#if randomQuestions.length > 0}
+				<Keywords keywords={randomQuestions} />
+			{/if}
 		</div>
 	{:else}
 		<div class="article-content">
@@ -95,6 +177,9 @@
 							{/each}
 						</div>
 					{/if}
+					{#if randomQuestions.length > 0}
+						<Keywords keywords={randomQuestions} />
+					{/if}
 				{/if}
 			</div>
 		</div>
@@ -110,12 +195,34 @@
 		gap: 0.5rem;
 		transition: transform 0.15s;
 		font-size: 1rem;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		box-sizing: border-box;
 		/* min-height: 120px; */
 		width: 100%;
 		min-width: 0;
 		max-width: 100%;
+		position: relative;
+		border-top: 1px solid var(--bg-color);
+	}
+
+	.article-profile-avatar {
+		position: absolute;
+		top: 5px;
+		left: 5px;
+		width: 20px;
+		height: 20px;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+
+		z-index: 1;
+		overflow: hidden;
+	}
+
+	.article-profile-avatar img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.article-card.grid-3 {
@@ -125,11 +232,23 @@
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);
-		padding: 18px;
+		padding: 14px 16px;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.grid-3 .article-thumbnail-container {
+		flex: none;
+		width: 100%;
+	}
+
+	.grid-3 .article-title {
+		padding: 0.6rem 0;
 	}
 
 	.article-card.row {
 		padding: 0 1rem;
+		border: none;
 	}
 
 	.article-card.row .article-thumbnail {
@@ -137,11 +256,20 @@
 		opacity: 1;
 	}
 
+	.article-card.row .article-title {
+		font-size: 0.9rem;
+	}
+
 	.article-content {
 		display: flex;
 		align-items: flex-start;
 		width: 100%;
 		min-width: 0;
+	}
+
+	.article-content-stacked {
+		flex-direction: column;
+		align-items: stretch;
 	}
 
 	.article-item-info {
@@ -157,8 +285,8 @@
 		padding: 1rem 0;
 	}
 
-	.article-card:hover {
-		font-weight: bold;
+	.article-card:hover .article-thumbnail {
+		opacity: 1;
 	}
 
 	.no-background {
@@ -178,7 +306,8 @@
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
-		opacity: 0.5;
+		opacity: 0.6;
+		transition: opacity 0.2s ease;
 	}
 
 	.thumbnail-only .article-thumbnail-container {

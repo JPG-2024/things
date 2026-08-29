@@ -286,7 +286,6 @@
 
 	.ask-error {
 		padding: 0.75rem;
-		border-radius: var(--radius-md);
 		background-color: rgba(255, 0, 0, 0.1);
 		color: #ff5a5a;
 		border: 1px solid rgba(255, 0, 0, 0.3);
@@ -297,7 +296,6 @@
 		background: rgba(255, 255, 255, 0.05);
 		padding: 1rem;
 		border-radius: var(--radius-sm);
-		border-left: 1px solid rgb(118, 118, 118);
-		border-right: 1px solid rgb(118, 118, 118);
+		border-left: 1px solid var(--bg-color);
 	}
 </style>

@@ -1,3 +1,15 @@
+<script module lang="ts">
+	export type LayoutKey = 'row' | 'grid-3' | 'grid-2';
+
+	export interface LayoutConfig {
+		width: number;
+		columns: number;
+		padding: string;
+		rowHeight?: number;
+		key: LayoutKey;
+	}
+</script>
+
 <script lang="ts" generics="T extends object">
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -7,7 +19,7 @@
 	interface Props {
 		items: T[];
 		keyOf?: (item: T) => string;
-		children: Snippet<[T, number, number, string]>;
+		children: Snippet<[T, number, number, LayoutKey]>;
 	}
 
 	let {
@@ -25,10 +37,15 @@
 	let rafId = 0;
 	let fontsReadyDone = false;
 	let resizeGeneration = 0;
+	let lastSpans = new WeakMap<HTMLDivElement, number>();
+
+	// px of slack required before an item is allowed to shrink a span;
+	// prevents subpixel measurement noise from oscillating spans (flicker)
+	const SHRINK_TOLERANCE = 1;
 
 	let layoutIndex = $derived(viewState.masonryLayoutIndex);
 
-	const layouts = [
+	const layouts: LayoutConfig[] = [
 		{ width: 1000, columns: 1, padding: '0.6rem', rowHeight: 50, key: 'row' },
 		{ width: 400, columns: 3, padding: '4rem', key: 'grid-3' },
 		{ width: 480, columns: 2, padding: '2rem', key: 'grid-2' }
@@ -51,50 +68,76 @@
 		return { rowHeight, rowGap };
 	}
 
+	function setRowSpan(wrapper: HTMLDivElement, rowSpan: number) {
+		const next = `span ${rowSpan}`;
+		if (wrapper.style.gridRowEnd !== next) wrapper.style.gridRowEnd = next;
+		lastSpans.set(wrapper, rowSpan);
+	}
+
+	function computeRowSpan(
+		wrapper: HTMLDivElement,
+		contentHeight: number,
+		rowHeight: number,
+		rowGap: number
+	): number {
+		const unit = rowHeight + rowGap;
+		if (!Number.isFinite(unit) || unit <= 0) return 1;
+		const exact = Math.max(1, Math.ceil((contentHeight + rowGap) / unit));
+		const prev = lastSpans.get(wrapper) ?? 0;
+		if (prev > exact) {
+			// only shrink when the smaller span still fits with tolerance
+			const fitsWithTolerance = exact * unit - rowGap >= contentHeight + SHRINK_TOLERANCE;
+			return fitsWithTolerance ? exact : prev;
+		}
+		return exact;
+	}
+
 	function resizeGridItem(wrapper: HTMLDivElement) {
 		if (!gridEl || !wrapper?.isConnected) return;
 		if (currentLayout.rowHeight) {
-			wrapper.style.gridRowEnd = 'span 1';
+			setRowSpan(wrapper, 1);
 			return;
 		}
-		const content = wrapper.querySelector('.content') as HTMLElement;
+		const content = wrapper.querySelector('.content') as HTMLElement | null;
 		if (!content) return;
 
 		const { rowHeight, rowGap } = getRowMetrics();
-		wrapper.style.gridRowEnd = 'auto';
 		const contentHeight = content.getBoundingClientRect().height;
-		const rowSpan = Math.max(1, Math.ceil((contentHeight + rowGap) / (rowHeight + rowGap)));
-		wrapper.style.gridRowEnd = `span ${rowSpan}`;
+		setRowSpan(wrapper, computeRowSpan(wrapper, contentHeight, rowHeight, rowGap));
 	}
 
 	function resizeAll() {
 		if (!gridEl?.isConnected) return;
 
+		if (currentLayout.rowHeight) {
+			for (const wrapper of wrapperEls) {
+				if (wrapper?.isConnected) setRowSpan(wrapper, 1);
+			}
+			return;
+		}
+
 		const { rowHeight, rowGap } = getRowMetrics();
-		const spans: { wrapper: HTMLDivElement; rowSpan: number }[] = [];
+		const measured: { wrapper: HTMLDivElement; contentHeight: number }[] = [];
+
+		// read phase: all measurements before any writes to avoid layout thrashing
 		for (const wrapper of wrapperEls) {
 			if (!wrapper?.isConnected) continue;
-			if (currentLayout.rowHeight) {
-				spans.push({ wrapper, rowSpan: 1 });
-				continue;
-			}
-			wrapper.style.gridRowEnd = 'auto';
-			const content = wrapper.querySelector('.content') as HTMLElement;
+			const content = wrapper.querySelector('.content') as HTMLElement | null;
 			if (!content) continue;
-			const contentHeight = content.getBoundingClientRect().height;
-			spans.push({
-				wrapper,
-				rowSpan: Math.max(1, Math.ceil((contentHeight + rowGap) / (rowHeight + rowGap)))
-			});
+			measured.push({ wrapper, contentHeight: content.getBoundingClientRect().height });
 		}
-		for (const { wrapper, rowSpan } of spans) {
-			wrapper.style.gridRowEnd = `span ${rowSpan}`;
+
+		// write phase
+		for (const { wrapper, contentHeight } of measured) {
+			setRowSpan(wrapper, computeRowSpan(wrapper, contentHeight, rowHeight, rowGap));
 		}
 	}
 
 	function observeAll() {
 		resizeObservers.forEach((obs) => obs.disconnect());
 		resizeObservers = [];
+		// spans from a previous items/layout state must not feed hysteresis
+		lastSpans = new WeakMap();
 		for (const wrapper of wrapperEls) {
 			if (!wrapper?.isConnected) continue;
 			const content = wrapper.querySelector('.content') as HTMLElement;
@@ -112,12 +155,6 @@
 	function scheduleResize() {
 		const generation = ++resizeGeneration;
 		cleanupPending();
-
-		if (!currentLayout.rowHeight) {
-			for (const wrapper of wrapperEls) {
-				if (wrapper?.isConnected) wrapper.style.gridRowEnd = 'auto';
-			}
-		}
 
 		let finished = false;
 		const finish = () => {
@@ -264,6 +301,8 @@
 	}
 
 	.grid-item {
+		display: flex;
+		align-items: center;
 		min-width: 150px;
 		overflow: hidden;
 		border-radius: var(--radius-sm);

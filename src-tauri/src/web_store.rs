@@ -31,6 +31,7 @@ pub struct WebStoreArticleRecord {
     pub embedding_source_text: Option<String>,
     pub viewed: bool,
     pub date: Option<String>,
+    pub profile_picture: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -488,6 +489,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     let updated_at: i64 = row.get(10)?;
     let viewed_int: i64 = row.get(11)?;
     let date: Option<String> = row.get(12)?;
+    let profile_picture: Option<String> = row.get(13)?;
 
     Ok(WebStoreArticleRecord {
         id,
@@ -505,6 +507,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
         embedding_source_text,
         viewed: viewed_int != 0,
         date,
+        profile_picture,
     })
 }
 
@@ -517,7 +520,8 @@ fn query_articles(
     let mut sql = String::from(
         "SELECT id, url, created_at, title, thumbnail, content,
                 media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date
+                viewed, date,
+                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)) AS profile_picture
          FROM web_articles"
     );
     
@@ -1050,6 +1054,50 @@ fn row_to_web_store_task(row: &rusqlite::Row<'_>) -> Result<WebStoreTaskRecord, 
     })
 }
 
+fn strip_recursive_chunks(tasks_json: &str) -> String {
+    let Ok(Value::Array(tasks)) = serde_json::from_str::<Value>(tasks_json) else {
+        return tasks_json.to_string();
+    };
+
+    let filtered: Vec<Value> = tasks
+        .into_iter()
+        .map(|mut task| {
+            if let Some(data) = task.get_mut("data") {
+                let has_chunks = data
+                    .get("chunks")
+                    .map_or(false, |chunks| chunks.is_array());
+                if has_chunks {
+                    if let Some(final_response) = data.get("finalResponse").cloned() {
+                        *data = final_response;
+                    }
+                }
+            }
+            task
+        })
+        .collect();
+
+    serde_json::to_string(&filtered).unwrap_or_else(|_| tasks_json.to_string())
+}
+
+fn task_chunks_from_json(tasks_json: &str, task_id: &str) -> Option<Value> {
+    let parsed: Value = serde_json::from_str(tasks_json).ok()?;
+    let tasks = parsed.as_array()?;
+
+    for task in tasks {
+        if task.get("id").and_then(|id| id.as_str()) != Some(task_id) {
+            continue;
+        }
+        let chunks = task.get("data").and_then(|data| data.get("chunks"))?;
+        return if chunks.is_array() {
+            Some(chunks.clone())
+        } else {
+            None
+        };
+    }
+
+    None
+}
+
 #[tauri::command]
 pub async fn list_web_store_tasks(
     app: AppHandle,
@@ -1067,10 +1115,38 @@ pub async fn list_web_store_tasks(
 
     let mut records = Vec::new();
     for task_result in task_iter {
-        records.push(task_result.map_err(|error| error.to_string())?);
+        let mut record = task_result.map_err(|error| error.to_string())?;
+        record.tasks_json = strip_recursive_chunks(&record.tasks_json);
+        records.push(record);
     }
 
     Ok(records)
+}
+
+#[tauri::command]
+pub async fn get_web_store_task_chunks(
+    app: AppHandle,
+    url: String,
+    task_id: String,
+) -> Result<Option<Value>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let tasks_json = match conn.query_row(
+        "SELECT tasks_json FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
+        params![url],
+        |row| row.get::<_, Option<String>>(0),
+    ) {
+        Ok(value) => value,
+        Err(rusqlite::Error::QueryReturnedNoRows) => None,
+        Err(error) => return Err(error.to_string()),
+    };
+
+    let Some(tasks_json) = tasks_json else {
+        return Ok(None);
+    };
+
+    Ok(task_chunks_from_json(&tasks_json, &task_id))
 }
 
 #[tauri::command]
@@ -1493,7 +1569,8 @@ fn query_articles_for_profile(
     let articles_sql = format!(
         "SELECT id, url, created_at, title, thumbnail, content,
                 media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date
+                viewed, date,
+                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)) AS profile_picture
          FROM web_articles
          WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
          ORDER BY created_at DESC, date DESC NULLS LAST
@@ -1579,7 +1656,8 @@ pub async fn list_articles_without_profile(
     let sql = format!(
         "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
                 a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date
+                a.viewed, a.date,
+                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)) AS profile_picture
          FROM web_articles a
          {}
          ORDER BY a.created_at DESC, a.date DESC NULLS LAST
@@ -1665,7 +1743,8 @@ fn query_articles_for_category(
     let mut articles_sql = String::from(
         "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
                 a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date
+                a.viewed, a.date,
+                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)) AS profile_picture
          FROM web_articles a
          INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
@@ -2023,5 +2102,69 @@ mod tests {
             vec!["newest-yt-old-publish", "old-yt-newly-added", "newer-yt-added-earlier"],
             "expected most recently added article first, regardless of publication date"
         );
+    }
+
+    #[test]
+    fn strip_recursive_chunks_keeps_final_response_only() {
+        let tasks_json = r#"[
+            {"id": "title", "name": "Title", "data": "Hello", "status": "done"},
+            {"id": "summary", "name": "Summary", "data": {
+                "chunks": [{"key": {"startOffset": 0, "endOffset": 10}, "data": ["chunk-a"]}],
+                "finalResponse": "Final summary"
+            }, "status": "done"}
+        ]"#;
+
+        let stripped = strip_recursive_chunks(tasks_json);
+        let parsed: Value = serde_json::from_str(&stripped).expect("valid json");
+
+        let tasks = parsed.as_array().expect("array");
+        let title = tasks[0].get("data").expect("title data");
+        assert_eq!(title, "Hello");
+
+        let summary_data = tasks[1].get("data").expect("summary data");
+        assert_eq!(summary_data, "Final summary", "chunks must be replaced by finalResponse");
+        assert!(summary_data.get("chunks").is_none());
+    }
+
+    #[test]
+    fn strip_recursive_chunks_keeps_chunks_when_no_final_response() {
+        let tasks_json = r#"[
+            {"id": "summary", "data": {"chunks": [{"key": {}, "data": ["a"]}]}, "status": "running"}
+        ]"#;
+
+        let stripped = strip_recursive_chunks(tasks_json);
+        let parsed: Value = serde_json::from_str(&stripped).expect("valid json");
+
+        let tasks = parsed.as_array().expect("array");
+        assert!(
+            tasks[0].get("data").expect("data").get("chunks").is_some(),
+            "partial state without finalResponse must keep chunks"
+        );
+    }
+
+    #[test]
+    fn task_chunks_from_json_returns_chunks_for_task() {
+        let tasks_json = r#"[
+            {"id": "title", "data": "Hello"},
+            {"id": "summary", "data": {
+                "chunks": [{"key": {"startOffset": 0, "endOffset": 5}, "data": ["a", "b"]}],
+                "finalResponse": "Final"
+            }}
+        ]"#;
+
+        let chunks = task_chunks_from_json(tasks_json, "summary").expect("chunks found");
+        assert!(chunks.is_array());
+        assert_eq!(chunks.as_array().expect("array").len(), 1);
+
+        let missing = task_chunks_from_json(tasks_json, "title");
+        assert!(missing.is_none(), "non-recursive task has no chunks");
+
+        let unknown = task_chunks_from_json(tasks_json, "nope");
+        assert!(unknown.is_none());
+    }
+
+    #[test]
+    fn task_chunks_from_json_returns_none_for_invalid_json() {
+        assert!(task_chunks_from_json("not-json", "summary").is_none());
     }
 }

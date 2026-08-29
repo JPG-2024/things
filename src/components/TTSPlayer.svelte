@@ -1072,7 +1072,7 @@
 		flex: 1;
 		height: 100%;
 		position: relative;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-sm);
 		overflow: hidden;
 	}
 
@@ -1087,16 +1087,13 @@
 	.tts-player-mini__error {
 		position: absolute;
 		bottom: calc(100% + 0.5rem);
-		left: 50%;
+		left: 80%;
 		transform: translateX(-50%);
 		white-space: nowrap;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.25rem 0.75rem;
-		background: rgba(255, 80, 80, 0.15);
-		border: 1px solid rgba(255, 80, 80, 0.4);
-		border-radius: var(--radius-md);
 		color: #ff5a5a;
 		font-size: 0.75rem;
 		z-index: 5;

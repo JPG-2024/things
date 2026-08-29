@@ -9,6 +9,7 @@
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { onMount } from 'svelte';
 	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
 
 	onMount(async () => {
 		await articleCacheStore.fetchArticlesWithoutProfile({
@@ -47,7 +48,7 @@
 		article: ArticleWithTasks,
 		_i: number,
 		_layoutIndex: number,
-		layoutKey: string
+		layoutKey: LayoutKey
 	)}
 		<ArticleItem
 			{article}
