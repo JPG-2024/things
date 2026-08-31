@@ -14,7 +14,8 @@ mod web_store;
 pub use crate::web_store::{
 	assign_categories_to_article, delete_web_profile_template,
 	delete_web_store_article_by_url, delete_web_store_category, delete_web_store_profile,
-	delete_web_store_template, delete_web_store_tasks_by_url, get_web_profile_template,
+	delete_web_store_template, delete_web_store_tasks_by_url, fetch_remote_profile,
+	get_web_profile_template,
 	get_web_store_article_by_url, get_web_store_profile, get_web_store_tasks_by_url,
 	get_web_store_task_chunks, get_web_store_template, list_articles_by_categories,
 	list_articles_without_profile, list_web_store_articles,
@@ -71,6 +72,7 @@ pub fn run() {
 			get_web_store_article_by_url,
 			upsert_web_store_article,
 			upsert_web_store_profile,
+			fetch_remote_profile,
 			delete_web_store_article_by_url,
 			update_web_store_article_viewed,
 			delete_web_store_profile,

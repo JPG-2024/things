@@ -58,11 +58,8 @@ const routeDefinitions: UrlRoute[] = [
 		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
 		handler: (url, context) =>
 			profileRunner(url, {
-				runnerConfig: {
-					cachedTasks: context?.cachedTasks,
-					routine: context?.routine ?? 'fromVideo',
-					makeActive: true
-				},
+				cachedTasks: context?.cachedTasks,
+				makeActive: true,
 				options: { videosAmount: 10, ...context?.runnerOptions }
 			})
 	},

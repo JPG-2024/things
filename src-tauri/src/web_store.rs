@@ -55,6 +55,14 @@ pub struct WebStoreProfileDeletion {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RemoteProfile {
+    pub id: String,
+    pub videos: Vec<String>,
+    pub profile_image: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArticlesWithoutProfileResponse {
     pub articles: Vec<WebStoreArticleRecord>,
     pub total: usize,
@@ -1040,6 +1048,46 @@ pub async fn upsert_web_store_profile(
 
     upsert_profile(&conn, &profile)?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn fetch_remote_profile(
+    app: AppHandle,
+    base_url: String,
+    profile_name: String,
+) -> Result<RemoteProfile, String> {
+    let _ = app;
+
+    let name = profile_name.trim();
+    if name.is_empty() {
+        return Err("Profile name cannot be empty".to_string());
+    }
+
+    let mut url = reqwest::Url::parse(&base_url)
+        .map_err(|error| format!("Invalid base URL {}: {}", base_url, error))?;
+    url.path_segments_mut()
+        .map_err(|_| "Invalid base URL".to_string())?
+        .extend(["api", "profile", name]);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|error| format!("Failed to build HTTP client: {}", error))?;
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| format!("Failed to fetch remote profile: {}", error))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Remote profile returned status {}", response.status()));
+    }
+
+    response
+        .json::<RemoteProfile>()
+        .await
+        .map_err(|error| format!("Failed to parse remote profile: {}", error))
 }
 
 #[tauri::command]

@@ -1,5 +1,3 @@
-import { z } from 'zod';
-import { iaTask } from '@/runners/taskSchema';
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
@@ -14,23 +12,6 @@ import {
 	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
 	DEFAULT_EMOJI_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
-
-export const SHARED_TASK_IDS = {
-	KEYWORDS: 'keywords',
-	CATEGORY: 'category',
-	EMOJIS: 'emojis',
-	TITLE: 'title',
-	EMOJI_FROM_STRING: 'emoji-from-string',
-	SUMMARY: 'summary'
-} as const;
-
-export const sharedOutputSchemas = {
-	[SHARED_TASK_IDS.KEYWORDS]: z.array(z.string()),
-	[SHARED_TASK_IDS.CATEGORY]: z.array(z.string()),
-	[SHARED_TASK_IDS.EMOJIS]: z.array(z.string()),
-	[SHARED_TASK_IDS.TITLE]: z.string(),
-	[SHARED_TASK_IDS.EMOJI_FROM_STRING]: z.string()
-} as const;
 
 function extractFirstGrapheme(text: string): string {
 	const trimmed = text.trim();
@@ -116,44 +97,15 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 	const categoryDef = createCategoryTask({ persist: true, renderOrder: 5 });
 
 	const titleDef = createTitleTask({
-		dependencies: [SHARED_TASK_IDS.SUMMARY],
+		dependencies: ['summary'],
 		persist: true,
 		renderOrder: 0.1
 	});
 
 	return [
-		buildTask(summaryDef, SHARED_TASK_IDS.SUMMARY),
-		buildTask(keywordsDef, SHARED_TASK_IDS.KEYWORDS),
-		buildTask(categoryDef, SHARED_TASK_IDS.CATEGORY),
-		buildTask(titleDef, SHARED_TASK_IDS.TITLE)
+		buildTask(summaryDef, 'summary'),
+		buildTask(keywordsDef, 'keywords'),
+		buildTask(categoryDef, 'category'),
+		buildTask(titleDef, 'title')
 	];
 }
-
-export const sharedTasks = {
-	[SHARED_TASK_IDS.KEYWORDS]: createExtractionTask({
-		extractor: { count: 10, description: 'keywords' }
-	}),
-
-	[SHARED_TASK_IDS.EMOJIS]: createExtractionTask({
-		extractor: { count: 5, description: 'Emojis' },
-		dependencies: ['title-summary']
-	}),
-
-	[SHARED_TASK_IDS.TITLE]: createTitleTask(),
-
-	[SHARED_TASK_IDS.EMOJI_FROM_STRING]: iaTask({
-		dependencies: [],
-		output: sharedOutputSchemas[SHARED_TASK_IDS.EMOJI_FROM_STRING],
-		systemMessage:
-			'Return exactly one emoji that best represents the user text. Respond with only the emoji and nothing else.',
-		userMessage: 'Return exactly one emoji for the given text.',
-		run: ({ context }) => {
-			const text = (context as { text?: string })?.text ?? '';
-			return text;
-		},
-		resultParser: (text) => parseEmojiResponse(text),
-		completionOptions: DEFAULT_EMOJI_COMPLETION_OPTIONS
-	}),
-
-	[SHARED_TASK_IDS.CATEGORY]: createCategoryTask({ persist: true })
-};

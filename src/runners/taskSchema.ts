@@ -108,26 +108,6 @@ export type InferTaskMap<TDefs extends Record<string, AnyTaskDef>> = {
 			: unknown;
 } & TaskMapBase;
 
-type WorkflowConfig<TContext = unknown> = {
-	tasks: Record<string, AnyTaskDef<TContext>>;
-};
-
-type InferTaskFromDef<
-	TMap extends TaskMapBase,
-	TId extends keyof TMap & string,
-	TDef extends AnyTaskDef
-> = TDef extends { type: 'script' }
-	? ScriptTask<TMap, TId>
-	: TDef extends IaTaskDefBase<AnyZodOutput, unknown, infer TParsed>
-		? IaTask<TMap, TId, TParsed>
-		: IaTask<TMap, TId>;
-
-type InferRegistry<TConfig extends WorkflowConfig> = {
-	[K in keyof TConfig['tasks']]: (
-		ctx: TConfig extends WorkflowConfig<infer TC> ? TC : unknown
-	) => InferTaskFromDef<InferTaskMap<TConfig['tasks']>, K & string, TConfig['tasks'][K]>;
-};
-
 export function scriptTask<TOutput extends AnyZodOutput, TContext = unknown>(
 	def: ScriptTaskDefBase<TOutput, TContext>
 ): ScriptTaskDef<TOutput, TContext> {
@@ -271,32 +251,6 @@ export function buildIaTask<
 		};
 	};
 }
-
-export function defineWorkflow<TConfig extends WorkflowConfig>(
-	config: TConfig
-): {
-	registry: InferRegistry<TConfig>;
-	config: TConfig;
-} {
-	const registry = {} as Record<string, (context: unknown) => Task<TaskMapBase>>;
-
-	for (const [id, def] of Object.entries(config.tasks)) {
-		if (def.type === 'script') {
-			registry[id] = buildScriptTask(id, def as ScriptTaskDef<AnyZodOutput, unknown>);
-		} else {
-			registry[id] = buildIaTask(id, def as IaTaskDef<AnyZodOutput, unknown>);
-		}
-	}
-
-	return {
-		registry: registry as InferRegistry<TConfig>,
-		config
-	};
-}
-
-export type InferTaskState<TWorkflow extends { config: WorkflowConfig }> = InferTaskMap<
-	TWorkflow['config']['tasks']
->;
 
 export function getRequiredTaskState<
 	TState extends Record<string, unknown>,

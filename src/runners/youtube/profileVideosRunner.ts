@@ -1,19 +1,7 @@
+import { runTemplateWorkflow } from '@/runners/templateRunner';
+import { saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { TaskNames, youtubeTaskRegistry } from '@/runners/youtube/tasks/youtubeTasks';
-import { createUrlRunner, type RunnerConfigBase } from '@/runners/urlRunnerBuilder';
-import { saveTasks } from '@/stores/webStore';
-
-const fromUrlRoutine: TaskNames[] = [TaskNames.INIT_YOUTUBE_PROFILE];
-
-const updateProfile: TaskNames[] = [];
-
-const fromVideoRoutine: TaskNames[] = [];
-
-const routines = {
-	fromUrl: fromUrlRoutine,
-	fromVideo: fromVideoRoutine,
-	updateProfile
-};
 
 interface ProfileRunnerOptions {
 	videosAmount?: number;
@@ -22,34 +10,49 @@ interface ProfileRunnerOptions {
 }
 
 export interface ProfileRunnerCallConfig {
-	runnerConfig?: RunnerConfigBase;
+	cachedTasks?: PersistedTaskState[] | null;
+	makeActive?: boolean;
+	Rebuild?: boolean;
 	options?: ProfileRunnerOptions;
 }
 
-let _runner: ReturnType<typeof createUrlRunner> | undefined;
-function getRunner() {
-	return (_runner ??= createUrlRunner({ taskRegistry: youtubeTaskRegistry, routines }));
+function buildProfileInitialTasks(url: string, options?: ProfileRunnerOptions): Task[] {
+	const initTask: Task = {
+		id: 'init-youtube-profile',
+		name: 'Initialize YouTube Profile',
+		dependencies: [],
+		type: 'script',
+		persist: true,
+		run: () => {
+			const urlObj = new URL(url);
+			const profileId = (options?.profileId || urlObj.pathname.split('/')[1]).toLowerCase();
+			const profileUrl = `https://www.youtube.com/${profileId}/videos`;
+			return {
+				url: profileUrl,
+				videoId: null,
+				language: viewState.language,
+				profileId,
+				videosAmount: options?.videosAmount
+			};
+		}
+	};
+
+	return [initTask];
 }
 
 export async function profileRunner(
 	url: string,
 	config?: ProfileRunnerCallConfig
 ): Promise<Task[]> {
-	const { runnerConfig, options } = config ?? {};
+	const { options } = config ?? {};
+	const initialTasks = buildProfileInitialTasks(url, options);
 
-	return getRunner()<ProfileRunnerOptions>({
-		url,
-		routine: runnerConfig?.routine ?? 'fromUrl',
-		cachedTasks: runnerConfig?.cachedTasks,
-		language: runnerConfig?.language,
-		makeActive: runnerConfig?.makeActive,
-		stream: runnerConfig?.stream,
-		rebuild: runnerConfig?.rebuild,
-		parentRunId: runnerConfig?.parentRunId,
-		options,
+	return runTemplateWorkflow(url, '', initialTasks, {
+		makeActive: config?.makeActive ?? true,
+		Rebuild: config?.Rebuild,
+		cachedTasks: config?.cachedTasks ?? undefined,
 		onRunResult: async (runResult) => {
 			await saveTasks(url, runResult.tasks);
-			await runnerConfig?.onRunResult?.(runResult);
 		}
 	});
 }

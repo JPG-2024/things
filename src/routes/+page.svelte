@@ -121,7 +121,6 @@
 			if (!profile) return;
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
 			await profileRunner(profileUrl, {
-				runnerConfig: { routine: 'fromUrl' },
 				options: { videosAmount: 1, scrollTimes: 1 }
 			});
 			articleCacheStore.invalidateProfiles();

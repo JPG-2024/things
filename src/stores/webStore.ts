@@ -263,7 +263,9 @@ export function getArticleStringField(article: ArticleWithTasks | null, fieldNam
 	return typeof fieldValue === 'string' ? fieldValue : '';
 }
 
-export async function deleteArticleMedia(article: { thumbnail?: string | null } | null): Promise<void> {
+export async function deleteArticleMedia(
+	article: { thumbnail?: string | null } | null
+): Promise<void> {
 	const thumbnail = article?.thumbnail;
 	if (typeof thumbnail === 'string' && thumbnail.trim()) {
 		await deleteMediaFile(thumbnail);
@@ -797,6 +799,26 @@ export async function saveProfile(
 		return res;
 	} catch (error) {
 		console.error('Error saving profile:', error);
+	}
+}
+
+export type RemoteProfile = {
+	id: string;
+	videos: string[];
+	profileImage: string;
+};
+
+export const SCRAPY_BASE_URL = import.meta.env.VITE_SCRAPY;
+
+export async function fetchRemoteProfile(profileName: string): Promise<RemoteProfile | null> {
+	try {
+		return await invoke<RemoteProfile>('fetch_remote_profile', {
+			baseUrl: SCRAPY_BASE_URL,
+			profileName
+		});
+	} catch (error) {
+		console.error('Error fetching remote profile:', error);
+		return null;
 	}
 }
 
