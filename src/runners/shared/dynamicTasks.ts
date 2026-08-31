@@ -126,7 +126,7 @@ export function createTitleTaskConfig(options?: CreateTitleTaskOptions) {
 		context: unknown;
 		state: Readonly<Record<string, unknown>>;
 	}) => string = () => {
-		return `Create a title of one sentence. start with an emoji.`;
+		return `Create a title of one sentence.`;
 	};
 
 	return {

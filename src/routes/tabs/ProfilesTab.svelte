@@ -18,7 +18,7 @@
 </script>
 
 <div class="flex-squares">
-	{#each articleCacheStore.profilesWithArticles as profile (profile.profileId)}
+	{#each articleCacheStore.profilesWithArticles as profile (profile.id)}
 		<ProfileWidget
 			profileWithArticles={profile}
 			showTitle={false}

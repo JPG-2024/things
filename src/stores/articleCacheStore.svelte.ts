@@ -1,10 +1,10 @@
 import {
 	getArticlesByCategories,
-	getArticlesWithProfiles,
 	getArticlesWithoutProfile,
+	getProfiles,
 	type ArticleWithTasks,
-	type CategoryWithArticles,
-	type ProfileWithArticles
+	type ArticleProfile,
+	type CategoryWithArticles
 } from '@/stores/webStore';
 
 const CACHE_TTL = 60_000;
@@ -14,7 +14,7 @@ const ARTICLE_COUNT_PER_PROFILE = 10;
 const ARTICLE_COUNT_PER_CATEGORY = 20;
 
 class ArticleCacheStore {
-	profilesWithArticles = $state<ProfileWithArticles[]>([]);
+	profilesWithArticles = $state<ArticleProfile[]>([]);
 	articlesWithoutProfile = $state<ArticleWithTasks[]>([]);
 	categoriesWithArticles = $state<CategoryWithArticles[]>([]);
 	totalArticlesWithoutProfile = $state(0);
@@ -68,10 +68,12 @@ class ArticleCacheStore {
 				this.profilesCategoryIds = options?.categoryIds;
 			}
 			const offset = options?.loadMore ? this.profilesOffset : 0;
-			const result = await getArticlesWithProfiles(ARTICLE_COUNT_PER_PROFILE, {
+			const result = await getProfiles({
+				categoryIds: options?.loadMore ? this.profilesCategoryIds : options?.categoryIds,
 				offset,
 				limit: PROFILES_PAGE_SIZE,
-				categoryIds: options?.loadMore ? this.profilesCategoryIds : options?.categoryIds
+				includeArticles: true,
+				articleCount: ARTICLE_COUNT_PER_PROFILE
 			});
 
 			if (fetchId !== this.profilesFetchId) {

@@ -116,7 +116,7 @@
 		async () => {
 			if (!viewState.hoveredProfileName) return;
 			const profile = articleCacheStore.profilesWithArticles.find(
-				(p) => p.profileName === viewState.hoveredProfileName
+				(p) => p.name === viewState.hoveredProfileName
 			);
 			if (!profile) return;
 			const profileUrl = getProfileUrl(viewState.hoveredProfileName);

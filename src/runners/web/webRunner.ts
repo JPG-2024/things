@@ -58,7 +58,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 			const initData = runtime.getTaskData('init-web') as { domainUrl: string; url: string };
 			const domainUrl = new URL(initData.domainUrl).hostname;
 			const favicon = await downloadFavicon(domainUrl);
-			await saveProfile(domainUrl, favicon?.src ?? null, null, initData.url);
+			await saveProfile(domainUrl, favicon?.src ?? null, initData.url);
 			return {
 				profileId: domainUrl,
 				profilePicture: favicon?.fileName ?? null
@@ -167,7 +167,7 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 
 			if (effectiveProfile) {
 				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${effectiveProfile}`;
-				saveOperations.push(saveProfile(effectiveProfile, profilePicture, null, null));
+				saveOperations.push(saveProfile(effectiveProfile, profilePicture, null));
 			}
 
 			await Promise.all(saveOperations);

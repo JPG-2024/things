@@ -87,8 +87,6 @@
 
 	.task-shell--error {
 		padding: 0.75rem 0.9rem;
-		border: 1px solid rgba(255, 143, 143, 0.25);
-		border-radius: var(--radius-lg);
 		background: rgba(255, 143, 143, 0.05);
 	}
 

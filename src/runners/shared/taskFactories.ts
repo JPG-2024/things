@@ -14,7 +14,7 @@ import {
 	buildExtractionSystemMessage,
 	buildExtractionUserMessage
 } from '@/lib/utils/inference/extraction-helper';
-import { splitForEmbeddings, splitByString } from '@/lib/utils/splitText';
+import { splitForEmbeddings, splitByString, splitByLevels } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
 import { getProcessor } from '@/runners/shared/processors';
@@ -131,7 +131,7 @@ export function createTitleTask(options?: CreateTitleTaskOptions): IaTaskDef<z.Z
 
 	const defaultUserMessage = ({ context }: FactoryCtx) => {
 		const lang = (context as { language?: string })?.language;
-		return `Create a short title describing the content. No more than 10 words. Start with an emoji. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+		return `Create a short title describing the content. No more than 10 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
 	};
 
 	return createIaTask({
@@ -213,6 +213,7 @@ export type RecursiveContentTaskOptions = {
 	name?: string;
 	dependencies?: string[];
 	windowSize?: number;
+	windowDivisor?: number;
 	overlap?: number;
 	splitByString?: string;
 	processorType?: ProcessorType;
@@ -275,10 +276,12 @@ export function createRecursiveContentTask(
 
 			const chunksResult = options?.splitByString
 				? splitByString(content, options.splitByString)
-				: splitForEmbeddings(content, {
-						windowSize: options?.windowSize ?? 3000,
-						overlap: options?.overlap ?? Math.floor((options?.windowSize ?? 3000) * 0.1)
-					});
+				: options?.windowDivisor
+					? splitByLevels(content, options.windowDivisor)
+					: splitForEmbeddings(content, {
+							windowSize: options?.windowSize ?? 3000,
+							overlap: options?.overlap ?? Math.floor((options?.windowSize ?? 3000) * 0.1)
+						});
 			const sections = chunksResult.map((c) => c.text);
 			const chunkOffsets = chunksResult.map((c) => ({
 				startOffset: c.startOffset,
@@ -321,6 +324,7 @@ export function createRecursiveContentTask(
 export interface RecursiveConfig {
 	windowSize: number;
 	overlap: number;
+	windowDivisor?: number;
 	splitByString?: string;
 	processorType: ProcessorType;
 	combineMode?: CombineMode;
@@ -362,6 +366,7 @@ export function buildRecursiveTask(
 			recursiveConfig: {
 				windowSize,
 				overlap,
+				windowDivisor: options.windowDivisor,
 				splitByString: options.splitByString,
 				processorType,
 				combineMode: options.combineMode,

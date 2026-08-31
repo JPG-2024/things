@@ -1,13 +1,20 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { RecursiveChunk, RecursiveContentResult } from '@/runners/shared/taskFactories';
+	import type {
+		RecursiveChunk,
+		RecursiveConfig,
+		RecursiveContentResult
+	} from '@/runners/shared/taskFactories';
+	import { buildRecursiveTask } from '@/runners/shared/taskFactories';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import Tabs from '@/components/Tabs.svelte';
+	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { getTaskChunks } from '@/stores/webStore';
+	import { getTaskChunks, updateTaskDataById } from '@/stores/webStore';
 
 	type Props = {
 		runId?: string;
@@ -84,10 +91,75 @@
 			summary: chunk.data.join('\n')
 		}))
 	);
+
+	const LEVELS = ['1', '2', '4', '8'];
+	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
+
+	const recursiveConfig = $derived(
+		(task.componentProps as Record<string, unknown> | undefined)?.recursiveConfig as
+			| RecursiveConfig
+			| undefined
+	);
+
+	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
+	const activeLevel = $derived(
+		recursiveConfig?.windowDivisor ? String(recursiveConfig.windowDivisor) : ''
+	);
+
+	function handleLevelChange(levelId: string) {
+		void applyLevel(levelId);
+	}
+
+	async function applyLevel(levelId: string) {
+		if (!targetRunId || !recursiveConfig) return;
+		if (task.status === 'running') return;
+		const level = Number(levelId);
+		if (!Number.isFinite(level) || level < 1) return;
+		if (recursiveConfig.windowDivisor === level) return;
+		try {
+			const newTask = buildRecursiveTask(task.id, {
+				name: task.name,
+				dependencies: task.dependencies,
+				windowSize: recursiveConfig.windowSize,
+				overlap: recursiveConfig.overlap,
+				windowDivisor: level,
+				splitByString: recursiveConfig.splitByString,
+				processorType: recursiveConfig.processorType ?? 'summarize',
+				combineMode: recursiveConfig.combineMode,
+				userMessage: recursiveConfig.userMessage ?? 'Summarize this section concisely.',
+				finalUserMessage:
+					recursiveConfig.finalUserMessage ??
+					'Combine these section summaries into one coherent summary.',
+				extractorConfig: recursiveConfig.extractorConfig,
+				targetLang: recursiveConfig.targetLang,
+				customSystemMsg: recursiveConfig.customSystemMsg,
+				renderOrder: task.renderOrder,
+				embeddings: task.embeddings,
+				persist: true,
+				model: viewState.aiModel,
+				enableTTS: task.enableTTS
+			});
+			newTask.visible = task.visible;
+			workflowManager.addTask(targetRunId, newTask);
+			const summary = await workflowManager.rerunTask(targetRunId, task.id);
+			const updatedTask = summary.tasks.find((t) => t.id === task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
+			}
+		} catch (error) {
+			console.error(`Failed to rerun recursive task "${task.id}" at level ${levelId}:`, error);
+		}
+	}
 </script>
 
 {#if recursiveData}
 	<div class="recursive-shell">
+		{#if showLevelTabs}
+			<div class="level-row">
+				<span class="level-label">window ÷</span>
+				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
+			</div>
+		{/if}
 		{#if chunks.length > 0}
 			<ChunkList
 				title="Chunks"
@@ -130,5 +202,16 @@
 	.final-response {
 		padding-top: 0.5rem;
 		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.level-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.level-label {
+		font-size: 0.82rem;
+		opacity: 0.7;
 	}
 </style>

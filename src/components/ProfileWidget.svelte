@@ -6,7 +6,7 @@
 	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { goto } from '$app/navigation';
-	import { type ArticleWithTasks, type ProfileWithArticles } from '@/stores/webStore';
+	import { type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
@@ -14,7 +14,7 @@
 	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
-		profileWithArticles: ProfileWithArticles;
+		profileWithArticles: ArticleProfile;
 		showTitle?: boolean;
 		collapsed?: boolean;
 	}
@@ -30,25 +30,26 @@
 		isCollapsed = !isCollapsed;
 	}
 
-	const profileRunId = getProfileUrl(profileWithArticles.profileName);
+	const profileRunId = getProfileUrl(profileWithArticles.name);
 	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
 	const isProfileRunning = $derived(
 		profileRunStatus === 'running' || profileRunStatus === 'pending'
 	);
 	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
+	const articles = $derived(profileWithArticles.articles ?? []);
 
 	async function goToprofile() {
-		viewState.currentProfileId = profileWithArticles.profileId;
-		goto(`/profile/${profileWithArticles.profileId}`);
+		viewState.currentProfileId = profileWithArticles.id;
+		goto(`/profile/${profileWithArticles.id}`);
 	}
 
 	async function handleRefresh() {
 		if (isProfileRunning) return;
-		const profileUrl = getProfileUrl(profileWithArticles.profileName);
+		const profileUrl = getProfileUrl(profileWithArticles.name);
 		await urlRouter(profileUrl, {
 			forceRunTasks: true,
 			routine: 'fromUrl',
-			runnerOptions: { videosAmount: 3, profileId: profileWithArticles.profileId }
+			runnerOptions: { videosAmount: 3, profileId: profileWithArticles.id }
 		});
 		articleCacheStore.invalidateProfiles();
 		await articleCacheStore.fetchProfilesWithArticles({ force: true });
@@ -56,13 +57,13 @@
 
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
-		viewState.currentProfileId = profileWithArticles.profileId;
+		viewState.currentProfileId = profileWithArticles.id;
 		if (article.url.startsWith('raw-')) {
 			goto(`/raw/${article.url}`);
 			await urlRouter(article.url);
 		} else {
 			urlRouter(article.url, {
-				runnerOptions: { profileId: profileWithArticles.profileId }
+				runnerOptions: { profileId: profileWithArticles.id }
 			});
 			goto(`/youtube/${encodeURIComponent(article.url)}`);
 		}
@@ -78,14 +79,14 @@
 		<Card loading={isProfileRunning}>
 			{#if showTitle}
 				<div class="title-row">
-					<h2 class="category-title">{profileWithArticles.profileName}</h2>
+					<h2 class="category-title">{profileWithArticles.name}</h2>
 					<div class="actions">
 						<button
 							type="button"
 							class="refresh-btn"
 							onclick={handleRefresh}
 							disabled={isProfileRunning}
-							aria-label={`Refresh ${profileWithArticles.profileName}`}
+							aria-label={`Refresh ${profileWithArticles.name}`}
 							title="Refresh"
 						>
 							{#if isProfileRunning}
@@ -97,7 +98,7 @@
 					</div>
 				</div>
 			{/if}
-			{#if profileWithArticles.profilePictureSrc || profileWithArticles.articles.length}
+			{#if profileWithArticles.profilePictureSrc || articles.length}
 				<div class="img-flex">
 					{#if profileWithArticles.profilePictureSrc}
 						<div class="avatar-container">
@@ -109,11 +110,11 @@
 							>
 								<img
 									src={profileWithArticles.profilePictureSrc}
-									alt={profileWithArticles.profileName}
+									alt={profileWithArticles.name}
 									class="profile-avatar"
 									onmouseenter={() => {
-										viewState.hoveredProfileName = profileWithArticles.profileName;
-										viewState.hoveredProfileId = profileWithArticles.profileId;
+										viewState.hoveredProfileName = profileWithArticles.name;
+										viewState.hoveredProfileId = profileWithArticles.id;
 									}}
 									onmouseleave={() => {
 										viewState.hoveredProfileName = null;
@@ -123,8 +124,8 @@
 							</button>
 						</div>
 					{/if}
-					{#if profileWithArticles.articles.length}
-						{#each profileWithArticles.articles.filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
+					{#if articles.length}
+						{#each articles.filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
 							<button
 								type="button"
 								class="img-button"

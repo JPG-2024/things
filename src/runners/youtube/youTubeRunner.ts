@@ -123,7 +123,7 @@ export async function youTubeRunner(
 
 			if (profileId) {
 				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${profileId}`;
-				saveOperations.push(saveProfile(profileId, profilePicture, null, null));
+				saveOperations.push(saveProfile(profileId, profilePicture, null));
 			}
 
 			await Promise.all(saveOperations);

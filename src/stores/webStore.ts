@@ -31,15 +31,6 @@ export interface ArticleWithTasks {
 	[key: string]: unknown;
 }
 
-export interface ProfileWithArticles {
-	profileId: string;
-	profileName: string;
-	profilePicture?: string | null;
-	profilePictureSrc?: string | null;
-	profileUrl?: string | null;
-	articles: ArticleWithTasks[];
-}
-
 export interface ArticlesWithoutProfileResponse {
 	articles: ArticleWithTasks[];
 	total: number;
@@ -60,6 +51,8 @@ export interface ArticleProfile {
 	profilePicture?: string | null;
 	profilePictureSrc?: string | null;
 	url?: string | null;
+	mostRecentCreatedAt?: number | null;
+	articles?: ArticleWithTasks[];
 }
 
 type SearchRowKind = 'content_chunk' | 'keyword_bundle';
@@ -96,26 +89,9 @@ type SearchRowInput = {
 	text: string;
 };
 
-export type WebStoreProfileRecord = {
-	id: string;
-	name: string;
-	count: number;
-	profilePicture?: string | null;
-	url?: string | null;
-};
-
 export type WebStoreProfileDeletion = {
 	success: boolean;
 	deletedCount: number;
-};
-
-export type WebStoreProfileSummary = {
-	id: string;
-	name: string;
-	mostRecentCreatedAt: number;
-	profilePicture?: string;
-	profilePictureSrc?: string;
-	lastVideoDate?: string;
 };
 
 export type WebStoreCategoryRecord = {
@@ -130,16 +106,6 @@ export type UpsertWebStoreCategoryInput = {
 	id: string;
 	name: string;
 	description?: string | null;
-};
-
-export type ProfileCategoryInput = {
-	profileId: string;
-	categoryId: string;
-};
-
-export type AssignCategoriesToProfileInput = {
-	profileId: string;
-	categoryIds: string[];
 };
 
 export type AssignCategoriesToArticleInput = {
@@ -297,7 +263,7 @@ export function getArticleStringField(article: ArticleWithTasks | null, fieldNam
 	return typeof fieldValue === 'string' ? fieldValue : '';
 }
 
-export async function deleteArticleMedia(article: ArticleWithTasks | null): Promise<void> {
+export async function deleteArticleMedia(article: { thumbnail?: string | null } | null): Promise<void> {
 	const thumbnail = article?.thumbnail;
 	if (typeof thumbnail === 'string' && thumbnail.trim()) {
 		await deleteMediaFile(thumbnail);
@@ -553,11 +519,49 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	}
 }
 
-export async function getProfiles(): Promise<ArticleProfile[]> {
+export async function getProfiles(options?: {
+	categoryIds?: string[];
+	createdAtFrom?: number;
+	includeArticles?: boolean;
+	articleCount?: number;
+	offset?: number;
+	limit?: number;
+}): Promise<ArticleProfile[]> {
+	type ProfileWithRawArticles = ArticleProfile & { articles?: WebStoreArticleRecord[] };
 	try {
-		const result = await invoke<ArticleProfile[]>('list_web_store_profiles');
+		const result = await invoke<ProfileWithRawArticles[]>('list_web_store_profiles', {
+			categoryIds: options?.categoryIds ?? null,
+			createdAtFrom: options?.createdAtFrom ?? null,
+			includeArticles: options?.includeArticles ?? null,
+			articleCount: options?.articleCount ?? null,
+			offset: options?.offset ?? null,
+			limit: options?.limit ?? null
+		});
 
-		return resolveProfilePictureBatch(result);
+		const resolvedProfiles = await resolveProfilePictureBatch(result);
+
+		if (!options?.includeArticles) {
+			return resolvedProfiles;
+		}
+
+		const tasksByUrl = await getTasksByUrlMap();
+		const profilesWithArticles: ArticleProfile[] = [];
+		for (const profile of resolvedProfiles) {
+			let articles: ArticleWithTasks[] | undefined;
+			if (profile.articles) {
+				const mappedArticles = await Promise.all(
+					profile.articles.map((row) =>
+						mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
+					)
+				);
+				articles = await resolveArticleProfilePictureBatch(
+					await resolveArticleThumbnailBatch(mappedArticles)
+				);
+			}
+			profilesWithArticles.push({ ...profile, articles });
+		}
+
+		return profilesWithArticles;
 	} catch (error) {
 		console.error('Error querying article profiles', error);
 		return [];
@@ -578,22 +582,6 @@ export async function getProfile(profileId: string): Promise<ArticleProfile | nu
 	} catch (error) {
 		console.error('Error querying profile', error);
 		return null;
-	}
-}
-
-export async function getProfilesWithArticlesAfter(
-	createdAtFrom: number
-): Promise<WebStoreProfileSummary[]> {
-	try {
-		const result = await invoke<WebStoreProfileSummary[]>(
-			'list_web_store_profiles_with_articles_after',
-			{ createdAtFrom }
-		);
-
-		return resolveProfilePictureBatch(result);
-	} catch (error) {
-		console.error('Error querying profiles with articles after date', error);
-		return [];
 	}
 }
 
@@ -765,24 +753,26 @@ export async function markArticleAsViewed(url: string): Promise<boolean> {
 
 export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
 	try {
-		const profile = await getProfile(profileId);
+		const [profile, articles] = await Promise.all([
+			invoke<WebStoreArticleRecord | null>('get_web_store_profile', { profileId }),
+			invoke<WebStoreArticleRecord[]>('list_web_store_articles', {
+				fields: ['thumbnail', 'url', 'profile']
+			})
+		]);
 
-		if (profile?.profilePicture && profile.profilePicture.trim()) {
-			await deleteMediaFile(profile.profilePicture);
-		}
-
-		const { articles } = await getArticlesWithoutProfile({
-			profileId,
-			onlyWithoutProfile: false,
-			limit: 1000
-		});
-		for (const article of articles) {
-			await deleteArticleMedia(article);
-		}
-
-		return await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
+		const result = await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
 			profileId
 		});
+
+		if (result.success) {
+			const profileArticles = articles.filter((article) => article.profile === profileId);
+			await Promise.all(profileArticles.map(deleteArticleMedia));
+			if (profile?.profilePicture) {
+				await deleteMediaFile(profile.profilePicture);
+			}
+		}
+
+		return result;
 	} catch (error) {
 		console.error('Error deleting article profile:', error);
 		return { success: false, deletedCount: 0 };
@@ -792,7 +782,6 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 export async function saveProfile(
 	profileId: string,
 	profilePicture: string | null,
-	lastVideoDate: string | null,
 	url: string | null = null
 ): Promise<unknown> {
 	try {
@@ -801,7 +790,6 @@ export async function saveProfile(
 				id: profileId.toLowerCase().replace(/\s+/g, '-'),
 				name: profileId.toLowerCase().replace(/\s+/g, '-'),
 				profilePicture,
-				lastVideoDate,
 				url
 			}
 		});
@@ -838,16 +826,6 @@ export async function deleteCategory(categoryId: string): Promise<boolean> {
 	}
 }
 
-export async function assignCategoriesToProfile(
-	input: AssignCategoriesToProfileInput
-): Promise<void> {
-	try {
-		await invoke('assign_categories_to_profile', { input });
-	} catch (error) {
-		console.error('Error assigning categories to profile:', error);
-	}
-}
-
 export async function assignCategoriesToArticle(
 	input: AssignCategoriesToArticleInput
 ): Promise<void> {
@@ -855,88 +833,6 @@ export async function assignCategoriesToArticle(
 		await invoke('assign_categories_to_article', { input });
 	} catch (error) {
 		console.error('Error assigning categories to article:', error);
-	}
-}
-
-export async function unassignCategoryFromProfile(input: ProfileCategoryInput): Promise<boolean> {
-	try {
-		return await invoke<boolean>('unassign_category_from_profile', { input });
-	} catch (error) {
-		console.error('Error unassigning category from profile:', error);
-		return false;
-	}
-}
-
-export async function getCategoriesByProfile(profileId: string): Promise<WebStoreCategoryRecord[]> {
-	try {
-		return await invoke<WebStoreCategoryRecord[]>('list_categories_by_profile', { profileId });
-	} catch (error) {
-		console.error('Error fetching categories by profile:', error);
-		return [];
-	}
-}
-
-export async function getProfilesByCategories(categoryIds: string[]): Promise<ArticleProfile[]> {
-	try {
-		if (categoryIds.length === 0) {
-			return await getProfiles();
-		}
-		const result = await invoke<ArticleProfile[]>('list_profiles_by_categories', {
-			categoryIds
-		});
-		return resolveProfilePictureBatch(result);
-	} catch (error) {
-		console.error('Error fetching profiles by categories:', error);
-		return [];
-	}
-}
-
-export async function getArticlesWithProfiles(
-	articleCount: number,
-	options?: { categoryIds?: string[]; offset?: number; limit?: number }
-): Promise<ProfileWithArticles[]> {
-	try {
-		const result = await invoke<
-			Array<{
-				profileId: string;
-				profileName: string;
-				profilePicture: string | null;
-				profileUrl: string | null;
-				articles: WebStoreArticleRecord[];
-			}>
-		>('list_articles_with_profiles', {
-			articleCount,
-			categoryIds: options?.categoryIds ?? null,
-			offset: options?.offset ?? null,
-			limit: options?.limit ?? null
-		});
-
-		const resolvedProfiles = await resolveProfilePictureBatch(result);
-
-		const profilesWithArticles: ProfileWithArticles[] = [];
-		for (const profile of resolvedProfiles) {
-			const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
-			const mappedArticles = await Promise.all(
-				profile.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-			);
-			const resolvedArticles = await resolveArticleProfilePictureBatch(
-				await resolveArticleThumbnailBatch(mappedArticles)
-			);
-
-			profilesWithArticles.push({
-				profileId: profile.profileId,
-				profileName: profile.profileName,
-				profilePicture: profile.profilePicture,
-				profilePictureSrc: profile.profilePictureSrc ?? null,
-				profileUrl: profile.profileUrl,
-				articles: resolvedArticles
-			});
-		}
-
-		return profilesWithArticles;
-	} catch (error) {
-		console.error('Error fetching articles with profiles:', error);
-		return [];
 	}
 }
 

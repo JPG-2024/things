@@ -47,8 +47,8 @@
 
 	const layouts: LayoutConfig[] = [
 		{ width: 1000, columns: 1, padding: '0.6rem', rowHeight: 50, key: 'row' },
-		{ width: 400, columns: 3, padding: '4rem', key: 'grid-3' },
-		{ width: 480, columns: 2, padding: '2rem', key: 'grid-2' }
+		{ width: 400, columns: 3, padding: '3rem', key: 'grid-3' },
+		{ width: 500, columns: 2, padding: '2rem', key: 'grid-2' }
 	];
 
 	let currentLayout = $derived(layouts[layoutIndex]);

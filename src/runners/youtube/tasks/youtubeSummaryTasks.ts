@@ -31,8 +31,7 @@ Avoid summarizing small talk unless it adds context. got right to the point, no 
 	[TaskNames.TITLE]: ({ language }) => ({
 		id: TaskNames.TITLE,
 		...createTitleTask({ gridSpan: 1 }),
-		renderOrder: 2,
-		userMessage: `Generate a short title for this context that describes the main idea in maximum 10 words. Answer in ${language === 'es' ? 'Spanish' : 'English'}.`
+		renderOrder: 2
 	}),
 
 	[TaskNames.KEYWORDS]: () => ({

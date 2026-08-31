@@ -30,7 +30,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 		amplitude: 0.18,
 		baseSpeed: 0.6,
 		pointCount: 80,
-		strokeAlpha: 0.6
+		strokeAlpha: 1
 	},
 	organicMultiDim: {
 		name: 'organicMultiDim',
@@ -41,7 +41,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 		amplitude: 0.2,
 		baseSpeed: 0.6,
 		pointCount: 80,
-		strokeAlpha: 0.6
+		strokeAlpha: 1
 	},
 	softSingleBright: {
 		name: 'softSingleBright',

@@ -195,7 +195,7 @@
 		gap: 0.5rem;
 		transition: transform 0.15s;
 		font-size: 1rem;
-		border-radius: var(--radius-sm);
+		border-radius: 2px;
 		box-sizing: border-box;
 		/* min-height: 120px; */
 		width: 100%;
@@ -318,7 +318,7 @@
 		display: -webkit-box;
 		justify-content: center;
 		align-items: center;
-		border-radius: var(--radius-sm);
+		/* border-radius: var(--radius-sm); */
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		padding: 0.5rem;
@@ -361,7 +361,7 @@
 	.row .article-thumbnail {
 		aspect-ratio: 1;
 		object-fit: cover;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		opacity: 0.5;
 	}
 

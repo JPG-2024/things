@@ -101,7 +101,7 @@ export const webWorkflow = defineWorkflow({
 				const domainUrl = new URL(init.domainUrl).hostname;
 				const favicon = await downloadFavicon(domainUrl);
 
-				await saveProfile(domainUrl, favicon?.src ?? null, null, init.url);
+				await saveProfile(domainUrl, favicon?.src ?? null, init.url);
 
 				return {
 					profileId: domainUrl,

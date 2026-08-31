@@ -101,7 +101,7 @@
 	let extOriginalDescription = $state('');
 
 	let catCategories = $state('');
-	let catMaxItems = $state('1');
+	let catMaxItems = $state('8');
 	let catOriginalCategories = $state('');
 	let catOriginalMaxItems = $state('');
 
@@ -555,10 +555,15 @@
 				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
 			}
 
+			const existingCfg = (_task.componentProps as Record<string, unknown>)?.recursiveConfig as
+				| RecursiveConfig
+				| undefined;
+
 			const newTask = buildRecursiveTask(effectiveId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
 				windowSize: Number(recWindowSize) || 1000,
+				windowDivisor: existingCfg?.windowDivisor,
 				overlap: Number(recOverlap) || 100,
 				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,

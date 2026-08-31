@@ -41,8 +41,9 @@ pub struct WebStoreProfileRecord {
     pub name: String,
     pub count: i64,
     pub profile_picture: Option<String>,
-    pub last_video_date: Option<String>,
     pub url: Option<String>,
+    pub most_recent_created_at: Option<i64>,
+    pub articles: Option<Vec<WebStoreArticleRecord>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,26 +51,6 @@ pub struct WebStoreProfileRecord {
 pub struct WebStoreProfileDeletion {
     pub success: bool,
     pub deleted_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebStoreProfileSummary {
-    pub id: String,
-    pub name: String,
-    pub most_recent_created_at: i64,
-    pub profile_picture: Option<String>,
-    pub last_video_date: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileWithArticles {
-    pub profile_id: String,
-    pub profile_name: String,
-    pub profile_picture: Option<String>,
-    pub profile_url: Option<String>,
-    pub articles: Vec<WebStoreArticleRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,20 +84,6 @@ pub struct UpsertWebStoreCategoryInput {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileCategoryInput {
-    pub profile_id: String,
-    pub category_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignCategoriesToProfileInput {
-    pub profile_id: String,
-    pub category_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,7 +190,6 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             name TEXT NOT NULL,
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
-            last_video_date TEXT,
             url TEXT,
             updated_at INTEGER NOT NULL
         );
@@ -241,15 +207,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             deleted_at INTEGER
         );
 
-        CREATE TABLE IF NOT EXISTS profile_category (
-            profile_id TEXT NOT NULL,
-            category_id TEXT NOT NULL,
-            PRIMARY KEY (profile_id, category_id),
-            FOREIGN KEY (profile_id) REFERENCES web_profiles(id),
-            FOREIGN KEY (category_id) REFERENCES web_categories(id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);
+        DROP TABLE IF EXISTS profile_category;
 
         CREATE TABLE IF NOT EXISTS article_category (
             article_url TEXT NOT NULL,
@@ -283,6 +241,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_viewed_column(conn)?;
     migrate_date_column(conn)?;
     migrate_category_description_column(conn)?;
+    migrate_drop_last_video_date_column(conn)?;
 
     Ok(())
 }
@@ -312,8 +271,8 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
     ).map_err(|error| error.to_string())?;
 
     conn.execute_batch(
-        "INSERT OR IGNORE INTO web_profiles (id, name, count, profile_picture, last_video_date, updated_at)
-         SELECT id, name, count, profile_picture, last_video_date, updated_at
+        "INSERT OR IGNORE INTO web_profiles (id, name, count, profile_picture, updated_at)
+         SELECT id, name, count, profile_picture, updated_at
          FROM old_profiles;"
     ).map_err(|error| error.to_string())?;
 
@@ -392,6 +351,21 @@ fn migrate_category_description_column(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn migrate_drop_last_video_date_column(conn:&Connection) -> Result<(), String> {
+    let has_last_video_date_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_profiles') WHERE name='last_video_date'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if has_last_video_date_column {
+        conn.execute_batch("ALTER TABLE web_profiles DROP COLUMN last_video_date")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
 fn chrono_like_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -456,8 +430,9 @@ fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfil
                 name: display_name,
                 count: 1,
                 profile_picture: None,
-                last_video_date: None,
                 url: None,
+                most_recent_created_at: None,
+                articles: None,
             });
     }
 
@@ -554,7 +529,11 @@ fn query_articles(
 
 fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date, url FROM web_profiles WHERE id = ?1 COLLATE NOCASE")
+        .prepare(
+            "SELECT id, name, count, profile_picture, url,
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
+             FROM web_profiles WHERE id = ?1 COLLATE NOCASE",
+        )
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
@@ -564,8 +543,9 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
                 name: row.get(1)?,
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
-                last_video_date: row.get(4)?,
-                url: row.get(5)?,
+                url: row.get(4)?,
+                most_recent_created_at: row.get(5)?,
+                articles: None,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -578,7 +558,11 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
 
 fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, count, profile_picture, last_video_date, url FROM web_profiles ORDER BY count DESC, name ASC")
+        .prepare(
+            "SELECT id, name, count, profile_picture, url,
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
+             FROM web_profiles ORDER BY count DESC, name ASC",
+        )
         .map_err(|error| error.to_string())?;
 
     let profile_iter = stmt
@@ -588,8 +572,9 @@ fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, Strin
                 name: row.get(1)?,
                 count: row.get(2)?,
                 profile_picture: row.get(3)?,
-                last_video_date: row.get(4)?,
-                url: row.get(5)?,
+                url: row.get(4)?,
+                most_recent_created_at: row.get(5)?,
+                articles: None,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -608,13 +593,12 @@ fn upsert_profile(
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT INTO web_profiles (id, name, count, profile_picture, last_video_date, url, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        "INSERT INTO web_profiles (id, name, count, profile_picture, url, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(id) DO UPDATE SET 
            name = excluded.name,
            count = excluded.count,
            profile_picture = excluded.profile_picture,
-           last_video_date = excluded.last_video_date,
            url = excluded.url,
            updated_at = excluded.updated_at",
         params![
@@ -622,7 +606,6 @@ fn upsert_profile(
             profile.name,
             profile.count,
             profile.profile_picture,
-            profile.last_video_date,
             profile.url,
             updated_at
         ],
@@ -632,11 +615,6 @@ fn upsert_profile(
 }
 
 fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM profile_category WHERE profile_id = ?1",
-        params![profile_id]
-    ).map_err(|error| error.to_string())?;
-
     conn.execute(
         "DELETE FROM web_profile_templates WHERE profile_id = ?1",
         params![profile_id]
@@ -677,8 +655,9 @@ fn rebuild_profiles_from_articles(
                 name: String::new(),
                 count: 0,
                 profile_picture: Some(picture),
-                last_video_date: None,
                 url: None,
+                most_recent_created_at: None,
+                articles: None,
             });
         }
     }
@@ -704,20 +683,150 @@ pub async fn list_web_store_articles(
         .collect())
 }
 
+fn query_profiles_filtered(
+    conn: &Connection,
+    category_ids: Option<&[String]>,
+    created_at_from: Option<i64>,
+    include_articles: bool,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<Vec<WebStoreProfileRecord>, String> {
+    let mut sql = String::from(
+        "SELECT p.id, p.name, p.count, p.profile_picture, p.url,
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at
+         FROM web_profiles p",
+    );
+
+    let mut where_clauses: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if include_articles {
+        where_clauses.push(
+            "EXISTS (SELECT 1 FROM web_articles a WHERE LOWER(a.profile) = LOWER(p.id) AND a.profile IS NOT NULL)"
+                .to_string(),
+        );
+    }
+
+    if let Some(cats) = category_ids {
+        if !cats.is_empty() {
+            let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            where_clauses.push(format!(
+                "LOWER(p.id) IN (
+                    SELECT DISTINCT LOWER(a.profile)
+                    FROM web_articles a
+                    INNER JOIN article_category ac ON ac.article_url = a.url
+                    INNER JOIN web_categories c ON ac.category_id = c.id
+                    WHERE ac.category_id IN ({}) AND c.deleted_at IS NULL AND a.profile IS NOT NULL
+                )",
+                placeholders
+            ));
+            for id in cats {
+                params.push(Box::new(id.clone()));
+            }
+        }
+    }
+
+    if let Some(from) = created_at_from {
+        where_clauses.push(
+            "(SELECT MAX(a3.created_at) FROM web_articles a3 WHERE LOWER(a3.profile) = LOWER(p.id)) >= ?"
+                .to_string(),
+        );
+        params.push(Box::new(from));
+    }
+
+    if !where_clauses.is_empty() {
+        sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
+    }
+
+    sql.push_str(if include_articles {
+        " ORDER BY max_created_at DESC NULLS LAST"
+    } else {
+        " ORDER BY p.count DESC, p.name ASC"
+    });
+
+    if include_articles {
+        sql.push_str(&format!(
+            " LIMIT {} OFFSET {}",
+            limit.unwrap_or(50),
+            offset.unwrap_or(0)
+        ));
+    } else if limit.is_some() || offset.is_some() {
+        sql.push_str(&format!(
+            " LIMIT {} OFFSET {}",
+            limit.unwrap_or(usize::MAX),
+            offset.unwrap_or(0)
+        ));
+    }
+
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let profile_rows = stmt
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| {
+                Ok(WebStoreProfileRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    count: row.get(2)?,
+                    profile_picture: row.get(3)?,
+                    url: row.get(4)?,
+                    most_recent_created_at: row.get(5)?,
+                    articles: None,
+                })
+            },
+        )
+        .map_err(|error| error.to_string())?;
+
+    let mut profiles = Vec::new();
+    for profile_result in profile_rows {
+        profiles.push(profile_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(profiles)
+}
+
 #[tauri::command]
 pub async fn list_web_store_profiles(
     app: AppHandle,
+    category_ids: Option<Vec<String>>,
+    created_at_from: Option<i64>,
+    include_articles: Option<bool>,
+    article_count: Option<usize>,
+    offset: Option<usize>,
+    limit: Option<usize>,
 ) -> Result<Vec<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
-    let mut profiles = query_profiles(&conn)?;
 
-    if profiles.is_empty() {
+    let include = include_articles.unwrap_or(false);
+    let mut profiles = query_profiles_filtered(
+        &conn,
+        category_ids.as_deref(),
+        created_at_from,
+        include,
+        offset,
+        limit,
+    )?;
+
+    if profiles.is_empty() && !include {
         let aggregated = aggregate_profiles(query_articles(&conn, None, None, None)?);
         for profile in &aggregated {
             upsert_profile(&conn, profile)?;
         }
-        profiles = aggregated;
+        profiles = query_profiles_filtered(
+            &conn,
+            category_ids.as_deref(),
+            created_at_from,
+            include,
+            offset,
+            limit,
+        )?;
+    }
+
+    if include {
+        let per_profile_count = article_count.unwrap_or(10);
+        for profile in &mut profiles {
+            profile.articles = Some(query_articles_for_profile(&conn, &profile.id, per_profile_count)?);
+        }
     }
 
     Ok(profiles)
@@ -778,65 +887,6 @@ async fn list_web_store_articles_by_profile(
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
         .collect())
-}
-
-#[tauri::command]
-pub async fn list_web_store_profiles_with_articles_after(
-    app: AppHandle,
-    created_at_from: i64,
-) -> Result<Vec<WebStoreProfileSummary>, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let filter = format!("created_at >= {}", created_at_from);
-    let records = query_articles(&conn, Some(&filter), None, None)?;
-
-    let mut profile_map: HashMap<String, (String, i64)> = HashMap::new();
-
-    for record in records {
-        let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
-        let id = raw_id.to_lowercase();
-        let display_name = if id == WEB_STORE_UNKNOWN_PROFILE_ID {
-            name
-        } else {
-            name.to_lowercase()
-        };
-        let most_recent = record.created_at;
-        profile_map
-            .entry(id.clone())
-            .and_modify(|(_, existing)| {
-                if most_recent > *existing {
-                    *existing = most_recent;
-                }
-            })
-            .or_insert((display_name, most_recent));
-    }
-
-    let profile_data: HashMap<String, (Option<String>, Option<String>)> = query_profiles(&conn)?
-        .into_iter()
-        .map(|profile| (profile.id, (profile.profile_picture, profile.last_video_date)))
-        .collect();
-
-    let mut profiles: Vec<WebStoreProfileSummary> = profile_map
-        .into_iter()
-        .map(|(id, (name, most_recent_created_at))| {
-            let (profile_picture, last_video_date) = profile_data
-                .get(&id)
-                .cloned()
-                .unwrap_or((None, None));
-            WebStoreProfileSummary {
-                id: id.clone(),
-                name,
-                most_recent_created_at,
-                profile_picture,
-                last_video_date,
-            }
-        })
-        .collect();
-
-    profiles.sort_by(|a, b| b.most_recent_created_at.cmp(&a.most_recent_created_at));
-
-    Ok(profiles)
 }
 
 #[tauri::command]
@@ -967,7 +1017,6 @@ pub struct UpsertWebStoreProfileInput {
     pub id: String,
     pub name: String,
     pub profile_picture: Option<String>,
-    pub last_video_date: Option<String>,
     pub url: Option<String>,
 }
 
@@ -984,8 +1033,9 @@ pub async fn upsert_web_store_profile(
         name: input.name,
         count: 0,
         profile_picture: input.profile_picture,
-        last_video_date: input.last_video_date,
         url: input.url,
+        most_recent_created_at: None,
+        articles: None,
     };
 
     upsert_profile(&conn, &profile)?;
@@ -1309,37 +1359,6 @@ pub async fn delete_web_store_category(
 }
 
 #[tauri::command]
-pub async fn assign_categories_to_profile(
-    app: AppHandle,
-    input: AssignCategoriesToProfileInput,
-) -> Result<(), String> {
-    let mut conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let tx = conn.transaction().map_err(|error| error.to_string())?;
-
-    for category_id in &input.category_ids {
-        let category_exists: bool = tx.query_row(
-            "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
-            [category_id],
-            |row| row.get(0),
-        ).map_err(|error| error.to_string())?;
-
-        if !category_exists {
-            return Err(format!("Category {} does not exist or is deleted", category_id));
-        }
-
-        tx.execute(
-            "INSERT OR IGNORE INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
-            params![input.profile_id, category_id],
-        ).map_err(|error| error.to_string())?;
-    }
-
-    tx.commit().map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn assign_categories_to_article(
     app: AppHandle,
     input: AssignCategoriesToArticleInput,
@@ -1373,192 +1392,6 @@ pub async fn assign_categories_to_article(
 
     tx.commit().map_err(|error| error.to_string())?;
     Ok(())
-}
-
-#[tauri::command]
-pub async fn unassign_category_from_profile(
-    app: AppHandle,
-    input: ProfileCategoryInput,
-) -> Result<bool, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let changes = conn
-        .execute(
-            "DELETE FROM profile_category WHERE profile_id = ?1 AND category_id = ?2",
-            params![input.profile_id, input.category_id],
-        )
-        .map_err(|error| error.to_string())?;
-
-    Ok(changes > 0)
-}
-
-#[tauri::command]
-pub async fn list_categories_by_profile(
-    app: AppHandle,
-    profile_id: String,
-) -> Result<Vec<WebStoreCategoryRecord>, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let mut stmt = conn
-        .prepare(
-            "SELECT c.id, c.name, c.description, c.last_modified, c.deleted_at 
-             FROM web_categories c
-             INNER JOIN profile_category pc ON c.id = pc.category_id
-             WHERE pc.profile_id = ?1 AND c.deleted_at IS NULL
-             ORDER BY c.name ASC",
-        )
-        .map_err(|error| error.to_string())?;
-
-    let category_iter = stmt
-        .query_map([&profile_id], |row| {
-            Ok(WebStoreCategoryRecord {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                last_modified: row.get(3)?,
-                deleted_at: row.get(4)?,
-            })
-        })
-        .map_err(|error| error.to_string())?;
-
-    let mut categories = Vec::new();
-    for category_result in category_iter {
-        categories.push(category_result.map_err(|error| error.to_string())?);
-    }
-
-    Ok(categories)
-}
-
-#[tauri::command]
-pub async fn list_profiles_by_categories(
-    app: AppHandle,
-    category_ids: Vec<String>,
-) -> Result<Vec<WebStoreProfileRecord>, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    if category_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let placeholders = category_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    let sql = format!(
-        "SELECT DISTINCT p.id, p.name, p.count, p.profile_picture, p.last_video_date, p.url
-         FROM web_profiles p
-         INNER JOIN profile_category pc ON p.id = pc.profile_id
-         INNER JOIN web_categories c ON pc.category_id = c.id
-         WHERE pc.category_id IN ({}) AND c.deleted_at IS NULL
-         ORDER BY p.last_video_date DESC",
-        placeholders
-    );
-
-    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
-
-    let params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
-        .iter()
-        .map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>)
-        .collect();
-
-    let profile_iter = stmt
-        .query_map(rusqlite::params_from_iter(params), |row| {
-            Ok(WebStoreProfileRecord {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                count: row.get(2)?,
-                profile_picture: row.get(3)?,
-                last_video_date: row.get(4)?,
-                url: row.get(5)?,
-            })
-        })
-        .map_err(|error| error.to_string())?;
-
-    let mut profiles = Vec::new();
-    for profile_result in profile_iter {
-        profiles.push(profile_result.map_err(|error| error.to_string())?);
-    }
-
-    Ok(profiles)
-}
-
-#[tauri::command]
-pub async fn list_articles_with_profiles(
-    app: AppHandle,
-    article_count: usize,
-    category_ids: Option<Vec<String>>,
-    offset: Option<usize>,
-    limit: Option<usize>,
-) -> Result<Vec<ProfileWithArticles>, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let profile_filter = if let Some(ref cats) = category_ids {
-        if cats.is_empty() {
-            String::new()
-        } else {
-            let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            format!(
-                " AND LOWER(p.id) IN (
-                    SELECT DISTINCT LOWER(pc.profile_id)
-                    FROM profile_category pc
-                    INNER JOIN web_categories c ON pc.category_id = c.id
-                    WHERE pc.category_id IN ({}) AND c.deleted_at IS NULL
-                )",
-                placeholders
-            )
-        }
-    } else {
-        String::new()
-    };
-
-    let profiles_sql = format!(
-        "SELECT p.id, p.name, p.profile_picture, p.url,
-                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) as max_created_at
-         FROM web_profiles p
-         WHERE EXISTS (SELECT 1 FROM web_articles a WHERE LOWER(a.profile) = LOWER(p.id) AND a.profile IS NOT NULL)
-         {}
-         ORDER BY max_created_at DESC NULLS LAST
-         LIMIT {} OFFSET {}",
-        profile_filter,
-        limit.unwrap_or(50),
-        offset.unwrap_or(0)
-    );
-
-    let mut profile_stmt = conn.prepare(&profiles_sql).map_err(|error| error.to_string())?;
-
-    let profile_params: Vec<Box<dyn rusqlite::types::ToSql>> = category_ids
-        .as_ref()
-        .map(|cats| cats.iter().map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>).collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    let profile_rows = profile_stmt
-        .query_map(rusqlite::params_from_iter(profile_params), |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-            ))
-        })
-        .map_err(|error| error.to_string())?;
-
-    let mut result = Vec::new();
-    for row_result in profile_rows {
-        let (profile_id, profile_name, profile_picture, profile_url) = row_result.map_err(|error| error.to_string())?;
-
-        let articles = query_articles_for_profile(&conn, &profile_id, article_count)?;
-
-        result.push(ProfileWithArticles {
-            profile_id,
-            profile_name,
-            profile_picture,
-            profile_url,
-            articles,
-        });
-    }
-
-    Ok(result)
 }
 
 fn query_articles_for_profile(

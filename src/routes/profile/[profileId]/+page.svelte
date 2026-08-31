@@ -7,7 +7,12 @@
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { getProfile, type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
+	import {
+		deleteProfileById,
+		getProfile,
+		type ArticleProfile,
+		type ArticleWithTasks
+	} from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
@@ -17,6 +22,7 @@
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
 	let loading = $state(true);
+	let isDeleting = $state(false);
 
 	let summaryOpen = $state(false);
 	let summaryText = $state('');
@@ -75,6 +81,20 @@
 		goto('/');
 	}
 
+	async function handleDeleteProfile() {
+		if (isDeleting) return;
+		isDeleting = true;
+		try {
+			const result = await deleteProfileById(profileId);
+			if (result.success) {
+				articleCacheStore.invalidateProfiles();
+				goto('/');
+			}
+		} finally {
+			isDeleting = false;
+		}
+	}
+
 	async function handleNavigateToArticle(article: ArticleWithTasks) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileId;
@@ -91,11 +111,21 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="profile-page">
-	<div class="top-bar">
-		<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
-			<Icon name="ArrowLeft" size={24} />
-		</button>
-		<div bind:this={summaryWrapperEl} class="summary-wrapper">
+<div class="top-bar">
+			<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
+				<Icon name="ArrowLeft" size={24} />
+			</button>
+			<button
+				type="button"
+				class="back-btn delete-btn"
+				onclick={handleDeleteProfile}
+				disabled={isDeleting}
+				aria-label="Delete profile"
+				title="Delete profile"
+			>
+				<Icon name="Trash" size={24} />
+			</button>
+			<div bind:this={summaryWrapperEl} class="summary-wrapper">
 			<button
 				type="button"
 				class="back-btn"
@@ -214,6 +244,21 @@
 	.back-btn:hover,
 	.back-btn.active {
 		background: rgba(255, 255, 255, 0.12);
+	}
+
+	.delete-btn {
+		margin-left: 0.5rem;
+		margin-right: auto;
+	}
+
+	.delete-btn:hover,
+	.delete-btn:disabled {
+		background: rgba(255, 80, 80, 0.15);
+	}
+
+	.delete-btn:disabled {
+		opacity: 0.5;
+		cursor: default;
 	}
 
 	.summary-wrapper {

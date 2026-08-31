@@ -9,7 +9,7 @@
 		"preview": "vite preview",
 		"tauri": "tauri",
 		"linux": "WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
-		"linuxx-x11": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
+		"linux-x11": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
 		"build-linux": "bun run tauri build --bundles appimage -v",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write . && eslint --fix ."

@@ -100,7 +100,7 @@ export async function socialMediaRunner(
 					faviconDomain = profileId;
 				}
 				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${faviconDomain}`;
-				saveOperations.push(saveProfile(profileId, profilePicture, null, null));
+				saveOperations.push(saveProfile(profileId, profilePicture, null));
 			}
 
 			await Promise.all(saveOperations);

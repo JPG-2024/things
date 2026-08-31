@@ -92,8 +92,8 @@
 
 	.profile-avatar {
 		display: block;
-		width: 1rem;
-		height: 1rem;
+		width: 1.5rem;
+		height: 1.5rem;
 		border-radius: 50%;
 		object-fit: cover;
 		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);

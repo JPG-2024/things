@@ -271,6 +271,63 @@ export function splitForEmbeddings(
 	return chunks;
 }
 
+export function splitByLevels(text: string, levels: number): EmbeddingChunk[] {
+	const trimmed = text.trim();
+	if (!trimmed) return [];
+
+	const trimOffset = text.indexOf(trimmed);
+	const count = Math.max(1, Math.floor(levels));
+
+	if (count === 1 || trimmed.length <= count) {
+		return [
+			{
+				text: trimmed,
+				index: 0,
+				startOffset: trimOffset,
+				endOffset: trimOffset + trimmed.length
+			}
+		];
+	}
+
+	const targetStep = Math.floor(trimmed.length / count);
+	const chunks: EmbeddingChunk[] = [];
+	let position = 0;
+	let index = 0;
+
+	for (let i = 1; i < count; i++) {
+		const nominal = Math.round((trimmed.length * i) / count);
+		let end = findSentenceBoundary(trimmed, position, nominal, targetStep);
+		if (end <= position || end >= trimmed.length) end = nominal;
+		if (end <= position) continue;
+
+		const chunkText = trimmed.slice(position, end).trim();
+		if (chunkText) {
+			chunks.push({
+				text: chunkText,
+				index,
+				startOffset: position + trimOffset,
+				endOffset: end + trimOffset
+			});
+			index++;
+		}
+		position = end;
+	}
+
+	if (position < trimmed.length) {
+		const chunkText = trimmed.slice(position).trim();
+		if (chunkText) {
+			chunks.push({
+				text: chunkText,
+				index,
+				startOffset: position + trimOffset,
+				endOffset: trimmed.length + trimOffset
+			});
+		}
+	}
+
+	return chunks;
+}
+
 export function splitByString(text: string, delimiter: string): EmbeddingChunk[] {
 	const trimmed = text.trim();
 	if (!trimmed || !delimiter) return [];

@@ -867,6 +867,7 @@
 	.tts-player__canvas-container {
 		width: 100%;
 		height: 20%;
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1054,8 +1055,7 @@
 	}
 
 	.tts-player-mini__voice :global(.avatar-wrap) {
-		width: 36px;
-		height: 36px;
+		display: none;
 	}
 
 	.tts-player-mini__voice :global(.avatar) {

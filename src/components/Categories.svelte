@@ -122,7 +122,7 @@
 						disabled={isEditing}
 						onclick={() => toggleCategory(category.id)}
 					>
-						<EmojiString value={category.name} active={isSelected(category.id)} />
+						<EmojiString value={category.name} active={isSelected(category.id)} hideEmoji />
 					</button>
 				</Tooltip>
 				{#if isEditing}

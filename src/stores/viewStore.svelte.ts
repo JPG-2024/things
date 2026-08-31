@@ -37,7 +37,7 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(true);
 	selectedTaskId = $state('title-summary');
-	ttsPlayerMode = $state<PlayerMode>('full');
+	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryLayoutIndex = $state(1);
 
 	url = $state<string | null>(null);
@@ -117,7 +117,7 @@ class ViewState {
 
 	primaryColorAlpha(alpha: number): string {
 		const match = this.primaryColor.match(/\d+/g);
-		if (!match || match.length < 3) return `rgba(250, 228, 192, ${alpha})`;
+		if (!match || match.length < 3) return `rgba(255, 255, 255, ${alpha})`;
 		return `rgba(${match[0]}, ${match[1]}, ${match[2]}, ${alpha})`;
 	}
 }

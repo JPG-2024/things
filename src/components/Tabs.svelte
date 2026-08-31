@@ -11,13 +11,24 @@
 		tabs: Tab[];
 		activeTab: string;
 		iconOnly?: boolean;
+		onTabChange?: (tabId: string) => void;
 	}
 
-	let { tabs, activeTab = $bindable(), iconOnly = false }: Props = $props();
+	let {
+		tabs,
+		activeTab = $bindable(),
+		iconOnly = false,
+		onTabChange = undefined
+	}: Props = $props();
+
+	function selectTab(tabId: string) {
+		if (activeTab !== tabId) onTabChange?.(tabId);
+		activeTab = tabId;
+	}
 
 	function handleTabClick(tabId: string, e: MouseEvent) {
 		e.stopPropagation();
-		activeTab = tabId;
+		selectTab(tabId);
 	}
 </script>
 
@@ -27,7 +38,7 @@
 			type="button"
 			class="pill"
 			class:pill--active={activeTab === tab.id}
-			onclick={() => (activeTab = tab.id)}
+			onclick={() => selectTab(tab.id)}
 		>
 			{#if tab.icon}
 				<ToggleIcon

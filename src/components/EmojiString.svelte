@@ -54,6 +54,7 @@
 	.active .emoji-string__text {
 		font-weight: bold;
 		text-decoration: underline;
+		color: var(--primary-color);
 	}
 
 	.active .emoji-string__emoji {

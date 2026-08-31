@@ -20,7 +20,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		color: rgb(195, 195, 195);
+		color: var(--primary-color);
 
 		background-color: transparent;
 		background-size: 200% 200%;
