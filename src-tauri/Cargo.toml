@@ -14,6 +14,14 @@ edition = "2021"
 name = "things_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[profile.dev]
+# Backtraces con líneas para tu código, sin debuginfo pesado.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+# Los deps no necesitan debuginfo: reduce el target drásticamente.
+debug = false
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
