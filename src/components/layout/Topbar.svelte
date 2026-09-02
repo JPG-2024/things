@@ -6,6 +6,8 @@
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 	import { autoHide } from '@/lib/actions/autoHide';
 	import Icon from '@/components/Icon.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import { getMediaSrc } from '@/lib/utils/files';
 	interface Props {
 		children?: Snippet;
 		autoHide?: boolean;
@@ -15,6 +17,26 @@
 	let { children, autoHide: autoHideEnabled = true, loading = false }: Props = $props();
 
 	let faviconSrc = $state<string | null>(null);
+	let profileSrc = $state<string | null>(null);
+
+	$effect(() => {
+		const pic = scrapStore.currentYoutubeProfile?.profileImage;
+		if (!pic) {
+			profileSrc = null;
+			return;
+		}
+		let active = true;
+		getMediaSrc(pic)
+			.then((src) => {
+				if (active) profileSrc = src;
+			})
+			.catch(() => {
+				if (active) profileSrc = null;
+			});
+		return () => {
+			active = false;
+		};
+	});
 
 	$effect(() => {
 		if (!viewState.domainUrl || viewState.isRawMode) {
@@ -54,6 +76,10 @@
 			<Icon name="ClipboardType" />
 		{/if}
 	</button>
+
+	{#if profileSrc}
+		<img class="profile-pic" src={profileSrc} alt="" />
+	{/if}
 
 	{@render children?.()}
 
@@ -131,6 +157,12 @@
 	}
 
 	.favicon {
+		border-radius: var(--radius-md);
+		width: 20px;
+		height: 20px;
+	}
+
+	.profile-pic {
 		border-radius: var(--radius-md);
 		width: 20px;
 		height: 20px;

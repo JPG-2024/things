@@ -1,11 +1,20 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import {
+	saveArticle,
+	saveProfile,
+	saveTasks,
+	getArticleWithTasksByUrl,
+	getProfile,
+	type PersistedTaskState
+} from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
+import { scrapStore } from '@/stores/scrapStore.svelte';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import { extractCategoryFromTasks, generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
 
@@ -33,6 +42,76 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		dependencies: [],
 		type: 'script',
 		run: () => ({ url: cleanUrl, videoId, language: viewState.language })
+	};
+
+	const profileTask: Task = {
+		id: 'profile',
+		name: 'Profile',
+		dependencies: ['init-youtube'],
+		type: 'script',
+		persist: true,
+		run: async (runtime) => {
+			const initData = runtime.getTaskData('init-youtube') as { videoId: string; url: string };
+			if (!initData?.videoId) return null;
+
+			const existingArticle = await getArticleWithTasksByUrl(initData.url);
+			if (existingArticle?.profileId) {
+				const existingProfile = await getProfile(existingArticle.profileId);
+				if (existingProfile) {
+					const picture = existingProfile.profilePicture ?? '';
+					let localImage = '';
+					if (picture) {
+						if (picture.includes('://')) {
+							try {
+								localImage = (await downloadImageUrl(picture)).fileName;
+							} catch (e) {
+								console.warn('Failed to localize profile image', e);
+							}
+						} else {
+							localImage = picture;
+						}
+					}
+					let profilePath = `channel/${existingProfile.id}`;
+					if (existingProfile.url) {
+						try {
+							profilePath = new URL(existingProfile.url).pathname.replace(/^\//, '');
+						} catch {
+							/* keep default */
+						}
+					}
+					scrapStore.currentYoutubeProfile = {
+						id: existingProfile.id,
+						profilePath,
+						videos: [],
+						profileImage: localImage
+					};
+				}
+				return null;
+			}
+
+			const youtubeProfile = await scrapStore.getProfileInfoFromVideo(initData.videoId);
+			if (!youtubeProfile) return null;
+			let profileImageLocal: string | null = null;
+			if (youtubeProfile.profileImage) {
+				try {
+					const { fileName } = await downloadImageUrl(youtubeProfile.profileImage);
+					profileImageLocal = fileName;
+				} catch (e) {
+					console.warn('Failed to download YouTube profile image', e);
+				}
+			}
+			scrapStore.currentYoutubeProfile = {
+				...youtubeProfile,
+				profileImage: profileImageLocal ?? ''
+			};
+			return {
+				id: youtubeProfile.id,
+				profilePath: youtubeProfile.profilePath,
+				profileImage: youtubeProfile.profileImage,
+				profileImageLocal,
+				profileUrl: buildYouTubeProfileUrl(youtubeProfile.profilePath || youtubeProfile.id)
+			};
+		}
 	};
 
 	const thumbnailTask: Task = {
@@ -92,7 +171,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		}
 	};
 
-	return [initTask, thumbnailTask, timedCaptionsTask, contentTask];
+	return [initTask, profileTask, thumbnailTask, timedCaptionsTask, contentTask];
 }
 
 export async function youTubeRunner(
@@ -101,18 +180,41 @@ export async function youTubeRunner(
 ): Promise<Task[]> {
 	const cleanUrl = url;
 	const initialTasks = buildYouTubeInitialTasks(cleanUrl);
-	const profileId = viewState.domainUrl ?? '';
+	const domainUrl = viewState.domainUrl ?? '';
 
-	return runTemplateWorkflow(cleanUrl, profileId, initialTasks, {
+	scrapStore.currentYoutubeProfile = null;
+
+	return runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
+			const profileData = runResult.tasks.find((t) => t.id === 'profile')?.data as
+				| {
+						id: string;
+						profilePath: string;
+						profileImage: string;
+						profileImageLocal: string | null;
+						profileUrl: string;
+				  }
+				| undefined;
+
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks),
+				saveArticle(cleanUrl, runResult.tasks, profileData ? { profile: profileData.id } : undefined),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
+
+			if (profileData?.id) {
+				saveOperations.push(
+					saveProfile(
+						profileData.id,
+						profileData.profileImageLocal ?? profileData.profileImage,
+						profileData.profileUrl,
+						'youtube.com'
+					)
+				);
+			}
 
 			await Promise.all(saveOperations);
 

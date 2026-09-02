@@ -50,5 +50,31 @@ export function normalizeYouTubeUrl(url: string): string {
 		return url;
 	}
 }
-// ...existing code...
-// Additional functions or exports
+/**
+ * Builds a canonical YouTube profile/channel URL from a handle, path, or full URL.
+ * YoutubeVideoInfo.profile is now a handle like `@syntaxfm` (from `https://www.youtube.com/@syntaxfm`),
+ * but the scraper API (`/api/scrape`) expects a full URL. This helper bridges the two
+ * and remains backwards-compatible with cached full URLs.
+ */
+export function buildYouTubeProfileUrl(handleOrUrl: string): string {
+	const v = handleOrUrl.trim();
+	if (!v) throw new Error('buildYouTubeProfileUrl: empty handleOrUrl');
+	if (v.startsWith('http://') || v.startsWith('https://')) return v;
+	// Already a path-like identifier (handle or channel prefix)
+	if (
+		v.startsWith('@') ||
+		v.startsWith('channel/') ||
+		v.startsWith('c/') ||
+		v.startsWith('user/')
+	) {
+		return `https://www.youtube.com/${v}`;
+	}
+	// Bare handle without @ (legacy)
+	return `https://www.youtube.com/@${v.replace(/^@/, '')}`;
+}
+
+export function normalizeYouTubeHandle(handle: string): string {
+	const v = handle.trim();
+	if (!v) return v;
+	return v.startsWith('@') ? v : `@${v.replace(/^@/, '')}`;
+}
