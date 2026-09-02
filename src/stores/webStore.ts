@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
 import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
-import type { RecursiveChunk } from '@/runners/shared/taskFactories';
+import type { RecursiveChunk } from '@/runners/shared/recursiveTask';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
@@ -48,11 +48,33 @@ export interface ArticleProfile {
 	id: string;
 	name: string;
 	count?: number;
+	domainId?: string | null;
 	profilePicture?: string | null;
 	profilePictureSrc?: string | null;
 	url?: string | null;
 	mostRecentCreatedAt?: number | null;
 	articles?: ArticleWithTasks[];
+}
+
+export interface WebStoreDomainRecord {
+	id: string;
+	name: string;
+	count: number;
+	profilePicture: string | null;
+	url: string | null;
+	mostRecentCreatedAt: number | null;
+	articles?: WebStoreArticleRecord[] | null;
+}
+
+export interface WebStoreProfileRecord {
+	id: string;
+	name: string;
+	domainId: string;
+	count: number;
+	profilePicture: string | null;
+	url: string | null;
+	mostRecentCreatedAt: number | null;
+	articles?: WebStoreArticleRecord[] | null;
 }
 
 type SearchRowKind = 'content_chunk' | 'keyword_bundle';
@@ -67,6 +89,7 @@ export type WebStoreArticleRecord = {
 	directory: string | null;
 	mediaDirectory: string | null;
 	profile: string | null;
+	domain: string | null;
 	mainColor: string | null;
 	primaryColor: string | null;
 	updatedAt: number;
@@ -521,6 +544,36 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 	}
 }
 
+export function isDomainId(id: string): boolean {
+	return !id.includes('@') && /^[\w-]+(\.[\w-]+)+$/.test(id);
+}
+
+function domainRecordToArticleProfile(record: WebStoreDomainRecord): ArticleProfile {
+	return {
+		id: record.id,
+		name: record.name,
+		count: record.count,
+		domainId: record.id,
+		profilePicture: record.profilePicture,
+		url: record.url,
+		mostRecentCreatedAt: record.mostRecentCreatedAt,
+		articles: record.articles ?? undefined
+	};
+}
+
+function profileRecordToArticleProfile(record: WebStoreProfileRecord): ArticleProfile {
+	return {
+		id: record.id,
+		name: record.name,
+		count: record.count,
+		domainId: record.domainId,
+		profilePicture: record.profilePicture,
+		url: record.url,
+		mostRecentCreatedAt: record.mostRecentCreatedAt,
+		articles: record.articles ?? undefined
+	};
+}
+
 export async function getProfiles(options?: {
 	categoryIds?: string[];
 	createdAtFrom?: number;
@@ -529,38 +582,56 @@ export async function getProfiles(options?: {
 	offset?: number;
 	limit?: number;
 }): Promise<ArticleProfile[]> {
-	type ProfileWithRawArticles = ArticleProfile & { articles?: WebStoreArticleRecord[] };
+	type RawProfileCard = WebStoreDomainRecord | WebStoreProfileRecord;
+	type ResolvedProfileCard = RawProfileCard & { profilePictureSrc?: string | null };
 	try {
-		const result = await invoke<ProfileWithRawArticles[]>('list_web_store_profiles', {
-			categoryIds: options?.categoryIds ?? null,
-			createdAtFrom: options?.createdAtFrom ?? null,
-			includeArticles: options?.includeArticles ?? null,
-			articleCount: options?.articleCount ?? null,
-			offset: options?.offset ?? null,
-			limit: options?.limit ?? null
+		const [domains, profiles] = await Promise.all([
+			invoke<WebStoreDomainRecord[]>('list_web_store_domains', {
+				categoryIds: options?.categoryIds ?? null,
+				createdAtFrom: options?.createdAtFrom ?? null,
+				includeArticles: options?.includeArticles ?? null,
+				articleCount: options?.articleCount ?? null,
+				offset: options?.offset ?? null,
+				limit: options?.limit ?? null
+			}),
+			invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
+				domainId: null,
+				includeArticles: options?.includeArticles ?? null,
+				articleCount: options?.articleCount ?? null,
+				offset: options?.offset ?? null,
+				limit: options?.limit ?? null
+			})
+		]);
+
+		const resolvedCards = await resolveProfilePictureBatch<RawProfileCard>([
+			...domains,
+			...profiles
+		]);
+
+		const cardToArticleProfile = (card: ResolvedProfileCard): ArticleProfile => ({
+			...('domainId' in card
+				? profileRecordToArticleProfile(card)
+				: domainRecordToArticleProfile(card)),
+			profilePictureSrc: card.profilePictureSrc ?? null
 		});
 
-		const resolvedProfiles = await resolveProfilePictureBatch(result);
-
 		if (!options?.includeArticles) {
-			return resolvedProfiles;
+			return resolvedCards.map(cardToArticleProfile);
 		}
 
 		const tasksByUrl = await getTasksByUrlMap();
 		const profilesWithArticles: ArticleProfile[] = [];
-		for (const profile of resolvedProfiles) {
+		for (const card of resolvedCards) {
 			let articles: ArticleWithTasks[] | undefined;
-			if (profile.articles) {
+			if (card.articles) {
 				const mappedArticles = await Promise.all(
-					profile.articles.map((row) =>
-						mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null)
-					)
+					card.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
 				);
 				articles = await resolveArticleProfilePictureBatch(
 					await resolveArticleThumbnailBatch(mappedArticles)
 				);
 			}
-			profilesWithArticles.push({ ...profile, articles });
+			profilesWithArticles.push({ ...cardToArticleProfile(card), articles });
 		}
 
 		return profilesWithArticles;
@@ -572,15 +643,21 @@ export async function getProfiles(options?: {
 
 export async function getProfile(profileId: string): Promise<ArticleProfile | null> {
 	try {
-		const result = await invoke<ArticleProfile | null>('get_web_store_profile', {
+		const domain = await invoke<WebStoreDomainRecord | null>('get_web_store_domain', {
+			domainId: profileId
+		});
+		if (domain) {
+			return resolveProfilePictureField(domainRecordToArticleProfile(domain));
+		}
+
+		const profile = await invoke<WebStoreProfileRecord | null>('get_web_store_profile', {
 			profileId
 		});
-
-		if (!result) {
+		if (!profile) {
 			return null;
 		}
 
-		return resolveProfilePictureField(result);
+		return resolveProfilePictureField(profileRecordToArticleProfile(profile));
 	} catch (error) {
 		console.error('Error querying profile', error);
 		return null;
@@ -756,15 +833,15 @@ export async function markArticleAsViewed(url: string): Promise<boolean> {
 export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
 	try {
 		const [profile, articles] = await Promise.all([
-			invoke<WebStoreArticleRecord | null>('get_web_store_profile', { profileId }),
+			getProfile(profileId),
 			invoke<WebStoreArticleRecord[]>('list_web_store_articles', {
 				fields: ['thumbnail', 'url', 'profile']
 			})
 		]);
 
-		const result = await invoke<WebStoreProfileDeletion>('delete_web_store_profile', {
-			profileId
-		});
+		const result = isDomainId(profileId)
+			? await invoke<WebStoreProfileDeletion>('delete_web_store_domain', { domainId: profileId })
+			: await invoke<WebStoreProfileDeletion>('delete_web_store_profile', { profileId });
 
 		if (result.success) {
 			const profileArticles = articles.filter((article) => article.profile === profileId);
@@ -781,22 +858,48 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 	}
 }
 
-export async function saveProfile(
-	profileId: string,
+export async function saveDomain(
+	domainId: string,
 	profilePicture: string | null,
 	url: string | null = null
 ): Promise<unknown> {
 	try {
-		const res = await invoke('upsert_web_store_profile', {
+		const normalizedId = domainId.toLowerCase().replace(/\s+/g, '-');
+		return await invoke('upsert_web_store_domain', {
 			input: {
-				id: profileId.toLowerCase().replace(/\s+/g, '-'),
-				name: profileId.toLowerCase().replace(/\s+/g, '-'),
+				id: normalizedId,
+				name: normalizedId,
 				profilePicture,
 				url
 			}
 		});
+	} catch (error) {
+		console.error('Error saving domain:', error);
+	}
+}
 
-		return res;
+export async function saveProfile(
+	profileId: string,
+	profilePicture: string | null,
+	url: string | null = null,
+	domainId: string | null = null
+): Promise<unknown> {
+	try {
+		const normalizedId = profileId.toLowerCase().replace(/\s+/g, '-');
+
+		if (isDomainId(normalizedId)) {
+			return await saveDomain(normalizedId, profilePicture, url);
+		}
+
+		return await invoke('upsert_web_store_profile', {
+			input: {
+				id: normalizedId,
+				name: normalizedId,
+				domainId: (domainId ?? 'youtube.com').toLowerCase().replace(/\s+/g, '-'),
+				profilePicture,
+				url
+			}
+		});
 	} catch (error) {
 		console.error('Error saving profile:', error);
 	}

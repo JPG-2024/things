@@ -1,23 +1,30 @@
 import type { TemplateTaskDef } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
 import {
-	buildRecursiveTask,
 	buildTask,
 	createCategoryTask,
 	createExtractionTask,
 	createIaTask
 } from '@/runners/shared/taskFactories';
-import type { RecursiveContentTaskOptions } from '@/runners/shared/taskFactories';
+import { buildRecursiveTask } from '@/runners/shared/recursiveTask';
+import type { RecursiveTaskOptions } from '@/runners/shared/recursiveTask';
+
+function normalizeGridSpan(value: unknown): 1 | 2 | undefined {
+	if (value === 2) return 2;
+	if (value === 1) return 1;
+	if (value === 3) return 2;
+	return undefined;
+}
 
 export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	if (def.type === 'script' && (def.scriptFactory === 'recursive' || def.subtype === 'recursive')) {
 		const task = buildRecursiveTask(def.id, {
-			...(def.scriptConfig as RecursiveContentTaskOptions),
+			...(def.scriptConfig as RecursiveTaskOptions),
 			name: def.name,
 			dependencies: def.dependencies,
 			component: def.component,
 			componentProps: def.componentProps,
-			gridSpan: def.gridSpan,
+			gridSpan: normalizeGridSpan(def.gridSpan),
 			renderOrder: def.renderOrder,
 			persist: def.persist,
 			embeddings: def.embeddings,
@@ -50,13 +57,13 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 		completionOptions: def.completionOptions,
 		persist: def.persist,
 		enableTTS: def.enableTTS,
-		gridSpan: def.gridSpan,
+		gridSpan: normalizeGridSpan(def.gridSpan),
 		componentProps: def.componentProps,
 		embeddings: def.embeddings
 	};
 
 	if (def.subtype === 'category' && def.extractorConfig) {
-		const task = buildTask(buildCategoryTaskDef(def, options), def.id);
+		const task = buildTask(def.id, buildCategoryTaskDef(def));
 		task.visible = def.visible ?? true;
 		return task;
 	}
@@ -64,12 +71,12 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 	const taskDef = def.extractorConfig
 		? createExtractionTask({ ...options, extractor: def.extractorConfig })
 		: createIaTask(options);
-	const task = buildTask(taskDef, def.id);
+	const task = buildTask(def.id, taskDef);
 	task.visible = def.visible ?? true;
 	return task;
 }
 
-function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unknown>) {
+function buildCategoryTaskDef(def: TemplateTaskDef) {
 	return createCategoryTask({
 		categoryNames: def.categoryNames,
 		maxItems: def.extractorConfig!.count,
@@ -79,7 +86,7 @@ function buildCategoryTaskDef(def: TemplateTaskDef, options: Record<string, unkn
 		renderOrder: def.renderOrder,
 		persist: def.persist,
 		enableTTS: def.enableTTS,
-		gridSpan: def.gridSpan,
+		gridSpan: normalizeGridSpan(def.gridSpan),
 		componentProps: def.componentProps,
 		embeddings: def.embeddings
 	});

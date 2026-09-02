@@ -28,7 +28,23 @@ export type WorkflowRunStatus = 'idle' | 'pending' | 'running' | 'done' | 'faile
 export type TaskMapBase = Record<string, unknown>;
 export type TaskComponentProps = Record<string, unknown>;
 
+export interface ExtractorConfig {
+	count: number;
+	description: string;
+}
+
 export type TaskGlobalState<TMap extends TaskMapBase> = Partial<TMap>;
+
+export type TaskDefCtx<TContext = unknown> = {
+	context: TContext;
+	state: Readonly<Record<string, unknown>>;
+};
+
+export type Resolvable<T, TContext = unknown> = T | ((ctx: TaskDefCtx<TContext>) => T);
+
+export type CompletionOptionsValue = Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & {
+	model: string;
+};
 
 export interface TaskStateUpdate {
 	data?: unknown;
@@ -82,7 +98,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	enableTTS?: boolean;
 	component?: string;
 	componentProps?: TaskComponentProps;
-	gridSpan?: 1 | 2 | 3;
+	gridSpan?: 1 | 2;
 	renderOrder?: number;
 	persist?: boolean;
 	visible?: boolean;
@@ -107,15 +123,8 @@ export interface ScriptTask<
 	baseUrl?: never;
 }
 
-type ResolvableString =
-	| string
-	| ((ctx: { context: unknown; state: Readonly<Record<string, unknown>> }) => string);
-type ResolvableCompletionOptions =
-	| (Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string })
-	| ((ctx: {
-			context: unknown;
-			state: Readonly<Record<string, unknown>>;
-	  }) => Omit<LlamaChatCompletionsRequest, 'messages' | 'model'> & { model: string });
+type ResolvableString = Resolvable<string>;
+type ResolvableCompletionOptions = Resolvable<CompletionOptionsValue>;
 
 export interface IaTask<
 	TMap extends TaskMapBase = TaskMapBase,
@@ -127,7 +136,7 @@ export interface IaTask<
 	userMessage: ResolvableString;
 	completionOptions: ResolvableCompletionOptions;
 	baseUrl?: string;
-	extractorConfig?: { count: number; description: string };
+	extractorConfig?: ExtractorConfig;
 	categoryNames?: string[];
 	directResult?(runtime: TaskRuntime<TMap, TId>): TParsed | Promise<TParsed> | null;
 	run?(runtime: TaskRuntime<TMap, TId>): Promise<string> | string;

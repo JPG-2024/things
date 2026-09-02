@@ -1,5 +1,5 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import type { Task } from '@/types/taskRunner.types';
@@ -9,12 +9,7 @@ import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import { extractCategoryFromTasks, generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
 
-export interface YouTubeRunnerOptions {
-	profileId?: string;
-}
-
 export interface YouTubeRunnerCallConfig {
-	options?: YouTubeRunnerOptions;
 	cachedTasks?: PersistedTaskState[] | null;
 	Rebuild?: boolean;
 	makeActive?: boolean;
@@ -46,7 +41,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		dependencies: ['init-youtube'],
 		type: 'script',
 		component: 'player',
-		gridSpan: 3,
+		gridSpan: 1,
 		renderOrder: 1,
 		persist: true,
 		run: async (runtime) => {
@@ -105,10 +100,8 @@ export async function youTubeRunner(
 	config?: YouTubeRunnerCallConfig
 ): Promise<Task[]> {
 	const cleanUrl = url;
-	const { options } = config ?? {};
-
-	const profileId = options?.profileId ?? viewState.domainUrl ?? '';
 	const initialTasks = buildYouTubeInitialTasks(cleanUrl);
+	const profileId = viewState.domainUrl ?? '';
 
 	return runTemplateWorkflow(cleanUrl, profileId, initialTasks, {
 		makeActive: config?.makeActive ?? true,
@@ -117,21 +110,15 @@ export async function youTubeRunner(
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),
+				saveArticle(cleanUrl, runResult.tasks),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
-
-			if (profileId) {
-				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${profileId}`;
-				saveOperations.push(saveProfile(profileId, profilePicture, null));
-			}
 
 			await Promise.all(saveOperations);
 
 			if (viewState.embeddingsEnabled) {
 				await generateEmbeddingsFromTasks(runResult.tasks, cleanUrl, {
 					model: EMBEDDING_MODEL,
-					profileId,
 					category: extractCategoryFromTasks(runResult.tasks)
 				});
 			}

@@ -33,7 +33,8 @@
 		clearCanvas,
 		type WaveformDrawConfig
 	} from '@/lib/canvasWaveform';
-	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 
 	const config = getCurrentStyle();
 
@@ -70,16 +71,16 @@
 		pauseSettings: { ...ttsState.pauseSettings }
 	});
 
-	const amplitudeScale = $derived(mode === 'mini' ? 1.5 : 0.2);
+	const amplitudeScale = $derived(mode === 'mini' ? 1.7 : 0.5);
 	const wavelengthScale = 300;
 
 	const waveDrawConfig: WaveformDrawConfig = $derived({
-		splineSampleStep: 0.1,
+		splineSampleStep: 0.4,
 		amplitudeScale,
-		maxWaveAmplitudePx: 80,
+		maxWaveAmplitudePx: 120,
 		wavelengthScale,
 		sineFillAlpha: 0.24,
-		strokeWidth: 4
+		strokeWidth: 8
 	});
 
 	function waveColor(): string {
@@ -794,7 +795,7 @@
 					<button
 						type="button"
 						class="tts-player__btn tts-player__btn--settings"
-						onclick={() => drawersState.toggle('tts-settings')}
+						onclick={() => void mainVoiceState.toggle()}
 						aria-label="TTS Settings"
 					>
 						<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
@@ -820,21 +821,6 @@
 			{/if}
 		{:else}
 			<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="tts-player-mini__voice"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => e.stopPropagation()}
-				>
-					<VoiceSelector
-						{profiles}
-						{chunks}
-						selection={wheelInitial}
-						onChange={handleLiveVoiceChange}
-						isActive={ttsState.isPlaying}
-						activeColor={viewState.primaryColor}
-					/>
-				</div>
 				<div class="tts-player-mini__canvas-clip">
 					<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
 				</div>
@@ -1014,17 +1000,18 @@
 		bottom: 1.5rem;
 		left: 50%;
 		transform: translateX(-50%);
-		background: transparent;
-		/* background: color-mix(in srgb, var(--bg-color) 10%, transparent); */
-		padding: 5px;
-		border-radius: var(--radius-md);
-		width: 260px;
+		background: transparent !important;
+		border: none;
+		box-shadow: none;
+		padding: 0;
+		border-radius: 0;
+		width: 60%;
 		height: 70px;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
-		padding-left: 8px;
-		gap: 4px;
+		gap: 0;
+		pointer-events: auto;
 	}
 
 	.tts-player--mini:focus-visible {
@@ -1037,43 +1024,17 @@
 		align-items: center;
 		width: 100%;
 		height: 100%;
-		gap: 4px;
-	}
-
-	.tts-player-mini__voice {
-		flex-shrink: 0;
-		pointer-events: auto;
-	}
-
-	.tts-player-mini__voice :global(.voice-selector) {
 		gap: 0;
-	}
-
-	.tts-player-mini__voice :global(.current-profile-card) {
-		padding: 0.4rem;
-		gap: 0;
-	}
-
-	.tts-player-mini__voice :global(.avatar-wrap) {
-		display: none;
-	}
-
-	.tts-player-mini__voice :global(.avatar) {
-		width: 36px;
-		height: 36px;
-	}
-
-	.tts-player-mini__voice :global(.current-profile-meta),
-	.tts-player-mini__voice :global(.current-profile-action) {
-		display: none;
+		background: transparent;
 	}
 
 	.tts-player-mini__canvas-clip {
 		flex: 1;
 		height: 100%;
 		position: relative;
-		border-radius: var(--radius-sm);
-		overflow: hidden;
+		border-radius: 0;
+		overflow: visible;
+		background: transparent;
 	}
 
 	.tts-player-mini__canvas {
@@ -1082,6 +1043,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		background: transparent;
 	}
 
 	.tts-player-mini__error {

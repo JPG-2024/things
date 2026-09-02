@@ -244,6 +244,7 @@
 
 	.grid-3 .article-title {
 		padding: 0.6rem 0;
+		font-size: 0.8rem;
 	}
 
 	.article-card.row {

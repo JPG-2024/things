@@ -46,7 +46,7 @@
 		);
 		background-size: 200% 200%;
 		backdrop-filter: blur(20px);
-		padding: 18px;
+		padding: 5px;
 		overflow: hidden;
 	}
 

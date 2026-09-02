@@ -1,14 +1,19 @@
 import type { z } from 'zod';
 import type {
+	ExtractorConfig,
 	IaTask,
 	IaTaskSubtype,
+	Resolvable,
 	ScriptTask,
 	Task,
+	TaskDefCtx,
 	TaskGlobalState,
 	TaskMapBase,
 	TaskRuntime,
 	TaskStatusUpdater
 } from '@/types/taskRunner.types';
+
+export type { Resolvable, TaskDefCtx } from '@/types/taskRunner.types';
 
 type AnyZodOutput = z.core.$ZodType;
 
@@ -17,13 +22,8 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	subtype?: IaTaskSubtype;
 	dependencies?: string[];
 	component?: string;
-	componentProps?:
-		| Record<string, unknown>
-		| ((ctx: {
-				context: TContext;
-				state: Readonly<Record<string, unknown>>;
-		  }) => Record<string, unknown>);
-	gridSpan?: 1 | 2 | 3;
+	componentProps?: Resolvable<Record<string, unknown>, TContext>;
+	gridSpan?: 1 | 2;
 	renderOrder?: number;
 	persist?: boolean;
 	enableTTS?: boolean;
@@ -40,40 +40,30 @@ type ScriptTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
 	run: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => unknown | Promise<unknown>;
 };
 
+export type TaskDefCompleteParams<TContext = unknown> = {
+	result: unknown;
+	runResult: string;
+	context: TContext;
+	state: Readonly<Record<string, unknown>>;
+};
+
 type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOutput>> = Omit<
 	TaskDefBase<TOutput, TContext>,
 	'output'
 > & {
 	output: TOutput;
-	systemMessage:
-		| string
-		| ((ctx: { context: TContext; state: Readonly<Record<string, unknown>> }) => string);
-	userMessage:
-		| string
-		| ((ctx: { context: TContext; state: Readonly<Record<string, unknown>> }) => string);
-	completionOptions:
-		| Record<string, unknown>
-		| ((ctx: {
-				context: TContext;
-				state: Readonly<Record<string, unknown>>;
-		  }) => Record<string, unknown>);
+	systemMessage: Resolvable<string, TContext>;
+	userMessage: Resolvable<string, TContext>;
+	completionOptions: Resolvable<Record<string, unknown>, TContext>;
 	baseUrl?: string;
-	extractorConfig?: { count: number; description: string };
+	extractorConfig?: ExtractorConfig;
 	categoryNames?: string[];
 	directResult?: (
 		ctx: TaskRunContext<TContext, Record<string, unknown>>
 	) => TParsed | Promise<TParsed> | null;
 	run?: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => string | Promise<string>;
-	resultParser?: (
-		text: string,
-		ctx: { context: TContext; state: Readonly<Record<string, unknown>> }
-	) => TParsed | Promise<TParsed>;
-	onComplete?: (params: {
-		result: unknown;
-		runResult: string;
-		context: TContext;
-		state: Readonly<Record<string, unknown>>;
-	}) => void | Promise<void>;
+	resultParser?: (text: string, ctx: TaskDefCtx<TContext>) => TParsed | Promise<TParsed>;
+	onComplete?: (params: TaskDefCompleteParams<TContext>) => void | Promise<void>;
 };
 
 export type ScriptTaskDef<
@@ -265,6 +255,17 @@ export function getRequiredTaskState<
 		throw new Error(errorMessage);
 	}
 	return value as TState[TId];
+}
+
+export function requireStringState(
+	state: Readonly<Record<string, unknown>>,
+	taskId: string
+): string {
+	const value = state[taskId];
+	if (typeof value !== 'string') {
+		throw new Error(`Missing content from dependency "${taskId}"`);
+	}
+	return value;
 }
 
 export function createContentGetter<TContentKey extends string>(contentTaskName: TContentKey) {

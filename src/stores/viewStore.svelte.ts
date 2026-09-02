@@ -10,6 +10,12 @@ type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 export const DEFAULT_PRIMARY_COLOR = 'rgb(170, 255, 187)';
 export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
 
+export const PROFILE_ARTICLE_TABS = [
+	{ id: 'articles', label: 'Articles', icon: 'FileText' },
+	{ id: 'categories', label: 'Categories', icon: 'Tags' },
+	{ id: 'profiles', label: 'Profiles', icon: 'Users' }
+];
+
 export function rgbToHue(rgb: string): number {
 	const match = rgb.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
 	if (!match) return 0;
@@ -104,6 +110,7 @@ class ViewState {
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
+	unifiedFilter = $state('');
 
 	isYouTube = $derived(
 		this.url && /^https?:\/\//.test(this.url)
@@ -116,7 +123,7 @@ class ViewState {
 	ytThumbnailUrl = $derived(this.ytVideoId ? getYouTubeThumbnailUrl(this.ytVideoId, 'high') : '');
 
 	primaryColorAlpha(alpha: number): string {
-		const match = this.primaryColor.match(/\d+/g);
+		const match = this.backgroundColor.match(/\d+/g);
 		if (!match || match.length < 3) return `rgba(255, 255, 255, ${alpha})`;
 		return `rgba(${match[0]}, ${match[1]}, ${match[2]}, ${alpha})`;
 	}
@@ -164,6 +171,7 @@ const DEFAULT_SELECTION: WheelSelection = {
 
 class VoiceWheelState {
 	open = $state(false);
+	mode = $state<'main' | 'select'>('select');
 	profiles = $state<VoiceProfile[]>([]);
 	chunks = $state<Voice[]>([]);
 	selection = $state<WheelSelection>({ ...DEFAULT_SELECTION });
@@ -175,13 +183,15 @@ class VoiceWheelState {
 		chunks: Voice[],
 		selection: WheelSelection,
 		onCommit: (sel: WheelSelection) => void,
-		onChunksChanged?: () => void
+		onChunksChanged?: () => void,
+		mode: 'main' | 'select' = 'select'
 	) {
 		this.profiles = profiles;
 		this.chunks = chunks;
 		this.selection = selection;
 		this._onCommit = onCommit;
 		this._onChunksChanged = onChunksChanged;
+		this.mode = mode;
 		this.open = true;
 	}
 

@@ -16,6 +16,11 @@
 	let profiles = $state<ArticleProfile[]>([]);
 	let isLoading = $state(false);
 
+	const filterTerm = $derived(viewState.unifiedFilter.trim().toLowerCase());
+	let filteredProfiles = $derived(
+		filterTerm ? profiles.filter((p) => p.name.toLowerCase().includes(filterTerm)) : profiles
+	);
+
 	let showAddModal = $state(false);
 	let profileNameInput = $state('');
 	let isSubmitting = $state(false);
@@ -79,7 +84,8 @@
 			await saveProfile(
 				remoteProfile.id,
 				remoteProfile.profileImage,
-				`${SCRAPY_BASE_URL}/api/profile/${name}`
+				`${SCRAPY_BASE_URL}/api/profile/${name}`,
+				'youtube.com'
 			);
 			showAddModal = false;
 			await loadProfiles();
@@ -103,7 +109,7 @@
 				<span class="add-profile-icon">+</span>
 			</Tooltip>
 		</button>
-		{#each profiles as profile (profile.id)}
+		{#each filteredProfiles as profile (profile.id)}
 			{#if profile.profilePictureSrc}
 				<button
 					type="button"
@@ -156,8 +162,9 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: center;
-		gap: 1rem;
-		width: 100%;
+		gap: 1.1rem;
+		width: fit-content;
+		padding: 0 1rem;
 	}
 
 	.profile-btn {
@@ -168,10 +175,11 @@
 		border-radius: 50%;
 		cursor: pointer;
 		transition: transform 0.15s;
+		opacity: 0.8;
 	}
 
 	.profile-btn:hover {
-		transform: scale(1.1);
+		opacity: 1;
 	}
 
 	.profile-avatar {
@@ -180,8 +188,8 @@
 		height: 1.5rem;
 		border-radius: 50%;
 		object-fit: cover;
-		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
-		box-shadow: 0 0 6px color-mix(in srgb, var(--primary-color) 25%, transparent);
+		/* 		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--primary-color) 25%, transparent); */
 	}
 
 	.add-profile-icon {

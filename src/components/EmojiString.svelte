@@ -39,12 +39,12 @@
 	.emoji-string__emoji {
 		font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 		line-height: 1;
-		font-size: 0.8rem;
+		font-size: 0.8em;
 		filter: grayscale(1) sepia(1) hue-rotate(calc(var(--emoji-tint, 0deg) - 36deg)) saturate(3);
 	}
 
 	.emoji-string__text {
-		font-size: 1rem;
+		font-size: 1em;
 		line-height: 1.2;
 		font-family: Noto Sans;
 		color: white;
@@ -58,6 +58,5 @@
 	}
 
 	.active .emoji-string__emoji {
-		font-size: 1.1rem;
 	}
 </style>

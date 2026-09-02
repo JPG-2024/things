@@ -92,6 +92,17 @@ export function topicConclusionBlock(): string {
 }
 
 /**
+ * Returns a rewrite directive block used when regenerating an exchange.
+ *
+ * @param previousText - The line that was just produced and must be replaced.
+ * @returns Formatted block string, or empty if previousText is falsy.
+ */
+export function regenerationBlock(previousText: string | undefined): string {
+	if (!previousText) return '';
+	return `\n\nYou are re-recording your previous line because the host was not satisfied with it. Produce a clearly different rewrite that keeps the same conversational intent but does NOT reuse its wording or sentence structure. Your rejected previous line was: "${previousText}"`;
+}
+
+/**
  * Returns a hook summary block for grounding introductions.
  *
  * @param summary - The hook summary text.

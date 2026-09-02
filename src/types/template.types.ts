@@ -13,7 +13,7 @@ export type TemplateTaskDef = {
 	completionOptions?: Record<string, unknown>;
 	component?: string;
 	componentProps?: Record<string, unknown>;
-	gridSpan?: 1 | 2 | 3;
+	gridSpan?: 1 | 2;
 	renderOrder?: number;
 	persist?: boolean;
 	visible?: boolean;

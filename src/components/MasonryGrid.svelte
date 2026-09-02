@@ -20,12 +20,14 @@
 		items: T[];
 		keyOf?: (item: T) => string;
 		children: Snippet<[T, number, number, LayoutKey]>;
+		headerLeft?: Snippet<[]>;
 	}
 
 	let {
 		items,
 		keyOf = (item: T) => (item as { url?: string | null }).url ?? '',
-		children
+		children,
+		headerLeft
 	}: Props = $props();
 
 	let gridEl: HTMLDivElement;
@@ -255,6 +257,9 @@
 
 <div class="masonry-container">
 	<div class="layout-header">
+		{#if headerLeft}
+			{@render headerLeft()}
+		{/if}
 		<Icon name="Minus" size={20} onClick={decreaseLayout} />
 		<Icon name="Plus" size={20} onClick={increaseLayout} />
 	</div>

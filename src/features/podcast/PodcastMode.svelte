@@ -130,6 +130,14 @@
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
 	);
 
+	createHotkey(
+		'H',
+		() => {
+			handleRandomizeHosts();
+		},
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+	);
+
 	function hashHue(input: string): number {
 		let hash = 5381;
 		for (let i = 0; i < input.length; i++) {
@@ -201,6 +209,15 @@
 		onExit();
 	}
 
+	function handleRandomizeHosts() {
+		const wasActive = podcastState.status !== 'idle';
+		podcastState.stop();
+		podcastState.randomizeHosts();
+		if (wasActive) {
+			void podcastState.start();
+		}
+	}
+
 	function handleHostAChange(sel: WheelSelection) {
 		if (sel.profileId !== podcastState.config.hostAProfileId) {
 			podcastState.config.hostAProfileId = sel.profileId;
@@ -244,7 +261,7 @@
 			{#if podcastState.activeSpeaker}
 				{@const speaker = podcastState.activeSpeaker}
 				{@const profile = speaker === 'A' ? podcastState.hostAProfile : podcastState.hostBProfile}
-				<div
+				<!-- 				<div
 					class="active-speaker-badge"
 					class:speaker-a={speaker === 'A'}
 					class:speaker-b={speaker === 'B'}
@@ -257,7 +274,7 @@
 						</div>
 					{/if}
 					<span class="badge-name">{podcastState.getProfileName(speaker)}</span>
-				</div>
+				</div> -->
 			{:else}
 				<span class="status-label">{statusLabel}</span>
 			{/if}
@@ -279,6 +296,15 @@
 			<button
 				type="button"
 				class="header-btn"
+				onclick={handleRandomizeHosts}
+				aria-label="Randomize hosts"
+				title="Randomize hosts (H)"
+			>
+				<Icon name="Shuffle" size={20} color={viewState.primaryColor} />
+			</button>
+			<button
+				type="button"
+				class="header-btn"
 				onclick={() => drawersState.toggle('podcast-settings')}
 				aria-label="Podcast settings"
 			>
@@ -290,18 +316,17 @@
 		</div>
 	</div>
 
-	{#if hasContent && podcastState.currentTopic}
-		<div class="current-topic-bar">
-			<span class="topic-index"
-				>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'}
-				{podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
-			>
-			<span class="topic-text">{podcastState.currentTopic}</span>
-		</div>
-	{/if}
-
 	<div class="podcast-body" class:flex-1={!showTranscript}>
 		<div class="podcast-stage">
+			{#if hasContent && podcastState.currentTopic}
+				<div class="current-topic-bar">
+					<span class="topic-index"
+						>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'}
+						{podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
+					>
+					<span class="topic-text">{podcastState.currentTopic}</span>
+				</div>
+			{/if}
 			<div class="podcast-speakers">
 				<VoiceSelector
 					profiles={podcastState.profiles}
@@ -452,7 +477,7 @@
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
-		background: rgba(14, 14, 14, 0.97);
+		background: rgba(14, 14, 14, 0.99);
 		z-index: 1100;
 		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	}
@@ -504,39 +529,6 @@
 	.status-label {
 		color: rgba(255, 255, 255, 0.5);
 		font-size: 0.8rem;
-	}
-
-	.active-speaker-badge {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.active-speaker-badge.speaker-a {
-		border-color: hsl(220, 70%, 60%);
-		background: hsla(220, 70%, 60%, 0.1);
-	}
-
-	.active-speaker-badge.speaker-b {
-		border-color: hsl(160, 70%, 50%);
-		background: hsla(160, 70%, 50%, 0.1);
-	}
-
-	.badge-avatar {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		object-fit: cover;
-	}
-
-	.badge-name {
-		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.8);
-		font-weight: 500;
 	}
 
 	.header-btn {

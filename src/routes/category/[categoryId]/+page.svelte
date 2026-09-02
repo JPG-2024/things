@@ -60,14 +60,19 @@
 	<div class="articles-container">
 		{#if articleCacheStore.categoryArticles.length > 0}
 			<MasonryGrid items={articleCacheStore.categoryArticles}>
-				{#snippet children(article: ArticleWithTasks, _i: number, _layoutIndex: number, layoutKey: LayoutKey)}
-				<ArticleItem
-					{article}
-					{layoutKey}
-					onClick={handleArticleClick}
-					onHoverEnter={handleArticleHoverEnter}
-					onHoverLeave={handleArticleHoverLeave}
-				/>
+				{#snippet children(
+					article: ArticleWithTasks,
+					_i: number,
+					_layoutIndex: number,
+					layoutKey: LayoutKey
+				)}
+					<ArticleItem
+						{article}
+						{layoutKey}
+						onClick={handleArticleClick}
+						onHoverEnter={handleArticleHoverEnter}
+						onHoverLeave={handleArticleHoverLeave}
+					/>
 				{/snippet}
 			</MasonryGrid>
 		{:else if !articleCacheStore.loadingCategoryArticles}

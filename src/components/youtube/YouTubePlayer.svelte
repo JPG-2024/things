@@ -40,7 +40,7 @@
 			<img src={playerData.thumbnailImageSrc} alt="YouTube thumbnail" class="yt-thumbnail" />
 		</button>
 
-		<!-- 		<button
+		<button
 			class="yt-play"
 			onclick={() => {
 				showIframe = true;
@@ -49,7 +49,7 @@
 			title="Play video"
 		>
 			▶
-		</button> -->
+		</button>
 	{/if}
 </div>
 
@@ -98,7 +98,6 @@
 		position: absolute;
 		justify-content: center;
 		align-items: center;
-		transform: translateY(-8%);
 		transition:
 			background 0.12s ease,
 			transform 0.12s;
@@ -108,9 +107,12 @@
 		border: none;
 		border-radius: 50%;
 		background: rgba(0, 0, 0, 0.4);
-		width: 64px;
-		height: 64px;
+		width: 80px;
+		height: 80px;
 		color: white;
-		font-size: 28px;
+		font-size: 60px;
+		padding-bottom: 9px;
+		padding-left: 5px;
+		opacity: 0.9;
 	}
 </style>

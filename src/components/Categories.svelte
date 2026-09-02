@@ -5,12 +5,10 @@
 	import { generateCategoryDescription, generateEmojiForText } from '@/runners/shared/sharedTasks';
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
-	import Input from './inputs/Input.component.svelte';
 	import Button from './inputs/Button.component.svelte';
 	import EmojiString from './EmojiString.svelte';
 
 	let isEditing = $state(false);
-	let categoryFilter = $state('');
 
 	async function loadCategories() {
 		viewState.categories = await getCategories();
@@ -65,9 +63,9 @@
 	let filteredCategories = $derived(
 		isEditing
 			? viewState.categories.filter((c) => viewState.selectedCategories.includes(c.id))
-			: categoryFilter
+			: viewState.unifiedFilter.trim()
 				? viewState.categories.filter((c) => {
-						const term = categoryFilter.trim().toLowerCase();
+						const term = viewState.unifiedFilter.trim().toLowerCase();
 						return (
 							c.name.toLowerCase().includes(term) || c.description?.toLowerCase().includes(term)
 						);
@@ -86,33 +84,18 @@
 	});
 
 	async function handleCreateFromFilter() {
-		const trimmed = categoryFilter.trim();
+		const trimmed = viewState.unifiedFilter.trim();
 		if (!trimmed) return;
 		const emoji = await generateEmojiForText(trimmed);
 		const name = emoji ? `${emoji} ${trimmed}` : trimmed;
 		const description = await generateCategoryDescription(trimmed);
 		await addCategory(name, description);
-		categoryFilter = '';
+		viewState.unifiedFilter = '';
 	}
 </script>
 
 <div class="categories">
 	<div class="category-list">
-		<span class="category-pill filter-pill">
-			<Input type="text" bind:value={categoryFilter} placeholder="Filter" search />
-		</span>
-
-		<span class="category-pill icon-pill">
-			{#if viewState.selectedCategories.length > 0}
-				<Icon
-					name="Edit"
-					size={16}
-					onClick={() => (isEditing = !isEditing)}
-					style="opacity: {isEditing ? 1 : 0.5}"
-				/>
-			{/if}
-		</span>
-
 		{#each filteredCategories as category (category.id)}
 			<span class="category-pill">
 				<Tooltip content={category.description ?? ''}>
@@ -139,14 +122,25 @@
 
 		{#if viewState.selectedCategories.length > 0}
 			<span class="category-pill icon-pill">
+				<Icon
+					name="Edit"
+					size={16}
+					onClick={() => (isEditing = !isEditing)}
+					style="opacity: {isEditing ? 1 : 0.5}"
+				/>
+			</span>
+		{/if}
+
+		{#if viewState.selectedCategories.length > 0}
+			<span class="category-pill icon-pill">
 				<Icon name="X" size={16} onClick={clearSelectedCategories} style="opacity: 0.5" />
 			</span>
 		{/if}
 
 		{#if filteredCategories.length === 0}
-			{#if !isEditing && categoryFilter.trim()}
+			{#if !isEditing && viewState.unifiedFilter.trim()}
 				<Button onClick={handleCreateFromFilter} icon="Plus">
-					Create "{categoryFilter.trim()}"
+					Create "{viewState.unifiedFilter.trim()}"
 				</Button>
 			{:else}
 				<button type="button" class="pill add-categories-pill" onclick={() => (isEditing = true)}>
@@ -183,15 +177,8 @@
 		position: relative;
 		flex-direction: column;
 		gap: 0.75rem;
-		width: 100%;
-		padding-top: 3rem;
-	}
-
-	.filter-pill {
-		display: flex;
-		align-items: center;
-		min-width: 80px;
-		padding: 0 1rem;
+		width: max-content;
+		font-size: 0.8rem;
 	}
 
 	.icon-pill {
@@ -204,7 +191,7 @@
 		width: 100%;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.8rem;
+		/* gap: 0.8rem; */
 		justify-items: flex-start;
 	}
 
@@ -213,6 +200,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		text-transform: capitalize;
+		min-height: 30px;
 	}
 
 	.pill {
@@ -222,7 +210,7 @@
 		border-radius: var(--radius-lg);
 		background-size: 200% 200%;
 		background-color: transparent;
-		padding: 7px 20px;
+		padding: 2px 20px;
 		width: max-content;
 	}
 
@@ -267,7 +255,6 @@
 	.category-edit {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
 	}
 
 	.category-edit-name {

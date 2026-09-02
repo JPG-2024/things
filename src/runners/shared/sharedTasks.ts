@@ -103,9 +103,9 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 	});
 
 	return [
-		buildTask(summaryDef, 'summary'),
-		buildTask(keywordsDef, 'keywords'),
-		buildTask(categoryDef, 'category'),
-		buildTask(titleDef, 'title')
+		buildTask('summary', summaryDef),
+		buildTask('keywords', keywordsDef),
+		buildTask('category', categoryDef),
+		buildTask('title', titleDef)
 	];
 }

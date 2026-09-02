@@ -59,7 +59,7 @@
 			renderOrder: (task.renderOrder ?? 0) + 0.01,
 			persist: true
 		});
-		const newTask = buildTask(def, `${task.id} > ${Date.now()}`);
+		const newTask = buildTask(`${task.id} > ${Date.now()}`, def);
 		newTask.status = 'editing';
 		draftTask = newTask;
 		createMode = true;

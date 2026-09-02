@@ -1,3 +1,5 @@
+export const DEFAULT_DYNAMIC_MODEL = 'llama-server';
+
 export const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
 	temperature: 0.1,
 	top_p: 0.9,
@@ -6,7 +8,7 @@ export const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
 	presence_penalty: 0,
 	stop: ['\n'],
 	seed: 42
-} as const;
+} satisfies Record<string, unknown>;
 
 export const DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS = {
 	temperature: 0.2,

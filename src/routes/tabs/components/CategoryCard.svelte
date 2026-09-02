@@ -50,7 +50,7 @@
 		width: 100%;
 		box-sizing: border-box;
 		padding: 6px 10px;
-		padding-bottom: 25px;
+		padding-bottom: 10px;
 	}
 
 	.category-thumbnails {

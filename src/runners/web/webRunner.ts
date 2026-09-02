@@ -1,5 +1,5 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import { saveArticle, saveDomain, saveTasks, type PersistedTaskState } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
@@ -58,7 +58,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 			const initData = runtime.getTaskData('init-web') as { domainUrl: string; url: string };
 			const domainUrl = new URL(initData.domainUrl).hostname;
 			const favicon = await downloadFavicon(domainUrl);
-			await saveProfile(domainUrl, favicon?.src ?? null, initData.url);
+			await saveDomain(domainUrl, favicon?.src ?? null, initData.url);
 			return {
 				profileId: domainUrl,
 				profilePicture: favicon?.fileName ?? null
@@ -152,30 +152,16 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		cachedTasks: options.cachedTasks,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
-			const profileTask = runResult.tasks.find((task) => task.id === 'extract-web-profile');
-			const profileTaskData = profileTask?.data as { profileId?: string } | undefined;
-			const extractedProfileId =
-				typeof profileTaskData?.profileId === 'string' && profileTaskData.profileId.length > 0
-					? profileTaskData.profileId
-					: null;
-			const effectiveProfile = extractedProfileId ?? viewState.domainUrl;
-
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(url, runResult.tasks, { profile: effectiveProfile ?? '' }),
+				saveArticle(url, runResult.tasks),
 				saveTasks(url, runResult.tasks)
 			];
-
-			if (effectiveProfile) {
-				const profilePicture = `https://www.google.com/s2/favicons?sz=64&domain=${effectiveProfile}`;
-				saveOperations.push(saveProfile(effectiveProfile, profilePicture, null));
-			}
 
 			await Promise.all(saveOperations);
 
 			if (viewState.embeddingsEnabled) {
 				await generateEmbeddingsFromTasks(runResult.tasks, url, {
 					model: EMBEDDING_MODEL,
-					profileId: effectiveProfile ?? undefined,
 					category: extractCategoryFromTasks(runResult.tasks)
 				});
 			}

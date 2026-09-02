@@ -11,12 +11,11 @@
 	import { updateTaskDataById } from '@/stores/webStore';
 	import {
 		buildTask,
-		buildRecursiveTask,
 		createCategoryTask,
 		createExtractionTask,
 		createIaTask
 	} from '@/runners/shared/taskFactories';
-	import type { RecursiveConfig } from '@/runners/shared/taskFactories';
+	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
 	import { getProcessorTypes } from '@/runners/shared/processors';
 	import type { ProcessorType, CombineMode } from '@/runners/shared/processors';
 	import { stringArrayGbnf, arrayToGbnf } from '@/lib/utils/gbnf';
@@ -54,6 +53,12 @@
 
 	const slugifyId = (name: string): string => name.trim().toLowerCase().replace(/\s+/g, '-');
 
+	const parseGridSpan = (value: string): 1 | 2 | undefined => {
+		if (value.trim() === '') return undefined;
+		const n = Number(value);
+		return n === 2 ? 2 : n === 1 ? 1 : undefined;
+	};
+
 	const tabs = [
 		{ id: 'custom', label: 'Custom', icon: 'TextAlignStart' },
 		{ id: 'extraction', label: 'Extraction', icon: 'GripVertical' },
@@ -78,6 +83,7 @@
 	let commonSystemMessage = $state('');
 	let commonUserMessage = $state('');
 	let commonRenderOrder = $state('');
+	let commonGridSpan = $state('');
 	let commonDependencies = $state('');
 	let commonStreamEnabled = $state(false);
 	let commonEnableTTS = $state(false);
@@ -90,6 +96,7 @@
 	let originalSystemMessage = $state('');
 	let originalUserMessage = $state('');
 	let originalRenderOrder = $state<number | undefined>(undefined);
+	let originalGridSpan = $state<number | undefined>(undefined);
 	let originalDependencies = $state('');
 	let originalEnableTTS = $state(false);
 	let originalVisible = $state(true);
@@ -105,6 +112,8 @@
 	let catOriginalCategories = $state('');
 	let catOriginalMaxItems = $state('');
 
+	let recOverrideWindows = $state(false);
+	let recOriginalOverrideWindows = $state(false);
 	let recWindowSize = $state('2000');
 	let recOverlap = $state('200');
 	let recSplitByString = $state('');
@@ -135,6 +144,7 @@
 
 		commonName = _task.name ?? '';
 		commonRenderOrder = _task.renderOrder != null ? String(_task.renderOrder) : '';
+		commonGridSpan = _task.gridSpan != null ? String(_task.gridSpan) : '';
 		commonDependencies = (_task.dependencies ?? []).join(', ');
 		commonEnableTTS = _task.enableTTS ?? false;
 		commonVisible = _task.visible ?? true;
@@ -144,6 +154,7 @@
 
 		originalName = _task.name ?? '';
 		originalRenderOrder = _task.renderOrder;
+		originalGridSpan = _task.gridSpan;
 		originalDependencies = (_task.dependencies ?? []).join(', ');
 		originalEnableTTS = _task.enableTTS ?? false;
 		originalVisible = _task.visible ?? true;
@@ -198,9 +209,7 @@
 		}
 
 		if (isEditingRecursive) {
-			const cfg = (_task.componentProps as Record<string, unknown>)?.recursiveConfig as
-				| RecursiveConfig
-				| undefined;
+			const cfg = recursiveConfigFromTask(_task);
 			recWindowSize = cfg ? String(cfg.windowSize) : '1000';
 			recOverlap = cfg ? String(cfg.overlap) : '100';
 			recSplitByString = cfg?.splitByString ?? '';
@@ -226,7 +235,12 @@
 			recOriginalExtDescription = recExtDescription;
 			recOriginalTargetLang = recTargetLang;
 			recOriginalCustomSystemMsg = recCustomSystemMsg;
+
+			recOverrideWindows = !cfg?.windowDivisor && !cfg?.splitByString;
+			recOriginalOverrideWindows = recOverrideWindows;
 		} else {
+			recOverrideWindows = false;
+			recOriginalOverrideWindows = false;
 			recWindowSize = '1000';
 			recOverlap = '100';
 			recSplitByString = '';
@@ -276,11 +290,12 @@
 				completionOptions: commonCompletionOptions,
 				model: viewState.aiModel,
 				renderOrder: commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined,
+				gridSpan: parseGridSpan(commonGridSpan),
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
 			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
-			const newTask = buildTask(def, taskId);
+			const newTask = buildTask(taskId, def);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
@@ -306,6 +321,8 @@
 
 		const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 		if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
+		const editedGridSpan = parseGridSpan(commonGridSpan);
+		if (editedGridSpan !== originalGridSpan) patch.gridSpan = editedGridSpan;
 		if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 		if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
@@ -375,6 +392,8 @@
 
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
+			const editedGridSpan = parseGridSpan(commonGridSpan);
+			if (editedGridSpan !== originalGridSpan) patch.gridSpan = editedGridSpan;
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
@@ -404,12 +423,13 @@
 				dependencies: deps.length > 0 ? deps : undefined,
 				model: viewState.aiModel,
 				renderOrder,
+				gridSpan: parseGridSpan(commonGridSpan),
 				persist: true,
 				extractor: { count, description: extDescription },
 				enableTTS: commonEnableTTS || undefined
 			});
 			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
-			const newTask = buildTask(def, taskId);
+			const newTask = buildTask(taskId, def);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
@@ -482,6 +502,8 @@
 
 			const editedRenderOrder = commonRenderOrder !== '' ? Number(commonRenderOrder) : undefined;
 			if (editedRenderOrder !== originalRenderOrder) patch.renderOrder = editedRenderOrder;
+			const editedGridSpan = parseGridSpan(commonGridSpan);
+			if (editedGridSpan !== originalGridSpan) patch.gridSpan = editedGridSpan;
 			if (commonEnableTTS !== originalEnableTTS) patch.enableTTS = commonEnableTTS;
 			if (commonVisible !== originalVisible) patch.visible = commonVisible;
 
@@ -515,13 +537,14 @@
 				dependencies: deps.length > 0 ? deps : undefined,
 				model: viewState.aiModel,
 				renderOrder,
+				gridSpan: parseGridSpan(commonGridSpan),
 				persist: true,
 				categoryNames: categoryNames.length > 0 ? categoryNames : undefined,
 				maxItems,
 				enableTTS: commonEnableTTS || undefined
 			});
 			const taskId = slugifyId(commonName) || `${_task.id} > ${Date.now()}`;
-			const newTask = buildTask(def, taskId);
+			const newTask = buildTask(taskId, def);
 			newTask.embeddings = commonEmbeddings;
 			newTask.visible = commonVisible;
 			workflowManager.addTask(targetRunId, newTask);
@@ -555,16 +578,14 @@
 				workflowManager.renameTaskId(targetRunId, _task.id, effectiveId);
 			}
 
-			const existingCfg = (_task.componentProps as Record<string, unknown>)?.recursiveConfig as
-				| RecursiveConfig
-				| undefined;
+			const existingCfg = recursiveConfigFromTask(_task);
 
 			const newTask = buildRecursiveTask(effectiveId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				windowSize: Number(recWindowSize) || 1000,
-				windowDivisor: existingCfg?.windowDivisor,
-				overlap: Number(recOverlap) || 100,
+				windowSize: recOverrideWindows ? Number(recWindowSize) || 1000 : undefined,
+				windowDivisor: recOverrideWindows ? undefined : existingCfg?.windowDivisor,
+				overlap: recOverrideWindows ? Number(recOverlap) || 100 : undefined,
 				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,
 				combineMode: recCombineMode,
@@ -576,6 +597,7 @@
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
+				gridSpan: parseGridSpan(commonGridSpan),
 				embeddings: commonEmbeddings,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
@@ -592,8 +614,8 @@
 			const newTask = buildRecursiveTask(taskId, {
 				name: commonName || undefined,
 				dependencies: deps.length > 0 ? deps : undefined,
-				windowSize: Number(recWindowSize) || 1000,
-				overlap: Number(recOverlap) || 100,
+				windowSize: recOverrideWindows ? Number(recWindowSize) || 1000 : undefined,
+				overlap: recOverrideWindows ? Number(recOverlap) || 100 : undefined,
 				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,
 				combineMode: recCombineMode,
@@ -604,6 +626,7 @@
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
+				gridSpan: parseGridSpan(commonGridSpan),
 				embeddings: commonEmbeddings,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
@@ -694,6 +717,9 @@
 	<div class="row">
 		<Input bind:value={commonName} label="Task name" />
 		<Input bind:value={commonRenderOrder} label="Render order" />
+		<div class="grid-span-field">
+			<Input bind:value={commonGridSpan} label="Span" type="number" min="1" placeholder="1-2" />
+		</div>
 		<Input bind:value={commonDependencies} label="Dependencies (comma-separated)" />
 	</div>
 
@@ -705,25 +731,25 @@
 				<ToggleIcon
 					name="Eye"
 					bind:checked={commonVisible}
-					size={20}
+					size={15}
 					tooltipProps={{ content: 'Visible' }}
 				/>
 				<ToggleIcon
 					name="TextCursor"
 					bind:checked={commonStreamEnabled}
-					size={20}
+					size={15}
 					tooltipProps={{ content: 'Stream' }}
 				/>
 				<ToggleIcon
 					name="Speech"
 					bind:checked={commonEnableTTS}
-					size={20}
+					size={15}
 					tooltipProps={{ content: 'Auto speech' }}
 				/>
 				<ToggleIcon
 					name="FileDigit"
 					bind:checked={commonEmbeddings}
-					size={20}
+					size={15}
 					tooltipProps={{ content: 'Auto generate embeddings' }}
 				/>
 			</div>
@@ -768,28 +794,41 @@
 					label="Split by string (leave empty for window-based)"
 				/>
 				{#if !recSplitByString}
-					<Input bind:value={recWindowSize} label="Window size (chars)" />
-					<Input bind:value={recOverlap} label="Overlap (chars)" />
+					<div class="override-row">
+						<ToggleIcon
+							name="Settings"
+							bind:checked={recOverrideWindows}
+							size={20}
+							tooltipProps={{ content: 'Override window size manually' }}
+						/>
+						<span class="override-label">Override windows</span>
+					</div>
+					{#if recOverrideWindows}
+						<Input bind:value={recWindowSize} label="Window size (chars)" />
+						<Input bind:value={recOverlap} label="Overlap (chars)" />
+					{/if}
 				{/if}
-				<Dropdown
-					label="Combine mode"
-					bind:value={recCombineMode}
-					options={[
-						{ label: 'Default (LLM)', value: 'llm' },
-						{ label: 'Join', value: 'join' },
-						{ label: 'Dedupe', value: 'dedupe' }
-					]}
-				/>
-				<Dropdown
-					label="Processor type"
-					bind:value={recProcessorType}
-					options={[
-						{ label: 'Summarize', value: 'summarize' },
-						{ label: 'Extraction', value: 'extraction' },
-						{ label: 'Translate', value: 'translate' },
-						{ label: 'Custom', value: 'custom' }
-					]}
-				/>
+				<div class="row">
+					<Dropdown
+						label="Combine mode"
+						bind:value={recCombineMode}
+						options={[
+							{ label: 'Default (LLM)', value: 'llm' },
+							{ label: 'Join', value: 'join' },
+							{ label: 'Dedupe', value: 'dedupe' }
+						]}
+					/>
+					<Dropdown
+						label="Processor type"
+						bind:value={recProcessorType}
+						options={[
+							{ label: 'Summarize', value: 'summarize' },
+							{ label: 'Extraction', value: 'extraction' },
+							{ label: 'Translate', value: 'translate' },
+							{ label: 'Custom', value: 'custom' }
+						]}
+					/>
+				</div>
 				{#if recProcessorType === 'extraction'}
 					<Input bind:value={recExtCount} label="Extract count" />
 					<Input bind:value={recExtDescription} label="Extract description" />
@@ -924,6 +963,22 @@
 		display: flex;
 		align-items: center;
 		gap: 1.5rem;
+	}
+
+	.grid-span-field {
+		flex: 0 0 84px;
+		max-width: 84px;
+	}
+
+	.override-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.override-label {
+		font-size: 0.82rem;
+		opacity: 0.7;
 	}
 
 	.completion-options-container {

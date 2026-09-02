@@ -127,6 +127,10 @@
 		font-size: 1rem;
 	}
 
+	.text-input::placeholder {
+		color: #595959;
+	}
+
 	.text-input:focus {
 		/* box-shadow: inset 0 -1px 2px 0px var(--primary-color); */
 		transition: all 0.3s ease;
@@ -148,11 +152,11 @@
 
 	.search-wrapper :global(svg) {
 		position: absolute;
-		left: 0.5rem;
+		left: 0.8rem;
 		pointer-events: none;
 	}
 
 	.search-input {
-		padding-left: 1.75rem;
+		padding-left: 2rem;
 	}
 </style>

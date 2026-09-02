@@ -1,11 +1,7 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type {
-		RecursiveChunk,
-		RecursiveConfig,
-		RecursiveContentResult
-	} from '@/runners/shared/taskFactories';
-	import { buildRecursiveTask } from '@/runners/shared/taskFactories';
+	import type { RecursiveChunk, RecursiveContentResult } from '@/runners/shared/recursiveTask';
+	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import ChunkList, { type ChunkEntry } from '@/components/ChunkList.svelte';
@@ -95,11 +91,7 @@
 	const LEVELS = ['1', '2', '4', '8'];
 	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
 
-	const recursiveConfig = $derived(
-		(task.componentProps as Record<string, unknown> | undefined)?.recursiveConfig as
-			| RecursiveConfig
-			| undefined
-	);
+	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 
 	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
 	const activeLevel = $derived(
@@ -118,21 +110,10 @@
 		if (recursiveConfig.windowDivisor === level) return;
 		try {
 			const newTask = buildRecursiveTask(task.id, {
+				...recursiveConfig,
 				name: task.name,
 				dependencies: task.dependencies,
-				windowSize: recursiveConfig.windowSize,
-				overlap: recursiveConfig.overlap,
 				windowDivisor: level,
-				splitByString: recursiveConfig.splitByString,
-				processorType: recursiveConfig.processorType ?? 'summarize',
-				combineMode: recursiveConfig.combineMode,
-				userMessage: recursiveConfig.userMessage ?? 'Summarize this section concisely.',
-				finalUserMessage:
-					recursiveConfig.finalUserMessage ??
-					'Combine these section summaries into one coherent summary.',
-				extractorConfig: recursiveConfig.extractorConfig,
-				targetLang: recursiveConfig.targetLang,
-				customSystemMsg: recursiveConfig.customSystemMsg,
 				renderOrder: task.renderOrder,
 				embeddings: task.embeddings,
 				persist: true,
@@ -201,7 +182,7 @@
 
 	.final-response {
 		padding-top: 0.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
+		/* border-top: 1px solid rgba(255, 255, 255, 0.08); */
 	}
 
 	.level-row {

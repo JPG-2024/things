@@ -6,6 +6,7 @@ import {
 	newChunkAnnouncementBlock,
 	guidedForcedQuestionBlock,
 	topicConclusionBlock,
+	regenerationBlock,
 	singularRules,
 	hookSystemPrompt,
 	interviewModeSystemPrompt,
@@ -38,6 +39,7 @@ export interface GenerateExchangeParams {
 	question?: string;
 	hookKind?: 'initial' | 'final';
 	customSystemPrompt?: string;
+	regeneration?: { previousText: string };
 }
 
 /**
@@ -62,7 +64,8 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 		isNewChunkAfterFirst,
 		question,
 		hookKind,
-		customSystemPrompt
+		customSystemPrompt,
+		regeneration
 	} = params;
 	const currentName = speaker === 'A' ? hostAName : hostBName;
 	const otherName = speaker === 'A' ? hostBName : hostAName;
@@ -88,23 +91,29 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 
 	const sRules = singularRules(otherName);
 
+	const regenBlock = regeneration ? regenerationBlock(regeneration.previousText) : '';
+
 	if (mode === 'interview' || mode === 'guided') {
-		return interviewModeSystemPrompt(topic, currentName, speaker, otherName, {
+		return (
+			interviewModeSystemPrompt(topic, currentName, speaker, otherName, {
+				singularRules: sRules,
+				contextBlock,
+				introBlock,
+				newChunkBlock,
+				forcedQuestionBlock,
+				conclusionBlock
+			}) + regenBlock
+		);
+	}
+
+	return (
+		smalltalkModeSystemPrompt(topic, currentName, speaker, otherName, {
 			singularRules: sRules,
 			contextBlock,
 			introBlock,
-			newChunkBlock,
-			forcedQuestionBlock,
 			conclusionBlock
-		});
-	}
-
-	return smalltalkModeSystemPrompt(topic, currentName, speaker, otherName, {
-		singularRules: sRules,
-		contextBlock,
-		introBlock,
-		conclusionBlock
-	});
+		}) + regenBlock
+	);
 }
 
 /**
@@ -209,7 +218,7 @@ export async function generateExchange(params: GenerateExchangeParams): Promise<
 				{ role: 'user', content: buildUserMessage(params) }
 			],
 			stream: false,
-			temperature: 0.1
+			temperature: params.regeneration ? 0.9 : 0.1
 		},
 		{ signal }
 	);

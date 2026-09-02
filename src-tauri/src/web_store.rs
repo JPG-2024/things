@@ -26,6 +26,7 @@ pub struct WebStoreArticleRecord {
     pub media_directory: Option<String>,
     pub main_color: Option<String>,
     pub profile: Option<String>,
+    pub domain: Option<String>,
     pub primary_color: Option<String>,
     pub updated_at: i64,
     pub embedding_source_text: Option<String>,
@@ -36,9 +37,22 @@ pub struct WebStoreArticleRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WebStoreDomainRecord {
+    pub id: String,
+    pub name: String,
+    pub count: i64,
+    pub profile_picture: Option<String>,
+    pub url: Option<String>,
+    pub most_recent_created_at: Option<i64>,
+    pub articles: Option<Vec<WebStoreArticleRecord>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebStoreProfileRecord {
     pub id: String,
     pub name: String,
+    pub domain_id: String,
     pub count: i64,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
@@ -174,10 +188,34 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
 }
 
 fn init_schema(conn:&Connection) -> Result<(), String> {
+    migrate_rename_profiles_to_domains(conn)?;
+
     conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS web_articles (
+        "CREATE TABLE IF NOT EXISTS web_domains (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            profile_picture TEXT,
+            url TEXT,
+            updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS web_profiles (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            domain_id TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            profile_picture TEXT,
+            url TEXT,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY (domain_id) REFERENCES web_domains(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_web_profiles_domain_id ON web_profiles(domain_id);
+
+        CREATE TABLE IF NOT EXISTS web_articles (
             id TEXT PRIMARY KEY,
             url TEXT NOT NULL,
+            domain TEXT,
             created_at INTEGER NOT NULL DEFAULT 0,
             title TEXT,
             thumbnail TEXT,
@@ -188,19 +226,11 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             embedding_source_text TEXT,
             updated_at INTEGER NOT NULL,
             viewed INTEGER NOT NULL DEFAULT 0,
-            date TEXT
+            date TEXT,
+            FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
         CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
-
-        CREATE TABLE IF NOT EXISTS web_profiles (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            count INTEGER NOT NULL DEFAULT 0,
-            profile_picture TEXT,
-            url TEXT,
-            updated_at INTEGER NOT NULL
-        );
 
         CREATE TABLE IF NOT EXISTS web_tasks (
             url TEXT PRIMARY KEY,
@@ -239,17 +269,168 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             profile_id TEXT PRIMARY KEY,
             template_id TEXT NOT NULL,
             updated_at INTEGER NOT NULL,
-            FOREIGN KEY (profile_id) REFERENCES web_profiles(id),
+            FOREIGN KEY (profile_id) REFERENCES web_domains(id),
             FOREIGN KEY (template_id) REFERENCES web_templates(id)
         );"
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
-    migrate_profile_url_column(conn)?;
+    migrate_domain_url_column(conn)?;
     migrate_viewed_column(conn)?;
     migrate_date_column(conn)?;
     migrate_category_description_column(conn)?;
     migrate_drop_last_video_date_column(conn)?;
+    migrate_article_domain_column(conn)?;
+    migrate_article_ids_to_youtube_v(conn)?;
+    migrate_channels_to_web_profiles(conn)?;
+
+    Ok(())
+}
+
+fn migrate_rename_profiles_to_domains(conn:&Connection) -> Result<(), String> {
+    let has_old_profiles: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_profiles'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    let has_domains: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_domains'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if has_old_profiles && !has_domains {
+        conn.execute_batch("ALTER TABLE web_profiles RENAME TO web_domains")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_article_domain_column(conn:&Connection) -> Result<(), String> {
+    let has_domain_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='domain'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_domain_column {
+        conn.execute_batch(
+            "ALTER TABLE web_articles ADD COLUMN domain TEXT REFERENCES web_domains(id)",
+        )
+        .map_err(|error| error.to_string())?;
+    }
+
+    let urls: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT url FROM web_articles WHERE domain IS NULL")
+            .map_err(|error| error.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| error.to_string())?;
+        let mut out = Vec::new();
+        for result in rows {
+            out.push(result.map_err(|error| error.to_string())?);
+        }
+        out
+    };
+
+    for url in urls {
+        if let Some(domain) = domain_from_url(&url) {
+            ensure_web_domain(conn, &domain)?;
+            conn.execute(
+                "UPDATE web_articles SET domain = ?1 WHERE url = ?2 COLLATE NOCASE",
+                params![domain, url],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+    }
+
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_web_articles_domain ON web_articles(domain)")
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn migrate_article_ids_to_youtube_v(conn:&Connection) -> Result<(), String> {
+    let urls: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT url FROM web_articles WHERE id != url")
+            .map_err(|error| error.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| error.to_string())?;
+        let mut out = Vec::new();
+        for result in rows {
+            out.push(result.map_err(|error| error.to_string())?);
+        }
+        out
+    };
+
+    for url in urls {
+        let new_id = article_id_for_url(&url);
+        if new_id == url {
+            continue;
+        }
+
+        let id_taken: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM web_articles WHERE id = ?1 AND url != ?2 COLLATE NOCASE",
+            params![new_id, url],
+            |row| row.get(0),
+        ).unwrap_or(false);
+
+        if !id_taken {
+            conn.execute(
+                "UPDATE web_articles SET id = ?1 WHERE url = ?2 COLLATE NOCASE AND id = ?3",
+                params![new_id, url, url],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
+    let rows: Vec<(String, String, Option<String>)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name, url FROM web_domains
+                 WHERE id LIKE '@%' OR url LIKE '%/api/profile/youtube/%'",
+            )
+            .map_err(|error| error.to_string())?;
+        let row_iter = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?))
+            })
+            .map_err(|error| error.to_string())?;
+        let mut out = Vec::new();
+        for result in row_iter {
+            out.push(result.map_err(|error| error.to_string())?);
+        }
+        out
+    };
+
+    let domain_id = "youtube.com".to_string();
+    ensure_web_domain(conn, &domain_id)?;
+
+    for (id, _name, url) in rows {
+        let is_channel = id.trim_start().starts_with('@')
+            || url.as_deref().map_or(false, |u| u.contains("/api/profile/youtube/"));
+
+        if is_channel {
+            conn.execute(
+                "INSERT OR IGNORE INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at)
+                 SELECT id, name, ?1, count, profile_picture, url, updated_at FROM web_domains WHERE id = ?2",
+                params![domain_id, id],
+            )
+            .map_err(|error| error.to_string())?;
+
+            conn.execute("DELETE FROM web_domains WHERE id = ?1", params![id])
+                .map_err(|error| error.to_string())?;
+        }
+    }
 
     Ok(())
 }
@@ -279,7 +460,7 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
     ).map_err(|error| error.to_string())?;
 
     conn.execute_batch(
-        "INSERT OR IGNORE INTO web_profiles (id, name, count, profile_picture, updated_at)
+        "INSERT OR IGNORE INTO web_domains (id, name, count, profile_picture, updated_at)
          SELECT id, name, count, profile_picture, updated_at
          FROM old_profiles;"
     ).map_err(|error| error.to_string())?;
@@ -299,15 +480,15 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_profile_url_column(conn:&Connection) -> Result<(), String> {
+fn migrate_domain_url_column(conn:&Connection) -> Result<(), String> {
     let has_url_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_profiles') WHERE name='url'",
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_domains') WHERE name='url'",
         [],
         |row| row.get(0),
     ).unwrap_or(false);
 
     if !has_url_column {
-        conn.execute_batch("ALTER TABLE web_profiles ADD COLUMN url TEXT")
+        conn.execute_batch("ALTER TABLE web_domains ADD COLUMN url TEXT")
             .map_err(|error| error.to_string())?;
     }
 
@@ -361,13 +542,13 @@ fn migrate_category_description_column(conn:&Connection) -> Result<(), String> {
 
 fn migrate_drop_last_video_date_column(conn:&Connection) -> Result<(), String> {
     let has_last_video_date_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_profiles') WHERE name='last_video_date'",
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_domains') WHERE name='last_video_date'",
         [],
         |row| row.get(0),
     ).unwrap_or(false);
 
     if has_last_video_date_column {
-        conn.execute_batch("ALTER TABLE web_profiles DROP COLUMN last_video_date")
+        conn.execute_batch("ALTER TABLE web_domains DROP COLUMN last_video_date")
             .map_err(|error| error.to_string())?;
     }
 
@@ -379,6 +560,56 @@ fn chrono_like_now() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_millis() as i64)
         .unwrap_or_default()
+}
+
+fn domain_from_url(url: &str) -> Option<String> {
+    reqwest::Url::parse(url.trim())
+        .ok()?
+        .host_str()
+        .map(|host| host.to_lowercase())
+}
+
+fn article_id_for_url(url: &str) -> String {
+    let trimmed = url.trim();
+    if let Ok(parsed) = reqwest::Url::parse(trimmed) {
+        if let Some(host) = parsed.host_str() {
+            let host = host.to_lowercase();
+            let is_youtube = host.ends_with("youtube.com") || host.ends_with("youtu.be");
+            if is_youtube {
+                if let Some(v) = parsed
+                    .query_pairs()
+                    .find(|(key, _)| key == "v")
+                    .map(|(_, value)| value.into_owned())
+                {
+                    if !v.is_empty() {
+                        return v;
+                    }
+                }
+                if host.ends_with("youtu.be") {
+                    if let Some(segment) = parsed.path_segments().and_then(|mut s| s.next()) {
+                        if !segment.is_empty() && segment != "watch" {
+                            return segment.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    trimmed.to_string()
+}
+
+fn favicon_url_for_domain(domain: &str) -> String {
+    format!("https://www.google.com/s2/favicons?sz=64&domain={}", domain)
+}
+
+fn ensure_web_domain(conn: &Connection, domain: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR IGNORE INTO web_domains (id, name, count, profile_picture, url, updated_at)
+         VALUES (?1, ?1, 0, ?2, NULL, ?3)",
+        params![domain, favicon_url_for_domain(domain), chrono_like_now()],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
@@ -417,11 +648,11 @@ fn filter_record_to_json(record:&WebStoreArticleRecord, fields: &Option<Vec<Stri
     }
 }
 
-fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfileRecord> {
-    let mut aggregated = HashMap::<String, WebStoreProfileRecord>::new();
+fn aggregate_domains(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreDomainRecord> {
+    let mut aggregated = HashMap::<String, WebStoreDomainRecord>::new();
 
     for record in records {
-        let (raw_id, name) = normalize_profile_bucket(record.profile.as_deref());
+        let (raw_id, name) = normalize_profile_bucket(record.domain.as_deref());
         let id = raw_id.to_lowercase();
         let display_name = if id == WEB_STORE_UNKNOWN_PROFILE_ID {
             name
@@ -430,10 +661,10 @@ fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfil
         };
         aggregated
             .entry(id.clone())
-            .and_modify(|profile| {
-                profile.count += 1;
+            .and_modify(|domain| {
+                domain.count += 1;
             })
-            .or_insert(WebStoreProfileRecord {
+            .or_insert(WebStoreDomainRecord {
                 id,
                 name: display_name,
                 count: 1,
@@ -444,14 +675,14 @@ fn aggregate_profiles(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreProfil
             });
     }
 
-    let mut profiles = aggregated.into_values().collect::<Vec<_>>();
-    profiles.sort_by(|left, right| {
+    let mut domains = aggregated.into_values().collect::<Vec<_>>();
+    domains.sort_by(|left, right| {
         right
             .count
             .cmp(&left.count)
             .then_with(|| left.name.cmp(&right.name))
     });
-    profiles
+    domains
 }
 
 fn sort_articles_by_created_at_desc(records: &mut [WebStoreArticleRecord]) {
@@ -472,7 +703,8 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     let updated_at: i64 = row.get(10)?;
     let viewed_int: i64 = row.get(11)?;
     let date: Option<String> = row.get(12)?;
-    let profile_picture: Option<String> = row.get(13)?;
+    let domain: Option<String> = row.get(13)?;
+    let profile_picture: Option<String> = row.get(14)?;
 
     Ok(WebStoreArticleRecord {
         id,
@@ -485,6 +717,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
         directory: media_directory,
         main_color: main_color.clone(),
         profile,
+        domain,
         primary_color: main_color,
         updated_at,
         embedding_source_text,
@@ -503,8 +736,11 @@ fn query_articles(
     let mut sql = String::from(
         "SELECT id, url, created_at, title, thumbnail, content,
                 media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date,
-                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)) AS profile_picture
+                viewed, date, domain,
+                (SELECT COALESCE(
+                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
+                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
+                )) AS profile_picture
          FROM web_articles"
     );
     
@@ -535,18 +771,18 @@ fn query_articles(
     Ok(records)
 }
 
-fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
+fn query_domain_by_id(conn: &Connection, domain_id: &str) -> Result<Option<WebStoreDomainRecord>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, count, profile_picture, url,
-                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
-             FROM web_profiles WHERE id = ?1 COLLATE NOCASE",
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at
+             FROM web_domains WHERE id = ?1 COLLATE NOCASE",
         )
         .map_err(|error| error.to_string())?;
 
     let mut rows = stmt
-        .query_map([profile_id], |row| {
-            Ok(WebStoreProfileRecord {
+        .query_map([domain_id], |row| {
+            Ok(WebStoreDomainRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 count: row.get(2)?,
@@ -564,18 +800,18 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
     }
 }
 
-fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, String> {
+fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, count, profile_picture, url,
-                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
-             FROM web_profiles ORDER BY count DESC, name ASC",
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at
+             FROM web_domains ORDER BY count DESC, name ASC",
         )
         .map_err(|error| error.to_string())?;
 
-    let profile_iter = stmt
+    let domain_iter = stmt
         .query_map([], |row| {
-            Ok(WebStoreProfileRecord {
+            Ok(WebStoreDomainRecord {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 count: row.get(2)?,
@@ -587,21 +823,51 @@ fn query_profiles(conn: &Connection) -> Result<Vec<WebStoreProfileRecord>, Strin
         })
         .map_err(|error| error.to_string())?;
 
-    let mut profiles = Vec::new();
-    for profile_result in profile_iter {
-        profiles.push(profile_result.map_err(|error| error.to_string())?);
+    let mut domains = Vec::new();
+    for domain_result in domain_iter {
+        domains.push(domain_result.map_err(|error| error.to_string())?);
     }
 
-    Ok(profiles)
+    Ok(domains)
 }
 
-fn upsert_profile(
+fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, domain_id, count, profile_picture, url,
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
+             FROM web_profiles WHERE id = ?1 COLLATE NOCASE",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([profile_id], |row| {
+            Ok(WebStoreProfileRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                domain_id: row.get(2)?,
+                count: row.get(3)?,
+                profile_picture: row.get(4)?,
+                url: row.get(5)?,
+                most_recent_created_at: row.get(6)?,
+                articles: None,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
+fn upsert_domain(
     conn: &Connection,
-    profile: &WebStoreProfileRecord,
+    domain: &WebStoreDomainRecord,
 ) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
-        "INSERT INTO web_profiles (id, name, count, profile_picture, url, updated_at) 
+        "INSERT INTO web_domains (id, name, count, profile_picture, url, updated_at) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(id) DO UPDATE SET 
            name = excluded.name,
@@ -610,8 +876,39 @@ fn upsert_profile(
            url = excluded.url,
            updated_at = excluded.updated_at",
         params![
+            domain.id,
+            domain.name,
+            domain.count,
+            domain.profile_picture,
+            domain.url,
+            updated_at
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn upsert_profile(
+    conn: &Connection,
+    profile: &WebStoreProfileRecord,
+) -> Result<(), String> {
+    ensure_web_domain(conn, &profile.domain_id)?;
+
+    let updated_at = chrono_like_now();
+    conn.execute(
+        "INSERT INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         ON CONFLICT(id) DO UPDATE SET 
+           name = excluded.name,
+           domain_id = excluded.domain_id,
+           count = excluded.count,
+           profile_picture = excluded.profile_picture,
+           url = excluded.url,
+           updated_at = excluded.updated_at",
+        params![
             profile.id,
             profile.name,
+            profile.domain_id,
             profile.count,
             profile.profile_picture,
             profile.url,
@@ -622,44 +919,53 @@ fn upsert_profile(
     Ok(())
 }
 
-fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
+fn delete_domain(conn:&Connection, domain_id: &str) -> Result<(), String> {
     conn.execute(
         "DELETE FROM web_profile_templates WHERE profile_id = ?1",
-        params![profile_id]
+        params![domain_id]
     ).map_err(|error| error.to_string())?;
-    
+
+    conn.execute("DELETE FROM web_profiles WHERE domain_id = ?1", params![domain_id])
+        .map_err(|error| error.to_string())?;
+
+    conn.execute("DELETE FROM web_domains WHERE id = ?1", params![domain_id])
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM web_profiles WHERE id = ?1", params![profile_id])
         .map_err(|error| error.to_string())?;
     Ok(())
 }
 
-fn rebuild_profiles_from_articles(
+fn rebuild_domains_from_articles(
     conn: &Connection,
     profile_picture_input: Option<(String, String)>,
 ) -> Result<(), String> {
-    let existing_profiles = query_profiles(conn)?;
-    let existing_pictures: HashMap<String, Option<String>> = existing_profiles
+    let existing_domains = query_domains(conn)?;
+    let existing_pictures: HashMap<String, Option<String>> = existing_domains
         .into_iter()
-        .map(|p| (p.id, p.profile_picture))
+        .map(|d| (d.id, d.profile_picture))
         .collect();
 
     let all_articles = query_articles(conn, None, None, None)?;
-    let mut aggregated = aggregate_profiles(all_articles);
+    let mut aggregated = aggregate_domains(all_articles);
 
-    for profile in &mut aggregated {
-        if profile.profile_picture.is_none() {
-            if let Some(existing_picture) = existing_pictures.get(&profile.id) {
-                profile.profile_picture = existing_picture.clone();
+    for domain in &mut aggregated {
+        if domain.profile_picture.is_none() {
+            if let Some(existing_picture) = existing_pictures.get(&domain.id) {
+                domain.profile_picture = existing_picture.clone();
             }
         }
     }
 
-    if let Some((profile_id, picture)) = profile_picture_input {
-        if let Some(profile) = aggregated.iter_mut().find(|p| p.id == profile_id) {
-            profile.profile_picture = Some(picture);
+    if let Some((domain_id, picture)) = profile_picture_input {
+        if let Some(domain) = aggregated.iter_mut().find(|d| d.id == domain_id) {
+            domain.profile_picture = Some(picture);
         } else {
-            aggregated.push(WebStoreProfileRecord {
-                id: profile_id,
+            aggregated.push(WebStoreDomainRecord {
+                id: domain_id,
                 name: String::new(),
                 count: 0,
                 profile_picture: Some(picture),
@@ -670,8 +976,8 @@ fn rebuild_profiles_from_articles(
         }
     }
 
-    for profile in&aggregated {
-        upsert_profile(conn, profile)?;
+    for domain in &aggregated {
+        upsert_domain(conn, domain)?;
     }
 
     Ok(())
@@ -691,40 +997,33 @@ pub async fn list_web_store_articles(
         .collect())
 }
 
-fn query_profiles_filtered(
+fn query_domains_filtered(
     conn: &Connection,
     category_ids: Option<&[String]>,
     created_at_from: Option<i64>,
     include_articles: bool,
     offset: Option<usize>,
     limit: Option<usize>,
-) -> Result<Vec<WebStoreProfileRecord>, String> {
+) -> Result<Vec<WebStoreDomainRecord>, String> {
     let mut sql = String::from(
         "SELECT p.id, p.name, p.count, p.profile_picture, p.url,
-                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at
-         FROM web_profiles p",
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(p.id)) AS max_created_at
+         FROM web_domains p",
     );
 
     let mut where_clauses: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-
-    if include_articles {
-        where_clauses.push(
-            "EXISTS (SELECT 1 FROM web_articles a WHERE LOWER(a.profile) = LOWER(p.id) AND a.profile IS NOT NULL)"
-                .to_string(),
-        );
-    }
 
     if let Some(cats) = category_ids {
         if !cats.is_empty() {
             let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             where_clauses.push(format!(
                 "LOWER(p.id) IN (
-                    SELECT DISTINCT LOWER(a.profile)
+                    SELECT DISTINCT LOWER(a.domain)
                     FROM web_articles a
                     INNER JOIN article_category ac ON ac.article_url = a.url
                     INNER JOIN web_categories c ON ac.category_id = c.id
-                    WHERE ac.category_id IN ({}) AND c.deleted_at IS NULL AND a.profile IS NOT NULL
+                    WHERE ac.category_id IN ({}) AND c.deleted_at IS NULL AND a.domain IS NOT NULL
                 )",
                 placeholders
             ));
@@ -736,10 +1035,142 @@ fn query_profiles_filtered(
 
     if let Some(from) = created_at_from {
         where_clauses.push(
-            "(SELECT MAX(a3.created_at) FROM web_articles a3 WHERE LOWER(a3.profile) = LOWER(p.id)) >= ?"
+            "(SELECT MAX(a3.created_at) FROM web_articles a3 WHERE LOWER(a3.domain) = LOWER(p.id)) >= ?"
                 .to_string(),
         );
         params.push(Box::new(from));
+    }
+
+    if !where_clauses.is_empty() {
+        sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
+    }
+
+    sql.push_str(if include_articles {
+        " ORDER BY max_created_at DESC NULLS LAST"
+    } else {
+        " ORDER BY p.count DESC, p.name ASC"
+    });
+
+    if include_articles {
+        sql.push_str(&format!(
+            " LIMIT {} OFFSET {}",
+            limit.unwrap_or(50),
+            offset.unwrap_or(0)
+        ));
+    } else if limit.is_some() || offset.is_some() {
+        sql.push_str(&format!(
+            " LIMIT {} OFFSET {}",
+            limit.unwrap_or(usize::MAX),
+            offset.unwrap_or(0)
+        ));
+    }
+
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let domain_rows = stmt
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| {
+                Ok(WebStoreDomainRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    count: row.get(2)?,
+                    profile_picture: row.get(3)?,
+                    url: row.get(4)?,
+                    most_recent_created_at: row.get(5)?,
+                    articles: None,
+                })
+            },
+        )
+        .map_err(|error| error.to_string())?;
+
+    let mut domains = Vec::new();
+    for domain_result in domain_rows {
+        domains.push(domain_result.map_err(|error| error.to_string())?);
+    }
+
+    Ok(domains)
+}
+
+#[tauri::command]
+pub async fn list_web_store_domains(
+    app: AppHandle,
+    category_ids: Option<Vec<String>>,
+    created_at_from: Option<i64>,
+    include_articles: Option<bool>,
+    article_count: Option<usize>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<Vec<WebStoreDomainRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let include = include_articles.unwrap_or(false);
+    let mut domains = query_domains_filtered(
+        &conn,
+        category_ids.as_deref(),
+        created_at_from,
+        include,
+        offset,
+        limit,
+    )?;
+
+    if domains.is_empty() && !include {
+        let aggregated = aggregate_domains(query_articles(&conn, None, None, None)?);
+        for domain in &aggregated {
+            upsert_domain(&conn, domain)?;
+        }
+        domains = query_domains_filtered(
+            &conn,
+            category_ids.as_deref(),
+            created_at_from,
+            include,
+            offset,
+            limit,
+        )?;
+    }
+
+    if include {
+        let per_domain_count = article_count.unwrap_or(10);
+        for domain in &mut domains {
+            domain.articles = Some(query_articles_for_domain(&conn, &domain.id, per_domain_count)?);
+        }
+    }
+
+    Ok(domains)
+}
+
+#[tauri::command]
+pub async fn get_web_store_domain(
+    app: AppHandle,
+    domain_id: String,
+) -> Result<Option<WebStoreDomainRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    query_domain_by_id(&conn, &domain_id)
+}
+
+fn query_profiles_filtered(
+    conn: &Connection,
+    domain_id: Option<&str>,
+    include_articles: bool,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<Vec<WebStoreProfileRecord>, String> {
+    let mut sql = String::from(
+        "SELECT p.id, p.name, p.domain_id, p.count, p.profile_picture, p.url,
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at
+         FROM web_profiles p",
+    );
+
+    let mut where_clauses: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(d) = domain_id {
+        let normalized = d.trim().to_lowercase();
+        if !normalized.is_empty() {
+            where_clauses.push("LOWER(p.domain_id) = ?".to_string());
+            params.push(Box::new(normalized));
+        }
     }
 
     if !where_clauses.is_empty() {
@@ -774,10 +1205,11 @@ fn query_profiles_filtered(
                 Ok(WebStoreProfileRecord {
                     id: row.get(0)?,
                     name: row.get(1)?,
-                    count: row.get(2)?,
-                    profile_picture: row.get(3)?,
-                    url: row.get(4)?,
-                    most_recent_created_at: row.get(5)?,
+                    domain_id: row.get(2)?,
+                    count: row.get(3)?,
+                    profile_picture: row.get(4)?,
+                    url: row.get(5)?,
+                    most_recent_created_at: row.get(6)?,
                     articles: None,
                 })
             },
@@ -795,8 +1227,7 @@ fn query_profiles_filtered(
 #[tauri::command]
 pub async fn list_web_store_profiles(
     app: AppHandle,
-    category_ids: Option<Vec<String>>,
-    created_at_from: Option<i64>,
+    domain_id: Option<String>,
     include_articles: Option<bool>,
     article_count: Option<usize>,
     offset: Option<usize>,
@@ -808,27 +1239,11 @@ pub async fn list_web_store_profiles(
     let include = include_articles.unwrap_or(false);
     let mut profiles = query_profiles_filtered(
         &conn,
-        category_ids.as_deref(),
-        created_at_from,
+        domain_id.as_deref(),
         include,
         offset,
         limit,
     )?;
-
-    if profiles.is_empty() && !include {
-        let aggregated = aggregate_profiles(query_articles(&conn, None, None, None)?);
-        for profile in &aggregated {
-            upsert_profile(&conn, profile)?;
-        }
-        profiles = query_profiles_filtered(
-            &conn,
-            category_ids.as_deref(),
-            created_at_from,
-            include,
-            offset,
-            limit,
-        )?;
-    }
 
     if include {
         let per_profile_count = article_count.unwrap_or(10);
@@ -850,9 +1265,10 @@ pub async fn get_web_store_profile(
     query_profile_by_id(&conn, &profile_id)
 }
 
-async fn list_web_store_articles_by_profile(
+async fn list_web_store_articles_by_column(
     app: AppHandle,
-    profile_id: String,
+    column: &str,
+    bucket_id: String,
     date_from: Option<String>,
     limit: Option<usize>,
     fields: Option<Vec<String>>,
@@ -860,12 +1276,12 @@ async fn list_web_store_articles_by_profile(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let normalized_profile_id = profile_id.trim().to_lowercase();
+    let normalized_bucket_id = bucket_id.trim().to_lowercase();
 
-    let filter = if normalized_profile_id.is_empty() || normalized_profile_id == WEB_STORE_UNKNOWN_PROFILE_ID {
+    let filter = if normalized_bucket_id.is_empty() || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID {
         None
     } else {
-        Some(format!("LOWER(profile) = '{}'", normalized_profile_id.replace('\'', "''")))
+        Some(format!("LOWER({}) = '{}'", column, normalized_bucket_id.replace('\'', "''")))
     };
 
     let records = if let Some(ref from) = date_from {
@@ -879,11 +1295,16 @@ async fn list_web_store_articles_by_profile(
         query_articles(&conn, filter.as_deref(), limit, Some("date"))?
     };
 
-    let filtered_records = if normalized_profile_id.is_empty() || normalized_profile_id == WEB_STORE_UNKNOWN_PROFILE_ID {
+    let filtered_records = if normalized_bucket_id.is_empty() || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID {
         records
             .into_iter()
             .filter(|record| {
-                let (raw_id, _) = normalize_profile_bucket(record.profile.as_deref());
+                let bucket_value = if column == "domain" {
+                    record.domain.as_deref()
+                } else {
+                    record.profile.as_deref()
+                };
+                let (raw_id, _) = normalize_profile_bucket(bucket_value);
                 raw_id.to_lowercase() == WEB_STORE_UNKNOWN_PROFILE_ID
             })
             .collect()
@@ -895,6 +1316,26 @@ async fn list_web_store_articles_by_profile(
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
         .collect())
+}
+
+async fn list_web_store_articles_by_profile(
+    app: AppHandle,
+    profile_id: String,
+    date_from: Option<String>,
+    limit: Option<usize>,
+    fields: Option<Vec<String>>,
+) -> Result<Vec<Value>, String> {
+    list_web_store_articles_by_column(app, "profile", profile_id, date_from, limit, fields).await
+}
+
+async fn list_web_store_articles_by_domain(
+    app: AppHandle,
+    domain_id: String,
+    date_from: Option<String>,
+    limit: Option<usize>,
+    fields: Option<Vec<String>>,
+) -> Result<Vec<Value>, String> {
+    list_web_store_articles_by_column(app, "domain", domain_id, date_from, limit, fields).await
 }
 
 #[tauri::command]
@@ -927,6 +1368,11 @@ pub async fn upsert_web_store_article(
     init_schema(&conn)?;
 
     let now = chrono_like_now();
+    let article_id = article_id_for_url(&input.url);
+    let domain = domain_from_url(&input.url);
+    if let Some(ref d) = domain {
+        ensure_web_domain(&conn, d)?;
+    }
 
     let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone()).await?;
     
@@ -934,9 +1380,9 @@ pub async fn upsert_web_store_article(
         conn.execute(
             "UPDATE web_articles SET 
                 title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
-                main_color = ?5, profile = ?6, 
-                embedding_source_text = ?7, date = ?8, updated_at = ?9 
-             WHERE url = ?10 COLLATE NOCASE",
+                main_color = ?5, profile = ?6, domain = ?7,
+                embedding_source_text = ?8, date = ?9, updated_at = ?10 
+             WHERE url = ?11 COLLATE NOCASE",
             params![
                 input.title,
                 input.thumbnail,
@@ -944,6 +1390,7 @@ pub async fn upsert_web_store_article(
                 input.directory,
                 input.main_color,
                 input.profile,
+                domain,
                 input.embedding_source_text,
                 input.date,
                 now,
@@ -953,13 +1400,14 @@ pub async fn upsert_web_store_article(
         .map_err(|error| error.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO web_articles (id, url, created_at, title, thumbnail, content,
+            "INSERT INTO web_articles (id, url, domain, created_at, title, thumbnail, content,
                                    media_directory, main_color, profile,
                                    embedding_source_text, date, updated_at, viewed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 0)",
             params![
+                article_id,
                 input.url,
-                input.url,
+                domain,
                 now,
                 input.title,
                 input.thumbnail,
@@ -995,7 +1443,7 @@ pub async fn delete_web_store_article_by_url(
     conn.execute("DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE", params![url])
         .map_err(|error| error.to_string())?;
 
-    rebuild_profiles_from_articles(&conn, None)?;
+    rebuild_domains_from_articles(&conn, None)?;
 
     Ok(true)
 }
@@ -1021,11 +1469,43 @@ pub async fn update_web_store_article_viewed(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpsertWebStoreProfileInput {
+pub struct UpsertWebStoreDomainInput {
     pub id: String,
     pub name: String,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertWebStoreProfileInput {
+    pub id: String,
+    pub name: String,
+    pub domain_id: String,
+    pub profile_picture: Option<String>,
+    pub url: Option<String>,
+}
+
+#[tauri::command]
+pub async fn upsert_web_store_domain(
+    app: AppHandle,
+    input: UpsertWebStoreDomainInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let domain = WebStoreDomainRecord {
+        id: input.id,
+        name: input.name,
+        count: 0,
+        profile_picture: input.profile_picture,
+        url: input.url,
+        most_recent_created_at: None,
+        articles: None,
+    };
+
+    upsert_domain(&conn, &domain)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1039,6 +1519,7 @@ pub async fn upsert_web_store_profile(
     let profile = WebStoreProfileRecord {
         id: input.id,
         name: input.name,
+        domain_id: input.domain_id,
         count: 0,
         profile_picture: input.profile_picture,
         url: input.url,
@@ -1067,7 +1548,7 @@ pub async fn fetch_remote_profile(
         .map_err(|error| format!("Invalid base URL {}: {}", base_url, error))?;
     url.path_segments_mut()
         .map_err(|_| "Invalid base URL".to_string())?
-        .extend(["api", "profile", name]);
+        .extend(["api", "profile", "youtube", name]);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -1088,6 +1569,48 @@ pub async fn fetch_remote_profile(
         .json::<RemoteProfile>()
         .await
         .map_err(|error| format!("Failed to parse remote profile: {}", error))
+}
+
+#[tauri::command]
+pub async fn delete_web_store_domain(
+    app: AppHandle,
+    domain_id: String,
+) -> Result<WebStoreProfileDeletion, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    if let Some(domain) = query_domain_by_id(&conn, &domain_id)? {
+        if let Some(domain_url) = domain.url {
+            delete_web_store_tasks_by_url(app.clone(), domain_url).await?;
+        }
+    }
+
+    let articles = list_web_store_articles_by_domain(
+        app.clone(),
+        domain_id.clone(),
+        None,
+        None,
+        None,
+    )
+    .await?;
+
+    let mut deleted_count = 0;
+
+    for article_value in articles {
+        if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
+            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
+            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
+                deleted_count += 1;
+            }
+        }
+    }
+
+    delete_domain(&conn, &domain_id)?;
+
+    Ok(WebStoreProfileDeletion {
+        success: true,
+        deleted_count,
+    })
 }
 
 #[tauri::command]
@@ -1450,8 +1973,11 @@ fn query_articles_for_profile(
     let articles_sql = format!(
         "SELECT id, url, created_at, title, thumbnail, content,
                 media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date,
-                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)) AS profile_picture
+                viewed, date, domain,
+                (SELECT COALESCE(
+                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
+                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
+                )) AS profile_picture
          FROM web_articles
          WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
          ORDER BY created_at DESC, date DESC NULLS LAST
@@ -1461,6 +1987,37 @@ fn query_articles_for_profile(
     let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
     let article_rows = article_stmt
         .query_map(params![profile_id, article_count], row_to_stored_article)
+        .map_err(|error| error.to_string())?;
+
+    let mut articles = Vec::new();
+    for article_result in article_rows {
+        articles.push(article_result.map_err(|error| error.to_string())?);
+    }
+    Ok(articles)
+}
+
+fn query_articles_for_domain(
+    conn: &Connection,
+    domain_id: &str,
+    article_count: usize,
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let articles_sql = format!(
+        "SELECT id, url, created_at, title, thumbnail, content,
+                media_directory, main_color, profile, embedding_source_text, updated_at,
+                viewed, date, domain,
+                (SELECT COALESCE(
+                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
+                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
+                )) AS profile_picture
+         FROM web_articles
+         WHERE LOWER(domain) = LOWER(?1) AND domain IS NOT NULL
+         ORDER BY created_at DESC, date DESC NULLS LAST
+         LIMIT ?2"
+    );
+
+    let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
+    let article_rows = article_stmt
+        .query_map(params![domain_id, article_count], row_to_stored_article)
         .map_err(|error| error.to_string())?;
 
     let mut articles = Vec::new();
@@ -1489,9 +2046,12 @@ pub async fn list_articles_without_profile(
     if let Some(ref pid) = profile_id {
         let normalized = pid.trim().to_lowercase();
         if !normalized.is_empty() {
-            where_clauses.push("LOWER(a.profile) = ?".to_string());
+            where_clauses.push(
+                "(LOWER(a.profile) = ? OR LOWER(a.domain) = ?)".to_string(),
+            );
+            params.push(Box::new(normalized.clone()));
             params.push(Box::new(normalized));
-            where_clauses.push("a.profile IS NOT NULL".to_string());
+            where_clauses.push("(a.profile IS NOT NULL OR a.domain IS NOT NULL)".to_string());
         }
     } else if only_without_profile.unwrap_or(true) {
         where_clauses.push("a.profile IS NULL".to_string());
@@ -1537,8 +2097,11 @@ pub async fn list_articles_without_profile(
     let sql = format!(
         "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
                 a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date,
-                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)) AS profile_picture
+                a.viewed, a.date, a.domain,
+                (SELECT COALESCE(
+                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
+                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
+                )) AS profile_picture
          FROM web_articles a
          {}
          ORDER BY a.created_at DESC, a.date DESC NULLS LAST
@@ -1624,8 +2187,11 @@ fn query_articles_for_category(
     let mut articles_sql = String::from(
         "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
                 a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date,
-                (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)) AS profile_picture
+                a.viewed, a.date, a.domain,
+                (SELECT COALESCE(
+                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
+                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
+                )) AS profile_picture
          FROM web_articles a
          INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
@@ -1835,7 +2401,7 @@ pub async fn upsert_web_profile_template(
     let now = chrono_like_now();
 
     conn.execute(
-        "INSERT OR IGNORE INTO web_profiles (id, name, count, updated_at) VALUES (?1, ?1, 0, ?2)",
+        "INSERT OR IGNORE INTO web_domains (id, name, count, updated_at) VALUES (?1, ?1, 0, ?2)",
         params![profile_id, now],
     )
     .map_err(|error| error.to_string())?;
@@ -1983,6 +2549,114 @@ mod tests {
             vec!["newest-yt-old-publish", "old-yt-newly-added", "newer-yt-added-earlier"],
             "expected most recently added article first, regardless of publication date"
         );
+    }
+
+    #[test]
+    fn article_id_for_url_extracts_youtube_v_param() {
+        assert_eq!(
+            article_id_for_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            "dQw4w9WgXcQ"
+        );
+        assert_eq!(
+            article_id_for_url("https://youtu.be/dQw4w9WgXcQ"),
+            "dQw4w9WgXcQ"
+        );
+        assert_eq!(
+            article_id_for_url("https://youtube.com/watch?v=abc&t=10"),
+            "abc"
+        );
+        assert_eq!(
+            article_id_for_url("https://example.com/article?id=123"),
+            "https://example.com/article?id=123"
+        );
+        assert_eq!(article_id_for_url("raw-abc"), "raw-abc");
+    }
+
+    #[test]
+    fn ensure_web_domain_is_idempotent() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, "youtube.com").expect("first insert");
+        ensure_web_domain(&conn, "youtube.com").expect("second insert");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+
+        let picture: Option<String> = conn
+            .query_row(
+                "SELECT profile_picture FROM web_domains WHERE id = 'youtube.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            picture.as_deref(),
+            Some("https://www.google.com/s2/favicons?sz=64&domain=youtube.com")
+        );
+    }
+
+    #[test]
+    fn query_articles_for_domain_returns_domain_articles() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
+        ensure_web_domain(&conn, "example.com").expect("ensure domain");
+
+        let created_at_1: i64 = 1_000_000_000_000;
+        let created_at_2: i64 = 2_000_000_000_000;
+        let created_at_3: i64 = 3_000_000_000_000;
+
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0)",
+            params![
+                "v1",
+                "https://youtube.com/watch?v=v1",
+                "youtube.com",
+                created_at_1,
+                "title-1"
+            ],
+        )
+        .expect("insert article");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0)",
+            params![
+                "v2",
+                "https://youtube.com/watch?v=v2",
+                "youtube.com",
+                created_at_2,
+                "title-2"
+            ],
+        )
+        .expect("insert article");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0)",
+            params![
+                "other",
+                "https://example.com/post",
+                "example.com",
+                created_at_3,
+                "title-3"
+            ],
+        )
+        .expect("insert article");
+
+        let articles = query_articles_for_domain(&conn, "youtube.com", 10).expect("query");
+        let urls: Vec<&str> = articles
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(urls, vec!["https://youtube.com/watch?v=v2", "https://youtube.com/watch?v=v1"]);
+
+        let articles = query_articles_for_domain(&conn, "example.com", 10).expect("query");
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].domain.as_deref(), Some("example.com"));
     }
 
     #[test]

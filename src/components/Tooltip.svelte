@@ -103,9 +103,9 @@
 		outline: none;
 		border: none;
 		border-radius: var(--radius-sm);
-		background: white;
-
-		color: rgba(21, 21, 21);
+		background: black;
+		border: 1px solid rgb(38, 37, 37);
+		color: white;
 		padding: 0.4rem 0.7rem;
 		font-size: 0.8rem;
 		white-space: normal;

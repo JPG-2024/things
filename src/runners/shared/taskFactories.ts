@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { buildIaTask, buildScriptTaskFromDef, iaTask, scriptTask } from '@/runners/taskSchema';
-import type { IaTaskDef, ScriptTaskDef, TaskRunContext } from '@/runners/taskSchema';
+import { buildIaTask, iaTask, requireStringState } from '@/runners/taskSchema';
+import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
 import {
+	DEFAULT_DYNAMIC_MODEL,
 	DEFAULT_IA_COMPLETION_OPTIONS,
 	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
 	DEFAULT_TITLE_COMPLETION_OPTIONS,
@@ -14,63 +15,30 @@ import {
 	buildExtractionSystemMessage,
 	buildExtractionUserMessage
 } from '@/lib/utils/inference/extraction-helper';
-import { splitForEmbeddings, splitByString, splitByLevels } from '@/lib/utils/splitText';
 import { viewState } from '@/stores/viewStore.svelte';
-import type { IaTaskSubtype, Task } from '@/types/taskRunner.types';
-import { getProcessor } from '@/runners/shared/processors';
-import type { ProcessorType, CombineMode } from '@/runners/shared/processors';
+import type { ExtractorConfig, Task } from '@/types/taskRunner.types';
 
-const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 const DEFAULT_IA_SYSTEM_MESSAGE =
 	'You are a helpful AI assistant. Respond concisely and accurately.';
 
-type FactoryCtx = { context: unknown; state: Readonly<Record<string, unknown>> };
-type MaybeFn<T> = T | ((ctx: FactoryCtx) => T);
-
-export type IaTaskFactoryOptions<TParsed = string> = {
-	name?: string;
-	dependencies?: string[];
-	subtype?: IaTaskSubtype;
-	component?: string;
-	componentProps?: MaybeFn<Record<string, unknown>>;
-	gridSpan?: 1 | 2 | 3;
-	renderOrder?: number;
-	persist?: boolean;
-	enableTTS?: boolean;
-	embeddings?: boolean;
-	baseUrl?: string;
-	extractorConfig?: { count: number; description: string };
-	systemMessage?: MaybeFn<string>;
-	userMessage?: MaybeFn<string>;
-	completionOptions?: MaybeFn<Record<string, unknown>>;
+export type IaTaskFactoryOptions<TOutput extends z.core.$ZodType = z.ZodString> = Partial<
+	Omit<IaTaskDef<TOutput>, 'output' | 'type' | 'extractorConfig'>
+> & {
+	output?: TOutput;
 	model?: string;
-	run?: (ctx: TaskRunContext<unknown, Record<string, unknown>>) => string | Promise<string>;
-	resultParser?: (text: string, ctx: FactoryCtx) => TParsed | Promise<TParsed>;
-	onComplete?: (params: {
-		result: unknown;
-		runResult: string;
-		context: unknown;
-		state: Readonly<Record<string, unknown>>;
-	}) => void | Promise<void>;
 };
 
-function stripUndefined<T extends object>(obj: T): T {
-	return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined)) as T;
-}
-
-export function createIaTask<
-	TOutput extends z.core.$ZodType = z.ZodString,
-	TParsed = z.infer<TOutput>
->(
-	options: IaTaskFactoryOptions<TParsed> & { output?: TOutput } = {}
-): IaTaskDef<TOutput, unknown, TParsed> {
-	const { model, completionOptions, output, ...rest } = stripUndefined(options);
+export function createIaTask<TOutput extends z.core.$ZodType = z.ZodString>(
+	options: IaTaskFactoryOptions<TOutput> = {}
+): IaTaskDef<TOutput> {
+	const { model, output, component, systemMessage, userMessage, completionOptions, ...rest } =
+		options;
 
 	return iaTask({
-		component: 'taskBase',
-		systemMessage: DEFAULT_IA_SYSTEM_MESSAGE,
-		userMessage: '',
 		...rest,
+		component: component ?? 'taskBase',
+		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
+		userMessage: userMessage ?? '',
 		output: (output ?? z.string()) as TOutput,
 		completionOptions: completionOptions ?? {
 			...DEFAULT_IA_COMPLETION_OPTIONS,
@@ -79,31 +47,33 @@ export function createIaTask<
 	});
 }
 
-export type ExtractionTaskOptions = Omit<IaTaskFactoryOptions<string[]>, 'run' | 'resultParser'> & {
-	extractor: { count: number; description: string };
+export type ExtractionTaskOptions = Omit<
+	IaTaskFactoryOptions<z.ZodArray<z.ZodString>>,
+	'output' | 'run' | 'resultParser'
+> & {
+	extractor: ExtractorConfig;
 };
 
 export function createExtractionTask(
 	options: ExtractionTaskOptions
-): IaTaskDef<z.ZodArray<z.ZodString>, unknown, string[]> {
+): IaTaskDef<z.ZodArray<z.ZodString>> {
 	const {
 		extractor,
 		dependencies = ['content'],
+		component,
+		subtype,
 		systemMessage,
 		userMessage,
 		completionOptions,
 		model,
-		subtype,
 		...rest
-	} = stripUndefined(options);
-	const sourceDependency = dependencies[0];
+	} = options;
 
 	return createIaTask({
-		component: 'keywords',
 		...rest,
 		dependencies,
+		component: component ?? 'keywords',
 		subtype: subtype ?? 'extraction',
-		extractorConfig: extractor,
 		output: z.array(z.string()),
 		systemMessage:
 			systemMessage ?? buildExtractionSystemMessage(extractor.count, extractor.description),
@@ -115,367 +85,128 @@ export function createExtractionTask(
 	});
 }
 
-export type CreateTitleTaskOptions = {
-	dependencies?: string[];
-	systemMessage?: MaybeFn<string>;
-	userMessage?: MaybeFn<string>;
-	completionOptions?: Record<string, unknown>;
-	persist?: boolean;
-	gridSpan?: 1 | 2 | 3;
-	renderOrder?: number;
-};
+export type CreateTitleTaskOptions = Omit<IaTaskFactoryOptions, 'output' | 'run' | 'subtype'>;
 
-export function createTitleTask(options?: CreateTitleTaskOptions): IaTaskDef<z.ZodString> {
-	const dependencies = options?.dependencies ?? ['title-summary'];
+export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef<z.ZodString> {
+	const {
+		name,
+		dependencies = ['title-summary'],
+		renderOrder,
+		systemMessage,
+		userMessage,
+		completionOptions,
+		...rest
+	} = options;
 	const sourceDependency = dependencies[0];
 
-	const defaultUserMessage = ({ context }: FactoryCtx) => {
-		const lang = (context as { language?: string })?.language;
-		return `Create a short title describing the content. No more than 10 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
-	};
-
 	return createIaTask({
-		name: 'Title',
+		...rest,
+		name: name ?? 'Title',
 		dependencies,
 		subtype: 'title',
-		renderOrder: options?.renderOrder ?? 1,
-		systemMessage: options?.systemMessage ?? 'Avoid Markdown.',
-		userMessage: options?.userMessage ?? defaultUserMessage,
-		run: ({ state }) => {
-			const source = state[sourceDependency];
-			if (typeof source !== 'string') throw new Error(`${sourceDependency} is missing or invalid`);
-			return source;
-		},
-		completionOptions: options?.completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS,
-		persist: options?.persist,
-		gridSpan: options?.gridSpan
+		renderOrder: renderOrder ?? 1,
+		systemMessage: systemMessage ?? 'Avoid Markdown.',
+		userMessage:
+			userMessage ??
+			(({ context }) => {
+				const lang = (context as { language?: string })?.language;
+				return `Create a short title describing the content. No more than 10 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+			}),
+		run: ({ state }) => requireStringState(state, sourceDependency),
+		completionOptions: completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS
 	});
 }
 
-export type CreateSummaryTaskOptions = {
-	name?: string;
-	dependencies?: string[];
-	systemMessage?: string;
-	userMessage?: string;
-	componentProps?: MaybeFn<Record<string, unknown>>;
-	onComplete?: (params: {
-		result: unknown;
-		runResult: string;
-		context: unknown;
-		state: Readonly<Record<string, unknown>>;
-	}) => void | Promise<void>;
-	completionOptions?: MaybeFn<Record<string, unknown>>;
-	persist?: boolean;
-	renderOrder?: number;
-};
+export type CreateSummaryTaskOptions = Omit<IaTaskFactoryOptions, 'output' | 'run' | 'subtype'>;
 
-export function createSummaryTask(options?: CreateSummaryTaskOptions): IaTaskDef<z.ZodString> {
-	const dependencies = options?.dependencies ?? ['content'];
+export function createSummaryTask(options: CreateSummaryTaskOptions = {}): IaTaskDef<z.ZodString> {
+	const {
+		dependencies = ['content'],
+		systemMessage,
+		userMessage,
+		completionOptions,
+		...rest
+	} = options;
 	const sourceDependency = dependencies[0];
 
 	return createIaTask({
-		name: options?.name,
+		...rest,
 		dependencies,
 		systemMessage:
-			options?.systemMessage ??
+			systemMessage ??
 			'You are a professional content summarizer. Write a concise and clear summary.',
-		userMessage: options?.userMessage ?? 'Summarize the content.',
-		run: ({ state }) => {
-			const content = state[sourceDependency];
-			if (typeof content !== 'string')
-				throw new Error(`Missing content from dependency "${sourceDependency}"`);
-			return content;
-		},
-		componentProps: options?.componentProps,
-		onComplete: options?.onComplete,
-		completionOptions: options?.completionOptions ?? SUMMARY_COMPLETION_OPTIONS,
-		persist: options?.persist,
-		renderOrder: options?.renderOrder
+		userMessage: userMessage ?? 'Summarize the content.',
+		run: ({ state }) => requireStringState(state, sourceDependency),
+		completionOptions: completionOptions ?? SUMMARY_COMPLETION_OPTIONS
 	});
 }
 
-export type ChunkOffset = {
-	startOffset: number;
-	endOffset: number;
-};
-
-export type RecursiveChunk = {
-	key: ChunkOffset;
-	data: string[];
-};
-
-export type RecursiveContentResult = {
-	chunks: RecursiveChunk[];
-	finalResponse: string | string[];
-};
-
-export type RecursiveContentTaskOptions = {
-	name?: string;
-	dependencies?: string[];
-	windowSize?: number;
-	windowDivisor?: number;
-	overlap?: number;
-	splitByString?: string;
-	processorType?: ProcessorType;
-	combineMode?: CombineMode;
-	systemMessage?: string;
-	userMessage?: string;
-	finalUserMessage?: string;
-	completionOptions?: Record<string, unknown>;
-	extractorConfig?: { count: number; description: string };
-	targetLang?: string;
-	customSystemMsg?: string;
-	persist?: boolean;
-	renderOrder?: number;
-	gridSpan?: 1 | 2 | 3;
-	component?: string;
-	componentProps?: MaybeFn<Record<string, unknown>>;
-	embeddings?: boolean;
-	onComplete?: (params: {
-		result: unknown;
-		runResult: string;
-		context: unknown;
-		state: Readonly<Record<string, unknown>>;
-	}) => void | Promise<void>;
-};
-
-const RECURSIVE_CONTENT_OUTPUT_SCHEMA = z.object({
-	chunks: z.array(
-		z.object({
-			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
-			data: z.array(z.string())
-		})
-	),
-	finalResponse: z.union([z.string(), z.array(z.string())])
-});
-
-export function createRecursiveContentTask(
-	options?: RecursiveContentTaskOptions
-): ScriptTaskDef<typeof RECURSIVE_CONTENT_OUTPUT_SCHEMA> {
-	const dependencies = options?.dependencies ?? ['content'];
-	const sourceDependency = dependencies[0];
-	const processorType: ProcessorType =
-		options?.processorType ?? (options?.extractorConfig ? 'extraction' : 'summarize');
-
-	return scriptTask({
-		name: options?.name,
-		subtype: 'recursive',
-		dependencies,
-		component: options?.component ?? 'recursive',
-		componentProps: options?.componentProps,
-		gridSpan: options?.gridSpan,
-		renderOrder: options?.renderOrder,
-		persist: options?.persist,
-		concurrencyGroup: 'recursive',
-		embeddings: options?.embeddings,
-		output: RECURSIVE_CONTENT_OUTPUT_SCHEMA,
-		run: async ({ state, update }) => {
-			const content = state[sourceDependency];
-			if (typeof content !== 'string')
-				throw new Error(`Missing content from dependency "${sourceDependency}"`);
-
-			const chunksResult = options?.splitByString
-				? splitByString(content, options.splitByString)
-				: options?.windowDivisor
-					? splitByLevels(content, options.windowDivisor)
-					: splitForEmbeddings(content, {
-							windowSize: options?.windowSize ?? 3000,
-							overlap: options?.overlap ?? Math.floor((options?.windowSize ?? 3000) * 0.1)
-						});
-			const sections = chunksResult.map((c) => c.text);
-			const chunkOffsets = chunksResult.map((c) => ({
-				startOffset: c.startOffset,
-				endOffset: c.endOffset
-			}));
-			const model = (options?.completionOptions as { model?: string })?.model ?? 'llama-server';
-
-			const processorDef = getProcessor(processorType);
-			const processor = processorDef.build({
-				model,
-				userMessage: options?.userMessage,
-				finalUserMessage: options?.finalUserMessage,
-				extractorConfig: options?.extractorConfig,
-				targetLang: options?.targetLang,
-				customSystemMsg: options?.customSystemMsg,
-				completionOptions: options?.completionOptions,
-				combineMode: options?.combineMode
-			});
-
-			const chunks: RecursiveChunk[] = [];
-
-			for (let i = 0; i < sections.length; i++) {
-				const result = await processor.processChunk(sections[i], i);
-				chunks.push({ key: chunkOffsets[i], data: result });
-				update({
-					data: { chunks: [...chunks], finalResponse: '' }
-				});
-			}
-
-			const finalResponse = await processor.combineChunks(
-				chunks.flatMap((c) => c.data),
-				sections
-			);
-
-			return { chunks, finalResponse };
-		}
-	});
-}
-
-export interface RecursiveConfig {
-	windowSize: number;
-	overlap: number;
-	windowDivisor?: number;
-	splitByString?: string;
-	processorType: ProcessorType;
-	combineMode?: CombineMode;
-	userMessage: string;
-	finalUserMessage: string;
-	extractorConfig?: { count: number; description: string };
-	targetLang?: string;
-	customSystemMsg?: string;
-}
-
-export function buildRecursiveTask(
-	id: string,
-	options: RecursiveContentTaskOptions & { model?: string; enableTTS?: boolean }
-): Task {
-	const windowSize = options.windowSize ?? 1000;
-	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
-	const processorType: ProcessorType =
-		options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize');
-
-	const processorDef = getProcessor(processorType);
-	const defaults = processorDef.defaults;
-
-	const userMessage = options.userMessage ?? defaults.userMessage ?? '';
-	const finalUserMessage = options.finalUserMessage ?? defaults.finalUserMessage ?? '';
-
-	const def = createRecursiveContentTask({
-		...options,
-		processorType,
-		userMessage,
-		finalUserMessage,
-		completionOptions: options.completionOptions ?? {
-			...SUMMARY_COMPLETION_OPTIONS,
-			model: options.model ?? 'llama-server'
-		},
-		componentProps: {
-			...((typeof options.componentProps === 'object' && options.componentProps !== null
-				? options.componentProps
-				: {}) as Record<string, unknown>),
-			recursiveConfig: {
-				windowSize,
-				overlap,
-				windowDivisor: options.windowDivisor,
-				splitByString: options.splitByString,
-				processorType,
-				combineMode: options.combineMode,
-				userMessage,
-				finalUserMessage,
-				extractorConfig: options.extractorConfig,
-				targetLang: options.targetLang,
-				customSystemMsg: options.customSystemMsg
-			} satisfies RecursiveConfig
-		}
-	});
-	const task = buildScriptTaskFromDef(id, def);
-	if (options.enableTTS !== undefined) {
-		task.enableTTS = options.enableTTS;
-	}
-	return task;
-}
-
-export type CreateCategoryTaskOptions = {
+export type CreateCategoryTaskOptions = Omit<
+	IaTaskFactoryOptions<z.ZodArray<z.ZodString>>,
+	'output' | 'run' | 'resultParser' | 'subtype' | 'extractorConfig'
+> & {
 	keywordsDependency?: string;
-	categoryNames?: string[];
 	maxItems?: number;
-	dependencies?: string[];
-	systemMessage?: MaybeFn<string>;
-	userMessage?: MaybeFn<string>;
-	completionOptions?: MaybeFn<Record<string, unknown>>;
-	model?: string;
-	name?: string;
-	component?: string;
-	componentProps?: MaybeFn<Record<string, unknown>>;
-	gridSpan?: 1 | 2 | 3;
-	enableTTS?: boolean;
-	persist?: boolean;
-	renderOrder?: number;
-	embeddings?: boolean;
 };
 
 export function createCategoryTask(
-	options?: CreateCategoryTaskOptions
-): IaTaskDef<z.ZodArray<z.ZodString>, unknown, string[]> {
+	options: CreateCategoryTaskOptions = {}
+): IaTaskDef<z.ZodArray<z.ZodString>> {
 	const {
 		keywordsDependency,
-		categoryNames: providedNames,
+		categoryNames,
 		maxItems = 1,
-		dependencies: providedDeps,
-		systemMessage: providedSystemMessage,
-		userMessage: providedUserMessage,
-		completionOptions: providedCompletionOptions,
+		dependencies,
+		component,
+		componentProps,
+		systemMessage,
+		userMessage,
+		completionOptions,
 		model,
-		persist,
-		renderOrder,
 		...rest
-	} = stripUndefined(options ?? {});
+	} = options;
 
-	const deps = providedDeps ?? [keywordsDependency ?? 'keywords'];
-	const catDesc = maxItems === 1 ? 'category' : 'categories';
-	const countBasedSysMsg = maxItems === 1 ? 'a single category name' : `${maxItems} category names`;
-	const countBasedUserMsg = maxItems === 1 ? 'a category' : `${maxItems} categories`;
+	const deps = dependencies ?? [keywordsDependency ?? 'keywords'];
+	const countDescription = maxItems === 1 ? 'category' : 'categories';
+	const countSystemPhrase =
+		maxItems === 1 ? 'a single category name' : `${maxItems} category names`;
+	const countUserPhrase = maxItems === 1 ? 'a category' : `${maxItems} categories`;
 
-	const getNames = providedNames
-		? () => providedNames
-		: () => viewState.categories.map((c) => c.name);
-
-	const getListed = providedNames
-		? () => providedNames
-		: () =>
-				viewState.categories.map((c) => (c.description ? `${c.name}: (${c.description})` : c.name));
-
-	const systemMsg =
-		providedSystemMessage ??
-		`You are a data extraction assistant. Return only a JSON array with exactly ${countBasedSysMsg}. No markdown, no explanations.`;
-
-	const userMsg =
-		providedUserMessage ??
-		(() => {
-			const listed = getListed();
-			return `Give ${countBasedUserMsg} from this ones: ${listed.join(', ')}.`;
-		});
-
-	const completionOpts =
-		providedCompletionOptions ??
-		(() => ({
-			...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-			...(model ? { model } : {}),
-			grammar: arrayToGbnf(getNames(), { minItems: maxItems, maxItems })
-		}));
+	const resolveNames = () => categoryNames ?? viewState.categories.map((c) => c.name);
+	const resolveListedNames = () =>
+		categoryNames ??
+		viewState.categories.map((c) => (c.description ? `${c.name}: (${c.description})` : c.name));
 
 	const def = createExtractionTask({
 		...rest,
-		extractor: { count: maxItems, description: catDesc },
+		categoryNames,
 		dependencies: deps,
-		component: rest.component ?? 'keywords',
-		componentProps: rest.componentProps ?? { showPoint: false },
-		persist,
-		renderOrder,
+		component: component ?? 'keywords',
+		componentProps: componentProps ?? { showPoint: false },
 		subtype: 'category',
-		systemMessage: systemMsg,
-		userMessage: userMsg,
-		completionOptions: completionOpts
+		extractor: { count: maxItems, description: countDescription },
+		systemMessage:
+			systemMessage ??
+			`You are a data extraction assistant. Return only a JSON array with exactly ${countSystemPhrase}. No markdown, no explanations.`,
+		userMessage:
+			userMessage ??
+			(() => `Give ${countUserPhrase} from this ones: ${resolveListedNames().join(', ')}.`),
+		completionOptions:
+			completionOptions ??
+			(() => ({
+				...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
+				...(model ? { model } : {}),
+				grammar: arrayToGbnf(resolveNames(), { minItems: maxItems, maxItems })
+			}))
 	});
 
 	return {
 		...def,
-		categoryNames: providedNames,
 		directResult: () =>
 			viewState.selectedCategories.length > 0 ? viewState.selectedCategories : null
 	};
 }
 
-export function buildTask(def: IaTaskDef, id: string): Task {
+export function buildTask(id: string, def: IaTaskDef): Task {
 	return buildIaTask(id, def)(undefined);
 }

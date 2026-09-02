@@ -19,7 +19,7 @@ export const summarizeProcessor: ProcessorDef = {
 					{
 						role: 'system',
 						content:
-							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
+							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles.'
 					},
 					{
 						role: 'user',

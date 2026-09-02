@@ -1,9 +1,11 @@
 <script lang="ts">
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
+	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
+	import type { ArticleProfile } from '@/stores/webStore';
 
 	onMount(async () => {
 		await articleCacheStore.fetchProfilesWithArticles({
@@ -17,42 +19,32 @@
 	});
 </script>
 
-<div class="flex-squares">
-	{#each articleCacheStore.profilesWithArticles as profile (profile.id)}
+<ArticlesGrid items={articleCacheStore.profilesWithArticles} keyOf={(p) => p.id}>
+	{#snippet children(profile: ArticleProfile)}
 		<ProfileWidget
 			profileWithArticles={profile}
 			showTitle={false}
 			collapsed={viewState.collapseProfiles}
 		/>
+	{/snippet}
+</ArticlesGrid>
+{#if articleCacheStore.profilesWithArticles.length === 0}
+	{#if articleCacheStore.loadingProfiles}
+		<div class="empty-profiles-container"></div>
 	{:else}
-		{#if articleCacheStore.loadingProfiles}
-			<div class="empty-profiles-container"></div>
-		{:else}
-			<div class="empty-profiles-container">
-				<div class="empty-profiles-pill">404</div>
-			</div>
-		{/if}
-	{/each}
-	{#if articleCacheStore.hasMoreProfiles}
-		<LoadMoreSentinel
-			onLoadMore={() => articleCacheStore.loadMoreProfiles()}
-			disabled={articleCacheStore.loadingProfiles}
-		/>
+		<div class="empty-profiles-container">
+			<div class="empty-profiles-pill">404</div>
+		</div>
 	{/if}
-</div>
+{/if}
+{#if articleCacheStore.hasMoreProfiles}
+	<LoadMoreSentinel
+		onLoadMore={() => articleCacheStore.loadMoreProfiles()}
+		disabled={articleCacheStore.loadingProfiles}
+	/>
+{/if}
 
 <style>
-	.flex-squares {
-		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: center;
-		gap: 2rem;
-		width: 100%;
-		padding-bottom: 20%;
-	}
-
 	.empty-profiles-container {
 		display: flex;
 		align-items: center;

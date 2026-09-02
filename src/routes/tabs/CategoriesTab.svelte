@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CategoryArticles from '@/components/CategoryArticles.svelte';
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
+	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -56,7 +56,7 @@
 </script>
 
 {#if viewState.selectedCategories.length === 0}
-	<MasonryGrid items={sortedCategories} keyOf={(c) => c.categoryId}>
+	<ArticlesGrid items={sortedCategories} keyOf={(c) => c.categoryId}>
 		{#snippet children(category: CategoryWithArticles)}
 			<CategoryCard
 				{category}
@@ -65,7 +65,7 @@
 				onArticleHoverLeave={handleArticleHoverLeave}
 			/>
 		{/snippet}
-	</MasonryGrid>
+	</ArticlesGrid>
 	{#if articleCacheStore.loadingCategories}
 		<div class="empty-profiles-container"></div>
 	{:else if articleCacheStore.categoriesWithArticles.length === 0}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
+	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import Card from '@/components/Card.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
@@ -43,7 +43,7 @@
 	}
 </script>
 
-<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+<ArticlesGrid items={articleCacheStore.articlesWithoutProfile}>
 	{#snippet children(
 		article: ArticleWithTasks,
 		_i: number,
@@ -59,7 +59,7 @@
 			onHoverLeave={handleArticleHoverLeave}
 		/>
 	{/snippet}
-</MasonryGrid>
+</ArticlesGrid>
 {#if articleCacheStore.loadingArticles}
 	<div class="empty-profiles-container"></div>
 {:else if articleCacheStore.articlesWithoutProfile.length === 0}

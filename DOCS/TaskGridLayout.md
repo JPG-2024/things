@@ -29,13 +29,12 @@ Tasks wrap automatically when there's not enough horizontal space.
 
 ## `gridSpan` Property
 
-Tasks can control their width by setting the `gridSpan` field (type `1 | 2 | 3`).
+Tasks can control their width by setting the `gridSpan` field (type `1 | 2`).
 
-| Value         | Behavior                     | Use Case                                         |
-| ------------- | ---------------------------- | ------------------------------------------------ |
-| `1` (default) | Occupies 1 grid column       | Small widgets: thumbnails, keywords, metadata    |
-| `2`           | Spans 2 columns              | Medium content: video info, image galleries      |
-| `3`           | Spans 3 columns (full width) | Large content: markdown text, players, summaries |
+| Value         | Behavior               | Use Case                                      |
+| ------------- | ---------------------- | --------------------------------------------- |
+| `1` (default) | Occupies 1 grid column | Small widgets: thumbnails, keywords, metadata |
+| `2`           | Spans all columns      | Full width: markdown text, players, summaries |
 
 ### Type Definition
 
@@ -43,7 +42,7 @@ Tasks can control their width by setting the `gridSpan` field (type `1 | 2 | 3`)
 interface TaskBase<TMap, TId> {
 	id: TId;
 	// ... other fields
-	gridSpan?: 1 | 2 | 3;
+	gridSpan?: 1 | 2;
 	// ...
 }
 ```
@@ -66,21 +65,7 @@ interface TaskBase<TMap, TId> {
 }
 ```
 
-### Medium Task (2 columns)
-
-```ts
-{
-  id: WebTaskNames.KEYWORDS,
-  name: 'Keywords',
-  dependencies: [WebTaskNames.CONTENT],
-  type: 'script',
-  component: 'keywords',
-  gridSpan: 2,  // medium
-  run: async () => { /* ... */ }
-}
-```
-
-### Full-Width Task (3 columns)
+### Full-Width Task (2 columns, spans all)
 
 ```ts
 {
@@ -89,7 +74,7 @@ interface TaskBase<TMap, TId> {
   dependencies: [WebTaskNames.INIT_YOUTUBE_VIDEO],
   type: 'ia',
   component: 'taskBase',
-  gridSpan: 3,  // full width
+  gridSpan: 2,  // full width
   systemMessage: 'Summarize the content.',
   userMessage: 'Provide a detailed summary.',
   completionOptions: { model: 'llama-server', stream: true }

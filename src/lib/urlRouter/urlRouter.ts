@@ -1,7 +1,7 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/stores/webStore';
-import { youTubeRunner, type YouTubeRunnerOptions } from '@/runners/youtube/youTubeRunner';
+import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import {
 	socialMediaRunner,
@@ -49,8 +49,7 @@ const routeDefinitions: UrlRoute[] = [
 		condition: YOUTUBE_URL_REGEX,
 		handler: (url, context) =>
 			youTubeRunner(url, {
-				cachedTasks: context?.cachedTasks,
-				options: context?.runnerOptions as YouTubeRunnerOptions | undefined
+				cachedTasks: context?.cachedTasks
 			})
 	},
 	{

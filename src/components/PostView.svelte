@@ -179,13 +179,6 @@
 		cursor: not-allowed;
 	}
 
-	.url-link {
-		color: var(--primary-color);
-		text-decoration: none;
-		text-align: center;
-		word-break: break-all;
-	}
-
 	@media (prefers-color-scheme: dark) {
 		:root {
 			background-color: #2f2f2f;

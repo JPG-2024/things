@@ -551,7 +551,7 @@ export async function chatCompletions(
 
 	const created =
 		(lastChunk as LlamaChatCompletionsChunk | null)?.created ?? Math.floor(Date.now() / 1000);
-	const model = (lastChunk as LlamaChatCompletionsChunk | null)?.model ?? request.model;
+	const model = (lastChunk as LlamaChatCompletionsChunk | null)?.model ?? request.model ?? '';
 	const id = (lastChunk as LlamaChatCompletionsChunk | null)?.id ?? `chatcmpl-local-${created}`;
 
 	const choices: LlamaChatCompletionsChoice[] = Array.from(accumulators.entries())

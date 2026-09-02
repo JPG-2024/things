@@ -66,8 +66,6 @@ export function drawWaveform(
 	analyser.getByteTimeDomainData(dataArray);
 
 	ctx.clearRect(0, 0, width, height);
-	ctx.fillStyle = `rgba(0, 0, 0`;
-	ctx.fillRect(0, 0, width, height);
 
 	const sampleStep = Math.max(1, Math.floor((bufferLength / width / 2) * c.wavelengthScale));
 	const minWavePoints = 4;
@@ -135,8 +133,6 @@ export function drawGeneratingWave(
 	const phaseSpeed = waveConfig.baseSpeed;
 
 	ctx.clearRect(0, 0, width, height);
-	ctx.fillStyle = `rgba(0, 0, 0, ${c.sineFillAlpha})`;
-	ctx.fillRect(0, 0, width, height);
 
 	const points: number[] = [];
 	for (let i = 0; i < pointCount; i += 1) {
@@ -196,8 +192,6 @@ export function drawIdleLine(
 	resizeCanvas(canvas, ctx, width, height);
 
 	ctx.clearRect(0, 0, width, height);
-	ctx.fillStyle = `rgba(0, 0, 0, ${c.sineFillAlpha})`;
-	ctx.fillRect(0, 0, width, height);
 
 	const path = new Path2D();
 	path.moveTo(0, height / 2);

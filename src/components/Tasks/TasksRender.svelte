@@ -152,6 +152,7 @@
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
+					role="group"
 				>
 					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}>
 						<Renderer {task} runId={contentTask.runId} {componentProps} />
@@ -164,6 +165,7 @@
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
+					role="group"
 				>
 					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}>
 						{#if Renderer}
@@ -178,6 +180,7 @@
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
+					role="group"
 				>
 					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}></BaseTaskComponent>
 				</div>
@@ -188,6 +191,7 @@
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
+					role="group"
 				>
 					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps}></BaseTaskComponent>
 				</div>
@@ -197,6 +201,7 @@
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
+					role="group"
 				>
 					<TaskError {task} runId={contentTask.runId} />
 				</div>
@@ -218,11 +223,12 @@
 				{#if Renderer && task.status === 'done'}
 					<div
 						class="task-wrapper"
+						class:span-full={task.gridSpan === 2}
 						transition:fade={{ duration: 250 }}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
-						// use:measureDoneHeight={taskKey}
+						role="group"
 					>
 						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 							<Renderer {task} runId={entry.runId} {componentProps} />
@@ -231,10 +237,12 @@
 				{:else if task.status === 'running'}
 					<div
 						class="task-wrapper"
+						class:span-full={task.gridSpan === 2}
 						style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
+						role="group"
 					>
 						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 							{#if Renderer}
@@ -245,29 +253,35 @@
 				{:else if task.status === 'editing'}
 					<div
 						class="task-wrapper"
+						class:span-full={task.gridSpan === 2}
 						transition:fade={{ duration: 250 }}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
+						role="group"
 					>
 						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
 					</div>
 				{:else if task.status === 'pending'}
 					<div
 						class="task-wrapper"
+						class:span-full={task.gridSpan === 2}
 						transition:fade={{ duration: 250 }}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
+						role="group"
 					>
 						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
 					</div>
 				{:else if task.status === 'failed'}
 					<div
 						class="task-wrapper task-wrapper--error"
+						class:span-full={task.gridSpan === 2}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
+						role="group"
 					>
 						<TaskError {task} runId={entry.runId} />
 					</div>
@@ -283,14 +297,19 @@
 	.tasks-container {
 		container-type: inline-size;
 		width: 100%;
-		padding-top: 3.5rem;
+		padding-top: 1rem;
 	}
 
 	.tasks-title {
-		font-size: 1.2rem;
+		font-family: CaskaydiaCove NFM Light;
+		font-size: 1.4rem;
 		margin-right: auto;
 		width: 100%;
 		padding: 0.6rem;
+	}
+
+	.tasks-title::after {
+		content: '.';
 	}
 
 	.tasks-grid {

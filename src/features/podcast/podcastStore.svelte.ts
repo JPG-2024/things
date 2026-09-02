@@ -74,7 +74,7 @@ class PodcastState {
 		interactionsPerTopic: 4,
 		topicGapMs: 2000,
 		exchangeGapMs: 1500,
-		mode: 'interview',
+		mode: 'smalltalk',
 		hostAProfileId: '',
 		hostBProfileId: '',
 		hostAChunkFile: '',
@@ -84,7 +84,7 @@ class PodcastState {
 		contextSource: 'content',
 		hooks: {
 			initial: {
-				enabled: true,
+				enabled: false,
 				prompts: {
 					interview:
 						'Just say welcome to "things" the AI podcast. maximum 10 words. Do not ask a question. mention explicit "things" name.',
@@ -121,6 +121,9 @@ class PodcastState {
 	private _currentSource: AudioBufferSourceNode | null = null;
 	private _analyserNode: AnalyserNode | null = null;
 	private _playbackAbort: AbortController | null = null;
+	private _activeFinish: (() => void) | null = null;
+	private _unpauseWaiters: (() => void)[] = [];
+	private _preHooksDone = false;
 
 	get hostAProfile(): VoiceProfile | undefined {
 		return this.profiles.find((p) => p.id === this.config.hostAProfileId);
@@ -153,15 +156,80 @@ class PodcastState {
 					// silently skip profiles with failed chunks
 				}
 			}
+			this.randomizeHostsIfUnset();
 		} catch (err) {
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to load voice profiles';
 		}
 	}
 
+	private isValidHostId(id: string): boolean {
+		if (!id) return false;
+		if (!this.profiles.some((p) => p.id === id)) return false;
+		const chunks = this._voiceChunks.get(id);
+		return !!chunks && chunks.length > 0;
+	}
+
+	private hostCandidatePool(): VoiceProfile[] {
+		const candidates = this.profiles.filter((p) => {
+			const chunks = this._voiceChunks.get(p.id);
+			return !!chunks && chunks.length > 0;
+		});
+		return candidates.length >= 2 ? candidates : this.profiles;
+	}
+
+	private applyHostProfile(speaker: 'A' | 'B', profile: VoiceProfile): void {
+		if (speaker === 'A') {
+			this.config.hostAProfileId = profile.id;
+			this.config.hostAChunkFile = '';
+			this.config.hostARandomChunk = true;
+		} else {
+			this.config.hostBProfileId = profile.id;
+			this.config.hostBChunkFile = '';
+			this.config.hostBRandomChunk = true;
+		}
+	}
+
+	randomizeHosts(): void {
+		const pool = this.hostCandidatePool();
+		if (pool.length < 2) return;
+		const i = Math.floor(Math.random() * pool.length);
+		let j = Math.floor(Math.random() * (pool.length - 1));
+		if (j >= i) j++;
+		this.applyHostProfile('A', pool[i]);
+		this.applyHostProfile('B', pool[j]);
+	}
+
+	randomizeHostsIfUnset(): void {
+		const aValid = this.isValidHostId(this.config.hostAProfileId);
+		const bValid = this.isValidHostId(this.config.hostBProfileId);
+		const distinct = this.config.hostAProfileId !== this.config.hostBProfileId;
+		if (aValid && bValid && distinct) return;
+
+		if (aValid && !bValid) {
+			this.randomizeOtherHost('B', this.config.hostAProfileId);
+			return;
+		}
+
+		if (!aValid && bValid) {
+			this.randomizeOtherHost('A', this.config.hostBProfileId);
+			return;
+		}
+
+		this.randomizeHosts();
+	}
+
+	private randomizeOtherHost(speaker: 'A' | 'B', excludeId: string): void {
+		const remaining = this.hostCandidatePool().filter((p) => p.id !== excludeId);
+		if (remaining.length === 0) return;
+		const pick = remaining[Math.floor(Math.random() * remaining.length)];
+		this.applyHostProfile(speaker, pick);
+	}
+
 	getVoiceRef(speaker: 'A' | 'B'): { ref_audio: string; ref_text: string } {
 		const profileId = speaker === 'A' ? this.config.hostAProfileId : this.config.hostBProfileId;
 		const chunks = this._voiceChunks.get(profileId) ?? [];
-		const randomChunk = speaker === 'A' ? this.config.hostARandomChunk : this.config.hostBRandomChunk;
+		const randomChunk =
+			speaker === 'A' ? this.config.hostARandomChunk : this.config.hostBRandomChunk;
 		const pinnedFile = speaker === 'A' ? this.config.hostAChunkFile : this.config.hostBChunkFile;
 
 		if (chunks.length > 0) {
@@ -449,6 +517,7 @@ class PodcastState {
 			this.dialogs = [];
 			this.currentTopicIndex = 0;
 			this.currentExchangeIndex = 0;
+			this._preHooksDone = false;
 			this.progress = {
 				current: 0,
 				total: this.totalExchangeCount
@@ -467,11 +536,17 @@ class PodcastState {
 	private async playAllTopics(): Promise<void> {
 		const session = this._session;
 
-		for (const slot of this.activeHookSlots('pre')) {
-			await this.playHook(slot, session);
-			if (this._session !== session) return;
-			this.progress.current = Math.max(this.progress.current, 1);
+		if (!this._preHooksDone) {
+			for (const slot of this.activeHookSlots('pre')) {
+				await this.playHook(slot, session);
+				if (this._session !== session) return;
+				this.progress.current = Math.max(this.progress.current, 1);
+			}
+			this._preHooksDone = true;
 		}
+
+		const resumeTopic = this.currentTopicIndex;
+		const resumeExchange = this.currentExchangeIndex;
 
 		for (let t = this.currentTopicIndex; t < this.topics.length; t++) {
 			if (this._session !== session) return;
@@ -482,8 +557,9 @@ class PodcastState {
 			}
 
 			const interactionCount = this.getInteractionCount(t);
+			const startExchange = t === resumeTopic ? resumeExchange : 0;
 
-			for (let e = 0; e < interactionCount; e++) {
+			for (let e = startExchange; e < interactionCount; e++) {
 				if (this._session !== session) return;
 
 				this.currentExchangeIndex = e;
@@ -526,20 +602,14 @@ class PodcastState {
 			}
 		}
 
-		for (const slot of this.activeHookSlots('post')) {
-			await this.playHook(slot, session);
-			if (this._session !== session) return;
-			this.progress.current = Math.max(this.progress.current, this.progress.total);
-		}
-
-		this.status = 'idle';
-		this.activeSpeaker = null;
+		await this.finishSession(session);
 	}
 
 	private buildExchangeParams(
 		topicIdx: number,
 		exchangeIdx: number,
-		interactionCount: number
+		interactionCount: number,
+		regenPreviousText?: string
 	): GenerateExchangeParams {
 		const plans = this._turnPlans[topicIdx];
 		const plan = plans?.[exchangeIdx];
@@ -547,6 +617,7 @@ class PodcastState {
 		const isFirst = exchangeIdx === 0;
 		const isLast = exchangeIdx + 1 === interactionCount;
 		const previousExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
+		const regeneration = regenPreviousText ? { previousText: regenPreviousText } : undefined;
 
 		if (this.config.mode === 'guided') {
 			const raw = this.chunkRawTexts[topicIdx] ?? '';
@@ -566,7 +637,8 @@ class PodcastState {
 				isFirstInteractionOfTopic: isFirst,
 				isLastInteractionOfTopic: isLast,
 				isNewChunkAfterFirst: topicIdx > 0 && isFirst,
-				question: question || undefined
+				question: question || undefined,
+				regeneration
 			};
 		}
 
@@ -587,7 +659,8 @@ class PodcastState {
 				isFirstInteractionOfTopic: isFirst,
 				isLastInteractionOfTopic: isLast,
 				isNewChunkAfterFirst: topicIdx > 0 && isFirst,
-				question: question || undefined
+				question: question || undefined,
+				regeneration
 			};
 		}
 
@@ -601,7 +674,8 @@ class PodcastState {
 			context: this.topicContext(topicIdx) || undefined,
 			signal: this._llmAbort?.signal,
 			isFirstInteractionOfTopic: isFirst,
-			isLastInteractionOfTopic: isLast
+			isLastInteractionOfTopic: isLast,
+			regeneration
 		};
 	}
 
@@ -700,6 +774,9 @@ class PodcastState {
 		for (let i = 0; i < entry.blobs.length; i++) {
 			if (this._session !== session) return;
 
+			await this.parkWhilePaused(session);
+			if (this._session !== session) return;
+
 			const audioBuffer = await decodeBlob(entry.blobs[i], ctx);
 			if (this._session !== session) return;
 
@@ -713,18 +790,35 @@ class PodcastState {
 			this._currentSource = source;
 			this._analyserNode = analyser;
 
+			let interruptedByPause = false;
 			await new Promise<void>((resolve) => {
-				source.onended = () => {
+				const finish = () => {
+					if (this._activeFinish === finish) {
+						this._activeFinish = null;
+					}
 					if (this._currentSource === source) {
 						this._currentSource = null;
 						this._analyserNode = null;
 					}
+					if (this.status === 'paused') {
+						interruptedByPause = true;
+					}
 					resolve();
 				};
+				this._activeFinish = finish;
+				source.onended = finish;
 				source.start(0);
 			});
 
 			if (this._session !== session) return;
+
+			if (interruptedByPause) {
+				// Replay this blob from the start once resumed
+				await this.parkWhilePaused(session);
+				if (this._session !== session) return;
+				i--;
+				continue;
+			}
 
 			if (i < entry.blobs.length - 1) {
 				const delay = entry.chunkEndsParagraph[i]
@@ -733,6 +827,20 @@ class PodcastState {
 				await waitMs(delay, this._playbackAbort?.signal);
 			}
 		}
+	}
+
+	private parkWhilePaused(session: number): Promise<void> {
+		if (this.status !== 'paused' || this._session !== session) {
+			return Promise.resolve();
+		}
+		return new Promise<void>((resolve) => {
+			this._unpauseWaiters.push(resolve);
+		});
+	}
+
+	private drainUnpauseWaiters(): void {
+		const waiters = this._unpauseWaiters.splice(0);
+		for (const resolve of waiters) resolve();
 	}
 
 	private async playHook(slot: HookSlot, session: number): Promise<void> {
@@ -812,11 +920,17 @@ class PodcastState {
 	}
 
 	async regenerateExchange(topicIdx: number, exchangeIdx: number): Promise<void> {
-		const session = this._session;
 		const key = `${topicIdx}:${exchangeIdx}`;
 
+		// Takeover: cancel the running loop and stop whatever is playing right now
+		this._session++;
+		const session = this._session;
+		this._pausePlayback();
+		this.drainUnpauseWaiters();
+		this._preparePromises.clear();
 		this._blobs.delete(key);
-		this._preparePromises.delete(key);
+
+		const previousText = this.dialogs[topicIdx]?.[exchangeIdx]?.text;
 
 		const interactionCount =
 			this.config.mode === 'guided'
@@ -826,6 +940,7 @@ class PodcastState {
 		this.status = 'generating';
 		this.isGenerating = true;
 		this.errorMessage = '';
+		let handedOff = false;
 
 		try {
 			if (this.config.mode !== 'guided' && this.config.contextSource === 'summary') {
@@ -848,7 +963,7 @@ class PodcastState {
 				this.dialogs = [...this.dialogs];
 			} else if (!exchange || !exchange.direct) {
 				exchange = await generateExchange(
-					this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount)
+					this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount, previousText)
 				);
 
 				if (this._session !== session) return;
@@ -866,19 +981,62 @@ class PodcastState {
 			this.currentExchangeIndex = exchangeIdx;
 			this.activeSpeaker = exchange.speaker;
 
-			await this.playExchange(topicIdx, exchangeIdx, session);
+			await this.playBlobEntry(entry, session);
+			if (this._session !== session) return;
+
+			this.activeSpeaker = null;
+
+			const priorExchanges =
+				this.config.mode === 'guided' || this._turnPlans.length > 0
+					? this.exchangeCounts.slice(0, topicIdx).reduce((acc, n) => acc + n, 0)
+					: topicIdx * this.config.interactionsPerTopic;
+			this.progress.current = priorExchanges + exchangeIdx + 1;
+
+			const hasNextExchange =
+				exchangeIdx + 1 < interactionCount || topicIdx + 1 < this.topics.length;
+			if (!hasNextExchange) {
+				await this.finishSession(session);
+				return;
+			}
+
+			const isLastExchangeOfTopic = exchangeIdx + 1 >= interactionCount;
+			if (isLastExchangeOfTopic) {
+				this.currentTopicIndex = topicIdx + 1;
+				this.currentExchangeIndex = 0;
+				await waitMs(this.config.topicGapMs, this._playbackAbort?.signal);
+			} else {
+				this.currentExchangeIndex = exchangeIdx + 1;
+				await waitMs(this.config.exchangeGapMs, this._playbackAbort?.signal);
+			}
+			if (this._session !== session) return;
+
+			handedOff = true;
+			void this.playAllTopics();
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') return;
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate';
 		} finally {
-			this.isGenerating = false;
+			if (!handedOff) {
+				this.isGenerating = false;
+			}
 		}
+	}
+
+	private async finishSession(session: number): Promise<void> {
+		if (this._session !== session) return;
+		for (const slot of this.activeHookSlots('post')) {
+			await this.playHook(slot, session);
+			if (this._session !== session) return;
+			this.progress.current = Math.max(this.progress.current, this.progress.total);
+		}
+		this.status = 'idle';
+		this.activeSpeaker = null;
 	}
 
 	pause(): void {
 		if (this.status !== 'playing') return;
-		this._pausePlayback();
 		this.status = 'paused';
+		this._pausePlayback();
 	}
 
 	private _pausePlayback(): void {
@@ -888,17 +1046,16 @@ class PodcastState {
 		}
 		teardownAnalyser(this._analyserNode);
 		this._analyserNode = null;
+		// Unblock the awaited playback promise so the loop parks instead of dangling
+		const finish = this._activeFinish;
+		this._activeFinish = null;
+		finish?.();
 	}
 
 	resume(): void {
 		if (this.status !== 'paused') return;
-		// Re-play the current exchange from the stored blob
-		const topicIdx = this.currentTopicIndex;
-		const exchangeIdx = this.currentExchangeIndex;
-		const session = this._session;
-
 		this.status = 'playing';
-		void this.playExchange(topicIdx, exchangeIdx, session);
+		this.drainUnpauseWaiters();
 	}
 
 	stop(): void {
@@ -918,6 +1075,7 @@ class PodcastState {
 		}
 
 		this._pausePlayback();
+		this.drainUnpauseWaiters();
 
 		this._preparePromises.clear();
 		this._topicSummaries.clear();

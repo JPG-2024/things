@@ -62,7 +62,7 @@
 			completionOptions: iaCompletionOptions
 		});
 		const taskId = `${parentTaskId ?? 'task'} > ${Date.now()}`;
-		const newTask = buildTask(def, taskId);
+		const newTask = buildTask(taskId, def);
 		workflowManager.addTask(runId, newTask);
 		void workflowManager.rerunTask(runId, newTask.id);
 		onClose?.();
@@ -85,7 +85,7 @@
 			extractor: { count, description: extDescription }
 		});
 		const taskId = `${parentTaskId ?? 'task'} > ${Date.now()}`;
-		const newTask = buildTask(def, taskId);
+		const newTask = buildTask(taskId, def);
 		workflowManager.addTask(runId, newTask);
 		void workflowManager.rerunTask(runId, newTask.id);
 		onClose?.();

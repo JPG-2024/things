@@ -6,6 +6,7 @@
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { deleteProfileById } from '@/stores/webStore';
@@ -13,23 +14,17 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import Categories from '@/components/Categories.svelte';
-	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
 	import ProfilesBar from '@/components/ProfilesBar.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
 	import type { Task } from '@/types/taskRunner.types';
 	import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
-
-	const profileArticleTabs = [
-		{ id: 'articles', label: 'Articles', icon: 'FileText' },
-		{ id: 'categories', label: 'Categories', icon: 'Tags' },
-		{ id: 'profiles', label: 'Profiles', icon: 'Users' }
-	];
 
 	const standaloneAskTask: Task = {
 		id: 'home-ask',
@@ -146,20 +141,22 @@
 </script>
 
 <div class="dashboard-toolbar-container" use:autoHide>
-	<Toolbar justify="space-between" class="page-topbar" iconSize={18}>
-		<div class="toolbar-left">
-			<LuminousText
-				mode="random"
-				size="1.6rem"
-				onclick={handleTitleClick}
-				aria-label="Paste clipboard URL"
-			>
-				Things
-			</LuminousText>
-			<Tabs tabs={profileArticleTabs} bind:activeTab={viewState.activeProfileArticleTab} iconOnly />
-		</div>
-		<div class="toolbar-actions">
-			<!-- 	<button
+	<div class="toolbar-row page-topbar">
+		<Toolbar justify="space-between" iconSize={18}>
+			<div class="toolbar-left">
+				<LuminousText
+					mode="random"
+					size="1.6rem"
+					onclick={handleTitleClick}
+					aria-label="Paste clipboard URL"
+				>
+					Things
+				</LuminousText>
+				<Input type="text" bind:value={viewState.unifiedFilter} search />
+			</div>
+			<div class="toolbar-center"></div>
+			<div class="toolbar-actions">
+				<!-- 	<button
 		type="button"
 		class="settings-trigger"
 		onclick={() => (viewState.collapseProfiles = !viewState.collapseProfiles)}
@@ -167,45 +164,45 @@
 	>
 		<Icon name="ChevronRight" />
 	</button> -->
-			<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-				<ToggleIcon
-					name="Speech"
-					bind:checked={viewState.autoSpeechEnabled}
-					tooltipProps={{ content: 'auto start voice' }}
-				/>
-			</button>
-			<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-				<ToggleIcon
-					name="Languages"
-					bind:checked={viewState.forceLanguageEnabled}
-					tooltipProps={{ content: 'translate to current language' }}
-				/>
-			</button>
-			<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-				<ToggleIcon
-					name="ClipboardPaste"
-					bind:checked={viewState.clipboardPollingEnabled}
-					tooltipProps={{ content: 'listen clipboard' }}
-				/>
-			</button>
-			<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
-				<ToggleIcon
-					name="MessageSquareText"
-					bind:checked={viewState.clipboardTtsEnabled}
-					tooltipProps={{ content: 'read copied text' }}
-				/>
-			</button>
-			<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
+				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+					<ToggleIcon
+						name="Speech"
+						bind:checked={viewState.autoSpeechEnabled}
+						tooltipProps={{ content: 'auto start voice' }}
+					/>
+				</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+					<ToggleIcon
+						name="Languages"
+						bind:checked={viewState.forceLanguageEnabled}
+						tooltipProps={{ content: 'translate to current language' }}
+					/>
+				</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+					<ToggleIcon
+						name="ClipboardPaste"
+						bind:checked={viewState.clipboardPollingEnabled}
+						tooltipProps={{ content: 'listen clipboard' }}
+					/>
+				</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
+					<ToggleIcon
+						name="MessageSquareText"
+						bind:checked={viewState.clipboardTtsEnabled}
+						tooltipProps={{ content: 'read copied text' }}
+					/>
+				</button>
+				<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
-			<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
-				<ToggleIcon
-					name="FileDigit"
-					bind:checked={viewState.embeddingsEnabled}
-					tooltipProps={{ content: 'generate embeddings' }}
-				/>
-			</button>
-			<!-- 	<ToolbarDivider />
+				<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
+					<ToggleIcon
+						name="FileDigit"
+						bind:checked={viewState.embeddingsEnabled}
+						tooltipProps={{ content: 'generate embeddings' }}
+					/>
+				</button>
+				<!-- 	<ToolbarDivider />
 	<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 		<ToggleIcon
 			name="Download"
@@ -222,55 +219,55 @@
 	>
 		<Icon name="ListMusic" size={18} />
 	</button> -->
-			<ToolbarDivider />
-			<button
-				type="button"
-				class="settings-trigger"
-				onclick={() => drawersState.open('tts-settings')}
-				aria-label="Open settings"
-			>
-				<Icon name="AudioWaveform" />
-			</button>
+				<ToolbarDivider />
+				<button
+					type="button"
+					class="settings-trigger"
+					onclick={() => void mainVoiceState.open()}
+					aria-label="Open settings"
+				>
+					<Icon name="AudioWaveform" />
+				</button>
 
-			<button
-				type="button"
-				class="settings-trigger"
-				onclick={() => drawersState.open('settings')}
-				aria-label="Open settings"
-			>
-				<Icon name="Cog" />
-			</button>
+				<button
+					type="button"
+					class="settings-trigger"
+					onclick={() => drawersState.open('settings')}
+					aria-label="Open settings"
+				>
+					<Icon name="Cog" />
+				</button>
 
-			<ToolbarDivider />
-			<label class="color-dot-trigger" aria-label="Change primary color">
-				<span class="color-dot" style:background-color={viewState.primaryColor}></span>
-				<input
-					type="color"
-					class="color-picker-input"
-					value={rgbToHex(viewState.primaryColor)}
-					oninput={handleColorChange}
-				/>
-			</label>
-			<label class="color-dot-trigger" aria-label="Change background color">
-				<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
-				<input
-					type="color"
-					class="color-picker-input"
-					value={rgbToHex(viewState.backgroundColor)}
-					oninput={handleBgColorChange}
-				/>
-			</label>
-		</div>
-	</Toolbar>
+				<ToolbarDivider />
+				<label class="color-dot-trigger" aria-label="Change primary color">
+					<span class="color-dot" style:background-color={viewState.primaryColor}></span>
+					<input
+						type="color"
+						class="color-picker-input"
+						value={rgbToHex(viewState.primaryColor)}
+						oninput={handleColorChange}
+					/>
+				</label>
+				<label class="color-dot-trigger" aria-label="Change background color">
+					<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
+					<input
+						type="color"
+						class="color-picker-input"
+						value={rgbToHex(viewState.backgroundColor)}
+						oninput={handleBgColorChange}
+					/>
+				</label>
+			</div>
+		</Toolbar>
+	</div>
+	<div class="toolbar-row">
+		<ProfilesBar />
+	</div>
+	<div class="toolbar-row"><Categories /></div>
 </div>
 
 <div class="dashboard-container">
-	<AskComponent></AskComponent>
-	<ProfilesBar />
-	<div class="categories-container">
-		<Categories />
-	</div>
-
+	<!-- <AskComponent /> -->
 	{#if viewState.activeProfileArticleTab === 'profiles'}
 		<ProfilesTab />
 	{:else if viewState.activeProfileArticleTab === 'categories'}
@@ -282,13 +279,7 @@
 
 <style>
 	.page-topbar {
-		top: 0;
-		right: 0;
-		left: 0;
-		z-index: 10;
-		min-height: 35px;
-		padding: 0.3rem 1rem;
-		margin: 1px;
+		padding: 1rem 0;
 	}
 
 	.toolbar-actions {
@@ -318,7 +309,7 @@
 		align-items: center;
 		box-sizing: border-box;
 		padding: 10px 10px;
-		padding-top: 50px;
+		padding-top: 12rem;
 		width: 100%;
 		min-height: 80px;
 	}
@@ -329,31 +320,47 @@
 		right: 0;
 		left: 0;
 		z-index: 10;
+		display: flex;
+		flex-direction: column;
+		gap: 1.2rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 2rem 3rem;
+		padding: 2rem 3rem 2rem;
 		background: linear-gradient(
-			color-mix(in srgb, var(--primary-color), black 90%),
+			color-mix(in srgb, var(--primary-color), black 92%),
 			rgba(9, 9, 9, 1),
-			rgba(9, 9, 9, 0.7),
+			rgba(9, 9, 9, 1),
 			transparent
 		);
-		transform: translateY(0);
 		opacity: 1;
 		transition:
 			transform 250ms ease-out,
 			opacity 250ms ease-out;
 	}
 
+	.toolbar-row {
+		display: flex;
+		align-items: center;
+		width: 100%;
+	}
+
+	.toolbar-center {
+		display: flex;
+		align-items: center;
+		flex: 1;
+		max-width: 340px;
+		padding: 0 1rem;
+	}
+
+	.filters-row {
+		justify-content: center;
+		gap: 1.5rem;
+	}
+
 	.dashboard-toolbar-container:global(.hidden) {
 		transform: translateY(-100%);
 		opacity: 0;
 		pointer-events: none;
-	}
-
-	.categories-container {
-		margin: 10px 0;
-		width: 100%;
 	}
 
 	.color-dot-trigger {

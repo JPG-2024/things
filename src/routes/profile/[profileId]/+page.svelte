@@ -111,21 +111,21 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="profile-page">
-<div class="top-bar">
-			<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
-				<Icon name="ArrowLeft" size={24} />
-			</button>
-			<button
-				type="button"
-				class="back-btn delete-btn"
-				onclick={handleDeleteProfile}
-				disabled={isDeleting}
-				aria-label="Delete profile"
-				title="Delete profile"
-			>
-				<Icon name="Trash" size={24} />
-			</button>
-			<div bind:this={summaryWrapperEl} class="summary-wrapper">
+	<div class="top-bar">
+		<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
+			<Icon name="ArrowLeft" size={24} />
+		</button>
+		<button
+			type="button"
+			class="back-btn delete-btn"
+			onclick={handleDeleteProfile}
+			disabled={isDeleting}
+			aria-label="Delete profile"
+			title="Delete profile"
+		>
+			<Icon name="Trash" size={24} />
+		</button>
+		<div bind:this={summaryWrapperEl} class="summary-wrapper">
 			<button
 				type="button"
 				class="back-btn"
@@ -148,7 +148,9 @@
 						<button type="button" class="summary-action" onclick={generateSummary}>Retry</button>
 					{:else if summaryText}
 						<p class="summary-text">{summaryText}</p>
-						<button type="button" class="summary-action" onclick={generateSummary}>Regenerate</button>
+						<button type="button" class="summary-action" onclick={generateSummary}
+							>Regenerate</button
+						>
 					{:else}
 						<div class="summary-empty">No summary yet</div>
 					{/if}
@@ -172,10 +174,15 @@
 		<div class="articles-container">
 			{#if articleCacheStore.articlesWithoutProfile.length > 0}
 				<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
-{#snippet children(article: ArticleWithTasks, _i: number, _layoutIndex: number, layoutKey: LayoutKey)}
-					<ArticleItem
-						{article}
-						{layoutKey}
+					{#snippet children(
+						article: ArticleWithTasks,
+						_i: number,
+						_layoutIndex: number,
+						layoutKey: LayoutKey
+					)}
+						<ArticleItem
+							{article}
+							{layoutKey}
 							onClick={handleNavigateToArticle}
 							onHoverEnter={(a) => {
 								viewState.hoveredArticleUrl = a.url ?? null;

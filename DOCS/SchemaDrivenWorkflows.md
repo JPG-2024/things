@@ -88,7 +88,7 @@ iaTask({
 | `dependencies`   | `string[]`           | No                         | Task ids that must complete first                                  |
 | `component`      | `string`             | No                         | UI component hint                                                  |
 | `componentProps` | `object \| function` | No                         | Props for UI component. Can be `(ctx) => props` for dynamic values |
-| `gridSpan`       | `1 \| 2 \| 3`        | No                         | Grid column span                                                   |
+| `gridSpan`       | `1 \| 2`             | No                         | Grid column span (1 = single, 2 = full width)                      |
 | `persist`        | `boolean`            | No                         | Save result to DB                                                  |
 | `output`         | `Zod schema`         | **Yes**                    | Schema for return type                                             |
 | `run`            | `function`           | **Yes** (script) / No (IA) | Task logic                                                         |

@@ -32,7 +32,7 @@
 	}
 </script>
 
-<div class="tabs">
+<div class="tabs" class:tabs--icon-only={iconOnly}>
 	{#each tabs as tab (tab.id)}
 		<button
 			type="button"
@@ -47,7 +47,7 @@
 					onClick={(e) => handleTabClick(tab.id, e)}
 					label={!iconOnly ? tab.label : null}
 					tooltipProps={{ content: tab.label }}
-					size={18}
+					size={16}
 				/>
 			{:else if !iconOnly}
 				{tab.label}
@@ -79,9 +79,15 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
+		opacity: 0.6;
+		transition: opacity 0.15s ease;
 	}
 
 	.pill--active {
+		opacity: 1;
+	}
+
+	.tabs--icon-only .pill {
 		opacity: 1;
 	}
 </style>

@@ -11,8 +11,8 @@
 	import PodcastSettings from '@/features/podcast/PodcastSettings.svelte';
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 
-	import TTSSettings from '@/components/modals/TTSSettings.svelte';
 	import VoiceProfileWheel from '@/components/modals/VoiceProfileWheel.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadPanel from '@/components/DownloadPanel.svelte';
@@ -80,7 +80,7 @@
 
 	const blurActive = $derived(
 		ttsPlayerVisible ||
-			drawersState.isOpen('tts-settings') ||
+			voiceWheelState.open ||
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
 			conversationMode ||
@@ -90,7 +90,7 @@
 	createHotkey(
 		',',
 		() => {
-			drawersState.toggle('tts-settings');
+			void mainVoiceState.toggle();
 		},
 		{
 			ignoreInputs: true
@@ -251,6 +251,7 @@
 
 <VoiceProfileWheel
 	show={voiceWheelState.open}
+	mode={voiceWheelState.mode}
 	profiles={voiceWheelState.profiles}
 	chunks={voiceWheelState.chunks}
 	initial={voiceWheelState.selection}
@@ -260,6 +261,9 @@
 	}}
 	onClose={() => voiceWheelState.close()}
 	onChunksChanged={voiceWheelState.onChunksChanged}
+	onAddVoice={() => mainVoiceState.runAddVoice()}
+	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
+	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
 />
 
 {#if ttsState.lastVoiceChunkIndex !== null}
@@ -277,13 +281,6 @@
 {#if podcastMode}
 	<PodcastMode onExit={() => (podcastMode = false)} />
 {/if}
-
-<Modal
-	show={drawersState.isOpen('tts-settings')}
-	onClose={() => drawersState.close('tts-settings')}
->
-	<TTSSettings />
-</Modal>
 
 <Modal show={drawersState.isOpen('settings')} onClose={() => drawersState.close('settings')}>
 	<SettingsModal />
@@ -314,6 +311,13 @@
 	@font-face {
 		font-family: 'Oswald';
 		src: url('/Oswald-VariableFont_wght.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'Silkscreen';
+		src: url('/Silkscreen-Regular.ttf') format('truetype');
 		font-weight: normal;
 		font-style: normal;
 	}
