@@ -184,8 +184,8 @@
 
 	.profile-avatar {
 		display: block;
-		width: 1.5rem;
-		height: 1.5rem;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
 		object-fit: cover;
 		/* 		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);

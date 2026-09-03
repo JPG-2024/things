@@ -10,6 +10,7 @@ export interface RunTemplateWorkflowOptions {
 	makeActive?: boolean;
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[] | null;
+	skipTaskIds?: string[];
 	onRunResult?: (runResult: TaskRunSummary) => void | Promise<void>;
 	defaultTasksFactory?: () => Task[];
 }
@@ -90,7 +91,20 @@ export async function runTemplateWorkflow(
 		? buildTasksFromTemplate(template.tasks)
 		: (options.defaultTasksFactory?.() ?? []);
 
-	const allTasks = [...initialTasks, ...templateTasks];
+	let allTasks = [...initialTasks, ...templateTasks];
+
+	if (options.skipTaskIds?.length) {
+		const skipInit = new Set(options.skipTaskIds);
+		const skipGraph = new DependencyGraph();
+		skipGraph.buildFromTasks(allTasks);
+		const closure = new Set<string>(skipInit);
+		for (const id of skipInit) {
+			for (const desc of skipGraph.getDescendants(id)) {
+				closure.add(desc);
+			}
+		}
+		allTasks = allTasks.filter((t) => !closure.has(t.id));
+	}
 
 	if (!options.Rebuild) {
 		const cachedMap = createPersistedTaskStateMap(options.cachedTasks ?? undefined);

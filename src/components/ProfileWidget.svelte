@@ -2,6 +2,7 @@
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
+	import WheelStage from '@/components/WheelStage.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
@@ -37,6 +38,7 @@
 	);
 	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
 	const articles = $derived(profileWithArticles.articles ?? []);
+	const visibleArticles = $derived(isCollapsed ? articles.slice(0, 1) : articles);
 
 	async function goToprofile() {
 		viewState.currentProfileId = profileWithArticles.id;
@@ -122,42 +124,46 @@
 							</button>
 						</div>
 					{/if}
-					{#if articles.length}
-						{#each articles.filter((_, i) => !isCollapsed || i === 0) as article (article.url)}
-							<button
-								type="button"
-								class="img-button"
-								onclick={() => handleNavigateToArticle(article)}
-								onmouseenter={() => {
-									viewState.hoveredArticleUrl = article.url ?? null;
-									viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-								}}
-								onmouseleave={() => {
-									viewState.hoveredArticleUrl = null;
-								}}
-								aria-label="View article"
-							>
-								<div class="thumbnail-container">
-									{#if !article.viewed}
-										<span class="unread-dot"></span>
-									{/if}
-									<Tooltip content={article.title ?? ''}>
-										{#if article.thumbnailSrc}
-											<img
-												src={article.thumbnailSrc}
-												alt="Article"
-												class="mini-img"
-												style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-											/>
-										{:else}
-											<div class="mini-img-fallback" title={article.title ?? ''}>
-												{article.title?.slice(0, 45).concat('...') ?? ''}
-											</div>
-										{/if}
-									</Tooltip>
-								</div>
-							</button>
-						{/each}
+					{#if visibleArticles.length}
+						<div class="strip-wrap">
+							<WheelStage fadeEdges gap={16} scrollSpeed={6}>
+								{#each visibleArticles as article (article.url)}
+									<button
+										type="button"
+										class="img-button"
+										onclick={() => handleNavigateToArticle(article)}
+										onmouseenter={() => {
+											viewState.hoveredArticleUrl = article.url ?? null;
+											viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
+										}}
+										onmouseleave={() => {
+											viewState.hoveredArticleUrl = null;
+										}}
+										aria-label="View article"
+									>
+										<div class="thumbnail-container">
+											{#if !article.viewed}
+												<span class="unread-dot"></span>
+											{/if}
+											<Tooltip content={article.title ?? ''}>
+												{#if article.thumbnailSrc}
+													<img
+														src={article.thumbnailSrc}
+														alt="Article"
+														class="mini-img"
+														style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+													/>
+												{:else}
+													<div class="mini-img-fallback" title={article.title ?? ''}>
+														{article.title?.slice(0, 45).concat('...') ?? ''}
+													</div>
+												{/if}
+											</Tooltip>
+										</div>
+									</button>
+								{/each}
+							</WheelStage>
+						</div>
 					{/if}
 				</div>
 			{/if}
@@ -191,7 +197,7 @@
 		align-items: center;
 		box-sizing: border-box;
 		padding: 1px;
-		width: max-content;
+		width: 100%;
 	}
 
 	.title-row {
@@ -229,11 +235,17 @@
 
 	.img-flex {
 		display: flex;
-		flex-wrap: wrap;
+		align-items: center;
 		justify-content: center;
 		gap: 1rem;
+		min-width: 0;
 		transition: all 0.25s ease;
 		width: 100%;
+	}
+
+	.strip-wrap {
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.avatar-container {
@@ -244,6 +256,7 @@
 
 	.img-button {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		transition: transform 0.1s;
 		cursor: pointer;

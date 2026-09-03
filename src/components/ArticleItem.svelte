@@ -90,6 +90,16 @@
 	});
 </script>
 
+{#snippet categoryPills()}
+	{#if categories.length > 0}
+		<div class="article-categories">
+			{#each categories as category, categoryIndex (`${category}-${categoryIndex}`)}
+				<span class="article-category-pill"><EmojiString value={category} /></span>
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
 <button
 	type="button"
 	class="article-card {layoutKey ?? ''}"
@@ -133,6 +143,7 @@
 			<div class="article-title">
 				<span>{title}</span>
 			</div>
+			{@render categoryPills()}
 		</div>
 	{:else if layoutKey === 'grid-3'}
 		<div class="article-content article-content-stacked">
@@ -149,6 +160,7 @@
 			<div class="article-title">
 				<span>{title}</span>
 			</div>
+			{@render categoryPills()}
 			{#if randomQuestions.length > 0}
 				<Keywords keywords={randomQuestions} />
 			{/if}
@@ -170,13 +182,7 @@
 					<div class="article-title">
 						<span>{title}</span>
 					</div>
-					{#if categories.length > 0}
-						<div class="article-categories">
-							{#each categories as category, categoryIndex (`${category}-${categoryIndex}`)}
-								<span class="article-category-pill"><EmojiString value={category} /></span>
-							{/each}
-						</div>
-					{/if}
+					{@render categoryPills()}
 					{#if randomQuestions.length > 0}
 						<Keywords keywords={randomQuestions} />
 					{/if}
@@ -254,7 +260,7 @@
 
 	.article-card.row .article-thumbnail {
 		width: 60px;
-		opacity: 1;
+		opacity: 0.8;
 	}
 
 	.article-card.row .article-title {
@@ -307,7 +313,7 @@
 		width: 100%;
 		aspect-ratio: 16 / 10;
 		object-fit: cover;
-		opacity: 0.6;
+		opacity: 0.8;
 		transition: opacity 0.2s ease;
 	}
 
@@ -371,6 +377,14 @@
 		padding: 0 1rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.row .article-categories {
+		flex: none;
+		flex-wrap: nowrap;
+		overflow: hidden;
+		max-width: 40%;
 		white-space: nowrap;
 	}
 </style>

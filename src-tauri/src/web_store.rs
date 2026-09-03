@@ -283,6 +283,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_article_domain_column(conn)?;
     migrate_article_ids_to_youtube_v(conn)?;
     migrate_channels_to_web_profiles(conn)?;
+    migrate_drop_unused_youtube_domain(conn)?;
 
     Ok(())
 }
@@ -412,6 +413,10 @@ fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
         out
     };
 
+    if rows.is_empty() {
+        return Ok(());
+    }
+
     let domain_id = "youtube.com".to_string();
     ensure_web_domain(conn, &domain_id)?;
 
@@ -431,6 +436,26 @@ fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
         }
     }
+
+    Ok(())
+}
+
+fn migrate_drop_unused_youtube_domain(conn: &Connection) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM web_domains
+         WHERE id = 'youtube.com' COLLATE NOCASE
+           AND NOT EXISTS (
+               SELECT 1 FROM web_articles a WHERE LOWER(a.domain) = 'youtube.com'
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM web_profiles p WHERE LOWER(p.domain_id) = 'youtube.com'
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM web_profile_templates t WHERE LOWER(t.profile_id) = 'youtube.com'
+           )",
+        [],
+    )
+    .map_err(|error| error.to_string())?;
 
     Ok(())
 }
@@ -1348,6 +1373,32 @@ pub async fn get_web_store_article_by_url(
     let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
     let mut records = query_articles(&conn, Some(&filter), Some(1), None)?;
     Ok(records.pop())
+}
+
+#[tauri::command]
+pub async fn filter_existing_article_urls(
+    app: AppHandle,
+    urls: Vec<String>,
+) -> Result<Vec<String>, String> {
+    if urls.is_empty() {
+        return Ok(vec![]);
+    }
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let mut existing = Vec::new();
+    for chunk in urls.chunks(900) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(chunk.iter()), |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            existing.push(row.map_err(|e| e.to_string())?);
+        }
+    }
+    Ok(existing)
 }
 
 #[tauri::command]
@@ -2601,6 +2652,75 @@ mod tests {
     }
 
     #[test]
+    fn fresh_init_schema_does_not_seed_youtube_domain() {
+        let conn = build_in_memory_db();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0, "fresh db must not contain seeded domains");
+    }
+
+    #[test]
+    fn migrate_channels_to_web_profiles_moves_channel_rows() {
+        let conn = build_in_memory_db();
+        conn.execute(
+            "INSERT INTO web_domains (id, name, count, profile_picture, url, updated_at)
+             VALUES ('@somechannel', '@somechannel', 3, 'pic.png', 'https://scrap.test/api/profile/youtube/somechannel', 1)",
+            [],
+        )
+        .expect("insert channel domain");
+
+        init_schema(&conn).expect("re-run migrations");
+
+        let domain_id: Option<String> = conn
+            .query_row(
+                "SELECT domain_id FROM web_profiles WHERE id = '@somechannel'",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        assert_eq!(domain_id.as_deref(), Some("youtube.com"));
+
+        let channel_gone: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = '@somechannel'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(channel_gone, 0);
+
+        let youtube_kept: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(youtube_kept, 1, "youtube.com must exist because a profile references it");
+    }
+
+    #[test]
+    fn migrate_drop_unused_youtube_domain_removes_only_unreferenced_rows() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
+
+        migrate_drop_unused_youtube_domain(&conn).expect("cleanup");
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0, "unreferenced youtube.com domain should be dropped");
+
+        ensure_web_domain(&conn, "youtube.com").expect("re-ensure domain");
+        conn.execute(
+            "INSERT INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at)
+             VALUES ('@chan', '@chan', 'youtube.com', 0, NULL, NULL, 1)",
+            [],
+        )
+        .expect("insert profile");
+
+        migrate_drop_unused_youtube_domain(&conn).expect("cleanup again");
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1, "youtube.com domain referenced by a profile must be kept");
+    }
+
+    #[test]
     fn query_articles_for_domain_returns_domain_articles() {
         let conn = build_in_memory_db();
         ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
@@ -2721,5 +2841,67 @@ mod tests {
     #[test]
     fn task_chunks_from_json_returns_none_for_invalid_json() {
         assert!(task_chunks_from_json("not-json", "summary").is_none());
+    }
+
+    #[test]
+    fn filter_existing_article_urls_returns_existing_case_sensitive() {
+        let conn = build_in_memory_db();
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed) VALUES (?1, ?2, ?3, ?4, ?3, 0)",
+            params!["v1", "https://www.youtube.com/watch?v=AbC123XyZ", 1, "t1"],
+        )
+        .expect("insert");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed) VALUES (?1, ?2, ?3, ?4, ?3, 0)",
+            params!["v2", "https://www.youtube.com/watch?v=abc123xyz", 2, "t2"],
+        )
+        .expect("insert");
+
+        // exact match preserves v case, case-variant is distinct
+        let urls = vec![
+            "https://www.youtube.com/watch?v=AbC123XyZ".to_string(),
+            "https://www.youtube.com/watch?v=abc123xyz".to_string(),
+            "https://www.youtube.com/watch?v=ABC123XYZ".to_string(),
+            "https://www.youtube.com/watch?v=missing".to_string(),
+        ];
+        let placeholders = urls.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let mut stmt = conn.prepare(&sql).expect("prepare");
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(urls.iter()), |r| r.get::<_, String>(0))
+            .expect("query");
+        let mut existing: Vec<String> = rows.map(|r| r.expect("row")).collect();
+        existing.sort();
+        assert_eq!(
+            existing,
+            vec![
+                "https://www.youtube.com/watch?v=AbC123XyZ",
+                "https://www.youtube.com/watch?v=abc123xyz"
+            ]
+        );
+        // ensure case-variant not falsely matched
+        assert!(!existing.contains(&"https://www.youtube.com/watch?v=ABC123XYZ".to_string()));
+    }
+
+    #[test]
+    fn filter_existing_article_urls_is_case_sensitive_via_helper() {
+        let conn = build_in_memory_db();
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed) VALUES (?1, ?2, ?3, ?4, ?3, 0)",
+            params!["v1", "https://www.youtube.com/watch?v=AbC", 1, "t1"],
+        )
+        .expect("insert");
+        let urls = vec!["https://www.youtube.com/watch?v=abc".to_string()];
+        let placeholders = urls.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let mut stmt = conn.prepare(&sql).expect("prepare");
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(urls.iter()), |r| r.get::<_, String>(0))
+            .expect("query");
+        let existing: Vec<String> = rows.map(|r| r.expect("row")).collect();
+        assert!(
+            existing.is_empty(),
+            "lowercased v should not match stored mixed-case ID"
+        );
     }
 }

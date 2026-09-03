@@ -15,6 +15,7 @@
 	} from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
@@ -106,6 +107,15 @@
 			goto(`/youtube/${encodeURIComponent(article.url)}`);
 		}
 	}
+
+	async function handleFetchMissingVideos() {
+		if (scrapStore.isFetchingMissingVideos || !profileId) return;
+		try {
+			await scrapStore.fetchMissingProfileVideos(profileId);
+		} catch (error) {
+			console.error('Failed to fetch missing profile videos', error);
+		}
+	}
 </script>
 
 <svelte:window onclick={handleClickOutside} />
@@ -125,6 +135,24 @@
 		>
 			<Icon name="Trash" size={24} />
 		</button>
+		<div class="sync-group">
+			<button
+				type="button"
+				class="back-btn"
+				onclick={handleFetchMissingVideos}
+				disabled={scrapStore.isFetchingMissingVideos || loading}
+				aria-label="Fetch missing videos"
+				title={scrapStore.parallelFetch
+					? `Fetch missing videos (parallel x${scrapStore.parallelVideosAmount})`
+					: `Fetch missing videos (sequential) – max ${scrapStore.maxVideos}`}
+			>
+				{#if scrapStore.isFetchingMissingVideos}
+					<Icon name="Loader2" size={24} class="spin" />
+				{:else}
+					<Icon name="RefreshCw" size={24} />
+				{/if}
+			</button>
+		</div>
 		<div bind:this={summaryWrapperEl} class="summary-wrapper">
 			<button
 				type="button"
@@ -266,6 +294,22 @@
 	.delete-btn:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	.sync-group {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-right: 0.75rem;
+	}
+
+	.sync-group .back-btn:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	:global(.spin) {
+		animation: spin 0.8s linear infinite;
 	}
 
 	.summary-wrapper {

@@ -53,8 +53,8 @@
 		background-image: linear-gradient(
 			120deg,
 			rgb(from var(--primary-color) r g b / 0.08) 0%,
-			rgb(from var(--primary-color) r g b / 0.24) 50%,
-			rgb(from var(--primary-color) r g b / 0.08) 100%
+			rgb(from var(--bg-color) r g b / 0.24) 50%,
+			rgb(from var(--bg-color) r g b / 0.08) 100%
 		);
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
 		border-left: none;

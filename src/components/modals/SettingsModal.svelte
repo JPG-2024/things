@@ -2,6 +2,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
 
 	const providerOptions = [
 		{ label: 'Llama', value: 'llama' },
@@ -40,6 +41,47 @@
 		<div class="field">
 			<label for="aiModel">AI Model</label>
 			<input id="aiModel" type="text" bind:value={viewState.aiModel} />
+		</div>
+	</div>
+	<div class="inference-section">
+		<h3>Scraping</h3>
+		<div class="field checkbox-field">
+			<label>
+				<input type="checkbox" bind:checked={scrapStore.parallelFetch} />
+				Parallel Fetch
+			</label>
+		</div>
+		<div class="field">
+			<label for="scrap-maxVideos">Max Videos</label>
+			<input
+				id="scrap-maxVideos"
+				type="number"
+				min="1"
+				max="50"
+				value={scrapStore.maxVideos}
+				oninput={(e) => {
+					const v = Number((e.target as HTMLInputElement).value);
+					scrapStore.maxVideos = Math.min(50, Math.max(1, Math.trunc(isNaN(v) ? 5 : v)));
+				}}
+			/>
+		</div>
+		<div class="field">
+			<label for="scrap-parallelAmount">Parallel Videos Amount</label>
+			<input
+				id="scrap-parallelAmount"
+				type="number"
+				min="1"
+				max="10"
+				value={scrapStore.parallelVideosAmount}
+				disabled={!scrapStore.parallelFetch}
+				oninput={(e) => {
+					const v = Number((e.target as HTMLInputElement).value);
+					scrapStore.parallelVideosAmount = Math.min(
+						10,
+						Math.max(1, Math.trunc(isNaN(v) ? 2 : v))
+					);
+				}}
+			/>
 		</div>
 	</div>
 </div>
@@ -101,5 +143,23 @@
 	.field input:focus {
 		outline: none;
 		border-color: var(--primary-color, #fae4c0);
+	}
+
+	.field input:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.checkbox-field label {
+		flex-direction: row;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+	}
+
+	.checkbox-field input[type='checkbox'] {
+		width: 16px;
+		height: 16px;
+		padding: 0;
 	}
 </style>

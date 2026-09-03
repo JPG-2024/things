@@ -41,7 +41,7 @@ class ViewState {
 	processingUrl = $state(false);
 	subStatus = $state<string | null>(null);
 	showAllTasks = $state(false);
-	collapseProfiles = $state(true);
+	collapseProfiles = $state(false);
 	selectedTaskId = $state('title-summary');
 	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryLayoutIndex = $state(1);

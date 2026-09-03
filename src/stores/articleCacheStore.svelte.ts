@@ -10,7 +10,7 @@ import {
 const CACHE_TTL = 60_000;
 const PROFILES_PAGE_SIZE = 20;
 const ARTICLES_PAGE_SIZE = 20;
-const ARTICLE_COUNT_PER_PROFILE = 10;
+const ARTICLES_PER_PROFILE = 5;
 const ARTICLE_COUNT_PER_CATEGORY = 20;
 
 class ArticleCacheStore {
@@ -73,7 +73,7 @@ class ArticleCacheStore {
 				offset,
 				limit: PROFILES_PAGE_SIZE,
 				includeArticles: true,
-				articleCount: ARTICLE_COUNT_PER_PROFILE
+				articleCount: ARTICLES_PER_PROFILE
 			});
 
 			if (fetchId !== this.profilesFetchId) {

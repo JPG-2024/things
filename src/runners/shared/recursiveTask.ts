@@ -94,6 +94,34 @@ function splitContent(content: string, chunking: Chunking) {
 	});
 }
 
+const MAX_WINDOW_DIVISOR = 8;
+const WINDOW_DIVISOR_LADDER = [1, 2, 4, 8];
+
+function nextWindowDivisor(divisor: number): number {
+	return WINDOW_DIVISOR_LADDER.find((l) => l > divisor) ?? MAX_WINDOW_DIVISOR;
+}
+
+function isContextSizeError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	if (/exceed_context_size_error|exceeds the available context size/iu.test(message)) {
+		return true;
+	}
+	const payload = (error as { payload?: unknown } | undefined)?.payload;
+	if (payload && typeof payload === 'object') {
+		const p = payload as Record<string, unknown>;
+		const inner = (p.error ?? p) as Record<string, unknown> | undefined;
+		if (
+			inner &&
+			(inner.type === 'exceed_context_size_error' ||
+				(typeof inner.message === 'string' &&
+					/exceeds the available context size/iu.test(inner.message)))
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function resolveModel(options: RecursiveTaskOptions): string {
 	const completionModel = options.completionOptions?.model;
 	return (
@@ -165,29 +193,46 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			output: RECURSIVE_OUTPUT_SCHEMA,
 			run: async ({ state, update }) => {
 				const content = requireStringState(state, sourceDependency);
-				const chunksResult = splitContent(content, chunking);
-				const sections = chunksResult.map((c) => c.text);
-				const chunkOffsets = chunksResult.map((c) => ({
-					startOffset: c.startOffset,
-					endOffset: c.endOffset
-				}));
+				let currentChunking: Chunking = { ...chunking };
 
-				const chunks: RecursiveChunk[] = [];
+				while (true) {
+					try {
+						const chunksResult = splitContent(content, currentChunking);
+						const sections = chunksResult.map((c) => c.text);
+						const chunkOffsets = chunksResult.map((c) => ({
+							startOffset: c.startOffset,
+							endOffset: c.endOffset
+						}));
 
-				for (let i = 0; i < sections.length; i++) {
-					const result = await processor.processChunk(sections[i], i);
-					chunks.push({ key: chunkOffsets[i], data: result });
-					update({
-						data: { chunks: [...chunks], finalResponse: '' }
-					});
+						const chunks: RecursiveChunk[] = [];
+
+						for (let i = 0; i < sections.length; i++) {
+							const result = await processor.processChunk(sections[i], i);
+							chunks.push({ key: chunkOffsets[i], data: result });
+							update({
+								data: { chunks: [...chunks], finalResponse: '' }
+							});
+						}
+
+						const finalResponse = await processor.combineChunks(
+							chunks.flatMap((c) => c.data),
+							sections
+						);
+
+						return { chunks, finalResponse };
+					} catch (error) {
+						console.log(error);
+						const divisor = currentChunking.windowDivisor;
+						if (
+							!isContextSizeError(error) ||
+							divisor === undefined ||
+							divisor >= MAX_WINDOW_DIVISOR
+						) {
+							throw error;
+						}
+						currentChunking = { ...currentChunking, windowDivisor: nextWindowDivisor(divisor) };
+					}
 				}
-
-				const finalResponse = await processor.combineChunks(
-					chunks.flatMap((c) => c.data),
-					sections
-				);
-
-				return { chunks, finalResponse };
 			}
 		})
 	);

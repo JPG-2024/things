@@ -9,6 +9,7 @@
 	} from '@/lib/utils/ttsService';
 	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import Icon from '@/components/Icon.svelte';
+	import WheelStage from '@/components/WheelStage.svelte';
 	import Dropdown from '../inputs/Dropdown.component.svelte';
 	import Input from '../inputs/Input.component.svelte';
 	import Button from '../inputs/Button.component.svelte';
@@ -67,10 +68,6 @@
 		onSaveProfile,
 		onDeleteProfile
 	}: Props = $props();
-
-	const ITEM_HEIGHT = 80;
-	const STAGE_HEIGHT = 360;
-	const WHEEL_THRESHOLD = 40;
 
 	let draftProfileId = $state('');
 	let draftAudioFile = $state('');
@@ -183,19 +180,6 @@
 	function shift(delta: number) {
 		if (filteredProfiles.length === 0) return;
 		draftProfileId = clampId(draftProfileIndex + delta);
-	}
-
-	function handleWheel(e: WheelEvent) {
-		if (panelView !== 'wheel') return;
-		if (filteredProfiles.length === 0) return;
-		e.preventDefault();
-		const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-		if (Math.abs(delta) < WHEEL_THRESHOLD) return;
-		if (delta > 0) {
-			shift(1);
-		} else {
-			shift(-1);
-		}
 	}
 
 	function handleItemClick(index: number) {
@@ -342,13 +326,17 @@
 		})
 	);
 
-	function itemStyle(index: number): string {
-		const offset = index - draftProfileIndex;
-		const abs = Math.abs(offset);
-		const scale = abs === 0 ? 1.15 : abs === 1 ? 0.82 : abs === 2 ? 0.66 : 0.52;
-		const opacity = abs === 0 ? 1 : abs === 1 ? 0.55 : abs === 2 ? 0.3 : 0.12;
-		const translateY = `calc(-50% + ${offset * ITEM_HEIGHT}px)`;
-		return `transform: translate(-50%, -50%) translateY(${offset * ITEM_HEIGHT}px) scale(${scale}); opacity: ${opacity};`;
+	function autoScroll(node: HTMLElement, selected: boolean) {
+		function apply(isSelected: boolean) {
+			if (isSelected)
+				node.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+		}
+		apply(selected);
+		return {
+			update(newSelected: boolean) {
+				apply(newSelected);
+			}
+		};
 	}
 
 	const SPLIT_OPTIONS = [
@@ -373,7 +361,6 @@
 			tabindex="-1"
 			transition:scale={{ start: 0.85, duration: 180 }}
 			onclick={(e) => e.stopPropagation()}
-			onwheel={handleWheel}
 		>
 			<button
 				class="close-btn"
@@ -386,10 +373,6 @@
 
 			<div class="wheel-grid">
 				<div class="config-column">
-					<div class="wheel-header">
-						<Icon name="SlidersVertical" size={26} color={viewState.primaryColor} />
-						<h2>Voice & synthesis</h2>
-					</div>
 					<Spacer title="Chunk" icon="Podcast" defaultOpen={false}>
 						<div class="row">
 							<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
@@ -619,18 +602,17 @@
 								<p class="empty-hint">Try a different filter.</p>
 							</div>
 						{:else}
-							<div class="stage" style="--stage-height: {STAGE_HEIGHT}px;">
-								<div class="guide guide-top"></div>
-								<div class="guide guide-bottom"></div>
+							<WheelStage gap={16} scrollSpeed={3}>
 								{#each filteredProfiles as profile, i (profile.id)}
+									{@const isSelected = profile.id === draftProfileId}
 									<button
 										type="button"
 										class="wheel-item"
-										class:active={i === draftProfileIndex}
-										style={itemStyle(i)}
+										class:selected={isSelected}
+										use:autoScroll={isSelected}
 										onclick={() => handleItemClick(i)}
 										aria-label={profile.name_prefix}
-										aria-pressed={i === draftProfileIndex}
+										aria-pressed={isSelected}
 									>
 										<div class="avatar-wrap">
 											{#if profile.image_src}
@@ -653,30 +635,24 @@
 										</div>
 									</button>
 								{/each}
-							</div>
-
-							<div class="counter">
-								<span class="counter-current">{draftProfileIndex + 1}</span>
-								<span class="counter-sep">/</span>
-								<span class="counter-total">{filteredProfiles.length}</span>
-							</div>
-						{/if}
-
-						{#if mode === 'main'}
-							<div class="voice-form-actions">
-								<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
-								<Button
-									icon="UserRoundPen"
-									disabled={filteredProfiles.length === 0}
-									onClick={openEditPanel}
-								>
-									Edit voice
-								</Button>
-							</div>
+							</WheelStage>
 						{/if}
 					{/if}
 				</div>
 			</div>
+
+			{#if mode === 'main' && panelView === 'wheel'}
+				<div class="voice-form-actions">
+					<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
+					<Button
+						icon="UserRoundPen"
+						disabled={filteredProfiles.length === 0}
+						onClick={openEditPanel}
+					>
+						Edit voice
+					</Button>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -696,7 +672,7 @@
 
 	.wheel-modal {
 		position: relative;
-		width: fit-content;
+		width: 100%;
 		max-width: 92vw;
 		min-width: 680px;
 		min-height: 100vh;
@@ -704,7 +680,7 @@
 		background: rgba(14, 14, 14, 0.98);
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: var(--radius-lg);
-		padding: 2rem 1.5rem 1.5rem;
+		padding: 2rem 1.5rem 4.5rem;
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
@@ -714,35 +690,32 @@
 	}
 
 	.wheel-grid {
-		display: grid;
-		grid-template-columns: 320px 280px;
+		display: flex;
+		flex-direction: column;
 		gap: 1.5rem;
-		align-items: start;
+		align-items: stretch;
 	}
 
 	.config-column {
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		width: 100%;
+		max-width: 420px;
+		margin-inline: auto;
 	}
 
 	.profiles-column {
 		display: flex;
 		flex-direction: column;
+		order: -1;
 		gap: 0.5rem;
+		width: 100%;
 	}
 
 	@media (max-width: 700px) {
 		.wheel-modal {
-			min-width: 320px;
-		}
-
-		.wheel-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.profiles-column {
-			order: -1;
+			min-width: 90vw;
 		}
 	}
 
@@ -769,24 +742,11 @@
 		background-color: rgba(255, 255, 255, 0.1);
 	}
 
-	.wheel-header {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.6rem;
-		color: var(--primary-color);
-	}
-
-	.wheel-header h2 {
-		margin: 0;
-		font-size: 1.05rem;
-		font-weight: 600;
-		color: white;
-	}
-
 	.filter-wrap {
 		position: relative;
 		width: 100%;
+		max-width: 420px;
+		margin-inline: auto;
 	}
 
 	.filter-clear {
@@ -814,47 +774,10 @@
 		color: white;
 	}
 
-	.stage {
-		position: relative;
-		height: 80vh;
-		width: 100%;
-		overflow: hidden;
-		-webkit-mask-image: linear-gradient(
-			to bottom,
-			transparent 0%,
-			black 14%,
-			black 90%,
-			transparent 100%
-		);
-		mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 78%, transparent 100%);
-	}
-
-	.guide {
-		position: absolute;
-		left: 8%;
-		right: 8%;
-		height: 1px;
-		background: color-mix(in srgb, var(--bg-color) 35%, transparent);
-		pointer-events: none;
-		z-index: 1;
-	}
-
-	.guide-top {
-		top: calc(50% - 56px);
-	}
-
-	.guide-bottom {
-		top: calc(50% + 56px);
-	}
-
 	.wheel-item {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform-origin: center center;
+		flex: 0 0 auto;
 		display: flex;
 		align-items: center;
-
 		gap: 1rem;
 		padding: 0.5rem 0.75rem;
 		background: transparent;
@@ -862,14 +785,15 @@
 		color: inherit;
 		font: inherit;
 		cursor: pointer;
-		transition:
-			transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			opacity 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
-		will-change: transform, opacity;
+		transition: background-color 0.2s ease;
 		border-radius: var(--radius-lg);
 	}
 
-	.wheel-item.active {
+	.wheel-item:hover {
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.wheel-item.selected {
 		cursor: default;
 	}
 
@@ -882,7 +806,7 @@
 		transition: box-shadow 240ms ease;
 	}
 
-	.wheel-item.active .avatar-wrap {
+	.wheel-item.selected .avatar-wrap {
 		box-shadow: 0 0 0 2px var(--primary-color);
 	}
 
@@ -927,26 +851,8 @@
 		letter-spacing: 0.05em;
 	}
 
-	.wheel-item:not(.active) .meta {
+	.wheel-item:not(.selected) .meta {
 		opacity: 0.85;
-	}
-
-	.counter {
-		display: flex;
-		justify-content: center;
-		gap: 0.25rem;
-		font-size: 0.8rem;
-		opacity: 0.6;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.counter-current {
-		color: var(--primary-color);
-		font-weight: 600;
-	}
-
-	.counter-sep {
-		opacity: 0.4;
 	}
 
 	.row {
@@ -1026,6 +932,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+		width: 100%;
+		max-width: 420px;
+		margin-inline: auto;
 		padding: 0.25rem 0.25rem 1rem;
 	}
 
@@ -1080,8 +989,10 @@
 	}
 
 	.voice-form-actions {
+		position: absolute;
+		right: 1.5rem;
+		bottom: 1.5rem;
 		display: flex;
-		justify-content: center;
 		gap: 1rem;
 	}
 

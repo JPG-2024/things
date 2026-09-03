@@ -22,6 +22,8 @@ export interface YouTubeRunnerCallConfig {
 	cachedTasks?: PersistedTaskState[] | null;
 	Rebuild?: boolean;
 	makeActive?: boolean;
+	skipTaskIds?: string[];
+	profileId?: string;
 }
 
 function extractVideoId(url: string): string | null {
@@ -181,13 +183,16 @@ export async function youTubeRunner(
 	const cleanUrl = url;
 	const initialTasks = buildYouTubeInitialTasks(cleanUrl);
 	const domainUrl = viewState.domainUrl ?? '';
-
+	const normalizedRunnerProfileId = config?.profileId?.trim()
+		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-')
+		: undefined;
 	scrapStore.currentYoutubeProfile = null;
 
 	return runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
+		skipTaskIds: config?.skipTaskIds,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const profileData = runResult.tasks.find((t) => t.id === 'profile')?.data as
@@ -200,8 +205,13 @@ export async function youTubeRunner(
 				  }
 				| undefined;
 
+			const profileIdForArticle = profileData?.id ?? normalizedRunnerProfileId;
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks, profileData ? { profile: profileData.id } : undefined),
+				saveArticle(
+					cleanUrl,
+					runResult.tasks,
+					profileIdForArticle ? { profile: profileIdForArticle } : undefined
+				),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 

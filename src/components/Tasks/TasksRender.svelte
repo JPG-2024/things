@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
-	import TaskError from '@/components/Tasks/TaskError.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -197,13 +196,13 @@
 				</div>
 			{:else if task.status === 'failed'}
 				<div
-					class="task-wrapper content-task-wrapper task-wrapper--error"
+					class="task-wrapper content-task-wrapper"
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
 					role="group"
 				>
-					<TaskError {task} runId={contentTask.runId} />
+					<BaseTaskComponent {task} runId={contentTask.runId} {componentProps} />
 				</div>
 			{/if}
 		{/if}
@@ -276,14 +275,14 @@
 					</div>
 				{:else if task.status === 'failed'}
 					<div
-						class="task-wrapper task-wrapper--error"
+						class="task-wrapper"
 						class:span-full={task.gridSpan === 2}
 						onmouseenter={() => {
 							viewState.selectedTaskId = task.id;
 						}}
 						role="group"
 					>
-						<TaskError {task} runId={entry.runId} />
+						<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
 					</div>
 				{/if}
 			{/if}
@@ -336,10 +335,6 @@
 
 	.content-task-wrapper {
 		width: 100%;
-	}
-
-	.task-wrapper--error {
-		align-items: stretch;
 	}
 
 	.task-wrapper.span-full {
