@@ -19,7 +19,7 @@ type WebRunnerOptions = {
 
 function deriveDomainFromUrl(url: string): string {
 	try {
-		return new URL(url).hostname;
+		return new URL(url).hostname.replace(/^www\./i, '');
 	} catch {
 		return '';
 	}
@@ -56,7 +56,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		persist: true,
 		run: async (runtime) => {
 			const initData = runtime.getTaskData('init-web') as { domainUrl: string; url: string };
-			const domainUrl = new URL(initData.domainUrl).hostname;
+			const domainUrl = new URL(initData.domainUrl).hostname.replace(/^www\./i, '');
 			const favicon = await downloadFavicon(domainUrl);
 			await saveDomain(domainUrl, favicon?.src ?? null, initData.url);
 			return {

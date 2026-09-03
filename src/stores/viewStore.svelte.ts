@@ -100,7 +100,7 @@ class ViewState {
 
 	domainUrl = $derived(
 		this.url && /^https?:\/\//.test(this.url)
-			? new URL(this.url).hostname
+			? new URL(this.url).hostname.replace(/^www\./i, '')
 			: this.isRawMode
 				? 'raw-text'
 				: null

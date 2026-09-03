@@ -284,6 +284,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_article_ids_to_youtube_v(conn)?;
     migrate_channels_to_web_profiles(conn)?;
     migrate_drop_unused_youtube_domain(conn)?;
+    migrate_strip_www_domains(conn)?;
 
     Ok(())
 }
@@ -460,6 +461,87 @@ fn migrate_drop_unused_youtube_domain(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn migrate_strip_www_domains(conn: &Connection) -> Result<(), String> {
+    let www_ids: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT id FROM web_domains WHERE id LIKE 'www.%' COLLATE NOCASE")
+            .map_err(|error| error.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| error.to_string())?;
+        let mut out = Vec::new();
+        for result in rows {
+            out.push(result.map_err(|error| error.to_string())?);
+        }
+        out
+    };
+
+    for www_id in www_ids {
+        let target = strip_www_prefix(&www_id);
+        let target_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM web_domains WHERE id = ?1 COLLATE NOCASE",
+                params![target],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !target_exists {
+            conn.execute(
+                "INSERT INTO web_domains (id, name, count, profile_picture, url, updated_at)
+                 SELECT ?1, ?1, count, profile_picture, url, updated_at
+                 FROM web_domains WHERE id = ?2 COLLATE NOCASE",
+                params![target, www_id],
+            )
+            .map_err(|error| error.to_string())?;
+        } else {
+            conn.execute(
+                "UPDATE web_domains SET profile_picture = (
+                     SELECT profile_picture FROM web_domains WHERE id = ?2 COLLATE NOCASE
+                 )
+                 WHERE id = ?1 COLLATE NOCASE
+                   AND profile_picture IS NULL
+                   AND (SELECT profile_picture FROM web_domains WHERE id = ?2 COLLATE NOCASE) IS NOT NULL",
+                params![target, www_id],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+
+        conn.execute(
+            "UPDATE web_articles SET domain = ?1 WHERE domain = ?2 COLLATE NOCASE",
+            params![target, www_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+        conn.execute(
+            "UPDATE web_profiles SET domain_id = ?1 WHERE domain_id = ?2 COLLATE NOCASE",
+            params![target, www_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+        conn.execute(
+            "INSERT OR IGNORE INTO web_profile_templates (profile_id, template_id, updated_at)
+             SELECT ?1, template_id, updated_at
+             FROM web_profile_templates WHERE profile_id = ?2 COLLATE NOCASE",
+            params![target, www_id],
+        )
+        .map_err(|error| error.to_string())?;
+        conn.execute(
+            "DELETE FROM web_profile_templates WHERE profile_id = ?1 COLLATE NOCASE",
+            params![www_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+        conn.execute(
+            "DELETE FROM web_domains WHERE id = ?1 COLLATE NOCASE",
+            params![www_id],
+        )
+        .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
 fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
     let has_old_articles: bool = conn.query_row(
         "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='articles'",
@@ -587,11 +669,19 @@ fn chrono_like_now() -> i64 {
         .unwrap_or_default()
 }
 
+fn strip_www_prefix(host: &str) -> String {
+    let lower = host.to_lowercase();
+    lower
+        .strip_prefix("www.")
+        .map(ToOwned::to_owned)
+        .unwrap_or(lower)
+}
+
 fn domain_from_url(url: &str) -> Option<String> {
     reqwest::Url::parse(url.trim())
         .ok()?
         .host_str()
-        .map(|host| host.to_lowercase())
+        .map(strip_www_prefix)
 }
 
 fn article_id_for_url(url: &str) -> String {
@@ -2621,6 +2711,103 @@ mod tests {
             "https://example.com/article?id=123"
         );
         assert_eq!(article_id_for_url("raw-abc"), "raw-abc");
+    }
+
+    #[test]
+    fn domain_from_url_strips_www_prefix() {
+        assert_eq!(
+            domain_from_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ").as_deref(),
+            Some("youtube.com")
+        );
+        assert_eq!(
+            domain_from_url("https://youtube.com/watch?v=dQw4w9WgXcQ").as_deref(),
+            Some("youtube.com")
+        );
+        assert_eq!(
+            domain_from_url("https://example.com/post").as_deref(),
+            Some("example.com")
+        );
+        assert_eq!(
+            domain_from_url("https://m.example.com/post").as_deref(),
+            Some("m.example.com")
+        );
+        assert_eq!(domain_from_url("not a url"), None);
+    }
+
+    #[test]
+    fn migrate_strip_www_domains_merges_www_domain_into_existing() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, "www.youtube.com").expect("ensure www domain");
+        ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
+
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES ('v1', 'https://www.youtube.com/watch?v=v1', 'www.youtube.com', 1, 't1', 1, 0)",
+            [],
+        )
+        .expect("insert article");
+
+        migrate_strip_www_domains(&conn).expect("migrate");
+
+        let www_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'www.youtube.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(www_count, 0, "www domain row must be removed");
+
+        let domain: Option<String> = conn
+            .query_row(
+                "SELECT domain FROM web_articles WHERE id = 'v1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(domain.as_deref(), Some("youtube.com"));
+    }
+
+    #[test]
+    fn migrate_strip_www_domains_renames_when_target_missing() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, "www.example.com").expect("ensure www domain");
+
+        conn.execute(
+            "INSERT INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at)
+             VALUES ('@chan', '@chan', 'www.example.com', 0, NULL, NULL, 1)",
+            [],
+        )
+        .expect("insert profile");
+
+        migrate_strip_www_domains(&conn).expect("migrate");
+
+        let www_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'www.example.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(www_count, 0);
+
+        let domain_id: String = conn
+            .query_row(
+                "SELECT domain_id FROM web_profiles WHERE id = '@chan'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(domain_id, "example.com");
+
+        let domain_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'example.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(domain_count, 1);
     }
 
     #[test]

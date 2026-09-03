@@ -552,6 +552,13 @@ export function isDomainId(id: string): boolean {
 	return !id.includes('@') && /^[\w-]+(\.[\w-]+)+$/.test(id);
 }
 
+export function normalizeDomainId(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/\s+/g, '-')
+		.replace(/^www\./, '');
+}
+
 function domainRecordToArticleProfile(record: WebStoreDomainRecord): ArticleProfile {
 	return {
 		id: record.id,
@@ -868,7 +875,7 @@ export async function saveDomain(
 	url: string | null = null
 ): Promise<unknown> {
 	try {
-		const normalizedId = domainId.toLowerCase().replace(/\s+/g, '-');
+		const normalizedId = normalizeDomainId(domainId);
 		return await invoke('upsert_web_store_domain', {
 			input: {
 				id: normalizedId,
@@ -889,7 +896,7 @@ export async function saveProfile(
 	domainId: string | null = null
 ): Promise<unknown> {
 	try {
-		const normalizedId = profileId.toLowerCase().replace(/\s+/g, '-');
+		const normalizedId = normalizeDomainId(profileId);
 
 		if (isDomainId(normalizedId)) {
 			return await saveDomain(normalizedId, profilePicture, url);
@@ -899,7 +906,7 @@ export async function saveProfile(
 			input: {
 				id: normalizedId,
 				name: normalizedId,
-				domainId: (domainId ?? 'youtube.com').toLowerCase().replace(/\s+/g, '-'),
+				domainId: normalizeDomainId(domainId ?? 'youtube.com'),
 				profilePicture,
 				url
 			}

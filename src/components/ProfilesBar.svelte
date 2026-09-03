@@ -99,7 +99,7 @@
 	{#if isLoading && profiles.length === 0}
 		<span class="profiles-bar-loading"></span>
 	{:else}
-		<button
+		<!-- 		<button
 			type="button"
 			class="profile-btn add-profile-btn"
 			onclick={handleOpenAddModal}
@@ -108,7 +108,7 @@
 			<Tooltip content="Add profile">
 				<span class="add-profile-icon">+</span>
 			</Tooltip>
-		</button>
+		</button> -->
 		{#each filteredProfiles as profile (profile.id)}
 			{#if profile.profilePictureSrc}
 				<button
