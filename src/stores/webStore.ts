@@ -335,6 +335,10 @@ export function parseKeywords(data: unknown): string[] {
 			return record.keywords.map((keyword) => String(keyword).trim()).filter(Boolean);
 		}
 
+		if (Array.isArray(record.finalResponse)) {
+			return record.finalResponse.map((keyword) => String(keyword).trim()).filter(Boolean);
+		}
+
 		return Object.values(record)
 			.filter((value): value is string => typeof value === 'string')
 			.map((value) => value.trim())

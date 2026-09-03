@@ -45,6 +45,7 @@ class ViewState {
 	selectedTaskId = $state('title-summary');
 	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryLayoutIndex = $state(1);
+	taskMasonryLayoutIndex = $state(2);
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);

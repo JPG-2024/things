@@ -268,6 +268,19 @@ export function requireStringState(
 	return value;
 }
 
+export function requireFinalResponseString(
+	state: Readonly<Record<string, unknown>>,
+	taskId: string
+): string {
+	const value = state[taskId];
+	if (typeof value === 'string') return value;
+	if (value && typeof value === 'object') {
+		const finalResponse = (value as Record<string, unknown>).finalResponse;
+		if (typeof finalResponse === 'string') return finalResponse;
+	}
+	throw new Error(`Missing content from dependency "${taskId}"`);
+}
+
 export function createContentGetter<TContentKey extends string>(contentTaskName: TContentKey) {
 	return function getContentFromState(state: Readonly<Record<string, unknown>>): string {
 		const value = state[contentTaskName];

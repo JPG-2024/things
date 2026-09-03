@@ -15,7 +15,12 @@ function extractSummary(article: ArticleWithTasks): string | null {
 	const summary = article.persistedTasks?.find(
 		(t) => t.id === 'title-summary' || t.id === 'summary'
 	)?.data;
-	return typeof summary === 'string' && summary.trim() ? summary.trim() : null;
+	if (typeof summary === 'string' && summary.trim()) return summary.trim();
+	if (summary && typeof summary === 'object') {
+		const finalResponse = (summary as Record<string, unknown>).finalResponse;
+		if (typeof finalResponse === 'string' && finalResponse.trim()) return finalResponse.trim();
+	}
+	return null;
 }
 
 export function collectArticleTexts(articles: ArticleWithTasks[]): string[] {

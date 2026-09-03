@@ -53,7 +53,7 @@
 	<Label text={label} position={labelPosition}>
 		{#if search}
 			<div class="search-wrapper">
-				<Icon name="Search" size={16} color="gray" />
+				<Icon name="Search" size={16} color="#a1a1a1" />
 				<input
 					{id}
 					class="text-input search-input"
@@ -82,7 +82,7 @@
 	</Label>
 {:else if search}
 	<div class="search-wrapper">
-		<Icon name="Search" size={14} color="gray" />
+		<Icon name="Search" size={16} color="#a1a1a1" />
 		<input
 			{id}
 			class="text-input search-input"
@@ -148,11 +148,17 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
+		isolation: isolate;
 	}
 
 	.search-wrapper :global(svg) {
 		position: absolute;
 		left: 0.8rem;
+		top: 50%;
+		transform: translateY(-50%);
+		display: block;
+		flex-shrink: 0;
+		z-index: 1;
 		pointer-events: none;
 	}
 

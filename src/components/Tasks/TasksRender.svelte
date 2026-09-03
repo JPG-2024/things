@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -25,15 +26,6 @@
 	const otherTasks = $derived(sortedTasks.filter((e) => e.task.id !== 'content'));
 
 	const taskHeights = $state<Record<string, number>>({});
-
-	function measureDoneHeight(node: HTMLDivElement, key: string) {
-		if (!(key in taskHeights)) {
-			taskHeights[key] = node.offsetHeight;
-		}
-		return {
-			destroy() {}
-		};
-	}
 
 	const canGenerateTTS = $derived(
 		viewState.url !== null &&
@@ -208,93 +200,97 @@
 		{/if}
 	{/if}
 
-	<div class="tasks-grid">
-		{#each otherTasks as entry (`${entry.runId}:${entry.task.id}`)}
-			{@const task = entry.task}
-			{@const skipRender =
-				task.visible === false && task.status !== 'running' && task.status !== 'pending'}
-			{@const componentKey = task.component?.trim()}
-			{@const componentProps = task.componentProps}
-			{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-			{@const taskKey = `${entry.runId}:${entry.task.id}`}
+	{#if otherTasks.length > 0}
+		<MasonryGrid
+			items={otherTasks}
+			keyOf={(entry) => `${entry.runId}:${entry.task.id}`}
+			layoutIndex={viewState.taskMasonryLayoutIndex}
+			onLayoutIndexChange={(value) => {
+				viewState.taskMasonryLayoutIndex = value;
+			}}
+			spanOf={(entry) => entry.task.gridSpan ?? 1}
+		>
+			{#snippet children(entry)}
+				{@const task = entry.task}
+				{@const skipRender =
+					task.visible === false && task.status !== 'running' && task.status !== 'pending'}
+				{@const componentKey = task.component?.trim()}
+				{@const componentProps = task.componentProps}
+				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+				{@const taskKey = `${entry.runId}:${entry.task.id}`}
 
-			{#if !skipRender}
-				{#if Renderer && task.status === 'done'}
-					<div
-						class="task-wrapper"
-						class:span-full={task.gridSpan === 2}
-						transition:fade={{ duration: 250 }}
-						onmouseenter={() => {
-							viewState.selectedTaskId = task.id;
-						}}
-						role="group"
-					>
-						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-							<Renderer {task} runId={entry.runId} {componentProps} />
-						</BaseTaskComponent>
-					</div>
-				{:else if task.status === 'running'}
-					<div
-						class="task-wrapper"
-						class:span-full={task.gridSpan === 2}
-						style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
-						onmouseenter={() => {
-							viewState.selectedTaskId = task.id;
-						}}
-						role="group"
-					>
-						<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
-							{#if Renderer}
+				{#if !skipRender}
+					{#if Renderer && task.status === 'done'}
+						<div
+							class="task-wrapper"
+							transition:fade={{ duration: 250 }}
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
 								<Renderer {task} runId={entry.runId} {componentProps} />
-							{/if}
-						</BaseTaskComponent>
-					</div>
-				{:else if task.status === 'editing'}
-					<div
-						class="task-wrapper"
-						class:span-full={task.gridSpan === 2}
-						transition:fade={{ duration: 250 }}
-						onmouseenter={() => {
-							viewState.selectedTaskId = task.id;
-						}}
-						role="group"
-					>
-						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-					</div>
-				{:else if task.status === 'pending'}
-					<div
-						class="task-wrapper"
-						class:span-full={task.gridSpan === 2}
-						transition:fade={{ duration: 250 }}
-						onmouseenter={() => {
-							viewState.selectedTaskId = task.id;
-						}}
-						role="group"
-					>
-						<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
-					</div>
-				{:else if task.status === 'failed'}
-					<div
-						class="task-wrapper"
-						class:span-full={task.gridSpan === 2}
-						onmouseenter={() => {
-							viewState.selectedTaskId = task.id;
-						}}
-						role="group"
-					>
-						<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
-					</div>
+							</BaseTaskComponent>
+						</div>
+					{:else if task.status === 'running'}
+						<div
+							class="task-wrapper"
+							style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={entry.runId} {componentProps}>
+								{#if Renderer}
+									<Renderer {task} runId={entry.runId} {componentProps} />
+								{/if}
+							</BaseTaskComponent>
+						</div>
+					{:else if task.status === 'editing'}
+						<div
+							class="task-wrapper"
+							transition:fade={{ duration: 250 }}
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+						</div>
+					{:else if task.status === 'pending'}
+						<div
+							class="task-wrapper"
+							transition:fade={{ duration: 250 }}
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={entry.runId} {componentProps}></BaseTaskComponent>
+						</div>
+					{:else if task.status === 'failed'}
+						<div
+							class="task-wrapper"
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={entry.runId} {componentProps} />
+						</div>
+					{/if}
 				{/if}
-			{/if}
-		{/each}
-	</div>
+			{/snippet}
+		</MasonryGrid>
+	{/if}
 </div>
 
 <!-- <div bind:this={bottomAnchor} aria-hidden="true"></div> -->
 
 <style>
 	.tasks-container {
-		container-type: inline-size;
 		width: 100%;
 		padding-top: 1rem;
 	}
@@ -311,39 +307,15 @@
 		content: '.';
 	}
 
-	.tasks-grid {
-		column-count: 1;
-		column-gap: 4rem;
-		column-fill: auto;
-		width: 100%;
-		padding: 0 2rem;
-	}
-
-	@container (min-width: 500px) {
-		.tasks-grid {
-			column-count: 2;
-		}
-	}
-
 	.task-wrapper {
 		min-width: 0;
 		display: flex;
 		align-items: flex-start;
-		padding-top: 2rem;
-		break-inside: avoid;
+		width: 100%;
+		padding: 5px;
 	}
 
 	.content-task-wrapper {
 		width: 100%;
-	}
-
-	.task-wrapper.span-full {
-		column-span: all;
-	}
-
-	.pending-placeholder {
-		padding: 1rem;
-		opacity: 0.5;
-		font-style: italic;
 	}
 </style>

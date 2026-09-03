@@ -24,13 +24,10 @@
 		background-color: transparent;
 		background-size: 200% 200%;
 		width: max-content;
-		padding: 4px 15px;
+		padding: 0 15px;
 		text-transform: capitalize;
 		font-size: 0.9rem;
 		border-left: 2px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
-	}
-
-	.pill.show-point::before {
 	}
 
 	.pill.show-point.loading::before {

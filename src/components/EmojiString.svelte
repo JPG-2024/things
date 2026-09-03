@@ -46,7 +46,6 @@
 	.emoji-string__text {
 		font-size: 1em;
 		line-height: 1.2;
-		font-family: Noto Sans;
 		color: white;
 		text-transform: capitalize;
 	}

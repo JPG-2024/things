@@ -80,7 +80,7 @@
 
 <div class="task-shell">
 	<div class="task-title-with-status">
-		<LuminousText mode="on">
+		<LuminousText mode="on" glowOpacity={0.5}>
 			<span class="task-title-name">{task.name ?? task.id}</span>
 		</LuminousText>
 		<div class="pill-container">

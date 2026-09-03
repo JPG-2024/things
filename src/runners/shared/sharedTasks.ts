@@ -1,12 +1,7 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
-import {
-	buildTask,
-	createCategoryTask,
-	createExtractionTask,
-	createSummaryTask,
-	createTitleTask
-} from '@/runners/shared/taskFactories';
+import { buildRecursiveTask } from '@/runners/shared/recursiveTask';
+import { buildTask, createCategoryTask, createTitleTask } from '@/runners/shared/taskFactories';
 import type { Task } from '@/types/taskRunner.types';
 import {
 	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
@@ -78,20 +73,21 @@ export async function generateCategoryDescription(name: string): Promise<string>
 }
 
 export function createDefaultTasks(contentDependency: string = 'content'): Task[] {
-	const summaryDef = createSummaryTask({
+	const summaryDef = buildRecursiveTask('summary', {
+		processorType: 'summarize',
 		dependencies: [contentDependency],
-		systemMessage:
-			'You are a professional content summarizer. Write a concise summary in 2-3 sentences.',
-		userMessage: 'Summarize the following content briefly 2 paraphs.',
 		persist: true,
-		renderOrder: 3
+		renderOrder: 3,
+		model: viewState.aiModel
 	});
 
-	const keywordsDef = createExtractionTask({
-		extractor: { count: 10, description: 'keywords' },
+	const keywordsDef = buildRecursiveTask('keywords', {
+		processorType: 'extraction',
+		extractorConfig: { count: 10, description: 'keywords' },
 		dependencies: [contentDependency],
 		persist: true,
-		renderOrder: 4
+		renderOrder: 4,
+		model: viewState.aiModel
 	});
 
 	const categoryDef = createCategoryTask({ persist: true, renderOrder: 5 });
@@ -103,8 +99,8 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 	});
 
 	return [
-		buildTask('summary', summaryDef),
-		buildTask('keywords', keywordsDef),
+		summaryDef,
+		keywordsDef,
 		buildTask('category', categoryDef),
 		buildTask('title', titleDef)
 	];

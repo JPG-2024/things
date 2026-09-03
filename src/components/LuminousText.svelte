@@ -6,14 +6,15 @@
 	interface Props {
 		children: Snippet;
 		mode?: string;
+		glowOpacity?: number;
 		size?: string;
 		onclick?: () => void;
 		[key: string]: unknown;
 	}
 
-	let { children, mode = 'off', size = '1em', onclick, ...restProps }: Props = $props();
+	let { children, mode = 'off', glowOpacity = 1, size = '1em', onclick, ...restProps }: Props = $props();
 
-	let glowIntensity = $state(mode === 'off' ? 0 : 1);
+	let glowIntensity = $state(mode === 'off' ? 0 : 0.2);
 
 	function triggerQuickBlink(): ReturnType<typeof setTimeout>[] {
 		const count = 2 + Math.floor(Math.random() * 6);
@@ -74,7 +75,7 @@
 
 <button
 	type="button"
-	style:--glow-opacity={glowIntensity}
+	style:--glow-opacity={glowIntensity * glowOpacity}
 	style:font-size={size}
 	{onclick}
 	{...restProps}

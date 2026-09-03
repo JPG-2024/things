@@ -53,7 +53,7 @@ export const DEFAULT_TITLE_COMPLETION_OPTIONS = {
 	max_tokens: 100,
 	frequency_penalty: 0.4,
 	presence_penalty: 0.2,
-	stop: ['\n', '. ', '? ', '! ', ': ']
+	stop: ['\n', '. ']
 } satisfies Record<string, unknown>;
 
 export const DEFAULT_WEB_COMPLETION_OPTIONS = {

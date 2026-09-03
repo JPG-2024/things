@@ -21,13 +21,19 @@
 		keyOf?: (item: T) => string;
 		children: Snippet<[T, number, number, LayoutKey]>;
 		headerLeft?: Snippet<[]>;
+		layoutIndex?: number;
+		onLayoutIndexChange?: (value: number) => void;
+		spanOf?: (item: T) => 1 | 2;
 	}
 
 	let {
 		items,
 		keyOf = (item: T) => (item as { url?: string | null }).url ?? '',
 		children,
-		headerLeft
+		headerLeft,
+		layoutIndex: layoutIndexProp,
+		onLayoutIndexChange,
+		spanOf
 	}: Props = $props();
 
 	let gridEl: HTMLDivElement;
@@ -45,7 +51,7 @@
 	// prevents subpixel measurement noise from oscillating spans (flicker)
 	const SHRINK_TOLERANCE = 1;
 
-	let layoutIndex = $derived(viewState.masonryLayoutIndex);
+	let layoutIndex = $derived(layoutIndexProp ?? viewState.masonryLayoutIndex);
 
 	const layouts: LayoutConfig[] = [
 		{ width: 1000, columns: 1, padding: '0.6rem', rowHeight: 50, key: 'row' },
@@ -53,14 +59,21 @@
 		{ width: 500, columns: 2, padding: '2rem', key: 'grid-2' }
 	];
 
-	let currentLayout = $derived(layouts[layoutIndex]);
+	let currentLayout = $derived(layouts[layoutIndex] ?? layouts[1]);
+
+	function setLayoutIndex(value: number) {
+		const next = Math.max(0, Math.min(value, layouts.length - 1));
+		if (next === layoutIndex) return;
+		if (onLayoutIndexChange) onLayoutIndexChange(next);
+		else viewState.masonryLayoutIndex = next;
+	}
 
 	function decreaseLayout() {
-		if (viewState.masonryLayoutIndex > 0) viewState.masonryLayoutIndex--;
+		setLayoutIndex(layoutIndex - 1);
 	}
 
 	function increaseLayout() {
-		if (viewState.masonryLayoutIndex < layouts.length - 1) viewState.masonryLayoutIndex++;
+		setLayoutIndex(layoutIndex + 1);
 	}
 
 	function getRowMetrics() {
@@ -273,7 +286,11 @@
 		class:fixed-row-layout={currentLayout.rowHeight !== undefined}
 	>
 		{#each items as item, i (keyOf(item))}
-			<div class="grid-item" bind:this={wrapperEls[i]}>
+			<div
+				class="grid-item"
+				class:span-full={(spanOf?.(item) ?? 1) === 2}
+				bind:this={wrapperEls[i]}
+			>
 				<div class="content">
 					{@render children(item, i, layoutIndex, currentLayout.key)}
 				</div>
@@ -311,6 +328,10 @@
 		min-width: 150px;
 		overflow: hidden;
 		border-radius: var(--radius-sm);
+	}
+
+	.grid-item.span-full {
+		grid-column: 1 / -1;
 	}
 
 	.content {

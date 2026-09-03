@@ -75,15 +75,16 @@
 		flex-shrink: 0;
 	}
 	.icon-glow.glow {
-		filter: drop-shadow(0 0 5px var(--primary-color)) drop-shadow(0 0 10px var(--primary-color))
-			drop-shadow(0 0 15px white);
+		filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent))
+			drop-shadow(0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent))
+			drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
 	}
 	.icon-glow :global(svg) {
 		opacity: 1;
 		transition: opacity 0.2s ease;
 	}
 	.icon-glow:not(.glow) :global(svg) {
-		opacity: 0.5;
+		opacity: 0.2;
 	}
 	.label {
 		color: var(--primary-color);
@@ -96,8 +97,8 @@
 	.label.glow {
 		opacity: 1;
 		text-shadow:
-			0 0 5px var(--primary-color),
-			0 0 10px var(--primary-color),
-			0 0 15px white;
+			0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent),
+			0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent),
+			0 0 15px color-mix(in srgb, white 40%, transparent);
 	}
 </style>

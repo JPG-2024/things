@@ -292,6 +292,10 @@
 		padding: 1rem 0;
 	}
 
+	.article-title::after {
+		content: '.';
+	}
+
 	.article-card:hover .article-thumbnail {
 		opacity: 1;
 	}

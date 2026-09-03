@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { buildIaTask, iaTask, requireStringState } from '@/runners/taskSchema';
+import {
+	buildIaTask,
+	iaTask,
+	requireFinalResponseString,
+	requireStringState
+} from '@/runners/taskSchema';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
@@ -110,9 +115,9 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 			userMessage ??
 			(({ context }) => {
 				const lang = (context as { language?: string })?.language;
-				return `Create a short title describing the content. No more than 10 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+				return `Create a short title describing the content. No more than 20 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
 			}),
-		run: ({ state }) => requireStringState(state, sourceDependency),
+		run: ({ state }) => requireFinalResponseString(state, sourceDependency),
 		completionOptions: completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS
 	});
 }
