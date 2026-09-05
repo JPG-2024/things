@@ -73,13 +73,7 @@
 						: 'Playing...'
 	);
 
-	const waveColor = $derived(
-		podcastState.activeSpeaker === 'A'
-			? HOST_A_COLOR
-			: podcastState.activeSpeaker === 'B'
-				? HOST_B_COLOR
-				: IDLE_COLOR
-	);
+	const waveColor = $derived(`rgba(255, 255, 255, ${config.strokeAlpha})`);
 
 	const hasContent = $derived(podcastState.status !== 'idle' || podcastState.dialogs.length > 0);
 

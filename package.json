@@ -19,6 +19,7 @@
 		"@lucide/svelte": "^0.575.0",
 		"@tanstack/svelte-hotkeys": "^0.10.0",
 		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/plugin-dialog": "^2.2.1",
 		"@tauri-apps/plugin-fs": "^2.5.1",
 		"@tauri-apps/plugin-opener": "~2",
 		"markdown-it": "~14.1.0",

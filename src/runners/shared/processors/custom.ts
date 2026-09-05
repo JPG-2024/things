@@ -1,14 +1,19 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import {
+	CUSTOM_FINAL_USER_MESSAGE,
+	CUSTOM_SYSTEM_MESSAGE,
+	CUSTOM_USER_MESSAGE
+} from '@/lib/utils/inference/prompts';
 import { combineResults } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const customProcessor: ProcessorDef = {
 	type: 'custom',
 	defaults: {
-		customSystemMsg: 'You are a helpful AI assistant.',
-		userMessage: 'Process this content.',
-		finalUserMessage: 'Combine the results into a coherent response.'
+		customSystemMsg: CUSTOM_SYSTEM_MESSAGE,
+		userMessage: CUSTOM_USER_MESSAGE,
+		finalUserMessage: CUSTOM_FINAL_USER_MESSAGE
 	},
 	build: (config) => ({
 		processChunk: async (chunk) => {
@@ -19,7 +24,7 @@ export const customProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content: config.customSystemMsg ?? 'You are a helpful AI assistant.'
+						content: config.customSystemMsg ?? CUSTOM_SYSTEM_MESSAGE
 					},
 					{
 						role: 'user',
@@ -42,7 +47,7 @@ export const customProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content: config.customSystemMsg ?? 'You are a helpful AI assistant.'
+						content: config.customSystemMsg ?? CUSTOM_SYSTEM_MESSAGE
 					},
 					{
 						role: 'user',

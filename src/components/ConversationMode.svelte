@@ -406,7 +406,7 @@
 	}
 
 	function waveColor(): string {
-		return viewState.primaryColorAlpha(config.strokeAlpha);
+		return `rgba(255, 255, 255, ${config.strokeAlpha})`;
 	}
 
 	function drawLocalWaveform(analyser: AnalyserNode) {

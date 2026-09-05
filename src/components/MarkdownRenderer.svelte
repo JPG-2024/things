@@ -63,7 +63,7 @@
 	}
 
 	.markdown-container :global(thead th) {
-		background-color: color-mix(in srgb, var(--primary-color) 80%, transparent);
+		background-color: color-mix(in srgb, var(--bg-color) 80%, transparent);
 		color: #1a1a1a;
 	}
 	/* Styles for thought process */
@@ -159,7 +159,7 @@
 
 	.markdown-container :global(strong) {
 		font-weight: bold;
-		color: var(--primary-color);
+		color: var(--bg-color);
 	}
 
 	.markdown-container :global(em) {
@@ -180,7 +180,7 @@
 
 	.markdown-container :global(th),
 	.markdown-container :global(td) {
-		border: 1px solid var(--primary-color);
+		border: 1px solid var(--bg-color);
 		padding: 0.714rem;
 		text-align: left;
 	}
@@ -245,7 +245,7 @@
 
 	.markdown-container :global(strong) {
 		font-weight: bold;
-		color: var(--primary-color);
+		color: var(--bg-color);
 	}
 
 	.markdown-container :global(em) {
@@ -266,7 +266,7 @@
 
 	.markdown-container :global(th),
 	.markdown-container :global(td) {
-		border: 1px solid var(--primary-color);
+		border: 1px solid var(--bg-color);
 		padding: 10px;
 		text-align: left;
 	}

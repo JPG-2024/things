@@ -6,6 +6,9 @@ import type {
 	WebProfileTemplateRecord
 } from '@/types/template.types';
 import type { Task } from '@/types/taskRunner.types';
+import { DEFAULT_TASK_IDS } from '@/runners/shared/sharedTasks';
+
+const DEFAULT_TASK_ID_SET = new Set<string>(DEFAULT_TASK_IDS);
 
 function parseTemplateRecord(record: WebStoreTemplateRecord): Template {
 	let tasks: TemplateTaskDef[] = [];
@@ -115,69 +118,71 @@ export async function removeTemplateFromProfile(profileId: string): Promise<bool
 }
 
 export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
-	return tasks.flatMap((task): TemplateTaskDef | TemplateTaskDef[] => {
-		if (task.type === 'ia') {
-			const iaTask = task as import('@/types/taskRunner.types').IaTask;
-			const resolveCtx = { context: undefined, state: {} };
-			const systemMessage =
-				typeof iaTask.systemMessage === 'function'
-					? iaTask.systemMessage(resolveCtx)
-					: iaTask.systemMessage;
-			const userMessage =
-				typeof iaTask.userMessage === 'function'
-					? iaTask.userMessage(resolveCtx)
-					: iaTask.userMessage;
-			const completionOptions =
-				typeof iaTask.completionOptions === 'function'
-					? iaTask.completionOptions(resolveCtx)
-					: iaTask.completionOptions;
-			return {
-				id: task.id,
-				name: task.name,
-				dependencies: task.dependencies as string[],
-				type: iaTask.extractorConfig ? 'extractor' : 'ia',
-				subtype: iaTask.subtype,
-				systemMessage,
-				userMessage,
-				completionOptions: completionOptions as Record<string, unknown>,
-				component: task.component,
-				componentProps: task.componentProps,
-				gridSpan: task.gridSpan,
-				renderOrder: task.renderOrder,
-				persist: true,
-				enableTTS: iaTask.enableTTS ?? false,
-				extractorConfig: iaTask.extractorConfig,
-				categoryNames: iaTask.categoryNames,
-				embeddings: task.embeddings ?? false,
-				visible: task.visible ?? true
-			};
-		}
+	return tasks
+		.filter((task) => !DEFAULT_TASK_ID_SET.has(task.id))
+		.flatMap((task): TemplateTaskDef | TemplateTaskDef[] => {
+			if (task.type === 'ia') {
+				const iaTask = task as import('@/types/taskRunner.types').IaTask;
+				const resolveCtx = { context: undefined, state: {} };
+				const systemMessage =
+					typeof iaTask.systemMessage === 'function'
+						? iaTask.systemMessage(resolveCtx)
+						: iaTask.systemMessage;
+				const userMessage =
+					typeof iaTask.userMessage === 'function'
+						? iaTask.userMessage(resolveCtx)
+						: iaTask.userMessage;
+				const completionOptions =
+					typeof iaTask.completionOptions === 'function'
+						? iaTask.completionOptions(resolveCtx)
+						: iaTask.completionOptions;
+				return {
+					id: task.id,
+					name: task.name,
+					dependencies: task.dependencies as string[],
+					type: iaTask.extractorConfig ? 'extractor' : 'ia',
+					subtype: iaTask.subtype,
+					systemMessage,
+					userMessage,
+					completionOptions: completionOptions as Record<string, unknown>,
+					component: task.component,
+					componentProps: task.componentProps,
+					gridSpan: task.gridSpan,
+					renderOrder: task.renderOrder,
+					persist: true,
+					enableTTS: iaTask.enableTTS ?? false,
+					extractorConfig: iaTask.extractorConfig,
+					categoryNames: iaTask.categoryNames,
+					embeddings: task.embeddings ?? false,
+					visible: task.visible ?? true
+				};
+			}
 
-		if (task.type === 'script' && task.subtype === 'recursive') {
-			const props = (task.componentProps ?? {}) as Record<string, unknown>;
-			const recursiveConfig = props.recursiveConfig as Record<string, unknown> | undefined;
-			const { recursiveConfig: _, ...restProps } = props;
+			if (task.type === 'script' && task.subtype === 'recursive') {
+				const props = (task.componentProps ?? {}) as Record<string, unknown>;
+				const recursiveConfig = props.recursiveConfig as Record<string, unknown> | undefined;
+				const { recursiveConfig: _, ...restProps } = props;
 
-			return {
-				id: task.id,
-				name: task.name,
-				dependencies: task.dependencies as string[],
-				type: 'script',
-				subtype: 'recursive',
-				userMessage: '',
-				component: task.component,
-				componentProps: restProps,
-				gridSpan: task.gridSpan,
-				renderOrder: task.renderOrder,
-				persist: true,
-				enableTTS: task.enableTTS ?? false,
-				scriptFactory: 'recursive',
-				scriptConfig: recursiveConfig ?? {},
-				embeddings: task.embeddings ?? false,
-				visible: task.visible ?? true
-			};
-		}
+				return {
+					id: task.id,
+					name: task.name,
+					dependencies: task.dependencies as string[],
+					type: 'script',
+					subtype: 'recursive',
+					userMessage: '',
+					component: task.component,
+					componentProps: restProps,
+					gridSpan: task.gridSpan,
+					renderOrder: task.renderOrder,
+					persist: true,
+					enableTTS: task.enableTTS ?? false,
+					scriptFactory: 'recursive',
+					scriptConfig: recursiveConfig ?? {},
+					embeddings: task.embeddings ?? false,
+					visible: task.visible ?? true
+				};
+			}
 
-		return [];
-	});
+			return [];
+		});
 }

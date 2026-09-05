@@ -19,6 +19,7 @@
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
@@ -211,6 +212,7 @@
 						<ArticleItem
 							{article}
 							{layoutKey}
+							marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
 							onClick={handleNavigateToArticle}
 							onHoverEnter={(a) => {
 								viewState.hoveredArticleUrl = a.url ?? null;

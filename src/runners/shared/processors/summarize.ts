@@ -1,13 +1,18 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import {
+	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
+	RECURSIVE_SUMMARY_SYSTEM_MESSAGE,
+	RECURSIVE_SUMMARY_USER_MESSAGE
+} from '@/lib/utils/inference/prompts';
 import { combineResults } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const summarizeProcessor: ProcessorDef = {
 	type: 'summarize',
 	defaults: {
-		userMessage: 'Summarize this section concisely, only summary. no titles',
-		finalUserMessage: 'Combine these section summaries into one coherent summary. no title.'
+		userMessage: RECURSIVE_SUMMARY_USER_MESSAGE,
+		finalUserMessage: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE
 	},
 	build: (config) => ({
 		processChunk: async (chunk) => {
@@ -18,8 +23,7 @@ export const summarizeProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content:
-							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles.'
+						content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE
 					},
 					{
 						role: 'user',
@@ -42,8 +46,7 @@ export const summarizeProcessor: ProcessorDef = {
 				messages: [
 					{
 						role: 'system',
-						content:
-							'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles'
+						content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE
 					},
 					{
 						role: 'user',

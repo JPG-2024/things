@@ -302,6 +302,43 @@ class ArticleCacheStore {
 		this.articlesCategoryIds = undefined;
 		this.articlesOnlyWithoutProfile = undefined;
 	}
+
+	removeArticlesByUrls(urls: Set<string>) {
+		if (urls.size === 0) return;
+		const beforeArticles = this.articlesWithoutProfile.length;
+		this.articlesWithoutProfile = this.articlesWithoutProfile.filter((a) => !urls.has(a.url ?? ''));
+		const removedArticles = beforeArticles - this.articlesWithoutProfile.length;
+		this.totalArticlesWithoutProfile = Math.max(
+			0,
+			this.totalArticlesWithoutProfile - removedArticles
+		);
+		this.articlesOffset = this.articlesWithoutProfile.length;
+		this.hasMoreArticles = this.articlesOffset < this.totalArticlesWithoutProfile;
+
+		this.categoryArticles = this.categoryArticles.filter((a) => !urls.has(a.url ?? ''));
+		this.categoryArticlesOffset = this.categoryArticles.length;
+
+		this.profilesWithArticles = this.profilesWithArticles
+			.map((profile) => {
+				const originalCount = profile.articles?.length ?? 0;
+				const filteredArticles = profile.articles?.filter((a) => !urls.has(a.url ?? ''));
+				const removedFromProfile = originalCount - (filteredArticles?.length ?? 0);
+				return {
+					...profile,
+					articles: filteredArticles,
+					count:
+						typeof profile.count === 'number'
+							? Math.max(0, profile.count - removedFromProfile)
+							: profile.count
+				};
+			})
+			.filter((profile) => profile.count === undefined || profile.count > 0);
+
+		this.categoriesWithArticles = this.categoriesWithArticles.map((cat) => ({
+			...cat,
+			articles: cat.articles.filter((a) => !urls.has(a.url ?? ''))
+		}));
+	}
 }
 
 export const articleCacheStore = new ArticleCacheStore();

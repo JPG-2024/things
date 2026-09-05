@@ -15,16 +15,20 @@ import {
 	DEFAULT_TITLE_COMPLETION_OPTIONS,
 	SUMMARY_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
+import { buildExtractionCompletionOptions } from '@/lib/utils/inference/extraction-helper';
 import {
-	buildExtractionCompletionOptions,
+	buildCategorySystemMessage,
+	buildCategoryUserMessage,
 	buildExtractionSystemMessage,
-	buildExtractionUserMessage
-} from '@/lib/utils/inference/extraction-helper';
+	buildExtractionUserMessage,
+	buildTitleUserMessage,
+	DEFAULT_IA_SYSTEM_MESSAGE,
+	SUMMARY_SYSTEM_MESSAGE,
+	SUMMARY_USER_MESSAGE,
+	TITLE_SYSTEM_MESSAGE
+} from '@/lib/utils/inference/prompts';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { ExtractorConfig, Task } from '@/types/taskRunner.types';
-
-const DEFAULT_IA_SYSTEM_MESSAGE =
-	'You are a helpful AI assistant. Respond concisely and accurately.';
 
 export type IaTaskFactoryOptions<TOutput extends z.core.$ZodType = z.ZodString> = Partial<
 	Omit<IaTaskDef<TOutput>, 'output' | 'type' | 'extractorConfig'>
@@ -110,12 +114,12 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 		dependencies,
 		subtype: 'title',
 		renderOrder: renderOrder ?? 1,
-		systemMessage: systemMessage ?? 'Avoid Markdown.',
+		systemMessage: systemMessage ?? TITLE_SYSTEM_MESSAGE,
 		userMessage:
 			userMessage ??
 			(({ context }) => {
 				const lang = (context as { language?: string })?.language;
-				return `Create a short title describing the content. No more than 20 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+				return buildTitleUserMessage(lang);
 			}),
 		run: ({ state }) => requireFinalResponseString(state, sourceDependency),
 		completionOptions: completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS
@@ -137,10 +141,8 @@ export function createSummaryTask(options: CreateSummaryTaskOptions = {}): IaTas
 	return createIaTask({
 		...rest,
 		dependencies,
-		systemMessage:
-			systemMessage ??
-			'You are a professional content summarizer. Write a concise and clear summary.',
-		userMessage: userMessage ?? 'Summarize the content.',
+		systemMessage: systemMessage ?? SUMMARY_SYSTEM_MESSAGE,
+		userMessage: userMessage ?? SUMMARY_USER_MESSAGE,
 		run: ({ state }) => requireStringState(state, sourceDependency),
 		completionOptions: completionOptions ?? SUMMARY_COMPLETION_OPTIONS
 	});
@@ -173,9 +175,6 @@ export function createCategoryTask(
 
 	const deps = dependencies ?? [keywordsDependency ?? 'keywords'];
 	const countDescription = maxItems === 1 ? 'category' : 'categories';
-	const countSystemPhrase =
-		maxItems === 1 ? 'a single category name' : `${maxItems} category names`;
-	const countUserPhrase = maxItems === 1 ? 'a category' : `${maxItems} categories`;
 
 	const resolveNames = () => categoryNames ?? viewState.categories.map((c) => c.name);
 	const resolveListedNames = () =>
@@ -190,12 +189,8 @@ export function createCategoryTask(
 		componentProps: componentProps ?? { showPoint: false },
 		subtype: 'category',
 		extractor: { count: maxItems, description: countDescription },
-		systemMessage:
-			systemMessage ??
-			`You are a data extraction assistant. Return only a JSON array with exactly ${countSystemPhrase}. No markdown, no explanations.`,
-		userMessage:
-			userMessage ??
-			(() => `Give ${countUserPhrase} from this ones: ${resolveListedNames().join(', ')}.`),
+		systemMessage: systemMessage ?? buildCategorySystemMessage(maxItems),
+		userMessage: userMessage ?? (() => buildCategoryUserMessage(maxItems, resolveListedNames())),
 		completionOptions:
 			completionOptions ??
 			(() => ({

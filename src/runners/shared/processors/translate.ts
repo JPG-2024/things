@@ -1,13 +1,18 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import {
+	TRANSLATE_FINAL_USER_MESSAGE,
+	TRANSLATE_USER_MESSAGE,
+	buildTranslateSystemMessage
+} from '@/lib/utils/inference/prompts';
 import { combineResults } from './combineHelpers';
 import type { ProcessorDef } from './types';
 
 export const translateProcessor: ProcessorDef = {
 	type: 'translate',
 	defaults: {
-		userMessage: 'Translate the following text.',
-		finalUserMessage: 'Combine these translations into a coherent text.'
+		userMessage: TRANSLATE_USER_MESSAGE,
+		finalUserMessage: TRANSLATE_FINAL_USER_MESSAGE
 	},
 	build: (config) => {
 		const lang = config.targetLang ?? 'Spanish';
@@ -21,7 +26,7 @@ export const translateProcessor: ProcessorDef = {
 					messages: [
 						{
 							role: 'system',
-							content: `Translate to ${lang}. Return only the translation, no explanations.`
+							content: buildTranslateSystemMessage(lang)
 						},
 						{
 							role: 'user',

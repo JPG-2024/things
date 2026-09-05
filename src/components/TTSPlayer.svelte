@@ -84,7 +84,7 @@
 	});
 
 	function waveColor(): string {
-		return viewState.primaryColorAlpha(config.strokeAlpha);
+		return `rgba(255, 255, 255, ${config.strokeAlpha})`;
 	}
 
 	let showControls = $state(true);

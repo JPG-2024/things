@@ -5,10 +5,19 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { extractValidUrl } from '@/lib/utils/pasteUrl';
+	import { open } from '@tauri-apps/plugin-dialog';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
 	let manualInput = $state('');
 	let feedback = $state<{ added: number; skipped: number } | null>(null);
 	let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	async function handlePickFolder() {
+		const selected = await open({ directory: true, multiple: false });
+		if (selected) {
+			musicState.downloadDir = selected;
+		}
+	}
 
 	function handleClose() {
 		drawersState.close('downloads');
@@ -59,10 +68,16 @@
 			handleManualAdd();
 		}
 	}
+
+	createHotkey('Escape', handleClose, {
+		ignoreInputs: true,
+		stopPropagation: true,
+		preventDefault: true
+	});
 </script>
 
-<div class="panel">
-	<div class="panel-header">
+<div class="modal-fullscreen">
+	<div class="modal-header">
 		<h2>
 			<Icon name="Download" size={30} color={viewState.primaryColor} />
 			<span>Downloads</span>
@@ -70,7 +85,7 @@
 				<span class="counter">({musicState.downloads.length})</span>
 			{/if}
 		</h2>
-		<div class="panel-actions">
+		<div class="modal-actions">
 			{#if musicState.downloads.some((d) => d.status === 'done' || d.status === 'error')}
 				<button type="button" class="clear-btn" onclick={() => musicState.clearFinished()}>
 					Clear finished
@@ -83,25 +98,32 @@
 	</div>
 
 	<div class="download-controls">
-		<Input bind:value={musicState.downloadFolder} placeholder="folder name" />
-		<button type="button" class="toggle-btn" aria-label="Toggle keep URL params">
-			<ToggleIcon
-				name="Link"
-				bind:checked={musicState.downloadPlaylist}
-				size={18}
-				tooltipProps={{ content: 'keep URL params' }}
-			/>
-		</button>
+		<div class="dir-row">
+			<button
+				type="button"
+				class="folder-btn"
+				onclick={handlePickFolder}
+				title="Choose download folder"
+			>
+				<Icon name="FolderOpen" size={16} />
+			</button>
+			<Input bind:value={musicState.downloadDir} placeholder="download directory" />
+		</div>
+		<div class="subfolder-row">
+			<Input bind:value={musicState.downloadFolder} placeholder="subfolder name" />
+			<button type="button" class="toggle-btn" aria-label="Toggle keep URL params">
+				<ToggleIcon
+					name="Link"
+					bind:checked={musicState.downloadPlaylist}
+					size={18}
+					tooltipProps={{ content: 'keep URL params' }}
+				/>
+			</button>
+		</div>
 	</div>
 
 	<div class="manual-add">
-		<textarea
-			bind:value={manualInput}
-			placeholder="Paste URLs here (one per line)"
-			rows="2"
-			class="manual-input"
-			onkeydown={handleManualKeyDown}
-		></textarea>
+		<Input bind:value={manualInput} placeholder="Paste URLs here (one per line)"></Input>
 		<button
 			type="button"
 			class="manual-add-btn"
@@ -220,21 +242,25 @@
 </div>
 
 <style>
-	.panel {
-		padding: 1.5rem;
-		height: 100%;
+	.modal-fullscreen {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		background: #0a0a0a;
 		display: flex;
 		flex-direction: column;
+		padding: 1.5rem;
+		overflow: hidden;
 	}
 
-	.panel-header {
+	.modal-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: 1.5rem;
 	}
 
-	.panel-header h2 {
+	.modal-header h2 {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
@@ -249,7 +275,7 @@
 		font-weight: normal;
 	}
 
-	.panel-actions {
+	.modal-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -288,13 +314,39 @@
 
 	.download-controls {
 		display: flex;
-		align-items: center;
-		gap: 0.75rem;
+		flex-direction: column;
+		gap: 0.5rem;
 		margin-bottom: 1rem;
 	}
 
-	.download-controls .text-input {
-		flex: 1;
+	.dir-row {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-width: 0;
+	}
+
+	.subfolder-row {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.folder-btn {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		padding: 0.35rem;
+		border-radius: var(--radius-md);
+		color: var(--primary-color);
+		flex-shrink: 0;
+		transition: background 0.15s;
+	}
+
+	.folder-btn:hover {
+		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 	}
 
 	.toggle-btn {

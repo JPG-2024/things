@@ -76,10 +76,7 @@
 				disabled={!scrapStore.parallelFetch}
 				oninput={(e) => {
 					const v = Number((e.target as HTMLInputElement).value);
-					scrapStore.parallelVideosAmount = Math.min(
-						10,
-						Math.max(1, Math.trunc(isNaN(v) ? 2 : v))
-					);
+					scrapStore.parallelVideosAmount = Math.min(10, Math.max(1, Math.trunc(isNaN(v) ? 2 : v)));
 				}}
 			/>
 		</div>

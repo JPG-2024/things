@@ -217,6 +217,26 @@ export interface SpeechConfigInput {
 	audioChunkThreshold?: number;
 }
 
+export function sanitizeForTTS(text: string): string {
+	return (
+		text
+			// strip markdown links/images: [label](url) -> label, ![alt](url) -> alt
+			.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+			// strip inline code fences and emphasis/heading markers
+			.replace(/[*_`~>#]/g, '')
+			// strip remaining markdown punctuation
+			.replace(/[[\]()|]/g, ' ')
+			// strip emoji and other symbol/punctuation unicode ranges
+			.replace(
+				/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2000}-\u{206F}\u{2E00}-\u{2E7F}\u{FE00}-\u{FE0F}\u{2100}-\u{214F}\u{2460}-\u{24FF}]/gu,
+				''
+			)
+			// collapse repeated whitespace
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
+}
+
 export function buildSpeechParams(
 	config: SpeechConfigInput,
 	text: string,

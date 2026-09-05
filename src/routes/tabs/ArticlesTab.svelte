@@ -10,6 +10,7 @@
 	import { onMount } from 'svelte';
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	onMount(async () => {
 		await articleCacheStore.fetchArticlesWithoutProfile({
@@ -54,6 +55,7 @@
 			{article}
 			{layoutKey}
 			animate={false}
+			marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
 			onClick={handleArticleClick}
 			onHoverEnter={handleArticleHoverEnter}
 			onHoverLeave={handleArticleHoverLeave}

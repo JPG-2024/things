@@ -14,6 +14,7 @@
 		withBackground?: boolean;
 		layoutKey?: LayoutKey;
 		animate?: boolean;
+		marked?: boolean;
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
 		onHoverLeave: () => void;
@@ -26,6 +27,7 @@
 		withBackground = true,
 		layoutKey,
 		animate = true,
+		marked = false,
 		onClick,
 		onHoverEnter,
 		onHoverLeave
@@ -54,8 +56,8 @@
 		return copy;
 	}
 
-	const allQuestions = $derived.by(() => {
-		const task = article.persistedTasks?.find((t) => t.id === 'questions');
+	const someTopics = $derived.by(() => {
+		const task = article.persistedTasks?.find((t) => t.id === 'topics');
 		const data = task?.data as
 			| { chunks?: Array<{ data?: unknown }>; finalResponse?: unknown }
 			| string[]
@@ -81,10 +83,10 @@
 	let randomQuestionsKey = '';
 	let randomQuestionsMemo: string[] = [];
 	const randomQuestions = $derived.by(() => {
-		const key = `${article.url ?? ''}:${allQuestions.length}`;
+		const key = `${article.url ?? ''}:${someTopics.length}`;
 		if (key !== randomQuestionsKey) {
 			randomQuestionsKey = key;
-			randomQuestionsMemo = shuffle(allQuestions).slice(0, 2);
+			randomQuestionsMemo = shuffle(someTopics).slice(0, 2);
 		}
 		return randomQuestionsMemo;
 	});
@@ -103,6 +105,7 @@
 <button
 	type="button"
 	class="article-card {layoutKey ?? ''}"
+	class:marked-for-delete={marked}
 	onclick={() => onClick(article)}
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
@@ -292,12 +295,32 @@
 		padding: 1rem 0;
 	}
 
-	.article-title::after {
+	/* 	.article-title::after {
 		content: '.';
-	}
+	} */
 
 	.article-card:hover .article-thumbnail {
 		opacity: 1;
+	}
+
+	.article-card.marked-for-delete {
+		--bg-color: red;
+		border-top-color: red;
+		background: rgba(255, 0, 0, 0.18);
+	}
+
+	.article-card.marked-for-delete.grid-3 {
+		background-image: linear-gradient(
+			180deg,
+			color-mix(in srgb, red 20%, transparent),
+			rgba(0, 0, 0),
+			rgba(0, 0, 0)
+		);
+		background-color: rgba(255, 0, 0, 0.18);
+	}
+
+	.article-card.marked-for-delete.row {
+		background: rgba(255, 0, 0, 0.25);
 	}
 
 	.no-background {

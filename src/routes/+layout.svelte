@@ -15,13 +15,16 @@
 
 	import VoiceProfileWheel from '@/components/modals/VoiceProfileWheel.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
-	import DownloadPanel from '@/components/DownloadPanel.svelte';
+	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import Modal from '@/components/Modal.svelte';
+	import ChatModal from '@/components/ChatModal.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
+	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
+	import { page } from '$app/state';
 
 	const CLIPBOARD_POLL_INTERVAL_MS = 3000;
 
@@ -31,6 +34,7 @@
 	let mainElement: HTMLElement | undefined = $state();
 	let conversationMode = $state(false);
 	let podcastMode = $state(false);
+	let chatOpen = $state(false);
 
 	$effect(() => {
 		const color = viewState.primaryColor;
@@ -68,6 +72,8 @@
 		} else {
 			ttsState.clearPlaylist();
 		}
+
+		deleteSelectionStore.clear();
 	});
 
 	const ttsPlayerVisible = $derived(
@@ -84,7 +90,8 @@
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
 			conversationMode ||
-			podcastMode
+			podcastMode ||
+			chatOpen
 	);
 
 	createHotkey(
@@ -148,6 +155,83 @@
 			stopPropagation: true,
 			preventDefault: true,
 			enabled: !podcastMode
+		})
+	);
+
+	createHotkey(
+		'D',
+		() => {
+			const url = viewState.hoveredArticleUrl;
+			console.log('dellete', url);
+			if (url) deleteSelectionStore.toggle(url);
+		},
+		() => ({
+			enabled:
+				viewState.hoveredArticleUrl !== null &&
+				!(page.url.pathname === '/' && viewState.activeProfileArticleTab === 'categories') &&
+				!voiceWheelState.open &&
+				!drawersState.isOpen('settings') &&
+				!drawersState.isOpen('downloads') &&
+				!drawersState.isOpen('podcast-settings') &&
+				!conversationMode &&
+				!podcastMode,
+			ignoreInputs: true,
+			preventDefault: true,
+			stopPropagation: true
+		})
+	);
+
+	createHotkey(
+		'Shift+D',
+		async () => {
+			await deleteSelectionStore.deleteSelected();
+		},
+		() => ({
+			enabled:
+				deleteSelectionStore.markedUrls.size > 0 &&
+				!voiceWheelState.open &&
+				!drawersState.isOpen('settings') &&
+				!drawersState.isOpen('downloads') &&
+				!drawersState.isOpen('podcast-settings') &&
+				!conversationMode &&
+				!podcastMode &&
+				!(page.url.pathname === '/' && viewState.activeProfileArticleTab === 'categories'),
+			ignoreInputs: true,
+			preventDefault: true,
+			stopPropagation: true
+		})
+	);
+
+	createHotkey(
+		'Escape',
+		() => {
+			deleteSelectionStore.clear();
+		},
+		() => ({
+			enabled: deleteSelectionStore.markedUrls.size > 0 && !chatOpen,
+			ignoreInputs: true,
+			preventDefault: true,
+			stopPropagation: true
+		})
+	);
+
+	createHotkey(
+		'Control+Space',
+		() => {
+			chatOpen = !chatOpen;
+		},
+		() => ({
+			enabled:
+				!voiceWheelState.open &&
+				!drawersState.isOpen('settings') &&
+				!drawersState.isOpen('downloads') &&
+				!drawersState.isOpen('podcast-settings') &&
+				!drawersState.isOpen('conversation-settings') &&
+				!conversationMode &&
+				!podcastMode,
+			ignoreInputs: true,
+			preventDefault: true,
+			stopPropagation: true
 		})
 	);
 
@@ -297,9 +381,13 @@
 	<PodcastSettings />
 </Modal>
 
-<Drawer name="downloads">
-	<DownloadPanel />
-</Drawer>
+{#if drawersState.isOpen('downloads')}
+	<DownloadModal />
+{/if}
+
+{#if chatOpen}
+	<ChatModal onExit={() => (chatOpen = false)} />
+{/if}
 
 <style>
 	:global(body) {

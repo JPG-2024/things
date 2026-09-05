@@ -9,7 +9,8 @@
 				"title": "Things",
 				"width": 1050,
 				"height": 900,
-				"incognito": true
+				"incognito": true,
+				"dragDropEnabled": false
 			}
 		],
 		"security": {

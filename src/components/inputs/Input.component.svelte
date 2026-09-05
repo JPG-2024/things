@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invoke } from '@tauri-apps/api/core';
 	import Label from './Label.component.svelte';
 	import Icon from '@/components/Icon.svelte';
 
@@ -12,6 +13,7 @@
 		label?: string;
 		labelPosition?: 'top' | 'inline';
 		search?: boolean;
+		autofocus?: boolean;
 		onChange?: (value: string) => void;
 		onEnter?: (value: string) => void;
 	}
@@ -26,9 +28,19 @@
 		label,
 		labelPosition = 'top',
 		search = false,
+		autofocus = false,
 		onChange,
 		onEnter
 	}: Props = $props();
+
+	let inputEl = $state<HTMLInputElement | null>(null);
+
+	$effect(() => {
+		if (autofocus && inputEl && !disabled) {
+			// tick to ensure mounted
+			queueMicrotask(() => inputEl?.focus());
+		}
+	});
 
 	function handleInput(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -40,11 +52,54 @@
 		}
 	}
 
+	function extractUrlFromHtml(html: string): string {
+		const hrefMatch = html.match(/href="([^"]+)"/);
+		if (hrefMatch) return hrefMatch[1];
+		const urlMatch = html.match(/https?:\/\/\S+/);
+		return urlMatch ? urlMatch[0] : html;
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' && onEnter) {
 			event.preventDefault();
 			onEnter(value);
 			value = '';
+		}
+	}
+
+	async function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		let text = '';
+
+		for (const type of event.dataTransfer?.types ?? []) {
+			const data = event.dataTransfer?.getData(type);
+			if (data) {
+				text = data;
+				break;
+			}
+		}
+
+		if (!text) {
+			try {
+				text = await invoke<string>('read_clipboard_text');
+			} catch {
+				// ignore
+			}
+		}
+
+		if (text) {
+			text = extractUrlFromHtml(text);
+			value = value ? `${value} ${text}` : text;
+			onChange?.(value);
+		}
+	}
+
+	function handlePaste(event: ClipboardEvent) {
+		const raw = event.clipboardData?.getData('text/plain');
+		if (raw) {
+			const text = extractUrlFromHtml(raw);
+			value = value ? `${value} ${text}` : text;
+			onChange?.(value);
 		}
 	}
 </script>
@@ -55,6 +110,7 @@
 			<div class="search-wrapper">
 				<Icon name="Search" size={16} color="#a1a1a1" />
 				<input
+					bind:this={inputEl}
 					{id}
 					class="text-input search-input"
 					{type}
@@ -64,10 +120,13 @@
 					{disabled}
 					oninput={handleInput}
 					onkeydown={handleKeydown}
+					ondrop={handleDrop}
+					onpaste={handlePaste}
 				/>
 			</div>
 		{:else}
 			<input
+				bind:this={inputEl}
 				{id}
 				class="text-input"
 				{type}
@@ -77,6 +136,8 @@
 				{disabled}
 				oninput={handleInput}
 				onkeydown={handleKeydown}
+				ondrop={handleDrop}
+				onpaste={handlePaste}
 			/>
 		{/if}
 	</Label>
@@ -84,6 +145,7 @@
 	<div class="search-wrapper">
 		<Icon name="Search" size={16} color="#a1a1a1" />
 		<input
+			bind:this={inputEl}
 			{id}
 			class="text-input search-input"
 			{type}
@@ -93,11 +155,14 @@
 			{disabled}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
+			ondrop={handleDrop}
+			onpaste={handlePaste}
 			autocomplete="off"
 		/>
 	</div>
 {:else}
 	<input
+		bind:this={inputEl}
 		{id}
 		class="text-input"
 		{type}
@@ -107,6 +172,8 @@
 		{disabled}
 		oninput={handleInput}
 		onkeydown={handleKeydown}
+		ondrop={handleDrop}
+		onpaste={handlePaste}
 	/>
 {/if}
 

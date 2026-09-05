@@ -311,7 +311,7 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.4rem;
-		margin-bottom: 1rem;
+		padding: 1rem 0;
 		width: 100%;
 		max-width: 1200px;
 	}

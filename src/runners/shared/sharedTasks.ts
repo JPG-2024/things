@@ -7,6 +7,10 @@ import {
 	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
 	DEFAULT_EMOJI_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
+import {
+	CATEGORY_DESCRIPTION_SYSTEM_MESSAGE,
+	EMOJI_SYSTEM_MESSAGE
+} from '@/lib/utils/inference/prompts';
 
 function extractFirstGrapheme(text: string): string {
 	const trimmed = text.trim();
@@ -34,8 +38,7 @@ export async function generateEmojiForText(text: string): Promise<string> {
 			messages: [
 				{
 					role: 'system',
-					content:
-						'Return exactly one emoji that best represents the user text. Respond with only the emoji and nothing else.'
+					content: EMOJI_SYSTEM_MESSAGE
 				},
 				{ role: 'user', content: trimmed }
 			]
@@ -59,8 +62,7 @@ export async function generateCategoryDescription(name: string): Promise<string>
 			messages: [
 				{
 					role: 'system',
-					content:
-						'Write a short one-sentence description for the given category name. Respond with only the description, no quotes, no prefixes.'
+					content: CATEGORY_DESCRIPTION_SYSTEM_MESSAGE
 				},
 				{ role: 'user', content: trimmed }
 			]
@@ -71,6 +73,8 @@ export async function generateCategoryDescription(name: string): Promise<string>
 		return '';
 	}
 }
+
+export const DEFAULT_TASK_IDS = ['summary', 'keywords', 'category', 'title'] as const;
 
 export function createDefaultTasks(contentDependency: string = 'content'): Task[] {
 	const summaryDef = buildRecursiveTask('summary', {

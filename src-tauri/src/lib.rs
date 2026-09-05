@@ -31,10 +31,12 @@ pub use crate::web_store::{
 
 mod embedding_store;
 mod llama_server;
+mod track_download;
 pub use crate::embedding_store::{
 	delete_article_embeddings, delete_chunk, delete_chunks_by_article, index_chunks, search_similar_chunks,
 };
 pub use crate::llama_server::launch_llama_server;
+pub use crate::track_download::download_track;
 use crate::llama_server::{stop_llama_server, LlamaServerState};
 use tauri::Manager;
 use tauri::RunEvent;
@@ -63,6 +65,7 @@ pub fn run() {
 	let app = tauri::Builder::default()
 		.manage(LlamaServerState::default())
 		.plugin(tauri_plugin_clipboard_manager::init())
+		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_fs::init())
 		.plugin(tauri_plugin_http::init())
 		.plugin(tauri_plugin_opener::init())
@@ -116,6 +119,7 @@ pub fn run() {
 			delete_chunks_by_article,
 			delete_article_embeddings,
 			delete_chunk,
+			download_track,
 		])
 		.build(tauri::generate_context!())
 		.expect("error while building tauri application");

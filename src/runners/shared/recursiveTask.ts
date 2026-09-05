@@ -159,7 +159,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		targetLang: options.targetLang,
 		customSystemMsg: options.customSystemMsg,
 		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
-		combineMode: options.combineMode
+		combineMode: 'join'
 	});
 
 	const recursiveConfig: RecursiveConfig = {

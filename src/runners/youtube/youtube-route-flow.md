@@ -42,6 +42,7 @@ urlRouter(url)
 ### `lib/urlRouter/urlRouter.ts`
 
 **`urlRouter(url, options)`** — Entry point.
+
 1. `workflowManager.clearStack()` — resets stacked workflow runs
 2. `normalizeYouTubeUrl(url)` — strips tracking params, canonicalizes to `youtube.com/watch?v=<id>`
 3. Deduplicates in-flight requests via `inProgressRequests` map
@@ -55,6 +56,7 @@ urlRouter(url)
 ### `runners/youtube/youTubeRunner.ts`
 
 **`youTubeRunner(url, config)`** — Orchestrates YouTube processing.
+
 1. `buildYouTubeInitialTasks(cleanUrl)` — creates 4 tasks:
    - **`init-youtube`**: extracts `videoId` + `url` + `language` from `viewState`
    - **`thumbnail`** (depends on init): `getYouTubeThumbnailUrl()` → `downloadImageUrl()` → `getMediaSrc()`, sets `viewState.hoveredPictureSrc`
@@ -68,6 +70,7 @@ urlRouter(url)
 ### `runners/templateRunner.ts`
 
 **`runTemplateWorkflow(runId, profileId, initialTasks, options)`** — Generic workflow runner.
+
 1. `getProfileTemplateId(profileId)` + `getTemplate(templateId)` — fetches user template
 2. `buildTasksFromTemplate(template.tasks)` — converts template into tasks (or `createDefaultTasks('content')` fallback)
 3. Merges initial + template tasks
@@ -80,6 +83,7 @@ urlRouter(url)
 ### `runners/workflowManager.svelte.ts`
 
 **`workflowManager.run(id, tasks, options)`** — Workflow execution engine.
+
 1. `ensureRunRecord(id)` — gets or creates `WorkflowRunState` in `workflowStore`
 2. `syncRunStack()` — manages stacked run navigation
 3. `executeRun()` — waits for dependencies, then `record.runner.run()` on the `TaskRunner`
@@ -90,6 +94,7 @@ urlRouter(url)
 ### `runners/shared/sharedTasks.ts`
 
 **`createDefaultTasks('content')`** — Fallback tasks when no profile template:
+
 - **`summary`**: LLM summarization (depends on `content`)
 - **`keywords`**: keyword extraction (depends on `content`)
 - **`category`**: AI-generated category
@@ -106,6 +111,7 @@ urlRouter(url)
 ### `stores/viewStore.svelte.ts`
 
 **`viewState`** — Reactive state singleton:
+
 - `url` — current article URL
 - `isCachedArticle` — loaded from cache flag
 - `loading` / `loaded` — UI loading flags

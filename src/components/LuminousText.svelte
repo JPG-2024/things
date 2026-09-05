@@ -12,7 +12,14 @@
 		[key: string]: unknown;
 	}
 
-	let { children, mode = 'off', glowOpacity = 1, size = '1em', onclick, ...restProps }: Props = $props();
+	let {
+		children,
+		mode = 'off',
+		glowOpacity = 1,
+		size = '1em',
+		onclick,
+		...restProps
+	}: Props = $props();
 
 	let glowIntensity = $state(mode === 'off' ? 0 : 0.2);
 

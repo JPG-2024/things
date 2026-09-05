@@ -44,13 +44,13 @@ The `GENERATE_TTS` task runs as part of a content processing workflow after the 
 
 The same pattern exists in `webWorkflow.ts` and `rawWorkflow.ts`. The `freshRun` flag prevents re-generating TTS when replaying a previously completed workflow.
 
-### b) Chat Page
+### b) Chat Modal
 
-**`src/routes/chat/+page.svelte`** — After a streamed assistant response completes:
+**`src/components/ChatModal.svelte`** — After a streamed assistant response completes (if `viewState.autoSpeechEnabled`):
 
 ```ts
-ttsState.addTextContent(streamedText);
-void ttsState.generateTTS(assistantId);
+viewState.ttsPlayerMode = 'mini';
+void ttsState.generateFromClipboard(streamedText);
 ```
 
 ### c) Hotkey `S`

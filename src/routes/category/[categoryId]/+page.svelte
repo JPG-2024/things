@@ -12,6 +12,7 @@
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	let categoryId = $derived(page.params.categoryId);
 	let categoryName = $derived(page.url.searchParams.get('name') ?? categoryId);
@@ -69,6 +70,7 @@
 					<ArticleItem
 						{article}
 						{layoutKey}
+						marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
 						onClick={handleArticleClick}
 						onHoverEnter={handleArticleHoverEnter}
 						onHoverLeave={handleArticleHoverLeave}

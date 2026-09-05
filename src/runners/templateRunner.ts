@@ -87,11 +87,17 @@ export async function runTemplateWorkflow(
 	const templateId = await getProfileTemplateId(profileId);
 	const template = templateId ? await getTemplate(templateId) : null;
 
-	const templateTasks = template
-		? buildTasksFromTemplate(template.tasks)
-		: (options.defaultTasksFactory?.() ?? []);
+	const templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
+	const defaultTasks = options.defaultTasksFactory?.() ?? [];
 
-	let allTasks = [...initialTasks, ...templateTasks];
+	const merged: Task[] = [];
+	const seenIds = new Set<string>();
+	for (const task of [...initialTasks, ...templateTasks, ...defaultTasks]) {
+		if (seenIds.has(task.id)) continue;
+		seenIds.add(task.id);
+		merged.push(task);
+	}
+	let allTasks = merged;
 
 	if (options.skipTaskIds?.length) {
 		const skipInit = new Set(options.skipTaskIds);

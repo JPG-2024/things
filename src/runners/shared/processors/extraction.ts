@@ -5,14 +5,17 @@ import {
 	buildExtractionCompletionOptions,
 	buildExtractionSystemMessage
 } from '@/lib/utils/inference/extraction-helper';
+import {
+	RECURSIVE_EXTRACTION_FINAL_USER_MESSAGE,
+	RECURSIVE_EXTRACTION_USER_MESSAGE
+} from '@/lib/utils/inference/prompts';
 import type { ProcessorDef } from './types';
 
 export const extractionProcessor: ProcessorDef = {
 	type: 'extraction',
 	defaults: {
-		userMessage: 'Extract items from this content.',
-		finalUserMessage:
-			'From this list of extracted items, pick the most relevant ones. Return a JSON array.'
+		userMessage: RECURSIVE_EXTRACTION_USER_MESSAGE,
+		finalUserMessage: RECURSIVE_EXTRACTION_FINAL_USER_MESSAGE
 	},
 	build: (config) => {
 		const count = config.extractorConfig?.count ?? 3;

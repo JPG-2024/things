@@ -3,14 +3,9 @@ import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { chatCompletions } from './chat-completions-provider';
 import type { LlamaChatCompletionsRequest } from './llama-completions';
 import { DEFAULT_STRUCTURED_OUTPUT_OPTIONS } from './constants';
+import { buildExtractionSystemMessage, buildExtractionUserMessage } from './prompts';
 
-export function buildExtractionSystemMessage(count: number, description: string): string {
-	return `You are a data extraction assistant. Return only a JSON array of exactly ${count} ${description}. No markdown, no explanations.`;
-}
-
-export function buildExtractionUserMessage(count: number, description: string): string {
-	return `Extract ${count} ${description}. Respond in JSON format.`;
-}
+export { buildExtractionSystemMessage, buildExtractionUserMessage };
 
 export function buildExtractionCompletionOptions(
 	count: number,

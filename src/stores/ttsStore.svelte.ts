@@ -3,6 +3,7 @@ import {
 	addVoice,
 	generateSpeech,
 	buildSpeechParams,
+	sanitizeForTTS,
 	parseSSE,
 	type Voice
 } from '@/lib/utils/ttsService';
@@ -258,7 +259,8 @@ class TTSState {
 
 		const allChunks: string[] = [];
 		const endsParagraph: boolean[] = [];
-		for (const text of textsToProcess) {
+		for (const raw of textsToProcess) {
+			const text = sanitizeForTTS(raw);
 			const meta = splitTextIntoChunksMeta(text, this.config.splitLevel);
 			for (const c of meta) {
 				allChunks.push(c.text);

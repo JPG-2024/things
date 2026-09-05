@@ -7,7 +7,7 @@ import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
 
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
-export const DEFAULT_PRIMARY_COLOR = 'rgb(170, 255, 187)';
+export const DEFAULT_PRIMARY_COLOR = 'rgb(255, 255, 255)';
 export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
 
 export const PROFILE_ARTICLE_TABS = [
