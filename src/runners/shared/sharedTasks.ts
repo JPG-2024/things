@@ -87,11 +87,14 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 
 	const keywordsDef = buildRecursiveTask('keywords', {
 		processorType: 'extraction',
-		extractorConfig: { count: 10, description: 'keywords' },
+		extractorConfig: { count: 4, description: 'proper-name keywords' },
 		dependencies: [contentDependency],
 		persist: true,
 		renderOrder: 4,
-		model: viewState.aiModel
+		model: viewState.aiModel,
+		combineMode: 'dedupe',
+		embeddings: true,
+		storeChunkText: true
 	});
 
 	const categoryDef = createCategoryTask({ persist: true, renderOrder: 5 });

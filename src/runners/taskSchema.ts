@@ -30,6 +30,7 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	output: TOutput;
 	concurrencyGroup?: string;
 	embeddings?: boolean;
+	storeChunkText?: boolean;
 };
 
 type ScriptTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
@@ -135,6 +136,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			enableTTS: def.enableTTS,
 			concurrencyGroup: def.concurrencyGroup,
 			embeddings: def.embeddings,
+			storeChunkText: def.storeChunkText,
 			run: async (runtime: TaskRuntime<TMap, TId>) => {
 				const result = await def.run({
 					runId: runtime.runId,
@@ -209,6 +211,7 @@ export function buildIaTask<
 			enableTTS: def.enableTTS,
 			concurrencyGroup: def.concurrencyGroup,
 			embeddings: def.embeddings,
+			storeChunkText: def.storeChunkText,
 			run: def.run
 				? async (runtime: TaskRuntime<TMap, TId>) => {
 						return def.run!({

@@ -80,15 +80,15 @@
 
 	// shuffled picks are memoized per article+question-count so unrelated article
 	// object updates (store refreshes) don't re-shuffle and re-wrap the pills
-	let randomQuestionsKey = '';
-	let randomQuestionsMemo: string[] = [];
-	const randomQuestions = $derived.by(() => {
+	let randomTopicsKey = '';
+	let randomTopicsMemo: string[] = [];
+	const randomTopics = $derived.by(() => {
 		const key = `${article.url ?? ''}:${someTopics.length}`;
-		if (key !== randomQuestionsKey) {
-			randomQuestionsKey = key;
-			randomQuestionsMemo = shuffle(someTopics).slice(0, 2);
+		if (key !== randomTopicsKey) {
+			randomTopicsKey = key;
+			randomTopicsMemo = shuffle(someTopics).slice(0, 2);
 		}
-		return randomQuestionsMemo;
+		return randomTopicsMemo;
 	});
 </script>
 
@@ -164,8 +164,8 @@
 				<span>{title}</span>
 			</div>
 			{@render categoryPills()}
-			{#if randomQuestions.length > 0}
-				<Keywords keywords={randomQuestions} />
+			{#if randomTopics.length > 0}
+				<Keywords keywords={randomTopics} />
 			{/if}
 		</div>
 	{:else}
@@ -186,8 +186,8 @@
 						<span>{title}</span>
 					</div>
 					{@render categoryPills()}
-					{#if randomQuestions.length > 0}
-						<Keywords keywords={randomQuestions} />
+					{#if randomTopics.length > 0}
+						<Keywords keywords={randomTopics} />
 					{/if}
 				{/if}
 			</div>
@@ -204,7 +204,7 @@
 		gap: 0.5rem;
 		transition: transform 0.15s;
 		font-size: 1rem;
-		border-radius: 2px;
+		border-radius: var(--radius-md);
 		box-sizing: border-box;
 		/* min-height: 120px; */
 		width: 100%;
@@ -212,6 +212,11 @@
 		max-width: 100%;
 		position: relative;
 		border-top: 1px solid var(--bg-color);
+	}
+
+	.article-card {
+		--keywords-font-size: 0.65rem;
+		--pill-font-size: 0.65rem;
 	}
 
 	.article-profile-avatar {
@@ -254,6 +259,7 @@
 	.grid-3 .article-title {
 		padding: 0.6rem 0;
 		font-size: 0.8rem;
+		font-weight: bold;
 	}
 
 	.article-card.row {

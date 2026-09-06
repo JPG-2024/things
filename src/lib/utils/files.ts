@@ -47,7 +47,8 @@ export async function downloadImageUrl(url: string): Promise<DownloadedImageResu
 		const fileName = await invoke<string>('download_and_save_image', {
 			url: url,
 			folderName: mediaDirectory,
-			reductionMagnitud: 1
+			reductionMagnitud: 2,
+			maxDimension: 320
 		});
 
 		return { mediaDirectory, fileName };

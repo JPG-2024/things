@@ -14,6 +14,8 @@ fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
 /// # Arguments
 /// * `app` - The Tauri application handle
 /// * `url` - The URL of the image to download
+/// * `reduction_magnitud` - Optional factor to divide both dimensions by (defaults to 1, no shrink)
+/// * `max_dimension` - Optional cap for the longest side in pixels (0 or omitted = no cap)
 ///
 /// # Returns
 /// * `Ok(String)` - The filename of the saved image
@@ -23,15 +25,12 @@ pub async fn download_and_save_image(
     app: AppHandle,
     url: String,
     folder_name: String,
-    reduction_magnitud: u32,
+    reduction_magnitud: Option<u32>,
+    max_dimension: Option<u32>,
 ) -> Result<String, String> {
     // Validate URL is not empty
     if url.is_empty() {
         return Ok(String::new());
-    }
-
-    if reduction_magnitud == 0 {
-        return Err(String::from("reduction_magnitud must be greater than 0"));
     }
 
     // Get the app's local data directory
@@ -79,11 +78,25 @@ pub async fn download_and_save_image(
     let image = image::load_from_memory(&bytes)
         .map_err(|e| format!("Failed to decode image: {}", e))?;
 
-    let resized_image = image.resize_exact(
-        (image.width() / reduction_magnitud).max(1),
-        (image.height() / reduction_magnitud).max(1),
-        FilterType::Lanczos3,
-    );
+    let reduction = reduction_magnitud.unwrap_or(1).max(1);
+    let (mut nw, mut nh) = (image.width() / reduction, image.height() / reduction);
+
+    if let Some(max) = max_dimension.filter(|m| *m > 0) {
+        if nw >= nh && nw > max {
+            nh = (nh * max) / nw;
+            nw = max;
+        } else if nh > max {
+            nw = (nw * max) / nh;
+            nh = max;
+        }
+    }
+    let (nw, nh) = (nw.max(1), nh.max(1));
+
+    let resized_image = if nw == image.width() && nh == image.height() {
+        image.clone()
+    } else {
+        image.resize(nw, nh, FilterType::Lanczos3)
+    };
 
     let webp_data = Encoder::from_image(&resized_image)
         .map_err(|e| format!("Failed to create WebP encoder: {}", e))?

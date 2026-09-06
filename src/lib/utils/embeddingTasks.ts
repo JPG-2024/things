@@ -70,9 +70,10 @@ function isRecursiveData(
  * Only recursive-shaped results (`chunks` with `{ key, data }` entries) are
  * supported for now; other task shapes are skipped.
  *
- * `chunkText` is intentionally omitted from the stored chunks: the search side
- * reconstructs the text from the raw article content using `startOffset` /
- * `endOffset`.
+ * `chunkText` is stored only for tasks that opt in via `storeChunkText: true`
+ * (e.g. the keywords task), since for those the embedded text is the value worth
+ * keeping directly. Other tasks leave it unset and the search side reconstructs the
+ * text from raw article content using `startOffset` / `endOffset` as a fallback.
  */
 export async function generateEmbeddingsFromTasks(
 	tasks: Task[],
@@ -116,6 +117,7 @@ export async function generateEmbeddingsFromTasks(
 				const offset = chunk.key ?? {};
 				return {
 					articleUrl,
+					chunkText: task.storeChunkText ? flatTexts[i] : undefined,
 					embedding: entry.embedding,
 					startOffset: offset.startOffset,
 					endOffset: offset.endOffset,
@@ -208,8 +210,6 @@ export async function findSimilarChunks(
 		maxQueryChunks = 20
 	} = options;
 
-	console.log(options);
-
 	if (queryChunks.length === 0) return [];
 	const capped = queryChunks.slice(0, maxQueryChunks);
 
@@ -242,5 +242,6 @@ export async function findSimilarChunks(
 
 	merged.sort((a, b) => a.distance - b.distance);
 	const filtered = maxDistance != null ? merged.filter((r) => r.distance <= maxDistance) : merged;
+
 	return filtered.slice(0, maxResults);
 }

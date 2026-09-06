@@ -51,6 +51,7 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	persist?: boolean;
 	enableTTS?: boolean;
 	embeddings?: boolean;
+	storeChunkText?: boolean;
 	model?: string;
 	completionOptions?: Record<string, unknown>;
 };
@@ -159,7 +160,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		targetLang: options.targetLang,
 		customSystemMsg: options.customSystemMsg,
 		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
-		combineMode: 'join'
+			combineMode: options.combineMode ?? 'join'
 	});
 
 	const recursiveConfig: RecursiveConfig = {
@@ -189,6 +190,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			persist: options.persist,
 			enableTTS: options.enableTTS,
 			embeddings: options.embeddings,
+			storeChunkText: options.storeChunkText,
 			concurrencyGroup: 'recursive',
 			output: RECURSIVE_OUTPUT_SCHEMA,
 			run: async ({ state, update }) => {

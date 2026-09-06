@@ -729,9 +729,10 @@ export async function saveArticle(
 	tasksToSave: Array<{ id?: string; data?: unknown }>,
 	valuesToOverride?: Partial<Record<string, unknown>> | undefined
 ): Promise<void> {
+	let input: Awaited<ReturnType<typeof buildUpsertInput>> | undefined;
 	try {
 		const existingArticle = await getArticleWithTasksByUrl(url);
-		const input = await buildUpsertInput({
+		input = await buildUpsertInput({
 			url,
 			tasksToSave,
 			existingArticle,
@@ -739,7 +740,15 @@ export async function saveArticle(
 		});
 
 		await invoke('upsert_web_store_article', { input });
+	} catch (error) {
+		console.error(
+			`Error upserting article (url='${url}', domain from url, profile='${input?.profile ?? 'none'}'):`,
+			error
+		);
+		return;
+	}
 
+	try {
 		const categoryNames = getStoredTaskData<string[]>(tasksToSave, 'category');
 		if (categoryNames && Array.isArray(categoryNames) && categoryNames.length > 0) {
 			const categoryIds = categoryNames
@@ -750,7 +759,7 @@ export async function saveArticle(
 			}
 		}
 	} catch (error) {
-		console.error('Error saving article:', error);
+		console.error(`Error assigning categories to article (url='${url}'):`, error);
 	}
 }
 
@@ -895,9 +904,10 @@ export async function saveProfile(
 	url: string | null = null,
 	domainId: string | null = null
 ): Promise<unknown> {
-	try {
-		const normalizedId = normalizeDomainId(profileId);
+	const normalizedId = normalizeDomainId(profileId);
+	const normalizedDomainId = normalizeDomainId(domainId ?? 'youtube.com');
 
+	try {
 		if (isDomainId(normalizedId)) {
 			return await saveDomain(normalizedId, profilePicture, url);
 		}
@@ -906,13 +916,16 @@ export async function saveProfile(
 			input: {
 				id: normalizedId,
 				name: normalizedId,
-				domainId: normalizeDomainId(domainId ?? 'youtube.com'),
+				domainId: normalizedDomainId,
 				profilePicture,
 				url
 			}
 		});
 	} catch (error) {
-		console.error('Error saving profile:', error);
+		console.error(
+			`Error saving profile (id='${normalizedId}', domainId='${normalizedDomainId}'):`,
+			error
+		);
 	}
 }
 

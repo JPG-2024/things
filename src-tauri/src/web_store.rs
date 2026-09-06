@@ -283,7 +283,6 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_article_domain_column(conn)?;
     migrate_article_ids_to_youtube_v(conn)?;
     migrate_channels_to_web_profiles(conn)?;
-    migrate_drop_unused_youtube_domain(conn)?;
     migrate_strip_www_domains(conn)?;
 
     Ok(())
@@ -437,26 +436,6 @@ fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
         }
     }
-
-    Ok(())
-}
-
-fn migrate_drop_unused_youtube_domain(conn: &Connection) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM web_domains
-         WHERE id = 'youtube.com' COLLATE NOCASE
-           AND NOT EXISTS (
-               SELECT 1 FROM web_articles a WHERE LOWER(a.domain) = 'youtube.com'
-           )
-           AND NOT EXISTS (
-               SELECT 1 FROM web_profiles p WHERE LOWER(p.domain_id) = 'youtube.com'
-           )
-           AND NOT EXISTS (
-               SELECT 1 FROM web_profile_templates t WHERE LOWER(t.profile_id) = 'youtube.com'
-           )",
-        [],
-    )
-    .map_err(|error| error.to_string())?;
 
     Ok(())
 }
@@ -1512,10 +1491,18 @@ pub async fn upsert_web_store_article(
     let article_id = article_id_for_url(&input.url);
     let domain = domain_from_url(&input.url);
     if let Some(ref d) = domain {
-        ensure_web_domain(&conn, d)?;
+        ensure_web_domain(&conn, d).map_err(|error| {
+            format!(
+                "Failed to ensure domain '{}' for article url='{}': {}",
+                d, input.url, error
+            )
+        })?;
     }
 
-    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone()).await?;
+    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone()).await
+        .map_err(|error| {
+            format!("Failed to query existing article for url='{}': {}", input.url, error)
+        })?;
     
     if previous_article.is_some() {
         conn.execute(
@@ -1538,7 +1525,15 @@ pub async fn upsert_web_store_article(
                 input.url
             ],
         )
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            format!(
+                "Failed to UPDATE article url='{}' domain='{}' profile='{}': {}",
+                input.url,
+                domain.as_deref().unwrap_or("NULL"),
+                input.profile.as_deref().unwrap_or("NULL"),
+                error
+            )
+        })?;
     } else {
         conn.execute(
             "INSERT INTO web_articles (id, url, domain, created_at, title, thumbnail, content,
@@ -1561,7 +1556,15 @@ pub async fn upsert_web_store_article(
                 now
             ],
         )
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            format!(
+                "Failed to INSERT article url='{}' domain='{}' profile='{}': {}",
+                input.url,
+                domain.as_deref().unwrap_or("NULL"),
+                input.profile.as_deref().unwrap_or("NULL"),
+                error
+            )
+        })?;
     }
 
     Ok(())
@@ -2078,31 +2081,59 @@ pub async fn assign_categories_to_article(
     let mut conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let tx = conn.transaction().map_err(|error| error.to_string())?;
+    let tx = conn.transaction().map_err(|error| {
+        format!(
+            "Failed to start transaction for category assignment on article url='{}': {}",
+            input.article_url, error
+        )
+    })?;
 
     tx.execute(
         "DELETE FROM article_category WHERE article_url = ?1",
         params![input.article_url],
-    ).map_err(|error| error.to_string())?;
+    ).map_err(|error| {
+        format!(
+            "Failed to clear existing categories for article url='{}': {}",
+            input.article_url, error
+        )
+    })?;
 
     for category_id in &input.category_ids {
         let category_exists: bool = tx.query_row(
             "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
             [category_id],
             |row| row.get(0),
-        ).map_err(|error| error.to_string())?;
+        ).map_err(|error| {
+            format!(
+                "Failed to check existence of category '{}' for article url='{}': {}",
+                category_id, input.article_url, error
+            )
+        })?;
 
         if !category_exists {
-            return Err(format!("Category {} does not exist or is deleted", category_id));
+            return Err(format!(
+                "Category '{}' does not exist or is deleted (article url='{}')",
+                category_id, input.article_url
+            ));
         }
 
         tx.execute(
             "INSERT OR IGNORE INTO article_category (article_url, category_id) VALUES (?1, ?2)",
             params![input.article_url, category_id],
-        ).map_err(|error| error.to_string())?;
+        ).map_err(|error| {
+            format!(
+                "Failed to assign category '{}' to article url='{}': {}",
+                category_id, input.article_url, error
+            )
+        })?;
     }
 
-    tx.commit().map_err(|error| error.to_string())?;
+    tx.commit().map_err(|error| {
+        format!(
+            "Failed to commit category assignment for article url='{}': {}",
+            input.article_url, error
+        )
+    })?;
     Ok(())
 }
 
@@ -2879,32 +2910,6 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
             .unwrap();
         assert_eq!(youtube_kept, 1, "youtube.com must exist because a profile references it");
-    }
-
-    #[test]
-    fn migrate_drop_unused_youtube_domain_removes_only_unreferenced_rows() {
-        let conn = build_in_memory_db();
-        ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
-
-        migrate_drop_unused_youtube_domain(&conn).expect("cleanup");
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(count, 0, "unreferenced youtube.com domain should be dropped");
-
-        ensure_web_domain(&conn, "youtube.com").expect("re-ensure domain");
-        conn.execute(
-            "INSERT INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at)
-             VALUES ('@chan', '@chan', 'youtube.com', 0, NULL, NULL, 1)",
-            [],
-        )
-        .expect("insert profile");
-
-        migrate_drop_unused_youtube_domain(&conn).expect("cleanup again");
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(count, 1, "youtube.com domain referenced by a profile must be kept");
     }
 
     #[test]

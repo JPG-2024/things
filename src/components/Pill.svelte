@@ -26,7 +26,7 @@
 		width: max-content;
 		padding: 0 15px;
 		text-transform: capitalize;
-		font-size: 0.9rem;
+		font-size: var(--pill-font-size, 0.9rem);
 		border-left: 2px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
 	}
 

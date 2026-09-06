@@ -109,6 +109,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	endedAt?: number;
 	concurrencyGroup?: string;
 	embeddings?: boolean;
+	storeChunkText?: boolean;
 }
 
 export interface ScriptTask<
