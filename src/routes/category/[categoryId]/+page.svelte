@@ -107,7 +107,6 @@
 
 	.top-bar {
 		width: 100%;
-		max-width: 1200px;
 		margin-bottom: 1rem;
 	}
 
@@ -175,7 +174,6 @@
 
 	.articles-container {
 		width: 100%;
-		max-width: 1200px;
 	}
 
 	.empty-state {

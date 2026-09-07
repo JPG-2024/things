@@ -175,6 +175,7 @@
 	.task-content {
 		min-width: 0;
 		width: 100%;
+		padding: 0.8rem;
 	}
 
 	.task-toolbar {

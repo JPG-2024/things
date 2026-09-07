@@ -204,9 +204,13 @@
 		<MasonryGrid
 			items={otherTasks}
 			keyOf={(entry) => `${entry.runId}:${entry.task.id}`}
-			layoutIndex={viewState.taskMasonryLayoutIndex}
+			layoutIndex={viewState.masonryTasksLayoutIndex}
 			onLayoutIndexChange={(value) => {
-				viewState.taskMasonryLayoutIndex = value;
+				viewState.masonryTasksLayoutIndex = value;
+			}}
+			columnOffset={viewState.masonryTasksColumnOffset}
+			onColumnOffsetChange={(value) => {
+				viewState.masonryTasksColumnOffset = value;
 			}}
 			spanOf={(entry) => entry.task.gridSpan ?? 1}
 		>
@@ -292,7 +296,7 @@
 <style>
 	.tasks-container {
 		width: 100%;
-		padding-top: 1rem;
+		padding-top: 1.5rem;
 	}
 
 	.tasks-title {
@@ -300,7 +304,8 @@
 		font-size: 1.4rem;
 		margin-right: auto;
 		width: 100%;
-		padding: 0.6rem;
+		padding: 1rem 0;
+		padding-bottom: 2rem;
 	}
 
 	.tasks-title::after {

@@ -165,7 +165,9 @@
 			</div>
 			{@render categoryPills()}
 			{#if randomTopics.length > 0}
-				<Keywords keywords={randomTopics} />
+				<div class="article-item__keywords">
+					<Keywords keywords={randomTopics} />
+				</div>
 			{/if}
 		</div>
 	{:else}
@@ -214,6 +216,10 @@
 		border-top: 1px solid var(--bg-color);
 	}
 
+	.article-item__keywords {
+		padding: 0.6rem 0;
+	}
+
 	.article-card {
 		--keywords-font-size: 0.65rem;
 		--pill-font-size: 0.65rem;
@@ -221,8 +227,8 @@
 
 	.article-profile-avatar {
 		position: absolute;
-		top: 5px;
-		left: 5px;
+		top: 8px;
+		left: 8px;
 		width: 20px;
 		height: 20px;
 		border-radius: var(--radius-sm);
@@ -385,7 +391,7 @@
 		font-weight: bold;
 		text-transform: capitalize;
 		background: rgba(var(--primary-color), 0.2);
-		color: rgba(255, 255, 255, 0.8);
+		color: var(--bg-color);
 	}
 
 	.row .article-content {

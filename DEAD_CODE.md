@@ -12,47 +12,52 @@ All "dead" claims were verified by grepping the whole `src/` tree (and `src-taur
 These files have zero references outside their own definition. Safe to delete.
 
 ### Components (`src/components/`)
-| File | Notes |
-|------|-------|
-| `CategoryWidget.svelte` | Only match in repo is the AGENTS.md naming-convention example (`e.g. CategoryWidget.svelte`). |
+
+| File                            | Notes                                                                                                            |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CategoryWidget.svelte`         | Only match in repo is the AGENTS.md naming-convention example (`e.g. CategoryWidget.svelte`).                    |
 | `CompletionOptionsPanel.svelte` | Duplicate of live `inputs/CompletionOptionsEditor.svelte`. Imports only a type from `chat-completions-provider`. |
-| `InstantResponse.svelte` | No references. |
-| `LoadingStack.svelte` | Wires `flow-status` Tauri listener, but the module is never imported so it never runs. |
-| `PopupMenu.svelte` | No references. |
-| `TextNode.svelte` | No references. |
-| `Toggle.svelte` (root) | All `Toggle` matches are `ToggleIcon`; no `<Toggle>` / `import Toggle` exist. |
-| `inputs/Toggle.svelte` | Same as above; never imported. |
-| `Tasks/CreateTaskForm.svelte` | No references. |
-| `Tasks/TaskRerunEditor.svelte` | No references. |
+| `InstantResponse.svelte`        | No references.                                                                                                   |
+| `LoadingStack.svelte`           | Wires `flow-status` Tauri listener, but the module is never imported so it never runs.                           |
+| `PopupMenu.svelte`              | No references.                                                                                                   |
+| `TextNode.svelte`               | No references.                                                                                                   |
+| `Toggle.svelte` (root)          | All `Toggle` matches are `ToggleIcon`; no `<Toggle>` / `import Toggle` exist.                                    |
+| `inputs/Toggle.svelte`          | Same as above; never imported.                                                                                   |
+| `Tasks/CreateTaskForm.svelte`   | No references.                                                                                                   |
+| `Tasks/TaskRerunEditor.svelte`  | No references.                                                                                                   |
 
 Transitively dead (only imported by the dead `CreateTaskForm`): `inputs/Textarea.component.svelte`.
 
 ### `src/lib/`
-| File | Notes |
-|------|-------|
-| `utils/media.ts` | Sole export `downloadMediaAssets` unused. |
-| `utils/getImageColor.ts` | Sole export `getImageColor` unused. |
-| `utils/schemas/structuredSchemas.ts` | Sole export `CONTENT_EXTRACTION_SCHEMA` unused. |
-| `apiListeners.ts` | Barrel re-exporting `markdownListener`/`metadataListener`/`flowStatus`; never imported. |
-| `listeners/markdownListener.ts` | Only reachable via dead `apiListeners.ts`; `listenMarkdownFlowStatus` never called. |
-| `listeners/metadataListener.ts` | Same as above. |
-| `utils/youtube/summarizeChapters.ts` | `summarizeChapters` never called. |
-| `utils/youtube/joinCaptionsByChapters.ts` | Only consumed by the dead `summarizeChapters.ts` (for a type). |
-| `utils/inference/index.ts` | Barrel; never imported. Orphans `iaCategorizer`, `inferenceTitle`, `DEFAULT_COMPLETION_OPTIONS` (see Tier 2). |
+
+| File                                      | Notes                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `utils/media.ts`                          | Sole export `downloadMediaAssets` unused.                                                                     |
+| `utils/getImageColor.ts`                  | Sole export `getImageColor` unused.                                                                           |
+| `utils/schemas/structuredSchemas.ts`      | Sole export `CONTENT_EXTRACTION_SCHEMA` unused.                                                               |
+| `apiListeners.ts`                         | Barrel re-exporting `markdownListener`/`metadataListener`/`flowStatus`; never imported.                       |
+| `listeners/markdownListener.ts`           | Only reachable via dead `apiListeners.ts`; `listenMarkdownFlowStatus` never called.                           |
+| `listeners/metadataListener.ts`           | Same as above.                                                                                                |
+| `utils/youtube/summarizeChapters.ts`      | `summarizeChapters` never called.                                                                             |
+| `utils/youtube/joinCaptionsByChapters.ts` | Only consumed by the dead `summarizeChapters.ts` (for a type).                                                |
+| `utils/inference/index.ts`                | Barrel; never imported. Orphans `iaCategorizer`, `inferenceTitle`, `DEFAULT_COMPLETION_OPTIONS` (see Tier 2). |
 
 ### Other
-| File | Notes |
-|------|-------|
-| `stores/micStore.svelte.ts` | `micState` never imported. `ConversationMode.svelte` uses `micService` directly, bypassing the store. |
-| `features/podcast/interviewGenerator.ts` | Not imported anywhere. |
-| `features/podcast/smalltalkGenerator.ts` | Not imported anywhere. |
-| `features/podcast/segmentProvider.ts` | `resolveSegments` never imported. |
-| `types/article.types.ts` | `Article` interface not exported and never referenced. |
-| `types/routeParams.ts` | `ChatRouteParams` never referenced. |
-| `routes/api/chunk/+server.ts` | App is SPA-only (`ssr = false`, `adapter-static`); no server serves `/api/chunk`. No client/Tauri references it. |
+
+| File                                     | Notes                                                                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `stores/micStore.svelte.ts`              | `micState` never imported. `ConversationMode.svelte` uses `micService` directly, bypassing the store.            |
+| `features/podcast/interviewGenerator.ts` | Not imported anywhere.                                                                                           |
+| `features/podcast/smalltalkGenerator.ts` | Not imported anywhere.                                                                                           |
+| `features/podcast/segmentProvider.ts`    | `resolveSegments` never imported.                                                                                |
+| `types/article.types.ts`                 | `Article` interface not exported and never referenced.                                                           |
+| `types/routeParams.ts`                   | `ChatRouteParams` never referenced.                                                                              |
+| `routes/api/chunk/+server.ts`            | App is SPA-only (`ssr = false`, `adapter-static`); no server serves `/api/chunk`. No client/Tauri references it. |
 
 ### Orphaned folder
+
 `src/lib/utils/LEGACY/` — **entire folder is orphaned** (no code imports `LEGACY`). Contains:
+
 - `extractKeywords copy.ts`, `extractKeywords copy 2.ts` (both export `extractKeywords`)
 - `llama-inference.ts` (empty, 0 bytes)
 - `llama-server-service.ts`, `openai-llama-service.ts`
@@ -61,6 +66,7 @@ Transitively dead (only imported by the dead `CreateTaskForm`): `inputs/Textarea
 > ⚠️ AGENTS.md states "Do not edit `LEGACY/` as part of normal work." Although it is dead, deletion should get explicit human approval before removal.
 
 ### Empty directories (can be removed)
+
 `src/db/`, `src/examples/`, `src/lib/services/`, `src/routes/api/retrieve/`.
 
 ---
@@ -70,10 +76,12 @@ Transitively dead (only imported by the dead `CreateTaskForm`): `inputs/Textarea
 These files are still needed, but contain exports never referenced outside their own module.
 
 ### `src/constants.ts`
+
 `BLOG_SUMMARY_SYSTEM_PROMPT`, `TECH_SUMMARY_SYSTEM_PROMPT`, `DOCS_SUMMARY_SYSTEM_PROMPT`, `PRESUMMARY`, `YOUTUBE_SUMMARY_PROMPT`, `CHAT_SYSTEM_PROMPT`, `STRUCTURED_RESPONSE_SYSTEM_PROMPT_EN`, `SIMPLE_SUMMARY_SYSTEM_PROMPT_EN2`, `STRUCTURED_SUMMARY_JSON_PROMPT_ES`, plus private `keypoints` (line 62).
-*(Used: `RAW_PROCESS_LIMIT`, `SIMPLE_SUMMARY_SYSTEM_PROMPT_EN`/`_ES`, `LANG_NAMES`.)*
+_(Used: `RAW_PROCESS_LIMIT`, `SIMPLE_SUMMARY_SYSTEM_PROMPT_EN`/`_ES`, `LANG_NAMES`.)_
 
 ### `src/stores/`
+
 - **`webStore.ts`**: `getArticles`, `getPageElementField`, `getFirstStringValue` (only used by the dead `getPageElementField`), `WEB_STORE_UNKNOWN_PROFILE_ID`, `WEB_STORE_UNKNOWN_PROFILE_LABEL`.
 - **`templateStore.ts`**: `removeTemplateFromProfile`.
 - **`deleteSelectionStore.svelte.ts`**: `isMarked`, `add`, `remove`, `isDeleting`.
@@ -86,6 +94,7 @@ These files are still needed, but contain exports never referenced outside their
 - **`musicStore.svelte.ts`**: `TrackStatus`, `TrackDownload` (only inferred internally by `DownloadModal`).
 
 ### `src/runners/`
+
 - **`taskSchema.ts`**: `getRequiredTaskState`, `createContentGetter`, `InferTaskMap`, `TaskRunContext`, `TaskDefCompleteParams`; and `export type { Resolvable, TaskDefCtx }` (nobody imports these from here).
 - **`shared/taskFactories.ts`**: `createSummaryTask` (+ transitively dead `CreateSummaryTaskOptions`).
 - **`shared/processors/combineHelpers.ts`**: `parseAndFlattenJsonArrays` (`combineResults` is used).
@@ -97,6 +106,7 @@ These files are still needed, but contain exports never referenced outside their
 - **`src/lib/urlRouter/urlRouter.ts`**: `addUrlRoute` (exported extension hook, never called).
 
 ### `src/lib/` (non-barrel)
+
 - **`ttsPlayerConfig.ts`**: `setCurrentStyle`, `getCurrentStyleName`, `DEFAULT_PLAYER_MODE`.
 - **`utils/gbnf.ts`**: `objectWithEnumAndStringGbnf`.
 - **`utils/url.ts`**: `getRouteForDomain`.
@@ -112,11 +122,13 @@ These files are still needed, but contain exports never referenced outside their
 - **`lib/position.ts`**: `PopupCoords` (interface).
 
 ### `src/types/`
+
 - **`taskRunner.types.ts`**: `TaskTypesEnum`, `TaskType` (internal only), `TaskBase` (internal only), `CompletionOptionsValue` (internal only), `TaskRunnerState`, `IaTaskResult`.
 - **`template.types.ts`**: `TemplateTaskType` (internal only).
 - **`features/podcast/types.ts`**: `PodcastMode`, `SegmentSource` (only used by dead `segmentProvider`), `TurnRole` (internal), `TurnPrompts`, `TurnPromptBuildInput` (only used by dead generators), `PodcastMode` (unused type).
 
 ### `features/podcast/prompts.ts`
+
 `interviewHookSystemPrompt`, `interviewQuestionSystemPrompt`, `interviewAnswerSystemPrompt`, `interviewUserPrompt`, `smalltalkHookSystemPrompt`, `smalltalkCasualSystemPrompt`, `smalltalkUserPrompt` — only consumed by the dead `interviewGenerator`/`smalltalkGenerator`.
 
 ---

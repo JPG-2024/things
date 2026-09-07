@@ -94,6 +94,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 			const youtubeProfile = await scrapStore.getProfileInfoFromVideo(initData.videoId);
 			if (!youtubeProfile) return null;
 			let profileImageLocal: string | null = null;
+
 			if (youtubeProfile.profileImage) {
 				try {
 					const { fileName } = await downloadImageUrl(youtubeProfile.profileImage);
@@ -123,7 +124,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		type: 'script',
 		component: 'player',
 		gridSpan: 1,
-		renderOrder: 1,
+		renderOrder: 0,
 		persist: true,
 		run: async (runtime) => {
 			const initData = runtime.getTaskData('init-youtube') as { videoId: string; url: string };

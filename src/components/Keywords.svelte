@@ -38,6 +38,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.8rem;
-		padding: 1rem 0;
+		padding: 0rem 0;
 	}
 </style>

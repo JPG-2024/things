@@ -26,6 +26,7 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	gridSpan?: 1 | 2;
 	renderOrder?: number;
 	persist?: boolean;
+	visible?: boolean;
 	enableTTS?: boolean;
 	output: TOutput;
 	concurrencyGroup?: string;
@@ -133,6 +134,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
 			persist: def.persist,
+			visible: def.visible,
 			enableTTS: def.enableTTS,
 			concurrencyGroup: def.concurrencyGroup,
 			embeddings: def.embeddings,
@@ -208,6 +210,7 @@ export function buildIaTask<
 			gridSpan: def.gridSpan,
 			renderOrder: def.renderOrder,
 			persist: def.persist,
+			visible: def.visible,
 			enableTTS: def.enableTTS,
 			concurrencyGroup: def.concurrencyGroup,
 			embeddings: def.embeddings,

@@ -74,7 +74,7 @@
 		width: max-content;
 		color: var(--primary-color);
 		font-weight: bold;
-		font-size: 1rem;
+		font-size: var(--tabs-pill-font-size, 0.7rem);
 		line-height: 1.2;
 		display: inline-flex;
 		align-items: center;

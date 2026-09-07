@@ -141,7 +141,7 @@
 				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
 			</div>
 		{/if}
-		{#if chunks.length > 0}
+		<!-- 		{#if chunks.length > 0}
 			<ChunkList
 				title="Chunks"
 				defaultOpen={chunksSpacerOpen}
@@ -150,15 +150,15 @@
 				{chunkOffsets}
 				bind:showRaw
 			/>
-		{/if}
-		{#if task.embeddings}
+		{/if} -->
+		<!-- 		{#if task.embeddings}
 			<SimilarEmbeddingsComponent
 				id={task.id}
 				data={task.data}
 				manual={task.embeddings === true}
 				maxDistance={0.3}
 			/>
-		{/if}
+		{/if} -->
 
 		{#if finalResponse}
 			<div class="final-response">
@@ -174,10 +174,10 @@
 
 <style>
 	.recursive-shell {
+		--tabs-pill-font-size: 0.7rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		padding: 1rem 0;
 	}
 
 	.final-response {
@@ -189,6 +189,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		font: 0.6rem;
 	}
 
 	.level-label {

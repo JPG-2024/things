@@ -82,6 +82,7 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 		dependencies: [contentDependency],
 		persist: true,
 		renderOrder: 3,
+		gridSpan: 1,
 		model: viewState.aiModel
 	});
 
@@ -90,19 +91,24 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 		extractorConfig: { count: 4, description: 'proper-name keywords' },
 		dependencies: [contentDependency],
 		persist: true,
-		renderOrder: 4,
+		renderOrder: 0.2,
 		model: viewState.aiModel,
 		combineMode: 'dedupe',
 		embeddings: true,
 		storeChunkText: true
 	});
 
-	const categoryDef = createCategoryTask({ persist: true, renderOrder: 5 });
+	const categoryDef = createCategoryTask({
+		persist: true,
+		renderOrder: 0.5,
+		dependencies: ['title', 'keywords']
+	});
 
 	const titleDef = createTitleTask({
 		dependencies: ['summary'],
 		persist: true,
-		renderOrder: 0.1
+		renderOrder: 0.1,
+		visible: false
 	});
 
 	return [

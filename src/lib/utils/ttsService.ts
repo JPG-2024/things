@@ -38,7 +38,8 @@ function isAbort(err: unknown): boolean {
 
 export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 	try {
-		const res = await fetch(`${WHISPER_API_URL}/voices`);
+		const res = await fetch(`${TTS_API_URL}/voices`);
+		console.log(res);
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
 			await setErrorFrom(new Error(message), 'Failed to fetch voice profiles');
@@ -56,12 +57,12 @@ export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 }
 
 export function getImage(filename: string): string {
-	return `${WHISPER_API_URL}${filename}`;
+	return `${TTS_API_URL}${filename}`;
 }
 
 export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
 	try {
-		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`);
+		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`);
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
 			await setErrorFrom(new Error(message), 'Failed to fetch voice chunks');
@@ -79,7 +80,7 @@ export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
 
 export async function deleteVoiceChunk(name: string): Promise<void> {
 	try {
-		const res = await fetch(`${WHISPER_API_URL}/voices/chunk/${encodeURIComponent(name)}`, {
+		const res = await fetch(`${TTS_API_URL}/voices/chunk/${encodeURIComponent(name)}`, {
 			method: 'DELETE'
 		});
 		if (!res.ok) {
@@ -97,7 +98,7 @@ export async function deleteVoiceChunk(name: string): Promise<void> {
 
 export async function deleteVoiceProfile(profileId: string): Promise<void> {
 	try {
-		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`, {
 			method: 'DELETE'
 		});
 		if (!res.ok) {
@@ -118,7 +119,7 @@ export async function updateVoiceProfile(
 	patch: { name_prefix?: string; image_src?: string }
 ): Promise<VoiceProfile> {
 	try {
-		const res = await fetch(`${WHISPER_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(patch)

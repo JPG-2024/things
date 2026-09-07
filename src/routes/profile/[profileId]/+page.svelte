@@ -259,7 +259,6 @@
 
 	.top-bar {
 		width: 100%;
-		max-width: 1200px;
 		margin-bottom: 1rem;
 		display: flex;
 		align-items: center;
@@ -434,7 +433,6 @@
 
 	.articles-container {
 		width: 100%;
-		max-width: 1200px;
 	}
 
 	.empty-state {

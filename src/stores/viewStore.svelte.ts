@@ -44,8 +44,14 @@ class ViewState {
 	collapseProfiles = $state(false);
 	selectedTaskId = $state('title-summary');
 	ttsPlayerMode = $state<PlayerMode>('mini');
-	masonryLayoutIndex = $state(1);
-	taskMasonryLayoutIndex = $state(2);
+	masonryArticlesLayoutIndex = $state(1);
+	masonryArticlesColumnOffset = $state(0);
+	masonryCategoriesLayoutIndex = $state(1);
+	masonryCategoriesColumnOffset = $state(1);
+	masonryProfilesLayoutIndex = $state(1);
+	masonryProfilesColumnOffset = $state(0);
+	masonryTasksLayoutIndex = $state(1);
+	masonryTasksColumnOffset = $state(-1);
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
