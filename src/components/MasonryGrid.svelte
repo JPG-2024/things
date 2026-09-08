@@ -365,7 +365,7 @@
 		{/if}
 		<Icon
 			name={layoutIndex === 0 ? 'LayoutGrid' : 'List'}
-			size={20}
+			size={22}
 			onClick={toggleRowMode}
 			tooltipProps={{ content: layoutIndex === 0 ? 'Show grid' : 'Show list' }}
 		/>
@@ -409,8 +409,8 @@
 	.layout-header {
 		display: flex;
 		justify-content: flex-end;
-		gap: 0.4rem;
-		padding: 1rem 0;
+		gap: 2rem;
+		padding: 2rem 0;
 		width: 100%;
 	}
 

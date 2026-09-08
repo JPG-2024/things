@@ -12,13 +12,15 @@
 		activeTab: string;
 		iconOnly?: boolean;
 		onTabChange?: (tabId: string) => void;
+		iconSize?: number;
 	}
 
 	let {
 		tabs,
 		activeTab = $bindable(),
 		iconOnly = false,
-		onTabChange = undefined
+		onTabChange = undefined,
+		iconSize = 16
 	}: Props = $props();
 
 	function selectTab(tabId: string) {
@@ -47,7 +49,7 @@
 					onClick={(e) => handleTabClick(tab.id, e)}
 					label={!iconOnly ? tab.label : null}
 					tooltipProps={{ content: tab.label }}
-					size={16}
+					size={iconSize}
 				/>
 			{:else if !iconOnly}
 				{tab.label}

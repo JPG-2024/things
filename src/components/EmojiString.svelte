@@ -13,7 +13,7 @@
 	let emoji = $derived(/\p{L}|\p{N}/u.test(firstChar) ? '' : firstChar);
 	let text = $derived(emoji ? Array.from(value).slice(1).join('').trimStart() : value);
 
-	let tintHue = $derived(active ? viewState.primaryTintHue : viewState.tintHue);
+	let tintHue = $derived(active ? 'rgb(255, 255, 255)' : viewState.tintHue);
 </script>
 
 <span
@@ -47,13 +47,19 @@
 		font-size: 1em;
 		line-height: 1.2;
 		color: white;
-		text-transform: capitalize;
+		text-transform: uppercase;
+		font-weight: bold;
 	}
 
 	.active .emoji-string__text {
 		font-weight: bold;
 		text-decoration: underline;
 		color: var(--primary-color);
+		text-shadow:
+			0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent),
+			0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent),
+			0 0 15px color-mix(in srgb, white 40%, transparent);
+		transition: text-shadow 0.2s ease;
 	}
 
 	.active .emoji-string__emoji {

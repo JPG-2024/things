@@ -74,7 +74,12 @@
 	fixedColumns={viewState.activeProfileArticleTab === 'profiles' ? 2 : undefined}
 >
 	{#snippet headerLeft()}
-		<Tabs tabs={PROFILE_ARTICLE_TABS} bind:activeTab={viewState.activeProfileArticleTab} iconOnly />
+		<Tabs
+			tabs={PROFILE_ARTICLE_TABS}
+			bind:activeTab={viewState.activeProfileArticleTab}
+			iconOnly
+			iconSize={22}
+		/>
 	{/snippet}
 	{#snippet children(item, i, layoutIndex, layoutKey)}
 		{@render children(item, i, layoutIndex, layoutKey)}

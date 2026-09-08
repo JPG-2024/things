@@ -87,7 +87,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 		type: 'script',
 		component: 'image',
 		persist: true,
-		renderOrder: 0,
+		renderOrder: 0.1,
 		run: async (runtime) => {
 			const initData = runtime.getTaskData('init-web') as { url: string; domainUrl: string };
 			const metadata = runtime.getTaskData('metadata') as Record<string, string>;
