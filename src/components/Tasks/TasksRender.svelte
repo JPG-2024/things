@@ -359,7 +359,7 @@
 <style>
 	.tasks-container {
 		width: 100%;
-		padding-top: 1.5rem;
+		padding: 1.5rem;
 	}
 
 	.tasks-title {

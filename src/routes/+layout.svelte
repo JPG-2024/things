@@ -451,7 +451,7 @@
 		overflow-y: auto;
 		scrollbar-gutter: stable;
 		height: 100vh;
-		padding: 3rem;
+		padding: 1rem;
 		padding-top: 1.5rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 5rem;

@@ -253,21 +253,22 @@
 			</div>
 		</Toolbar>
 	</div>
-	<div class="toolbar-row">
-		<ProfilesBar />
-	</div>
 	<div class="toolbar-row"><Categories /></div>
 </div>
 
 <div class="dashboard-container">
-	<!-- <AskComponent /> -->
-	{#if viewState.activeProfileArticleTab === 'profiles'}
-		<ProfilesTab />
-	{:else if viewState.activeProfileArticleTab === 'categories'}
-		<CategoriesTab />
-	{:else}
-		<ArticlesTab />
+	{#if viewState.activeProfileArticleTab === 'articles'}
+		<ProfilesBar />
 	{/if}
+	<div class="dashboard-content">
+		{#if viewState.activeProfileArticleTab === 'profiles'}
+			<ProfilesTab />
+		{:else if viewState.activeProfileArticleTab === 'categories'}
+			<CategoriesTab />
+		{:else}
+			<ArticlesTab />
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -296,15 +297,26 @@
 	}
 
 	.dashboard-container {
+		position: fixed;
+		top: 9rem;
+		left: 1.5rem;
+		right: 1.5rem;
+		bottom: 0;
+		display: flex;
+		flex-direction: row;
+		gap: 1rem;
+		overflow: hidden;
+	}
+
+	.dashboard-content {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
 		align-items: center;
-		box-sizing: border-box;
-		padding: 10px 10px;
-		padding-top: 12rem;
 		width: 100%;
-		min-height: 80px;
+		min-width: 0;
+		overflow-y: auto;
+		padding: 0 1rem;
 	}
 
 	.dashboard-toolbar-container {
@@ -315,7 +327,7 @@
 		z-index: 10;
 		display: flex;
 		flex-direction: column;
-		gap: 1.2rem;
+		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
 		padding: 2rem 3rem 2rem;

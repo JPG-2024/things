@@ -159,12 +159,21 @@
 <style>
 	.profiles-bar {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
 		gap: 1.1rem;
 		width: fit-content;
-		padding: 0 1rem;
+		padding-right: 1rem;
+		padding-top: 4rem;
+		overflow-y: auto;
+		height: 100%;
+		flex-shrink: 0;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.profiles-bar::-webkit-scrollbar {
+		display: none;
 	}
 
 	.profile-btn {
@@ -174,8 +183,14 @@
 		justify-content: center;
 		border-radius: 50%;
 		cursor: pointer;
-		transition: transform 0.15s;
-		opacity: 0.8;
+		transition:
+			opacity 0.15s,
+			transform 0.15s;
+		opacity: 0.3;
+	}
+
+	.profiles-bar:hover .profile-btn {
+		opacity: 1;
 	}
 
 	.profile-btn:hover {
@@ -186,9 +201,9 @@
 		opacity: 1;
 	}
 
-	.profile-btn.active .profile-avatar {
+	/* 	.profile-btn.active .profile-avatar {
 		box-shadow: 0 0 0 2px var(--primary-color);
-	}
+	} */
 
 	.profile-avatar {
 		display: block;
