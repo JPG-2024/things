@@ -12,13 +12,19 @@ function extractTitle(article: ArticleWithTasks): string | null {
 }
 
 function extractSummary(article: ArticleWithTasks): string | null {
-	const summary = article.persistedTasks?.find(
-		(t) => t.id === 'title-summary' || t.id === 'summary'
-	)?.data;
-	if (typeof summary === 'string' && summary.trim()) return summary.trim();
-	if (summary && typeof summary === 'object') {
-		const finalResponse = (summary as Record<string, unknown>).finalResponse;
-		if (typeof finalResponse === 'string' && finalResponse.trim()) return finalResponse.trim();
+	const task = article.persistedTasks?.find(
+		(t) => t.id === 'title-summary' || t.id === 'summary' || t.id === 'analysis'
+	);
+	const data = task?.data;
+	if (typeof data === 'string' && data.trim()) return data.trim();
+	if (data && typeof data === 'object') {
+		const obj = data as Record<string, unknown>;
+		if (typeof obj.finalResponse === 'string' && obj.finalResponse.trim())
+			return obj.finalResponse.trim();
+		if (obj.finalResponse && typeof obj.finalResponse === 'object') {
+			const fr = obj.finalResponse as Record<string, unknown>;
+			if (typeof fr.summary === 'string' && fr.summary.trim()) return fr.summary.trim();
+		}
 	}
 	return null;
 }

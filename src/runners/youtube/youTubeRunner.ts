@@ -35,6 +35,60 @@ function extractVideoId(url: string): string | null {
 	}
 }
 
+async function fetchYouTubeProfileInBackground(videoId: string, url: string): Promise<void> {
+	const existingArticle = await getArticleWithTasksByUrl(url);
+	if (existingArticle?.profileId) {
+		const existingProfile = await getProfile(existingArticle.profileId);
+		if (existingProfile) {
+			const picture = existingProfile.profilePicture ?? '';
+			let localImage = '';
+			if (picture) {
+				if (picture.includes('://')) {
+					try {
+						localImage = (await downloadImageUrl(picture)).fileName;
+					} catch (e) {
+						console.warn('Failed to localize profile image', e);
+					}
+				} else {
+					localImage = picture;
+				}
+			}
+			let profilePath = `channel/${existingProfile.id}`;
+			if (existingProfile.url) {
+				try {
+					profilePath = new URL(existingProfile.url).pathname.replace(/^\//, '');
+				} catch {
+					/* keep default */
+				}
+			}
+			scrapStore.currentYoutubeProfile = {
+				id: existingProfile.id,
+				profilePath,
+				videos: [],
+				profileImage: localImage
+			};
+		}
+		return;
+	}
+
+	const youtubeProfile = await scrapStore.getProfileInfoFromVideo(videoId);
+	if (!youtubeProfile) return;
+	let profileImageLocal: string | null = null;
+
+	if (youtubeProfile.profileImage) {
+		try {
+			const { fileName } = await downloadImageUrl(youtubeProfile.profileImage);
+			profileImageLocal = fileName;
+		} catch (e) {
+			console.warn('Failed to download YouTube profile image', e);
+		}
+	}
+	scrapStore.currentYoutubeProfile = {
+		...youtubeProfile,
+		profileImage: profileImageLocal ?? ''
+	};
+}
+
 function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 	const videoId = extractVideoId(cleanUrl);
 
@@ -44,77 +98,6 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		dependencies: [],
 		type: 'script',
 		run: () => ({ url: cleanUrl, videoId, language: viewState.language })
-	};
-
-	const profileTask: Task = {
-		id: 'profile',
-		name: 'Profile',
-		dependencies: ['init-youtube'],
-		type: 'script',
-		persist: true,
-		run: async (runtime) => {
-			const initData = runtime.getTaskData('init-youtube') as { videoId: string; url: string };
-			if (!initData?.videoId) return null;
-
-			const existingArticle = await getArticleWithTasksByUrl(initData.url);
-			if (existingArticle?.profileId) {
-				const existingProfile = await getProfile(existingArticle.profileId);
-				if (existingProfile) {
-					const picture = existingProfile.profilePicture ?? '';
-					let localImage = '';
-					if (picture) {
-						if (picture.includes('://')) {
-							try {
-								localImage = (await downloadImageUrl(picture)).fileName;
-							} catch (e) {
-								console.warn('Failed to localize profile image', e);
-							}
-						} else {
-							localImage = picture;
-						}
-					}
-					let profilePath = `channel/${existingProfile.id}`;
-					if (existingProfile.url) {
-						try {
-							profilePath = new URL(existingProfile.url).pathname.replace(/^\//, '');
-						} catch {
-							/* keep default */
-						}
-					}
-					scrapStore.currentYoutubeProfile = {
-						id: existingProfile.id,
-						profilePath,
-						videos: [],
-						profileImage: localImage
-					};
-				}
-				return null;
-			}
-
-			const youtubeProfile = await scrapStore.getProfileInfoFromVideo(initData.videoId);
-			if (!youtubeProfile) return null;
-			let profileImageLocal: string | null = null;
-
-			if (youtubeProfile.profileImage) {
-				try {
-					const { fileName } = await downloadImageUrl(youtubeProfile.profileImage);
-					profileImageLocal = fileName;
-				} catch (e) {
-					console.warn('Failed to download YouTube profile image', e);
-				}
-			}
-			scrapStore.currentYoutubeProfile = {
-				...youtubeProfile,
-				profileImage: profileImageLocal ?? ''
-			};
-			return {
-				id: youtubeProfile.id,
-				profilePath: youtubeProfile.profilePath,
-				profileImage: youtubeProfile.profileImage,
-				profileImageLocal,
-				profileUrl: buildYouTubeProfileUrl(youtubeProfile.profilePath || youtubeProfile.id)
-			};
-		}
 	};
 
 	const thumbnailTask: Task = {
@@ -174,7 +157,7 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 		}
 	};
 
-	return [initTask, profileTask, thumbnailTask, timedCaptionsTask, contentTask];
+	return [initTask, thumbnailTask, timedCaptionsTask, contentTask];
 }
 
 export async function youTubeRunner(
@@ -182,12 +165,17 @@ export async function youTubeRunner(
 	config?: YouTubeRunnerCallConfig
 ): Promise<Task[]> {
 	const cleanUrl = url;
+	const videoId = extractVideoId(cleanUrl);
 	const initialTasks = buildYouTubeInitialTasks(cleanUrl);
 	const domainUrl = viewState.domainUrl ?? '';
 	const normalizedRunnerProfileId = config?.profileId?.trim()
 		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-')
 		: undefined;
 	scrapStore.currentYoutubeProfile = null;
+
+	if (videoId) {
+		fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
+	}
 
 	return runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {
 		makeActive: config?.makeActive ?? true,
@@ -196,17 +184,8 @@ export async function youTubeRunner(
 		skipTaskIds: config?.skipTaskIds,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
-			const profileData = runResult.tasks.find((t) => t.id === 'profile')?.data as
-				| {
-						id: string;
-						profilePath: string;
-						profileImage: string;
-						profileImageLocal: string | null;
-						profileUrl: string;
-				  }
-				| undefined;
-
-			const profileIdForArticle = profileData?.id ?? normalizedRunnerProfileId;
+			const profile = scrapStore.currentYoutubeProfile;
+			const profileIdForArticle = profile?.id ?? normalizedRunnerProfileId;
 			const saveOperations: Promise<unknown>[] = [
 				saveArticle(
 					cleanUrl,
@@ -216,14 +195,10 @@ export async function youTubeRunner(
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 
-			if (profileData?.id) {
+			if (profile?.id) {
+				const profileUrl = buildYouTubeProfileUrl(profile.profilePath || profile.id);
 				saveOperations.push(
-					saveProfile(
-						profileData.id,
-						profileData.profileImageLocal ?? profileData.profileImage,
-						profileData.profileUrl,
-						'youtube.com'
-					)
+					saveProfile(profile.id, profile.profileImage, profileUrl, 'youtube.com')
 				);
 			}
 

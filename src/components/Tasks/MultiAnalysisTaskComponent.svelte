@@ -5,7 +5,7 @@
 	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
-	import DetailsPanel from '@/components/DetailsPanel.svelte';
+	import Spacer from '@/components/Spacer.component.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import { reconstructChunks } from '@/lib/utils/splitText';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
@@ -70,6 +70,7 @@
 	});
 
 	const isRunning = $derived(task.status === 'running');
+	const chunksCollapsed = $derived(!isRunning && !!multiData?.finalResponse);
 
 	const LEVELS = ['1', '2', '4', '8'];
 	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
@@ -122,41 +123,35 @@
 		{/if}
 
 		{#if multiData.chunks.length > 0}
-			<div class="chunks-grid">
-				{#each multiData.chunks as chunk, i (chunk.key.startOffset)}
-					<div class="chunk-cell">
-						<DetailsPanel
-							defaultOpen={isRunning}
-							label={'Chunk ' + (i + 1)}
-							hint={`${chunk.key.startOffset}–${chunk.key.endOffset}`}
-						>
-							<MarkdownRenderer content={chunkTexts[i] ?? ''} />
-						</DetailsPanel>
-					</div>
-					<div class="result-cell">
-						<div class="result-section">
-							<span class="result-label">Summary</span>
-							<MarkdownRenderer content={chunk.data.summary.join('\n')} />
+			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
+				<div class="chunks-grid">
+					{#each multiData.chunks as chunk, i (chunk.key.startOffset)}
+						<div class="chunk-cell">
+							<div class="chunk-raw-text">{chunkTexts[i] ?? ''}</div>
 						</div>
-						<div class="result-section">
-							<span class="result-label">Keywords</span>
-							<Keywords keywords={chunk.data.keywords} />
+						<div class="result-cell">
+							<div class="result-section">
+								<!-- <span class="result-label">Summary</span> -->
+								<MarkdownRenderer content={chunk.data.summary.join('\n')} />
+							</div>
+							<div class="result-section">
+								<span class="result-label">Keywords</span>
+								<Keywords keywords={chunk.data.keywords} />
+							</div>
+							<div class="result-section">
+								<span class="result-label">Topics</span>
+								<Keywords keywords={chunk.data.topics} />
+							</div>
 						</div>
-						<div class="result-section">
-							<span class="result-label">Topics</span>
-							<Keywords keywords={chunk.data.topics} />
-						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			</Spacer>
 		{/if}
 
-		{#if multiData.finalResponse}
+		{#if !isRunning && multiData.finalResponse}
 			<div class="final-section">
-				<div class="final-label">FINAL</div>
 				<div class="final-content">
 					<div class="result-section">
-						<span class="result-label">Summary</span>
 						<MarkdownRenderer content={multiData.finalResponse.summary} />
 					</div>
 					<div class="result-section">
@@ -195,7 +190,7 @@
 	.chunks-grid {
 		display: grid;
 		grid-template-columns: 1fr 1.2fr;
-		gap: 0.5rem;
+		gap: 1rem;
 		align-items: start;
 	}
 
@@ -210,10 +205,21 @@
 		min-width: 0;
 	}
 
+	.chunk-raw-text {
+		font-size: 0.75rem;
+		height: 500px;
+		overflow-y: auto;
+		white-space: pre-wrap;
+		padding: 0.5rem;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 4px;
+		color: gray;
+	}
+
 	.result-section {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 1rem;
 		padding: 0.25rem 0;
 	}
 

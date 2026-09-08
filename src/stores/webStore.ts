@@ -441,7 +441,7 @@ export async function buildUpsertInput(params: {
 		params.existingArticle?.mainColor ?? null,
 		params.existingArticle?.primaryColor ?? null
 	);
-	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'keywords'));
+	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'analysis'));
 	const profile = firstNormalizedString(
 		params.valuesToOverride?.profile as string | undefined,
 		getArticleStringField(params.existingArticle, 'profile')

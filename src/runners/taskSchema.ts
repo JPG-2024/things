@@ -283,6 +283,10 @@ export function requireFinalResponseString(
 	if (value && typeof value === 'object') {
 		const finalResponse = (value as Record<string, unknown>).finalResponse;
 		if (typeof finalResponse === 'string') return finalResponse;
+		if (finalResponse && typeof finalResponse === 'object' && !Array.isArray(finalResponse)) {
+			const fr = finalResponse as Record<string, unknown>;
+			if (typeof fr.summary === 'string') return fr.summary;
+		}
 	}
 	throw new Error(`Missing content from dependency "${taskId}"`);
 }

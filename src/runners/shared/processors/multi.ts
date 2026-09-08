@@ -85,7 +85,7 @@ export const multiProcessor: ProcessorDef = {
 				const parsed = parseMultiFieldResponse(typeof text === 'string' ? text : '', fields);
 
 				const finalResult: MultiFinal = {
-					summary: parsed.summary[0] ?? combinedSummaries,
+					summary: parsed.summary[0] || combinedSummaries,
 					keywords: parsed.keywords.length > 0 ? parsed.keywords : allKeywords,
 					topics: parsed.topics.length > 0 ? parsed.topics : allTopics
 				};

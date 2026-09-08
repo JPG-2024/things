@@ -94,7 +94,7 @@ export const MULTI_FIELD_SYSTEM_MESSAGE =
 	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown, no explanations.';
 
 export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
-	return `Analyze this section. summary: concise markdown summary, no titles. keywords: exactly ${keywordCount} relevant keywords. topics: exactly ${topicCount} topic categories. Respond in JSON.`;
+	return `Analyze this section. markdown summary, no titles. keywords: exactly ${keywordCount} specific keywords. topics: exactly ${topicCount} topic in maximum 20 words each one. Respond in JSON.`;
 }
 
 export const MULTI_FIELD_FINAL_USER_MESSAGE =

@@ -74,54 +74,12 @@ export async function generateCategoryDescription(name: string): Promise<string>
 	}
 }
 
-export const DEFAULT_TASK_IDS = ['summary', 'keywords', 'category', 'title'] as const;
+export const DEFAULT_TASK_IDS = ['analysis', 'category', 'title'] as const;
 
 export function createDefaultTasks(contentDependency: string = 'content'): Task[] {
-	const summaryDef = buildRecursiveTask('summary', {
-		processorType: 'summarize',
-		dependencies: [contentDependency],
-		persist: true,
-		renderOrder: 3,
-		gridSpan: 1,
-		model: viewState.aiModel
-	});
-
-	const keywordsDef = buildRecursiveTask('keywords', {
-		processorType: 'extraction',
-		extractorConfig: { count: 4, description: 'proper-name keywords' },
-		dependencies: [contentDependency],
-		persist: true,
-		renderOrder: 0.2,
-		model: viewState.aiModel,
-		combineMode: 'dedupe',
-		embeddings: true,
-		storeChunkText: true
-	});
-
-	const categoryDef = createCategoryTask({
-		persist: true,
-		renderOrder: 0.5,
-		dependencies: ['summary', 'keywords']
-	});
-
-	const titleDef = createTitleTask({
-		dependencies: ['summary'],
-		persist: true,
-		renderOrder: 0.1,
-		visible: false
-	});
-
-	return [
-		summaryDef,
-		keywordsDef,
-		buildTask('category', categoryDef),
-		buildTask('title', titleDef)
-	];
-}
-
-export function createCombinedAnalysisTask(contentDependency: string = 'content'): Task {
-	return buildRecursiveTask('analysis', {
+	const analysisDef = buildRecursiveTask('analysis', {
 		processorType: 'multi',
+		combineMode: 'join',
 		multiFields: [
 			{ key: 'summary', kind: 'string' },
 			{ key: 'keywords', kind: 'string-array', count: 4 },
@@ -134,4 +92,19 @@ export function createCombinedAnalysisTask(contentDependency: string = 'content'
 		gridSpan: 2,
 		model: viewState.aiModel
 	});
+
+	const categoryDef = createCategoryTask({
+		persist: true,
+		renderOrder: 0.5,
+		dependencies: ['analysis']
+	});
+
+	const titleDef = createTitleTask({
+		dependencies: ['analysis'],
+		persist: true,
+		renderOrder: 0.1,
+		visible: false
+	});
+
+	return [analysisDef, buildTask('category', categoryDef), buildTask('title', titleDef)];
 }
