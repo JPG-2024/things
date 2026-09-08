@@ -396,7 +396,7 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 2rem;
-		padding: 2rem 0;
+		padding: 1rem 0;
 		width: 100%;
 	}
 

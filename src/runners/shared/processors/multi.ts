@@ -1,8 +1,9 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { MULTI_FIELD_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
-	MULTI_FIELD_FINAL_USER_MESSAGE,
 	MULTI_FIELD_SYSTEM_MESSAGE,
+	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
+	RECURSIVE_SUMMARY_SYSTEM_MESSAGE,
 	buildMultiFieldUserMessage
 } from '@/lib/utils/inference/prompts';
 import { multiFieldObjectGbnf, type MultiFieldSpec } from '@/lib/utils/gbnf';
@@ -38,7 +39,7 @@ export const multiProcessor: ProcessorDef = {
 	type: 'multi',
 	defaults: {
 		userMessage: buildMultiFieldUserMessage(4, 3),
-		finalUserMessage: MULTI_FIELD_FINAL_USER_MESSAGE
+		finalUserMessage: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE
 	},
 	build: (config) => {
 		const fields = config.multiFields ?? DEFAULT_MULTI_FIELDS;
@@ -66,7 +67,7 @@ export const multiProcessor: ProcessorDef = {
 				const multiResults = results as MultiChunkData[];
 
 				const allKeywords = [...new Set(multiResults.flatMap((r) => r.keywords))];
-				const allTopics = [...new Set(multiResults.flatMap((r) => r.topics))];
+				const allTopics = multiResults.flatMap((r) => r.topics);
 
 				const combinedSummaries = multiResults.map((r) => r.summary.join('\n')).join('\n\n');
 				const res = await chatCompletions({
@@ -74,20 +75,20 @@ export const multiProcessor: ProcessorDef = {
 					...config.completionOptions,
 					model: config.model,
 					messages: [
-						{ role: 'system', content: MULTI_FIELD_SYSTEM_MESSAGE },
+						{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
 						{
 							role: 'user',
-							content: `${config.finalUserMessage ?? MULTI_FIELD_FINAL_USER_MESSAGE}\n\n${combinedSummaries}\n\nKeywords: ${allKeywords.join(', ')}\nTopics: ${allTopics.join(', ')}`
+							content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
 						}
 					]
 				});
 				const text = res.choices?.[0]?.message?.content ?? '';
-				const parsed = parseMultiFieldResponse(typeof text === 'string' ? text : '', fields);
+				const summary = typeof text === 'string' ? text.trim() : '';
 
 				const finalResult: MultiFinal = {
-					summary: parsed.summary[0] || combinedSummaries,
-					keywords: parsed.keywords.length > 0 ? parsed.keywords : allKeywords,
-					topics: parsed.topics.length > 0 ? parsed.topics : allTopics
+					summary: summary || combinedSummaries,
+					keywords: allKeywords,
+					topics: allTopics
 				};
 				return finalResult;
 			}

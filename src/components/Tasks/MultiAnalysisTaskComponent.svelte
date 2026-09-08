@@ -76,8 +76,16 @@
 	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
+	const runtimeDivisor = $derived.by((): number | undefined => {
+		const data = task.data as Record<string, unknown> | undefined;
+		return typeof data?.windowDivisor === 'number' ? (data.windowDivisor as number) : undefined;
+	});
 	const activeLevel = $derived(
-		recursiveConfig?.windowDivisor ? String(recursiveConfig.windowDivisor) : ''
+		runtimeDivisor !== undefined
+			? String(runtimeDivisor)
+			: recursiveConfig?.windowDivisor !== undefined
+				? String(recursiveConfig.windowDivisor)
+				: ''
 	);
 
 	function handleLevelChange(levelId: string) {

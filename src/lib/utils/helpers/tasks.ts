@@ -29,11 +29,7 @@ export function extractDependencyText(data: unknown): string {
 			!Array.isArray(obj.finalResponse)
 		) {
 			const fr = obj.finalResponse as Record<string, unknown>;
-			const parts: string[] = [];
-			if (typeof fr.summary === 'string') parts.push(fr.summary);
-			if (Array.isArray(fr.keywords)) parts.push(fr.keywords.join(', '));
-			if (Array.isArray(fr.topics)) parts.push(fr.topics.join(', '));
-			if (parts.length > 0) return parts.join('\n');
+			if (typeof fr.summary === 'string') return fr.summary;
 		}
 		if (typeof obj.data === 'string') return obj.data;
 

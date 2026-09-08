@@ -32,6 +32,7 @@ export type RecursiveChunk = {
 export type RecursiveContentResult = {
 	chunks: RecursiveChunk[];
 	finalResponse: string | string[] | MultiFinal;
+	windowDivisor?: number;
 };
 
 export interface RecursiveConfig {
@@ -86,7 +87,8 @@ const RECURSIVE_OUTPUT_SCHEMA = z.object({
 			data: z.union([z.array(z.string()), MultiChunkDataSchema])
 		})
 	),
-	finalResponse: z.union([z.string(), z.array(z.string()), MultiFinalSchema])
+	finalResponse: z.union([z.string(), z.array(z.string()), MultiFinalSchema]),
+	windowDivisor: z.number().optional()
 });
 
 const MULTI_RECURSIVE_OUTPUT_SCHEMA = z.object({
@@ -96,7 +98,8 @@ const MULTI_RECURSIVE_OUTPUT_SCHEMA = z.object({
 			data: MultiChunkDataSchema
 		})
 	),
-	finalResponse: MultiFinalSchema
+	finalResponse: MultiFinalSchema,
+	windowDivisor: z.number().optional()
 });
 
 function resolveChunking(options: Partial<RecursiveConfig>): Chunking {
@@ -128,6 +131,12 @@ function splitContent(content: string, chunking: Chunking) {
 
 const MAX_WINDOW_DIVISOR = 8;
 const WINDOW_DIVISOR_LADDER = [1, 2, 4, 8];
+const TARGET_CHUNK_SIZE = 3000;
+
+function computeAutoDivisor(contentLength: number): number {
+	if (contentLength <= 0) return 1;
+	return Math.min(Math.ceil(contentLength / TARGET_CHUNK_SIZE), MAX_WINDOW_DIVISOR);
+}
 
 function nextWindowDivisor(divisor: number): number {
 	return WINDOW_DIVISOR_LADDER.find((l) => l > divisor) ?? MAX_WINDOW_DIVISOR;
@@ -234,6 +243,13 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 				const content = requireStringState(state, sourceDependency);
 				let currentChunking: Chunking = { ...chunking };
 
+				if (currentChunking.windowDivisor !== undefined && !currentChunking.splitByString) {
+					currentChunking = {
+						...currentChunking,
+						windowDivisor: computeAutoDivisor(content.length)
+					};
+				}
+
 				while (true) {
 					try {
 						const chunksResult = splitContent(content, currentChunking);
@@ -267,7 +283,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 							finalResponse = await singleProcessor.combineChunks(flatData, sections);
 						}
 
-						return { chunks, finalResponse };
+						return { chunks, finalResponse, windowDivisor: currentChunking.windowDivisor };
 					} catch (error) {
 						console.log(error);
 						const divisor = currentChunking.windowDivisor;

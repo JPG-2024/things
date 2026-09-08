@@ -23,7 +23,24 @@
 	);
 
 	const contentTask = $derived(sortedTasks.find((e) => e.task.id === 'content'));
-	const otherTasks = $derived(sortedTasks.filter((e) => e.task.id !== 'content'));
+	const thumbnailTask = $derived(
+		sortedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')
+	);
+	const categoryTask = $derived(
+		sortedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')
+	);
+	const otherTasks = $derived(
+		sortedTasks.filter(
+			(e) =>
+				e.task.id !== 'content' &&
+				e.task.id !== 'thumbnail' &&
+				e.task.id !== 'category' &&
+				e.task.id !== 'title' &&
+				e.task.id !== 'init-youtube' &&
+				e.task.id !== 'init-web' &&
+				e.task.id !== 'timed-captions'
+		)
+	);
 
 	const taskHeights = $state<Record<string, number>>({});
 
@@ -124,6 +141,52 @@
 <div class="tasks-container">
 	{#if titleText}
 		<div class="tasks-title">{titleText}</div>
+	{/if}
+
+	{#if thumbnailTask || categoryTask}
+		<div class="tasks-header-row">
+			{#if thumbnailTask}
+				{@const task = thumbnailTask.task}
+				{@const componentKey = task.component?.trim()}
+				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+				<div class="header-col thumbnail-col">
+					{#if Renderer && task.status === 'done'}
+						<div
+							class="task-wrapper"
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={thumbnailTask.runId}>
+								<Renderer {task} runId={thumbnailTask.runId} /></BaseTaskComponent
+							>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			{#if categoryTask}
+				{@const task = categoryTask.task}
+				{@const componentKey = task.component?.trim()}
+				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+				<div class="header-col category-col">
+					{#if Renderer && task.status === 'done'}
+						<div
+							class="task-wrapper"
+							onmouseenter={() => {
+								viewState.selectedTaskId = task.id;
+							}}
+							role="group"
+						>
+							<BaseTaskComponent {task} runId={categoryTask.runId}>
+								<Renderer {task} runId={categoryTask.runId} /></BaseTaskComponent
+							>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
 	{/if}
 
 	{#if otherTasks.length > 0}
@@ -322,5 +385,28 @@
 
 	.content-task-wrapper {
 		width: 100%;
+	}
+
+	.tasks-header-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 1.5rem;
+		width: 100%;
+		padding-bottom: 1rem;
+		max-height: 200px;
+	}
+
+	.header-col {
+		min-width: 0;
+		height: 500px;
+	}
+
+	.thumbnail-col {
+		flex: 0 0 50%;
+		max-width: 320px;
+	}
+
+	.category-col {
+		flex: 1;
 	}
 </style>
