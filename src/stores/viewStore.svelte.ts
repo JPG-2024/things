@@ -55,6 +55,7 @@ class ViewState {
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
+	activeArticleProfileId = $state<string | null>(null);
 	hoveredProfileName = $state<string | null>(null);
 	hoveredProfileId = $state<string | null>(null);
 	hoveredPictureSrc = $state<string | null>(null);

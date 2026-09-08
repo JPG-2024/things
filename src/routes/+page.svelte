@@ -17,20 +17,13 @@
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
-	import AskComponent from '@/components/AskComponent.svelte';
 	import ProfilesBar from '@/components/ProfilesBar.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
-	import type { Task } from '@/types/taskRunner.types';
+
 	import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
-
-	const standaloneAskTask: Task = {
-		id: 'home-ask',
-		dependencies: [],
-		type: 'script'
-	};
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);

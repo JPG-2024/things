@@ -14,17 +14,20 @@
 
 	onMount(async () => {
 		await articleCacheStore.fetchArticlesWithoutProfile({
-			onlyWithoutProfile: viewState.showOnlyRawArticles
+			onlyWithoutProfile: viewState.showOnlyRawArticles,
+			profileId: viewState.activeArticleProfileId ?? undefined
 		});
 	});
 
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
 		const onlyRaw = viewState.showOnlyRawArticles;
+		const profileId = viewState.activeArticleProfileId;
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			force: true,
 			categoryIds: categories,
-			onlyWithoutProfile: onlyRaw
+			onlyWithoutProfile: onlyRaw,
+			profileId: profileId ?? undefined
 		});
 	});
 

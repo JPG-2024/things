@@ -101,7 +101,7 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 	const categoryDef = createCategoryTask({
 		persist: true,
 		renderOrder: 0.5,
-		dependencies: ['title', 'keywords']
+		dependencies: ['summary', 'keywords']
 	});
 
 	const titleDef = createTitleTask({

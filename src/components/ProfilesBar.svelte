@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import Modal from '@/components/Modal.svelte';
@@ -39,9 +38,9 @@
 		loadProfiles();
 	});
 
-	function handleNavigateToProfile(profile: ArticleProfile) {
-		viewState.currentProfileId = profile.id;
-		goto(`/profile/${profile.id}`);
+	function handleToggleProfileFilter(profile: ArticleProfile) {
+		viewState.activeArticleProfileId =
+			viewState.activeArticleProfileId === profile.id ? null : profile.id;
 	}
 
 	function handleHoverEnter(profile: ArticleProfile) {
@@ -114,10 +113,11 @@
 				<button
 					type="button"
 					class="profile-btn"
-					onclick={() => handleNavigateToProfile(profile)}
+					class:active={viewState.activeArticleProfileId === profile.id}
+					onclick={() => handleToggleProfileFilter(profile)}
 					onmouseenter={() => handleHoverEnter(profile)}
 					onmouseleave={handleHoverLeave}
-					aria-label={`Go to ${profile.name}`}
+					aria-label={`Filter by ${profile.name}`}
 				>
 					<Tooltip content={profile.name}>
 						<img
@@ -180,6 +180,14 @@
 
 	.profile-btn:hover {
 		opacity: 1;
+	}
+
+	.profile-btn.active {
+		opacity: 1;
+	}
+
+	.profile-btn.active .profile-avatar {
+		box-shadow: 0 0 0 2px var(--primary-color);
 	}
 
 	.profile-avatar {

@@ -170,20 +170,6 @@
 		return exact;
 	}
 
-	function resizeGridItem(wrapper: HTMLDivElement) {
-		if (!gridEl || !wrapper?.isConnected) return;
-		if (currentLayout.rowHeight) {
-			setRowSpan(wrapper, 1);
-			return;
-		}
-		const content = wrapper.querySelector('.content') as HTMLElement | null;
-		if (!content) return;
-
-		const { rowHeight, rowGap } = getRowMetrics();
-		const contentHeight = content.getBoundingClientRect().height;
-		setRowSpan(wrapper, computeRowSpan(wrapper, contentHeight, rowHeight, rowGap));
-	}
-
 	function resizeAll() {
 		if (!gridEl?.isConnected) return;
 
@@ -240,7 +226,7 @@
 		for (const wrapper of getWrappers()) {
 			if (!wrapper?.isConnected) continue;
 			const content = wrapper.querySelector('.content') as HTMLElement;
-			const observer = new ResizeObserver(() => resizeGridItem(wrapper));
+			const observer = new ResizeObserver(() => scheduleResize());
 			if (content) observer.observe(content);
 			resizeObservers.push(observer);
 		}
