@@ -3,6 +3,7 @@ import { summarizeProcessor } from './summarize';
 import { extractionProcessor } from './extraction';
 import { translateProcessor } from './translate';
 import { customProcessor } from './custom';
+import { multiProcessor } from './multi';
 
 const registry = new Map<ProcessorType, ProcessorDef>();
 
@@ -14,6 +15,7 @@ register(summarizeProcessor);
 register(extractionProcessor);
 register(translateProcessor);
 register(customProcessor);
+register(multiProcessor);
 
 export function getProcessor(type: ProcessorType): ProcessorDef {
 	const def = registry.get(type);
@@ -30,5 +32,9 @@ export type {
 	ProcessorType,
 	CombineMode,
 	ChunkProcessorConfig,
-	ChunkProcessor
+	ChunkProcessor,
+	MultiChunkProcessor,
+	AnyChunkProcessor,
+	MultiChunkData,
+	MultiFinal
 } from './types';

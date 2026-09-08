@@ -118,3 +118,20 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 		buildTask('title', titleDef)
 	];
 }
+
+export function createCombinedAnalysisTask(contentDependency: string = 'content'): Task {
+	return buildRecursiveTask('analysis', {
+		processorType: 'multi',
+		multiFields: [
+			{ key: 'summary', kind: 'string' },
+			{ key: 'keywords', kind: 'string-array', count: 4 },
+			{ key: 'topics', kind: 'string-array', count: 3 }
+		],
+		dependencies: [contentDependency],
+		component: 'multiAnalysis',
+		persist: true,
+		renderOrder: 3,
+		gridSpan: 2,
+		model: viewState.aiModel
+	});
+}

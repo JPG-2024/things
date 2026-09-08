@@ -8,6 +8,7 @@ import Keywords from '@/components/Keywords.svelte';
 import ListItems from '@/components/ListItems.svelte';
 import ProfileTaskComponent from '@/components/Tasks/ProfileTaskComponent.svelte';
 import RecursiveTaskComponent from '@/components/Tasks/RecursiveTaskComponent.svelte';
+import MultiAnalysisTaskComponent from '@/components/Tasks/MultiAnalysisTaskComponent.svelte';
 import TaskTitleComponent from '@/components/Tasks/TaskTitleComponent.svelte';
 
 export const taskRenderRegistry: Record<string, Component<Record<string, unknown>>> = {
@@ -20,5 +21,6 @@ export const taskRenderRegistry: Record<string, Component<Record<string, unknown
 	listItems: ListItems,
 	profile: ProfileTaskComponent,
 	recursive: RecursiveTaskComponent,
+	multiAnalysis: MultiAnalysisTaskComponent,
 	taskTitle: TaskTitleComponent
 };

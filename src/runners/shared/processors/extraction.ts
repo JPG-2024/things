@@ -27,7 +27,7 @@ export const extractionProcessor: ProcessorDef = {
 					model: config.model
 				});
 			},
-			combineChunks: async (results) => {
+			combineChunks: async (results: string[]) => {
 				if (config.combineMode && config.combineMode !== 'llm') {
 					if (config.combineMode === 'dedupe') {
 						return [...new Set(results)];

@@ -4,6 +4,12 @@ interface ArrayToGbnfOptions {
 	maxItems?: number | null;
 }
 
+export type MultiFieldSpec = {
+	key: string;
+	kind: 'string' | 'string-array';
+	count?: number;
+};
+
 function escapeGbnfString(s: string): string {
 	return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
@@ -58,4 +64,25 @@ export function objectWithEnumAndStringGbnf(
 		`escape ::= ["\\\\bfnrt] | "u" [0-9a-fA-F]{4}`,
 		`ws ::= [ \\t\\n\\r]*`
 	].join('\n');
+}
+
+export function multiFieldObjectGbnf(fields: MultiFieldSpec[], ruleName = 'root'): string {
+	const stringRule = `string ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})`;
+	const wsRule = `ws ::= [ \\t\\n\\r]*`;
+
+	const fieldEntries = fields.map((f) => {
+		if (f.kind === 'string') {
+			return `"\\"${escapeGbnfString(f.key)}\\"" ws ":" ws string`;
+		}
+		const count = f.count ?? 3;
+		const items = Array.from({ length: count }, (_, i) =>
+			i === 0 ? 'ws string' : 'ws "," ws string'
+		).join(' ');
+		return `"\\"${escapeGbnfString(f.key)}\\"" ws ":" ws "["${items} ws "]"`;
+	});
+
+	const fieldsPart = fieldEntries.join(' ws "," ws ');
+	const rootRule = `${ruleName} ::= "{" ws ${fieldsPart} ws "}"`;
+
+	return [rootRule, stringRule, wsRule].join('\n');
 }

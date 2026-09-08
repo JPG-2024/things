@@ -96,3 +96,12 @@ export const YOUTUBE_STRUCTURED_OUTPUT_OPTIONS = {
 } as const;
 
 export const EMBEDDING_MODEL = 'bge-m3';
+
+export const MULTI_FIELD_COMPLETION_OPTIONS = {
+	temperature: 0.1,
+	top_k: 40,
+	min_p: 0.1,
+	presence_penalty: 0,
+	n_predict: 2048,
+	stream: false
+} as const;

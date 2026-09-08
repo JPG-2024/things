@@ -37,7 +37,7 @@ export const translateProcessor: ProcessorDef = {
 				const text = res.choices?.[0]?.message?.content ?? '';
 				return [typeof text === 'string' ? text.trim() : ''];
 			},
-			combineChunks: async (results) => {
+			combineChunks: async (results: string[]) => {
 				if (config.combineMode && config.combineMode !== 'llm') {
 					return combineResults(results, { mode: config.combineMode });
 				}

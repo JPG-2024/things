@@ -88,3 +88,14 @@ export const CUSTOM_SYSTEM_MESSAGE = 'You are a helpful AI assistant.';
 export const CUSTOM_USER_MESSAGE = 'Process this content.';
 // Original: src/runners/shared/processors/custom.ts:11
 export const CUSTOM_FINAL_USER_MESSAGE = 'Combine the results into a coherent response.';
+
+// ── Multi-field (combined summary + keywords + topics) ────────────────
+export const MULTI_FIELD_SYSTEM_MESSAGE =
+	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown, no explanations.';
+
+export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
+	return `Analyze this section. summary: concise markdown summary, no titles. keywords: exactly ${keywordCount} relevant keywords. topics: exactly ${topicCount} topic categories. Respond in JSON.`;
+}
+
+export const MULTI_FIELD_FINAL_USER_MESSAGE =
+	'Combine these section analyses into a single coherent result. For summary, merge into one markdown summary. For keywords and topics, deduplicate and keep the most relevant items. Respond in JSON with keys "summary", "keywords", "topics".';

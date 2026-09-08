@@ -3,7 +3,14 @@ import { buildScriptTaskFromDef, requireStringState, scriptTask } from '@/runner
 import { DEFAULT_DYNAMIC_MODEL, SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { splitByLevels, splitByString, splitForEmbeddings } from '@/lib/utils/splitText';
 import { getProcessor } from '@/runners/shared/processors';
-import type { CombineMode, ProcessorType } from '@/runners/shared/processors';
+import type {
+	CombineMode,
+	ProcessorType,
+	MultiChunkData,
+	MultiFinal,
+	AnyChunkProcessor
+} from '@/runners/shared/processors';
+import type { MultiFieldSpec } from '@/lib/utils/gbnf';
 import type {
 	ExtractorConfig,
 	Resolvable,
@@ -19,12 +26,12 @@ export type ChunkOffset = {
 
 export type RecursiveChunk = {
 	key: ChunkOffset;
-	data: string[];
+	data: string[] | MultiChunkData;
 };
 
 export type RecursiveContentResult = {
 	chunks: RecursiveChunk[];
-	finalResponse: string | string[];
+	finalResponse: string | string[] | MultiFinal;
 };
 
 export interface RecursiveConfig {
@@ -39,6 +46,7 @@ export interface RecursiveConfig {
 	extractorConfig?: ExtractorConfig;
 	targetLang?: string;
 	customSystemMsg?: string;
+	multiFields?: MultiFieldSpec[];
 }
 
 export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
@@ -54,18 +62,41 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	storeChunkText?: boolean;
 	model?: string;
 	completionOptions?: Record<string, unknown>;
+	multiFields?: MultiFieldSpec[];
 };
 
 type Chunking = Pick<RecursiveConfig, 'windowSize' | 'overlap' | 'windowDivisor' | 'splitByString'>;
+
+const MultiChunkDataSchema = z.object({
+	summary: z.array(z.string()),
+	keywords: z.array(z.string()),
+	topics: z.array(z.string())
+});
+
+const MultiFinalSchema = z.object({
+	summary: z.string(),
+	keywords: z.array(z.string()),
+	topics: z.array(z.string())
+});
 
 const RECURSIVE_OUTPUT_SCHEMA = z.object({
 	chunks: z.array(
 		z.object({
 			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
-			data: z.array(z.string())
+			data: z.union([z.array(z.string()), MultiChunkDataSchema])
 		})
 	),
-	finalResponse: z.union([z.string(), z.array(z.string())])
+	finalResponse: z.union([z.string(), z.array(z.string()), MultiFinalSchema])
+});
+
+const MULTI_RECURSIVE_OUTPUT_SCHEMA = z.object({
+	chunks: z.array(
+		z.object({
+			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
+			data: MultiChunkDataSchema
+		})
+	),
+	finalResponse: MultiFinalSchema
 });
 
 function resolveChunking(options: Partial<RecursiveConfig>): Chunking {
@@ -145,14 +176,16 @@ function mergeComponentProps(
 export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): Task {
 	const model = resolveModel(options);
 	const chunking = resolveChunking(options);
-	const processorType: ProcessorType =
-		options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize');
+	const isMulti = options.processorType === 'multi' || options.multiFields !== undefined;
+	const processorType: ProcessorType = isMulti
+		? 'multi'
+		: (options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize'));
 	const processorDef = getProcessor(processorType);
 	const userMessage = options.userMessage ?? processorDef.defaults.userMessage ?? '';
 	const finalUserMessage = options.finalUserMessage ?? processorDef.defaults.finalUserMessage ?? '';
 	const sourceDependency = options.dependencies?.[0] ?? 'content';
 
-	const processor = processorDef.build({
+	const processor: AnyChunkProcessor = processorDef.build({
 		model,
 		userMessage,
 		finalUserMessage,
@@ -160,7 +193,8 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		targetLang: options.targetLang,
 		customSystemMsg: options.customSystemMsg,
 		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
-			combineMode: options.combineMode ?? 'join'
+		combineMode: options.combineMode ?? (isMulti ? undefined : 'join'),
+		multiFields: options.multiFields
 	});
 
 	const recursiveConfig: RecursiveConfig = {
@@ -174,8 +208,11 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		finalUserMessage,
 		extractorConfig: options.extractorConfig,
 		targetLang: options.targetLang,
-		customSystemMsg: options.customSystemMsg
+		customSystemMsg: options.customSystemMsg,
+		multiFields: options.multiFields
 	};
+
+	const outputSchema = isMulti ? MULTI_RECURSIVE_OUTPUT_SCHEMA : RECURSIVE_OUTPUT_SCHEMA;
 
 	return buildScriptTaskFromDef(
 		id,
@@ -183,7 +220,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			name: options.name,
 			subtype: 'recursive',
 			dependencies: options.dependencies ?? ['content'],
-			component: options.component ?? 'recursive',
+			component: options.component ?? (isMulti ? 'multiAnalysis' : 'recursive'),
 			componentProps: mergeComponentProps(options.componentProps, recursiveConfig),
 			gridSpan: options.gridSpan,
 			renderOrder: options.renderOrder,
@@ -192,7 +229,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			embeddings: options.embeddings,
 			storeChunkText: options.storeChunkText,
 			concurrencyGroup: 'recursive',
-			output: RECURSIVE_OUTPUT_SCHEMA,
+			output: outputSchema,
 			run: async ({ state, update }) => {
 				const content = requireStringState(state, sourceDependency);
 				let currentChunking: Chunking = { ...chunking };
@@ -210,16 +247,25 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 
 						for (let i = 0; i < sections.length; i++) {
 							const result = await processor.processChunk(sections[i], i);
-							chunks.push({ key: chunkOffsets[i], data: result });
+							chunks.push({ key: chunkOffsets[i], data: result as string[] | MultiChunkData });
 							update({
-								data: { chunks: [...chunks], finalResponse: '' }
+								data: {
+									chunks: [...chunks],
+									finalResponse: isMulti ? { summary: '', keywords: [], topics: [] } : ''
+								}
 							});
 						}
 
-						const finalResponse = await processor.combineChunks(
-							chunks.flatMap((c) => c.data),
-							sections
-						);
+						let finalResponse: string | string[] | MultiFinal;
+						if (isMulti) {
+							const multiProcessor = processor as import('./processors').MultiChunkProcessor;
+							const multiData = chunks.map((c) => c.data as MultiChunkData);
+							finalResponse = await multiProcessor.combineChunks(multiData, sections);
+						} else {
+							const flatData = chunks.flatMap((c) => c.data as string[]);
+							const singleProcessor = processor as import('./processors').ChunkProcessor;
+							finalResponse = await singleProcessor.combineChunks(flatData, sections);
+						}
 
 						return { chunks, finalResponse };
 					} catch (error) {

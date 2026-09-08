@@ -131,12 +131,16 @@
 	let recExtDescription = $state('keywords');
 	let recTargetLang = $state('Spanish');
 	let recCustomSystemMsg = $state('');
+	let recMultiKeywordsCount = $state('4');
+	let recMultiTopicsCount = $state('3');
 	let recOriginalProcessorType = $state<ProcessorType>('summarize');
 	let recOriginalCombineMode = $state<CombineMode>('llm');
 	let recOriginalExtCount = $state('');
 	let recOriginalExtDescription = $state('');
 	let recOriginalTargetLang = $state('');
 	let recOriginalCustomSystemMsg = $state('');
+	let recOriginalMultiKeywordsCount = $state('');
+	let recOriginalMultiTopicsCount = $state('');
 
 	$effect(() => {
 		if (initialized) return;
@@ -229,12 +233,17 @@
 			recExtDescription = extCfg?.description ?? 'keywords';
 			recTargetLang = cfg?.targetLang ?? 'Spanish';
 			recCustomSystemMsg = cfg?.customSystemMsg ?? '';
+			const multiFields = cfg?.multiFields;
+			recMultiKeywordsCount = String(multiFields?.find((f) => f.key === 'keywords')?.count ?? 4);
+			recMultiTopicsCount = String(multiFields?.find((f) => f.key === 'topics')?.count ?? 3);
 			recOriginalProcessorType = recProcessorType;
 			recOriginalCombineMode = recCombineMode;
 			recOriginalExtCount = recExtCount;
 			recOriginalExtDescription = recExtDescription;
 			recOriginalTargetLang = recTargetLang;
 			recOriginalCustomSystemMsg = recCustomSystemMsg;
+			recOriginalMultiKeywordsCount = recMultiKeywordsCount;
+			recOriginalMultiTopicsCount = recMultiTopicsCount;
 
 			recOverrideWindows = !cfg?.windowDivisor && !cfg?.splitByString;
 			recOriginalOverrideWindows = recOverrideWindows;
@@ -571,6 +580,23 @@
 				? { count: Number(recExtCount) || 3, description: recExtDescription || 'keywords' }
 				: undefined;
 
+		const multiFields =
+			recProcessorType === 'multi'
+				? [
+						{ key: 'summary' as const, kind: 'string' as const },
+						{
+							key: 'keywords' as const,
+							kind: 'string-array' as const,
+							count: Number(recMultiKeywordsCount) || 4
+						},
+						{
+							key: 'topics' as const,
+							kind: 'string-array' as const,
+							count: Number(recMultiTopicsCount) || 3
+						}
+					]
+				: undefined;
+
 		if (isEditingRecursive) {
 			const effectiveId = slugifyId(commonName) || _task.id;
 
@@ -593,6 +619,7 @@
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
 				extractorConfig,
+				multiFields,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
@@ -623,6 +650,7 @@
 				finalUserMessage: recFinalUserMessage,
 				model: viewState.aiModel,
 				extractorConfig,
+				multiFields,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
@@ -825,7 +853,8 @@
 							{ label: 'Summarize', value: 'summarize' },
 							{ label: 'Extraction', value: 'extraction' },
 							{ label: 'Translate', value: 'translate' },
-							{ label: 'Custom', value: 'custom' }
+							{ label: 'Custom', value: 'custom' },
+							{ label: 'Multi', value: 'multi' }
 						]}
 					/>
 				</div>
@@ -836,6 +865,9 @@
 					<Input bind:value={recTargetLang} label="Target language" />
 				{:else if recProcessorType === 'custom'}
 					<Input bind:value={recCustomSystemMsg} label="System message" />
+				{:else if recProcessorType === 'multi'}
+					<Input bind:value={recMultiKeywordsCount} label="Keywords count" />
+					<Input bind:value={recMultiTopicsCount} label="Topics count" />
 				{/if}
 				{#if recProcessorType === 'summarize'}
 					<Input bind:value={recUserMessage} label="Per-chunk prompt" />
