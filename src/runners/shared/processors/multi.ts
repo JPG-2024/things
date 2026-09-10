@@ -24,7 +24,9 @@ function parseMultiFieldResponse(content: string, fields: MultiFieldSpec[]): Mul
 			if (field.kind === 'string') {
 				result[field.key as 'summary'] = [typeof value === 'string' ? value : ''];
 			} else {
-				const arr = Array.isArray(value) ? value.map(String) : [];
+				const arr = Array.isArray(value)
+					? [...new Set(value.map((v: unknown) => String(v).trim()))].filter(Boolean)
+					: [];
 				result[field.key as 'keywords' | 'topics'] = arr;
 			}
 		}
@@ -66,8 +68,12 @@ export const multiProcessor: ProcessorDef = {
 			combineChunks: async (results: MultiChunkData[]) => {
 				const multiResults = results as MultiChunkData[];
 
-				const allKeywords = [...new Set(multiResults.flatMap((r) => r.keywords))];
-				const allTopics = multiResults.flatMap((r) => r.topics);
+				const allKeywords = [
+					...new Set(multiResults.flatMap((r) => r.keywords.map((k) => k.trim())))
+				].filter(Boolean);
+				const allTopics = [
+					...new Set(multiResults.flatMap((r) => r.topics.map((t) => t.trim())))
+				].filter(Boolean);
 
 				const combinedSummaries = multiResults.map((r) => r.summary.join('\n')).join('\n\n');
 				const res = await chatCompletions({

@@ -76,7 +76,10 @@ export async function generateCategoryDescription(name: string): Promise<string>
 
 export const DEFAULT_TASK_IDS = ['analysis', 'category', 'title'] as const;
 
-export function createDefaultTasks(contentDependency: string = 'content'): Task[] {
+export function createDefaultTasks(
+	contentDependency: string = 'content',
+	options: { splitByHeaders?: boolean } = {}
+): Task[] {
 	const analysisDef = buildRecursiveTask('analysis', {
 		processorType: 'multi',
 		combineMode: 'join',
@@ -90,7 +93,9 @@ export function createDefaultTasks(contentDependency: string = 'content'): Task[
 		persist: true,
 		renderOrder: 3,
 		gridSpan: 2,
-		model: viewState.aiModel
+		model: viewState.aiModel,
+		splitByHeaders: options.splitByHeaders,
+		enableTTS: true
 	});
 
 	const categoryDef = createCategoryTask({

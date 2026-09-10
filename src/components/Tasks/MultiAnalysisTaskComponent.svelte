@@ -12,6 +12,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
+	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
 
 	type Props = {
 		runId?: string;
@@ -72,8 +73,7 @@
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!multiData?.finalResponse);
 
-	const LEVELS = ['1', '2', '4', '8'];
-	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
+	const levelTabs = WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }));
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
 	const runtimeDivisor = $derived.by((): number | undefined => {
@@ -106,7 +106,8 @@
 				windowDivisor: level,
 				renderOrder: task.renderOrder,
 				persist: true,
-				model: viewState.aiModel
+				model: viewState.aiModel,
+				enableTTS: task.enableTTS
 			});
 			newTask.visible = task.visible;
 			workflowManager.addTask(targetRunId, newTask);
@@ -179,6 +180,8 @@
 <style>
 	.multi-shell {
 		--tabs-pill-font-size: 0.7rem;
+		--keywords-font-size: 0.8rem;
+		--pill-font-size: 0.8rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
@@ -198,7 +201,7 @@
 	.chunks-grid {
 		display: grid;
 		grid-template-columns: 1fr 1.2fr;
-		gap: 1rem;
+		gap: 3rem 2rem;
 		align-items: start;
 	}
 
@@ -208,6 +211,10 @@
 		}
 	}
 
+	.chunk-cell {
+		padding: 16px 0;
+	}
+
 	.chunk-cell,
 	.result-cell {
 		min-width: 0;
@@ -215,7 +222,7 @@
 
 	.chunk-raw-text {
 		font-size: 0.75rem;
-		height: 500px;
+		height: 700px;
 		overflow-y: auto;
 		white-space: pre-wrap;
 		padding: 0.5rem;
@@ -228,7 +235,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		padding: 0.25rem 0;
+		padding-bottom: 1rem 0;
 	}
 
 	.result-label {
@@ -236,6 +243,7 @@
 		text-transform: uppercase;
 		opacity: 0.5;
 		letter-spacing: 0.05em;
+		margin-top: 1rem;
 	}
 
 	.final-section {

@@ -35,6 +35,8 @@
 
 	let isRowMode = $derived(layoutKey === 'row');
 
+	console.log('article', article);
+
 	const title = $derived(
 		(
 			(article.persistedTasks?.find((t) => t.name?.toLocaleLowerCase() === 'title')?.data as
@@ -57,25 +59,17 @@
 	}
 
 	const someTopics = $derived.by(() => {
-		const task = article.persistedTasks?.find((t) => t.id === 'topics');
-		const data = task?.data as
-			| { chunks?: Array<{ data?: unknown }>; finalResponse?: unknown }
-			| string[]
-			| undefined;
+		const task = article.persistedTasks?.find((t) => t.id === 'analysis');
+		const data = task?.data as unknown;
 		if (Array.isArray(data)) {
 			return data.filter((q): q is string => typeof q === 'string');
 		}
-		if (!data) return [];
-		if (Array.isArray(data.finalResponse)) {
-			return data.finalResponse.filter((q): q is string => typeof q === 'string');
+		if (!data || typeof data !== 'object') return [];
+		const topics = (data as Record<string, unknown>).topics;
+		if (Array.isArray(topics)) {
+			return topics.filter((q): q is string => typeof q === 'string');
 		}
-		if (typeof data.finalResponse === 'string') {
-			return [data.finalResponse];
-		}
-		if (!Array.isArray(data.chunks)) return [];
-		return data.chunks
-			.flatMap((chunk) => (Array.isArray(chunk.data) ? chunk.data : []))
-			.filter((q): q is string => typeof q === 'string' && q.trim().length > 0);
+		return [];
 	});
 
 	// shuffled picks are memoized per article+question-count so unrelated article

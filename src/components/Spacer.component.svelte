@@ -141,7 +141,7 @@
 
 	.separator-line {
 		flex: 1;
-		height: 1px;
+		height: 2px;
 		background: rgba(255, 255, 255, 0.08);
 	}
 
@@ -172,7 +172,7 @@
 	.spacer-title {
 		color: rgba(255, 255, 255, 0.9);
 		font-weight: bold;
-		font-size: 0.9em;
+		font-size: 1em;
 		text-transform: capitalize;
 	}
 

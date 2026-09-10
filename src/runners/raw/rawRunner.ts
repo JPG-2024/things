@@ -9,6 +9,7 @@ type RawRunnerOptions = {
 	makeActive?: boolean;
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[];
+	templateId?: string;
 };
 
 const RAW_TEXT_PROFILE = 'raw-text';
@@ -36,6 +37,7 @@ export async function rawRunner(
 		makeActive: options.makeActive ?? true,
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
+		templateId: options.templateId,
 		onRunResult: async (runResult) => {
 			await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
 

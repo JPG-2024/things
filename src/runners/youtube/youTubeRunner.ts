@@ -24,6 +24,7 @@ export interface YouTubeRunnerCallConfig {
 	makeActive?: boolean;
 	skipTaskIds?: string[];
 	profileId?: string;
+	templateId?: string;
 }
 
 function extractVideoId(url: string): string | null {
@@ -182,6 +183,7 @@ export async function youTubeRunner(
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
 		skipTaskIds: config?.skipTaskIds,
+		templateId: config?.templateId,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const profile = scrapStore.currentYoutubeProfile;

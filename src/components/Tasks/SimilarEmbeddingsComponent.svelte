@@ -73,7 +73,7 @@
 				excludeArticleUrl: articleUrl ?? undefined
 			});
 
-		results = found;
+			results = found;
 			void loadSimilarThumbnails(found);
 			hasSearched = true;
 			return found;

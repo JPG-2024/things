@@ -54,7 +54,8 @@ const routeDefinitions: UrlRoute[] = [
 				skipTaskIds: (
 					context?.runnerOptions as { skipTaskIds?: string[]; profileId?: string } | undefined
 				)?.skipTaskIds,
-				profileId: (context?.runnerOptions as { profileId?: string } | undefined)?.profileId
+				profileId: (context?.runnerOptions as { profileId?: string } | undefined)?.profileId,
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
 			})
 	},
 	{
@@ -79,7 +80,8 @@ const routeDefinitions: UrlRoute[] = [
 			return rawRunner(url, rawText, {
 				makeActive: true,
 				Rebuild: false,
-				cachedTasks
+				cachedTasks,
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
 			});
 		}
 	},
@@ -89,7 +91,8 @@ const routeDefinitions: UrlRoute[] = [
 		handler: (url, context) =>
 			socialMediaRunner(url, 'tiktok', {
 				cachedTasks: context?.cachedTasks,
-				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined
+				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
 			})
 	},
 	{
@@ -98,13 +101,18 @@ const routeDefinitions: UrlRoute[] = [
 		handler: (url, context) =>
 			socialMediaRunner(url, 'instagram', {
 				cachedTasks: context?.cachedTasks,
-				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined
+				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
 			})
 	},
 	{
 		name: 'defaultBlog',
 		condition: () => true,
-		handler: (url, context) => webRunner(url, { cachedTasks: context?.cachedTasks })
+		handler: (url, context) =>
+			webRunner(url, {
+				cachedTasks: context?.cachedTasks,
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+			})
 	}
 ];
 

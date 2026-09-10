@@ -1,4 +1,4 @@
-import { extractTopics, generateFreeTopics } from '@/features/podcast/topicExtractor';
+import { extractTopicsFromAnalysis, type TopicWithOffset } from '@/features/podcast/topicExtractor';
 import { generateTopicSummary, generateChunkSummary } from '@/features/podcast/summaryGenerator';
 import {
 	generateExchange,
@@ -56,7 +56,7 @@ interface AudioBlobEntry {
 class PodcastState {
 	status = $state<PodcastStatus>('idle');
 	errorMessage = $state('');
-	topics = $state<string[]>([]);
+	topics = $state<TopicWithOffset[]>([]);
 	currentTopicIndex = $state(0);
 	currentExchangeIndex = $state(0);
 	dialogs = $state<DialogExchange[][]>([]);
@@ -142,7 +142,7 @@ class PodcastState {
 	}
 
 	get currentTopic(): string | undefined {
-		return this.topics[this.currentTopicIndex];
+		return this.topics[this.currentTopicIndex]?.text;
 	}
 
 	async loadProfiles(): Promise<void> {
@@ -300,30 +300,29 @@ class PodcastState {
 		if (this.config.contextSource !== 'summary') return;
 		if (this._topicSummaries.has(topicIdx)) return;
 
-		const topic = this.topics[topicIdx];
+		const topic = this.topics[topicIdx]?.text ?? '';
 		const content = this.contentTaskText;
 		const summary = await generateTopicSummary(topic, content, this._llmAbort?.signal);
 		if (this._session !== session) return;
 		this._topicSummaries.set(topicIdx, summary);
 	}
 
-	private async resolveTopics(content: string, signal: AbortSignal): Promise<string[]> {
-		const topicsTask = workflowStore.stackedTasks.find(({ task }) => task.id === 'topics');
-		if (topicsTask) {
-			const fromTask = normalizeTopicsFromData(topicsTask.task.data);
-			if (fromTask) return fromTask;
+	private async resolveTopics(_content: string, _signal: AbortSignal): Promise<TopicWithOffset[]> {
+		const analysisTask = workflowStore.stackedTasks.find(({ task }) => task.id === 'analysis');
+		if (analysisTask) {
+			const fromTask = extractTopicsFromAnalysis(analysisTask.task.data);
+			if (fromTask.length > 0) return fromTask;
 		}
 
-		const focusedTopicsTask = workflowStore.focusedRunTasks.find((task) => task.id === 'topics');
-		if (focusedTopicsTask) {
-			if (focusedTopicsTask) return focusedTopicsTask.data.finalResponse;
+		const focusedAnalysisTask = workflowStore.focusedRunTasks.find(
+			(task) => task.id === 'analysis'
+		);
+		if (focusedAnalysisTask) {
+			const fromFocused = extractTopicsFromAnalysis(focusedAnalysisTask.data);
+			if (fromFocused.length > 0) return fromFocused;
 		}
 
-		if (!content) {
-			return generateFreeTopics(this.config.topicCount, signal);
-		}
-
-		return extractTopics(content, this.config.topicCount, signal);
+		return [];
 	}
 
 	private getAllTasks(): Task[] {
@@ -383,7 +382,7 @@ class PodcastState {
 
 		const rawTexts: string[] = [];
 		const questions: string[][] = [];
-		const labels: string[] = [];
+		const topicsWithOffsets: TopicWithOffset[] = [];
 		const counts: number[] = [];
 
 		for (const chunk of chunks) {
@@ -400,7 +399,10 @@ class PodcastState {
 			rawTexts.push(raw);
 			questions.push(qs);
 			const label = raw.slice(0, 70).trim();
-			labels.push(label + (raw.length > 70 ? '…' : ''));
+			const text = label + (raw.length > 70 ? '…' : '');
+			const startOffset = key?.startOffset ?? 0;
+			const endOffset = key?.endOffset ?? 0;
+			topicsWithOffsets.push({ text, startOffset, endOffset });
 			counts.push(qs.length * 2);
 		}
 
@@ -409,7 +411,7 @@ class PodcastState {
 		this.chunkRawTexts = rawTexts;
 		this.chunkQuestions = questions;
 		this.exchangeCounts = counts;
-		this.topics = labels;
+		this.topics = topicsWithOffsets;
 		return true;
 	}
 
@@ -494,10 +496,15 @@ class PodcastState {
 			} else if (this.config.mode === 'interview') {
 				const ok = this.buildQuestionsSegments();
 				if (ok) {
-					this.topics = await Promise.all(
+					const summaries = await Promise.all(
 						this.chunkRawTexts.map((raw) => generateChunkSummary(raw, llmAbort.signal))
 					);
 					if (this._session !== session) return;
+					this.topics = this.chunkRawTexts.map((raw, i) => ({
+						text: summaries[i] ?? '',
+						startOffset: 0,
+						endOffset: raw.length
+					}));
 					this.buildInterviewTurnPlans();
 				} else {
 					this.topics = await this.resolveTopics(source, llmAbort.signal);
@@ -512,6 +519,12 @@ class PodcastState {
 				this.chunkQuestions = [];
 				this.exchangeCounts = [];
 				this._turnPlans = [];
+			}
+
+			if (this.topics.length === 0) {
+				this.errorMessage = 'No topics found. Ensure an analysis task exists.';
+				this.status = 'idle';
+				return;
 			}
 
 			this.dialogs = [];
@@ -626,7 +639,7 @@ class PodcastState {
 			const question = speaker === 'A' ? (questions[questionIndex] ?? '') : '';
 
 			return {
-				topic: this.topics[topicIdx] ?? '',
+				topic: this.topics[topicIdx]?.text ?? '',
 				mode: this.config.mode,
 				previousExchanges,
 				speaker,
@@ -648,7 +661,7 @@ class PodcastState {
 				plan.role === 'answer' ? (plans[exchangeIdx - 1]?.question ?? '') : (plan.question ?? '');
 
 			return {
-				topic: this.topics[topicIdx] ?? '',
+				topic: this.topics[topicIdx]?.text ?? '',
 				mode: this.config.mode,
 				previousExchanges,
 				speaker,
@@ -665,7 +678,7 @@ class PodcastState {
 		}
 
 		return {
-			topic: this.topics[topicIdx],
+			topic: this.topics[topicIdx]?.text ?? '',
 			mode: this.config.mode,
 			previousExchanges,
 			speaker,
@@ -1116,26 +1129,3 @@ class PodcastState {
 }
 
 export const podcastState = new PodcastState();
-
-function normalizeTopicsFromData(data: unknown): string[] | null {
-	if (Array.isArray(data)) {
-		const items = data
-			.filter((d): d is string => typeof d === 'string')
-			.map((d) => d.trim())
-			.filter(Boolean);
-		return items.length > 0 ? items : null;
-	}
-
-	if (data && typeof data === 'object') {
-		const topics = (data as Record<string, unknown>).topics;
-		if (Array.isArray(topics)) {
-			const items = topics
-				.filter((d): d is string => typeof d === 'string')
-				.map((d) => d.trim())
-				.filter(Boolean);
-			return items.length > 0 ? items : null;
-		}
-	}
-
-	return null;
-}

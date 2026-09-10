@@ -19,6 +19,7 @@ export interface SocialMediaRunnerCallConfig {
 	cachedTasks?: PersistedTaskState[] | null;
 	Rebuild?: boolean;
 	makeActive?: boolean;
+	templateId?: string;
 }
 
 function extractProfileId(url: string): string | null {
@@ -85,6 +86,7 @@ export async function socialMediaRunner(
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
+		templateId: config?.templateId,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult) => {
 			const saveOperations: Promise<unknown>[] = [

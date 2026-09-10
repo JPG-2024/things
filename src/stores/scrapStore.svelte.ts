@@ -177,7 +177,7 @@ class ScrapState {
 			const runOne = async (url: string) => {
 				try {
 					await urlRouter(url, {
-						runnerOptions: { skipTaskIds, profileId: normalizedProfileId }
+						runnerOptions: { skipTaskIds, profileId: normalizedProfileId, templateId: 'initial' }
 					});
 					fetched++;
 				} catch (err) {

@@ -15,6 +15,7 @@ type WebRunnerOptions = {
 	parentRunId?: string;
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[] | null;
+	templateId?: string;
 };
 
 function deriveDomainFromUrl(url: string): string {
@@ -151,7 +152,8 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		makeActive: options.makeActive ?? true,
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
-		defaultTasksFactory: () => createDefaultTasks('content'),
+		templateId: options.templateId,
+		defaultTasksFactory: () => createDefaultTasks('content', { splitByHeaders: true }),
 		onRunResult: async (runResult) => {
 			const saveOperations: Promise<unknown>[] = [
 				saveArticle(url, runResult.tasks),

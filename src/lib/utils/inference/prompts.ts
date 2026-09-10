@@ -36,7 +36,7 @@ export const TITLE_SYSTEM_MESSAGE = 'Avoid Markdown.';
 
 // Original: src/runners/shared/taskFactories.ts:116-119
 export function buildTitleUserMessage(lang?: string): string {
-	return `Create a short title describing the content. No more than 20 words. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+	return `Create a short title describing the content. No more than 20 words. avoid quotes. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
 }
 
 // ── Category ──────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ export const MULTI_FIELD_SYSTEM_MESSAGE =
 	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown, no explanations.';
 
 export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
-	return `Analyze this section. make a middle long summary, no titles. keywords: exactly ${keywordCount} specific keywords. topics: exactly ${topicCount} topic in maximum 20 words each one. Respond in JSON.`;
+	return `Analyze this section. make a middle long summary, no titles. keywords: exactly ${keywordCount} specific keywords. topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
 }
 
 export const MULTI_FIELD_FINAL_USER_MESSAGE =

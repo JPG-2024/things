@@ -119,7 +119,7 @@
 					onmouseleave={handleHoverLeave}
 					aria-label={`Filter by ${profile.name}`}
 				>
-					<Tooltip content={profile.name}>
+					<Tooltip content={profile.name} position="right">
 						<img
 							src={profile.profilePictureSrc}
 							alt={profile.name}
@@ -164,7 +164,6 @@
 		gap: 1.1rem;
 		width: fit-content;
 		padding-right: 1rem;
-		padding-top: 4rem;
 		overflow-y: auto;
 		height: 100%;
 		flex-shrink: 0;
@@ -186,14 +185,14 @@
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
-		opacity: 0.3;
+		opacity: 0.2;
 	}
 
 	.profiles-bar:hover .profile-btn {
-		opacity: 1;
+		opacity: 0.4;
 	}
 
-	.profile-btn:hover {
+	.profiles-bar:hover .profile-btn:hover {
 		opacity: 1;
 	}
 

@@ -13,16 +13,9 @@
 	void componentProps;
 
 	const parsedKeywords = $derived.by(() => {
-		if (keywords.length > 0) {
-			return keywords;
-		}
-
-		const data = task?.data;
-		if (Array.isArray(data)) {
-			return data.map((keyword) => String(keyword).trim()).filter(Boolean);
-		}
-
-		return [];
+		const raw =
+			keywords.length > 0 ? keywords : Array.isArray(task?.data) ? task.data.map(String) : [];
+		return [...new Set(raw.map((k) => String(k).trim()))].filter(Boolean);
 	});
 </script>
 

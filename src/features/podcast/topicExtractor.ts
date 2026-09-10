@@ -1,105 +1,46 @@
-import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
-import {
-	extractTopicsSystemPrompt,
-	extractTopicsUserPrompt,
-	freeTopicsSystemPrompt,
-	freeTopicsUserPrompt
-} from './prompts';
-
-export async function extractTopics(
-	content: string,
-	count: number,
-	signal?: AbortSignal
-): Promise<string[]> {
-	const response = await chatCompletions(
-		{
-			messages: [
-				{
-					role: 'system',
-					content: extractTopicsSystemPrompt(count)
-				},
-				{
-					role: 'user',
-					content: extractTopicsUserPrompt(content, count)
-				}
-			],
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'topics',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							topics: {
-								type: 'array',
-								items: { type: 'string' },
-								minItems: count,
-								maxItems: count
-							}
-						},
-						required: ['topics'],
-						additionalProperties: false
-					}
-				}
-			},
-			stream: false,
-			temperature: 0.7
-		},
-		{ signal }
-	);
-
-	const text = response.choices?.[0]?.message?.content ?? '';
-	const parsed = JSON.parse(text);
-	if (!Array.isArray(parsed.topics)) {
-		throw new Error('Invalid topics response: missing topics array');
-	}
-	return parsed.topics.map((t: unknown) => String(t).trim()).filter(Boolean);
+export interface TopicWithOffset {
+	text: string;
+	startOffset: number;
+	endOffset: number;
 }
 
-export async function generateFreeTopics(count: number, signal?: AbortSignal): Promise<string[]> {
-	const response = await chatCompletions(
-		{
-			messages: [
-				{
-					role: 'system',
-					content: freeTopicsSystemPrompt(count)
-				},
-				{
-					role: 'user',
-					content: freeTopicsUserPrompt(count)
-				}
-			],
-			response_format: {
-				type: 'json_schema',
-				json_schema: {
-					name: 'topics',
-					strict: true,
-					schema: {
-						type: 'object',
-						properties: {
-							topics: {
-								type: 'array',
-								items: { type: 'string' },
-								minItems: count,
-								maxItems: count
-							}
-						},
-						required: ['topics'],
-						additionalProperties: false
-					}
-				}
-			},
-			stream: false,
-			temperature: 0.9
-		},
-		{ signal }
-	);
+interface AnalysisChunkLike {
+	key?: { startOffset?: number; endOffset?: number };
+	data?: unknown;
+}
 
-	const text = response.choices?.[0]?.message?.content ?? '';
-	const parsed = JSON.parse(text);
-	if (!Array.isArray(parsed.topics)) {
-		throw new Error('Invalid topics response: missing topics array');
+interface AnalysisChunkData {
+	topics?: unknown;
+}
+
+export function extractTopicsFromAnalysis(data: unknown): TopicWithOffset[] {
+	if (!data || typeof data !== 'object') return [];
+
+	const chunks = (data as { chunks?: AnalysisChunkLike[] }).chunks;
+	if (!Array.isArray(chunks)) return [];
+
+	const result: TopicWithOffset[] = [];
+
+	for (const chunk of chunks) {
+		const key = chunk.key;
+		if (!key || typeof key.startOffset !== 'number' || typeof key.endOffset !== 'number') {
+			continue;
+		}
+
+		const chunkData = chunk.data as AnalysisChunkData | undefined;
+		const topics = chunkData?.topics;
+		if (!Array.isArray(topics)) continue;
+
+		for (const topic of topics) {
+			const text = String(topic).trim();
+			if (!text) continue;
+			result.push({
+				text,
+				startOffset: key.startOffset,
+				endOffset: key.endOffset
+			});
+		}
 	}
-	return parsed.topics.map((t: unknown) => String(t).trim()).filter(Boolean);
+
+	return result;
 }

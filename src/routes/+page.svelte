@@ -51,6 +51,7 @@
 	}
 
 	let askInputValue = $state('');
+	let toolbarEl = $state<HTMLDivElement>();
 
 	$effect(() => {
 		if (!viewState.clipboardPollingEnabled) {
@@ -133,7 +134,11 @@
 	);
 </script>
 
-<div class="dashboard-toolbar-container" use:autoHide>
+<div
+	bind:this={toolbarEl}
+	class="dashboard-toolbar-container"
+	use:autoHide={{ scrollContainerId: 'dashboard-content' }}
+>
 	<div class="toolbar-row page-topbar">
 		<Toolbar justify="space-between" iconSize={18}>
 			<div class="toolbar-left">
@@ -258,9 +263,11 @@
 
 <div class="dashboard-container">
 	{#if viewState.activeProfileArticleTab === 'articles'}
-		<ProfilesBar />
+		<div class="dashboard-profilesbar-container">
+			<ProfilesBar />
+		</div>
 	{/if}
-	<div class="dashboard-content">
+	<div id="dashboard-content" class="dashboard-content">
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'categories'}
@@ -297,15 +304,16 @@
 	}
 
 	.dashboard-container {
-		position: fixed;
-		top: 9rem;
-		left: 1.5rem;
-		right: 1.5rem;
-		bottom: 0;
 		display: flex;
 		flex-direction: row;
 		gap: 1rem;
+		height: 100vh;
+		margin: 0 1.5rem;
 		overflow: hidden;
+	}
+
+	.dashboard-profilesbar-container {
+		margin-top: 10rem;
 	}
 
 	.dashboard-content {
@@ -317,6 +325,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
+		padding-top: 130px;
 	}
 
 	.dashboard-toolbar-container {
@@ -340,7 +349,9 @@
 		opacity: 1;
 		transition:
 			transform 250ms ease-out,
-			opacity 250ms ease-out;
+			opacity 250ms ease-out,
+			height 250ms ease-out,
+			padding 250ms ease-out;
 	}
 
 	.toolbar-row {
@@ -366,6 +377,10 @@
 		transform: translateY(-100%);
 		opacity: 0;
 		pointer-events: none;
+		height: 0;
+		padding-top: 0;
+		padding-bottom: 0;
+		overflow: hidden;
 	}
 
 	.color-dot-trigger {

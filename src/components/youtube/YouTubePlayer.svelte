@@ -1,21 +1,18 @@
 <script lang="ts">
-	import { toVTName } from '@/lib/utils/url';
-	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import type { TaskComponentProps } from '@/types/taskRunner.types';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 	import { fade } from 'svelte/transition';
 
 	type Props = {
-		runId?: string;
-		task: Task;
+		data?: YouTubePlayerContext;
 		componentProps?: TaskComponentProps;
 	};
 
-	let { runId = undefined, task, componentProps = {} }: Props = $props();
+	let { data = undefined, componentProps = {} }: Props = $props();
 
 	let showIframe = $state(false);
-	const playerData = $derived((task.data ?? {}) as Partial<YouTubePlayerContext>);
+	const playerData = $derived<Partial<YouTubePlayerContext>>(data ?? {});
 
-	void runId;
 	void componentProps;
 </script>
 

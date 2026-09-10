@@ -426,3 +426,63 @@ export function reconstructChunks(
 ): string[] {
 	return offsets.map(({ startOffset, endOffset }) => content.slice(startOffset, endOffset));
 }
+
+export function splitByMarkdownHeaders(text: string): EmbeddingChunk[] {
+	const trimmed = text.trim();
+	if (!trimmed) return [];
+
+	const trimOffset = text.indexOf(trimmed);
+	const headerRegex = /^(#{1,2})\s+(.+)$/gm;
+
+	const headerMatches: { index: number; length: number }[] = [];
+	let match: RegExpExecArray | null;
+
+	while ((match = headerRegex.exec(trimmed)) !== null) {
+		headerMatches.push({ index: match.index, length: match[0].length });
+	}
+
+	if (headerMatches.length === 0) {
+		return [
+			{
+				text: trimmed,
+				index: 0,
+				startOffset: trimOffset,
+				endOffset: trimOffset + trimmed.length
+			}
+		];
+	}
+
+	const chunks: EmbeddingChunk[] = [];
+	let currentIndex = 0;
+
+	if (headerMatches[0].index > 0) {
+		const preHeaderText = trimmed.slice(0, headerMatches[0].index).trim();
+		if (preHeaderText.length > 0) {
+			chunks.push({
+				text: preHeaderText,
+				index: currentIndex,
+				startOffset: trimOffset,
+				endOffset: headerMatches[0].index + trimOffset
+			});
+			currentIndex++;
+		}
+	}
+
+	for (let i = 0; i < headerMatches.length; i++) {
+		const start = headerMatches[i].index;
+		const end = i + 1 < headerMatches.length ? headerMatches[i + 1].index : trimmed.length;
+		const sectionText = trimmed.slice(start, end).trim();
+
+		if (sectionText.length > 0) {
+			chunks.push({
+				text: sectionText,
+				index: currentIndex,
+				startOffset: start + trimOffset,
+				endOffset: end + trimOffset
+			});
+			currentIndex++;
+		}
+	}
+
+	return chunks;
+}

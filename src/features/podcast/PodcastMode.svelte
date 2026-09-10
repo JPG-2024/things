@@ -555,7 +555,7 @@
 		gap: 0.15rem;
 		padding: 0.5rem 1.5rem;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-		background: rgba(255, 255, 255, 0.02);
+		/* background: rgba(255, 255, 255, 0.02); */
 		flex-shrink: 0;
 	}
 

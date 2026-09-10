@@ -315,49 +315,6 @@ export function transcriptUserMessage(
 	return base;
 }
 
-// ─── Topic extractor prompts ─────────────────────────────────────────
-
-/**
- * Returns the system prompt for extracting topics from content.
- *
- * @param count - The number of topics to extract.
- * @returns The system prompt string.
- */
-export function extractTopicsSystemPrompt(count: number): string {
-	return `You are a content analyst. Extract exactly ${count} distinct discussion topics from the provided content. Topics should be specific enough for a brief podcast discussion. Each topic should be a concise phrase (5-10 words). Return only valid JSON matching the schema.`;
-}
-
-/**
- * Returns the user prompt for extracting topics from content.
- *
- * @param content - The source content to analyze.
- * @param count - The number of topics to extract.
- * @returns The user prompt string.
- */
-export function extractTopicsUserPrompt(content: string, count: number): string {
-	return `Content:\n${content}\n\nExtract exactly ${count} topics.`;
-}
-
-/**
- * Returns the system prompt for generating free-form topics.
- *
- * @param count - The number of topics to generate.
- * @returns The system prompt string.
- */
-export function freeTopicsSystemPrompt(count: number): string {
-	return `You are a creative podcast producer. Suggest exactly ${count} interesting, specific discussion topics for a podcast episode. Each topic should be a concise phrase (5-10 words). Return only valid JSON matching the schema.`;
-}
-
-/**
- * Returns the user prompt for generating free-form topics.
- *
- * @param count - The number of topics to generate.
- * @returns The user prompt string.
- */
-export function freeTopicsUserPrompt(count: number): string {
-	return `Suggest exactly ${count} interesting podcast topics.`;
-}
-
 // ─── Summary prompts ─────────────────────────────────────────────────
 
 /**

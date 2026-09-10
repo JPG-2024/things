@@ -52,6 +52,7 @@
 
 <style>
 	.markdown-container {
+		font-family: 'CaskaydiaCove NFM Light', monospace;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
@@ -59,7 +60,7 @@
 		text-align: left;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-		font-size: 1rem;
+		font-size: 0.9rem;
 	}
 
 	.markdown-container :global(thead th) {

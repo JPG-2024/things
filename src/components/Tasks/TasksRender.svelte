@@ -10,6 +10,9 @@
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
+	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
+	import Keywords from '@/components/Keywords.svelte';
+	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 
@@ -23,11 +26,15 @@
 	);
 
 	const contentTask = $derived(sortedTasks.find((e) => e.task.id === 'content'));
-	const thumbnailTask = $derived(
-		sortedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')
+	const thumbnailData = $derived(
+		stackedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')?.task.data as
+			| YouTubePlayerContext
+			| undefined
 	);
-	const categoryTask = $derived(
-		sortedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')
+	const categoryData = $derived(
+		stackedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')?.task.data as
+			| string[]
+			| undefined
 	);
 	const otherTasks = $derived(
 		sortedTasks.filter(
@@ -139,50 +146,21 @@
 </script>
 
 <div class="tasks-container">
-	{#if titleText}
-		<div class="tasks-title">{titleText}</div>
-	{/if}
-
-	{#if thumbnailTask || categoryTask}
+	{#if thumbnailData || categoryData || titleText}
 		<div class="tasks-header-row">
-			{#if thumbnailTask}
-				{@const task = thumbnailTask.task}
-				{@const componentKey = task.component?.trim()}
-				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+			{#if thumbnailData}
 				<div class="header-col thumbnail-col">
-					{#if Renderer && task.status === 'done'}
-						<div
-							class="task-wrapper"
-							onmouseenter={() => {
-								viewState.selectedTaskId = task.id;
-							}}
-							role="group"
-						>
-							<BaseTaskComponent {task} runId={thumbnailTask.runId}>
-								<Renderer {task} runId={thumbnailTask.runId} /></BaseTaskComponent
-							>
-						</div>
-					{/if}
+					<YouTubePlayer data={thumbnailData} />
 				</div>
 			{/if}
 
-			{#if categoryTask}
-				{@const task = categoryTask.task}
-				{@const componentKey = task.component?.trim()}
-				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
+			{#if categoryData || titleText}
 				<div class="header-col category-col">
-					{#if Renderer && task.status === 'done'}
-						<div
-							class="task-wrapper"
-							onmouseenter={() => {
-								viewState.selectedTaskId = task.id;
-							}}
-							role="group"
-						>
-							<BaseTaskComponent {task} runId={categoryTask.runId}>
-								<Renderer {task} runId={categoryTask.runId} /></BaseTaskComponent
-							>
-						</div>
+					{#if titleText}
+						<div class="tasks-title">{titleText}</div>
+					{/if}
+					{#if categoryData}
+						<Keywords keywords={categoryData} />
 					{/if}
 				</div>
 			{/if}
@@ -364,7 +342,7 @@
 
 	.tasks-title {
 		font-family: CaskaydiaCove NFM Light;
-		font-size: 1.4rem;
+		font-size: 1.2rem;
 		margin-right: auto;
 		width: 100%;
 		padding: 1rem 0;
@@ -408,5 +386,7 @@
 
 	.category-col {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
 	}
 </style>

@@ -11,6 +11,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { getTaskChunks, updateTaskDataById } from '@/stores/webStore';
+	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
 
 	type Props = {
 		runId?: string;
@@ -88,8 +89,7 @@
 		}))
 	);
 
-	const LEVELS = ['1', '2', '4', '8'];
-	const levelTabs = LEVELS.map((l) => ({ id: l, label: l }));
+	const levelTabs = WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }));
 
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 

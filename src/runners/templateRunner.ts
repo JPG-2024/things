@@ -13,6 +13,7 @@ export interface RunTemplateWorkflowOptions {
 	skipTaskIds?: string[];
 	onRunResult?: (runResult: TaskRunSummary) => void | Promise<void>;
 	defaultTasksFactory?: () => Task[];
+	templateId?: string;
 }
 
 import { DependencyGraph } from '@/runners/DependencyGraph';
@@ -84,11 +85,27 @@ export async function runTemplateWorkflow(
 	initialTasks: Task[],
 	options: RunTemplateWorkflowOptions = {}
 ): Promise<Task[]> {
-	const templateId = await getProfileTemplateId(profileId);
-	const template = templateId ? await getTemplate(templateId) : null;
+	const explicitTemplateId = options.templateId;
+	const isInitialOnly = explicitTemplateId === 'initial';
+	const isExplicitTemplate =
+		explicitTemplateId && explicitTemplateId !== 'default' && explicitTemplateId !== 'initial';
 
-	const templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
-	const defaultTasks = options.defaultTasksFactory?.() ?? [];
+	let templateTasks: Task[] = [];
+	let defaultTasks: Task[] = [];
+
+	if (isInitialOnly) {
+		templateTasks = [];
+		defaultTasks = [];
+	} else if (isExplicitTemplate) {
+		const template = await getTemplate(explicitTemplateId);
+		templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
+		defaultTasks = [];
+	} else {
+		const profileTemplateId = await getProfileTemplateId(profileId);
+		const template = profileTemplateId ? await getTemplate(profileTemplateId) : null;
+		templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
+		defaultTasks = options.defaultTasksFactory?.() ?? [];
+	}
 
 	const merged: Task[] = [];
 	const seenIds = new Set<string>();

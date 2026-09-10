@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { buildScriptTaskFromDef, requireStringState, scriptTask } from '@/runners/taskSchema';
 import { DEFAULT_DYNAMIC_MODEL, SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
-import { splitByLevels, splitByString, splitForEmbeddings } from '@/lib/utils/splitText';
+import {
+	splitByLevels,
+	splitByMarkdownHeaders,
+	splitByString,
+	splitForEmbeddings
+} from '@/lib/utils/splitText';
 import { getProcessor } from '@/runners/shared/processors';
 import type {
 	CombineMode,
@@ -40,6 +45,7 @@ export interface RecursiveConfig {
 	overlap: number;
 	windowDivisor?: number;
 	splitByString?: string;
+	splitByHeaders?: boolean;
 	processorType: ProcessorType;
 	combineMode?: CombineMode;
 	userMessage: string;
@@ -66,7 +72,10 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	multiFields?: MultiFieldSpec[];
 };
 
-type Chunking = Pick<RecursiveConfig, 'windowSize' | 'overlap' | 'windowDivisor' | 'splitByString'>;
+type Chunking = Pick<
+	RecursiveConfig,
+	'windowSize' | 'overlap' | 'windowDivisor' | 'splitByString' | 'splitByHeaders'
+>;
 
 const MultiChunkDataSchema = z.object({
 	summary: z.array(z.string()),
@@ -105,22 +114,51 @@ const MULTI_RECURSIVE_OUTPUT_SCHEMA = z.object({
 function resolveChunking(options: Partial<RecursiveConfig>): Chunking {
 	const windowSize = options.windowSize ?? 1000;
 	const overlap = options.overlap ?? Math.floor(windowSize * 0.1);
-	const windowDivisor = options.splitByString
-		? undefined
-		: options.windowDivisor !== undefined
-			? options.windowDivisor
-			: options.windowSize !== undefined || options.overlap !== undefined
-				? undefined
-				: 2;
+	const windowDivisor =
+		options.splitByString || options.splitByHeaders
+			? undefined
+			: options.windowDivisor !== undefined
+				? options.windowDivisor
+				: options.windowSize !== undefined || options.overlap !== undefined
+					? undefined
+					: 2;
 	return {
 		windowSize,
 		overlap,
 		windowDivisor,
-		splitByString: options.splitByString
+		splitByString: options.splitByString,
+		splitByHeaders: options.splitByHeaders
 	};
 }
 
 function splitContent(content: string, chunking: Chunking) {
+	if (chunking.splitByHeaders) {
+		const headerChunks = splitByMarkdownHeaders(content);
+		const result: typeof headerChunks = [];
+		let index = 0;
+
+		for (const chunk of headerChunks) {
+			if (chunk.text.length > TARGET_CHUNK_SIZE) {
+				const divisor = Math.ceil(chunk.text.length / TARGET_CHUNK_SIZE);
+				const subChunks = splitByLevels(chunk.text, divisor);
+				for (const sub of subChunks) {
+					result.push({
+						text: sub.text,
+						index,
+						startOffset: sub.startOffset,
+						endOffset: sub.endOffset
+					});
+					index++;
+				}
+			} else {
+				result.push({ ...chunk, index });
+				index++;
+			}
+		}
+
+		return result;
+	}
+
 	if (chunking.splitByString) return splitByString(content, chunking.splitByString);
 	if (chunking.windowDivisor) return splitByLevels(content, chunking.windowDivisor);
 	return splitForEmbeddings(content, {
@@ -129,9 +167,7 @@ function splitContent(content: string, chunking: Chunking) {
 	});
 }
 
-const MAX_WINDOW_DIVISOR = 8;
-const WINDOW_DIVISOR_LADDER = [1, 2, 4, 8];
-const TARGET_CHUNK_SIZE = 3000;
+import { MAX_WINDOW_DIVISOR, TARGET_CHUNK_SIZE, WINDOW_DIVISOR_LADDER } from './constants';
 
 function computeAutoDivisor(contentLength: number): number {
 	if (contentLength <= 0) return 1;
@@ -211,6 +247,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		overlap: chunking.overlap,
 		windowDivisor: chunking.windowDivisor,
 		splitByString: chunking.splitByString,
+		splitByHeaders: chunking.splitByHeaders,
 		processorType,
 		combineMode: options.combineMode,
 		userMessage,
@@ -243,7 +280,11 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 				const content = requireStringState(state, sourceDependency);
 				let currentChunking: Chunking = { ...chunking };
 
-				if (currentChunking.windowDivisor !== undefined && !currentChunking.splitByString) {
+				if (
+					currentChunking.windowDivisor !== undefined &&
+					!currentChunking.splitByString &&
+					!currentChunking.splitByHeaders
+				) {
 					currentChunking = {
 						...currentChunking,
 						windowDivisor: computeAutoDivisor(content.length)
