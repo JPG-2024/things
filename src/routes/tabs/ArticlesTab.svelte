@@ -1,13 +1,11 @@
 <script lang="ts">
 	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
-	import Card from '@/components/Card.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { onMount } from 'svelte';
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
@@ -22,19 +20,11 @@
 		viewState.rawSearchResults = null;
 	}
 
-	onMount(async () => {
-		await articleCacheStore.fetchArticlesWithoutProfile({
-			onlyWithoutProfile: viewState.showOnlyRawArticles,
-			profileId: viewState.activeArticleProfileId ?? undefined
-		});
-	});
-
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
 		const onlyRaw = viewState.showOnlyRawArticles;
 		const profileId = viewState.activeArticleProfileId;
 		void articleCacheStore.fetchArticlesWithoutProfile({
-			force: true,
 			categoryIds: categories,
 			onlyWithoutProfile: onlyRaw,
 			profileId: profileId ?? undefined

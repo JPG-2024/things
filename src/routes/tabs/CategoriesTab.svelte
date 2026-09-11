@@ -6,26 +6,12 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { onMount } from 'svelte';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
-
-	function fetchCategories(force = false) {
-		void articleCacheStore.fetchCategoriesWithArticles({
-			force,
-			categoryIds: [...viewState.selectedCategories],
-			createdAtFrom: new Date(viewState.onlyArticlesAfter).getTime()
-		});
-	}
-
-	onMount(() => {
-		fetchCategories();
-	});
 
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
 		void articleCacheStore.fetchCategoriesWithArticles({
-			force: true,
 			categoryIds: categories,
 			createdAtFrom: new Date(onlyArticlesAfter).getTime()
 		});

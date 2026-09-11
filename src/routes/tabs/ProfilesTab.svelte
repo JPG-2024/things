@@ -4,18 +4,11 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { onMount } from 'svelte';
 	import type { ArticleProfile } from '@/stores/webStore';
-
-	onMount(async () => {
-		await articleCacheStore.fetchProfilesWithArticles({
-			categoryIds: [...viewState.selectedCategories]
-		});
-	});
 
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
-		void articleCacheStore.fetchProfilesWithArticles({ force: true, categoryIds: categories });
+		void articleCacheStore.fetchProfilesWithArticles({ categoryIds: categories });
 	});
 </script>
 

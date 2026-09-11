@@ -7,11 +7,14 @@ import {
 	type CategoryWithArticles
 } from '@/stores/webStore';
 
-const CACHE_TTL = 60_000;
 const PROFILES_PAGE_SIZE = 20;
 const ARTICLES_PAGE_SIZE = 20;
 const ARTICLES_PER_PROFILE = 5;
 const ARTICLE_COUNT_PER_CATEGORY = 20;
+
+function sortedIds(ids?: string[]): string[] | null {
+	return ids ? [...ids].sort() : null;
+}
 
 class ArticleCacheStore {
 	profilesWithArticles = $state<ArticleProfile[]>([]);
@@ -34,14 +37,21 @@ class ArticleCacheStore {
 	hasMoreCategoryArticles = $state(true);
 	categoryArticlesOffset = $state(0);
 
-	private profilesFetchedAt = 0;
-	private articlesFetchedAt = 0;
-	private categoriesFetchedAt = 0;
+	private profilesStale = true;
+	private articlesStale = true;
+	private categoriesStale = true;
+	private categoryArticlesStale = true;
+
+	private profilesSignature: string | null = null;
+	private articlesSignature: string | null = null;
+	private categoriesSignature: string | null = null;
+	private categoryArticlesSignature: string | null = null;
+
 	private profilesFetchId = 0;
 	private articlesFetchId = 0;
 	private categoriesFetchId = 0;
 	private categoryArticlesFetchId = 0;
-	private categoryArticlesFetchedAt = 0;
+
 	private categoryArticleCategoryId: string | undefined = undefined;
 	private articlesProfileId: string | undefined = undefined;
 	private articlesDateFrom: string | undefined = undefined;
@@ -56,21 +66,47 @@ class ArticleCacheStore {
 		loadMore?: boolean;
 		categoryIds?: string[];
 	}) {
-		const now = Date.now();
-		if (!options?.force && !options?.loadMore && now - this.profilesFetchedAt < CACHE_TTL) {
+		if (options?.loadMore) {
+			const fetchId = ++this.profilesFetchId;
+			this.loadingProfiles = true;
+			try {
+				const offset = this.profilesOffset;
+				const result = await getProfiles({
+					categoryIds: this.profilesCategoryIds,
+					offset,
+					limit: PROFILES_PAGE_SIZE,
+					includeArticles: true,
+					articleCount: ARTICLES_PER_PROFILE
+				});
+
+				if (fetchId !== this.profilesFetchId) {
+					return;
+				}
+
+				this.profilesWithArticles = [...this.profilesWithArticles, ...result];
+				this.profilesOffset = offset + result.length;
+				this.hasMoreProfiles = result.length >= PROFILES_PAGE_SIZE;
+				this.profilesStale = false;
+			} finally {
+				if (fetchId === this.profilesFetchId) {
+					this.loadingProfiles = false;
+				}
+			}
+			return;
+		}
+
+		const categoryIds = options?.categoryIds;
+		const signature = JSON.stringify({ categoryIds: sortedIds(categoryIds) });
+		if (!options?.force && !this.profilesStale && signature === this.profilesSignature) {
 			return;
 		}
 
 		const fetchId = ++this.profilesFetchId;
 		this.loadingProfiles = true;
 		try {
-			if (!options?.loadMore) {
-				this.profilesCategoryIds = options?.categoryIds;
-			}
-			const offset = options?.loadMore ? this.profilesOffset : 0;
 			const result = await getProfiles({
-				categoryIds: options?.loadMore ? this.profilesCategoryIds : options?.categoryIds,
-				offset,
+				categoryIds,
+				offset: 0,
 				limit: PROFILES_PAGE_SIZE,
 				includeArticles: true,
 				articleCount: ARTICLES_PER_PROFILE
@@ -80,15 +116,12 @@ class ArticleCacheStore {
 				return;
 			}
 
-			if (options?.loadMore) {
-				this.profilesWithArticles = [...this.profilesWithArticles, ...result];
-			} else {
-				this.profilesWithArticles = result;
-			}
-
-			this.profilesOffset = offset + result.length;
+			this.profilesCategoryIds = categoryIds;
+			this.profilesWithArticles = result;
+			this.profilesOffset = result.length;
 			this.hasMoreProfiles = result.length >= PROFILES_PAGE_SIZE;
-			this.profilesFetchedAt = Date.now();
+			this.profilesSignature = signature;
+			this.profilesStale = false;
 		} finally {
 			if (fetchId === this.profilesFetchId) {
 				this.loadingProfiles = false;
@@ -104,47 +137,73 @@ class ArticleCacheStore {
 		profileId?: string;
 		dateFrom?: string;
 	}) {
-		const now = Date.now();
-		if (!options?.force && !options?.loadMore && now - this.articlesFetchedAt < CACHE_TTL) {
+		if (options?.loadMore) {
+			const fetchId = ++this.articlesFetchId;
+			this.loadingArticles = true;
+			try {
+				const offset = this.articlesOffset;
+				const result = await getArticlesWithoutProfile({
+					categoryIds: this.articlesCategoryIds,
+					offset,
+					limit: ARTICLES_PAGE_SIZE,
+					onlyWithoutProfile: this.articlesOnlyWithoutProfile,
+					profileId: this.articlesProfileId,
+					dateFrom: this.articlesDateFrom
+				});
+
+				if (fetchId !== this.articlesFetchId) {
+					return;
+				}
+
+				this.articlesWithoutProfile = [...this.articlesWithoutProfile, ...result.articles];
+				this.totalArticlesWithoutProfile = result.total;
+				this.articlesOffset = offset + result.articles.length;
+				this.hasMoreArticles = this.articlesOffset < result.total;
+				this.articlesStale = false;
+			} finally {
+				if (fetchId === this.articlesFetchId) {
+					this.loadingArticles = false;
+				}
+			}
 			return;
 		}
 
-		if (!options?.loadMore) {
-			this.articlesProfileId = options?.profileId;
-			this.articlesDateFrom = options?.dateFrom;
-			this.articlesCategoryIds = options?.categoryIds;
-			this.articlesOnlyWithoutProfile = options?.onlyWithoutProfile;
+		const signature = JSON.stringify({
+			categoryIds: sortedIds(options?.categoryIds),
+			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
+			profileId: options?.profileId ?? null,
+			dateFrom: options?.dateFrom ?? null
+		});
+		if (!options?.force && !this.articlesStale && signature === this.articlesSignature) {
+			return;
 		}
 
 		const fetchId = ++this.articlesFetchId;
 		this.loadingArticles = true;
 		try {
-			const offset = options?.loadMore ? this.articlesOffset : 0;
 			const result = await getArticlesWithoutProfile({
-				categoryIds: options?.loadMore ? this.articlesCategoryIds : options?.categoryIds,
-				offset,
+				categoryIds: options?.categoryIds,
+				offset: 0,
 				limit: ARTICLES_PAGE_SIZE,
-				onlyWithoutProfile: options?.loadMore
-					? this.articlesOnlyWithoutProfile
-					: options?.onlyWithoutProfile,
-				profileId: options?.loadMore ? this.articlesProfileId : options?.profileId,
-				dateFrom: options?.loadMore ? this.articlesDateFrom : options?.dateFrom
+				onlyWithoutProfile: options?.onlyWithoutProfile,
+				profileId: options?.profileId,
+				dateFrom: options?.dateFrom
 			});
 
 			if (fetchId !== this.articlesFetchId) {
 				return;
 			}
 
-			if (options?.loadMore) {
-				this.articlesWithoutProfile = [...this.articlesWithoutProfile, ...result.articles];
-			} else {
-				this.articlesWithoutProfile = result.articles;
-			}
-
+			this.articlesProfileId = options?.profileId;
+			this.articlesDateFrom = options?.dateFrom;
+			this.articlesCategoryIds = options?.categoryIds;
+			this.articlesOnlyWithoutProfile = options?.onlyWithoutProfile;
+			this.articlesWithoutProfile = result.articles;
 			this.totalArticlesWithoutProfile = result.total;
-			this.articlesOffset = offset + result.articles.length;
+			this.articlesOffset = result.articles.length;
 			this.hasMoreArticles = this.articlesOffset < result.total;
-			this.articlesFetchedAt = Date.now();
+			this.articlesSignature = signature;
+			this.articlesStale = false;
 		} finally {
 			if (fetchId === this.articlesFetchId) {
 				this.loadingArticles = false;
@@ -166,22 +225,49 @@ class ArticleCacheStore {
 		categoryId: string,
 		options?: { force?: boolean; loadMore?: boolean }
 	) {
-		const now = Date.now();
-		if (!options?.force && !options?.loadMore && now - this.categoryArticlesFetchedAt < CACHE_TTL) {
+		if (options?.loadMore) {
+			const fetchId = ++this.categoryArticlesFetchId;
+			this.loadingCategoryArticles = true;
+			try {
+				const offset = this.categoryArticlesOffset;
+				const result = await getArticlesWithoutProfile({
+					categoryIds: [this.categoryArticleCategoryId!],
+					offset,
+					limit: ARTICLES_PAGE_SIZE,
+					onlyWithoutProfile: false
+				});
+
+				if (fetchId !== this.categoryArticlesFetchId) {
+					return;
+				}
+
+				this.categoryArticles = [...this.categoryArticles, ...result.articles];
+				this.categoryArticlesOffset = offset + result.articles.length;
+				this.hasMoreCategoryArticles = this.categoryArticlesOffset < result.total;
+				this.categoryArticlesStale = false;
+			} finally {
+				if (fetchId === this.categoryArticlesFetchId) {
+					this.loadingCategoryArticles = false;
+				}
+			}
 			return;
 		}
 
-		if (!options?.loadMore) {
-			this.categoryArticleCategoryId = categoryId;
+		const signature = JSON.stringify({ categoryId });
+		if (
+			!options?.force &&
+			!this.categoryArticlesStale &&
+			signature === this.categoryArticlesSignature
+		) {
+			return;
 		}
 
 		const fetchId = ++this.categoryArticlesFetchId;
 		this.loadingCategoryArticles = true;
 		try {
-			const offset = options?.loadMore ? this.categoryArticlesOffset : 0;
 			const result = await getArticlesWithoutProfile({
-				categoryIds: [options?.loadMore ? this.categoryArticleCategoryId! : categoryId],
-				offset,
+				categoryIds: [categoryId],
+				offset: 0,
 				limit: ARTICLES_PAGE_SIZE,
 				onlyWithoutProfile: false
 			});
@@ -190,15 +276,12 @@ class ArticleCacheStore {
 				return;
 			}
 
-			if (options?.loadMore) {
-				this.categoryArticles = [...this.categoryArticles, ...result.articles];
-			} else {
-				this.categoryArticles = result.articles;
-			}
-
-			this.categoryArticlesOffset = offset + result.articles.length;
+			this.categoryArticleCategoryId = categoryId;
+			this.categoryArticles = result.articles;
+			this.categoryArticlesOffset = result.articles.length;
 			this.hasMoreCategoryArticles = this.categoryArticlesOffset < result.total;
-			this.categoryArticlesFetchedAt = Date.now();
+			this.categoryArticlesSignature = signature;
+			this.categoryArticlesStale = false;
 		} finally {
 			if (fetchId === this.categoryArticlesFetchId) {
 				this.loadingCategoryArticles = false;
@@ -216,14 +299,15 @@ class ArticleCacheStore {
 		categoryIds?: string[];
 		createdAtFrom?: number;
 	}) {
-		const now = Date.now();
-		if (!options?.force && now - this.categoriesFetchedAt < CACHE_TTL) {
+		const categoryIds = options?.categoryIds ?? this.categoriesCategoryIds ?? [];
+		const createdAtFrom = options?.createdAtFrom ?? this.categoriesCreatedAtFrom;
+		const signature = JSON.stringify({
+			categoryIds: sortedIds(categoryIds),
+			createdAtFrom: createdAtFrom ?? null
+		});
+		if (!options?.force && !this.categoriesStale && signature === this.categoriesSignature) {
 			return;
 		}
-
-		const categoryIds = options?.categoryIds ?? this.categoriesCategoryIds ?? [];
-		this.categoriesCategoryIds = categoryIds;
-		this.categoriesCreatedAtFrom = options?.createdAtFrom ?? this.categoriesCreatedAtFrom;
 
 		const fetchId = ++this.categoriesFetchId;
 		this.loadingCategories = true;
@@ -231,15 +315,18 @@ class ArticleCacheStore {
 			const result = await getArticlesByCategories(
 				categoryIds,
 				ARTICLE_COUNT_PER_CATEGORY,
-				this.categoriesCreatedAtFrom
+				createdAtFrom
 			);
 
 			if (fetchId !== this.categoriesFetchId) {
 				return;
 			}
 
+			this.categoriesCategoryIds = categoryIds;
+			this.categoriesCreatedAtFrom = createdAtFrom;
 			this.categoriesWithArticles = result;
-			this.categoriesFetchedAt = Date.now();
+			this.categoriesSignature = signature;
+			this.categoriesStale = false;
 		} finally {
 			if (fetchId === this.categoriesFetchId) {
 				this.loadingCategories = false;
@@ -248,59 +335,26 @@ class ArticleCacheStore {
 	}
 
 	invalidate() {
-		this.profilesFetchedAt = 0;
-		this.articlesFetchedAt = 0;
-		this.categoriesFetchedAt = 0;
-		this.categoryArticlesFetchedAt = 0;
-		this.profilesOffset = 0;
-		this.articlesOffset = 0;
-		this.categoryArticlesOffset = 0;
-		this.profilesWithArticles = [];
-		this.articlesWithoutProfile = [];
-		this.categoriesWithArticles = [];
-		this.categoryArticles = [];
-		this.hasMoreProfiles = true;
-		this.hasMoreArticles = true;
-		this.hasMoreCategoryArticles = true;
-		this.profilesCategoryIds = undefined;
-		this.categoriesCategoryIds = undefined;
-		this.categoriesCreatedAtFrom = undefined;
-		this.categoryArticleCategoryId = undefined;
+		this.profilesStale = true;
+		this.articlesStale = true;
+		this.categoriesStale = true;
+		this.categoryArticlesStale = true;
 	}
 
 	invalidateCategories() {
-		this.categoriesFetchedAt = 0;
-		this.categoriesWithArticles = [];
-		this.categoriesCategoryIds = undefined;
-		this.categoriesCreatedAtFrom = undefined;
+		this.categoriesStale = true;
 	}
 
 	invalidateProfiles() {
-		this.profilesFetchedAt = 0;
-		this.profilesOffset = 0;
-		this.profilesWithArticles = [];
-		this.hasMoreProfiles = true;
-		this.profilesCategoryIds = undefined;
+		this.profilesStale = true;
 	}
 
 	invalidateCategoryArticles() {
-		this.categoryArticlesFetchedAt = 0;
-		this.categoryArticlesOffset = 0;
-		this.categoryArticles = [];
-		this.hasMoreCategoryArticles = true;
-		this.categoryArticleCategoryId = undefined;
+		this.categoryArticlesStale = true;
 	}
 
 	invalidateArticles() {
-		this.articlesFetchedAt = 0;
-		this.articlesOffset = 0;
-		this.articlesWithoutProfile = [];
-		this.totalArticlesWithoutProfile = 0;
-		this.hasMoreArticles = true;
-		this.articlesProfileId = undefined;
-		this.articlesDateFrom = undefined;
-		this.articlesCategoryIds = undefined;
-		this.articlesOnlyWithoutProfile = undefined;
+		this.articlesStale = true;
 	}
 
 	removeArticlesByUrls(urls: Set<string>) {
@@ -338,6 +392,9 @@ class ArticleCacheStore {
 			...cat,
 			articles: cat.articles.filter((a) => !urls.has(a.url ?? ''))
 		}));
+
+		this.profilesStale = true;
+		this.categoriesStale = true;
 	}
 }
 

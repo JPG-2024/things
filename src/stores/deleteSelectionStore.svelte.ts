@@ -47,7 +47,7 @@ class DeleteSelectionStore {
 				}
 			}
 			articleCacheStore.removeArticlesByUrls(new Set(urlsToDelete));
-			void articleCacheStore.fetchProfilesWithArticles({ force: true });
+			articleCacheStore.invalidateProfiles();
 			this.clear();
 		} finally {
 			this.isDeleting = false;
