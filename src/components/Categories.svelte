@@ -228,7 +228,7 @@
 	.add-categories-pill {
 		opacity: 0.6;
 		transition: opacity 0.15s;
-		border: 1px dashed var(--primary-color);
+		font-size: 20px;
 		background: transparent;
 	}
 

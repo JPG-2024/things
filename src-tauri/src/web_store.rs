@@ -2000,6 +2000,131 @@ pub async fn read_raw_content_by_url(app: AppHandle, url: String) -> Option<Stri
     read_raw_content(app, key).await.ok().flatten()
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RawContentMatchResult {
+    pub url: String,
+    pub before: String,
+    pub match_text: String,
+    pub after: String,
+}
+
+#[tauri::command]
+pub async fn search_raw_content(
+    app: AppHandle,
+    pattern: String,
+    context_chars: Option<usize>,
+) -> Result<Vec<RawContentMatchResult>, String> {
+    use grep_matcher::Matcher;
+    use grep_regex::RegexMatcherBuilder;
+    use grep_searcher::SearcherBuilder;
+    use grep_searcher::sinks::UTF8;
+
+    let context = context_chars.unwrap_or(20);
+    let dir = raw_content_dir(&app)?;
+
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut results: Vec<RawContentMatchResult> = Vec::new();
+    let mut seen_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
+
+    for entry in entries {
+        if results.len() >= 10 {
+            break;
+        }
+
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        let matcher = RegexMatcherBuilder::new()
+            .build(&pattern)
+            .map_err(|e| e.to_string())?;
+
+        let mut found_match = false;
+        let mut match_before = String::new();
+        let mut match_text = String::new();
+        let mut match_after = String::new();
+
+        let mut searcher = SearcherBuilder::new().build();
+
+        let _ = searcher.search_path(
+            &matcher,
+            &path,
+            UTF8(|_lnum, line| {
+                if found_match {
+                    return Ok(true);
+                }
+
+                if let Some(m) = matcher.find(line.as_bytes()).ok().flatten() {
+                    let line_str = line;
+                    let match_start = m.start();
+                    let match_end = m.end();
+
+                    let snippet_start = if match_start > context {
+                        match_start - context
+                    } else {
+                        0
+                    };
+                    let snippet_end = std::cmp::min(line_str.len(), match_end + context);
+
+                    match_before = line_str[snippet_start..match_start].to_string();
+                    match_text = line_str[match_start..match_end].to_string();
+                    match_after = line_str[match_end..snippet_end].to_string();
+                    found_match = true;
+                }
+                Ok(true)
+            }),
+        );
+
+        if !found_match {
+            continue;
+        }
+
+        let conn = get_db(&app)?;
+        let mut stmt = conn
+            .prepare("SELECT url FROM web_articles")
+            .map_err(|e| e.to_string())?;
+
+        let url_iter = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+
+        for url_result in url_iter {
+            if results.len() >= 10 {
+                break;
+            }
+
+            let url = url_result.map_err(|e| e.to_string())?;
+            let key = raw_content_key(&url);
+
+            if key == file_name && !seen_urls.contains(&url) {
+                seen_urls.insert(url.clone());
+                results.push(RawContentMatchResult {
+                    url,
+                    before: match_before.clone(),
+                    match_text: match_text.clone(),
+                    after: match_after.clone(),
+                });
+                break;
+            }
+        }
+    }
+
+    Ok(results)
+}
+
 #[tauri::command]
 pub async fn list_web_store_categories(
     app: AppHandle,

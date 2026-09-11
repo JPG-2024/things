@@ -6,6 +6,7 @@
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
 	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -19,6 +20,7 @@
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import ProfilesBar from '@/components/ProfilesBar.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
@@ -53,15 +55,55 @@
 	let askInputValue = $state('');
 	let toolbarEl = $state<HTMLDivElement>();
 
+	async function handleRawSearch(pattern: string) {
+		const trimmed = pattern.trim();
+		if (trimmed.length < 5) return;
+		viewState.rawSearchLoading = true;
+		try {
+			const results = await invoke<
+				Array<{ url: string; before: string; match_text: string; after: string }>
+			>('search_raw_content', {
+				pattern: trimmed,
+				contextChars: viewState.rawSearchContextChars
+			});
+			const map = new SvelteMap<string, RawSearchMatch>();
+			for (const r of results) {
+				map.set(r.url, { before: r.before, matchText: r.match_text, after: r.after });
+			}
+			viewState.rawSearchResults = map;
+		} catch (error) {
+			console.warn('[raw-search] error', error);
+			viewState.rawSearchResults = new SvelteMap();
+		} finally {
+			viewState.rawSearchLoading = false;
+		}
+	}
+
 	$effect(() => {
 		if (!viewState.clipboardPollingEnabled) {
 			viewState.lastHandledClipboardUrl = '';
 		}
 	});
 
+	$effect(() => {
+		if (viewState.unifiedFilter.trim().length < 5) {
+			viewState.rawSearchResults = null;
+		}
+	});
+
+	$effect(() => {
+		const filter = viewState.unifiedFilter.trim();
+		if (!filter) return;
+		const timeout = setTimeout(() => void handleRawSearch(filter), 1000);
+		return () => clearTimeout(timeout);
+	});
+
 	async function handleDeleteProfile(profileId: string) {
 		const result = await deleteProfileById(profileId);
 		if (result.success) {
+			if (viewState.activeArticleProfileId === profileId) {
+				viewState.activeArticleProfileId = null;
+			}
 			articleCacheStore.invalidateProfiles();
 			await articleCacheStore.fetchProfilesWithArticles({ force: true });
 		}
@@ -132,6 +174,30 @@
 			ignoreInputs: true
 		})
 	);
+
+	const TAB_ORDER = ['profiles', 'categories', 'articles'] as const;
+
+	const leftHotkey = createHotkey(
+		'ArrowLeft',
+		() => {
+			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
+			if (currentIndex < TAB_ORDER.length - 1) {
+				viewState.activeProfileArticleTab = TAB_ORDER[currentIndex + 1];
+			}
+		},
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+	);
+
+	const rightHotkey = createHotkey(
+		'ArrowRight',
+		() => {
+			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
+			if (currentIndex > 0) {
+				viewState.activeProfileArticleTab = TAB_ORDER[currentIndex - 1];
+			}
+		},
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+	);
 </script>
 
 <div
@@ -150,7 +216,12 @@
 				>
 					Things
 				</LuminousText>
-				<Input type="text" bind:value={viewState.unifiedFilter} search />
+				<Input
+					type="text"
+					bind:value={viewState.unifiedFilter}
+					search
+					onShiftEnter={handleRawSearch}
+				/>
 			</div>
 			<div class="toolbar-center"></div>
 			<div class="toolbar-actions">
@@ -308,7 +379,7 @@
 		flex-direction: row;
 		gap: 1rem;
 		height: 100vh;
-		margin: 0 1.5rem;
+
 		overflow: hidden;
 	}
 

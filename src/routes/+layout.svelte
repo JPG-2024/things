@@ -393,12 +393,61 @@
 	:global(body) {
 		margin: 0;
 		font-size: 14px;
-		font-family: 'Anonymous Pro', monospace;
+		font-family: 'LiberationSans', monospace;
 	}
 
 	@font-face {
 		font-family: 'Oswald';
 		src: url('/Oswald-VariableFont_wght.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'LiberationSans';
+		src: url('/LiberationSans-Regular.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'LiberationSans-Bold';
+		src: url('/LiberationSans-Bold.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'Sora-BoldItalic';
+		src: url('/Sora-BoldItalic.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'Metropolis-Regular';
+		src: url('/Metropolis-Regular.otf') format('opentype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'Metropolis-Regular';
+		src: url('/Metropolis-Regular.otf') format('opentype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'GlacialIndifference';
+		src: url('/GlacialIndifference-Regular.otf') format('opentype');
+		font-weight: normal;
+		font-style: normal;
+	}
+
+	@font-face {
+		font-family: 'Metropolis-Bold';
+		src: url('/Metropolis-Bold.otf') format('opentype');
 		font-weight: normal;
 		font-style: normal;
 	}
@@ -417,13 +466,26 @@
 	}
 
 	:root {
-		color: #ffffff;
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
 		--radius-sm: 4px;
 		--radius-md: 8px;
 		--radius-lg: 12px;
+
+		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent));
+		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent));
+		--glow-lg: drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
+
+		--glow-text:
+			0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent),
+			0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent),
+			0 0 15px color-mix(in srgb, white 40%, transparent);
+
+		--gray-100: rgb(219, 219, 219);
+		--gray-200: rgb(246, 246, 246);
+
+		color: var(--gray-100);
 
 		font-synthesis: none;
 		text-rendering: optimizeLegibility;
@@ -451,8 +513,6 @@
 		overflow-y: auto;
 		scrollbar-gutter: stable;
 		height: 100vh;
-		padding: 1rem;
-		padding-top: 1.5rem;
 		scroll-behavior: smooth;
 		scroll-padding-top: 5rem;
 		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);

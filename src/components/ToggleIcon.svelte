@@ -74,10 +74,14 @@
 		filter: none;
 		flex-shrink: 0;
 	}
+
+	.icon-glow:hover {
+		transform: scale(1.05);
+		transform: translateY(-1px);
+	}
+
 	.icon-glow.glow {
-		filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent))
-			drop-shadow(0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent))
-			drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
+		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
 	}
 	.icon-glow :global(svg) {
 		opacity: 1;
@@ -96,9 +100,6 @@
 	}
 	.label.glow {
 		opacity: 1;
-		text-shadow:
-			0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent),
-			0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent),
-			0 0 15px color-mix(in srgb, white 40%, transparent);
+		text-shadow: var(--glow-text);
 	}
 </style>

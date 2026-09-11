@@ -89,6 +89,9 @@
 		try {
 			const result = await deleteProfileById(profileId);
 			if (result.success) {
+				if (viewState.activeArticleProfileId === profileId) {
+					viewState.activeArticleProfileId = null;
+				}
 				articleCacheStore.invalidateProfiles();
 				goto('/');
 			}
@@ -124,7 +127,7 @@
 <div class="profile-page">
 	<div class="top-bar">
 		<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
-			<Icon name="ArrowLeft" size={24} />
+			<Icon name="ArrowLeft" size={16} />
 		</button>
 		<button
 			type="button"
@@ -134,7 +137,7 @@
 			aria-label="Delete profile"
 			title="Delete profile"
 		>
-			<Icon name="Trash" size={24} />
+			<Icon name="Trash" size={16} />
 		</button>
 		<div class="sync-group">
 			<button
@@ -148,9 +151,9 @@
 					: `Fetch missing videos (sequential) – max ${scrapStore.maxVideos}`}
 			>
 				{#if scrapStore.isFetchingMissingVideos}
-					<Icon name="Loader2" size={24} class="spin" />
+					<Icon name="Loader2" size={16} class="spin" />
 				{:else}
-					<Icon name="RefreshCw" size={24} />
+					<Icon name="RefreshCw" size={16} />
 				{/if}
 			</button>
 		</div>
@@ -163,7 +166,7 @@
 				aria-label="Profile summary"
 				aria-expanded={summaryOpen}
 			>
-				<Icon name="Sparkles" size={24} />
+				<Icon name="Sparkles" size={16} />
 			</button>
 			{#if summaryOpen}
 				<div class="summary-panel">
@@ -254,12 +257,13 @@
 		flex-direction: column;
 		align-items: center;
 		min-height: 100vh;
-		padding: 1rem;
+		padding: 3rem;
 	}
 
 	.top-bar {
 		width: 100%;
 		margin-bottom: 1rem;
+		padding: 1rem 8rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -332,7 +336,7 @@
 		background: rgba(30, 30, 30, 0.92);
 		backdrop-filter: blur(8px);
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 	}
 
 	.summary-text {
@@ -411,7 +415,6 @@
 
 	.profile-header {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		gap: 1rem;
 		margin-bottom: 2rem;

@@ -73,6 +73,9 @@
 		try {
 			const result = await deleteProfileById(categoryId);
 			if (result.success) {
+				if (viewState.activeArticleProfileId === categoryId) {
+					viewState.activeArticleProfileId = null;
+				}
 				articleCacheStore.invalidate();
 				await onDeleted?.(categoryId);
 			}

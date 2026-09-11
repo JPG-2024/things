@@ -78,7 +78,7 @@
 			tabs={PROFILE_ARTICLE_TABS}
 			bind:activeTab={viewState.activeProfileArticleTab}
 			iconOnly
-			iconSize={22}
+			iconSize={18}
 		/>
 	{/snippet}
 	{#snippet children(item, i, layoutIndex, layoutKey)}

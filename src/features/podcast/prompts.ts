@@ -1,4 +1,4 @@
-import type { DialogExchange, PodcastPromptContext, Segment, TurnPlan } from './types';
+import type { HostPersona } from './types';
 
 // ─── Shared constants ────────────────────────────────────────────────
 
@@ -168,18 +168,38 @@ export function smalltalkHookSummaryBlock(summary: string | undefined): string {
 	return `\n\nSegment overview:\n${summary}`;
 }
 
+/**
+ * Returns a persona block describing the host's character traits.
+ *
+ * Renders only non-empty fields. Returns empty string if all fields are empty.
+ *
+ * @param persona - The host persona with optional personality, humor, catchphrases, and quirks.
+ * @returns Formatted block string, or empty if all fields are empty.
+ */
+export function hostPersonaBlock(persona: HostPersona | undefined): string {
+	if (!persona) return '';
+	const lines: string[] = [];
+	if (persona.personality.trim()) lines.push(`Host personality: ${persona.personality.trim()}`);
+	if (persona.humorStyle.trim()) lines.push(`Host humor style: ${persona.humorStyle.trim()}`);
+	if (persona.catchphrases.trim()) lines.push(`Host catchphrases: ${persona.catchphrases.trim()}`);
+	if (persona.speechQuirks.trim()) lines.push(`Host speech quirks: ${persona.speechQuirks.trim()}`);
+	if (lines.length === 0) return '';
+	return `\n\n${lines.join('\n')}\n\nThese traits take precedence over the length and tone rules below.`;
+}
+
 // ─── Dialog generator prompts ────────────────────────────────────────
 
 /**
  * Returns the default system prompt template for episode hooks.
  *
  * @param kind - The hook type: 'initial' for opening or 'final' for closing.
+ * @param personaBlock - Optional persona block to inject.
  * @returns Prompt template string with __NAME__ and __SPEAKER__ placeholders.
  */
-export function hookSystemPrompt(kind: 'initial' | 'final'): string {
+export function hookSystemPrompt(kind: 'initial' | 'final', personaBlock?: string): string {
 	if (kind === 'final') {
 		return `You are closing a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).
+You are ${'__NAME__'} (Host ${'__SPEAKER__'}).${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.
@@ -187,7 +207,7 @@ Rules:
 - Do not ask any questions. Deliver a statement, never a question.`;
 	}
 	return `You are opening a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).
+You are ${'__NAME__'} (Host ${'__SPEAKER__'}).${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.
@@ -216,6 +236,7 @@ export function interviewModeSystemPrompt(
 		newChunkBlock: string;
 		forcedQuestionBlock: string;
 		conclusionBlock: string;
+		personaBlock: string;
 	}
 ): string {
 	const role =
@@ -223,7 +244,7 @@ export function interviewModeSystemPrompt(
 			? 'the interviewer who asks insightful questions'
 			: 'the expert who provides informative answers';
 	return `You are hosting a podcast interview about "${topic}".
-You are ${currentName} (Host ${speaker}), ${role}.
+You are ${currentName} (Host ${speaker}), ${role}.${blocks.personaBlock}
 The other host is ${otherName} (Host ${speaker === 'A' ? 'B' : 'A'}).
 Rules:
 - Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
@@ -253,10 +274,11 @@ export function smalltalkModeSystemPrompt(
 		contextBlock: string;
 		introBlock: string;
 		conclusionBlock: string;
+		personaBlock: string;
 	}
 ): string {
 	return `You are hosting a casual podcast discussion about "${topic}".
-You are ${currentName} (Host ${speaker}). The other host is ${otherName}.
+You are ${currentName} (Host ${speaker}). The other host is ${otherName}.${blocks.personaBlock}
 Rules:
 - Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.
@@ -364,18 +386,20 @@ export function chunkSummaryUserPrompt(content: string): string {
  * @param hostAName - The display name of Host A (interviewer).
  * @param hostBName - The display name of Host B (expert).
  * @param hookSummary - Optional summary for grounding the introduction.
+ * @param personaBlock - Optional persona block to inject.
  * @returns The formatted system prompt string.
  */
 export function interviewHookSystemPrompt(
 	hostAName: string,
 	hostBName: string,
-	hookSummary?: string
+	hookSummary?: string,
+	personaBlock?: string
 ): string {
 	const contextBlock = hookSummary
 		? `\n\nSegment overview (use to ground the introduction):\n${hookSummary}`
 		: '';
 	return `You are hosting a podcast interview.
-You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B).
+You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B).${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
 - This is the HOOK turn for a brand-new topic. Briefly introduce the topic in 1-2 short sentences, conversational and inviting, without quoting the segment overview verbatim.
@@ -389,18 +413,20 @@ Rules:
  * @param hostBName - The display name of Host B (expert).
  * @param contextText - Optional reference material for grounding the question.
  * @param question - Optional forced question to pose.
+ * @param personaBlock - Optional persona block to inject.
  * @returns The formatted system prompt string.
  */
 export function interviewQuestionSystemPrompt(
 	hostAName: string,
 	hostBName: string,
 	contextText?: string,
-	question?: string
+	question?: string,
+	personaBlock?: string
 ): string {
 	const forced = interviewForcedQuestionBlock(question);
 	const contextBlock = interviewQuestionContextBlock(contextText);
 	return `You are hosting a podcast interview.
-You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B), the expert.
+You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B), the expert.${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.
@@ -415,16 +441,18 @@ Rules:
  * @param hostAName - The display name of Host A (interviewer).
  * @param hostBName - The display name of Host B (expert).
  * @param contextText - Optional reference material for grounding the answer.
+ * @param personaBlock - Optional persona block to inject.
  * @returns The formatted system prompt string.
  */
 export function interviewAnswerSystemPrompt(
 	hostAName: string,
 	hostBName: string,
-	contextText?: string
+	contextText?: string,
+	personaBlock?: string
 ): string {
 	const contextBlock = interviewAnswerContextBlock(contextText);
 	return `You are hosting a podcast interview.
-You are ${hostBName} (Host B), the expert. Your co-host is ${hostAName} (Host A), the interviewer.
+You are ${hostBName} (Host B), the expert. Your co-host is ${hostAName} (Host A), the interviewer.${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${hostBName}. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.
@@ -461,16 +489,18 @@ export function interviewUserPrompt(
  * @param hostAName - The display name of Host A.
  * @param hostBName - The display name of Host B.
  * @param hookSummary - Optional summary for grounding the introduction.
+ * @param personaBlock - Optional persona block to inject.
  * @returns The formatted system prompt string.
  */
 export function smalltalkHookSystemPrompt(
 	hostAName: string,
 	hostBName: string,
-	hookSummary?: string
+	hookSummary?: string,
+	personaBlock?: string
 ): string {
 	const contextBlock = smalltalkHookSummaryBlock(hookSummary);
 	return `You are hosting a casual podcast.
-You are ${hostAName} (Host A). The other host is ${hostBName} (Host B).
+You are ${hostAName} (Host A). The other host is ${hostBName} (Host B).${personaBlock ?? ''}
 Rules:
 - Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
 - This is the HOOK for a new topic. Open casually in 1-2 short sentences, like a friend inviting your co-host to chat. Do not ask a question; that comes next.${contextBlock}`;
@@ -482,16 +512,18 @@ Rules:
  * @param hostAName - The display name of Host A.
  * @param hostBName - The display name of Host B.
  * @param contextText - Optional reference material.
+ * @param personaBlock - Optional persona block to inject.
  * @returns The formatted system prompt string.
  */
 export function smalltalkCasualSystemPrompt(
 	hostAName: string,
 	hostBName: string,
-	contextText?: string
+	contextText?: string,
+	personaBlock?: string
 ): string {
 	const contextBlock = smalltalkContextBlock(contextText);
 	return `You are hosting a casual podcast.
-You are one of the hosts (Host A is ${hostAName}, Host B is ${hostBName}).
+You are one of the hosts (Host A is ${hostAName}, Host B is ${hostBName}).${personaBlock ?? ''}
 Rules:
 - Respond with ONLY your spoken line. No name labels, no quotes, no JSON, no stage directions.
 - Keep it to 2-3 sentences maximum.

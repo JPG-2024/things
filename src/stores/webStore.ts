@@ -165,6 +165,9 @@ let _cachedTasksTimestamp = 0;
 let _pendingTasksPromise: Promise<Map<string, string>> | null = null;
 const TASKS_CACHE_TTL = 30_000;
 
+let _cachedProfiles: ArticleProfile[] | null = null;
+let _pendingProfilesPromise: Promise<ArticleProfile[]> | null = null;
+
 async function getTasksByUrlMap(): Promise<Map<string, string>> {
 	if (_cachedTasksByUrl && Date.now() - _cachedTasksTimestamp < TASKS_CACHE_TTL) {
 		return _cachedTasksByUrl;
@@ -593,63 +596,86 @@ export async function getProfiles(options?: {
 	offset?: number;
 	limit?: number;
 }): Promise<ArticleProfile[]> {
-	type RawProfileCard = WebStoreDomainRecord | WebStoreProfileRecord;
-	type ResolvedProfileCard = RawProfileCard & { profilePictureSrc?: string | null };
-	try {
-		const [domains, profiles] = await Promise.all([
-			invoke<WebStoreDomainRecord[]>('list_web_store_domains', {
-				categoryIds: options?.categoryIds ?? null,
-				createdAtFrom: options?.createdAtFrom ?? null,
-				includeArticles: options?.includeArticles ?? null,
-				articleCount: options?.articleCount ?? null,
-				offset: options?.offset ?? null,
-				limit: options?.limit ?? null
-			}),
-			invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
-				domainId: null,
-				includeArticles: options?.includeArticles ?? null,
-				articleCount: options?.articleCount ?? null,
-				offset: options?.offset ?? null,
-				limit: options?.limit ?? null
-			})
-		]);
+	if (!options && _cachedProfiles) return _cachedProfiles;
+	if (!options && _pendingProfilesPromise) return _pendingProfilesPromise;
 
-		const resolvedCards = await resolveProfilePictureBatch<RawProfileCard>([
-			...domains,
-			...profiles
-		]);
+	const fetchProfiles = async (): Promise<ArticleProfile[]> => {
+		type RawProfileCard = WebStoreDomainRecord | WebStoreProfileRecord;
+		type ResolvedProfileCard = RawProfileCard & { profilePictureSrc?: string | null };
+		try {
+			const [domains, profiles] = await Promise.all([
+				invoke<WebStoreDomainRecord[]>('list_web_store_domains', {
+					categoryIds: options?.categoryIds ?? null,
+					createdAtFrom: options?.createdAtFrom ?? null,
+					includeArticles: options?.includeArticles ?? null,
+					articleCount: options?.articleCount ?? null,
+					offset: options?.offset ?? null,
+					limit: options?.limit ?? null
+				}),
+				invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
+					domainId: null,
+					includeArticles: options?.includeArticles ?? null,
+					articleCount: options?.articleCount ?? null,
+					offset: options?.offset ?? null,
+					limit: options?.limit ?? null
+				})
+			]);
 
-		const cardToArticleProfile = (card: ResolvedProfileCard): ArticleProfile => ({
-			...('domainId' in card
-				? profileRecordToArticleProfile(card)
-				: domainRecordToArticleProfile(card)),
-			profilePictureSrc: card.profilePictureSrc ?? null
-		});
+			const resolvedCards = await resolveProfilePictureBatch<RawProfileCard>([
+				...domains,
+				...profiles
+			]);
 
-		if (!options?.includeArticles) {
-			return resolvedCards.map(cardToArticleProfile);
-		}
+			const cardToArticleProfile = (card: ResolvedProfileCard): ArticleProfile => ({
+				...('domainId' in card
+					? profileRecordToArticleProfile(card)
+					: domainRecordToArticleProfile(card)),
+				profilePictureSrc: card.profilePictureSrc ?? null
+			});
 
-		const tasksByUrl = await getTasksByUrlMap();
-		const profilesWithArticles: ArticleProfile[] = [];
-		for (const card of resolvedCards) {
-			let articles: ArticleWithTasks[] | undefined;
-			if (card.articles) {
-				const mappedArticles = await Promise.all(
-					card.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-				);
-				articles = await resolveArticleProfilePictureBatch(
-					await resolveArticleThumbnailBatch(mappedArticles)
-				);
+			if (!options?.includeArticles) {
+				return resolvedCards.map(cardToArticleProfile);
 			}
-			profilesWithArticles.push({ ...cardToArticleProfile(card), articles });
-		}
 
-		return profilesWithArticles;
-	} catch (error) {
-		console.error('Error querying article profiles', error);
-		return [];
+			const tasksByUrl = await getTasksByUrlMap();
+			const profilesWithArticles: ArticleProfile[] = [];
+			for (const card of resolvedCards) {
+				let articles: ArticleWithTasks[] | undefined;
+				if (card.articles) {
+					const mappedArticles = await Promise.all(
+						card.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
+					);
+					articles = await resolveArticleProfilePictureBatch(
+						await resolveArticleThumbnailBatch(mappedArticles)
+					);
+				}
+				profilesWithArticles.push({ ...cardToArticleProfile(card), articles });
+			}
+
+			return profilesWithArticles;
+		} catch (error) {
+			console.error('Error querying article profiles', error);
+			return [];
+		}
+	};
+
+	if (!options) {
+		_pendingProfilesPromise = fetchProfiles();
+		try {
+			const result = await _pendingProfilesPromise;
+			_cachedProfiles = result;
+			return result;
+		} finally {
+			_pendingProfilesPromise = null;
+		}
 	}
+
+	return fetchProfiles();
+}
+
+export function invalidateProfilesCache(): void {
+	_cachedProfiles = null;
+	_pendingProfilesPromise = null;
 }
 
 export async function getProfile(profileId: string): Promise<ArticleProfile | null> {
@@ -869,6 +895,7 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 			if (profile?.profilePicture) {
 				await deleteMediaFile(profile.profilePicture);
 			}
+			invalidateProfilesCache();
 		}
 
 		return result;
@@ -908,19 +935,22 @@ export async function saveProfile(
 	const normalizedDomainId = normalizeDomainId(domainId ?? 'youtube.com');
 
 	try {
+		let result: unknown;
 		if (isDomainId(normalizedId)) {
-			return await saveDomain(normalizedId, profilePicture, url);
+			result = await saveDomain(normalizedId, profilePicture, url);
+		} else {
+			result = await invoke('upsert_web_store_profile', {
+				input: {
+					id: normalizedId,
+					name: normalizedId,
+					domainId: normalizedDomainId,
+					profilePicture,
+					url
+				}
+			});
 		}
-
-		return await invoke('upsert_web_store_profile', {
-			input: {
-				id: normalizedId,
-				name: normalizedId,
-				domainId: normalizedDomainId,
-				profilePicture,
-				url
-			}
-		});
+		invalidateProfilesCache();
+		return result;
 	} catch (error) {
 		console.error(
 			`Error saving profile (id='${normalizedId}', domainId='${normalizedDomainId}'):`,

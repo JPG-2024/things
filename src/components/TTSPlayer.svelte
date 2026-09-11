@@ -1005,7 +1005,7 @@
 		box-shadow: none;
 		padding: 0;
 		border-radius: 0;
-		width: 60%;
+		width: 300px;
 		height: 70px;
 		cursor: pointer;
 		display: flex;
@@ -1043,7 +1043,8 @@
 		width: 100%;
 		height: 100%;
 		display: block;
-		background: transparent;
+		background: rgba(9, 9, 9, 0.565);
+		border-radius: var(--radius-lg);
 	}
 
 	.tts-player-mini__error {

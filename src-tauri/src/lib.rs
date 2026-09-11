@@ -26,7 +26,7 @@ pub use crate::web_store::{
 	update_web_store_article_viewed, upsert_web_profile_template,
 	upsert_web_store_article, upsert_web_store_category, upsert_web_store_domain,
 	upsert_web_store_profile, upsert_web_store_tasks, 	upsert_web_store_template,
-	write_raw_content, read_raw_content, read_raw_content_by_url,
+	write_raw_content, read_raw_content, read_raw_content_by_url, search_raw_content,
 };
 
 mod embedding_store;
@@ -94,6 +94,7 @@ pub fn run() {
 			delete_web_store_tasks_by_url,
 			write_raw_content,
 			read_raw_content,
+			search_raw_content,
 			list_web_store_categories,
 			upsert_web_store_category,
 			delete_web_store_category,

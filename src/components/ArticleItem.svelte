@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
 	import { toVTName } from '@/lib/utils/url';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
@@ -15,6 +16,7 @@
 		layoutKey?: LayoutKey;
 		animate?: boolean;
 		marked?: boolean;
+		matchSnippet?: RawSearchMatch;
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
 		onHoverLeave: () => void;
@@ -28,6 +30,7 @@
 		layoutKey,
 		animate = true,
 		marked = false,
+		matchSnippet,
 		onClick,
 		onHoverEnter,
 		onHoverLeave
@@ -137,10 +140,18 @@
 					/>
 				</div>
 			{/if}
-			<div class="article-title">
-				<span>{title}</span>
-			</div>
-			{@render categoryPills()}
+			{#if matchSnippet}
+				<div class="article-match-snippet">
+					<span class="snippet-context">{matchSnippet.before}</span><mark
+						>{matchSnippet.matchText}</mark
+					><span class="snippet-context">{matchSnippet.after}</span>
+				</div>
+			{:else}
+				<div class="article-title">
+					<span>{title}</span>
+				</div>
+				{@render categoryPills()}
+			{/if}
 		</div>
 	{:else if layoutKey === 'grid-3'}
 		<div class="article-content article-content-stacked">
@@ -154,14 +165,22 @@
 					/>
 				</div>
 			{/if}
-			<div class="article-title">
-				<span>{title}</span>
-			</div>
-			{@render categoryPills()}
-			{#if randomTopics.length > 0}
-				<div class="article-item__keywords">
-					<Keywords keywords={randomTopics} />
+			{#if matchSnippet}
+				<div class="article-match-snippet">
+					<span class="snippet-context">{matchSnippet.before}</span><mark
+						>{matchSnippet.matchText}</mark
+					><span class="snippet-context">{matchSnippet.after}</span>
 				</div>
+			{:else}
+				<div class="article-title">
+					<span>{title}</span>
+				</div>
+				{@render categoryPills()}
+				{#if randomTopics.length > 0}
+					<div class="article-item__keywords">
+						<Keywords keywords={randomTopics} />
+					</div>
+				{/if}
 			{/if}
 		</div>
 	{:else}
@@ -177,7 +196,13 @@
 						/>
 					</div>
 				{/if}
-				{#if !thumbnailOnly || !article.thumbnailSrc}
+				{#if matchSnippet}
+					<div class="article-match-snippet">
+						<span class="snippet-context">{matchSnippet.before}</span><mark
+							>{matchSnippet.matchText}</mark
+						><span class="snippet-context">{matchSnippet.after}</span>
+					</div>
+				{:else if !thumbnailOnly || !article.thumbnailSrc}
 					<div class="article-title">
 						<span>{title}</span>
 					</div>
@@ -223,13 +248,12 @@
 		position: absolute;
 		top: 8px;
 		left: 8px;
-		width: 20px;
-		height: 20px;
-		border-radius: var(--radius-sm);
+		width: 25px;
+		height: 25px;
 		cursor: pointer;
-
 		z-index: 1;
 		overflow: hidden;
+		border-radius: var(--radius-sm);
 	}
 
 	.article-profile-avatar img {
@@ -237,6 +261,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+		border-radius: var(--radius-sm);
 	}
 
 	.article-card.grid-3 {
@@ -344,7 +369,7 @@
 		display: block;
 		border-radius: var(--radius-sm);
 		width: 100%;
-		aspect-ratio: 16 / 10;
+		aspect-ratio: 16 / 9;
 		object-fit: cover;
 		opacity: 0.8;
 		transition: opacity 0.2s ease;
@@ -419,5 +444,24 @@
 		overflow: hidden;
 		max-width: 40%;
 		white-space: nowrap;
+	}
+
+	.article-match-snippet {
+		font-size: 0.75rem;
+		opacity: 0.7;
+		padding: 0.25rem 0;
+		font-style: italic;
+		line-height: 1.4;
+	}
+
+	.article-match-snippet mark {
+		background: color-mix(in srgb, var(--primary-color) 40%, transparent);
+		color: inherit;
+		border-radius: 2px;
+		padding: 0 2px;
+	}
+
+	.snippet-context {
+		opacity: 0.6;
 	}
 </style>

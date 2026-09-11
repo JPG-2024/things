@@ -65,5 +65,6 @@
 	}
 	.icon-button:hover :global(svg) {
 		color: white !important;
+		transform: scale(1.05);
 	}
 </style>

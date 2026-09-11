@@ -7,6 +7,8 @@
 	import Keywords from '@/components/Keywords.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Tabs from '@/components/Tabs.svelte';
+	import Modal from '@/components/Modal.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import { reconstructChunks } from '@/lib/utils/splitText';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -88,6 +90,8 @@
 				: ''
 	);
 
+	let rawModalIndex = $state<number | null>(null);
+
 	function handleLevelChange(levelId: string) {
 		void applyLevel(levelId);
 	}
@@ -135,21 +139,22 @@
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
 				<div class="chunks-grid">
 					{#each multiData.chunks as chunk, i (chunk.key.startOffset)}
-						<div class="chunk-cell">
-							<div class="chunk-raw-text">{chunkTexts[i] ?? ''}</div>
-						</div>
-						<div class="result-cell">
+						<div class="chunk-item">
+							<div class="raw-button-row">
+								<Button onClick={() => (rawModalIndex = i)}>View raw text</Button>
+							</div>
 							<div class="result-section">
-								<!-- <span class="result-label">Summary</span> -->
 								<MarkdownRenderer content={chunk.data.summary.join('\n')} />
 							</div>
-							<div class="result-section">
-								<span class="result-label">Keywords</span>
-								<Keywords keywords={chunk.data.keywords} />
-							</div>
-							<div class="result-section">
-								<span class="result-label">Topics</span>
-								<Keywords keywords={chunk.data.topics} />
+							<div class="meta-row">
+								<div class="result-section">
+									<span class="result-label">Topics</span>
+									<Keywords keywords={chunk.data.topics} />
+								</div>
+								<div class="result-section">
+									<span class="result-label">Keywords</span>
+									<Keywords keywords={chunk.data.keywords} />
+								</div>
 							</div>
 						</div>
 					{/each}
@@ -163,17 +168,25 @@
 					<div class="result-section">
 						<MarkdownRenderer content={multiData.finalResponse.summary} />
 					</div>
-					<div class="result-section">
-						<span class="result-label">Keywords</span>
-						<Keywords keywords={multiData.finalResponse.keywords} />
-					</div>
-					<div class="result-section">
-						<span class="result-label">Topics</span>
-						<Keywords keywords={multiData.finalResponse.topics} />
+					<div class="meta-row">
+						<div class="result-section">
+							<span class="result-label">Topics</span>
+							<Keywords keywords={multiData.finalResponse.topics} />
+						</div>
+						<div class="result-section">
+							<span class="result-label">Keywords</span>
+							<Keywords keywords={multiData.finalResponse.keywords} />
+						</div>
 					</div>
 				</div>
 			</div>
 		{/if}
+
+		<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
+			{#if rawModalIndex !== null}
+				<div class="chunk-raw-text">{chunkTexts[rawModalIndex] ?? ''}</div>
+			{/if}
+		</Modal>
 	</div>
 {/if}
 
@@ -199,30 +212,40 @@
 	}
 
 	.chunks-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 2rem;
+	}
+
+	.chunk-item {
+		padding-bottom: 2rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.chunk-item:last-child {
+		padding-bottom: 0;
+		border-bottom: none;
+	}
+
+	.raw-button-row {
+		margin-bottom: 1rem;
+	}
+
+	.meta-row {
 		display: grid;
-		grid-template-columns: 1fr 1.2fr;
-		gap: 3rem 2rem;
-		align-items: start;
+		grid-template-columns: 1fr 1fr;
+		gap: 2rem;
 	}
 
 	@media (max-width: 600px) {
-		.chunks-grid {
+		.meta-row {
 			grid-template-columns: 1fr;
 		}
 	}
 
-	.chunk-cell {
-		padding: 16px 0;
-	}
-
-	.chunk-cell,
-	.result-cell {
-		min-width: 0;
-	}
-
 	.chunk-raw-text {
 		font-size: 0.75rem;
-		height: 700px;
+		height: 100px;
 		overflow-y: auto;
 		white-space: pre-wrap;
 		padding: 0.5rem;

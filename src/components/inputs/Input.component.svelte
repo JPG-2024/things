@@ -16,6 +16,7 @@
 		autofocus?: boolean;
 		onChange?: (value: string) => void;
 		onEnter?: (value: string) => void;
+		onShiftEnter?: (value: string) => void;
 	}
 
 	let {
@@ -30,7 +31,8 @@
 		search = false,
 		autofocus = false,
 		onChange,
-		onEnter
+		onEnter,
+		onShiftEnter
 	}: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);
@@ -60,10 +62,14 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && onEnter) {
+		if (event.key === 'Enter') {
 			event.preventDefault();
-			onEnter(value);
-			value = '';
+			if (event.shiftKey && onShiftEnter) {
+				onShiftEnter(value);
+			} else if (!event.shiftKey && onEnter) {
+				onEnter(value);
+				value = '';
+			}
 		}
 	}
 

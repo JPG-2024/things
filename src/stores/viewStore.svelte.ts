@@ -4,6 +4,13 @@ import { isoDateDaysAgo } from '@/lib/utils/date';
 import type { WebStoreCategoryRecord } from '@/stores/webStore';
 import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
 import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
+import { SvelteMap } from 'svelte/reactivity';
+
+export interface RawSearchMatch {
+	before: string;
+	matchText: string;
+	after: string;
+}
 
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
@@ -119,6 +126,9 @@ class ViewState {
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);
 	unifiedFilter = $state('');
+	rawSearchResults: SvelteMap<string, RawSearchMatch> | null = $state(null);
+	rawSearchLoading = $state(false);
+	rawSearchContextChars = $state(200);
 
 	isYouTube = $derived(
 		this.url && /^https?:\/\//.test(this.url)

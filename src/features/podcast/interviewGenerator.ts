@@ -52,10 +52,21 @@ export function planInterviewTopic(
 function buildSystemPrompt(
 	role: 'hook' | 'question' | 'answer',
 	plan: TurnPlan,
-	ctx: { hostAName: string; hostBName: string; contextText?: string; hookSummary?: string }
+	ctx: {
+		hostAName: string;
+		hostBName: string;
+		contextText?: string;
+		hookSummary?: string;
+		personaBlock?: string;
+	}
 ): string {
 	if (role === 'hook') {
-		return interviewHookSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.hookSummary);
+		return interviewHookSystemPrompt(
+			ctx.hostAName,
+			ctx.hostBName,
+			ctx.hookSummary,
+			ctx.personaBlock
+		);
 	}
 
 	if (role === 'question') {
@@ -63,11 +74,17 @@ function buildSystemPrompt(
 			ctx.hostAName,
 			ctx.hostBName,
 			ctx.contextText,
-			plan.question
+			plan.question,
+			ctx.personaBlock
 		);
 	}
 
-	return interviewAnswerSystemPrompt(ctx.hostAName, ctx.hostBName, ctx.contextText);
+	return interviewAnswerSystemPrompt(
+		ctx.hostAName,
+		ctx.hostBName,
+		ctx.contextText,
+		ctx.personaBlock
+	);
 }
 
 /**

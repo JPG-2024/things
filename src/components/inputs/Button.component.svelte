@@ -32,20 +32,22 @@
 		border: none;
 		cursor: pointer;
 		color: var(--primary-color);
-		border: 1px solid var(--primary-color);
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0 1rem;
-		font-weight: bold;
+		padding: 0.25rem 0.5rem;
+		font: inherit;
+		transition:
+			text-shadow 0.2s ease,
+			filter 0.2s ease;
 	}
 
 	button:hover {
-		background-color: var(--primary-color);
-		color: black;
-		transition:
-			background-color 0.5s,
-			color 0.2s;
+		text-shadow: var(--glow-text);
+	}
+
+	button:hover :global(svg) {
+		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
 	}
 
 	button:disabled {

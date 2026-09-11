@@ -351,13 +351,13 @@
 		{/if}
 		<Icon
 			name={layoutIndex === 0 ? 'LayoutGrid' : 'List'}
-			size={22}
+			size={15}
 			onClick={toggleRowMode}
 			tooltipProps={{ content: layoutIndex === 0 ? 'Show grid' : 'Show list' }}
 		/>
 		{#if !fixedColumns}
-			<Icon name="Minus" size={20} onClick={decreaseLayout} />
-			<Icon name="Plus" size={20} onClick={increaseLayout} />
+			<Icon name="Minus" size={15} onClick={decreaseLayout} />
+			<Icon name="Plus" size={15} onClick={increaseLayout} />
 		{/if}
 	</div>
 	<div
@@ -394,9 +394,9 @@
 
 	.layout-header {
 		display: flex;
-		justify-content: flex-start;
+		justify-content: flex-end;
 		gap: 2rem;
-		padding: 1rem 0;
+		padding: 0.2rem 2rem;
 		width: 100%;
 	}
 
@@ -404,6 +404,7 @@
 		display: grid;
 		width: 100%;
 		grid-auto-flow: dense;
+		padding-top: 1.3rem;
 	}
 
 	.grid-item {

@@ -6,6 +6,13 @@ export type TurnRole = 'hook' | 'question' | 'answer' | 'casual' | 'initialHook'
 
 export type HookSlot = 'initial' | 'final';
 
+export interface HostPersona {
+	personality: string;
+	humorStyle: string;
+	catchphrases: string;
+	speechQuirks: string;
+}
+
 export interface PodcastHookConfig {
 	enabled: boolean;
 	prompts: { interview: string; smalltalk: string; guided: string };

@@ -52,7 +52,7 @@
 
 <style>
 	.markdown-container {
-		font-family: 'CaskaydiaCove NFM Light', monospace;
+		font-family: 'LiberationSans', monospace;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
@@ -60,7 +60,7 @@
 		text-align: left;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-		font-size: 0.9rem;
+		font-size: 1rem;
 	}
 
 	.markdown-container :global(thead th) {
@@ -159,8 +159,7 @@
 	}
 
 	.markdown-container :global(strong) {
-		font-weight: bold;
-		color: var(--bg-color);
+		font-family: LiberationSans-Bold;
 	}
 
 	.markdown-container :global(em) {
@@ -188,7 +187,7 @@
 
 	.markdown-container :global(th) {
 		background-color: rgba(33, 207, 117, 0.1);
-		font-weight: bold;
+		font-family: LiberationSans-Bold;
 	}
 
 	.markdown-container :global(code) {
@@ -245,8 +244,8 @@
 	}
 
 	.markdown-container :global(strong) {
-		font-weight: bold;
-		color: var(--bg-color);
+		font-family: LiberationSans-Bold;
+		color: var(--gray-200);
 	}
 
 	.markdown-container :global(em) {

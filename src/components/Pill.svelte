@@ -27,6 +27,7 @@
 		padding: 0 15px;
 		text-transform: capitalize;
 		font-size: var(--pill-font-size, 0.9rem);
+		font-family: 'LiberationSans-Bold', monospace;
 		border-left: 2px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
 	}
 
@@ -65,7 +66,7 @@
 	.pill.idle {
 		background-image: linear-gradient(
 			90deg,
-			color-mix(in srgb, var(--bg-color) 15%, transparent),
+			color-mix(in srgb, var(--bg-color) 8%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);

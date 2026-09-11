@@ -27,7 +27,7 @@ import { SvelteSet } from 'svelte/reactivity';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { workflowStore } from '@/stores/workflowStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import type { TurnPlan, HookSlot, PodcastHookConfig } from '@/features/podcast/types';
+import type { TurnPlan, HookSlot, PodcastHookConfig, HostPersona } from '@/features/podcast/types';
 
 export interface PodcastConfig {
 	topicCount: number;
@@ -43,6 +43,10 @@ export interface PodcastConfig {
 	hostBRandomChunk: boolean;
 	contextSource: 'content' | 'summary' | 'none';
 	hooks: Record<HookSlot, PodcastHookConfig>;
+	hostAPersona: HostPersona;
+	hostBPersona: HostPersona;
+	hostASystemPromptOverride: string;
+	hostBSystemPromptOverride: string;
 }
 
 export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | 'paused';
@@ -105,7 +109,11 @@ class PodcastState {
 						'You are closing a guided walkthrough episode. Summarize what was covered and thank the listeners. 2-3 sentences. Do not ask a question.'
 				}
 			}
-		}
+		},
+		hostAPersona: { personality: '', humorStyle: '', catchphrases: '', speechQuirks: '' },
+		hostBPersona: { personality: '', humorStyle: '', catchphrases: '', speechQuirks: '' },
+		hostASystemPromptOverride: '',
+		hostBSystemPromptOverride: ''
 	});
 
 	profiles = $state<VoiceProfile[]>([]);

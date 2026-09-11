@@ -114,6 +114,8 @@
 					type="button"
 					class="profile-btn"
 					class:active={viewState.activeArticleProfileId === profile.id}
+					class:inactive={viewState.activeArticleProfileId!! &&
+						viewState.activeArticleProfileId !== profile.id}
 					onclick={() => handleToggleProfileFilter(profile)}
 					onmouseenter={() => handleHoverEnter(profile)}
 					onmouseleave={handleHoverLeave}
@@ -163,7 +165,7 @@
 		align-items: center;
 		gap: 1.1rem;
 		width: fit-content;
-		padding-right: 1rem;
+		padding: 0 1rem 0 1rem;
 		overflow-y: auto;
 		height: 100%;
 		flex-shrink: 0;
@@ -185,7 +187,7 @@
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
-		opacity: 0.2;
+		opacity: 0.8;
 	}
 
 	.profiles-bar:hover .profile-btn {
@@ -198,6 +200,10 @@
 
 	.profile-btn.active {
 		opacity: 1;
+	}
+
+	.profile-btn.inactive {
+		opacity: 0.2;
 	}
 
 	/* 	.profile-btn.active .profile-avatar {

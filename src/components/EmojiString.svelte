@@ -43,7 +43,7 @@
 	}
 
 	.emoji-string__text {
-		font-family: 'CaskaydiaCove NFM Light', monospace;
+		font-family: 'LiberationSans-Bold', monospace;
 		font-size: 1em;
 		line-height: 1.2;
 		color: white;

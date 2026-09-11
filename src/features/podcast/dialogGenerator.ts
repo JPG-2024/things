@@ -14,8 +14,10 @@ import {
 	initialHookUserMessage,
 	finalHookUserMessage,
 	openingConversationUserMessage,
-	transcriptUserMessage
+	transcriptUserMessage,
+	hostPersonaBlock
 } from './prompts';
+import type { HostPersona } from './types';
 
 export interface DialogExchange {
 	speaker: 'A' | 'B';
@@ -40,6 +42,10 @@ export interface GenerateExchangeParams {
 	hookKind?: 'initial' | 'final';
 	customSystemPrompt?: string;
 	regeneration?: { previousText: string };
+	hostAPersona?: HostPersona;
+	hostBPersona?: HostPersona;
+	hostASystemPromptOverride?: string;
+	hostBSystemPromptOverride?: string;
 }
 
 /**
@@ -65,13 +71,26 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 		question,
 		hookKind,
 		customSystemPrompt,
-		regeneration
+		regeneration,
+		hostAPersona,
+		hostBPersona,
+		hostASystemPromptOverride,
+		hostBSystemPromptOverride
 	} = params;
 	const currentName = speaker === 'A' ? hostAName : hostBName;
 	const otherName = speaker === 'A' ? hostBName : hostAName;
+	const persona = speaker === 'A' ? hostAPersona : hostBPersona;
+	const override = speaker === 'A' ? hostASystemPromptOverride : hostBSystemPromptOverride;
+
+	if (override?.trim()) {
+		const base = override.replace('__NAME__', currentName).replace('__SPEAKER__', speaker);
+		return base;
+	}
+
+	const personaBlock = hostPersonaBlock(persona);
 
 	if (hookKind) {
-		const base = (customSystemPrompt?.trim() || hookSystemPrompt(hookKind))
+		const base = (customSystemPrompt?.trim() || hookSystemPrompt(hookKind, personaBlock))
 			.replace('__NAME__', currentName)
 			.replace('__SPEAKER__', speaker);
 		return base + '\n- Do not ask any questions. Deliver a statement, never a question.';
@@ -101,7 +120,8 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 				introBlock,
 				newChunkBlock,
 				forcedQuestionBlock,
-				conclusionBlock
+				conclusionBlock,
+				personaBlock
 			}) + regenBlock
 		);
 	}
@@ -111,7 +131,8 @@ function buildSystemMessage(params: GenerateExchangeParams): string {
 			singularRules: sRules,
 			contextBlock,
 			introBlock,
-			conclusionBlock
+			conclusionBlock,
+			personaBlock
 		}) + regenBlock
 	);
 }
