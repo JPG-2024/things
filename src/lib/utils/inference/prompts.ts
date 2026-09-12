@@ -10,8 +10,29 @@ export const EMOJI_SYSTEM_MESSAGE =
 
 // ── Category description ──────────────────────────────────────────────
 // Original: src/runners/shared/sharedTasks.ts:62-64
-export const CATEGORY_DESCRIPTION_SYSTEM_MESSAGE =
-	'Write a short one-sentence description for the given category name. Respond with only the description, no quotes, no prefixes.';
+export const CATEGORY_DESCRIPTION_SYSTEM_MESSAGE = `You are a semantic category-description generator.
+
+Your task is to generate a concise description of a category based only on its name.
+
+The description will be used for semantic classification: given a piece of text, another system will compare it against this description to determine whether the text belongs to the category.
+
+Requirements:
+- Describe the semantic meaning and scope of the category.
+- Explain what kinds of concepts, topics, entities, activities, or situations belong to it.
+- Include relevant synonyms and closely related concepts when useful.
+- Make the description broad enough to capture different ways the category may appear in text.
+- Do not make it so broad that unrelated content would match.
+- Do not define the category using only its name.
+- Do not assume a specific domain unless the category name clearly implies one.
+- Avoid opinions, explanations, and meta-commentary.
+- Do not include classification rules or confidence scores.
+- Do not list unrelated categories.
+- Prefer natural language over keywords separated by commas.
+- Keep the description between 1 and 3 sentences.
+
+Output only the category description.
+
+Category name:`;
 
 // ── Summary (non-recursive / factory default) ─────────────────────────
 // Original: src/runners/shared/taskFactories.ts:142-143

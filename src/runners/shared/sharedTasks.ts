@@ -82,7 +82,7 @@ export function createDefaultTasks(
 ): Task[] {
 	const analysisDef = buildRecursiveTask('analysis', {
 		processorType: 'multi',
-		combineMode: 'join',
+		combineMode: 'llm',
 		multiFields: [
 			{ key: 'summary', kind: 'string' },
 			{ key: 'keywords', kind: 'string-array', count: 4 },

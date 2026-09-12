@@ -2,7 +2,7 @@ import type { PlayerMode } from '@/lib/ttsPlayerConfig';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
 import type { WebStoreCategoryRecord } from '@/stores/webStore';
-import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+import type { WheelSelection } from '@/types/tts.types';
 import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
 import { SvelteMap } from 'svelte/reactivity';
 

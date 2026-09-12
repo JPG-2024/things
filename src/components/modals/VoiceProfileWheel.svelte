@@ -19,27 +19,7 @@
 	import LoadingLine from '@/components/LoadingLine.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-
-	export type SynthParams = {
-		numStep: number;
-		guidanceScale: number;
-		speed: number;
-		splitLevel: 0 | 1 | 2 | 3;
-	};
-
-	export type PauseSettings = {
-		minGapMs: number;
-		maxGapMs: number;
-		betweenParagraphs: number;
-	};
-
-	export type WheelSelection = {
-		profileId: string;
-		audioFile: string;
-		randomChunk: boolean;
-		synthParams: SynthParams;
-		pauseSettings: PauseSettings;
-	};
+	import type { PauseSettings, SynthParams, WheelSelection } from '@/types/tts.types';
 
 	type Props = {
 		show: boolean;

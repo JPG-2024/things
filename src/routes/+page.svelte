@@ -401,7 +401,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 180px;
+		padding-top: 140px;
 	}
 
 	.dashboard-toolbar-container {

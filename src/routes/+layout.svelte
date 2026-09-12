@@ -4,7 +4,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 
 	import { afterNavigate } from '$app/navigation';
-	import TTSPlayer from '@/components/TTSPlayer.svelte';
+	import TTSPlayer from '@/components/TTSPlayer/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
 	import PodcastMode from '@/features/podcast/PodcastMode.svelte';

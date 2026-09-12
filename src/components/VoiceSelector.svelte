@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { voiceWheelState } from '@/stores/viewStore.svelte';
-	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+	import type { WheelSelection } from '@/types/tts.types';
 	import { getImage, type Voice, type VoiceProfile } from '@/lib/utils/ttsService';
 	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import Icon from '@/components/Icon.svelte';

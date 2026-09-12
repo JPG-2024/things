@@ -140,11 +140,11 @@
 				<div class="chunks-grid">
 					{#each multiData.chunks as chunk, i (chunk.key.startOffset)}
 						<div class="chunk-item">
-							<div class="raw-button-row">
-								<Button onClick={() => (rawModalIndex = i)}>View raw text</Button>
-							</div>
 							<div class="result-section">
 								<MarkdownRenderer content={chunk.data.summary.join('\n')} />
+							</div>
+							<div class="raw-button-row">
+								<Button icon="FileText" onClick={() => (rawModalIndex = i)}>View raw text</Button>
 							</div>
 							<div class="meta-row">
 								<div class="result-section">
@@ -229,6 +229,7 @@
 
 	.raw-button-row {
 		margin-bottom: 1rem;
+		text-align: right;
 	}
 
 	.meta-row {

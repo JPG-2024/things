@@ -4,7 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import VoiceSelector from '@/components/VoiceSelector.svelte';
-	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+	import type { WheelSelection } from '@/types/tts.types';
 	import { podcastState } from '@/features/podcast/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import { getImage } from '@/lib/utils/ttsService';

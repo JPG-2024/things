@@ -1,4 +1,4 @@
-import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
+import type { WheelSelection } from '@/types/tts.types';
 import {
 	fetchVoiceProfiles,
 	fetchVoiceChunks,
