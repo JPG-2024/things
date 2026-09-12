@@ -171,7 +171,7 @@
 	}
 
 	.favicon {
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		width: 30px;
 		height: 30px;
 	}
@@ -185,9 +185,9 @@
 	}
 
 	.profile-pic {
-		border-radius: var(--radius-md);
-		width: 30px;
-		height: 30px;
+		border-radius: var(--radius-sm);
+		width: 25px;
+		height: 25px;
 	}
 
 	.favicon-placeholder {

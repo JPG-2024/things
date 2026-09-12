@@ -234,13 +234,13 @@
 
 	.meta-row {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 2rem;
 	}
 
 	@media (max-width: 600px) {
 		.meta-row {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 
@@ -259,7 +259,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		padding-bottom: 1rem 0;
+		min-width: 0;
+		max-width: 100%;
+		padding: 0 0 1rem;
+	}
+
+	.result-section :global(.keywords) {
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.result-section :global(.pill) {
+		max-width: 100%;
+		overflow-wrap: anywhere;
 	}
 
 	.result-label {

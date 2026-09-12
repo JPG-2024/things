@@ -425,6 +425,13 @@
 	}
 
 	@font-face {
+		font-family: 'OpenSauceTwo-Bold';
+		src: url('/OpenSauceTwo-Bold.ttf') format('truetype');
+		font-weight: bold;
+		font-style: normal;
+	}
+
+	@font-face {
 		font-family: 'Metropolis-Regular';
 		src: url('/Metropolis-Regular.otf') format('opentype');
 		font-weight: normal;

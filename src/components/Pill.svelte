@@ -20,15 +20,15 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		color: rgb(194, 193, 193);
+		color: rgb(219, 219, 219);
 		background-color: transparent;
 		background-size: 200% 200%;
 		width: max-content;
 		padding: 0 15px;
 		text-transform: capitalize;
 		font-size: var(--pill-font-size, 0.9rem);
-		font-family: 'LiberationSans-Bold', monospace;
-		border-left: 2px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
+		font-family: 'OpenSauceTwo-Bold', monospace;
+		border-left: 3px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
 	}
 
 	.pill.show-point.loading::before {
@@ -66,7 +66,7 @@
 	.pill.idle {
 		background-image: linear-gradient(
 			90deg,
-			color-mix(in srgb, var(--bg-color) 8%, transparent),
+			color-mix(in srgb, var(--bg-color) 15%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);
