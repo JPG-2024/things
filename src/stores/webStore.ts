@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
 import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
 import type { RecursiveChunk } from '@/runners/shared/recursiveTask';
+import { isRealTemplateId } from '@/runners/templateConstants';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
 
 export type PersistedTaskState = {
@@ -28,6 +29,7 @@ export interface ArticleWithTasks {
 	date?: string | null;
 	persistedTasks?: PersistedTaskState[];
 	viewed?: boolean | null;
+	templateId?: string | null;
 	[key: string]: unknown;
 }
 
@@ -97,6 +99,7 @@ export type WebStoreArticleRecord = {
 	profilePicture: string | null;
 	viewed: boolean;
 	date: string | null;
+	templateId: string | null;
 };
 
 export type WebStoreTaskRecord = {
@@ -145,6 +148,7 @@ type UpsertWebStoreArticleInput = {
 	profile: string | null;
 	embeddingSourceText: string | null;
 	date: string | null;
+	templateId: string | null;
 };
 
 type StoredTask = {
@@ -460,6 +464,18 @@ export async function buildUpsertInput(params: {
 		params.existingArticle?.date as string | undefined
 	);
 
+	const requestedTemplateId = normalizeNullableString(
+		params.valuesToOverride?.templateId as string | undefined
+	);
+	const existingTemplateId = normalizeNullableString(
+		getArticleStringField(params.existingArticle, 'templateId')
+	);
+	const templateId = isRealTemplateId(requestedTemplateId)
+		? requestedTemplateId
+		: isRealTemplateId(existingTemplateId)
+			? existingTemplateId
+			: (requestedTemplateId ?? existingTemplateId);
+
 	const embeddingSourceText = buildEmbeddingSourceText({
 		title,
 		keywords
@@ -473,7 +489,8 @@ export async function buildUpsertInput(params: {
 		mainColor,
 		profile,
 		embeddingSourceText,
-		date
+		date,
+		templateId
 	};
 }
 
@@ -1022,6 +1039,8 @@ export async function getArticlesWithoutProfile(options?: {
 	onlyWithoutProfile?: boolean;
 	profileId?: string;
 	dateFrom?: string;
+	templateId?: string;
+	includeInitial?: boolean;
 }): Promise<ArticlesWithoutProfileResponse> {
 	try {
 		const result = await invoke<{
@@ -1033,7 +1052,9 @@ export async function getArticlesWithoutProfile(options?: {
 			limit: options?.limit ?? null,
 			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
 			profileId: options?.profileId ?? null,
-			dateFrom: options?.dateFrom ?? null
+			dateFrom: options?.dateFrom ?? null,
+			templateId: options?.templateId ?? null,
+			includeInitial: options?.includeInitial ?? null
 		});
 
 		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);

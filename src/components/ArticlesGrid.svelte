@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import Tabs from '@/components/Tabs.svelte';
+	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import { viewState, PROFILE_ARTICLE_TABS } from '@/stores/viewStore.svelte';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
 
@@ -80,6 +81,9 @@
 			iconOnly
 			iconSize={18}
 		/>
+		{#if viewState.activeProfileArticleTab === 'articles'}
+			<InitialArticlesToggle />
+		{/if}
 	{/snippet}
 	{#snippet children(item, i, layoutIndex, layoutKey)}
 		{@render children(item, i, layoutIndex, layoutKey)}

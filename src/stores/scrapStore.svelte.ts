@@ -164,7 +164,11 @@ class ScrapState {
 
 			if (toFetch.length === 0) {
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-				await articleCacheStore.fetchArticlesWithoutProfile({ profileId, force: true });
+				await articleCacheStore.fetchArticlesWithoutProfile({
+					profileId,
+					force: true,
+					includeInitial: true
+				});
 				return { total, missing: 0, fetched: 0, failed: 0, skippedExisting };
 			}
 
@@ -198,7 +202,11 @@ class ScrapState {
 			}
 
 			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-			await articleCacheStore.fetchArticlesWithoutProfile({ profileId, force: true });
+			await articleCacheStore.fetchArticlesWithoutProfile({
+				profileId,
+				force: true,
+				includeInitial: true
+			});
 
 			return {
 				total,

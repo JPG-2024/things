@@ -148,15 +148,15 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 	const initialTasks = await buildWebInitialTasks(url);
 	const domainUrl = deriveDomainFromUrl(url);
 
-	return runTemplateWorkflow(url, domainUrl, initialTasks, {
+	const result = await runTemplateWorkflow(url, domainUrl, initialTasks, {
 		makeActive: options.makeActive ?? true,
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
 		defaultTasksFactory: () => createDefaultTasks('content', { splitByHeaders: true }),
-		onRunResult: async (runResult) => {
+		onRunResult: async (runResult, { templateId }) => {
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(url, runResult.tasks),
+				saveArticle(url, runResult.tasks, { templateId }),
 				saveTasks(url, runResult.tasks)
 			];
 
@@ -170,4 +170,6 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 			}
 		}
 	});
+
+	return result.tasks;
 }

@@ -33,13 +33,16 @@ export async function rawRunner(
 ): Promise<Task[]> {
 	const initialTasks = [buildRawContentTask(rawId, rawText)];
 
-	return runTemplateWorkflow(rawId, RAW_TEXT_PROFILE, initialTasks, {
+	const result = await runTemplateWorkflow(rawId, RAW_TEXT_PROFILE, initialTasks, {
 		makeActive: options.makeActive ?? true,
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
-		onRunResult: async (runResult) => {
-			await Promise.all([saveArticle(rawId, runResult.tasks), saveTasks(rawId, runResult.tasks)]);
+		onRunResult: async (runResult, { templateId }) => {
+			await Promise.all([
+				saveArticle(rawId, runResult.tasks, { templateId }),
+				saveTasks(rawId, runResult.tasks)
+			]);
 
 			if (viewState.embeddingsEnabled) {
 				await generateEmbeddingsFromTasks(runResult.tasks, rawId, {
@@ -49,4 +52,6 @@ export async function rawRunner(
 			}
 		}
 	});
+
+	return result.tasks;
 }

@@ -82,15 +82,15 @@ export async function socialMediaRunner(
 	const profileId = options?.profileId ?? extractProfileId(cleanUrl) ?? platform;
 	const initialTasks = buildSocialMediaInitialTasks(cleanUrl, platform);
 
-	return runTemplateWorkflow(cleanUrl, profileId, initialTasks, {
+	const result = await runTemplateWorkflow(cleanUrl, profileId, initialTasks, {
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
 		templateId: config?.templateId,
 		defaultTasksFactory: () => createDefaultTasks('content'),
-		onRunResult: async (runResult) => {
+		onRunResult: async (runResult, { templateId }) => {
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks, { profile: profileId }),
+				saveArticle(cleanUrl, runResult.tasks, { profile: profileId, templateId }),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 
@@ -116,4 +116,6 @@ export async function socialMediaRunner(
 			}
 		}
 	});
+
+	return result.tasks;
 }

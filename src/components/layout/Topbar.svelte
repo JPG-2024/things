@@ -59,6 +59,13 @@
 		goto(`/`);
 	}
 
+	function handleProfileNavigation() {
+		const profile = scrapStore.currentYoutubeProfile;
+		if (!profile?.id) return;
+		viewState.currentProfileId = profile.id;
+		goto(`/profile/${profile.id}`);
+	}
+
 	/* 	createHotkey('Escape', handleBackNavigation, {
 		stopPropagation: true,
 		preventDefault: true,
@@ -78,7 +85,14 @@
 	</button>
 
 	{#if profileSrc}
-		<img class="profile-pic" src={profileSrc} alt="" />
+		<button
+			type="button"
+			class="profile-btn"
+			aria-label="Open profile"
+			onclick={handleProfileNavigation}
+		>
+			<img class="profile-pic" src={profileSrc} alt="" />
+		</button>
 	{/if}
 
 	{@render children?.()}
@@ -158,14 +172,22 @@
 
 	.favicon {
 		border-radius: var(--radius-md);
-		width: 20px;
-		height: 20px;
+		width: 30px;
+		height: 30px;
+	}
+
+	.profile-btn {
+		all: unset;
+		cursor: pointer;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
 	}
 
 	.profile-pic {
 		border-radius: var(--radius-md);
-		width: 20px;
-		height: 20px;
+		width: 30px;
+		height: 30px;
 	}
 
 	.favicon-placeholder {

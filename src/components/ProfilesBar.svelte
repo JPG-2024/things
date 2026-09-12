@@ -214,7 +214,7 @@
 		display: block;
 		width: 2rem;
 		height: 2rem;
-		border-radius: 50%;
+		border-radius: var(--radius-md);
 		object-fit: cover;
 		/* 		border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
 		box-shadow: 0 0 6px color-mix(in srgb, var(--primary-color) 25%, transparent); */

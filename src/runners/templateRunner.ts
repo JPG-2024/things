@@ -1,19 +1,28 @@
 import type { Task, TaskRunSummary } from '@/types/taskRunner.types';
-import type { Template } from '@/types/template.types';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 import { getProfileTemplateId, getTemplate } from '@/stores/templateStore';
 import { buildTasksFromTemplate } from '@/runners/templateBuilder';
 import type { PersistedTaskState } from '@/stores/webStore';
 import { createPersistedTaskStateMap, applyPersistedTaskState } from '@/runners/taskBuilder';
+import { DEFAULT_TEMPLATE_ID, INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 
 export interface RunTemplateWorkflowOptions {
 	makeActive?: boolean;
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[] | null;
 	skipTaskIds?: string[];
-	onRunResult?: (runResult: TaskRunSummary) => void | Promise<void>;
+	onRunResult?: (runResult: TaskRunSummary, context: TemplateRunContext) => void | Promise<void>;
 	defaultTasksFactory?: () => Task[];
 	templateId?: string;
+}
+
+export interface TemplateRunContext {
+	templateId: string;
+}
+
+export interface TemplateWorkflowResult {
+	tasks: Task[];
+	templateId: string;
 }
 
 import { DependencyGraph } from '@/runners/DependencyGraph';
@@ -84,7 +93,7 @@ export async function runTemplateWorkflow(
 	profileId: string,
 	initialTasks: Task[],
 	options: RunTemplateWorkflowOptions = {}
-): Promise<Task[]> {
+): Promise<TemplateWorkflowResult> {
 	const explicitTemplateId = options.templateId;
 	const isInitialOnly = explicitTemplateId === 'initial';
 	const isExplicitTemplate =
@@ -92,16 +101,18 @@ export async function runTemplateWorkflow(
 
 	let templateTasks: Task[] = [];
 	let defaultTasks: Task[] = [];
+	let effectiveTemplateId: string;
 
 	if (isInitialOnly) {
-		templateTasks = [];
-		defaultTasks = [];
+		effectiveTemplateId = INITIAL_TEMPLATE_ID;
 	} else if (isExplicitTemplate) {
+		effectiveTemplateId = explicitTemplateId;
 		const template = await getTemplate(explicitTemplateId);
 		templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
 		defaultTasks = [];
 	} else {
 		const profileTemplateId = await getProfileTemplateId(profileId);
+		effectiveTemplateId = profileTemplateId ?? DEFAULT_TEMPLATE_ID;
 		const template = profileTemplateId ? await getTemplate(profileTemplateId) : null;
 		templateTasks = template ? buildTasksFromTemplate(template.tasks) : [];
 		defaultTasks = options.defaultTasksFactory?.() ?? [];
@@ -147,8 +158,8 @@ export async function runTemplateWorkflow(
 	});
 
 	if (options.onRunResult) {
-		await options.onRunResult(runResult);
+		await options.onRunResult(runResult, { templateId: effectiveTemplateId });
 	}
 
-	return runResult.tasks as Task[];
+	return { tasks: runResult.tasks as Task[], templateId: effectiveTemplateId };
 }

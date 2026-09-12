@@ -9,6 +9,7 @@
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
+	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 
 	const searchResults = $derived.by(() => {
 		if (!viewState.rawSearchResults) return null;
@@ -24,10 +25,12 @@
 		const categories = [...viewState.selectedCategories];
 		const onlyRaw = viewState.showOnlyRawArticles;
 		const profileId = viewState.activeArticleProfileId;
+		const showOnlyInitial = viewState.showOnlyInitialArticles;
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			categoryIds: categories,
 			onlyWithoutProfile: onlyRaw,
-			profileId: profileId ?? undefined
+			profileId: profileId ?? undefined,
+			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined
 		});
 	});
 

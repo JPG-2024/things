@@ -57,6 +57,8 @@ class ArticleCacheStore {
 	private articlesDateFrom: string | undefined = undefined;
 	private articlesCategoryIds: string[] | undefined = undefined;
 	private articlesOnlyWithoutProfile: boolean | undefined = undefined;
+	private articlesTemplateId: string | undefined = undefined;
+	private articlesIncludeInitial: boolean | undefined = undefined;
 	private profilesCategoryIds: string[] | undefined = undefined;
 	private categoriesCategoryIds: string[] | undefined = undefined;
 	private categoriesCreatedAtFrom: number | undefined = undefined;
@@ -136,6 +138,8 @@ class ArticleCacheStore {
 		onlyWithoutProfile?: boolean;
 		profileId?: string;
 		dateFrom?: string;
+		templateId?: string;
+		includeInitial?: boolean;
 	}) {
 		if (options?.loadMore) {
 			const fetchId = ++this.articlesFetchId;
@@ -148,7 +152,9 @@ class ArticleCacheStore {
 					limit: ARTICLES_PAGE_SIZE,
 					onlyWithoutProfile: this.articlesOnlyWithoutProfile,
 					profileId: this.articlesProfileId,
-					dateFrom: this.articlesDateFrom
+					dateFrom: this.articlesDateFrom,
+					templateId: this.articlesTemplateId,
+					includeInitial: this.articlesIncludeInitial
 				});
 
 				if (fetchId !== this.articlesFetchId) {
@@ -172,7 +178,9 @@ class ArticleCacheStore {
 			categoryIds: sortedIds(options?.categoryIds),
 			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
 			profileId: options?.profileId ?? null,
-			dateFrom: options?.dateFrom ?? null
+			dateFrom: options?.dateFrom ?? null,
+			templateId: options?.templateId ?? null,
+			includeInitial: options?.includeInitial ?? null
 		});
 		if (!options?.force && !this.articlesStale && signature === this.articlesSignature) {
 			return;
@@ -187,7 +195,9 @@ class ArticleCacheStore {
 				limit: ARTICLES_PAGE_SIZE,
 				onlyWithoutProfile: options?.onlyWithoutProfile,
 				profileId: options?.profileId,
-				dateFrom: options?.dateFrom
+				dateFrom: options?.dateFrom,
+				templateId: options?.templateId,
+				includeInitial: options?.includeInitial
 			});
 
 			if (fetchId !== this.articlesFetchId) {
@@ -198,6 +208,8 @@ class ArticleCacheStore {
 			this.articlesDateFrom = options?.dateFrom;
 			this.articlesCategoryIds = options?.categoryIds;
 			this.articlesOnlyWithoutProfile = options?.onlyWithoutProfile;
+			this.articlesTemplateId = options?.templateId;
+			this.articlesIncludeInitial = options?.includeInitial;
 			this.articlesWithoutProfile = result.articles;
 			this.totalArticlesWithoutProfile = result.total;
 			this.articlesOffset = result.articles.length;

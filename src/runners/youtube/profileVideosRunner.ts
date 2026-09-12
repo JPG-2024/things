@@ -47,7 +47,7 @@ export async function profileRunner(
 	const { options } = config ?? {};
 	const initialTasks = buildProfileInitialTasks(url, options);
 
-	return runTemplateWorkflow(url, '', initialTasks, {
+	const result = await runTemplateWorkflow(url, '', initialTasks, {
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks ?? undefined,
@@ -55,4 +55,6 @@ export async function profileRunner(
 			await saveTasks(url, runResult.tasks);
 		}
 	});
+
+	return result.tasks;
 }

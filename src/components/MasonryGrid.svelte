@@ -386,7 +386,7 @@
 
 <style>
 	.masonry-container {
-		width: 100hw;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;

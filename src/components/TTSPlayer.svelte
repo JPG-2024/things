@@ -4,13 +4,17 @@
 	import { fade, fly } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
 	import VoiceSelector from '@/components/VoiceSelector.svelte';
+	import WheelStage from '@/components/WheelStage.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
 	import type { WheelSelection } from '@/components/modals/VoiceProfileWheel.svelte';
 	import {
 		fetchVoiceProfiles,
 		fetchVoiceChunks,
+		getImage,
 		type Voice,
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
+	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { getCurrentStyle, type PlayerMode } from '@/lib/ttsPlayerConfig';
 	import {
@@ -57,6 +61,16 @@
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
 	let selectedProfileId = $state('');
+	let showProfilePicker = $state(false);
+	let pickerFilter = $state('');
+
+	let filteredProfiles = $derived(
+		pickerFilter.trim() === ''
+			? profiles
+			: profiles.filter((p) =>
+					p.name_prefix.toLowerCase().includes(pickerFilter.trim().toLowerCase())
+				)
+	);
 
 	const wheelInitial = $derived<WheelSelection>({
 		profileId: selectedProfileId,
@@ -527,23 +541,45 @@
 		stopPlayback();
 	}
 
+	function openProfilePicker() {
+		if (mode !== 'mini' || showProfilePicker) return;
+		pickerFilter = '';
+		showProfilePicker = true;
+	}
+
+	function closeProfilePicker() {
+		showProfilePicker = false;
+	}
+
+	function expandToFull() {
+		showProfilePicker = false;
+		mode = 'full';
+	}
+
+	function handlePickProfile(profile: VoiceProfile) {
+		void handleLiveVoiceChange({ ...wheelInitial, profileId: profile.id });
+		showProfilePicker = false;
+	}
+
 	function handlePlayerClick() {
-		if (mode === 'mini') {
-			mode = 'full';
+		if (mode === 'mini' && !showProfilePicker) {
+			openProfilePicker();
 		}
 	}
 
 	function handlePlayerKeydown(event: KeyboardEvent) {
-		if (mode === 'mini' && (event.key === 'Enter' || event.key === ' ')) {
+		if (mode === 'mini' && !showProfilePicker && (event.key === 'Enter' || event.key === ' ')) {
 			event.preventDefault();
-			mode = 'full';
+			openProfilePicker();
 		}
 	}
 
 	createHotkey(
 		'Escape',
 		() => {
-			if (mode === 'full') {
+			if (showProfilePicker) {
+				closeProfilePicker();
+			} else if (mode === 'full') {
 				mode = 'mini';
 			} else {
 				handleStop();
@@ -557,18 +593,34 @@
 
 	createHotkey('Space', handlePrimaryClick, {
 		stopPropagation: true,
-		preventDefault: true
+		preventDefault: true,
+		ignoreInputs: true
 	});
 
 	createHotkey('ArrowRight', handleSeekForward, {
 		stopPropagation: true,
-		preventDefault: true
+		preventDefault: true,
+		ignoreInputs: true
 	});
 
 	createHotkey('ArrowLeft', handleSeekBackward, {
 		stopPropagation: true,
-		preventDefault: true
+		preventDefault: true,
+		ignoreInputs: true
 	});
+
+	function autoScroll(node: HTMLElement, selected: boolean) {
+		function apply(isSelected: boolean) {
+			if (isSelected)
+				node.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+		}
+		apply(selected);
+		return {
+			update(newSelected: boolean) {
+				apply(newSelected);
+			}
+		};
+	}
 
 	function drawLocalWaveform() {
 		if (!canvas || !analyserNode) return;
@@ -745,9 +797,10 @@
 	<div
 		class="tts-player"
 		class:tts-player--mini={mode === 'mini'}
-		role={mode === 'mini' ? 'button' : undefined}
-		aria-label={mode === 'mini' ? 'Expand player' : undefined}
-		tabindex={mode === 'mini' ? 0 : undefined}
+		class:tts-player--picking={mode === 'mini' && showProfilePicker}
+		role={mode === 'mini' && !showProfilePicker ? 'button' : undefined}
+		aria-label={mode === 'mini' && !showProfilePicker ? 'Select voice' : undefined}
+		tabindex={mode === 'mini' && !showProfilePicker ? 0 : undefined}
 		onmousemove={handlePlayerMouseMove}
 		onclick={handlePlayerClick}
 		onkeydown={handlePlayerKeydown}
@@ -820,11 +873,82 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>
-				<div class="tts-player-mini__canvas-clip">
-					<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
+			{#if showProfilePicker}
+				<div class="tts-player-mini__picker" transition:fly={{ duration: 200, y: 40 }}>
+					<div class="tts-player-mini__picker-header">
+						<div class="tts-player-mini__filter">
+							<Input
+								search={true}
+								bind:value={pickerFilter}
+								placeholder="Filter voices..."
+								autofocus={true}
+								onEnter={() => {
+									const first = filteredProfiles[0];
+									if (first) handlePickProfile(first);
+								}}
+							/>
+						</div>
+						<button
+							type="button"
+							class="tts-player-mini__expand"
+							onclick={(e) => {
+								e.stopPropagation();
+								expandToFull();
+							}}
+							aria-label="Open full player"
+							title="Open full player"
+						>
+							<Icon name="Maximize2" size={18} />
+						</button>
+					</div>
+
+					{#if filteredProfiles.length === 0}
+						<p class="tts-player-mini__empty">No matching voices</p>
+					{:else}
+						<WheelStage gap={12} scrollSpeed={4}>
+							{#each filteredProfiles as profile (profile.id)}
+								{@const isSelected = profile.id === selectedProfileId}
+								<button
+									type="button"
+									class="tts-player-mini__profile"
+									class:selected={isSelected}
+									use:autoScroll={isSelected}
+									onclick={(e) => {
+										e.stopPropagation();
+										handlePickProfile(profile);
+									}}
+									aria-label={profile.name_prefix}
+									aria-pressed={isSelected}
+								>
+									<div class="tts-player-mini__avatar-wrap">
+										{#if profile.image_src}
+											<img
+												class="tts-player-mini__avatar"
+												src={getImage(profile.image_src)}
+												alt={profile.name_prefix}
+											/>
+										{:else}
+											<div
+												class="tts-player-mini__avatar fallback"
+												style="background: {colorFor(profile.id)}"
+											>
+												<span>{initialFor(profile.name_prefix)}</span>
+											</div>
+										{/if}
+									</div>
+									<span class="tts-player-mini__profile-name">{profile.name_prefix}</span>
+								</button>
+							{/each}
+						</WheelStage>
+					{/if}
 				</div>
-			</div>
+			{:else}
+				<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>
+					<div class="tts-player-mini__canvas-clip">
+						<canvas bind:this={canvas} class="tts-player-mini__canvas" aria-hidden="true"></canvas>
+					</div>
+				</div>
+			{/if}
 
 			{#if ttsState.errorMessage}
 				<div class="tts-player-mini__error">
@@ -1045,6 +1169,137 @@
 		display: block;
 		background: rgba(9, 9, 9, 0.565);
 		border-radius: var(--radius-lg);
+	}
+
+	.tts-player--picking {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+		left: 0;
+		right: 0;
+		width: 100%;
+		transform: none;
+		height: auto;
+		padding: 0.75rem 1rem;
+		background: rgba(9, 9, 9, 0.92) !important;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: var(--radius-lg);
+		cursor: default;
+	}
+
+	.tts-player-mini__picker {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		width: 100%;
+		align-items: center;
+	}
+
+	.tts-player-mini__picker-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 50%;
+	}
+
+	.tts-player-mini__filter {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.tts-player-mini__expand {
+		all: unset;
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 34px;
+		height: 34px;
+		border-radius: var(--radius-md);
+		color: var(--primary-color);
+		cursor: pointer;
+		background: rgba(154, 154, 154, 0.12);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		transition: background 0.2s ease;
+	}
+
+	.tts-player-mini__expand:hover {
+		background: rgba(255, 255, 255, 0.12);
+	}
+
+	.tts-player-mini__empty {
+		margin: 0;
+		padding: 0.5rem 0;
+		text-align: center;
+		font-size: 0.85rem;
+		color: white;
+		opacity: 0.6;
+	}
+
+	.tts-player-mini__profile {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.35rem 0.5rem;
+		background: transparent;
+		border: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		border-radius: var(--radius-lg);
+		transition: background-color 0.2s ease;
+	}
+
+	.tts-player-mini__profile:hover {
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.tts-player-mini__profile.selected {
+		cursor: default;
+	}
+
+	.tts-player-mini__avatar-wrap {
+		flex-shrink: 0;
+		width: 40px;
+		height: 40px;
+		border-radius: 999px;
+		overflow: hidden;
+		transition: box-shadow 240ms ease;
+	}
+
+	.tts-player-mini__profile.selected .tts-player-mini__avatar-wrap {
+		box-shadow: 0 0 0 2px var(--primary-color);
+	}
+
+	.tts-player-mini__avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		box-sizing: border-box;
+	}
+
+	.tts-player-mini__avatar.fallback {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		font-weight: bold;
+		font-size: 1.2rem;
+		user-select: none;
+	}
+
+	.tts-player-mini__profile-name {
+		max-width: 92px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: white;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.tts-player-mini__error {

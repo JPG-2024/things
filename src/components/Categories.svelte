@@ -140,7 +140,7 @@
 		{#if filteredCategories.length === 0}
 			{#if !isEditing && viewState.unifiedFilter.trim()}
 				<Button onClick={handleCreateFromFilter} icon="Plus">
-					Create "{viewState.unifiedFilter.trim()}"
+					Create "{viewState.unifiedFilter.trim()} " category.
 				</Button>
 			{:else}
 				<button type="button" class="pill add-categories-pill" onclick={() => (isEditing = true)}>

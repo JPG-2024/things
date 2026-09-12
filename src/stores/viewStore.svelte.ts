@@ -122,6 +122,7 @@ class ViewState {
 
 	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories'>('articles');
 	showOnlyRawArticles = $state(false);
+	showOnlyInitialArticles = $state(false);
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	selectedCategories = $state<string[]>([]);

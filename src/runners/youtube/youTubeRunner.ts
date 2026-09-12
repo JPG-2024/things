@@ -178,22 +178,21 @@ export async function youTubeRunner(
 		fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
 	}
 
-	return runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {
+	const result = await runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {
 		makeActive: config?.makeActive ?? true,
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
 		skipTaskIds: config?.skipTaskIds,
 		templateId: config?.templateId,
 		defaultTasksFactory: () => createDefaultTasks('content'),
-		onRunResult: async (runResult) => {
+		onRunResult: async (runResult, { templateId }) => {
 			const profile = scrapStore.currentYoutubeProfile;
 			const profileIdForArticle = profile?.id ?? normalizedRunnerProfileId;
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(
-					cleanUrl,
-					runResult.tasks,
-					profileIdForArticle ? { profile: profileIdForArticle } : undefined
-				),
+				saveArticle(cleanUrl, runResult.tasks, {
+					...(profileIdForArticle ? { profile: profileIdForArticle } : {}),
+					templateId
+				}),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 
@@ -214,4 +213,6 @@ export async function youTubeRunner(
 			}
 		}
 	});
+
+	return result.tasks;
 }

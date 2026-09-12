@@ -33,6 +33,7 @@ pub struct WebStoreArticleRecord {
     pub viewed: bool,
     pub date: Option<String>,
     pub profile_picture: Option<String>,
+    pub template_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,6 +128,7 @@ pub struct UpsertWebStoreArticleInput {
     pub profile: Option<String>,
     pub embedding_source_text: Option<String>,
     pub date: Option<String>,
+    pub template_id: Option<String>,
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -227,10 +229,12 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
             updated_at INTEGER NOT NULL,
             viewed INTEGER NOT NULL DEFAULT 0,
             date TEXT,
+            template_id TEXT,
             FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
         CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
+        CREATE INDEX IF NOT EXISTS idx_web_articles_template_id ON web_articles(template_id);
 
         CREATE TABLE IF NOT EXISTS web_tasks (
             url TEXT PRIMARY KEY,
@@ -278,6 +282,7 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     migrate_domain_url_column(conn)?;
     migrate_viewed_column(conn)?;
     migrate_date_column(conn)?;
+    migrate_article_template_id_column(conn)?;
     migrate_category_description_column(conn)?;
     migrate_drop_last_video_date_column(conn)?;
     migrate_article_domain_column(conn)?;
@@ -611,6 +616,21 @@ fn migrate_date_column(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn migrate_article_template_id_column(conn:&Connection) -> Result<(), String> {
+    let has_template_id_column: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='template_id'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if !has_template_id_column {
+        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN template_id TEXT")
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
 fn migrate_category_description_column(conn:&Connection) -> Result<(), String> {
     let has_description_column: bool = conn.query_row(
         "SELECT COUNT(*) > 0 FROM pragma_table_info('web_categories') WHERE name='description'",
@@ -799,6 +819,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     let date: Option<String> = row.get(12)?;
     let domain: Option<String> = row.get(13)?;
     let profile_picture: Option<String> = row.get(14)?;
+    let template_id: Option<String> = row.get(15)?;
 
     Ok(WebStoreArticleRecord {
         id,
@@ -818,6 +839,7 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
         viewed: viewed_int != 0,
         date,
         profile_picture,
+        template_id,
     })
 }
 
@@ -834,7 +856,7 @@ fn query_articles(
                 (SELECT COALESCE(
                     (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
                     (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture
+                )) AS profile_picture, template_id
          FROM web_articles"
     );
     
@@ -1483,6 +1505,7 @@ pub async fn upsert_web_store_article(
     input.profile = normalize_optional_string(input.profile).map(|p| p.to_lowercase());
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
     input.date = normalize_optional_string(input.date);
+    input.template_id = normalize_optional_string(input.template_id);
 
     let conn = get_db(&app)?;
     init_schema(&conn)?;
@@ -1509,8 +1532,8 @@ pub async fn upsert_web_store_article(
             "UPDATE web_articles SET 
                 title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
                 main_color = ?5, profile = ?6, domain = ?7,
-                embedding_source_text = ?8, date = ?9, updated_at = ?10 
-             WHERE url = ?11 COLLATE NOCASE",
+                embedding_source_text = ?8, date = ?9, template_id = ?10, updated_at = ?11 
+             WHERE url = ?12 COLLATE NOCASE",
             params![
                 input.title,
                 input.thumbnail,
@@ -1521,6 +1544,7 @@ pub async fn upsert_web_store_article(
                 domain,
                 input.embedding_source_text,
                 input.date,
+                input.template_id,
                 now,
                 input.url
             ],
@@ -1538,8 +1562,8 @@ pub async fn upsert_web_store_article(
         conn.execute(
             "INSERT INTO web_articles (id, url, domain, created_at, title, thumbnail, content,
                                    media_directory, main_color, profile,
-                                   embedding_source_text, date, updated_at, viewed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 0)",
+                                   embedding_source_text, date, template_id, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 0)",
             params![
                 article_id,
                 input.url,
@@ -1553,6 +1577,7 @@ pub async fn upsert_web_store_article(
                 input.profile,
                 input.embedding_source_text,
                 input.date,
+                input.template_id,
                 now
             ],
         )
@@ -2274,7 +2299,7 @@ fn query_articles_for_profile(
                 (SELECT COALESCE(
                     (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
                     (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture
+                )) AS profile_picture, template_id
          FROM web_articles
          WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
          ORDER BY created_at DESC, date DESC NULLS LAST
@@ -2305,7 +2330,7 @@ fn query_articles_for_domain(
                 (SELECT COALESCE(
                     (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
                     (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture
+                )) AS profile_picture, template_id
          FROM web_articles
          WHERE LOWER(domain) = LOWER(?1) AND domain IS NOT NULL
          ORDER BY created_at DESC, date DESC NULLS LAST
@@ -2333,6 +2358,8 @@ pub async fn list_articles_without_profile(
     only_without_profile: Option<bool>,
     profile_id: Option<String>,
     date_from: Option<String>,
+    template_id: Option<String>,
+    include_initial: Option<bool>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
@@ -2376,6 +2403,23 @@ pub async fn list_articles_without_profile(
         }
     }
 
+    match template_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(template) => {
+            where_clauses.push("a.template_id = ?".to_string());
+            params.push(Box::new(template.to_string()));
+        }
+        None => {
+            if !include_initial.unwrap_or(false) {
+                where_clauses
+                    .push("(a.template_id IS NULL OR a.template_id <> 'initial')".to_string());
+            }
+        }
+    }
+
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -2398,7 +2442,7 @@ pub async fn list_articles_without_profile(
                 (SELECT COALESCE(
                     (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
                     (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-                )) AS profile_picture
+                )) AS profile_picture, a.template_id
          FROM web_articles a
          {}
          ORDER BY a.created_at DESC, a.date DESC NULLS LAST
@@ -2488,7 +2532,7 @@ fn query_articles_for_category(
                 (SELECT COALESCE(
                     (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
                     (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-                )) AS profile_picture
+                )) AS profile_picture, a.template_id
          FROM web_articles a
          INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
@@ -2634,6 +2678,12 @@ pub async fn delete_web_store_template(
 ) -> Result<bool, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
+
+    conn.execute(
+        "UPDATE web_articles SET template_id = 'default' WHERE template_id = ?1",
+        params![id],
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute(
         "DELETE FROM web_profile_templates WHERE template_id = ?1",

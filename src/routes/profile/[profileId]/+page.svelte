@@ -7,6 +7,8 @@
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
+	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import {
 		deleteProfileById,
 		getProfile,
@@ -71,12 +73,17 @@
 	onMount(async () => {
 		loading = true;
 		try {
-			const profileResult = await getProfile(profileId);
-			profile = profileResult;
-			await articleCacheStore.fetchArticlesWithoutProfile({ profileId, force: true });
+			profile = await getProfile(profileId);
 		} finally {
 			loading = false;
 		}
+	});
+
+	$effect(() => {
+		void articleCacheStore.fetchArticlesWithoutProfile({
+			profileId,
+			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined
+		});
 	});
 
 	function handleBack() {
@@ -204,30 +211,32 @@
 		</div>
 
 		<div class="articles-container">
-			{#if articleCacheStore.articlesWithoutProfile.length > 0}
-				<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
-					{#snippet children(
-						article: ArticleWithTasks,
-						_i: number,
-						_layoutIndex: number,
-						layoutKey: LayoutKey
-					)}
-						<ArticleItem
-							{article}
-							{layoutKey}
-							marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-							onClick={handleNavigateToArticle}
-							onHoverEnter={(a) => {
-								viewState.hoveredArticleUrl = a.url ?? null;
-								viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
-							}}
-							onHoverLeave={() => {
-								viewState.hoveredArticleUrl = null;
-							}}
-						/>
-					{/snippet}
-				</MasonryGrid>
-			{:else if !articleCacheStore.loadingArticles}
+			<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+				{#snippet headerLeft()}
+					<InitialArticlesToggle />
+				{/snippet}
+				{#snippet children(
+					article: ArticleWithTasks,
+					_i: number,
+					_layoutIndex: number,
+					layoutKey: LayoutKey
+				)}
+					<ArticleItem
+						{article}
+						{layoutKey}
+						marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
+						onClick={handleNavigateToArticle}
+						onHoverEnter={(a) => {
+							viewState.hoveredArticleUrl = a.url ?? null;
+							viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
+						}}
+						onHoverLeave={() => {
+							viewState.hoveredArticleUrl = null;
+						}}
+					/>
+				{/snippet}
+			</MasonryGrid>
+			{#if articleCacheStore.articlesWithoutProfile.length === 0 && !articleCacheStore.loadingArticles}
 				<div class="empty-state">
 					<div class="empty-state-pill">No articles</div>
 				</div>
@@ -256,6 +265,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		width: 100%;
 		min-height: 100vh;
 		padding: 3rem;
 	}

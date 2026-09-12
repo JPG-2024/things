@@ -57,7 +57,7 @@
 
 	async function handleRawSearch(pattern: string) {
 		const trimmed = pattern.trim();
-		if (trimmed.length < 5) return;
+		if (trimmed.length < 4) return;
 		viewState.rawSearchLoading = true;
 		try {
 			const results = await invoke<
@@ -86,7 +86,7 @@
 	});
 
 	$effect(() => {
-		if (viewState.unifiedFilter.trim().length < 5) {
+		if (viewState.unifiedFilter.trim().length < 4) {
 			viewState.rawSearchResults = null;
 		}
 	});
@@ -332,7 +332,10 @@
 	<div class="toolbar-row"><Categories /></div>
 </div>
 
-<div class="dashboard-container">
+<div
+	class="dashboard-container"
+	class:has-profilesbar={viewState.activeProfileArticleTab === 'articles'}
+>
 	{#if viewState.activeProfileArticleTab === 'articles'}
 		<div class="dashboard-profilesbar-container">
 			<ProfilesBar />
@@ -375,12 +378,16 @@
 	}
 
 	.dashboard-container {
-		display: flex;
-		flex-direction: row;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 1rem;
+		width: 100%;
 		height: 100vh;
-
 		overflow: hidden;
+	}
+
+	.dashboard-container.has-profilesbar {
+		grid-template-columns: auto minmax(0, 1fr);
 	}
 
 	.dashboard-profilesbar-container {
@@ -388,15 +395,13 @@
 	}
 
 	.dashboard-content {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		width: 100%;
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 130px;
+		padding-top: 180px;
 	}
 
 	.dashboard-toolbar-container {
@@ -410,7 +415,7 @@
 		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 2rem 3rem 2rem;
+		padding: 0.2rem 2rem 2rem;
 		background: linear-gradient(
 			color-mix(in srgb, var(--primary-color), black 92%),
 			rgba(9, 9, 9, 1),
