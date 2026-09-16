@@ -79,8 +79,6 @@ export interface WebStoreProfileRecord {
 	articles?: WebStoreArticleRecord[] | null;
 }
 
-type SearchRowKind = 'content_chunk' | 'keyword_bundle';
-
 export type WebStoreArticleRecord = {
 	id: string;
 	url: string | null;
@@ -106,13 +104,6 @@ export type WebStoreTaskRecord = {
 	url: string;
 	tasksJson: string;
 	updatedAt: number;
-};
-
-type SearchRowInput = {
-	rowId: string;
-	kind: SearchRowKind;
-	ordinal: number;
-	text: string;
 };
 
 export type WebStoreProfileDeletion = {
@@ -149,14 +140,6 @@ type UpsertWebStoreArticleInput = {
 	embeddingSourceText: string | null;
 	date: string | null;
 	templateId: string | null;
-};
-
-type StoredTask = {
-	id?: string;
-	name?: string;
-	data?: unknown;
-	status?: Task['status'];
-	renderOrder?: number;
 };
 
 type LegacyPageElementItem = {
@@ -212,7 +195,7 @@ export async function parsePersistedTaskStates(raw: string | null): Promise<Pers
 	}
 
 	try {
-		const parsed = JSON.parse(raw) as StoredTask[];
+		const parsed = JSON.parse(raw) as PersistedTaskState[];
 		if (Array.isArray(parsed)) {
 			const tasks = parsed.map((task, index) => ({
 				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
@@ -244,7 +227,7 @@ export function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): b
 	return task.persist === true;
 }
 
-export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): StoredTask {
+export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): PersistedTaskState {
 	return {
 		id: task.id,
 		name: task.name,
@@ -257,8 +240,8 @@ export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): Stored
 export function mergeStoredTasks<TMap extends TaskMapBase>(
 	existingTasks: PersistedTaskState[] | undefined,
 	nextTasks: Task<TMap>[]
-): StoredTask[] {
-	const mergedTasks = new Map<string, StoredTask>();
+): PersistedTaskState[] {
+	const mergedTasks = new Map<string, PersistedTaskState>();
 
 	for (const task of existingTasks ?? []) {
 		mergedTasks.set(task.id, {
@@ -288,7 +271,16 @@ export function getStoredTaskData<T>(
 	return tasks.find((task) => task.id === taskId)?.data as T | undefined;
 }
 
-export function getArticleStringField(article: ArticleWithTasks | null, fieldName: any): string {
+async function wrapRawContentRef(url: string, task: PersistedTaskState): Promise<void> {
+	if (task.id !== 'content' || typeof task.data !== 'string' || task.data.length === 0) {
+		return;
+	}
+
+	const key = await invoke<string>('write_raw_content', { url, text: task.data });
+	task.data = { [RAW_CONTENT_REF]: key };
+}
+
+export function getArticleStringField(article: ArticleWithTasks | null, fieldName: string): string {
 	const fieldValue = article?.[fieldName];
 	return typeof fieldValue === 'string' ? fieldValue : '';
 }
@@ -508,46 +500,76 @@ export async function mapStoredArticle(
 	};
 }
 
-async function resolveArticleThumbnail(article: ArticleWithTasks): Promise<ArticleWithTasks> {
-	const thumbnail = article.thumbnail;
+async function resolveMediaSrc<T extends object, K extends string>(
+	item: T,
+	field: keyof T & string,
+	srcField: K,
+	setWhenUnresolved: boolean
+): Promise<T & { [P in K]?: string | null }> {
+	const raw = (item as Record<string, unknown>)[field];
 
-	if (!thumbnail || thumbnail.includes('://')) {
-		return article;
+	if (typeof raw === 'string' && raw.length > 0 && !raw.includes('://')) {
+		const resolved = await getMediaSrc(raw);
+		return { ...item, [srcField]: resolved } as T & { [P in K]?: string | null };
 	}
 
-	const thumbnailSrc = await getMediaSrc(thumbnail);
-	return { ...article, thumbnailSrc };
+	if (setWhenUnresolved) {
+		return { ...item, [srcField]: typeof raw === 'string' ? raw : null } as T & {
+			[P in K]?: string | null;
+		};
+	}
+
+	return item as T & { [P in K]?: string | null };
+}
+
+async function resolveMediaSrcBatch<T extends object, K extends string>(
+	items: T[],
+	field: keyof T & string,
+	srcField: K,
+	setWhenUnresolved: boolean
+): Promise<(T & { [P in K]?: string | null })[]> {
+	return Promise.all(
+		items.map((item) => resolveMediaSrc(item, field, srcField, setWhenUnresolved))
+	);
+}
+
+async function resolveArticleThumbnail(article: ArticleWithTasks): Promise<ArticleWithTasks> {
+	return resolveMediaSrc(article, 'thumbnail', 'thumbnailSrc', false);
 }
 
 async function resolveArticleThumbnailBatch(
 	articles: ArticleWithTasks[]
 ): Promise<ArticleWithTasks[]> {
-	return Promise.all(articles.map(resolveArticleThumbnail));
+	return resolveMediaSrcBatch(articles, 'thumbnail', 'thumbnailSrc', false);
 }
 
 async function resolveArticleProfilePictureBatch(
 	articles: ArticleWithTasks[]
 ): Promise<ArticleWithTasks[]> {
-	return Promise.all(articles.map(resolveProfilePictureField));
+	return resolveMediaSrcBatch(articles, 'profilePicture', 'profilePictureSrc', true);
 }
 
 async function resolveProfilePictureField<T extends { profilePicture?: string | null }>(
 	profile: T
 ): Promise<T & { profilePictureSrc?: string | null }> {
-	const profilePicture = profile.profilePicture;
-
-	if (!profilePicture || profilePicture.includes('://')) {
-		return { ...profile, profilePictureSrc: profilePicture ?? null };
-	}
-
-	const profilePictureSrc = await getMediaSrc(profilePicture);
-	return { ...profile, profilePictureSrc };
+	return resolveMediaSrc(profile, 'profilePicture', 'profilePictureSrc', true);
 }
 
 async function resolveProfilePictureBatch<T extends { profilePicture?: string | null }>(
 	profiles: T[]
 ): Promise<(T & { profilePictureSrc?: string | null })[]> {
 	return Promise.all(profiles.map(resolveProfilePictureField));
+}
+
+async function mapAndResolveArticles(
+	rows: WebStoreArticleRecord[],
+	tasksByUrl: Map<string, string>
+): Promise<ArticleWithTasks[]> {
+	const mappedArticles = await Promise.all(
+		rows.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
+	);
+
+	return resolveArticleProfilePictureBatch(await resolveArticleThumbnailBatch(mappedArticles));
 }
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
@@ -557,11 +579,7 @@ export async function getArticles(): Promise<ArticleWithTasks[]> {
 			getTasksByUrlMap()
 		]);
 
-		const mappedArticles = await Promise.all(
-			articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-		);
-
-		return resolveArticleThumbnailBatch(mappedArticles);
+		return mapAndResolveArticles(articles, tasksByUrl);
 	} catch (error) {
 		console.error('Error querying DB articles', error);
 		return [];
@@ -659,12 +677,7 @@ export async function getProfiles(options?: {
 			for (const card of resolvedCards) {
 				let articles: ArticleWithTasks[] | undefined;
 				if (card.articles) {
-					const mappedArticles = await Promise.all(
-						card.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-					);
-					articles = await resolveArticleProfilePictureBatch(
-						await resolveArticleThumbnailBatch(mappedArticles)
-					);
+					articles = await mapAndResolveArticles(card.articles, tasksByUrl);
 				}
 				profilesWithArticles.push({ ...cardToArticleProfile(card), articles });
 			}
@@ -815,10 +828,7 @@ export async function saveTasks<TMap extends TaskMapBase>(
 		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
 
 		for (const task of tasksToSave) {
-			if (task.id === 'content' && typeof task.data === 'string' && task.data.length > 0) {
-				const key = await invoke<string>('write_raw_content', { url, text: task.data });
-				task.data = { [RAW_CONTENT_REF]: key };
-			}
+			await wrapRawContentRef(url, task);
 		}
 
 		await invoke('upsert_web_store_tasks', {
@@ -842,17 +852,13 @@ export async function updateTaskDataById(
 
 		if (!taskRecord) return;
 
-		const tasks = JSON.parse(taskRecord.tasksJson) as StoredTask[];
+		const tasks = JSON.parse(taskRecord.tasksJson) as PersistedTaskState[];
 		const task = tasks.find((t) => t.id === taskId);
 
 		if (!task) return;
 
 		task.data = data;
-
-		if (taskId === 'content' && typeof task.data === 'string' && task.data.length > 0) {
-			const key = await invoke<string>('write_raw_content', { url, text: task.data });
-			task.data = { [RAW_CONTENT_REF]: key };
-		}
+		await wrapRawContentRef(url, task);
 
 		await invoke('upsert_web_store_tasks', {
 			url,
@@ -1057,13 +1063,8 @@ export async function getArticlesWithoutProfile(options?: {
 			includeInitial: options?.includeInitial ?? null
 		});
 
-		const [tasksByUrl] = await Promise.all([getTasksByUrlMap()]);
-		const mappedArticles = await Promise.all(
-			result.articles.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-		);
-		const resolvedArticles = await resolveArticleProfilePictureBatch(
-			await resolveArticleThumbnailBatch(mappedArticles)
-		);
+		const tasksByUrl = await getTasksByUrlMap();
+		const resolvedArticles = await mapAndResolveArticles(result.articles, tasksByUrl);
 
 		return { articles: resolvedArticles, total: result.total };
 	} catch (error) {
@@ -1092,12 +1093,7 @@ export async function getArticlesByCategories(
 
 		const categoriesWithArticles: CategoryWithArticles[] = [];
 		for (const category of result) {
-			const mappedArticles = await Promise.all(
-				category.articles.map((row) => mapStoredArticle(row, null))
-			);
-			const resolvedArticles = await resolveArticleProfilePictureBatch(
-				await resolveArticleThumbnailBatch(mappedArticles)
-			);
+			const resolvedArticles = await mapAndResolveArticles(category.articles, new Map());
 
 			categoriesWithArticles.push({
 				categoryId: category.categoryId,

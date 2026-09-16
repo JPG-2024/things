@@ -279,11 +279,26 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
-    migrate_domain_url_column(conn)?;
-    migrate_viewed_column(conn)?;
-    migrate_date_column(conn)?;
-    migrate_article_template_id_column(conn)?;
-    migrate_category_description_column(conn)?;
+    ensure_column(conn, "web_domains", "url", "ALTER TABLE web_domains ADD COLUMN url TEXT")?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "viewed",
+        "ALTER TABLE web_articles ADD COLUMN viewed INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column(conn, "web_articles", "date", "ALTER TABLE web_articles ADD COLUMN date TEXT")?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "template_id",
+        "ALTER TABLE web_articles ADD COLUMN template_id TEXT",
+    )?;
+    ensure_column(
+        conn,
+        "web_categories",
+        "description",
+        "ALTER TABLE web_categories ADD COLUMN description TEXT",
+    )?;
     migrate_drop_last_video_date_column(conn)?;
     migrate_article_domain_column(conn)?;
     migrate_article_ids_to_youtube_v(conn)?;
@@ -571,89 +586,30 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_domain_url_column(conn:&Connection) -> Result<(), String> {
-    let has_url_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_domains') WHERE name='url'",
-        [],
+fn table_has_column(conn: &Connection, table: &str, column: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info(?1) WHERE name = ?2",
+        params![table, column],
         |row| row.get(0),
-    ).unwrap_or(false);
-
-    if !has_url_column {
-        conn.execute_batch("ALTER TABLE web_domains ADD COLUMN url TEXT")
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
+    )
+    .unwrap_or(false)
 }
 
-fn migrate_viewed_column(conn:&Connection) -> Result<(), String> {
-    let has_viewed_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='viewed'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
-
-    if !has_viewed_column {
-        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN viewed INTEGER NOT NULL DEFAULT 0")
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
-}
-
-fn migrate_date_column(conn:&Connection) -> Result<(), String> {
-    let has_date_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='date'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
-
-    if !has_date_column {
-        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN date TEXT")
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
-}
-
-fn migrate_article_template_id_column(conn:&Connection) -> Result<(), String> {
-    let has_template_id_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='template_id'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
-
-    if !has_template_id_column {
-        conn.execute_batch("ALTER TABLE web_articles ADD COLUMN template_id TEXT")
-            .map_err(|error| error.to_string())?;
-    }
-
-    Ok(())
-}
-
-fn migrate_category_description_column(conn:&Connection) -> Result<(), String> {
-    let has_description_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_categories') WHERE name='description'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
-
-    if !has_description_column {
-        conn.execute_batch("ALTER TABLE web_categories ADD COLUMN description TEXT")
-            .map_err(|error| error.to_string())?;
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    ddl: &str,
+) -> Result<(), String> {
+    if !table_has_column(conn, table, column) {
+        conn.execute_batch(ddl).map_err(|error| error.to_string())?;
     }
 
     Ok(())
 }
 
 fn migrate_drop_last_video_date_column(conn:&Connection) -> Result<(), String> {
-    let has_last_video_date_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_domains') WHERE name='last_video_date'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
-
-    if has_last_video_date_column {
+    if table_has_column(conn, "web_domains", "last_video_date") {
         conn.execute_batch("ALTER TABLE web_domains DROP COLUMN last_video_date")
             .map_err(|error| error.to_string())?;
     }
@@ -843,40 +799,26 @@ fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecor
     })
 }
 
-fn query_articles(
-    conn: &Connection,
-    filter: Option<&str>,
-    limit: Option<usize>,
-    sort: Option<&str>,
-) -> Result<Vec<WebStoreArticleRecord>, String> {
-    let mut sql = String::from(
-        "SELECT id, url, created_at, title, thumbnail, content,
-                media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date, domain,
-                (SELECT COALESCE(
-                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
-                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture, template_id
-         FROM web_articles"
-    );
-    
-    if let Some(f) = filter {
-        sql.push_str(" WHERE ");
-        sql.push_str(f);
-    }
-    
-    match sort {
-        Some("date") => sql.push_str(" ORDER BY date IS NULL, date DESC"),
-        _ => sql.push_str(" ORDER BY created_at DESC"),
-    }
-    
-    if let Some(lim) = limit {
-        sql.push_str(&format!(" LIMIT {}", lim));
-    }
+const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
+        a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
+        a.viewed, a.date, a.domain,
+        (SELECT COALESCE(
+            (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
+            (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
+        )) AS profile_picture, a.template_id";
 
+fn query_articles_sql(
+    conn: &Connection,
+    body: &str,
+    params: &[Box<dyn rusqlite::types::ToSql>],
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let sql = format!("SELECT {} FROM web_articles a {}", ARTICLE_COLUMNS, body);
     let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let article_iter = stmt
-        .query_map([], row_to_stored_article)
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|param| param.as_ref())),
+            row_to_stored_article,
+        )
         .map_err(|error| error.to_string())?;
 
     let mut records = Vec::new();
@@ -885,6 +827,31 @@ fn query_articles(
     }
 
     Ok(records)
+}
+
+fn query_articles(
+    conn: &Connection,
+    filter: Option<&str>,
+    limit: Option<usize>,
+    sort: Option<&str>,
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let mut body = String::new();
+
+    if let Some(f) = filter {
+        body.push_str(" WHERE ");
+        body.push_str(f);
+    }
+
+    match sort {
+        Some("date") => body.push_str(" ORDER BY a.date IS NULL, a.date DESC"),
+        _ => body.push_str(" ORDER BY a.created_at DESC"),
+    }
+
+    if let Some(lim) = limit {
+        body.push_str(&format!(" LIMIT {}", lim));
+    }
+
+    query_articles_sql(conn, &body, &[])
 }
 
 fn query_domain_by_id(conn: &Connection, domain_id: &str) -> Result<Option<WebStoreDomainRecord>, String> {
@@ -1740,6 +1707,29 @@ pub async fn fetch_remote_profile(
         .map_err(|error| format!("Failed to parse remote profile: {}", error))
 }
 
+async fn delete_articles_for_bucket(
+    app: &AppHandle,
+    entity_url: Option<String>,
+    article_values: Vec<Value>,
+) -> Result<usize, String> {
+    if let Some(url) = entity_url {
+        delete_web_store_tasks_by_url(app.clone(), url).await?;
+    }
+
+    let mut deleted_count = 0;
+
+    for article_value in article_values {
+        if let Some(url) = article_value.get("url").and_then(|value| value.as_str()) {
+            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
+            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
+                deleted_count += 1;
+            }
+        }
+    }
+
+    Ok(deleted_count)
+}
+
 #[tauri::command]
 pub async fn delete_web_store_domain(
     app: AppHandle,
@@ -1748,12 +1738,7 @@ pub async fn delete_web_store_domain(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    if let Some(domain) = query_domain_by_id(&conn, &domain_id)? {
-        if let Some(domain_url) = domain.url {
-            delete_web_store_tasks_by_url(app.clone(), domain_url).await?;
-        }
-    }
-
+    let entity_url = query_domain_by_id(&conn, &domain_id)?.and_then(|domain| domain.url);
     let articles = list_web_store_articles_by_domain(
         app.clone(),
         domain_id.clone(),
@@ -1762,17 +1747,7 @@ pub async fn delete_web_store_domain(
         None,
     )
     .await?;
-
-    let mut deleted_count = 0;
-
-    for article_value in articles {
-        if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
-            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
-            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
-                deleted_count += 1;
-            }
-        }
-    }
+    let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
 
     delete_domain(&conn, &domain_id)?;
 
@@ -1790,12 +1765,7 @@ pub async fn delete_web_store_profile(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    if let Some(profile) = query_profile_by_id(&conn, &profile_id)? {
-        if let Some(profile_url) = profile.url {
-            delete_web_store_tasks_by_url(app.clone(), profile_url).await?;
-        }
-    }
-
+    let entity_url = query_profile_by_id(&conn, &profile_id)?.and_then(|profile| profile.url);
     let articles = list_web_store_articles_by_profile(
         app.clone(),
         profile_id.clone(),
@@ -1804,17 +1774,7 @@ pub async fn delete_web_store_profile(
         None,
     )
     .await?;
-
-    let mut deleted_count = 0;
-
-    for article_value in articles {
-        if let Some(url) = article_value.get("url").and_then(|v| v.as_str()) {
-            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
-            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
-                deleted_count += 1;
-            }
-        }
-    }
+    let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
 
     delete_profile(&conn, &profile_id)?;
 
@@ -2287,35 +2247,31 @@ pub async fn assign_categories_to_article(
     Ok(())
 }
 
+fn query_articles_for_bucket(
+    conn: &Connection,
+    column: &str,
+    bucket_id: &str,
+    article_count: usize,
+) -> Result<Vec<WebStoreArticleRecord>, String> {
+    let body = format!(
+        "WHERE LOWER(a.{column}) = LOWER(?1) AND a.{column} IS NOT NULL
+         ORDER BY a.created_at DESC, a.date DESC NULLS LAST
+         LIMIT ?2"
+    );
+
+    query_articles_sql(
+        conn,
+        &body,
+        &[Box::new(bucket_id.to_string()), Box::new(article_count)],
+    )
+}
+
 fn query_articles_for_profile(
     conn: &Connection,
     profile_id: &str,
     article_count: usize,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
-    let articles_sql = format!(
-        "SELECT id, url, created_at, title, thumbnail, content,
-                media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date, domain,
-                (SELECT COALESCE(
-                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
-                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture, template_id
-         FROM web_articles
-         WHERE LOWER(profile) = LOWER(?1) AND profile IS NOT NULL
-         ORDER BY created_at DESC, date DESC NULLS LAST
-         LIMIT ?2"
-    );
-
-    let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
-    let article_rows = article_stmt
-        .query_map(params![profile_id, article_count], row_to_stored_article)
-        .map_err(|error| error.to_string())?;
-
-    let mut articles = Vec::new();
-    for article_result in article_rows {
-        articles.push(article_result.map_err(|error| error.to_string())?);
-    }
-    Ok(articles)
+    query_articles_for_bucket(conn, "profile", profile_id, article_count)
 }
 
 fn query_articles_for_domain(
@@ -2323,30 +2279,7 @@ fn query_articles_for_domain(
     domain_id: &str,
     article_count: usize,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
-    let articles_sql = format!(
-        "SELECT id, url, created_at, title, thumbnail, content,
-                media_directory, main_color, profile, embedding_source_text, updated_at,
-                viewed, date, domain,
-                (SELECT COALESCE(
-                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(web_articles.profile)),
-                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(web_articles.domain))
-                )) AS profile_picture, template_id
-         FROM web_articles
-         WHERE LOWER(domain) = LOWER(?1) AND domain IS NOT NULL
-         ORDER BY created_at DESC, date DESC NULLS LAST
-         LIMIT ?2"
-    );
-
-    let mut article_stmt = conn.prepare(&articles_sql).map_err(|error| error.to_string())?;
-    let article_rows = article_stmt
-        .query_map(params![domain_id, article_count], row_to_stored_article)
-        .map_err(|error| error.to_string())?;
-
-    let mut articles = Vec::new();
-    for article_result in article_rows {
-        articles.push(article_result.map_err(|error| error.to_string())?);
-    }
-    Ok(articles)
+    query_articles_for_bucket(conn, "domain", domain_id, article_count)
 }
 
 #[tauri::command]
@@ -2435,32 +2368,14 @@ pub async fn list_articles_without_profile(
             .map_err(|error| error.to_string())?
     };
 
-    let sql = format!(
-        "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
-                a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date, a.domain,
-                (SELECT COALESCE(
-                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
-                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-                )) AS profile_picture, a.template_id
-         FROM web_articles a
-         {}
-         ORDER BY a.created_at DESC, a.date DESC NULLS LAST
-         LIMIT {} OFFSET {}",
+    let body = format!(
+        "{} ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT {} OFFSET {}",
         where_sql,
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
 
-    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
-    let article_iter = stmt
-        .query_map(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), row_to_stored_article)
-        .map_err(|error| error.to_string())?;
-
-    let mut articles = Vec::new();
-    for article_result in article_iter {
-        articles.push(article_result.map_err(|error| error.to_string())?);
-    }
+    let articles = query_articles_sql(&conn, &body, &params)?;
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
 }
@@ -2525,44 +2440,22 @@ fn query_articles_for_category(
     article_count: usize,
     created_at_from: Option<i64>,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
-    let mut articles_sql = String::from(
-        "SELECT a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
-                a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-                a.viewed, a.date, a.domain,
-                (SELECT COALESCE(
-                    (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
-                    (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-                )) AS profile_picture, a.template_id
-         FROM web_articles a
-         INNER JOIN article_category ac ON ac.article_url = a.url
+    let mut body = String::from(
+        "INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
     );
-    if created_at_from.is_some() {
-        articles_sql.push_str(" AND a.created_at >= ?2");
-    }
-    articles_sql.push_str(" ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT ?");
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> =
+        vec![Box::new(category_id.to_string())];
 
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(category_id.to_string())];
     if let Some(from) = created_at_from {
+        body.push_str(" AND a.created_at >= ?2");
         params.push(Box::new(from));
     }
-    params.push(Box::new(article_count as i64));
 
-    let mut article_stmt = conn
-        .prepare(&articles_sql)
-        .map_err(|error| error.to_string())?;
-    let article_rows = article_stmt
-        .query_map(
-            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
-            row_to_stored_article,
-        )
-        .map_err(|error| error.to_string())?;
+    body.push_str(" ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT ?");
+    params.push(Box::new(article_count));
 
-    let mut articles = Vec::new();
-    for article_result in article_rows {
-        articles.push(article_result.map_err(|error| error.to_string())?);
-    }
-    Ok(articles)
+    query_articles_sql(conn, &body, &params)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
