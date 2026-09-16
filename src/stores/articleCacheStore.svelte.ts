@@ -6,6 +6,7 @@ import {
 	type ArticleProfile,
 	type CategoryWithArticles
 } from '@/stores/webStore';
+import { PaginationResource } from '@/stores/paginationResource.svelte';
 
 const PROFILES_PAGE_SIZE = 20;
 const ARTICLES_PAGE_SIZE = 20;
@@ -16,119 +17,173 @@ function sortedIds(ids?: string[]): string[] | null {
 	return ids ? [...ids].sort() : null;
 }
 
+type ProfilesParams = {
+	categoryIds?: string[];
+};
+
+type ArticlesParams = {
+	categoryIds?: string[];
+	onlyWithoutProfile?: boolean;
+	profileId?: string;
+	dateFrom?: string;
+	templateId?: string;
+	includeInitial?: boolean;
+};
+
+type CategoryArticlesParams = {
+	categoryId: string;
+};
+
+type CategoriesParams = {
+	categoryIds: string[];
+	createdAtFrom?: number;
+};
+
 class ArticleCacheStore {
-	profilesWithArticles = $state<ArticleProfile[]>([]);
-	articlesWithoutProfile = $state<ArticleWithTasks[]>([]);
-	categoriesWithArticles = $state<CategoryWithArticles[]>([]);
-	totalArticlesWithoutProfile = $state(0);
+	private readonly profiles = new PaginationResource<ArticleProfile, ProfilesParams>(
+		PROFILES_PAGE_SIZE,
+		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds) }),
+		async (params, offset, limit) => {
+			const items = await getProfiles({
+				categoryIds: params.categoryIds,
+				offset,
+				limit,
+				includeArticles: true,
+				articleCount: ARTICLES_PER_PROFILE
+			});
 
-	loadingProfiles = $state(false);
-	loadingArticles = $state(false);
-	loadingCategories = $state(false);
+			return { items };
+		}
+	);
 
-	profilesOffset = $state(0);
-	hasMoreProfiles = $state(true);
+	private readonly articles = new PaginationResource<ArticleWithTasks, ArticlesParams>(
+		ARTICLES_PAGE_SIZE,
+		(params) =>
+			JSON.stringify({
+				categoryIds: sortedIds(params.categoryIds),
+				onlyWithoutProfile: params.onlyWithoutProfile ?? null,
+				profileId: params.profileId ?? null,
+				dateFrom: params.dateFrom ?? null,
+				templateId: params.templateId ?? null,
+				includeInitial: params.includeInitial ?? null
+			}),
+		async (params, offset, limit) => {
+			const result = await getArticlesWithoutProfile({
+				categoryIds: params.categoryIds,
+				offset,
+				limit,
+				onlyWithoutProfile: params.onlyWithoutProfile,
+				profileId: params.profileId,
+				dateFrom: params.dateFrom,
+				templateId: params.templateId,
+				includeInitial: params.includeInitial
+			});
 
-	articlesOffset = $state(0);
-	hasMoreArticles = $state(true);
+			return { items: result.articles, total: result.total };
+		}
+	);
 
-	categoryArticles = $state<ArticleWithTasks[]>([]);
-	loadingCategoryArticles = $state(false);
-	hasMoreCategoryArticles = $state(true);
-	categoryArticlesOffset = $state(0);
+	private readonly categories = new PaginationResource<CategoryWithArticles, CategoriesParams>(
+		ARTICLE_COUNT_PER_CATEGORY,
+		(params) =>
+			JSON.stringify({
+				categoryIds: sortedIds(params.categoryIds),
+				createdAtFrom: params.createdAtFrom ?? null
+			}),
+		async (params, _offset, limit) => {
+			const items = await getArticlesByCategories(params.categoryIds, limit, params.createdAtFrom);
 
-	private profilesStale = true;
-	private articlesStale = true;
-	private categoriesStale = true;
-	private categoryArticlesStale = true;
+			return { items, total: items.length };
+		}
+	);
 
-	private profilesSignature: string | null = null;
-	private articlesSignature: string | null = null;
-	private categoriesSignature: string | null = null;
-	private categoryArticlesSignature: string | null = null;
+	private readonly categoryArticlesResource = new PaginationResource<
+		ArticleWithTasks,
+		CategoryArticlesParams
+	>(
+		ARTICLES_PAGE_SIZE,
+		(params) => JSON.stringify({ categoryId: params.categoryId }),
+		async (params, offset, limit) => {
+			const result = await getArticlesWithoutProfile({
+				categoryIds: [params.categoryId],
+				offset,
+				limit,
+				onlyWithoutProfile: false
+			});
 
-	private profilesFetchId = 0;
-	private articlesFetchId = 0;
-	private categoriesFetchId = 0;
-	private categoryArticlesFetchId = 0;
+			return { items: result.articles, total: result.total };
+		}
+	);
 
-	private categoryArticleCategoryId: string | undefined = undefined;
-	private articlesProfileId: string | undefined = undefined;
-	private articlesDateFrom: string | undefined = undefined;
-	private articlesCategoryIds: string[] | undefined = undefined;
-	private articlesOnlyWithoutProfile: boolean | undefined = undefined;
-	private articlesTemplateId: string | undefined = undefined;
-	private articlesIncludeInitial: boolean | undefined = undefined;
-	private profilesCategoryIds: string[] | undefined = undefined;
-	private categoriesCategoryIds: string[] | undefined = undefined;
-	private categoriesCreatedAtFrom: number | undefined = undefined;
+	get profilesWithArticles(): ArticleProfile[] {
+		return this.profiles.items;
+	}
+
+	get loadingProfiles(): boolean {
+		return this.profiles.loading;
+	}
+
+	get hasMoreProfiles(): boolean {
+		return this.profiles.hasMore;
+	}
+
+	get profilesOffset(): number {
+		return this.profiles.offset;
+	}
+
+	get articlesWithoutProfile(): ArticleWithTasks[] {
+		return this.articles.items;
+	}
+
+	get totalArticlesWithoutProfile(): number {
+		return this.articles.total;
+	}
+
+	get loadingArticles(): boolean {
+		return this.articles.loading;
+	}
+
+	get hasMoreArticles(): boolean {
+		return this.articles.hasMore;
+	}
+
+	get articlesOffset(): number {
+		return this.articles.offset;
+	}
+
+	get categoriesWithArticles(): CategoryWithArticles[] {
+		return this.categories.items;
+	}
+
+	get loadingCategories(): boolean {
+		return this.categories.loading;
+	}
+
+	get categoryArticles(): ArticleWithTasks[] {
+		return this.categoryArticlesResource.items;
+	}
+
+	get loadingCategoryArticles(): boolean {
+		return this.categoryArticlesResource.loading;
+	}
+
+	get hasMoreCategoryArticles(): boolean {
+		return this.categoryArticlesResource.hasMore;
+	}
+
+	get categoryArticlesOffset(): number {
+		return this.categoryArticlesResource.offset;
+	}
 
 	async fetchProfilesWithArticles(options?: {
 		force?: boolean;
 		loadMore?: boolean;
 		categoryIds?: string[];
 	}) {
-		if (options?.loadMore) {
-			const fetchId = ++this.profilesFetchId;
-			this.loadingProfiles = true;
-			try {
-				const offset = this.profilesOffset;
-				const result = await getProfiles({
-					categoryIds: this.profilesCategoryIds,
-					offset,
-					limit: PROFILES_PAGE_SIZE,
-					includeArticles: true,
-					articleCount: ARTICLES_PER_PROFILE
-				});
-
-				if (fetchId !== this.profilesFetchId) {
-					return;
-				}
-
-				this.profilesWithArticles = [...this.profilesWithArticles, ...result];
-				this.profilesOffset = offset + result.length;
-				this.hasMoreProfiles = result.length >= PROFILES_PAGE_SIZE;
-				this.profilesStale = false;
-			} finally {
-				if (fetchId === this.profilesFetchId) {
-					this.loadingProfiles = false;
-				}
-			}
-			return;
-		}
-
-		const categoryIds = options?.categoryIds;
-		const signature = JSON.stringify({ categoryIds: sortedIds(categoryIds) });
-		if (!options?.force && !this.profilesStale && signature === this.profilesSignature) {
-			return;
-		}
-
-		const fetchId = ++this.profilesFetchId;
-		this.loadingProfiles = true;
-		try {
-			const result = await getProfiles({
-				categoryIds,
-				offset: 0,
-				limit: PROFILES_PAGE_SIZE,
-				includeArticles: true,
-				articleCount: ARTICLES_PER_PROFILE
-			});
-
-			if (fetchId !== this.profilesFetchId) {
-				return;
-			}
-
-			this.profilesCategoryIds = categoryIds;
-			this.profilesWithArticles = result;
-			this.profilesOffset = result.length;
-			this.hasMoreProfiles = result.length >= PROFILES_PAGE_SIZE;
-			this.profilesSignature = signature;
-			this.profilesStale = false;
-		} finally {
-			if (fetchId === this.profilesFetchId) {
-				this.loadingProfiles = false;
-			}
-		}
+		await this.profiles.fetch(
+			{ categoryIds: options?.categoryIds },
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
 	}
 
 	async fetchArticlesWithoutProfile(options?: {
@@ -141,169 +196,39 @@ class ArticleCacheStore {
 		templateId?: string;
 		includeInitial?: boolean;
 	}) {
-		if (options?.loadMore) {
-			const fetchId = ++this.articlesFetchId;
-			this.loadingArticles = true;
-			try {
-				const offset = this.articlesOffset;
-				const result = await getArticlesWithoutProfile({
-					categoryIds: this.articlesCategoryIds,
-					offset,
-					limit: ARTICLES_PAGE_SIZE,
-					onlyWithoutProfile: this.articlesOnlyWithoutProfile,
-					profileId: this.articlesProfileId,
-					dateFrom: this.articlesDateFrom,
-					templateId: this.articlesTemplateId,
-					includeInitial: this.articlesIncludeInitial
-				});
-
-				if (fetchId !== this.articlesFetchId) {
-					return;
-				}
-
-				this.articlesWithoutProfile = [...this.articlesWithoutProfile, ...result.articles];
-				this.totalArticlesWithoutProfile = result.total;
-				this.articlesOffset = offset + result.articles.length;
-				this.hasMoreArticles = this.articlesOffset < result.total;
-				this.articlesStale = false;
-			} finally {
-				if (fetchId === this.articlesFetchId) {
-					this.loadingArticles = false;
-				}
-			}
-			return;
-		}
-
-		const signature = JSON.stringify({
-			categoryIds: sortedIds(options?.categoryIds),
-			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
-			profileId: options?.profileId ?? null,
-			dateFrom: options?.dateFrom ?? null,
-			templateId: options?.templateId ?? null,
-			includeInitial: options?.includeInitial ?? null
-		});
-		if (!options?.force && !this.articlesStale && signature === this.articlesSignature) {
-			return;
-		}
-
-		const fetchId = ++this.articlesFetchId;
-		this.loadingArticles = true;
-		try {
-			const result = await getArticlesWithoutProfile({
+		await this.articles.fetch(
+			{
 				categoryIds: options?.categoryIds,
-				offset: 0,
-				limit: ARTICLES_PAGE_SIZE,
 				onlyWithoutProfile: options?.onlyWithoutProfile,
 				profileId: options?.profileId,
 				dateFrom: options?.dateFrom,
 				templateId: options?.templateId,
 				includeInitial: options?.includeInitial
-			});
-
-			if (fetchId !== this.articlesFetchId) {
-				return;
-			}
-
-			this.articlesProfileId = options?.profileId;
-			this.articlesDateFrom = options?.dateFrom;
-			this.articlesCategoryIds = options?.categoryIds;
-			this.articlesOnlyWithoutProfile = options?.onlyWithoutProfile;
-			this.articlesTemplateId = options?.templateId;
-			this.articlesIncludeInitial = options?.includeInitial;
-			this.articlesWithoutProfile = result.articles;
-			this.totalArticlesWithoutProfile = result.total;
-			this.articlesOffset = result.articles.length;
-			this.hasMoreArticles = this.articlesOffset < result.total;
-			this.articlesSignature = signature;
-			this.articlesStale = false;
-		} finally {
-			if (fetchId === this.articlesFetchId) {
-				this.loadingArticles = false;
-			}
-		}
+			},
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
 	}
 
 	async loadMoreProfiles() {
-		if (!this.hasMoreProfiles || this.loadingProfiles) return;
-		await this.fetchProfilesWithArticles({ loadMore: true });
+		await this.profiles.loadMore();
 	}
 
 	async loadMoreArticles() {
-		if (!this.hasMoreArticles || this.loadingArticles) return;
-		await this.fetchArticlesWithoutProfile({ loadMore: true });
+		await this.articles.loadMore();
 	}
 
 	async fetchArticlesByCategory(
 		categoryId: string,
 		options?: { force?: boolean; loadMore?: boolean }
 	) {
-		if (options?.loadMore) {
-			const fetchId = ++this.categoryArticlesFetchId;
-			this.loadingCategoryArticles = true;
-			try {
-				const offset = this.categoryArticlesOffset;
-				const result = await getArticlesWithoutProfile({
-					categoryIds: [this.categoryArticleCategoryId!],
-					offset,
-					limit: ARTICLES_PAGE_SIZE,
-					onlyWithoutProfile: false
-				});
-
-				if (fetchId !== this.categoryArticlesFetchId) {
-					return;
-				}
-
-				this.categoryArticles = [...this.categoryArticles, ...result.articles];
-				this.categoryArticlesOffset = offset + result.articles.length;
-				this.hasMoreCategoryArticles = this.categoryArticlesOffset < result.total;
-				this.categoryArticlesStale = false;
-			} finally {
-				if (fetchId === this.categoryArticlesFetchId) {
-					this.loadingCategoryArticles = false;
-				}
-			}
-			return;
-		}
-
-		const signature = JSON.stringify({ categoryId });
-		if (
-			!options?.force &&
-			!this.categoryArticlesStale &&
-			signature === this.categoryArticlesSignature
-		) {
-			return;
-		}
-
-		const fetchId = ++this.categoryArticlesFetchId;
-		this.loadingCategoryArticles = true;
-		try {
-			const result = await getArticlesWithoutProfile({
-				categoryIds: [categoryId],
-				offset: 0,
-				limit: ARTICLES_PAGE_SIZE,
-				onlyWithoutProfile: false
-			});
-
-			if (fetchId !== this.categoryArticlesFetchId) {
-				return;
-			}
-
-			this.categoryArticleCategoryId = categoryId;
-			this.categoryArticles = result.articles;
-			this.categoryArticlesOffset = result.articles.length;
-			this.hasMoreCategoryArticles = this.categoryArticlesOffset < result.total;
-			this.categoryArticlesSignature = signature;
-			this.categoryArticlesStale = false;
-		} finally {
-			if (fetchId === this.categoryArticlesFetchId) {
-				this.loadingCategoryArticles = false;
-			}
-		}
+		await this.categoryArticlesResource.fetch(
+			{ categoryId },
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
 	}
 
 	async loadMoreCategoryArticles() {
-		if (!this.hasMoreCategoryArticles || this.loadingCategoryArticles) return;
-		await this.fetchArticlesByCategory(this.categoryArticleCategoryId!, { loadMore: true });
+		await this.categoryArticlesResource.loadMore();
 	}
 
 	async fetchCategoriesWithArticles(options?: {
@@ -311,102 +236,76 @@ class ArticleCacheStore {
 		categoryIds?: string[];
 		createdAtFrom?: number;
 	}) {
-		const categoryIds = options?.categoryIds ?? this.categoriesCategoryIds ?? [];
-		const createdAtFrom = options?.createdAtFrom ?? this.categoriesCreatedAtFrom;
-		const signature = JSON.stringify({
-			categoryIds: sortedIds(categoryIds),
-			createdAtFrom: createdAtFrom ?? null
-		});
-		if (!options?.force && !this.categoriesStale && signature === this.categoriesSignature) {
-			return;
-		}
+		const categoryIds = options?.categoryIds ?? this.categories.lastParams?.categoryIds ?? [];
+		const createdAtFrom = options?.createdAtFrom ?? this.categories.lastParams?.createdAtFrom;
 
-		const fetchId = ++this.categoriesFetchId;
-		this.loadingCategories = true;
-		try {
-			const result = await getArticlesByCategories(
-				categoryIds,
-				ARTICLE_COUNT_PER_CATEGORY,
-				createdAtFrom
-			);
-
-			if (fetchId !== this.categoriesFetchId) {
-				return;
-			}
-
-			this.categoriesCategoryIds = categoryIds;
-			this.categoriesCreatedAtFrom = createdAtFrom;
-			this.categoriesWithArticles = result;
-			this.categoriesSignature = signature;
-			this.categoriesStale = false;
-		} finally {
-			if (fetchId === this.categoriesFetchId) {
-				this.loadingCategories = false;
-			}
-		}
+		await this.categories.fetch({ categoryIds, createdAtFrom }, { force: options?.force });
 	}
 
 	invalidate() {
-		this.profilesStale = true;
-		this.articlesStale = true;
-		this.categoriesStale = true;
-		this.categoryArticlesStale = true;
+		this.profiles.invalidate();
+		this.articles.invalidate();
+		this.categories.invalidate();
+		this.categoryArticlesResource.invalidate();
 	}
 
 	invalidateCategories() {
-		this.categoriesStale = true;
+		this.categories.invalidate();
 	}
 
 	invalidateProfiles() {
-		this.profilesStale = true;
+		this.profiles.invalidate();
 	}
 
 	invalidateCategoryArticles() {
-		this.categoryArticlesStale = true;
+		this.categoryArticlesResource.invalidate();
 	}
 
 	invalidateArticles() {
-		this.articlesStale = true;
+		this.articles.invalidate();
 	}
 
 	removeArticlesByUrls(urls: Set<string>) {
 		if (urls.size === 0) return;
-		const beforeArticles = this.articlesWithoutProfile.length;
-		this.articlesWithoutProfile = this.articlesWithoutProfile.filter((a) => !urls.has(a.url ?? ''));
-		const removedArticles = beforeArticles - this.articlesWithoutProfile.length;
-		this.totalArticlesWithoutProfile = Math.max(
-			0,
-			this.totalArticlesWithoutProfile - removedArticles
+
+		const hasUrl = (article: ArticleWithTasks) => urls.has(article.url ?? '');
+
+		const removedArticles = this.articles.remove(hasUrl);
+		this.articles.total = Math.max(0, this.articles.total - removedArticles);
+		this.articles.offset = this.articles.items.length;
+		this.articles.hasMore = this.articles.offset < this.articles.total;
+
+		this.categoryArticlesResource.remove(hasUrl);
+		this.categoryArticlesResource.offset = this.categoryArticlesResource.items.length;
+
+		this.profiles.replace((profiles) =>
+			profiles
+				.map((profile) => {
+					const originalCount = profile.articles?.length ?? 0;
+					const filteredArticles = profile.articles?.filter((article) => !hasUrl(article));
+					const removedFromProfile = originalCount - (filteredArticles?.length ?? 0);
+
+					return {
+						...profile,
+						articles: filteredArticles,
+						count:
+							typeof profile.count === 'number'
+								? Math.max(0, profile.count - removedFromProfile)
+								: profile.count
+					};
+				})
+				.filter((profile) => profile.count === undefined || profile.count > 0)
 		);
-		this.articlesOffset = this.articlesWithoutProfile.length;
-		this.hasMoreArticles = this.articlesOffset < this.totalArticlesWithoutProfile;
 
-		this.categoryArticles = this.categoryArticles.filter((a) => !urls.has(a.url ?? ''));
-		this.categoryArticlesOffset = this.categoryArticles.length;
+		this.categories.replace((categories) =>
+			categories.map((category) => ({
+				...category,
+				articles: category.articles.filter((article) => !hasUrl(article))
+			}))
+		);
 
-		this.profilesWithArticles = this.profilesWithArticles
-			.map((profile) => {
-				const originalCount = profile.articles?.length ?? 0;
-				const filteredArticles = profile.articles?.filter((a) => !urls.has(a.url ?? ''));
-				const removedFromProfile = originalCount - (filteredArticles?.length ?? 0);
-				return {
-					...profile,
-					articles: filteredArticles,
-					count:
-						typeof profile.count === 'number'
-							? Math.max(0, profile.count - removedFromProfile)
-							: profile.count
-				};
-			})
-			.filter((profile) => profile.count === undefined || profile.count > 0);
-
-		this.categoriesWithArticles = this.categoriesWithArticles.map((cat) => ({
-			...cat,
-			articles: cat.articles.filter((a) => !urls.has(a.url ?? ''))
-		}));
-
-		this.profilesStale = true;
-		this.categoriesStale = true;
+		this.profiles.invalidate();
+		this.categories.invalidate();
 	}
 }
 
