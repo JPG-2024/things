@@ -160,14 +160,20 @@ function splitContent(content: string, chunking: Chunking) {
 	}
 
 	if (chunking.splitByString) return splitByString(content, chunking.splitByString);
-	if (chunking.windowDivisor) return splitByLevels(content, chunking.windowDivisor);
+	if (chunking.windowDivisor)
+		return splitByLevels(content, chunking.windowDivisor, chunking.overlap);
 	return splitForEmbeddings(content, {
 		windowSize: chunking.windowSize,
 		overlap: chunking.overlap
 	});
 }
 
-import { MAX_WINDOW_DIVISOR, TARGET_CHUNK_SIZE, WINDOW_DIVISOR_LADDER } from './constants';
+import {
+	MAX_WINDOW_DIVISOR,
+	TARGET_CHUNK_SIZE,
+	WINDOW_DIVISOR_LADDER,
+	WINDOW_OVERLAP_RATIO
+} from './constants';
 
 function computeAutoDivisor(contentLength: number): number {
 	if (contentLength <= 0) return 1;
@@ -285,9 +291,11 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 					!currentChunking.splitByString &&
 					!currentChunking.splitByHeaders
 				) {
+					const divisor = computeAutoDivisor(content.length);
 					currentChunking = {
 						...currentChunking,
-						windowDivisor: computeAutoDivisor(content.length)
+						windowDivisor: divisor,
+						overlap: Math.floor((content.length / divisor) * WINDOW_OVERLAP_RATIO)
 					};
 				}
 

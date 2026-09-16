@@ -6,6 +6,7 @@
 		gap?: string;
 		iconSize?: number;
 		class?: string;
+		layout?: 'flex' | 'grid';
 		children?: Snippet;
 	}
 
@@ -14,16 +15,17 @@
 		gap = '0.8rem',
 		iconSize,
 		class: className = '',
+		layout = 'flex',
 		children
 	}: Props = $props();
 
 	setContext('toolbar-icon-size', iconSize);
 </script>
 
-<div class="toolbar {className}" style:justify-content={justify} style:gap>
-	{#if children}
-		{@render children()}
-	{/if}
+<div class="toolbar toolbar--{layout} {className}" style:justify-content={justify} style:gap>
+		{#if children}
+			{@render children()}
+		{/if}
 </div>
 
 <style>
@@ -31,5 +33,11 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
+	}
+
+	.toolbar--grid {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
 	}
 </style>

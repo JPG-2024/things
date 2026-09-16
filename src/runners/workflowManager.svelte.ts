@@ -109,6 +109,13 @@ export class WorkflowManager {
 		return workflowStore.getTaskData<TMap, TId>(runId, taskId);
 	}
 
+	setTaskData<
+		TMap extends TaskMapBase = TaskMapBase,
+		TId extends keyof TMap & string = keyof TMap & string
+	>(runId: string, taskId: TId, data: TMap[TId]): void {
+		workflowStore.getRunner<TMap>(runId)?.setTaskData(taskId, data);
+	}
+
 	clearStack() {
 		workflowStore.clearStack();
 	}

@@ -11,7 +11,7 @@ import { webRunner } from '@/runners/web/webRunner';
 import { rawRunner } from '@/runners/raw/rawRunner';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
-import { scrapStore } from '@/stores/scrapStore.svelte';
+import { scrapStore, type YoutubeProfile } from '@/stores/scrapStore.svelte';
 
 type RouterResult = { data: { url: string | null; tasks?: Task[] }; cached: boolean };
 
@@ -55,7 +55,8 @@ const routeDefinitions: UrlRoute[] = [
 					context?.runnerOptions as { skipTaskIds?: string[]; profileId?: string } | undefined
 				)?.skipTaskIds,
 				profileId: (context?.runnerOptions as { profileId?: string } | undefined)?.profileId,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
+				profile: (context?.runnerOptions as { profile?: YoutubeProfile } | undefined)?.profile
 			})
 	},
 	{

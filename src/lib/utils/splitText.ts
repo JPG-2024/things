@@ -271,7 +271,15 @@ export function splitForEmbeddings(
 	return chunks;
 }
 
-export function splitByLevels(text: string, levels: number): EmbeddingChunk[] {
+function snapToWordStart(text: string, position: number, floor: number): number {
+	let snapped = position;
+	while (snapped > floor && !/\s/.test(text.charAt(snapped - 1))) {
+		snapped--;
+	}
+	return snapped > floor ? snapped : position;
+}
+
+export function splitByLevels(text: string, levels: number, overlap = 0): EmbeddingChunk[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 
@@ -290,6 +298,7 @@ export function splitByLevels(text: string, levels: number): EmbeddingChunk[] {
 	}
 
 	const targetStep = Math.floor(trimmed.length / count);
+	const effectiveOverlap = Math.max(0, Math.min(Math.floor(overlap), Math.floor(targetStep / 2)));
 	const chunks: EmbeddingChunk[] = [];
 	let position = 0;
 	let index = 0;
@@ -310,7 +319,14 @@ export function splitByLevels(text: string, levels: number): EmbeddingChunk[] {
 			});
 			index++;
 		}
-		position = end;
+
+		if (effectiveOverlap > 0) {
+			const target = end - effectiveOverlap;
+			const snapped = target > position ? snapToWordStart(trimmed, target, position) : end;
+			position = snapped > position ? snapped : end;
+		} else {
+			position = end;
+		}
 	}
 
 	if (position < trimmed.length) {

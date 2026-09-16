@@ -206,7 +206,7 @@
 	use:autoHide={{ scrollContainerId: 'dashboard-content' }}
 >
 	<div class="toolbar-row page-topbar">
-		<Toolbar justify="space-between" iconSize={18}>
+		<Toolbar layout="grid" iconSize={18}>
 			<div class="toolbar-left">
 				<LuminousText
 					mode="random"
@@ -216,6 +216,8 @@
 				>
 					Things
 				</LuminousText>
+			</div>
+			<div class="toolbar-center">
 				<Input
 					type="text"
 					bind:value={viewState.unifiedFilter}
@@ -223,7 +225,6 @@
 					onShiftEnter={handleRawSearch}
 				/>
 			</div>
-			<div class="toolbar-center"></div>
 			<div class="toolbar-actions">
 				<!-- 	<button
 		type="button"
@@ -360,12 +361,14 @@
 	.toolbar-actions {
 		display: flex;
 		align-items: center;
+		justify-self: end;
 	}
 
 	.toolbar-left {
 		display: flex;
 		align-items: center;
 		gap: 2rem;
+		justify-self: start;
 	}
 
 	.settings-trigger {
@@ -380,7 +383,7 @@
 	.dashboard-container {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 1rem;
+
 		width: 100%;
 		height: 100vh;
 		overflow: hidden;
@@ -392,6 +395,9 @@
 
 	.dashboard-profilesbar-container {
 		margin-top: 10rem;
+		height: calc(100vh - 10rem);
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.dashboard-content {
@@ -439,8 +445,8 @@
 	.toolbar-center {
 		display: flex;
 		align-items: center;
-		flex: 1;
-		max-width: 340px;
+		justify-self: center;
+		width: 340px;
 		padding: 0 1rem;
 	}
 

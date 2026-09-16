@@ -38,8 +38,6 @@
 
 	let isRowMode = $derived(layoutKey === 'row');
 
-	console.log('article', article);
-
 	const title = $derived(
 		(
 			(article.persistedTasks?.find((t) => t.name?.toLocaleLowerCase() === 'title')?.data as

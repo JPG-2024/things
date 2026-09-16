@@ -37,22 +37,16 @@ class ScrapState {
 	maxVideos = $state(5);
 	parallelVideosAmount = $state(2);
 
-	async getYoutubeProfile(handleOrUrl: string): Promise<YoutubeProfile | null> {
+	async getYoutubeProfile(
+		handleOrUrl: string,
+		options?: { scroll?: boolean }
+	): Promise<YoutubeProfile | null> {
 		this.loading = true;
 		this.error = null;
 		try {
-			const url = buildYouTubeProfileUrl(handleOrUrl);
-			const res = await fetch(`${SCRAPER_API_URL}/api/scrape`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url })
-			});
-
-			if (!res.ok) {
-				throw new Error(`Scrape request failed: ${res.status} ${res.statusText}`);
-			}
-
-			const data = (await res.json()) as YoutubeProfile;
+			const data = options?.scroll
+				? await this.fetchYoutubeProfileWithScroll(handleOrUrl)
+				: await this.fetchYoutubeProfileViaScrape(handleOrUrl);
 			this.profile = data;
 			return data;
 		} catch (err) {
@@ -61,6 +55,40 @@ class ScrapState {
 		} finally {
 			this.loading = false;
 		}
+	}
+
+	private async fetchYoutubeProfileViaScrape(handleOrUrl: string): Promise<YoutubeProfile> {
+		const url = buildYouTubeProfileUrl(handleOrUrl);
+		const res = await fetch(`${SCRAPER_API_URL}/api/scrape`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ url })
+		});
+
+		if (!res.ok) {
+			throw new Error(`Scrape request failed: ${res.status} ${res.statusText}`);
+		}
+
+		return (await res.json()) as YoutubeProfile;
+	}
+
+	private async fetchYoutubeProfileWithScroll(handleOrUrl: string): Promise<YoutubeProfile> {
+		const profileUrl = buildYouTubeProfileUrl(handleOrUrl);
+		let profilePath: string;
+		try {
+			profilePath = new URL(profileUrl).pathname.replace(/^\//, '');
+		} catch {
+			profilePath = handleOrUrl.trim().replace(/^\/+/, '');
+		}
+
+		const res = await fetch(`${SCRAPER_API_URL}/api/profile/youtube/${profilePath}?scroll=true`);
+
+		console.log(res);
+		if (!res.ok) {
+			throw new Error(`Profile scrape request failed: ${res.status} ${res.statusText}`);
+		}
+
+		return (await res.json()) as YoutubeProfile;
 	}
 
 	async getYoutubeVideoInfo(videoId: string): Promise<YoutubeVideoInfo | null> {
@@ -126,10 +154,12 @@ class ScrapState {
 		this.error = null;
 
 		try {
-			const youtubeProfile = await this.getYoutubeProfile(handle);
+			const youtubeProfile = await this.getYoutubeProfile(handle, { scroll: true });
 			if (!youtubeProfile) {
 				throw new Error(this.error ?? 'Failed to fetch profile videos');
 			}
+
+			console.log(youtubeProfile);
 
 			const total = youtubeProfile.videos.length;
 
@@ -181,7 +211,12 @@ class ScrapState {
 			const runOne = async (url: string) => {
 				try {
 					await urlRouter(url, {
-						runnerOptions: { skipTaskIds, profileId: normalizedProfileId, templateId: 'initial' }
+						runnerOptions: {
+							skipTaskIds,
+							profileId: normalizedProfileId,
+							templateId: 'initial',
+							profile: youtubeProfile
+						}
 					});
 					fetched++;
 				} catch (err) {

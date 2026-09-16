@@ -11,7 +11,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
-	import Keywords from '@/components/Keywords.svelte';
+	import CategoryEditor from '@/components/CategoryEditor.svelte';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
@@ -35,6 +35,9 @@
 		stackedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')?.task.data as
 			| string[]
 			| undefined
+	);
+	const categoryRunId = $derived(
+		stackedTasks.find((e) => e.task.id === 'category')?.runId ?? workflowStore.focusedRunId ?? null
 	);
 	const otherTasks = $derived(
 		sortedTasks.filter(
@@ -146,7 +149,7 @@
 </script>
 
 <div class="tasks-container">
-	{#if thumbnailData || categoryData || titleText}
+	{#if thumbnailData || categoryData || titleText || viewState.url}
 		<div class="tasks-header-row">
 			{#if thumbnailData}
 				<div class="header-col thumbnail-col">
@@ -154,13 +157,17 @@
 				</div>
 			{/if}
 
-			{#if categoryData || titleText}
+			{#if categoryData || titleText || viewState.url}
 				<div class="header-col category-col">
 					{#if titleText}
 						<div class="tasks-title">{titleText}</div>
 					{/if}
-					{#if categoryData}
-						<Keywords keywords={categoryData} />
+					{#if viewState.url}
+						<CategoryEditor
+							articleUrl={viewState.url}
+							runId={categoryRunId}
+							value={categoryData ?? []}
+						/>
 					{/if}
 				</div>
 			{/if}

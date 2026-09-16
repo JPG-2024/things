@@ -8,7 +8,7 @@ import {
 	type PersistedTaskState
 } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
-import { scrapStore } from '@/stores/scrapStore.svelte';
+import { scrapStore, type YoutubeProfile } from '@/stores/scrapStore.svelte';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
@@ -25,6 +25,7 @@ export interface YouTubeRunnerCallConfig {
 	skipTaskIds?: string[];
 	profileId?: string;
 	templateId?: string;
+	profile?: YoutubeProfile | null;
 }
 
 function extractVideoId(url: string): string | null {
@@ -172,10 +173,14 @@ export async function youTubeRunner(
 	const normalizedRunnerProfileId = config?.profileId?.trim()
 		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-')
 		: undefined;
-	scrapStore.currentYoutubeProfile = null;
 
-	if (videoId) {
-		fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
+	if (config?.profile) {
+		scrapStore.currentYoutubeProfile = config.profile;
+	} else {
+		scrapStore.currentYoutubeProfile = null;
+		if (videoId) {
+			fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
+		}
 	}
 
 	const result = await runTemplateWorkflow(cleanUrl, domainUrl, initialTasks, {

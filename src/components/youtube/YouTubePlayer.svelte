@@ -16,7 +16,7 @@
 	void componentProps;
 </script>
 
-<div class="yt-wrapper" transition:fade={{ duration: 1000 }}>
+<div class="yt-wrapper" transition:fade={{ duration: 200 }}>
 	{#if showIframe}
 		<iframe
 			class="yt-video"

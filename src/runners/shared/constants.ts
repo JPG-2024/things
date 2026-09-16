@@ -1,4 +1,5 @@
 export const WINDOW_DIVISOR_LADDER = [1, 2, 4, 8, 16] as const;
 export const WINDOW_LEVEL_LABELS = WINDOW_DIVISOR_LADDER.map(String);
 export const MAX_WINDOW_DIVISOR = WINDOW_DIVISOR_LADDER[WINDOW_DIVISOR_LADDER.length - 1];
-export const TARGET_CHUNK_SIZE = 3000;
+export const TARGET_CHUNK_SIZE = 8000;
+export const WINDOW_OVERLAP_RATIO = 0.1;

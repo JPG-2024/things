@@ -12,11 +12,15 @@ export function useVoiceProfiles() {
 	let chunks = $state<Voice[]>([]);
 	let selectedProfileId = $state('');
 
-	async function loadChunksForProfile(profileId: string): Promise<void> {
+	async function loadChunksForProfile(profileId: string, silent = false): Promise<void> {
 		try {
-			chunks = await fetchVoiceChunks(profileId);
+			chunks = await fetchVoiceChunks(profileId, silent);
 			ttsState.setVoiceChunks(chunks);
 		} catch (err) {
+			if (silent) {
+				console.warn('[TTS] Failed to load voice chunks', err);
+				return;
+			}
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voice chunks';
 		}
 	}
@@ -85,14 +89,14 @@ export function useVoiceProfiles() {
 
 	async function initProfiles(): Promise<void> {
 		try {
-			profiles = await fetchVoiceProfiles();
+			profiles = await fetchVoiceProfiles(true);
 			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
 				selectedProfileId = match.id;
-				await loadChunksForProfile(match.id);
+				await loadChunksForProfile(match.id, true);
 			}
 		} catch (err) {
-			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
+			console.warn('[TTS] Failed to load voices', err);
 		}
 	}
 

@@ -36,13 +36,12 @@ function isAbort(err: unknown): boolean {
 	return err instanceof DOMException && err.name === 'AbortError';
 }
 
-export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
+export async function fetchVoiceProfiles(silent = false): Promise<VoiceProfile[]> {
 	try {
 		const res = await fetch(`${TTS_API_URL}/voices`);
-		console.log(res);
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
-			await setErrorFrom(new Error(message), 'Failed to fetch voice profiles');
+			if (!silent) await setErrorFrom(new Error(message), 'Failed to fetch voice profiles');
 			throw new Error(message);
 		}
 		const data: { profiles: VoiceProfile[] } = await res.json();
@@ -51,7 +50,7 @@ export async function fetchVoiceProfiles(): Promise<VoiceProfile[]> {
 	} catch (err) {
 		if (isAbort(err)) throw err;
 		if (err instanceof Error && err.message) throw err;
-		await setErrorFrom(err, 'Failed to fetch voice profiles');
+		if (!silent) await setErrorFrom(err, 'Failed to fetch voice profiles');
 		throw err;
 	}
 }
@@ -60,12 +59,12 @@ export function getImage(filename: string): string {
 	return `${TTS_API_URL}${filename}`;
 }
 
-export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
+export async function fetchVoiceChunks(profileId: string, silent = false): Promise<Voice[]> {
 	try {
 		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`);
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
-			await setErrorFrom(new Error(message), 'Failed to fetch voice chunks');
+			if (!silent) await setErrorFrom(new Error(message), 'Failed to fetch voice chunks');
 			throw new Error(message);
 		}
 		const data: { chunks: Voice[] } = await res.json();
@@ -73,7 +72,7 @@ export async function fetchVoiceChunks(profileId: string): Promise<Voice[]> {
 	} catch (err) {
 		if (isAbort(err)) throw err;
 		if (err instanceof Error && err.message) throw err;
-		await setErrorFrom(err, 'Failed to fetch voice chunks');
+		if (!silent) await setErrorFrom(err, 'Failed to fetch voice chunks');
 		throw err;
 	}
 }

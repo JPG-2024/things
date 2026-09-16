@@ -273,6 +273,15 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 	}
 
 	/**
+	 * Store data for a task without re-running it.
+	 * @param taskId - Task id to update.
+	 * @param data - New task data.
+	 */
+	setTaskData<TId extends keyof TMap & string>(taskId: TId, data: TMap[TId]): void {
+		this.setTaskFields(taskId, { data } as Partial<Task<TMap>>);
+	}
+
+	/**
 	 * Find a task by id.
 	 * @param taskId - Id of the task.
 	 * @returns The Task or undefined.

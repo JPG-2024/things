@@ -166,8 +166,10 @@
 		gap: 1.1rem;
 		width: fit-content;
 		padding: 0 1rem 0 1rem;
+		padding-right: 0;
 		overflow-y: auto;
 		height: 100%;
+		min-height: 0;
 		flex-shrink: 0;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
