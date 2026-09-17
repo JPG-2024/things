@@ -916,7 +916,8 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 			})
 		]);
 
-		const result = isDomainId(profileId)
+		const isDomain = profile ? profile.domainId === profile.id : isDomainId(profileId);
+		const result = isDomain
 			? await invoke<WebStoreProfileDeletion>('delete_web_store_domain', { domainId: profileId })
 			: await invoke<WebStoreProfileDeletion>('delete_web_store_profile', { profileId });
 
@@ -967,7 +968,7 @@ export async function saveProfile(
 
 	try {
 		let result: unknown;
-		if (isDomainId(normalizedId)) {
+		if (normalizedId === normalizedDomainId) {
 			result = await saveDomain(normalizedId, profilePicture, url);
 		} else {
 			result = await invoke('upsert_web_store_profile', {
