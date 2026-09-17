@@ -1,5 +1,11 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveProfile, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import {
+	saveArticle,
+	saveProfile,
+	saveTasks,
+	type PersistedTaskState,
+	type ArticleFieldOverrides
+} from '@/stores/webStore';
 import { stripQueryParams } from '@/lib/utils/url';
 import { viewState } from '@/stores/viewStore.svelte';
 import { createDefaultTasks } from '@/runners/shared/sharedTasks';
@@ -20,6 +26,7 @@ export interface SocialMediaRunnerCallConfig {
 	Rebuild?: boolean;
 	makeActive?: boolean;
 	templateId?: string;
+	articleOverrides?: ArticleFieldOverrides;
 }
 
 function extractProfileId(url: string): string | null {
@@ -87,10 +94,15 @@ export async function socialMediaRunner(
 		Rebuild: config?.Rebuild,
 		cachedTasks: config?.cachedTasks,
 		templateId: config?.templateId,
+		articleOverrides: config?.articleOverrides,
 		defaultTasksFactory: () => createDefaultTasks('content'),
-		onRunResult: async (runResult, { templateId }) => {
+		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(cleanUrl, runResult.tasks, { profile: profileId, templateId }),
+				saveArticle(cleanUrl, runResult.tasks, {
+					profile: profileId,
+					...articleOverrides,
+					templateId
+				}),
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 

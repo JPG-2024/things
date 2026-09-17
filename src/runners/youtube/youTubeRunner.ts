@@ -5,7 +5,8 @@ import {
 	saveTasks,
 	getArticleWithTasksByUrl,
 	getProfile,
-	type PersistedTaskState
+	type PersistedTaskState,
+	type ArticleFieldOverrides
 } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import { scrapStore, type YoutubeProfile } from '@/stores/scrapStore.svelte';
@@ -26,6 +27,7 @@ export interface YouTubeRunnerCallConfig {
 	profileId?: string;
 	templateId?: string;
 	profile?: YoutubeProfile | null;
+	articleOverrides?: ArticleFieldOverrides;
 }
 
 function extractVideoId(url: string): string | null {
@@ -189,13 +191,15 @@ export async function youTubeRunner(
 		cachedTasks: config?.cachedTasks,
 		skipTaskIds: config?.skipTaskIds,
 		templateId: config?.templateId,
+		articleOverrides: config?.articleOverrides,
 		defaultTasksFactory: () => createDefaultTasks('content'),
-		onRunResult: async (runResult, { templateId }) => {
+		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			const profile = scrapStore.currentYoutubeProfile;
 			const profileIdForArticle = profile?.id ?? normalizedRunnerProfileId;
 			const saveOperations: Promise<unknown>[] = [
 				saveArticle(cleanUrl, runResult.tasks, {
 					...(profileIdForArticle ? { profile: profileIdForArticle } : {}),
+					...articleOverrides,
 					templateId
 				}),
 				saveTasks(cleanUrl, runResult.tasks)

@@ -1,5 +1,11 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveDomain, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import {
+	saveArticle,
+	saveDomain,
+	saveTasks,
+	type PersistedTaskState,
+	type ArticleFieldOverrides
+} from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { invoke } from '@tauri-apps/api/core';
@@ -16,6 +22,7 @@ type WebRunnerOptions = {
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[] | null;
 	templateId?: string;
+	articleOverrides?: ArticleFieldOverrides;
 };
 
 function deriveDomainFromUrl(url: string): string {
@@ -153,10 +160,11 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
+		articleOverrides: options.articleOverrides,
 		defaultTasksFactory: () => createDefaultTasks('content', { splitByHeaders: true }),
-		onRunResult: async (runResult, { templateId }) => {
+		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			const saveOperations: Promise<unknown>[] = [
-				saveArticle(url, runResult.tasks, { templateId }),
+				saveArticle(url, runResult.tasks, { ...articleOverrides, templateId }),
 				saveTasks(url, runResult.tasks)
 			];
 

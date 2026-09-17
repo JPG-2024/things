@@ -1,5 +1,10 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
-import { saveArticle, saveTasks, type PersistedTaskState } from '@/stores/webStore';
+import {
+	saveArticle,
+	saveTasks,
+	type PersistedTaskState,
+	type ArticleFieldOverrides
+} from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
@@ -10,6 +15,7 @@ type RawRunnerOptions = {
 	Rebuild?: boolean;
 	cachedTasks?: PersistedTaskState[];
 	templateId?: string;
+	articleOverrides?: ArticleFieldOverrides;
 };
 
 const RAW_TEXT_PROFILE = 'raw-text';
@@ -38,9 +44,10 @@ export async function rawRunner(
 		Rebuild: options.Rebuild,
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
-		onRunResult: async (runResult, { templateId }) => {
+		articleOverrides: options.articleOverrides,
+		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			await Promise.all([
-				saveArticle(rawId, runResult.tasks, { templateId }),
+				saveArticle(rawId, runResult.tasks, { ...articleOverrides, templateId }),
 				saveTasks(rawId, runResult.tasks)
 			]);
 

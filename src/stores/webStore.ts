@@ -405,14 +405,24 @@ export function buildEmbeddingSourceText(input: {
 	return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
+export type ArticleFieldOverrides = {
+	title?: string;
+	thumbnail?: string;
+	directory?: string;
+	mainColor?: string;
+	profile?: string;
+	date?: string;
+	templateId?: string;
+};
+
 export async function buildUpsertInput(params: {
 	url: string;
 	tasksToSave: Array<{ id?: string; data?: unknown }>;
 	existingArticle: ArticleWithTasks | null;
-	valuesToOverride?: Partial<Record<string, unknown>> | undefined;
+	valuesToOverride?: ArticleFieldOverrides | undefined;
 }): Promise<UpsertWebStoreArticleInput> {
 	const title = firstNormalizedString(
-		params.valuesToOverride?.title as string | undefined,
+		params.valuesToOverride?.title,
 		getStoredTaskData<string>(params.tasksToSave, 'title'),
 		params.existingArticle?.title
 	);
@@ -424,25 +434,25 @@ export async function buildUpsertInput(params: {
 		}>(params.tasksToSave, 'thumbnail') ?? {};
 
 	const thumbnail = firstNormalizedString(
-		params.valuesToOverride?.thumbnail as string | undefined,
+		params.valuesToOverride?.thumbnail,
 		thumbnailTaskData.thumbnailImage,
 		params.existingArticle?.thumbnail
 	);
 	const directory = firstNormalizedString(
-		params.valuesToOverride?.directory as string | undefined,
+		params.valuesToOverride?.directory,
 		thumbnailTaskData.mediaDirectory,
 		getArticleStringField(params.existingArticle, 'mediaDirectory'),
 		getArticleStringField(params.existingArticle, 'directory')
 	);
 	const mainColor = firstNormalizedString(
-		params.valuesToOverride?.mainColor as string | undefined,
+		params.valuesToOverride?.mainColor,
 		getStoredTaskData<string>(params.tasksToSave, 'main-color'),
 		params.existingArticle?.mainColor ?? null,
 		params.existingArticle?.primaryColor ?? null
 	);
 	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'analysis'));
 	const profile = firstNormalizedString(
-		params.valuesToOverride?.profile as string | undefined,
+		params.valuesToOverride?.profile,
 		getArticleStringField(params.existingArticle, 'profile')
 	);
 
@@ -451,14 +461,12 @@ export async function buildUpsertInput(params: {
 		'video-info'
 	);
 	const date = firstNormalizedString(
-		params.valuesToOverride?.date as string | undefined,
+		params.valuesToOverride?.date,
 		videoInfoData?.uploadDate,
 		params.existingArticle?.date as string | undefined
 	);
 
-	const requestedTemplateId = normalizeNullableString(
-		params.valuesToOverride?.templateId as string | undefined
-	);
+	const requestedTemplateId = normalizeNullableString(params.valuesToOverride?.templateId);
 	const existingTemplateId = normalizeNullableString(
 		getArticleStringField(params.existingArticle, 'templateId')
 	);
@@ -783,7 +791,7 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 export async function saveArticle(
 	url: string,
 	tasksToSave: Array<{ id?: string; data?: unknown }>,
-	valuesToOverride?: Partial<Record<string, unknown>> | undefined
+	valuesToOverride?: ArticleFieldOverrides | undefined
 ): Promise<void> {
 	let input: Awaited<ReturnType<typeof buildUpsertInput>> | undefined;
 	try {
@@ -982,9 +990,14 @@ export async function saveProfile(
 	}
 }
 
+export type RemoteVideo = {
+	url: string;
+	title: string;
+};
+
 export type RemoteProfile = {
 	id: string;
-	videos: string[];
+	videos: RemoteVideo[];
 	profileImage: string;
 };
 

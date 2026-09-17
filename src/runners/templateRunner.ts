@@ -2,7 +2,7 @@ import type { Task, TaskRunSummary } from '@/types/taskRunner.types';
 import { workflowManager } from '@/runners/workflowManager.svelte';
 import { getProfileTemplateId, getTemplate } from '@/stores/templateStore';
 import { buildTasksFromTemplate } from '@/runners/templateBuilder';
-import type { PersistedTaskState } from '@/stores/webStore';
+import type { PersistedTaskState, ArticleFieldOverrides } from '@/stores/webStore';
 import { createPersistedTaskStateMap, applyPersistedTaskState } from '@/runners/taskBuilder';
 import { DEFAULT_TEMPLATE_ID, INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 
@@ -14,10 +14,12 @@ export interface RunTemplateWorkflowOptions {
 	onRunResult?: (runResult: TaskRunSummary, context: TemplateRunContext) => void | Promise<void>;
 	defaultTasksFactory?: () => Task[];
 	templateId?: string;
+	articleOverrides?: ArticleFieldOverrides;
 }
 
 export interface TemplateRunContext {
 	templateId: string;
+	articleOverrides: ArticleFieldOverrides;
 }
 
 export interface TemplateWorkflowResult {
@@ -158,7 +160,10 @@ export async function runTemplateWorkflow(
 	});
 
 	if (options.onRunResult) {
-		await options.onRunResult(runResult, { templateId: effectiveTemplateId });
+		await options.onRunResult(runResult, {
+			templateId: effectiveTemplateId,
+			articleOverrides: options.articleOverrides ?? {}
+		});
 	}
 
 	return { tasks: runResult.tasks as Task[], templateId: effectiveTemplateId };

@@ -70,9 +70,16 @@ pub struct WebStoreProfileDeletion {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RemoteVideo {
+    pub url: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteProfile {
     pub id: String,
-    pub videos: Vec<String>,
+    pub videos: Vec<RemoteVideo>,
     pub profile_image: String,
 }
 

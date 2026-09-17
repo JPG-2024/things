@@ -13,10 +13,15 @@ export interface FetchMissingProfileVideosResult {
 	errors?: Array<{ url: string; error: string }>;
 }
 
+export interface YouTubeVideo {
+	url: string;
+	title: string;
+}
+
 export interface YoutubeProfile {
 	id: string;
 	profilePath: string;
-	videos: string[];
+	videos: YouTubeVideo[];
 	profileImage: string;
 }
 
@@ -163,31 +168,31 @@ class ScrapState {
 
 			const total = youtubeProfile.videos.length;
 
-			const normalized = [
-				...new Set(
-					youtubeProfile.videos
-						.map((u) => {
-							try {
-								return normalizeYouTubeUrl(u.trim());
-							} catch {
-								return u.trim();
-							}
-						})
-						.map((u) => u.trim())
-						.filter(Boolean)
-				)
-			];
+			const normalized: YouTubeVideo[] = [];
+			for (const video of youtubeProfile.videos) {
+				const rawUrl = video.url?.trim();
+				if (!rawUrl) continue;
+				let normalizedUrl = rawUrl;
+				try {
+					normalizedUrl = normalizeYouTubeUrl(rawUrl);
+				} catch {
+					/* keep raw url */
+				}
+				if (!normalized.some((entry) => entry.url === normalizedUrl)) {
+					normalized.push({ url: normalizedUrl, title: video.title ?? '' });
+				}
+			}
 
 			if (normalized.length === 0) {
 				return { total, missing: 0, fetched: 0, failed: 0, skippedExisting: 0 };
 			}
 
 			const existing = await invoke<string[]>('filter_existing_article_urls', {
-				urls: normalized
+				urls: normalized.map((video) => video.url)
 			});
 
 			const existingSet = new Set(existing);
-			const missing = normalized.filter((u) => !existingSet.has(u));
+			const missing = normalized.filter((video) => !existingSet.has(video.url));
 			const skippedExisting = normalized.length - missing.length;
 
 			const toFetch = missing.slice(0, maxVideos);
@@ -208,31 +213,35 @@ class ScrapState {
 			let failed = 0;
 			const errors: Array<{ url: string; error: string }> = [];
 
-			const runOne = async (url: string) => {
+			const runOne = async (video: YouTubeVideo) => {
 				try {
-					await urlRouter(url, {
+					await urlRouter(video.url, {
 						runnerOptions: {
 							skipTaskIds,
 							profileId: normalizedProfileId,
 							templateId: 'initial',
 							profile: youtubeProfile
-						}
+						},
+						articleOverrides: { title: video.title }
 					});
 					fetched++;
 				} catch (err) {
 					failed++;
-					errors.push({ url, error: err instanceof Error ? err.message : String(err) });
+					errors.push({
+						url: video.url,
+						error: err instanceof Error ? err.message : String(err)
+					});
 				}
 			};
 
 			if (parallel) {
 				for (let i = 0; i < toFetch.length; i += parallelAmount) {
 					const batch = toFetch.slice(i, i + parallelAmount);
-					await Promise.allSettled(batch.map((url) => runOne(url)));
+					await Promise.allSettled(batch.map((video) => runOne(video)));
 				}
 			} else {
-				for (const url of toFetch) {
-					await runOne(url);
+				for (const video of toFetch) {
+					await runOne(video);
 				}
 			}
 

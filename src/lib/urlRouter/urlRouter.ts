@@ -1,6 +1,11 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
-import { deleteArticleByUrl, getTasksByUrl, type PersistedTaskState } from '@/stores/webStore';
+import {
+	deleteArticleByUrl,
+	getTasksByUrl,
+	type PersistedTaskState,
+	type ArticleFieldOverrides
+} from '@/stores/webStore';
 import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
 import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 import {
@@ -28,6 +33,7 @@ type UrlRouteHandlerContext = {
 	cachedTasks?: PersistedTaskState[] | null;
 	runnerOptions?: Record<string, unknown>;
 	routine?: string;
+	articleOverrides?: ArticleFieldOverrides;
 };
 
 type UrlRoute = {
@@ -56,7 +62,8 @@ const routeDefinitions: UrlRoute[] = [
 				)?.skipTaskIds,
 				profileId: (context?.runnerOptions as { profileId?: string } | undefined)?.profileId,
 				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				profile: (context?.runnerOptions as { profile?: YoutubeProfile } | undefined)?.profile
+				profile: (context?.runnerOptions as { profile?: YoutubeProfile } | undefined)?.profile,
+				articleOverrides: context?.articleOverrides
 			})
 	},
 	{
@@ -82,7 +89,8 @@ const routeDefinitions: UrlRoute[] = [
 				makeActive: true,
 				Rebuild: false,
 				cachedTasks,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
+				articleOverrides: context?.articleOverrides
 			});
 		}
 	},
@@ -93,7 +101,8 @@ const routeDefinitions: UrlRoute[] = [
 			socialMediaRunner(url, 'tiktok', {
 				cachedTasks: context?.cachedTasks,
 				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
+				articleOverrides: context?.articleOverrides
 			})
 	},
 	{
@@ -103,7 +112,8 @@ const routeDefinitions: UrlRoute[] = [
 			socialMediaRunner(url, 'instagram', {
 				cachedTasks: context?.cachedTasks,
 				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
+				articleOverrides: context?.articleOverrides
 			})
 	},
 	{
@@ -112,7 +122,8 @@ const routeDefinitions: UrlRoute[] = [
 		handler: (url, context) =>
 			webRunner(url, {
 				cachedTasks: context?.cachedTasks,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId
+				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
+				articleOverrides: context?.articleOverrides
 			})
 	}
 ];
@@ -129,11 +140,12 @@ type UrlRouterOptions = {
 	forceRunTasks?: boolean;
 	runnerOptions?: Record<string, unknown>;
 	routine?: string;
+	articleOverrides?: ArticleFieldOverrides;
 };
 
 export async function urlRouter(
 	url: string,
-	{ forceRunTasks = false, runnerOptions, routine }: UrlRouterOptions = {}
+	{ forceRunTasks = false, runnerOptions, routine, articleOverrides }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
 	workflowManager.clearStack();
 	scrapStore.currentYoutubeProfile = null;
@@ -172,7 +184,8 @@ export async function urlRouter(
 			const tasks = await matchingRoute.handler(url, {
 				cachedTasks,
 				runnerOptions,
-				routine
+				routine,
+				articleOverrides
 			});
 
 			if (!cachedTasks) {
