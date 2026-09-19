@@ -146,7 +146,7 @@
 				</div>
 			{:else}
 				<div class="article-title">
-					<span>{title}</span>
+					<span>{article.title}</span>
 				</div>
 				{@render categoryPills()}
 			{/if}
@@ -171,7 +171,7 @@
 				</div>
 			{:else}
 				<div class="article-title">
-					<span>{title}</span>
+					<span>{article.title}</span>
 				</div>
 				{@render categoryPills()}
 				{#if randomTopics.length > 0}
@@ -202,7 +202,7 @@
 					</div>
 				{:else if !thumbnailOnly || !article.thumbnailSrc}
 					<div class="article-title">
-						<span>{title}</span>
+						<span>{article.title}</span>
 					</div>
 					{@render categoryPills()}
 					{#if randomTopics.length > 0}

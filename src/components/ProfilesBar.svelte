@@ -114,7 +114,7 @@
 					type="button"
 					class="profile-btn"
 					class:active={viewState.activeArticleProfileId === profile.id}
-					class:inactive={viewState.activeArticleProfileId!! &&
+					class:inactive={viewState.activeArticleProfileId! &&
 						viewState.activeArticleProfileId !== profile.id}
 					onclick={() => handleToggleProfileFilter(profile)}
 					onmouseenter={() => handleHoverEnter(profile)}

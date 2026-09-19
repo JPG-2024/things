@@ -154,6 +154,8 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 					extractorConfig: iaTask.extractorConfig,
 					categoryNames: iaTask.categoryNames,
 					embeddings: task.embeddings ?? false,
+					storeChunkText: task.storeChunkText ?? false,
+					embedField: task.embedField,
 					visible: task.visible ?? true
 				};
 			}
@@ -179,6 +181,8 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 					scriptFactory: 'recursive',
 					scriptConfig: recursiveConfig ?? {},
 					embeddings: task.embeddings ?? false,
+					storeChunkText: task.storeChunkText ?? false,
+					embedField: task.embedField,
 					visible: task.visible ?? true
 				};
 			}

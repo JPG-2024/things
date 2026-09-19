@@ -357,6 +357,7 @@
 		/>
 		{#if !fixedColumns}
 			<Icon name="Minus" size={15} onClick={decreaseLayout} />
+			<span class="column-count">{effectiveColumns}</span>
 			<Icon name="Plus" size={15} onClick={increaseLayout} />
 		{/if}
 	</div>
@@ -385,6 +386,12 @@
 </div>
 
 <style>
+	.column-count {
+		font-size: 0.75rem;
+		min-width: 1rem;
+		text-align: center;
+	}
+
 	.masonry-container {
 		width: 100%;
 		display: flex;

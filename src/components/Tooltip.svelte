@@ -8,21 +8,22 @@
 	} from '@/lib/position';
 
 	interface Props {
-		content: string;
+		content?: string;
+		contentSnippet?: Snippet;
 		position?: PopupPositionInput;
 		children: Snippet;
 	}
 
 	export type TooltipProps = Props;
 
-	let { content, position = 'bottom', children }: Props = $props();
+	let { content, contentSnippet, position = 'bottom', children }: Props = $props();
 
 	const menuCtx = getContext<{ open: boolean }>('popup-menu-open');
 
 	let wrapperEl: HTMLDivElement;
 	let tooltipEl: HTMLSpanElement;
 	let isHovered = $state(false);
-	let visible = $derived(isHovered && !!content && !(menuCtx?.open ?? false));
+	let visible = $derived(isHovered && (!!content || !!contentSnippet) && !(menuCtx?.open ?? false));
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
 	let effectivePosition = $state<PopupPosition>('bottom');
@@ -53,7 +54,7 @@
 	}
 
 	function handleMouseEnter() {
-		if (!content) return;
+		if (!content && !contentSnippet) return;
 		if (menuCtx?.open) return;
 		updatePosition();
 		isHovered = true;
@@ -84,7 +85,8 @@
 	bind:this={tooltipEl}
 	class="tooltip tooltip-{effectivePosition}"
 	class:visible
-	style="left: {tooltipX}px; top: {tooltipY}px;">{content}</span
+	style="left: {tooltipX}px; top: {tooltipY}px;"
+	>{#if contentSnippet}{@render contentSnippet()}{:else}{content}{/if}</span
 >
 
 <style>
@@ -108,7 +110,7 @@
 		color: white;
 		padding: 0.4rem 0.7rem;
 		font-size: 0.8rem;
-		white-space: normal;
+		white-space: pre-wrap;
 		z-index: 9999;
 		pointer-events: none;
 		max-width: 300px;

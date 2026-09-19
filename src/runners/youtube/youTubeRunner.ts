@@ -41,6 +41,7 @@ function extractVideoId(url: string): string | null {
 
 async function fetchYouTubeProfileInBackground(videoId: string, url: string): Promise<void> {
 	const existingArticle = await getArticleWithTasksByUrl(url);
+
 	if (existingArticle?.profileId) {
 		const existingProfile = await getProfile(existingArticle.profileId);
 		if (existingProfile) {
@@ -76,6 +77,7 @@ async function fetchYouTubeProfileInBackground(videoId: string, url: string): Pr
 	}
 
 	const youtubeProfile = await scrapStore.getProfileInfoFromVideo(videoId);
+
 	if (!youtubeProfile) return;
 	let profileImageLocal: string | null = null;
 

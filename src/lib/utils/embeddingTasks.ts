@@ -33,47 +33,77 @@ interface ChunkOffset {
 	endOffset?: number;
 }
 
-interface RecursiveChunkEntry {
-	key?: ChunkOffset;
-	data?: unknown;
+interface EmbeddableItem {
+	text: string;
+	startOffset?: number;
+	endOffset?: number;
 }
 
-interface RecursiveLikeData {
-	chunks?: unknown;
-}
+function collectEmbeddableItems(task: Task): EmbeddableItem[] {
+	const data = task.data;
+	const items: EmbeddableItem[] = [];
 
-function isChunkEntry(entry: unknown): entry is RecursiveChunkEntry {
-	if (!entry || typeof entry !== 'object') return false;
-	const record = entry as Record<string, unknown>;
-	return 'key' in record || 'data' in record;
-}
+	const pushText = (value: unknown, startOffset?: number, endOffset?: number) => {
+		if (typeof value === 'string' && value.trim()) {
+			items.push({ text: value, startOffset, endOffset });
+		}
+	};
 
-function isRecursiveData(
-	data: unknown
-): data is { chunks: Array<{ key: ChunkOffset; data: string[] }> } {
-	if (!data || typeof data !== 'object') return false;
-	const record = data as Record<string, unknown>;
-	const chunks = record.chunks;
-	if (!Array.isArray(chunks) || chunks.length === 0) return false;
-	return chunks.every((entry) => {
-		if (!isChunkEntry(entry)) return false;
-		const e = entry as RecursiveChunkEntry;
-		return Array.isArray(e.data) && e.key && typeof e.key === 'object';
-	});
+	const pushFieldValues = (fieldValue: unknown, startOffset?: number, endOffset?: number) => {
+		if (typeof fieldValue === 'string') {
+			pushText(fieldValue, startOffset, endOffset);
+		} else if (Array.isArray(fieldValue)) {
+			for (const v of fieldValue) pushText(v, startOffset, endOffset);
+		}
+	};
+
+	if (typeof data === 'string') {
+		pushText(data);
+		return items;
+	}
+	if (Array.isArray(data)) {
+		for (const v of data) pushText(v);
+		return items;
+	}
+
+	const record = data as Record<string, unknown> | undefined;
+	const chunks = record?.chunks;
+	if (!Array.isArray(chunks) || chunks.length === 0) return items;
+
+	const field = task.embedField ?? 'topics';
+
+	for (const entry of chunks) {
+		if (!entry || typeof entry !== 'object') continue;
+		const entryRecord = entry as Record<string, unknown>;
+		const key = entryRecord.key as ChunkOffset | undefined;
+		const chunkData = entryRecord.data;
+		const startOffset = key?.startOffset;
+		const endOffset = key?.endOffset;
+
+		if (Array.isArray(chunkData)) {
+			for (const v of chunkData) pushText(v, startOffset, endOffset);
+		} else if (chunkData && typeof chunkData === 'object') {
+			const fieldValue = (chunkData as Record<string, unknown>)[field];
+			pushFieldValues(fieldValue, startOffset, endOffset);
+		}
+	}
+
+	return items;
 }
 
 /**
  * Index task outputs into LanceDB embedding tables.
  *
  * Iterates over the provided tasks and, for each task with `embeddings: true`,
- * embeds its result chunks and writes them to a table named after the task id.
- * Only recursive-shaped results (`chunks` with `{ key, data }` entries) are
- * supported for now; other task shapes are skipped.
+ * collects embeddable text items and writes them to a table named after the task id.
  *
- * `chunkText` is stored only for tasks that opt in via `storeChunkText: true`
- * (e.g. the keywords task), since for those the embedded text is the value worth
- * keeping directly. Other tasks leave it unset and the search side reconstructs the
- * text from raw article content using `startOffset` / `endOffset` as a fallback.
+ * Supports recursive-shaped results (flat `string[]` chunks), multi-shaped results
+ * (object chunks with a selected field via `task.embedField`, default `'topics'`),
+ * bare `string[]`, or a plain `string`.
+ *
+ * `chunkText` is stored only for tasks that opt in via `storeChunkText: true`.
+ * When unset, the search side reconstructs the text from raw article content
+ * using `startOffset` / `endOffset` as a fallback.
  */
 export async function generateEmbeddingsFromTasks(
 	tasks: Task[],
@@ -86,24 +116,12 @@ export async function generateEmbeddingsFromTasks(
 			if (!task.embeddings) continue;
 			const table = task.id;
 
-			const data = task.data as RecursiveLikeData | undefined;
-			if (!isRecursiveData(data)) continue;
-
-			const { chunks } = data;
-			if (chunks.length === 0) continue;
-
-			const flatTexts: string[] = [];
-			const textChunkMap: number[] = [];
-			for (let ci = 0; ci < chunks.length; ci++) {
-				for (const item of chunks[ci].data) {
-					flatTexts.push(item);
-					textChunkMap.push(ci);
-				}
-			}
-			if (flatTexts.length === 0) continue;
+			const items = collectEmbeddableItems(task);
+			if (items.length === 0) continue;
 
 			let response;
 			try {
+				const flatTexts = items.map((i) => i.text);
 				response = await createEmbeddings({ model: options.model, input: flatTexts });
 			} catch (error) {
 				console.error(`[embeddings] failed to embed task "${task.id}" for table "${table}"`, error);
@@ -111,22 +129,17 @@ export async function generateEmbeddingsFromTasks(
 			}
 
 			const ordered = [...response.data].sort((a, b) => a.index - b.index);
-			const inputs: ChunkInput[] = ordered.map((entry, i) => {
-				const chunkIndex = textChunkMap[i];
-				const chunk = chunks[chunkIndex];
-				const offset = chunk.key ?? {};
-				return {
-					articleUrl,
-					chunkText: task.storeChunkText ? flatTexts[i] : undefined,
-					embedding: entry.embedding,
-					startOffset: offset.startOffset,
-					endOffset: offset.endOffset,
-					modelName: options.model,
-					modelDimensions: entry.embedding.length,
-					profileId: options.profileId,
-					category: options.category
-				};
-			});
+			const inputs: ChunkInput[] = ordered.map((entry, i) => ({
+				articleUrl,
+				chunkText: task.storeChunkText ? items[i].text : undefined,
+				embedding: entry.embedding,
+				startOffset: items[i].startOffset,
+				endOffset: items[i].endOffset,
+				modelName: options.model,
+				modelDimensions: entry.embedding.length,
+				profileId: options.profileId,
+				category: options.category
+			}));
 
 			try {
 				await indexChunks(table, inputs);
@@ -159,10 +172,11 @@ export function extractCategoryFromTasks(tasks: Task[]): string | undefined {
 /**
  * Derive a list of query strings to embed from a task's data.
  *
- * Handles the recursive result shape (`chunks` with `{ key, data }` entries), a bare string, or an
- * array of strings. Anything else yields an empty list (nothing to compare).
+ * Handles recursive result shapes (flat `string[]` chunks), multi-shaped results
+ * (object chunks with a selected `field`), a bare string, or an array of strings.
+ * Anything else yields an empty list (nothing to compare).
  */
-export function extractQueryChunks(data: unknown): string[] {
+export function extractQueryChunks(data: unknown, field = 'topics'): string[] {
 	if (data == null) return [];
 	if (typeof data === 'string') return [data];
 	if (Array.isArray(data)) {
@@ -172,12 +186,28 @@ export function extractQueryChunks(data: unknown): string[] {
 		const record = data as Record<string, unknown>;
 		const chunks = record.chunks;
 		if (Array.isArray(chunks)) {
-			return chunks
-				.filter(
-					(entry): entry is { key: ChunkOffset; data: string[] } =>
-						isChunkEntry(entry) && Array.isArray((entry as RecursiveChunkEntry).data)
-				)
-				.flatMap((entry) => (entry as RecursiveChunkEntry).data as string[]);
+			const items: string[] = [];
+			for (const entry of chunks) {
+				if (!entry || typeof entry !== 'object') continue;
+				const e = entry as Record<string, unknown>;
+				const chunkData = e.data;
+				if (Array.isArray(chunkData)) {
+					items.push(...chunkData.filter((v): v is string => typeof v === 'string'));
+				} else if (chunkData && typeof chunkData === 'object') {
+					const fieldValue = (chunkData as Record<string, unknown>)[field];
+					if (typeof fieldValue === 'string') items.push(fieldValue);
+					else if (Array.isArray(fieldValue))
+						items.push(...fieldValue.filter((v): v is string => typeof v === 'string'));
+				}
+			}
+			if (items.length > 0) return items;
+		}
+		const finalResponse = record.finalResponse;
+		if (finalResponse && typeof finalResponse === 'object') {
+			const fieldValue = (finalResponse as Record<string, unknown>)[field];
+			if (typeof fieldValue === 'string') return [fieldValue];
+			if (Array.isArray(fieldValue))
+				return fieldValue.filter((v): v is string => typeof v === 'string');
 		}
 	}
 	return [];

@@ -110,6 +110,7 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	concurrencyGroup?: string;
 	embeddings?: boolean;
 	storeChunkText?: boolean;
+	embedField?: string;
 }
 
 export interface ScriptTask<

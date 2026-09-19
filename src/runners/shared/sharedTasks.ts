@@ -90,12 +90,16 @@ export function createDefaultTasks(
 		],
 		dependencies: [contentDependency],
 		component: 'multiAnalysis',
+		localFinal: true,
 		persist: true,
 		renderOrder: 3,
 		gridSpan: 2,
 		model: viewState.aiModel,
 		splitByHeaders: options.splitByHeaders,
-		enableTTS: true
+		enableTTS: true,
+		embeddings: true,
+		storeChunkText: true,
+		embedField: 'topics'
 	});
 
 	const categoryDef = createCategoryTask({

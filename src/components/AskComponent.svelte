@@ -3,6 +3,7 @@
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import LoadingBorder from '@/components/LoadingBorder.svelte';
 	import {
 		chatCompletions,
 		type LlamaChatCompletionsRequest
@@ -194,14 +195,16 @@
 			size={22}
 			tooltipProps={{ content: 'search context' }}
 		/>
-		<div class="ask-input" class:is-loading={loading}>
-			<Input
-				placeholder={componentProps?.placeholder ?? 'Ask about this content...'}
-				disabled={loading}
-				bind:value={inputValue}
-				onEnter={handleSubmit}
-			/>
-		</div>
+		<LoadingBorder {loading} animations={{ bottom: 'right' }}>
+			<div class="ask-input">
+				<Input
+					placeholder={componentProps?.placeholder ?? 'Ask about this content...'}
+					disabled={loading}
+					bind:value={inputValue}
+					onEnter={handleSubmit}
+				/>
+			</div>
+		</LoadingBorder>
 	</div>
 
 	{#if error}
@@ -250,32 +253,6 @@
 		border-radius: var(--radius-md);
 		position: relative;
 		overflow: hidden;
-	}
-
-	.ask-input::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: -100%;
-		width: 100%;
-		height: 2px;
-		background: linear-gradient(90deg, transparent, var(--primary-color, #7c6af7), transparent);
-		opacity: 0;
-		transition: opacity 0.2s;
-	}
-
-	.ask-input.is-loading::after {
-		opacity: 1;
-		animation: ask-progress 1.2s linear infinite;
-	}
-
-	@keyframes ask-progress {
-		from {
-			left: -100%;
-		}
-		to {
-			left: 100%;
-		}
 	}
 
 	.ask-status {

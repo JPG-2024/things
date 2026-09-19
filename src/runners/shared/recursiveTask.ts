@@ -13,6 +13,8 @@ import type {
 	ProcessorType,
 	MultiChunkData,
 	MultiFinal,
+	MultiChunkProcessor,
+	ChunkProcessorConfig,
 	AnyChunkProcessor
 } from '@/runners/shared/processors';
 import type { MultiFieldSpec } from '@/lib/utils/gbnf';
@@ -54,6 +56,7 @@ export interface RecursiveConfig {
 	targetLang?: string;
 	customSystemMsg?: string;
 	multiFields?: MultiFieldSpec[];
+	localFinal?: boolean;
 }
 
 export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
@@ -67,6 +70,7 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	enableTTS?: boolean;
 	embeddings?: boolean;
 	storeChunkText?: boolean;
+	embedField?: string;
 	model?: string;
 	completionOptions?: Record<string, unknown>;
 	multiFields?: MultiFieldSpec[];
@@ -224,6 +228,38 @@ function mergeComponentProps(
 		: withConfig(componentProps ?? {});
 }
 
+function resolveProcessorConfig(
+	processorType: ProcessorType,
+	options: Partial<RecursiveConfig> & { completionOptions?: Record<string, unknown> },
+	model: string
+): ChunkProcessorConfig {
+	const processorDef = getProcessor(processorType);
+	const isMulti = processorType === 'multi';
+	return {
+		model,
+		userMessage: options.userMessage ?? processorDef.defaults.userMessage ?? '',
+		finalUserMessage: options.finalUserMessage ?? processorDef.defaults.finalUserMessage ?? '',
+		extractorConfig: options.extractorConfig,
+		targetLang: options.targetLang,
+		customSystemMsg: options.customSystemMsg,
+		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
+		combineMode: options.combineMode ?? (isMulti ? undefined : 'join'),
+		multiFields: options.multiFields,
+		localFinal: options.localFinal
+	};
+}
+
+export async function recombineMultiFinal(
+	config: RecursiveConfig,
+	chunks: MultiChunkData[],
+	model: string
+): Promise<MultiFinal> {
+	const processor = getProcessor('multi').build(
+		resolveProcessorConfig('multi', config, model)
+	) as MultiChunkProcessor;
+	return processor.combineChunks(chunks, []);
+}
+
 export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): Task {
 	const model = resolveModel(options);
 	const chunking = resolveChunking(options);
@@ -232,21 +268,12 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		? 'multi'
 		: (options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize'));
 	const processorDef = getProcessor(processorType);
-	const userMessage = options.userMessage ?? processorDef.defaults.userMessage ?? '';
-	const finalUserMessage = options.finalUserMessage ?? processorDef.defaults.finalUserMessage ?? '';
 	const sourceDependency = options.dependencies?.[0] ?? 'content';
+	const processorConfig = resolveProcessorConfig(processorType, options, model);
+	const userMessage = processorConfig.userMessage ?? '';
+	const finalUserMessage = processorConfig.finalUserMessage ?? '';
 
-	const processor: AnyChunkProcessor = processorDef.build({
-		model,
-		userMessage,
-		finalUserMessage,
-		extractorConfig: options.extractorConfig,
-		targetLang: options.targetLang,
-		customSystemMsg: options.customSystemMsg,
-		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
-		combineMode: options.combineMode ?? (isMulti ? undefined : 'join'),
-		multiFields: options.multiFields
-	});
+	const processor: AnyChunkProcessor = processorDef.build(processorConfig);
 
 	const recursiveConfig: RecursiveConfig = {
 		windowSize: chunking.windowSize,
@@ -261,7 +288,8 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		extractorConfig: options.extractorConfig,
 		targetLang: options.targetLang,
 		customSystemMsg: options.customSystemMsg,
-		multiFields: options.multiFields
+		multiFields: options.multiFields,
+		localFinal: options.localFinal
 	};
 
 	const outputSchema = isMulti ? MULTI_RECURSIVE_OUTPUT_SCHEMA : RECURSIVE_OUTPUT_SCHEMA;
@@ -280,6 +308,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			enableTTS: options.enableTTS,
 			embeddings: options.embeddings,
 			storeChunkText: options.storeChunkText,
+			embedField: options.embedField,
 			concurrencyGroup: 'recursive',
 			output: outputSchema,
 			run: async ({ state, update }) => {

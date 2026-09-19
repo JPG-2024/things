@@ -3,7 +3,6 @@
 	import WaveformCanvas from './WaveformCanvas.svelte';
 	import TTSPlayerControls from './TTSPlayerControls.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
 	import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
 	import type { WheelSelection } from '@/types/tts.types';
 	import type { WaveStyleConfig } from '@/lib/ttsPlayerConfig';
@@ -50,8 +49,7 @@
 		{chunks}
 		{selection}
 		onChange={onVoiceChange}
-		isActive={ttsState.isPlaying}
-		activeColor={viewState.primaryColor}
+		dimmed={!ttsState.isPlaying && !ttsState.isPaused}
 	/>
 </div>
 

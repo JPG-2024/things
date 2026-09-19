@@ -407,7 +407,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 140px;
+		padding-top: 12rem;
 	}
 
 	.dashboard-toolbar-container {
@@ -421,7 +421,7 @@
 		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 0.2rem 2rem 2rem;
+		padding: 0.2rem 2rem 3rem;
 		background: linear-gradient(
 			color-mix(in srgb, var(--primary-color), black 92%),
 			rgba(9, 9, 9, 1),

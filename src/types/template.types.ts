@@ -20,6 +20,8 @@ export type TemplateTaskDef = {
 	extractorConfig?: { count: number; description: string };
 	categoryNames?: string[];
 	embeddings?: boolean;
+	storeChunkText?: boolean;
+	embedField?: string;
 	enableTTS: boolean;
 	scriptFactory?: string;
 	scriptConfig?: Record<string, unknown>;

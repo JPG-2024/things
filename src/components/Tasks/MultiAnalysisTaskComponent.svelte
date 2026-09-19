@@ -1,8 +1,13 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { MultiChunkData, MultiFinal } from '@/runners/shared/processors';
-	import type { ChunkOffset } from '@/runners/shared/recursiveTask';
-	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
+	import type { CombineMode, MultiChunkData, MultiFinal } from '@/runners/shared/processors';
+	import type { ChunkOffset, RecursiveConfig } from '@/runners/shared/recursiveTask';
+	import {
+		buildRecursiveTask,
+		recursiveConfigFromTask,
+		recombineMultiFinal
+	} from '@/runners/shared/recursiveTask';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
@@ -15,6 +20,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
 	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 
 	type Props = {
 		runId?: string;
@@ -72,6 +78,11 @@
 		return reconstructChunks(sourceContent, offsets);
 	});
 
+	const reversedChunks = $derived.by((): { chunk: MultiChunkEntry; originalIndex: number }[] => {
+		if (!multiData) return [];
+		return multiData.chunks.map((chunk, originalIndex) => ({ chunk, originalIndex })).reverse();
+	});
+
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!multiData?.finalResponse);
 
@@ -90,7 +101,15 @@
 				: ''
 	);
 
+	const combineModeTabs = [
+		{ id: 'llm', label: 'LLM summary' },
+		{ id: 'join', label: 'Join summaries' }
+	];
+	const activeCombineMode = $derived(recursiveConfig?.combineMode ?? 'llm');
+	const showCombineMode = $derived(recursiveConfig?.localFinal === true);
+
 	let rawModalIndex = $state<number | null>(null);
+	let recombining = $state(false);
 
 	function handleLevelChange(levelId: string) {
 		void applyLevel(levelId);
@@ -111,7 +130,11 @@
 				renderOrder: task.renderOrder,
 				persist: true,
 				model: viewState.aiModel,
-				enableTTS: task.enableTTS
+				enableTTS: task.enableTTS,
+				gridSpan: task.gridSpan,
+				embeddings: task.embeddings,
+				storeChunkText: task.storeChunkText,
+				embedField: task.embedField
 			});
 			newTask.visible = task.visible;
 			workflowManager.addTask(targetRunId, newTask);
@@ -122,6 +145,86 @@
 			}
 		} catch (error) {
 			console.error(`Failed to rerun multi task "${task.id}" at level ${levelId}:`, error);
+		}
+	}
+
+	function handleCombineModeChange(modeId: string) {
+		void applyCombineMode(modeId);
+	}
+
+	async function applyCombineMode(modeId: string) {
+		if (!targetRunId || !recursiveConfig) return;
+		if (task.status === 'running' || recombining) return;
+		const mode = modeId as CombineMode;
+		if ((recursiveConfig.combineMode ?? 'llm') === mode) return;
+
+		const nextConfig: RecursiveConfig = { ...recursiveConfig, combineMode: mode };
+		const data = task.data as
+			| { chunks?: MultiChunkEntry[]; finalResponse?: MultiFinal }
+			| undefined;
+
+		if (!data?.chunks?.length) {
+			await rerunWithConfig(nextConfig);
+			return;
+		}
+
+		recombining = true;
+		try {
+			const finalResponse = await recombineMultiFinal(
+				nextConfig,
+				data.chunks.map((c) => c.data),
+				viewState.aiModel
+			);
+			const nextData = { ...data, finalResponse };
+			const newTask = buildRecursiveTask(task.id, {
+				...nextConfig,
+				name: task.name,
+				dependencies: task.dependencies,
+				renderOrder: task.renderOrder,
+				persist: true,
+				model: viewState.aiModel,
+				enableTTS: task.enableTTS,
+				gridSpan: task.gridSpan,
+				embeddings: task.embeddings,
+				storeChunkText: task.storeChunkText,
+				embedField: task.embedField
+			});
+			newTask.visible = task.visible;
+			newTask.data = nextData;
+			workflowManager.addTask(targetRunId, newTask);
+			await updateTaskDataById(targetRunId, task.id, nextData);
+		} catch (error) {
+			console.error(`Failed to recombine multi task "${task.id}":`, error);
+		} finally {
+			recombining = false;
+		}
+	}
+
+	async function rerunWithConfig(nextConfig: RecursiveConfig) {
+		if (!targetRunId) return;
+		try {
+			const newTask = buildRecursiveTask(task.id, {
+				...nextConfig,
+				name: task.name,
+				dependencies: task.dependencies,
+				renderOrder: task.renderOrder,
+				persist: true,
+				model: viewState.aiModel,
+				enableTTS: task.enableTTS,
+				gridSpan: task.gridSpan,
+				embeddings: task.embeddings,
+				storeChunkText: task.storeChunkText,
+				embedField: task.embedField
+			});
+			newTask.visible = task.visible;
+			workflowManager.addTask(targetRunId, newTask);
+			const summary = await workflowManager.rerunTask(targetRunId, task.id);
+			const updatedTask = summary.tasks.find((t) => t.id === task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
+			}
+		} catch (error) {
+			console.error(`Failed to rerun multi task "${task.id}":`, error);
 		}
 	}
 </script>
@@ -135,31 +238,18 @@
 			</div>
 		{/if}
 
-		{#if multiData.chunks.length > 0}
-			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
-				<div class="chunks-grid">
-					{#each multiData.chunks as chunk, i (chunk.key.startOffset)}
-						<div class="chunk-item">
-							<div class="result-section">
-								<MarkdownRenderer content={chunk.data.summary.join('\n')} />
-							</div>
-							<div class="raw-button-row">
-								<Button icon="FileText" onClick={() => (rawModalIndex = i)}>View raw text</Button>
-							</div>
-							<div class="meta-row">
-								<div class="result-section">
-									<span class="result-label">Topics</span>
-									<Keywords keywords={chunk.data.topics} />
-								</div>
-								<div class="result-section">
-									<span class="result-label">Keywords</span>
-									<Keywords keywords={chunk.data.keywords} />
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</Spacer>
+		{#if showCombineMode}
+			<div class="level-row">
+				<span class="level-label">summary</span>
+				<Tabs
+					tabs={combineModeTabs}
+					activeTab={activeCombineMode}
+					onTabChange={handleCombineModeChange}
+				/>
+				{#if recombining}
+					<span class="level-label">combining…</span>
+				{/if}
+			</div>
 		{/if}
 
 		{#if !isRunning && multiData.finalResponse}
@@ -180,6 +270,45 @@
 					</div>
 				</div>
 			</div>
+		{/if}
+
+		{#if !isRunning && task.embeddings}
+			<SimilarEmbeddingsComponent
+				id={task.id}
+				data={task.data}
+				enabled={task.embeddings === true}
+				embedField={task.embedField}
+				maxDistance={0.4}
+			/>
+		{/if}
+
+		{#if multiData.chunks.length > 0}
+			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
+				<div class="chunks-grid">
+					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
+						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+							<div class="result-section">
+								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
+							</div>
+							<div class="raw-button-row">
+								<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
+									View raw text
+								</Button>
+							</div>
+							<div class="meta-row">
+								<div class="result-section">
+									<span class="result-label">Topics</span>
+									<Keywords keywords={entry.chunk.data.topics} />
+								</div>
+								<div class="result-section">
+									<span class="result-label">Keywords</span>
+									<Keywords keywords={entry.chunk.data.keywords} />
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</Spacer>
 		{/if}
 
 		<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
@@ -283,9 +412,9 @@
 	}
 
 	.final-section {
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
-		padding-top: 0.75rem;
-		margin-top: 0.5rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+		padding-bottom: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.final-label {

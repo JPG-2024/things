@@ -18,6 +18,7 @@ export interface ChunkProcessorConfig {
 	completionOptions?: Record<string, unknown>;
 	combineMode?: CombineMode;
 	multiFields?: MultiFieldSpec[];
+	localFinal?: boolean;
 }
 
 export interface ChunkProcessor {

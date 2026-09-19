@@ -620,12 +620,15 @@
 				model: viewState.aiModel,
 				extractorConfig,
 				multiFields,
+				localFinal: existingCfg?.localFinal,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:
 					commonRenderOrder !== '' ? Number(commonRenderOrder) : (_task.renderOrder ?? 0),
 				gridSpan: parseGridSpan(commonGridSpan),
 				embeddings: commonEmbeddings,
+				storeChunkText: _task.storeChunkText,
+				embedField: _task.embedField,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
@@ -656,6 +659,8 @@
 				renderOrder,
 				gridSpan: parseGridSpan(commonGridSpan),
 				embeddings: commonEmbeddings,
+				storeChunkText: _task.storeChunkText,
+				embedField: _task.embedField,
 				persist: true,
 				enableTTS: commonEnableTTS || undefined
 			});
@@ -717,6 +722,7 @@
 					id={_task.id}
 					data={_task.data}
 					enabled={_task.embeddings === true}
+					embedField={_task.embedField}
 				/>
 			{/if}
 

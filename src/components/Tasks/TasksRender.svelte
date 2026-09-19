@@ -10,6 +10,7 @@
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
+	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import CategoryEditor from '@/components/CategoryEditor.svelte';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
@@ -26,11 +27,11 @@
 	);
 
 	const contentTask = $derived(sortedTasks.find((e) => e.task.id === 'content'));
-	const thumbnailData = $derived(
-		stackedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')?.task.data as
-			| YouTubePlayerContext
-			| undefined
+	const thumbnailEntry = $derived(
+		stackedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')
 	);
+	const thumbnailData = $derived(thumbnailEntry?.task.data as YouTubePlayerContext | undefined);
+	const thumbnailComponent = $derived(thumbnailEntry?.task.component?.trim());
 	const categoryData = $derived(
 		stackedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')?.task.data as
 			| string[]
@@ -151,9 +152,17 @@
 <div class="tasks-container">
 	{#if thumbnailData || categoryData || titleText || viewState.url}
 		<div class="tasks-header-row">
-			{#if thumbnailData}
+			{#if thumbnailEntry && thumbnailData}
 				<div class="header-col thumbnail-col">
-					<YouTubePlayer data={thumbnailData} />
+					{#if thumbnailComponent === 'player'}
+						<YouTubePlayer data={thumbnailData} />
+					{:else}
+						<Image
+							task={thumbnailEntry.task}
+							runId={thumbnailEntry.runId}
+							componentProps={thumbnailEntry.task.componentProps}
+						/>
+					{/if}
 				</div>
 			{/if}
 
@@ -344,7 +353,7 @@
 <style>
 	.tasks-container {
 		width: 100%;
-		padding: 1.5rem;
+		padding: 3rem;
 	}
 
 	.tasks-title {

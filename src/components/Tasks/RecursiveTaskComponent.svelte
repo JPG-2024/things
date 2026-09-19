@@ -124,6 +124,8 @@
 				windowDivisor: level,
 				renderOrder: task.renderOrder,
 				embeddings: task.embeddings,
+				storeChunkText: task.storeChunkText,
+				embedField: task.embedField,
 				persist: true,
 				model: viewState.aiModel,
 				enableTTS: task.enableTTS

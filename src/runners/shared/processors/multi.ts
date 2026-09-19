@@ -71,11 +71,42 @@ export const multiProcessor: ProcessorDef = {
 				const allKeywords = [
 					...new Set(multiResults.flatMap((r) => r.keywords.map((k) => k.trim())))
 				].filter(Boolean);
+
+				const combinedSummaries = multiResults.map((r) => r.summary.join('\n')).join('\n\n');
+
+				if (config.localFinal) {
+					const allTopics = multiResults
+						.flatMap((r) => r.topics.map((t) => t.trim()))
+						.filter(Boolean);
+					let summary = combinedSummaries;
+					if (config.combineMode === 'llm') {
+						try {
+							const res = await chatCompletions({
+								...MULTI_FIELD_COMPLETION_OPTIONS,
+								...config.completionOptions,
+								model: config.model,
+								messages: [
+									{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
+									{
+										role: 'user',
+										content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
+									}
+								]
+							});
+							const text = res.choices?.[0]?.message?.content ?? '';
+							const trimmed = typeof text === 'string' ? text.trim() : '';
+							summary = trimmed || combinedSummaries;
+						} catch {
+							summary = combinedSummaries;
+						}
+					}
+					return { summary, keywords: allKeywords, topics: allTopics };
+				}
+
 				const allTopics = [
 					...new Set(multiResults.flatMap((r) => r.topics.map((t) => t.trim())))
 				].filter(Boolean);
 
-				const combinedSummaries = multiResults.map((r) => r.summary.join('\n')).join('\n\n');
 				const res = await chatCompletions({
 					...MULTI_FIELD_COMPLETION_OPTIONS,
 					...config.completionOptions,

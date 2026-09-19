@@ -23,9 +23,9 @@
 </script>
 
 <div class="toolbar toolbar--{layout} {className}" style:justify-content={justify} style:gap>
-		{#if children}
-			{@render children()}
-		{/if}
+	{#if children}
+		{@render children()}
+	{/if}
 </div>
 
 <style>

@@ -127,7 +127,7 @@ class PodcastState {
 	private _llmAbort: AbortController | null = null;
 	private _session = 0;
 	private _currentSource: AudioBufferSourceNode | null = null;
-	private _analyserNode: AnalyserNode | null = null;
+	private _analyserNode: AnalyserNode | null = $state(null);
 	private _playbackAbort: AbortController | null = null;
 	private _activeFinish: (() => void) | null = null;
 	private _unpauseWaiters: (() => void)[] = [];

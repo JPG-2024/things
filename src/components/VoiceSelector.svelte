@@ -12,19 +12,10 @@
 		selection: WheelSelection;
 		onChange: (selection: WheelSelection) => void;
 		onChunksChanged?: () => void;
-		isActive?: boolean;
-		activeColor?: string;
+		dimmed?: boolean;
 	};
 
-	let {
-		profiles,
-		chunks,
-		selection,
-		onChange,
-		onChunksChanged,
-		isActive = false,
-		activeColor
-	}: Props = $props();
+	let { profiles, chunks, selection, onChange, onChunksChanged, dimmed = false }: Props = $props();
 
 	let selectedProfile = $derived(profiles.find((p) => p.id === selection.profileId) ?? null);
 
@@ -33,7 +24,7 @@
 	}
 </script>
 
-<div class="voice-selector">
+<div class="voice-selector" class:dimmed>
 	<button
 		type="button"
 		class="current-profile-card"
@@ -44,7 +35,7 @@
 			: 'Choose voice'}
 	>
 		{#if selectedProfile}
-			<div class="avatar-wrap" class:active={isActive}>
+			<div class="avatar-wrap">
 				{#if selectedProfile.image_src}
 					<img
 						class="avatar"
@@ -82,6 +73,11 @@
 		gap: 0.5rem;
 		height: fit-content;
 		width: fit-content;
+		transition: opacity 0.25s ease;
+	}
+
+	.voice-selector.dimmed {
+		opacity: 0.4;
 	}
 
 	.current-profile-card {
@@ -151,12 +147,7 @@
 		border-radius: 999px;
 		overflow: hidden;
 		flex-shrink: 0;
-		transition: transform 0.25s ease;
-	}
-
-	.avatar-wrap.active {
-		transform: scale(1.1);
-		transition: transform 0.25s ease;
+		transition: opacity 0.25s ease;
 	}
 
 	.avatar {

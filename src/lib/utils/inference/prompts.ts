@@ -117,6 +117,3 @@ export const MULTI_FIELD_SYSTEM_MESSAGE =
 export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
 	return `Analyze this section. make a middle long summary, no titles. keywords: exactly ${keywordCount} specific keywords. explanatory topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
 }
-
-export const MULTI_FIELD_FINAL_USER_MESSAGE =
-	'Combine these section analyses into a single coherent result. For summary, merge into one markdown summary. For keywords and topics, deduplicate and keep the most relevant items. Respond in JSON with keys "summary", "keywords", "topics".';
