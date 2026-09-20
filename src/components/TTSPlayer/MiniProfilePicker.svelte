@@ -7,22 +7,28 @@
 	import { fly } from 'svelte/transition';
 
 	interface Props {
-		profiles: VoiceProfile[];
+		filteredProfiles: VoiceProfile[];
 		selectedProfileId: string;
-		hostLabel: string;
+		filter?: string;
+		placeholder?: string;
+		label?: string;
 		onPick: (profile: VoiceProfile) => void;
-		onClose: () => void;
+		actionIcon?: string;
+		actionLabel?: string;
+		onAction?: () => void;
 	}
 
-	let { profiles, selectedProfileId, hostLabel, onPick, onClose }: Props = $props();
-
-	let filter = $state('');
-
-	let filteredProfiles = $derived(
-		filter.trim() === ''
-			? profiles
-			: profiles.filter((p) => p.name_prefix.toLowerCase().includes(filter.trim().toLowerCase()))
-	);
+	let {
+		filteredProfiles,
+		selectedProfileId,
+		filter = $bindable(''),
+		placeholder = 'Filter voices...',
+		label,
+		onPick,
+		actionIcon = 'X',
+		actionLabel = 'Close picker',
+		onAction
+	}: Props = $props();
 
 	function autoScroll(node: HTMLElement, selected: boolean) {
 		function apply(isSelected: boolean) {
@@ -36,76 +42,73 @@
 			}
 		};
 	}
-
-	function handlePick(profile: VoiceProfile) {
-		onPick(profile);
-		onClose();
-	}
 </script>
 
-<div class="podcast-mini-picker" transition:fly={{ duration: 200, y: 40 }}>
-	<div class="podcast-mini-picker__header">
-		<span class="podcast-mini-picker__label">{hostLabel}</span>
-		<div class="podcast-mini-picker__filter">
+<div class="mini-picker" transition:fly={{ duration: 200, y: 40 }}>
+	<div class="mini-picker__header">
+		{#if label}
+			<span class="mini-picker__label">{label}</span>
+		{/if}
+		<div class="mini-picker__filter">
 			<Input
 				search={true}
 				bind:value={filter}
-				placeholder="Filter voices..."
+				{placeholder}
 				autofocus={true}
 				onEnter={() => {
 					const first = filteredProfiles[0];
-					if (first) handlePick(first);
+					if (first) onPick(first);
 				}}
 			/>
 		</div>
-		<button
-			type="button"
-			class="podcast-mini-picker__close"
-			onclick={(e) => {
-				e.stopPropagation();
-				onClose();
-			}}
-			aria-label="Close picker"
-		>
-			<Icon name="X" size={18} />
-		</button>
+		{#if onAction}
+			<button
+				type="button"
+				class="mini-picker__action"
+				onclick={(e) => {
+					e.stopPropagation();
+					onAction();
+				}}
+				aria-label={actionLabel}
+				title={actionLabel}
+			>
+				<Icon name={actionIcon} size={18} />
+			</button>
+		{/if}
 	</div>
 
 	{#if filteredProfiles.length === 0}
-		<p class="podcast-mini-picker__empty">No matching voices</p>
+		<p class="mini-picker__empty">No matching voices</p>
 	{:else}
 		<WheelStage gap={12} scrollSpeed={4}>
 			{#each filteredProfiles as profile (profile.id)}
 				{@const isSelected = profile.id === selectedProfileId}
 				<button
 					type="button"
-					class="podcast-mini-picker__profile"
+					class="mini-picker__profile"
 					class:selected={isSelected}
 					use:autoScroll={isSelected}
 					onclick={(e) => {
 						e.stopPropagation();
-						handlePick(profile);
+						onPick(profile);
 					}}
 					aria-label={profile.name_prefix}
 					aria-pressed={isSelected}
 				>
-					<div class="podcast-mini-picker__avatar-wrap">
+					<div class="mini-picker__avatar-wrap">
 						{#if profile.image_src}
 							<img
-								class="podcast-mini-picker__avatar"
+								class="mini-picker__avatar"
 								src={getImage(profile.image_src)}
 								alt={profile.name_prefix}
 							/>
 						{:else}
-							<div
-								class="podcast-mini-picker__avatar fallback"
-								style="background: {colorFor(profile.id)}"
-							>
+							<div class="mini-picker__avatar fallback" style="background: {colorFor(profile.id)}">
 								<span>{initialFor(profile.name_prefix)}</span>
 							</div>
 						{/if}
 					</div>
-					<span class="podcast-mini-picker__profile-name">{profile.name_prefix}</span>
+					<span class="mini-picker__profile-name">{profile.name_prefix}</span>
 				</button>
 			{/each}
 		</WheelStage>
@@ -113,7 +116,7 @@
 </div>
 
 <style>
-	.podcast-mini-picker {
+	.mini-picker {
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
@@ -121,14 +124,14 @@
 		align-items: center;
 	}
 
-	.podcast-mini-picker__header {
+	.mini-picker__header {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		width: 50%;
 	}
 
-	.podcast-mini-picker__label {
+	.mini-picker__label {
 		font-size: 0.75rem;
 		font-weight: 600;
 		color: rgba(255, 255, 255, 0.5);
@@ -137,12 +140,12 @@
 		letter-spacing: 0.05em;
 	}
 
-	.podcast-mini-picker__filter {
+	.mini-picker__filter {
 		flex: 1;
 		min-width: 0;
 	}
 
-	.podcast-mini-picker__close {
+	.mini-picker__action {
 		all: unset;
 		box-sizing: border-box;
 		display: inline-flex;
@@ -152,19 +155,18 @@
 		width: 34px;
 		height: 34px;
 		border-radius: var(--radius-md);
-		color: rgba(255, 255, 255, 0.5);
+		color: var(--primary-color);
 		cursor: pointer;
 		background: rgba(154, 154, 154, 0.12);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		transition: background 0.2s ease;
 	}
 
-	.podcast-mini-picker__close:hover {
+	.mini-picker__action:hover {
 		background: rgba(255, 255, 255, 0.12);
-		color: white;
 	}
 
-	.podcast-mini-picker__empty {
+	.mini-picker__empty {
 		margin: 0;
 		padding: 0.5rem 0;
 		text-align: center;
@@ -173,7 +175,7 @@
 		opacity: 0.6;
 	}
 
-	.podcast-mini-picker__profile {
+	.mini-picker__profile {
 		flex: 0 0 auto;
 		display: flex;
 		align-items: center;
@@ -188,15 +190,15 @@
 		transition: background-color 0.2s ease;
 	}
 
-	.podcast-mini-picker__profile:hover {
+	.mini-picker__profile:hover {
 		background: rgba(255, 255, 255, 0.06);
 	}
 
-	.podcast-mini-picker__profile.selected {
+	.mini-picker__profile.selected {
 		cursor: default;
 	}
 
-	.podcast-mini-picker__avatar-wrap {
+	.mini-picker__avatar-wrap {
 		flex-shrink: 0;
 		width: 40px;
 		height: 40px;
@@ -205,11 +207,11 @@
 		transition: box-shadow 240ms ease;
 	}
 
-	.podcast-mini-picker__profile.selected .podcast-mini-picker__avatar-wrap {
+	.mini-picker__profile.selected .mini-picker__avatar-wrap {
 		box-shadow: 0 0 0 2px var(--primary-color);
 	}
 
-	.podcast-mini-picker__avatar {
+	.mini-picker__avatar {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
@@ -217,7 +219,7 @@
 		box-sizing: border-box;
 	}
 
-	.podcast-mini-picker__avatar.fallback {
+	.mini-picker__avatar.fallback {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -227,7 +229,7 @@
 		user-select: none;
 	}
 
-	.podcast-mini-picker__profile-name {
+	.mini-picker__profile-name {
 		max-width: 92px;
 		font-size: 0.8rem;
 		font-weight: 600;

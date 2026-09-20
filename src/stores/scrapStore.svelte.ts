@@ -88,7 +88,6 @@ class ScrapState {
 
 		const res = await fetch(`${SCRAPER_API_URL}/api/profile/youtube/${profilePath}?scroll=true`);
 
-		console.log(res);
 		if (!res.ok) {
 			throw new Error(`Profile scrape request failed: ${res.status} ${res.statusText}`);
 		}
@@ -163,8 +162,6 @@ class ScrapState {
 			if (!youtubeProfile) {
 				throw new Error(this.error ?? 'Failed to fetch profile videos');
 			}
-
-			console.log(youtubeProfile);
 
 			const total = youtubeProfile.videos.length;
 

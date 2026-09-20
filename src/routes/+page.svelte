@@ -19,6 +19,7 @@
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import ProfilesBar from '@/components/ProfilesBar.svelte';
+	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -26,6 +27,7 @@
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
+	import DomainsTab from './tabs/DomainsTab.svelte';
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -175,7 +177,7 @@
 		})
 	);
 
-	const TAB_ORDER = ['profiles', 'categories', 'articles'] as const;
+	const TAB_ORDER = ['domains', 'profiles', 'categories', 'articles'] as const;
 
 	const leftHotkey = createHotkey(
 		'ArrowLeft',
@@ -331,6 +333,9 @@
 		</Toolbar>
 	</div>
 	<div class="toolbar-row"><Categories /></div>
+	<div class="toolbar-row tabs-row">
+		<ProfileArticleTabs />
+	</div>
 </div>
 
 <div
@@ -345,6 +350,8 @@
 	<div id="dashboard-content" class="dashboard-content">
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
+		{:else if viewState.activeProfileArticleTab === 'domains'}
+			<DomainsTab />
 		{:else if viewState.activeProfileArticleTab === 'categories'}
 			<CategoriesTab />
 		{:else}
@@ -440,6 +447,10 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
+	}
+
+	.tabs-row {
+		justify-content: center;
 	}
 
 	.toolbar-center {

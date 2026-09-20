@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CategoryArticles from '@/components/CategoryArticles.svelte';
-	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -42,16 +41,18 @@
 </script>
 
 {#if viewState.selectedCategories.length === 0}
-	<ArticlesGrid items={sortedCategories} keyOf={(c) => c.categoryId}>
-		{#snippet children(category: CategoryWithArticles)}
-			<CategoryCard
-				{category}
-				onArticleClick={handleArticleClick}
-				onArticleHoverEnter={handleArticleHoverEnter}
-				onArticleHoverLeave={handleArticleHoverLeave}
-			/>
-		{/snippet}
-	</ArticlesGrid>
+	<div class="category-list">
+		{#each sortedCategories as category (category.categoryId)}
+			<div class="category-row">
+				<CategoryCard
+					{category}
+					onArticleClick={handleArticleClick}
+					onArticleHoverEnter={handleArticleHoverEnter}
+					onArticleHoverLeave={handleArticleHoverLeave}
+				/>
+			</div>
+		{/each}
+	</div>
 	{#if articleCacheStore.loadingCategories}
 		<div class="empty-profiles-container"></div>
 	{:else if articleCacheStore.categoriesWithArticles.length === 0}
@@ -76,6 +77,20 @@
 {/if}
 
 <style>
+	.category-list {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		width: 100%;
+		gap: 2rem;
+	}
+
+	.category-row {
+		width: 100%;
+		max-width: 860px;
+		margin: 0 auto;
+	}
+
 	.empty-profiles-container {
 		display: flex;
 		align-items: center;

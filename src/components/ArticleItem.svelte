@@ -280,8 +280,8 @@
 	}
 
 	.grid-3 .article-title {
-		padding: 0.6rem 0;
-		font-size: 0.8rem;
+		padding: 1rem 0;
+		font-size: 1rem;
 		font-weight: bold;
 	}
 

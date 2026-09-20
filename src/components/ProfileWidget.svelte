@@ -39,6 +39,9 @@
 	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
 	const articles = $derived(profileWithArticles.articles ?? []);
 	const visibleArticles = $derived(isCollapsed ? articles.slice(0, 1) : articles);
+	const isDomain = $derived(
+		profileWithArticles.domainId === profileWithArticles.id
+	);
 
 	async function goToprofile() {
 		viewState.currentProfileId = profileWithArticles.id;
@@ -113,7 +116,9 @@
 									alt={profileWithArticles.name}
 									class="profile-avatar"
 									onmouseenter={() => {
-										viewState.hoveredProfileName = profileWithArticles.name;
+										if (!isDomain) {
+											viewState.hoveredProfileName = profileWithArticles.name;
+										}
 										viewState.hoveredProfileId = profileWithArticles.id;
 									}}
 									onmouseleave={() => {

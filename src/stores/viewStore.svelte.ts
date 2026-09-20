@@ -20,7 +20,8 @@ export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'FileText' },
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
-	{ id: 'profiles', label: 'Profiles', icon: 'Users' }
+	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
+	{ id: 'domains', label: 'Domains', icon: 'Globe' }
 ];
 
 export function rgbToHue(rgb: string): number {
@@ -53,10 +54,6 @@ class ViewState {
 	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryArticlesLayoutIndex = $state(1);
 	masonryArticlesColumnOffset = $state(0);
-	masonryCategoriesLayoutIndex = $state(1);
-	masonryCategoriesColumnOffset = $state(1);
-	masonryProfilesLayoutIndex = $state(1);
-	masonryProfilesColumnOffset = $state(0);
 	masonryTasksLayoutIndex = $state(1);
 	masonryTasksColumnOffset = $state(-1);
 
@@ -120,7 +117,7 @@ class ViewState {
 				: null
 	);
 
-	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories'>('articles');
+	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories' | 'domains'>('articles');
 	showOnlyRawArticles = $state(false);
 	showOnlyInitialArticles = $state(false);
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));

@@ -42,14 +42,34 @@ type CategoriesParams = {
 class ArticleCacheStore {
 	private readonly profiles = new PaginationResource<ArticleProfile, ProfilesParams>(
 		PROFILES_PAGE_SIZE,
-		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds) }),
+		(params) =>
+			JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'profile' }),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
 				categoryIds: params.categoryIds,
 				offset,
 				limit,
 				includeArticles: true,
-				articleCount: ARTICLES_PER_PROFILE
+				articleCount: ARTICLES_PER_PROFILE,
+				kind: 'profile'
+			});
+
+			return { items };
+		}
+	);
+
+	private readonly domains = new PaginationResource<ArticleProfile, ProfilesParams>(
+		PROFILES_PAGE_SIZE,
+		(params) =>
+			JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'domain' }),
+		async (params, offset, limit) => {
+			const items = await getProfiles({
+				categoryIds: params.categoryIds,
+				offset,
+				limit,
+				includeArticles: true,
+				articleCount: ARTICLES_PER_PROFILE,
+				kind: 'domain'
 			});
 
 			return { items };
@@ -131,6 +151,22 @@ class ArticleCacheStore {
 		return this.profiles.offset;
 	}
 
+	get domainsWithArticles(): ArticleProfile[] {
+		return this.domains.items;
+	}
+
+	get loadingDomains(): boolean {
+		return this.domains.loading;
+	}
+
+	get hasMoreDomains(): boolean {
+		return this.domains.hasMore;
+	}
+
+	get domainsOffset(): number {
+		return this.domains.offset;
+	}
+
 	get articlesWithoutProfile(): ArticleWithTasks[] {
 		return this.articles.items;
 	}
@@ -209,8 +245,23 @@ class ArticleCacheStore {
 		);
 	}
 
+	async fetchDomainsWithArticles(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+	}) {
+		await this.domains.fetch(
+			{ categoryIds: options?.categoryIds },
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
+	}
+
 	async loadMoreProfiles() {
 		await this.profiles.loadMore();
+	}
+
+	async loadMoreDomains() {
+		await this.domains.loadMore();
 	}
 
 	async loadMoreArticles() {
@@ -244,6 +295,7 @@ class ArticleCacheStore {
 
 	invalidate() {
 		this.profiles.invalidate();
+		this.domains.invalidate();
 		this.articles.invalidate();
 		this.categories.invalidate();
 		this.categoryArticlesResource.invalidate();
@@ -255,6 +307,11 @@ class ArticleCacheStore {
 
 	invalidateProfiles() {
 		this.profiles.invalidate();
+		this.domains.invalidate();
+	}
+
+	invalidateDomains() {
+		this.domains.invalidate();
 	}
 
 	invalidateCategoryArticles() {
@@ -278,8 +335,8 @@ class ArticleCacheStore {
 		this.categoryArticlesResource.remove(hasUrl);
 		this.categoryArticlesResource.offset = this.categoryArticlesResource.items.length;
 
-		this.profiles.replace((profiles) =>
-			profiles
+		const filterProfileArticles = (items: ArticleProfile[]) =>
+			items
 				.map((profile) => {
 					const originalCount = profile.articles?.length ?? 0;
 					const filteredArticles = profile.articles?.filter((article) => !hasUrl(article));
@@ -294,8 +351,10 @@ class ArticleCacheStore {
 								: profile.count
 					};
 				})
-				.filter((profile) => profile.count === undefined || profile.count > 0)
-		);
+				.filter((profile) => profile.count === undefined || profile.count > 0);
+
+		this.profiles.replace(filterProfileArticles);
+		this.domains.replace(filterProfileArticles);
 
 		this.categories.replace((categories) =>
 			categories.map((category) => ({
@@ -305,6 +364,7 @@ class ArticleCacheStore {
 		);
 
 		this.profiles.invalidate();
+		this.domains.invalidate();
 		this.categories.invalidate();
 	}
 }

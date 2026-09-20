@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ArticlesGrid from '@/components/ArticlesGrid.svelte';
+	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
@@ -61,7 +61,7 @@
 		</button>
 	</div>
 	{#if searchResults.length > 0}
-		<ArticlesGrid items={searchResults}>
+		<MasonryGrid items={searchResults}>
 			{#snippet children(
 				article: ArticleWithTasks,
 				_i: number,
@@ -79,14 +79,14 @@
 					onHoverLeave={handleArticleHoverLeave}
 				/>
 			{/snippet}
-		</ArticlesGrid>
+		</MasonryGrid>
 	{:else}
 		<div class="empty-profiles-container">
 			<div class="empty-profiles-pill">No matches found</div>
 		</div>
 	{/if}
 {:else}
-	<ArticlesGrid items={articleCacheStore.articlesWithoutProfile}>
+	<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
 		{#snippet children(
 			article: ArticleWithTasks,
 			_i: number,
@@ -103,7 +103,7 @@
 				onHoverLeave={handleArticleHoverLeave}
 			/>
 		{/snippet}
-	</ArticlesGrid>
+	</MasonryGrid>
 	{#if articleCacheStore.loadingArticles}
 		<div class="empty-profiles-container"></div>
 	{:else if articleCacheStore.articlesWithoutProfile.length === 0}

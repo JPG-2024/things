@@ -6,24 +6,24 @@
 
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
-		void articleCacheStore.fetchProfilesWithArticles({ categoryIds: categories });
+		void articleCacheStore.fetchDomainsWithArticles({ categoryIds: categories });
 	});
 </script>
 
-<ProfileList items={articleCacheStore.profilesWithArticles} />
-{#if articleCacheStore.profilesWithArticles.length === 0}
-	{#if articleCacheStore.loadingProfiles}
+<ProfileList items={articleCacheStore.domainsWithArticles} />
+{#if articleCacheStore.domainsWithArticles.length === 0}
+	{#if articleCacheStore.loadingDomains}
 		<div class="empty-profiles-container"></div>
 	{:else}
 		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">404</div>
+			<div class="empty-profiles-pill">No domains</div>
 		</div>
 	{/if}
 {/if}
-{#if articleCacheStore.hasMoreProfiles}
+{#if articleCacheStore.hasMoreDomains}
 	<LoadMoreSentinel
-		onLoadMore={() => articleCacheStore.loadMoreProfiles()}
-		disabled={articleCacheStore.loadingProfiles}
+		onLoadMore={() => articleCacheStore.loadMoreDomains()}
+		disabled={articleCacheStore.loadingDomains}
 	/>
 {/if}
 

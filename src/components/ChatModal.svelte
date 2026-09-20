@@ -49,7 +49,6 @@
 	 * Currently just logs; future impl can call findSimilarChunks etc.
 	 */
 	async function getEmbeddingContext(userInput: string): Promise<string | null> {
-		console.log('[chat] embedding hook — userInput:', userInput, 'history len:', messages.length);
 		// Example future:
 		// const results = await findSimilarChunks({ table: 'topics', queryChunks: [userInput], limit: 5 });
 		// return results.map(r=>r.chunkText).join('\n\n');

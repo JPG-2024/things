@@ -2,24 +2,39 @@
 	import { getImage, type VoiceProfile } from '@/lib/utils/ttsService';
 	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import { podcastState } from '@/features/podcast/podcastStore.svelte';
-	import PodcastMiniProfilePicker from './PodcastMiniProfilePicker.svelte';
+	import MiniProfilePicker from '@/components/TTSPlayer/MiniProfilePicker.svelte';
 	import WaveformCanvas from '@/components/TTSPlayer/WaveformCanvas.svelte';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
+		pickingHost: 'A' | 'B' | null;
+		onOpenPicker: (host: 'A' | 'B') => void;
+		onClosePicker: () => void;
 		onExpand: () => void;
 	}
 
-	let { onExpand }: Props = $props();
+	let { pickingHost, onOpenPicker, onClosePicker, onExpand }: Props = $props();
 
 	const config = getCurrentStyle();
 
-	let pickingHost = $state<'A' | 'B' | null>(null);
+	let filter = $state('');
 
 	const hostAProfile = $derived(podcastState.hostAProfile);
 	const hostBProfile = $derived(podcastState.hostBProfile);
+
+	const filteredProfiles = $derived(
+		filter.trim() === ''
+			? podcastState.profiles
+			: podcastState.profiles.filter((p) =>
+					p.name_prefix.toLowerCase().includes(filter.trim().toLowerCase())
+				)
+	);
+
+	const selectedProfileId = $derived(
+		pickingHost === 'A' ? podcastState.config.hostAProfileId : podcastState.config.hostBProfileId
+	);
 
 	const amplitudeScale = 1.7;
 	const wavelengthScale = 300;
@@ -41,25 +56,22 @@
 		podcastState.status === 'generating' || podcastState.status === 'extracting'
 	);
 
-	function openPicker(host: 'A' | 'B') {
-		pickingHost = host;
+	function handlePick(profile: VoiceProfile) {
+		if (pickingHost === 'A') {
+			podcastState.config.hostAProfileId = profile.id;
+			podcastState.config.hostAChunkFile = '';
+			podcastState.config.hostARandomChunk = true;
+		} else if (pickingHost === 'B') {
+			podcastState.config.hostBProfileId = profile.id;
+			podcastState.config.hostBChunkFile = '';
+			podcastState.config.hostBRandomChunk = true;
+		}
+		onClosePicker();
 	}
 
-	function closePicker() {
-		pickingHost = null;
-	}
-
-	function handlePickHostA(profile: VoiceProfile) {
-		podcastState.config.hostAProfileId = profile.id;
-		podcastState.config.hostAChunkFile = '';
-		podcastState.config.hostARandomChunk = true;
-	}
-
-	function handlePickHostB(profile: VoiceProfile) {
-		podcastState.config.hostBProfileId = profile.id;
-		podcastState.config.hostBChunkFile = '';
-		podcastState.config.hostBRandomChunk = true;
-	}
+	$effect(() => {
+		if (pickingHost) filter = '';
+	});
 
 	function getAnalyser(): AnalyserNode | null {
 		return podcastState.getAnalyserNode();
@@ -67,17 +79,16 @@
 </script>
 
 {#if pickingHost}
-	<div class="podcast-mini__picker-overlay" transition:fly={{ duration: 200, y: 40 }}>
-		<PodcastMiniProfilePicker
-			profiles={podcastState.profiles}
-			selectedProfileId={pickingHost === 'A'
-				? podcastState.config.hostAProfileId
-				: podcastState.config.hostBProfileId}
-			hostLabel={pickingHost === 'A' ? 'Host A' : 'Host B'}
-			onPick={pickingHost === 'A' ? handlePickHostA : handlePickHostB}
-			onClose={closePicker}
-		/>
-	</div>
+	<MiniProfilePicker
+		bind:filter
+		{filteredProfiles}
+		{selectedProfileId}
+		label={pickingHost === 'A' ? 'Host A' : 'Host B'}
+		onPick={handlePick}
+		actionIcon="X"
+		actionLabel="Close picker"
+		onAction={onClosePicker}
+	/>
 {:else}
 	<div class="podcast-mini__content" transition:fly={{ duration: 200, y: -200 }}>
 		<button
@@ -85,7 +96,7 @@
 			class="podcast-mini__host"
 			onclick={(e) => {
 				e.stopPropagation();
-				openPicker('A');
+				onOpenPicker('A');
 			}}
 			aria-label={hostAProfile
 				? `Change Host A voice. Currently ${hostAProfile.name_prefix}`
@@ -142,7 +153,7 @@
 			class="podcast-mini__host"
 			onclick={(e) => {
 				e.stopPropagation();
-				openPicker('B');
+				onOpenPicker('B');
 			}}
 			aria-label={hostBProfile
 				? `Change Host B voice. Currently ${hostBProfile.name_prefix}`
@@ -179,20 +190,6 @@
 		height: 100%;
 		gap: 0.5rem;
 		background: transparent;
-	}
-
-	.podcast-mini__picker-overlay {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 0.5rem;
-		left: 0;
-		right: 0;
-		width: 100%;
-		padding: 0.75rem 1rem;
-		background: rgba(9, 9, 9, 0.92);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: var(--radius-lg);
 	}
 
 	.podcast-mini__host {

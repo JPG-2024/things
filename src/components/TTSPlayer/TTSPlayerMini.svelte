@@ -1,6 +1,6 @@
 <script lang="ts">
 	import WaveformCanvas from './WaveformCanvas.svelte';
-	import TTSMiniProfilePicker from './TTSMiniProfilePicker.svelte';
+	import MiniProfilePicker from './MiniProfilePicker.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import type { VoiceProfile } from '@/lib/utils/ttsService';
 	import type { WaveStyleConfig } from '@/lib/ttsPlayerConfig';
@@ -37,12 +37,14 @@
 </script>
 
 {#if showProfilePicker}
-	<TTSMiniProfilePicker
+	<MiniProfilePicker
 		bind:filter
 		{filteredProfiles}
 		{selectedProfileId}
 		onPick={onPickProfile}
-		{onExpand}
+		actionIcon="Maximize2"
+		actionLabel="Open full player"
+		onAction={onExpand}
 	/>
 {:else}
 	<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>

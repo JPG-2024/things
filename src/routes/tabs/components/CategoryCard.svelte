@@ -14,7 +14,7 @@
 
 	let { category, onArticleClick, onArticleHoverEnter, onArticleHoverLeave }: Props = $props();
 
-	const previewArticles = $derived(category.articles.slice(0, 10));
+	const previewArticles = $derived(category.articles.slice(0, 18));
 
 	function handleCategoryClick() {
 		goto(`/category/${category.categoryId}?name=${encodeURIComponent(category.categoryName)}`);
@@ -55,8 +55,8 @@
 
 	.category-thumbnails {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 1rem;
+		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		gap: 0.5rem;
 		width: 100%;
 		box-sizing: border-box;
 		padding: 5px;

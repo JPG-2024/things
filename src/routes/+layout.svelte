@@ -162,7 +162,6 @@
 		'D',
 		() => {
 			const url = viewState.hoveredArticleUrl;
-			console.log('dellete', url);
 			if (url) deleteSelectionStore.toggle(url);
 		},
 		() => ({

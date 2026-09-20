@@ -638,6 +638,7 @@ export async function getProfiles(options?: {
 	articleCount?: number;
 	offset?: number;
 	limit?: number;
+	kind?: 'domain' | 'profile';
 }): Promise<ArticleProfile[]> {
 	if (!options && _cachedProfiles) return _cachedProfiles;
 	if (!options && _pendingProfilesPromise) return _pendingProfilesPromise;
@@ -646,22 +647,27 @@ export async function getProfiles(options?: {
 		type RawProfileCard = WebStoreDomainRecord | WebStoreProfileRecord;
 		type ResolvedProfileCard = RawProfileCard & { profilePictureSrc?: string | null };
 		try {
+			const kind = options?.kind;
 			const [domains, profiles] = await Promise.all([
-				invoke<WebStoreDomainRecord[]>('list_web_store_domains', {
-					categoryIds: options?.categoryIds ?? null,
-					createdAtFrom: options?.createdAtFrom ?? null,
-					includeArticles: options?.includeArticles ?? null,
-					articleCount: options?.articleCount ?? null,
-					offset: options?.offset ?? null,
-					limit: options?.limit ?? null
-				}),
-				invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
-					domainId: null,
-					includeArticles: options?.includeArticles ?? null,
-					articleCount: options?.articleCount ?? null,
-					offset: options?.offset ?? null,
-					limit: options?.limit ?? null
-				})
+				kind === 'profile'
+					? Promise.resolve([])
+					: invoke<WebStoreDomainRecord[]>('list_web_store_domains', {
+							categoryIds: options?.categoryIds ?? null,
+							createdAtFrom: options?.createdAtFrom ?? null,
+							includeArticles: options?.includeArticles ?? null,
+							articleCount: options?.articleCount ?? null,
+							offset: options?.offset ?? null,
+							limit: options?.limit ?? null
+						}),
+				kind === 'domain'
+					? Promise.resolve([])
+					: invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
+							domainId: null,
+							includeArticles: options?.includeArticles ?? null,
+							articleCount: options?.articleCount ?? null,
+							offset: options?.offset ?? null,
+							limit: options?.limit ?? null
+						})
 			]);
 
 			const resolvedCards = await resolveProfilePictureBatch<RawProfileCard>([

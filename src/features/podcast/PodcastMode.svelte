@@ -26,6 +26,7 @@
 	let animationFrame: number | null = null;
 	let showTranscript = $state(false);
 	let mode = $state<'mini' | 'full'>('mini');
+	let pickingHost = $state<'A' | 'B' | null>(null);
 
 	let hostAChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostAProfileId));
 	let hostBChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostBProfileId));
@@ -83,13 +84,15 @@
 				podcastState.resume();
 			}
 		},
-		{ stopPropagation: true, preventDefault: true }
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
 	);
 
 	createHotkey(
 		'Escape',
 		() => {
-			if (mode === 'full') {
+			if (pickingHost !== null) {
+				pickingHost = null;
+			} else if (mode === 'full') {
 				mode = 'mini';
 			} else {
 				handleExit();
@@ -106,7 +109,7 @@
 				podcastState.stop();
 			}
 		},
-		{ stopPropagation: true, preventDefault: true }
+		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
 	);
 
 	createHotkey(
@@ -240,10 +243,19 @@
 	out:fade={{ duration: 200 }}
 	class="podcast-mode"
 	class:podcast-mode--mini={mode === 'mini'}
+	class:podcast-mode--picking={mode === 'mini' && pickingHost !== null}
 >
 	{#if mode === 'mini'}
 		<div class="podcast-mini-bar">
-			<PodcastMini onExpand={() => (mode = 'full')} />
+			<PodcastMini
+				{pickingHost}
+				onOpenPicker={(host) => (pickingHost = host)}
+				onClosePicker={() => (pickingHost = null)}
+				onExpand={() => {
+					pickingHost = null;
+					mode = 'full';
+				}}
+			/>
 			<!-- 			<button
 				type="button"
 				class="podcast-mini-bar__expand"
@@ -488,6 +500,22 @@
 		display: flex;
 		align-items: center;
 		pointer-events: auto;
+	}
+
+	.podcast-mode--mini.podcast-mode--picking {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+		left: 0;
+		right: 0;
+		width: 100%;
+		transform: none;
+		height: auto;
+		padding: 0.75rem 1rem;
+		background: rgba(9, 9, 9, 0.92) !important;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: var(--radius-lg);
 	}
 
 	.podcast-mini-bar {
