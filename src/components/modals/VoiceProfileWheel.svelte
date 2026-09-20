@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { fade, scale } from 'svelte/transition';
 	import {
@@ -7,6 +8,7 @@
 		type Voice,
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
+	import { startSystemRecording, stopSystemRecording } from '@/lib/utils/systemAudioRecorder';
 	import { colorFor, initialFor } from '@/lib/utils/avatar';
 	import Icon from '@/components/Icon.svelte';
 	import WheelStage from '@/components/WheelStage.svelte';
@@ -33,6 +35,11 @@
 		onAddVoice?: () => void | Promise<void>;
 		onSaveProfile?: (profileId: string, name: string, image: string) => Promise<boolean>;
 		onDeleteProfile?: (profileId: string) => Promise<boolean>;
+		onRecordingReady?: (blob: Blob) => void;
+		onSaveRecording?: (
+			blob: Blob,
+			opts: { namePrefix: string; imageSrc?: string }
+		) => Promise<boolean>;
 	};
 
 	let {
@@ -46,8 +53,12 @@
 		mode = 'select',
 		onAddVoice,
 		onSaveProfile,
-		onDeleteProfile
+		onDeleteProfile,
+		onRecordingReady,
+		onSaveRecording
 	}: Props = $props();
+
+	const NEW_PROFILE_VALUE = '__new__';
 
 	let draftProfileId = $state('');
 	let draftAudioFile = $state('');
@@ -68,11 +79,21 @@
 	let wasOpen = $state(false);
 	let hoveredChunkName = $state<string | null>(null);
 	let filterText = $state('');
-	let panelView = $state<'wheel' | 'add' | 'edit'>('wheel');
+	let panelView = $state<'wheel' | 'add' | 'edit' | 'record'>('wheel');
 	let editTargetId = $state('');
 	let editName = $state('');
 	let editImage = $state('');
 	let editSaving = $state(false);
+	let isRecording = $state(false);
+	let recordingBusy = $state(false);
+	let recordingSeconds = $state(0);
+	let recordedUrl = $state('');
+	let recordedBlob = $state<Blob | null>(null);
+	let recordingSaving = $state(false);
+	let recordingSaved = $state(false);
+	let saveTargetProfileId = $state(NEW_PROFILE_VALUE);
+	let saveNamePrefix = $state('');
+	let saveImageSrc = $state('');
 	let filteredProfiles = $derived(
 		filterText.trim() === ''
 			? profiles
@@ -96,6 +117,9 @@
 			committed = false;
 			filterText = '';
 			panelView = 'wheel';
+			recordingSeconds = 0;
+			recordingSaved = false;
+			revokeRecordedUrl();
 		}
 		wasOpen = show;
 	});
@@ -115,6 +139,25 @@
 		if (filteredProfiles.length > 0 && !filteredProfiles.some((p) => p.id === draftProfileId)) {
 			draftProfileId = filteredProfiles[0].id;
 		}
+	});
+
+	$effect(() => {
+		if (!isRecording) return;
+		const id = setInterval(() => {
+			recordingSeconds += 1;
+		}, 1000);
+		return () => clearInterval(id);
+	});
+
+	$effect(() => {
+		if (!show && isRecording) {
+			void stopRecording(true);
+		}
+	});
+
+	onDestroy(() => {
+		if (isRecording) void stopRecording(true);
+		revokeRecordedUrl();
 	});
 
 	function clampId(index: number): string {
@@ -227,6 +270,94 @@
 		}
 	}
 
+	function openRecordPanel() {
+		panelView = 'record';
+	}
+
+	function formatDuration(totalSeconds: number): string {
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+
+	function revokeRecordedUrl() {
+		if (recordedUrl) {
+			URL.revokeObjectURL(recordedUrl);
+			recordedUrl = '';
+		}
+	}
+
+	async function startRecording() {
+		if (isRecording || recordingBusy) return;
+		recordingBusy = true;
+		try {
+			await startSystemRecording();
+			isRecording = true;
+			recordingSeconds = 0;
+			revokeRecordedUrl();
+			recordedBlob = null;
+			recordingSaved = false;
+		} catch {
+			// error already surfaced through ttsState.errorMessage
+		} finally {
+			recordingBusy = false;
+		}
+	}
+
+	async function stopRecording(discard = false) {
+		if (!isRecording || recordingBusy) return;
+		recordingBusy = true;
+		isRecording = false;
+		try {
+			const blob = await stopSystemRecording();
+			if (!discard) {
+				revokeRecordedUrl();
+				recordedUrl = URL.createObjectURL(blob);
+				recordedBlob = blob;
+				recordingSaved = false;
+				onRecordingReady?.(blob);
+			}
+		} catch {
+			// error already surfaced through ttsState.errorMessage
+		} finally {
+			recordingBusy = false;
+		}
+	}
+
+	function toggleRecording() {
+		if (isRecording) {
+			void stopRecording();
+		} else {
+			void startRecording();
+		}
+	}
+
+	async function exitRecordPanel() {
+		if (isRecording) await stopRecording();
+		panelView = 'wheel';
+	}
+
+	async function handleSaveRecording() {
+		if (recordingSaving || !recordedBlob) return;
+		const target =
+			saveTargetProfileId === NEW_PROFILE_VALUE
+				? undefined
+				: profiles.find((p) => p.id === saveTargetProfileId);
+		const namePrefix = target ? target.name_prefix : saveNamePrefix.trim();
+		if (!namePrefix) return;
+
+		recordingSaving = true;
+		try {
+			const ok = await onSaveRecording?.(recordedBlob, {
+				namePrefix,
+				imageSrc: target ? undefined : saveImageSrc.trim() || undefined
+			});
+			if (ok !== false) recordingSaved = true;
+		} finally {
+			recordingSaving = false;
+		}
+	}
+
 	createHotkey(
 		'ArrowDown',
 		() => shift(1),
@@ -277,7 +408,9 @@
 	createHotkey(
 		'Escape',
 		() => {
-			if (panelView !== 'wheel') {
+			if (panelView === 'record') {
+				void exitRecordPanel();
+			} else if (panelView !== 'wheel') {
 				panelView = 'wheel';
 			} else if (filterText) {
 				filterText = '';
@@ -305,6 +438,12 @@
 			preventDefault: true
 		})
 	);
+
+	createHotkey('Shift+R', toggleRecording, () => ({
+		enabled: show && panelView === 'record',
+		ignoreInputs: true,
+		preventDefault: true
+	}));
 
 	function autoScroll(node: HTMLElement, selected: boolean) {
 		function apply(isSelected: boolean) {
@@ -554,6 +693,84 @@
 								</button>
 							</div>
 						</div>
+					{:else if mode === 'main' && panelView === 'record'}
+						<div class="form-panel">
+							<div class="form-header">
+								<h3>
+									<Icon name="Mic" size={18} color={viewState.primaryColor} />
+									<span>Record system audio</span>
+								</h3>
+								<button
+									class="back-btn"
+									type="button"
+									aria-label="Back"
+									onclick={() => void exitRecordPanel()}
+								>
+									×
+								</button>
+							</div>
+							<p class="record-hint">
+								Captures everything playing on your default output device, e.g. media in a browser.
+								Anything this app plays while recording is captured too.
+							</p>
+							<div class="record-row">
+								<button
+									type="button"
+									class="record-btn"
+									class:active={isRecording}
+									disabled={recordingBusy}
+									onclick={toggleRecording}
+									aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+								>
+									<Icon
+										name={isRecording ? 'Square' : 'Circle'}
+										size={20}
+										color={isRecording ? '#ff5050' : undefined}
+									/>
+									<span>{recordingBusy ? 'Please wait...' : isRecording ? 'Stop' : 'Record'}</span>
+								</button>
+								{#if isRecording}
+									<span class="record-indicator"></span>
+									<span class="record-timer">{formatDuration(recordingSeconds)}</span>
+								{/if}
+							</div>
+							<p class="hint">Press <kbd>Shift</kbd>+<kbd>R</kbd> to start / stop</p>
+							{#if recordedUrl}
+								<audio class="record-preview" controls src={recordedUrl}></audio>
+								<div class="record-save">
+									<Dropdown
+										label="Save to profile"
+										options={[
+											{ label: 'New profile', value: NEW_PROFILE_VALUE },
+											...profiles.map((p) => ({ label: p.name_prefix, value: p.id }))
+										]}
+										value={saveTargetProfileId}
+										onChange={(v) => (saveTargetProfileId = v)}
+									/>
+									{#if saveTargetProfileId === NEW_PROFILE_VALUE}
+										<Input id="recordNamePrefix" label="Name Prefix" bind:value={saveNamePrefix} />
+										<Input
+											id="recordImageSrc"
+											label="Image URL (optional)"
+											bind:value={saveImageSrc}
+											placeholder="https://..."
+										/>
+									{/if}
+									<div class="form-actions">
+										<Button
+											disabled={recordingSaving ||
+												(saveTargetProfileId === NEW_PROFILE_VALUE && !saveNamePrefix.trim())}
+											onClick={handleSaveRecording}
+										>
+											{recordingSaving ? 'Saving...' : 'Save as voice'}
+										</Button>
+									</div>
+									{#if recordingSaved}
+										<p class="status done">✓ Saved to voice profile</p>
+									{/if}
+								</div>
+							{/if}
+						</div>
 					{:else}
 						{#if profiles.length > 0}
 							<div class="filter-wrap">
@@ -623,6 +840,7 @@
 
 			{#if mode === 'main' && panelView === 'wheel'}
 				<div class="voice-form-actions">
+					<Button icon="Mic" onClick={openRecordPanel}>Record</Button>
 					<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
 					<Button
 						icon="UserRoundPen"
@@ -1035,5 +1253,86 @@
 
 	.status.done {
 		color: var(--primary-color);
+	}
+
+	.record-hint {
+		margin: 0;
+		font-size: 0.85rem;
+		line-height: 1.4;
+		opacity: 0.75;
+	}
+
+	.record-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.record-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-lg);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(154, 154, 154, 0.12);
+		color: white;
+		cursor: pointer;
+		font: inherit;
+		transition:
+			background 0.15s ease,
+			border-color 0.15s ease;
+	}
+
+	.record-btn:hover:not(:disabled) {
+		background: rgba(255, 255, 255, 0.08);
+		border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
+	}
+
+	.record-btn.active {
+		border-color: rgba(255, 80, 80, 0.5);
+	}
+
+	.record-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.record-timer {
+		font-size: 0.95rem;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.9;
+	}
+
+	.record-indicator {
+		width: 10px;
+		height: 10px;
+		border-radius: 999px;
+		background: #ff5050;
+		animation: record-pulse 1s ease-in-out infinite;
+	}
+
+	@keyframes record-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.25;
+		}
+	}
+
+	.record-preview {
+		width: 100%;
+		margin-top: 0.25rem;
+	}
+
+	.record-save {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
 	}
 </style>

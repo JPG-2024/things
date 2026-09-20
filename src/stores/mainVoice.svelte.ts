@@ -4,6 +4,7 @@ import {
 	fetchVoiceChunks,
 	deleteVoiceProfile,
 	updateVoiceProfile,
+	uploadVoiceFromAudio,
 	type Voice,
 	type VoiceProfile
 } from '@/lib/utils/ttsService';
@@ -140,6 +141,29 @@ class MainVoiceState {
 		await ttsState.startAddVoice();
 		if (ttsState.addVoiceStatus === 'done') {
 			await this.refreshAndMatch();
+		}
+	}
+
+	async saveRecording(
+		blob: Blob,
+		opts: { namePrefix: string; imageSrc?: string }
+	): Promise<boolean> {
+		try {
+			const result = await uploadVoiceFromAudio(blob, opts);
+			this.profiles = await fetchVoiceProfiles();
+			this.syncToWheel();
+			await this.selectProfile(result.profile_id);
+
+			const chunk = result.chunks[0];
+			if (chunk) {
+				ttsState.config.refAudioFilename = chunk.audio_file;
+				ttsState.config.refText = chunk.text_reference;
+			}
+			ttsState.namePrefix = result.name_prefix;
+			return true;
+		} catch (err) {
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to save recorded voice';
+			return false;
 		}
 	}
 

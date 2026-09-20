@@ -345,6 +345,7 @@
 	onClose={() => voiceWheelState.close()}
 	onChunksChanged={voiceWheelState.onChunksChanged}
 	onAddVoice={() => mainVoiceState.runAddVoice()}
+	onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
 	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
 	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
 />

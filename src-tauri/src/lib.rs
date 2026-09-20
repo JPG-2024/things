@@ -29,6 +29,11 @@ pub use crate::web_store::{
 	write_raw_content, read_raw_content, read_raw_content_by_url, search_raw_content,
 };
 
+mod audio_capture;
+pub use crate::audio_capture::{
+	start_system_audio_recording, stop_system_audio_recording, AudioRecorderState
+};
+
 mod embedding_store;
 mod llama_server;
 mod track_download;
@@ -64,6 +69,7 @@ pub fn run() {
 
 	let app = tauri::Builder::default()
 		.manage(LlamaServerState::default())
+		.manage(AudioRecorderState::default())
 		.plugin(tauri_plugin_clipboard_manager::init())
 		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_fs::init())
@@ -121,6 +127,8 @@ pub fn run() {
 			delete_article_embeddings,
 			delete_chunk,
 			download_track,
+			start_system_audio_recording,
+			stop_system_audio_recording,
 		])
 		.build(tauri::generate_context!())
 		.expect("error while building tauri application");

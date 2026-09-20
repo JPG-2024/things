@@ -201,6 +201,46 @@ export async function addVoice(
 	}
 }
 
+export interface UploadVoiceResult {
+	profile_id: string;
+	name_prefix: string;
+	language: string;
+	created_profile: boolean;
+	chunks: Voice[];
+}
+
+/**
+ * Uploads a recorded WAV blob to the whisper service, which transcribes it and
+ * creates a chunk. A new profile is created when `namePrefix` does not exist yet,
+ * otherwise the chunk is appended to the existing profile.
+ */
+export async function uploadVoiceFromAudio(
+	blob: Blob,
+	params: { namePrefix: string; imageSrc?: string }
+): Promise<UploadVoiceResult> {
+	const query = new URLSearchParams({ name_prefix: params.namePrefix });
+	if (params.imageSrc) query.set('image_src', params.imageSrc);
+
+	try {
+		const res = await fetch(`${WHISPER_API_URL}/voices/upload?${query.toString()}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'audio/wav' },
+			body: blob
+		});
+		if (!res.ok) {
+			const message = await parseErrorDetail(res);
+			await setErrorFrom(new Error(message), 'Failed to save recorded voice');
+			throw new Error(message);
+		}
+		return (await res.json()) as UploadVoiceResult;
+	} catch (err) {
+		if (isAbort(err)) throw err;
+		if (err instanceof Error && err.message) throw err;
+		await setErrorFrom(err, 'Failed to save recorded voice');
+		throw err;
+	}
+}
+
 export interface SpeechConfigInput {
 	numStep: number;
 	denoise: boolean;
