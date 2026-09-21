@@ -4,14 +4,22 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 
+	const visibleProfiles = $derived(
+		viewState.activeArticleProfileId
+			? articleCacheStore.profilesWithArticles.filter(
+					(profile) => profile.id === viewState.activeArticleProfileId
+				)
+			: articleCacheStore.profilesWithArticles
+	);
+
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
 		void articleCacheStore.fetchProfilesWithArticles({ categoryIds: categories });
 	});
 </script>
 
-<ProfileList items={articleCacheStore.profilesWithArticles} />
-{#if articleCacheStore.profilesWithArticles.length === 0}
+<ProfileList items={visibleProfiles} />
+{#if visibleProfiles.length === 0}
 	{#if articleCacheStore.loadingProfiles}
 		<div class="empty-profiles-container"></div>
 	{:else}
@@ -20,7 +28,7 @@
 		</div>
 	{/if}
 {/if}
-{#if articleCacheStore.hasMoreProfiles}
+{#if articleCacheStore.hasMoreProfiles && !viewState.activeArticleProfileId}
 	<LoadMoreSentinel
 		onLoadMore={() => articleCacheStore.loadMoreProfiles()}
 		disabled={articleCacheStore.loadingProfiles}

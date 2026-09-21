@@ -14,12 +14,11 @@
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
-	import Categories from '@/components/Categories.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
-	import ProfilesBar from '@/components/ProfilesBar.svelte';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
+	import TabHeader from '@/components/TabHeader.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -275,14 +274,14 @@
 					/>
 				</button>
 				<ToolbarDivider />
-				<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
+				<!-- 				<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 					<ToggleIcon
 						name="Download"
 						bind:checked={viewState.downloadTracksEnabled}
 						size={18}
 						tooltipProps={{ content: 'download tracks from queue' }}
 					/>
-				</button>
+				</button> -->
 				<button
 					type="button"
 					class="settings-trigger"
@@ -332,22 +331,22 @@
 			</div>
 		</Toolbar>
 	</div>
-	<div class="toolbar-row"><Categories /></div>
 	<div class="toolbar-row tabs-row">
 		<ProfileArticleTabs />
 	</div>
-</div>
-
-<div
-	class="dashboard-container"
-	class:has-profilesbar={viewState.activeProfileArticleTab === 'articles'}
->
-	{#if viewState.activeProfileArticleTab === 'articles'}
-		<div class="dashboard-profilesbar-container">
-			<ProfilesBar />
+	{#if viewState.activeProfileArticleTab !== 'articles'}
+		<div class="toolbar-row tab-header-row">
+			<TabHeader />
 		</div>
 	{/if}
-	<div id="dashboard-content" class="dashboard-content">
+</div>
+
+<div class="dashboard-container">
+	<div
+		id="dashboard-content"
+		class="dashboard-content"
+		class:has-tab-header={viewState.activeProfileArticleTab !== 'articles'}
+	>
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'domains'}
@@ -385,6 +384,7 @@
 		justify-content: center;
 		cursor: pointer;
 		padding: 0.45rem;
+		flex-shrink: 0;
 	}
 
 	.dashboard-container {
@@ -396,17 +396,6 @@
 		overflow: hidden;
 	}
 
-	.dashboard-container.has-profilesbar {
-		grid-template-columns: auto minmax(0, 1fr);
-	}
-
-	.dashboard-profilesbar-container {
-		margin-top: 10rem;
-		height: calc(100vh - 10rem);
-		min-height: 0;
-		overflow: hidden;
-	}
-
 	.dashboard-content {
 		display: flex;
 		flex-direction: column;
@@ -414,7 +403,11 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 12rem;
+		padding-top: 10rem;
+	}
+
+	.dashboard-content.has-tab-header {
+		padding-top: 16.75rem;
 	}
 
 	.dashboard-toolbar-container {
@@ -484,12 +477,14 @@
 		justify-content: center;
 		cursor: pointer;
 		padding: 0.45rem;
+		flex-shrink: 0;
 	}
 
 	.color-dot {
 		display: block;
 		width: 15px;
 		height: 15px;
+		flex-shrink: 0;
 		border-radius: 50%;
 		border: 1px solid color-mix(in srgb, var(--primary-color) 60%, transparent);
 		box-shadow: 0 0 6px color-mix(in srgb, var(--primary-color) 35%, transparent);

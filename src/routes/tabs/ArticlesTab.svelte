@@ -50,18 +50,44 @@
 	}
 </script>
 
-{#if viewState.rawSearchLoading}
-	<div class="empty-profiles-container">
-		<div class="empty-profiles-pill">Searching raw content...</div>
-	</div>
-{:else if searchResults !== null}
-	<div class="search-results-header">
-		<button type="button" class="search-results-clear" onclick={handleClearSearch}>
-			{searchResults.length} result{searchResults.length !== 1 ? 's' : ''} — clear
-		</button>
-	</div>
-	{#if searchResults.length > 0}
-		<MasonryGrid items={searchResults}>
+<div class="article-tab__container">
+	{#if viewState.rawSearchLoading}
+		<div class="empty-profiles-container">
+			<div class="empty-profiles-pill">Searching raw content...</div>
+		</div>
+	{:else if searchResults !== null}
+		<div class="search-results-header">
+			<button type="button" class="search-results-clear" onclick={handleClearSearch}>
+				{searchResults.length} result{searchResults.length !== 1 ? 's' : ''} — clear
+			</button>
+		</div>
+		{#if searchResults.length > 0}
+			<MasonryGrid items={searchResults}>
+				{#snippet children(
+					article: ArticleWithTasks,
+					_i: number,
+					_layoutIndex: number,
+					layoutKey: LayoutKey
+				)}
+					<ArticleItem
+						{article}
+						{layoutKey}
+						animate={false}
+						marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
+						matchSnippet={viewState.rawSearchResults?.get(article.url ?? '')}
+						onClick={handleArticleClick}
+						onHoverEnter={handleArticleHoverEnter}
+						onHoverLeave={handleArticleHoverLeave}
+					/>
+				{/snippet}
+			</MasonryGrid>
+		{:else}
+			<div class="empty-profiles-container">
+				<div class="empty-profiles-pill">No matches found</div>
+			</div>
+		{/if}
+	{:else}
+		<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
 			{#snippet children(
 				article: ArticleWithTasks,
 				_i: number,
@@ -73,53 +99,32 @@
 					{layoutKey}
 					animate={false}
 					marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-					matchSnippet={viewState.rawSearchResults?.get(article.url ?? '')}
 					onClick={handleArticleClick}
 					onHoverEnter={handleArticleHoverEnter}
 					onHoverLeave={handleArticleHoverLeave}
 				/>
 			{/snippet}
 		</MasonryGrid>
-	{:else}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">No matches found</div>
-		</div>
-	{/if}
-{:else}
-	<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
-		{#snippet children(
-			article: ArticleWithTasks,
-			_i: number,
-			_layoutIndex: number,
-			layoutKey: LayoutKey
-		)}
-			<ArticleItem
-				{article}
-				{layoutKey}
-				animate={false}
-				marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-				onClick={handleArticleClick}
-				onHoverEnter={handleArticleHoverEnter}
-				onHoverLeave={handleArticleHoverLeave}
+		{#if articleCacheStore.loadingArticles}
+			<div class="empty-profiles-container"></div>
+		{:else if articleCacheStore.articlesWithoutProfile.length === 0}
+			<div class="empty-profiles-container">
+				<div class="empty-profiles-pill">No articles</div>
+			</div>
+		{/if}
+		{#if articleCacheStore.hasMoreArticles}
+			<LoadMoreSentinel
+				onLoadMore={() => articleCacheStore.loadMoreArticles()}
+				disabled={articleCacheStore.loadingArticles}
 			/>
-		{/snippet}
-	</MasonryGrid>
-	{#if articleCacheStore.loadingArticles}
-		<div class="empty-profiles-container"></div>
-	{:else if articleCacheStore.articlesWithoutProfile.length === 0}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">No articles</div>
-		</div>
+		{/if}
 	{/if}
-	{#if articleCacheStore.hasMoreArticles}
-		<LoadMoreSentinel
-			onLoadMore={() => articleCacheStore.loadMoreArticles()}
-			disabled={articleCacheStore.loadingArticles}
-		/>
-	{/if}
-{/if}
+</div>
 
 <style>
+	.article-tab__container {
+		padding: 2rem;
+	}
 	.empty-profiles-container {
 		display: flex;
 		align-items: center;

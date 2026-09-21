@@ -882,6 +882,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
+		justify-content: center;
 		gap: 1rem;
 		color: white;
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -945,6 +946,7 @@
 		width: 100%;
 		max-width: 420px;
 		margin-inline: auto;
+		padding: 3rem;
 	}
 
 	.filter-clear {

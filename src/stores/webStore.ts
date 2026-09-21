@@ -599,10 +599,7 @@ export function isDomainId(id: string): boolean {
 }
 
 export function normalizeDomainId(value: string): string {
-	return value
-		.toLowerCase()
-		.replace(/\s+/g, '-')
-		.replace(/^www\./, '');
+	return value.toLowerCase().replace(/\s+/g, '-');
 }
 
 function domainRecordToArticleProfile(record: WebStoreDomainRecord): ArticleProfile {

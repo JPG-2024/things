@@ -175,15 +175,18 @@ export async function youTubeRunner(
 	const initialTasks = buildYouTubeInitialTasks(cleanUrl);
 	const domainUrl = viewState.domainUrl ?? '';
 	const normalizedRunnerProfileId = config?.profileId?.trim()
-		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-')
+		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-').replace(/\./g, '')
 		: undefined;
 
+	console.log(normalizedRunnerProfileId);
+
+	let profileFetchPromise: Promise<void> | null = null;
 	if (config?.profile) {
 		scrapStore.currentYoutubeProfile = config.profile;
 	} else {
 		scrapStore.currentYoutubeProfile = null;
 		if (videoId) {
-			fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
+			profileFetchPromise = fetchYouTubeProfileInBackground(videoId, cleanUrl).catch(() => {});
 		}
 	}
 
@@ -196,8 +199,13 @@ export async function youTubeRunner(
 		articleOverrides: config?.articleOverrides,
 		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
+			if (profileFetchPromise) {
+				await profileFetchPromise;
+			}
 			const profile = scrapStore.currentYoutubeProfile;
-			const profileIdForArticle = profile?.id ?? normalizedRunnerProfileId;
+
+			const normalizedProfileId = profile?.id ? profile.id.replace(/\./g, '') : undefined;
+			const profileIdForArticle = normalizedProfileId ?? normalizedRunnerProfileId;
 			const saveOperations: Promise<unknown>[] = [
 				saveArticle(cleanUrl, runResult.tasks, {
 					...(profileIdForArticle ? { profile: profileIdForArticle } : {}),
@@ -207,10 +215,10 @@ export async function youTubeRunner(
 				saveTasks(cleanUrl, runResult.tasks)
 			];
 
-			if (profile?.id) {
-				const profileUrl = buildYouTubeProfileUrl(profile.profilePath || profile.id);
+			if (profile?.id && normalizedProfileId) {
+				const profileUrl = buildYouTubeProfileUrl(profile.profilePath || normalizedProfileId);
 				saveOperations.push(
-					saveProfile(profile.id, profile.profileImage, profileUrl, 'youtube.com')
+					saveProfile(normalizedProfileId, profile.profileImage, profileUrl, 'youtube.com')
 				);
 			}
 
