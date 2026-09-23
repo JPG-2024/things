@@ -40,6 +40,7 @@ export function extractDependencyText(data: unknown): string {
 }
 
 export function parseStructuredArrayResponses(data: string): string[] {
+	console.log('parseStructuredArrayResponses data:', data);
 	const codeBlockMatch = data.match(/```(?:json)?\s*([\s\S]*?)```/);
 	const jsonString = codeBlockMatch ? codeBlockMatch[1].trim() : data.trim();
 

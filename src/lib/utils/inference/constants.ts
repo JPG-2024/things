@@ -3,19 +3,21 @@ export const DEFAULT_DYNAMIC_MODEL = 'llama-server';
 export const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
 	temperature: 0.1,
 	top_p: 0.9,
-	max_tokens: 5,
+	max_tokens: 2000,
 	frequency_penalty: 0,
 	presence_penalty: 0,
-	stop: ['\n'],
-	seed: 42
+	stream: false,
+	reasoning_effort: 'low'
 } satisfies Record<string, unknown>;
 
 export const DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS = {
 	temperature: 0.2,
 	top_p: 0.9,
-	max_tokens: 200,
+	max_tokens: 2000,
 	frequency_penalty: 0,
-	presence_penalty: 0
+	presence_penalty: 0,
+	stream: false,
+	reasoning_effort: 'none',
 	/* stop: ['\n', '. '] */
 } satisfies Record<string, unknown>;
 
@@ -50,10 +52,9 @@ export const DEFAULT_IA_COMPLETION_OPTIONS = {
 export const DEFAULT_TITLE_COMPLETION_OPTIONS = {
 	temperature: 0.7,
 	top_p: 0.9,
-	max_tokens: 100,
 	frequency_penalty: 0.4,
 	presence_penalty: 0.2,
-	stop: ['\n', '. ']
+	reasoning_effort: 'none',
 } satisfies Record<string, unknown>;
 
 export const DEFAULT_WEB_COMPLETION_OPTIONS = {

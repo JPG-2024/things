@@ -122,8 +122,19 @@ export interface LlamaChatCompletionsRequest {
 	user?: string; // End-user identifier for tracing or abuse monitoring.
 	seed?: number; // Seed for more repeatable sampling.
 
+	// Thinking/reasoning control (translated per provider by chat-completions-provider).
+	think?: boolean; // Canonical intent: false disables thinking/reasoning.
+	enable_thinking?: boolean; // Legacy alias for `think`; also a no-op at the top level for llama-server.
+	chat_template_kwargs?: Record<string, string | boolean | number>; // llama-server template kwargs, e.g. { enable_thinking: false }.
+	reasoning_effort?: string; // llama-server/OpenRouter effort; 'none' disables thinking.
+	reasoning?: {
+		enabled?: boolean;
+		effort?: string;
+		exclude?: boolean;
+	}; // OpenRouter unified reasoning control.
+	reasoning_format?: string; // llama-server only: where thought tags are parsed (auto | none | deepseek).
+
 	// DashScope / compatible-mode options
-	enable_thinking?: boolean; // Includes reasoning output when supported.
 	enable_search?: boolean; // Allows the model to use search when supported.
 
 	// llama-server extensions frequently accepted by OAI route
@@ -397,6 +408,8 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
+	console.log('chatCompletions request:', request);
+
 	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8080';
 	const url = joinUrl(baseUrl, '/v1/chat/completions');
 	const streamEnabled =
@@ -468,6 +481,9 @@ export async function chatCompletions(
 	await parseSse(
 		res,
 		(chunk) => {
+
+			console.log(chunk)
+
 			lastChunk = chunk;
 			if (chunk.usage) usage = chunk.usage;
 

@@ -43,6 +43,7 @@ export async function generateEmojiForText(text: string): Promise<string> {
 				{ role: 'user', content: trimmed }
 			]
 		});
+		console.log('generateEmojiForText response:', response);
 		const rawContent = response.choices?.[0]?.message?.content ?? '';
 		const content = typeof rawContent === 'string' ? rawContent : '';
 		return parseEmojiResponse(content);
@@ -67,6 +68,9 @@ export async function generateCategoryDescription(name: string): Promise<string>
 				{ role: 'user', content: trimmed }
 			]
 		});
+
+		console.log('generateCategoryDescription response:', response);
+
 		const rawContent = response.choices?.[0]?.message?.content ?? '';
 		return typeof rawContent === 'string' ? rawContent.trim() : '';
 	} catch {

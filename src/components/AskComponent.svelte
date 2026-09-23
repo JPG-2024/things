@@ -42,9 +42,9 @@
 	void runId;
 
 	const DEFAULT_SYSTEM_PROMPT =
-		'You are a concise assistant. Answer the question in one short paragraph. Avoid Markdown. and formating.';
+		'Response using the context';
 	const DEFAULT_MODEL = 'llama-server';
-	const DEFAULT_MAX_TOKENS = 500;
+	const DEFAULT_MAX_TOKENS = 10000;
 	const DEFAULT_TEMPERATURE = 0.2;
 	const DEFAULT_TOP_P = 0.9;
 
@@ -161,15 +161,20 @@
 			],
 			temperature,
 			top_p: topP,
-			max_completion_tokens: maxTokens
+			max_completion_tokens: maxTokens,
+			reasoning_effort: 'high',
+			n_predict: 5000,
 		};
 
 		try {
 			const response = await chatCompletions(request, {
 				onToken: (token) => {
 					streamedText += token;
-				}
+				},
+				onReasoningToken: (text) => console.log(text)	
 			});
+
+			console.log(response)
 
 			const finalText = response.choices?.[0]?.message?.content;
 			if (typeof finalText === 'string' && finalText.trim()) {

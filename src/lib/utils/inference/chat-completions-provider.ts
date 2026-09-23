@@ -54,8 +54,71 @@ const LLAMA_SPECIFIC_FIELDS = new Set([
 	'min_p',
 	'typical_p',
 	'enable_thinking',
-	'enable_search'
+	'enable_search',
+	'think',
+	'chat_template_kwargs'
 ]);
+
+/**
+ * Returns true when the request explicitly asks to disable thinking/reasoning.
+ * @param request - The incoming chat completion request.
+ * @returns Whether thinking should be disabled for this request.
+ */
+function wantsThinkingDisabled(request: LlamaChatCompletionsRequest): boolean {
+	if (request.reasoning_effort === 'none') return true;
+	if (request.reasoning?.enabled === false) return true;
+	if (request.reasoning?.effort === 'none') return true;
+	return request.think === false || request.enable_thinking === false;
+}
+
+/**
+ * Drop the provider-agnostic thinking intent fields before sending upstream.
+ * @param request - The request to clean.
+ * @returns A shallow copy without the intent-only fields.
+ */
+function stripThinkingIntent(request: LlamaChatCompletionsRequest): LlamaChatCompletionsRequest {
+	const rest: LlamaChatCompletionsRequest = { ...request };
+	delete rest.think;
+	delete rest.enable_thinking;
+	return rest;
+}
+
+/**
+ * Apply llama-server's documented per-request thinking switch.
+ * @param request - The request to translate.
+ * @returns The request with llama-server reasoning fields set.
+ */
+function applyLlamaThinking(request: LlamaChatCompletionsRequest): LlamaChatCompletionsRequest {
+	if (!wantsThinkingDisabled(request)) return request;
+
+	return {
+		...stripThinkingIntent(request),
+		reasoning_effort: 'none',
+		chat_template_kwargs: {
+			...(request.chat_template_kwargs ?? {}),
+			enable_thinking: false
+		}
+	};
+}
+
+/**
+ * Apply OpenRouter's unified reasoning control to disable thinking.
+ * @param request - The request to translate.
+ * @returns The request with OpenRouter reasoning fields set.
+ */
+function applyOpenRouterThinking(
+	request: LlamaChatCompletionsRequest
+): LlamaChatCompletionsRequest {
+	if (!wantsThinkingDisabled(request)) return request;
+
+	return {
+		...request,
+		reasoning: {
+			...(request.reasoning ?? {}),
+			enabled: false
+		}
+	};
+}
 
 let openrouterClient: OpenAI | null = null;
 
@@ -372,7 +435,7 @@ export async function chatCompletions(
 	}
 
 	if (viewState.aiProvider === 'openrouter') {
-		return openrouterChatCompletions(request, options);
+		return openrouterChatCompletions(applyOpenRouterThinking(request), options);
 	}
-	return llamaChatCompletions(request, options);
+	return llamaChatCompletions(applyLlamaThinking(request), options);
 }

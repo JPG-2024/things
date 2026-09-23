@@ -57,7 +57,7 @@ export const TITLE_SYSTEM_MESSAGE = 'Avoid Markdown.';
 
 // Original: src/runners/shared/taskFactories.ts:116-119
 export function buildTitleUserMessage(lang?: string): string {
-	return `Create a short title describing the content. No more than 20 words. avoid quotes. Answer in ${lang === 'es' ? 'Spanish' : 'English'}.`;
+	return `Create a short title describing the content. No more than 20 words. avoid quotes.`;
 }
 
 // ── Category ──────────────────────────────────────────────────────────
