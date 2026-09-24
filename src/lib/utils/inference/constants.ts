@@ -27,7 +27,7 @@ export const SUMMARY_COMPLETION_OPTIONS = {
 	min_p: 0.05,
 	presence_penalty: 0,
 	n_predict: 1500,
-	stream: true
+	stream: false
 } as const;
 
 export const DEFAULT_STRUCTURED_OUTPUT_OPTIONS = {
@@ -104,5 +104,7 @@ export const MULTI_FIELD_COMPLETION_OPTIONS = {
 	min_p: 0.1,
 	presence_penalty: 0,
 	n_predict: 2048,
+	reasoning_effort: 'high',
+	reason: true,
 	stream: false
 } as const;

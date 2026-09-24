@@ -38,9 +38,9 @@ export async function generateEmojiForText(text: string): Promise<string> {
 			messages: [
 				{
 					role: 'system',
-					content: EMOJI_SYSTEM_MESSAGE
+					content: 'You are a emoji generator. Return only a single emoji that best represents the user text. Avoid explanations.'
 				},
-				{ role: 'user', content: trimmed }
+				{ role: 'user', content: `EMOJI_SYSTEM_MESSAGE. User text: ${trimmed}` }
 			]
 		});
 		console.log('generateEmojiForText response:', response);
