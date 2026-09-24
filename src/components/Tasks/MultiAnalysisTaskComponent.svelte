@@ -86,19 +86,23 @@
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!multiData?.finalResponse);
 
-	const levelTabs = WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }));
+	const levelTabs = [
+		{ id: 'auto', label: 'auto' },
+		...WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }))
+	];
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
-	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
+	const showLevelTabs = $derived(
+		!!recursiveConfig && !recursiveConfig.splitByString && !recursiveConfig.splitByHeaders
+	);
 	const runtimeDivisor = $derived.by((): number | undefined => {
 		const data = task.data as Record<string, unknown> | undefined;
 		return typeof data?.windowDivisor === 'number' ? (data.windowDivisor as number) : undefined;
 	});
+	const levelLocked = $derived(recursiveConfig?.windowDivisorLocked === true);
 	const activeLevel = $derived(
-		runtimeDivisor !== undefined
-			? String(runtimeDivisor)
-			: recursiveConfig?.windowDivisor !== undefined
-				? String(recursiveConfig.windowDivisor)
-				: ''
+		levelLocked && recursiveConfig?.windowDivisor !== undefined
+			? String(recursiveConfig.windowDivisor)
+			: 'auto'
 	);
 
 	const combineModeTabs = [
@@ -118,15 +122,25 @@
 	async function applyLevel(levelId: string) {
 		if (!targetRunId || !recursiveConfig) return;
 		if (task.status === 'running') return;
-		const level = Number(levelId);
-		if (!Number.isFinite(level) || level < 1) return;
-		if (recursiveConfig.windowDivisor === level) return;
+
+		const isAuto = levelId === 'auto';
+		const level = isAuto ? (recursiveConfig.windowDivisor ?? 2) : Number(levelId);
+		if (isAuto) {
+			if (recursiveConfig.windowDivisorLocked !== true) return;
+		} else {
+			if (!Number.isFinite(level) || level < 1) return;
+			if (recursiveConfig.windowDivisorLocked === true && recursiveConfig.windowDivisor === level) {
+				return;
+			}
+		}
+
 		try {
 			const newTask = buildRecursiveTask(task.id, {
 				...recursiveConfig,
 				name: task.name,
 				dependencies: task.dependencies,
 				windowDivisor: level,
+				windowDivisorLocked: !isAuto,
 				renderOrder: task.renderOrder,
 				persist: true,
 				model: viewState.aiModel,
@@ -235,6 +249,9 @@
 			<div class="level-row">
 				<span class="level-label">window ÷</span>
 				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
+				{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
+					<span class="level-label">÷{runtimeDivisor}</span>
+				{/if}
 			</div>
 		{/if}
 
@@ -281,7 +298,7 @@
 				</div>
 			</div>
 		{/if}
-		
+
 		{#if multiData.chunks.length > 0}
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
 				<div class="chunks-grid">

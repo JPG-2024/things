@@ -611,6 +611,7 @@
 				dependencies: deps.length > 0 ? deps : undefined,
 				windowSize: recOverrideWindows ? Number(recWindowSize) || 1000 : undefined,
 				windowDivisor: recOverrideWindows ? undefined : existingCfg?.windowDivisor,
+				windowDivisorLocked: recOverrideWindows ? undefined : existingCfg?.windowDivisorLocked,
 				overlap: recOverrideWindows ? Number(recOverlap) || 100 : undefined,
 				splitByString: recSplitByString.trim() || undefined,
 				processorType: recProcessorType,

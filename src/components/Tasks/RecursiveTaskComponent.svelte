@@ -89,21 +89,25 @@
 		}))
 	);
 
-	const levelTabs = WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }));
+	const levelTabs = [
+		{ id: 'auto', label: 'auto' },
+		...WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }))
+	];
 
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 
-	const showLevelTabs = $derived(!!recursiveConfig && !recursiveConfig.splitByString);
+	const showLevelTabs = $derived(
+		!!recursiveConfig && !recursiveConfig.splitByString && !recursiveConfig.splitByHeaders
+	);
 	const runtimeDivisor = $derived.by((): number | undefined => {
 		const data = task.data as Record<string, unknown> | undefined;
 		return typeof data?.windowDivisor === 'number' ? (data.windowDivisor as number) : undefined;
 	});
+	const levelLocked = $derived(recursiveConfig?.windowDivisorLocked === true);
 	const activeLevel = $derived(
-		runtimeDivisor !== undefined
-			? String(runtimeDivisor)
-			: recursiveConfig?.windowDivisor !== undefined
-				? String(recursiveConfig.windowDivisor)
-				: ''
+		levelLocked && recursiveConfig?.windowDivisor !== undefined
+			? String(recursiveConfig.windowDivisor)
+			: 'auto'
 	);
 
 	function handleLevelChange(levelId: string) {
@@ -113,15 +117,25 @@
 	async function applyLevel(levelId: string) {
 		if (!targetRunId || !recursiveConfig) return;
 		if (task.status === 'running') return;
-		const level = Number(levelId);
-		if (!Number.isFinite(level) || level < 1) return;
-		if (recursiveConfig.windowDivisor === level) return;
+
+		const isAuto = levelId === 'auto';
+		const level = isAuto ? (recursiveConfig.windowDivisor ?? 2) : Number(levelId);
+		if (isAuto) {
+			if (recursiveConfig.windowDivisorLocked !== true) return;
+		} else {
+			if (!Number.isFinite(level) || level < 1) return;
+			if (recursiveConfig.windowDivisorLocked === true && recursiveConfig.windowDivisor === level) {
+				return;
+			}
+		}
+
 		try {
 			const newTask = buildRecursiveTask(task.id, {
 				...recursiveConfig,
 				name: task.name,
 				dependencies: task.dependencies,
 				windowDivisor: level,
+				windowDivisorLocked: !isAuto,
 				renderOrder: task.renderOrder,
 				embeddings: task.embeddings,
 				storeChunkText: task.storeChunkText,
@@ -149,6 +163,9 @@
 			<div class="level-row">
 				<span class="level-label">window ÷</span>
 				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
+				{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
+					<span class="level-label">÷{runtimeDivisor}</span>
+				{/if}
 			</div>
 		{/if}
 		<!-- 		{#if chunks.length > 0}
