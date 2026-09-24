@@ -252,6 +252,16 @@
 			</div>
 		{/if}
 
+		{#if !isRunning && task.embeddings}
+			<SimilarEmbeddingsComponent
+				id={task.id}
+				data={task.data}
+				enabled={task.embeddings === true}
+				embedField={task.embedField}
+				maxDistance={0.4}
+			/>
+		{/if}
+
 		{#if !isRunning && multiData.finalResponse}
 			<div class="final-section">
 				<div class="final-content">
@@ -271,17 +281,7 @@
 				</div>
 			</div>
 		{/if}
-
-		{#if !isRunning && task.embeddings}
-			<SimilarEmbeddingsComponent
-				id={task.id}
-				data={task.data}
-				enabled={task.embeddings === true}
-				embedField={task.embedField}
-				maxDistance={0.4}
-			/>
-		{/if}
-
+		
 		{#if multiData.chunks.length > 0}
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
 				<div class="chunks-grid">

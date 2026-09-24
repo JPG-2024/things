@@ -40,6 +40,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Run Svelte type checking in watch mode: `bun run check:watch`
 - Start Tauri dev app: `bun run tauri dev`
 - Start Linux Tauri dev with repo env flags: `bun run linux`
+- Install dev `.desktop` icon for GNOME/Wayland: `bun run dev-icon` (remove: `bun run dev-icon:remove`)
 - Run arbitrary Tauri CLI command: `bun run tauri <args>`
 
 ## Rust Commands
@@ -175,6 +176,13 @@ Use a reactive options function (getter) when the hotkey should only fire under 
 - When adding a new Tauri command, update both the Rust invoke handler and the TS caller.
 - Keep Rust changes focused; do not refactor unrelated modules while touching command plumbing.
 - Follow existing Rust module organization rather than creating new layers prematurely.
+
+### Linux app icon (GNOME / Wayland)
+
+- On Wayland, GNOME ignores the window icon; the dock/Activities/Alt-Tab icon comes from an installed `.desktop` file matched by app id (`things`, verified via `WAYLAND_DEBUG=1 ... | grep set_app_id`), then `Icon=` from the icon theme.
+- `tauri dev` installs neither, so the generic placeholder shows. Run `bun run dev-icon` to install a user-level `things.desktop` + icon (remove with `bun run dev-icon:remove`), then restart the dev app. `bin/install-dev-desktop.sh` does the work.
+- `bundle.icon` in `tauri.conf.json` lists `icons/icon.png` first: Tauri's Linux codegen uses the first `.png` as the default window icon, so ordering controls icon resolution on X11.
+- Do not set `app.enableGTKAppId` to `true` without a custom desktop template: the bundler emits `StartupWMClass=<exec name>` (`things`), and switching the app id to the identifier would break Wayland icon matching.
 
 ## What To Avoid
 
