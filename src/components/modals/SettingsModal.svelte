@@ -44,6 +44,26 @@
 		</div>
 	</div>
 	<div class="inference-section">
+		<h3>Media</h3>
+		<div class="field">
+			<label for="media-thumbnail-reduction">Thumbnail Reduction</label>
+			<input
+				id="media-thumbnail-reduction"
+				type="number"
+				min="1"
+				max="8"
+				value={viewState.thumbnailReductionMagnitud}
+				oninput={(e) => {
+					const v = Number((e.target as HTMLInputElement).value);
+					viewState.thumbnailReductionMagnitud = Math.min(
+						8,
+						Math.max(1, Math.trunc(isNaN(v) ? 1 : v))
+					);
+				}}
+			/>
+		</div>
+	</div>
+	<div class="inference-section">
 		<h3>Scraping</h3>
 		<div class="field checkbox-field">
 			<label>

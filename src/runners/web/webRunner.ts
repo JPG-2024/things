@@ -119,7 +119,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 			const thumbnailImage = await invoke<string>('download_and_save_image', {
 				url: resolvedImageUrl,
 				folderName: mediaDirectory,
-				reductionMagnitud: 2,
+				reductionMagnitud: viewState.thumbnailReductionMagnitud,
 				maxDimension: 1024
 			});
 			const thumbnailImageSrc = await getMediaSrc(thumbnailImage);

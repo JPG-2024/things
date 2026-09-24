@@ -80,6 +80,7 @@ class ViewState {
 	clipboardTtsEnabled = $state(false);
 	forceLanguageEnabled = $state(false);
 	downloadTracksEnabled = $state(false);
+	thumbnailReductionMagnitud = $state(2);
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
 	embeddingsLoading = $state(false);

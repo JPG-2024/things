@@ -119,7 +119,10 @@ function buildYouTubeInitialTasks(cleanUrl: string): Task[] {
 			const initData = runtime.getTaskData('init-youtube') as { videoId: string; url: string };
 			if (!initData?.videoId) throw new Error('Video ID not found');
 			const ytThumbnailUrl = getYouTubeThumbnailUrl(initData.videoId, 'high');
-			const { mediaDirectory, fileName: thumbnailImage } = await downloadImageUrl(ytThumbnailUrl);
+			const { mediaDirectory, fileName: thumbnailImage } = await downloadImageUrl(
+				ytThumbnailUrl,
+				viewState.thumbnailReductionMagnitud
+			);
 			const thumbnailImageSrc = await getMediaSrc(thumbnailImage);
 			viewState.hoveredPictureSrc = thumbnailImageSrc;
 			return {

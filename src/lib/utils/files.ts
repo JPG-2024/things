@@ -41,13 +41,18 @@ export const getImageSrc = async (mediaDirectory: string, imgName: string): Prom
 	return convertFileSrc(filePath);
 };
 
-export async function downloadImageUrl(url: string): Promise<DownloadedImageResult> {
+export const DEFAULT_IMAGE_REDUCTION_MAGNITUD = 2;
+
+export async function downloadImageUrl(
+	url: string,
+	reductionMagnitud = DEFAULT_IMAGE_REDUCTION_MAGNITUD
+): Promise<DownloadedImageResult> {
 	try {
 		const mediaDirectory = await resolveMediaDirectory(url);
 		const fileName = await invoke<string>('download_and_save_image', {
 			url: url,
 			folderName: mediaDirectory,
-			reductionMagnitud: 2,
+			reductionMagnitud,
 			maxDimension: 320
 		});
 
