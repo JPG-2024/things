@@ -1,10 +1,4 @@
-import { z } from 'zod';
-import {
-	buildIaTask,
-	iaTask,
-	requireFinalResponseString,
-	requireStringState
-} from '@/runners/taskSchema';
+import { buildIaTask, iaTask, requireFinalResponseString } from '@/runners/taskSchema';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
@@ -12,8 +6,7 @@ import {
 	DEFAULT_DYNAMIC_MODEL,
 	DEFAULT_IA_COMPLETION_OPTIONS,
 	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-	DEFAULT_TITLE_COMPLETION_OPTIONS,
-	SUMMARY_COMPLETION_OPTIONS
+	DEFAULT_TITLE_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
 import { buildExtractionCompletionOptions } from '@/lib/utils/inference/extraction-helper';
 import {
@@ -23,32 +16,27 @@ import {
 	buildExtractionUserMessage,
 	buildTitleUserMessage,
 	DEFAULT_IA_SYSTEM_MESSAGE,
-	SUMMARY_SYSTEM_MESSAGE,
-	SUMMARY_USER_MESSAGE,
 	TITLE_SYSTEM_MESSAGE
 } from '@/lib/utils/inference/prompts';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { ExtractorConfig, Task } from '@/types/taskRunner.types';
 
-export type IaTaskFactoryOptions<TOutput extends z.core.$ZodType = z.ZodString> = Partial<
-	Omit<IaTaskDef<TOutput>, 'output' | 'type' | 'extractorConfig'>
+export type IaTaskFactoryOptions<TParsed = string> = Partial<
+	Omit<IaTaskDef<TParsed>, 'type' | 'extractorConfig'>
 > & {
-	output?: TOutput;
 	model?: string;
 };
 
-export function createIaTask<TOutput extends z.core.$ZodType = z.ZodString>(
-	options: IaTaskFactoryOptions<TOutput> = {}
-): IaTaskDef<TOutput> {
-	const { model, output, component, systemMessage, userMessage, completionOptions, ...rest } =
-		options;
+export function createIaTask<TParsed = string>(
+	options: IaTaskFactoryOptions<TParsed> = {}
+): IaTaskDef<TParsed> {
+	const { model, component, systemMessage, userMessage, completionOptions, ...rest } = options;
 
-	return iaTask({
+	return iaTask<TParsed>({
 		...rest,
 		component: component ?? 'taskBase',
 		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
 		userMessage: userMessage ?? '',
-		output: (output ?? z.string()) as TOutput,
 		completionOptions: completionOptions ?? {
 			...DEFAULT_IA_COMPLETION_OPTIONS,
 			model: model ?? DEFAULT_DYNAMIC_MODEL
@@ -56,16 +44,11 @@ export function createIaTask<TOutput extends z.core.$ZodType = z.ZodString>(
 	});
 }
 
-export type ExtractionTaskOptions = Omit<
-	IaTaskFactoryOptions<z.ZodArray<z.ZodString>>,
-	'output' | 'run' | 'resultParser'
-> & {
+export type ExtractionTaskOptions = Omit<IaTaskFactoryOptions<string[]>, 'run' | 'resultParser'> & {
 	extractor: ExtractorConfig;
 };
 
-export function createExtractionTask(
-	options: ExtractionTaskOptions
-): IaTaskDef<z.ZodArray<z.ZodString>> {
+export function createExtractionTask(options: ExtractionTaskOptions): IaTaskDef<string[]> {
 	const {
 		extractor,
 		dependencies = ['content'],
@@ -78,12 +61,11 @@ export function createExtractionTask(
 		...rest
 	} = options;
 
-	return createIaTask({
+	return createIaTask<string[]>({
 		...rest,
 		dependencies,
 		component: component ?? 'keywords',
 		subtype: subtype ?? 'extraction',
-		output: z.array(z.string()),
 		systemMessage:
 			systemMessage ?? buildExtractionSystemMessage(extractor.count, extractor.description),
 		userMessage: userMessage ?? buildExtractionUserMessage(extractor.count, extractor.description),
@@ -94,9 +76,9 @@ export function createExtractionTask(
 	});
 }
 
-export type CreateTitleTaskOptions = Omit<IaTaskFactoryOptions, 'output' | 'run' | 'subtype'>;
+export type CreateTitleTaskOptions = Omit<IaTaskFactoryOptions, 'run' | 'subtype'>;
 
-export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef<z.ZodString> {
+export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef<string> {
 	const {
 		name,
 		dependencies = ['title-summary'],
@@ -108,7 +90,7 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 	} = options;
 	const sourceDependency = dependencies[0];
 
-	return createIaTask({
+	return createIaTask<string>({
 		...rest,
 		name: name ?? 'Title',
 		dependencies,
@@ -126,39 +108,15 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 	});
 }
 
-export type CreateSummaryTaskOptions = Omit<IaTaskFactoryOptions, 'output' | 'run' | 'subtype'>;
-
-export function createSummaryTask(options: CreateSummaryTaskOptions = {}): IaTaskDef<z.ZodString> {
-	const {
-		dependencies = ['content'],
-		systemMessage,
-		userMessage,
-		completionOptions,
-		...rest
-	} = options;
-	const sourceDependency = dependencies[0];
-
-	return createIaTask({
-		...rest,
-		dependencies,
-		systemMessage: systemMessage ?? SUMMARY_SYSTEM_MESSAGE,
-		userMessage: userMessage ?? SUMMARY_USER_MESSAGE,
-		run: ({ state }) => requireStringState(state, sourceDependency),
-		completionOptions: completionOptions ?? SUMMARY_COMPLETION_OPTIONS
-	});
-}
-
 export type CreateCategoryTaskOptions = Omit<
-	IaTaskFactoryOptions<z.ZodArray<z.ZodString>>,
-	'output' | 'run' | 'resultParser' | 'subtype' | 'extractorConfig'
+	IaTaskFactoryOptions<string[]>,
+	'run' | 'resultParser' | 'subtype' | 'extractorConfig'
 > & {
 	keywordsDependency?: string;
 	maxItems?: number;
 };
 
-export function createCategoryTask(
-	options: CreateCategoryTaskOptions = {}
-): IaTaskDef<z.ZodArray<z.ZodString>> {
+export function createCategoryTask(options: CreateCategoryTaskOptions = {}): IaTaskDef<string[]> {
 	const {
 		keywordsDependency,
 		categoryNames,
@@ -174,23 +132,22 @@ export function createCategoryTask(
 	} = options;
 
 	const deps = dependencies ?? [keywordsDependency ?? 'keywords'];
-	const countDescription = maxItems === 1 ? 'category' : 'categories';
 
 	const resolveNames = () => categoryNames ?? viewState.categories.map((c) => c.name);
 	const resolveListedNames = () =>
 		categoryNames ??
 		viewState.categories.map((c) => (c.description ? `${c.name}: (${c.description})` : c.name));
 
-	const def = createExtractionTask({
+	const def = createIaTask<string[]>({
 		...rest,
 		categoryNames,
 		dependencies: deps,
 		component: component ?? 'keywords',
 		componentProps: componentProps ?? { showPoint: false },
 		subtype: 'category',
-		extractor: { count: maxItems, description: countDescription },
 		systemMessage: systemMessage ?? buildCategorySystemMessage(maxItems),
 		userMessage: userMessage ?? (() => buildCategoryUserMessage(maxItems, resolveListedNames())),
+		resultParser: (text) => parseStructuredArrayResponses(text),
 		completionOptions:
 			completionOptions ??
 			(() => ({

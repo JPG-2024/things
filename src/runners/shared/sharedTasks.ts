@@ -1,7 +1,9 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { viewState } from '@/stores/viewStore.svelte';
 import { buildRecursiveTask } from '@/runners/shared/recursiveTask';
 import { buildTask, createCategoryTask, createTitleTask } from '@/runners/shared/taskFactories';
+import { DEFAULT_MULTI_FIELDS } from '@/runners/shared/processors/multi';
 import type { Task } from '@/types/taskRunner.types';
 import {
 	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
@@ -36,17 +38,11 @@ export async function generateEmojiForText(text: string): Promise<string> {
 			...DEFAULT_EMOJI_COMPLETION_OPTIONS,
 			stream: false,
 			messages: [
-				{
-					role: 'system',
-					content: 'You are a emoji generator. Return only a single emoji that best represents the user text. Avoid explanations.'
-				},
-				{ role: 'user', content: `EMOJI_SYSTEM_MESSAGE. User text: ${trimmed}` }
+				{ role: 'system', content: EMOJI_SYSTEM_MESSAGE },
+				{ role: 'user', content: trimmed }
 			]
 		});
-		console.log('generateEmojiForText response:', response);
-		const rawContent = response.choices?.[0]?.message?.content ?? '';
-		const content = typeof rawContent === 'string' ? rawContent : '';
-		return parseEmojiResponse(content);
+		return parseEmojiResponse(assistantText(response));
 	} catch {
 		return '';
 	}
@@ -61,18 +57,11 @@ export async function generateCategoryDescription(name: string): Promise<string>
 			...DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
 			stream: false,
 			messages: [
-				{
-					role: 'system',
-					content: CATEGORY_DESCRIPTION_SYSTEM_MESSAGE
-				},
+				{ role: 'system', content: CATEGORY_DESCRIPTION_SYSTEM_MESSAGE },
 				{ role: 'user', content: trimmed }
 			]
 		});
-
-		console.log('generateCategoryDescription response:', response);
-
-		const rawContent = response.choices?.[0]?.message?.content ?? '';
-		return typeof rawContent === 'string' ? rawContent.trim() : '';
+		return assistantText(response).trim();
 	} catch {
 		return '';
 	}
@@ -87,11 +76,7 @@ export function createDefaultTasks(
 	const analysisDef = buildRecursiveTask('analysis', {
 		processorType: 'multi',
 		combineMode: 'llm',
-		multiFields: [
-			{ key: 'summary', kind: 'string' },
-			{ key: 'keywords', kind: 'string-array', count: 4 },
-			{ key: 'topics', kind: 'string-array', count: 3 }
-		],
+		multiFields: DEFAULT_MULTI_FIELDS,
 		dependencies: [contentDependency],
 		component: 'multiAnalysis',
 		localFinal: true,

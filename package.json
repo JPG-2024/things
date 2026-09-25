@@ -25,8 +25,7 @@
 		"@tauri-apps/plugin-fs": "^2.5.1",
 		"@tauri-apps/plugin-opener": "~2",
 		"markdown-it": "~14.1.0",
-		"openai": "^6.16.0",
-		"zod": "^4.4.3"
+		"openai": "^6.16.0"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",

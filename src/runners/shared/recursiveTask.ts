@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { buildScriptTaskFromDef, requireStringState, scriptTask } from '@/runners/taskSchema';
 import { DEFAULT_DYNAMIC_MODEL, SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
@@ -81,40 +80,6 @@ type Chunking = Pick<
 	RecursiveConfig,
 	'windowSize' | 'overlap' | 'windowDivisor' | 'splitByString' | 'splitByHeaders'
 >;
-
-const MultiChunkDataSchema = z.object({
-	summary: z.array(z.string()),
-	keywords: z.array(z.string()),
-	topics: z.array(z.string())
-});
-
-const MultiFinalSchema = z.object({
-	summary: z.string(),
-	keywords: z.array(z.string()),
-	topics: z.array(z.string())
-});
-
-const RECURSIVE_OUTPUT_SCHEMA = z.object({
-	chunks: z.array(
-		z.object({
-			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
-			data: z.union([z.array(z.string()), MultiChunkDataSchema])
-		})
-	),
-	finalResponse: z.union([z.string(), z.array(z.string()), MultiFinalSchema]),
-	windowDivisor: z.number().optional()
-});
-
-const MULTI_RECURSIVE_OUTPUT_SCHEMA = z.object({
-	chunks: z.array(
-		z.object({
-			key: z.object({ startOffset: z.number(), endOffset: z.number() }),
-			data: MultiChunkDataSchema
-		})
-	),
-	finalResponse: MultiFinalSchema,
-	windowDivisor: z.number().optional()
-});
 
 function resolveChunking(options: Partial<RecursiveConfig>): Chunking {
 	const windowSize = options.windowSize ?? 1000;
@@ -294,8 +259,6 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		localFinal: options.localFinal
 	};
 
-	const outputSchema = isMulti ? MULTI_RECURSIVE_OUTPUT_SCHEMA : RECURSIVE_OUTPUT_SCHEMA;
-
 	return buildScriptTaskFromDef(
 		id,
 		scriptTask({
@@ -312,7 +275,6 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			storeChunkText: options.storeChunkText,
 			embedField: options.embedField,
 			concurrencyGroup: 'recursive',
-			output: outputSchema,
 			run: async ({ state, update }) => {
 				const content = requireStringState(state, sourceDependency);
 				const lockWindowDivisor = options.windowDivisorLocked === true;

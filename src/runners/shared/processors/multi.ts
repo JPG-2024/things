@@ -1,4 +1,5 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { MULTI_FIELD_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
 	MULTI_FIELD_SYSTEM_MESSAGE,
@@ -9,7 +10,7 @@ import {
 import { multiFieldObjectGbnf, type MultiFieldSpec } from '@/lib/utils/gbnf';
 import type { ProcessorDef, MultiChunkData, MultiFinal } from './types';
 
-const DEFAULT_MULTI_FIELDS: MultiFieldSpec[] = [
+export const DEFAULT_MULTI_FIELDS: MultiFieldSpec[] = [
 	{ key: 'summary', kind: 'string' },
 	{ key: 'keywords', kind: 'string-array', count: 4 },
 	{ key: 'topics', kind: 'string-array', count: 3 }
@@ -62,72 +63,39 @@ export const multiProcessor: ProcessorDef = {
 						{ role: 'user', content: `${userMsg}:\n\n${chunk}` }
 					]
 				});
-				const text = res.choices?.[0]?.message?.content ?? '';
-				return parseMultiFieldResponse(typeof text === 'string' ? text : '', fields);
+				return parseMultiFieldResponse(assistantText(res), fields);
 			},
-			combineChunks: async (results: MultiChunkData[]) => {
-				const multiResults = results as MultiChunkData[];
-
+			combineChunks: async (results: MultiChunkData[]): Promise<MultiFinal> => {
 				const allKeywords = [
-					...new Set(multiResults.flatMap((r) => r.keywords.map((k) => k.trim())))
+					...new Set(results.flatMap((r) => r.keywords.map((k) => k.trim())))
 				].filter(Boolean);
+				const allTopics = [
+					...new Set(results.flatMap((r) => r.topics.map((t) => t.trim())))
+				].filter(Boolean);
+				const combinedSummaries = results.map((r) => r.summary.join('\n')).join('\n\n');
 
-				const combinedSummaries = multiResults.map((r) => r.summary.join('\n')).join('\n\n');
-
-				if (config.localFinal) {
-					const allTopics = multiResults
-						.flatMap((r) => r.topics.map((t) => t.trim()))
-						.filter(Boolean);
-					let summary = combinedSummaries;
-					if (config.combineMode === 'llm') {
-						try {
-							const res = await chatCompletions({
-								...MULTI_FIELD_COMPLETION_OPTIONS,
-								...config.completionOptions,
-								model: config.model,
-								messages: [
-									{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
-									{
-										role: 'user',
-										content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
-									}
-								]
-							});
-							const text = res.choices?.[0]?.message?.content ?? '';
-							const trimmed = typeof text === 'string' ? text.trim() : '';
-							summary = trimmed || combinedSummaries;
-						} catch {
-							summary = combinedSummaries;
-						}
+				let summary = combinedSummaries;
+				if ((config.combineMode ?? 'llm') === 'llm') {
+					try {
+						const res = await chatCompletions({
+							...MULTI_FIELD_COMPLETION_OPTIONS,
+							...config.completionOptions,
+							model: config.model,
+							messages: [
+								{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
+								{
+									role: 'user',
+									content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
+								}
+							]
+						});
+						summary = assistantText(res).trim() || combinedSummaries;
+					} catch {
+						summary = combinedSummaries;
 					}
-					return { summary, keywords: allKeywords, topics: allTopics };
 				}
 
-				const allTopics = [
-					...new Set(multiResults.flatMap((r) => r.topics.map((t) => t.trim())))
-				].filter(Boolean);
-
-				const res = await chatCompletions({
-					...MULTI_FIELD_COMPLETION_OPTIONS,
-					...config.completionOptions,
-					model: config.model,
-					messages: [
-						{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
-						{
-							role: 'user',
-							content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
-						}
-					]
-				});
-				const text = res.choices?.[0]?.message?.content ?? '';
-				const summary = typeof text === 'string' ? text.trim() : '';
-
-				const finalResult: MultiFinal = {
-					summary: summary || combinedSummaries,
-					keywords: allKeywords,
-					topics: allTopics
-				};
-				return finalResult;
+				return { summary, keywords: allKeywords, topics: allTopics };
 			}
 		};
 	}

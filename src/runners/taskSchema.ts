@@ -1,4 +1,3 @@
-import type { z } from 'zod';
 import type {
 	ExtractorConfig,
 	IaTask,
@@ -15,9 +14,7 @@ import type {
 
 export type { Resolvable, TaskDefCtx } from '@/types/taskRunner.types';
 
-type AnyZodOutput = z.core.$ZodType;
-
-type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
+type TaskDefBase<TContext = unknown> = {
 	name?: string;
 	subtype?: IaTaskSubtype;
 	dependencies?: string[];
@@ -28,19 +25,10 @@ type TaskDefBase<TOutput extends AnyZodOutput, TContext> = {
 	persist?: boolean;
 	visible?: boolean;
 	enableTTS?: boolean;
-	output: TOutput;
 	concurrencyGroup?: string;
 	embeddings?: boolean;
 	storeChunkText?: boolean;
 	embedField?: string;
-};
-
-type ScriptTaskDefBase<TOutput extends AnyZodOutput, TContext> = Omit<
-	TaskDefBase<TOutput, TContext>,
-	'output'
-> & {
-	output: TOutput;
-	run: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => unknown | Promise<unknown>;
 };
 
 export type TaskDefCompleteParams<TContext = unknown> = {
@@ -50,11 +38,11 @@ export type TaskDefCompleteParams<TContext = unknown> = {
 	state: Readonly<Record<string, unknown>>;
 };
 
-type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOutput>> = Omit<
-	TaskDefBase<TOutput, TContext>,
-	'output'
-> & {
-	output: TOutput;
+type ScriptTaskDefBase<TContext = unknown> = TaskDefBase<TContext> & {
+	run: (ctx: TaskRunContext<TContext, Record<string, unknown>>) => unknown | Promise<unknown>;
+};
+
+type IaTaskDefBase<TParsed = unknown, TContext = unknown> = TaskDefBase<TContext> & {
 	systemMessage: Resolvable<string, TContext>;
 	userMessage: Resolvable<string, TContext>;
 	completionOptions: Resolvable<Record<string, unknown>, TContext>;
@@ -69,20 +57,11 @@ type IaTaskDefBase<TOutput extends AnyZodOutput, TContext, TParsed = z.infer<TOu
 	onComplete?: (params: TaskDefCompleteParams<TContext>) => void | Promise<void>;
 };
 
-export type ScriptTaskDef<
-	TOutput extends AnyZodOutput = AnyZodOutput,
-	TContext = unknown
-> = ScriptTaskDefBase<TOutput, TContext> & { type: 'script' };
+export type ScriptTaskDef<TContext = unknown> = ScriptTaskDefBase<TContext> & { type: 'script' };
 
-export type IaTaskDef<
-	TOutput extends AnyZodOutput = AnyZodOutput,
-	TContext = unknown,
-	TParsed = z.infer<TOutput>
-> = IaTaskDefBase<TOutput, TContext, TParsed> & { type: 'ia' };
-
-type AnyTaskDef<TContext = unknown> =
-	| ScriptTaskDef<AnyZodOutput, TContext>
-	| IaTaskDef<AnyZodOutput, TContext>;
+export type IaTaskDef<TParsed = unknown, TContext = unknown> = IaTaskDefBase<TParsed, TContext> & {
+	type: 'ia';
+};
 
 export type TaskRunContext<TContext, TState> = {
 	runId: string;
@@ -93,31 +72,21 @@ export type TaskRunContext<TContext, TState> = {
 	enqueueTasks: (tasks: Task<TaskMapBase>[], options?: { restart?: boolean }) => void;
 };
 
-export type InferTaskMap<TDefs extends Record<string, AnyTaskDef>> = {
-	[K in keyof TDefs]: TDefs[K] extends IaTaskDefBase<infer TOutput, infer TContext, infer TParsed>
-		? TParsed
-		: TDefs[K]['output'] extends AnyZodOutput
-			? z.infer<TDefs[K]['output']>
-			: unknown;
-} & TaskMapBase;
-
-export function scriptTask<TOutput extends AnyZodOutput, TContext = unknown>(
-	def: ScriptTaskDefBase<TOutput, TContext>
-): ScriptTaskDef<TOutput, TContext> {
-	return { ...def, type: 'script' } as ScriptTaskDef<TOutput, TContext>;
+export function scriptTask<TContext = unknown>(
+	def: ScriptTaskDefBase<TContext>
+): ScriptTaskDef<TContext> {
+	return { ...def, type: 'script' };
 }
 
-export function iaTask<
-	TOutput extends AnyZodOutput,
-	TContext = unknown,
-	TParsed = z.infer<TOutput>
->(def: IaTaskDefBase<TOutput, TContext, TParsed>): IaTaskDef<TOutput, TContext, TParsed> {
-	return { ...def, type: 'ia' } as IaTaskDef<TOutput, TContext, TParsed>;
+export function iaTask<TParsed = unknown, TContext = unknown>(
+	def: IaTaskDefBase<TParsed, TContext>
+): IaTaskDef<TParsed, TContext> {
+	return { ...def, type: 'ia' };
 }
 
 function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & string, TContext>(
 	id: TId,
-	def: ScriptTaskDef<AnyZodOutput, TContext>
+	def: ScriptTaskDef<TContext>
 ): (context: TContext) => ScriptTask<TMap, TId> {
 	return (context: TContext) => {
 		const propsCtx = { context, state: {} };
@@ -171,10 +140,7 @@ export function buildIaTask<
 	TId extends keyof TMap & string,
 	TContext,
 	TParsed = TMap[TId]
->(
-	id: TId,
-	def: IaTaskDef<AnyZodOutput, TContext, TParsed>
-): (context: TContext) => IaTask<TMap, TId, TParsed> {
+>(id: TId, def: IaTaskDef<TParsed, TContext>): (context: TContext) => IaTask<TMap, TId, TParsed> {
 	return (context: TContext) => {
 		const componentProps =
 			typeof def.componentProps === 'function'

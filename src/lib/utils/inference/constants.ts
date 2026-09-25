@@ -17,7 +17,7 @@ export const DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS = {
 	frequency_penalty: 0,
 	presence_penalty: 0,
 	stream: false,
-	reasoning_effort: 'none',
+	reasoning_effort: 'none'
 	/* stop: ['\n', '. '] */
 } satisfies Record<string, unknown>;
 
@@ -39,16 +39,6 @@ export const DEFAULT_STRUCTURED_OUTPUT_OPTIONS = {
 	stream: false
 } as const;
 
-export const DEFAULT_CATEGORIES_OPTIONS = {
-	temperature: 0.4,
-	top_k: 40,
-	min_p: 0.1,
-	presence_penalty: 0,
-	n_predict: 256,
-	stream: false,
-	reasoning_effort: 'high',
-} as const;
-
 export const DEFAULT_IA_COMPLETION_OPTIONS = {
 	temperature: 0.7,
 	top_p: 0.8,
@@ -64,7 +54,7 @@ export const DEFAULT_TITLE_COMPLETION_OPTIONS = {
 	top_p: 0.9,
 	frequency_penalty: 0.4,
 	presence_penalty: 0.2,
-	reasoning_effort: 'none',
+	reasoning_effort: 'none'
 } satisfies Record<string, unknown>;
 
 export const DEFAULT_WEB_COMPLETION_OPTIONS = {
