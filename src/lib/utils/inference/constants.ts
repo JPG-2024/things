@@ -39,6 +39,16 @@ export const DEFAULT_STRUCTURED_OUTPUT_OPTIONS = {
 	stream: false
 } as const;
 
+export const DEFAULT_CATEGORIES_OPTIONS = {
+	temperature: 0.4,
+	top_k: 40,
+	min_p: 0.1,
+	presence_penalty: 0,
+	n_predict: 256,
+	stream: false,
+	reasoning_effort: 'high',
+} as const;
+
 export const DEFAULT_IA_COMPLETION_OPTIONS = {
 	temperature: 0.7,
 	top_p: 0.8,

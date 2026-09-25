@@ -403,7 +403,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 10rem;
+		padding-top: 6rem;
 	}
 
 	.dashboard-content.has-tab-header {
@@ -421,7 +421,7 @@
 		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 0.2rem 2rem 3rem;
+		padding: 0.2rem 2rem 2rem;
 		background: linear-gradient(
 			color-mix(in srgb, var(--primary-color), black 92%),
 			rgba(9, 9, 9, 1),

@@ -46,6 +46,7 @@ export interface RecursiveConfig {
 	windowSize: number;
 	overlap: number;
 	windowDivisor?: number;
+	windowDivisorLocked?: boolean;
 	splitByString?: string;
 	splitByHeaders?: boolean;
 	processorType: ProcessorType;
@@ -279,6 +280,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		windowSize: chunking.windowSize,
 		overlap: chunking.overlap,
 		windowDivisor: chunking.windowDivisor,
+		windowDivisorLocked: options.windowDivisorLocked,
 		splitByString: chunking.splitByString,
 		splitByHeaders: chunking.splitByHeaders,
 		processorType,
@@ -313,6 +315,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			output: outputSchema,
 			run: async ({ state, update }) => {
 				const content = requireStringState(state, sourceDependency);
+				const lockWindowDivisor = options.windowDivisorLocked === true;
 				let currentChunking: Chunking = { ...chunking };
 
 				if (
@@ -320,7 +323,9 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 					!currentChunking.splitByString &&
 					!currentChunking.splitByHeaders
 				) {
-					const divisor = computeAutoDivisor(content.length);
+					const divisor = lockWindowDivisor
+						? currentChunking.windowDivisor
+						: computeAutoDivisor(content.length);
 					currentChunking = {
 						...currentChunking,
 						windowDivisor: divisor,

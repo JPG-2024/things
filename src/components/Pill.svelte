@@ -65,8 +65,9 @@
 
 	.pill.idle {
 		background-image: linear-gradient(
-			90deg,
-			color-mix(in srgb, var(--bg-color) 15%, transparent),
+			150deg,
+			color-mix(in srgb, var(--bg-color) 30%, transparent),
+			rgba(0, 0, 0),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);

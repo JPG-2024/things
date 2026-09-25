@@ -255,6 +255,35 @@
 			</div>
 		{/if}
 
+		{#if multiData.chunks.length > 0}
+			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
+				<div class="chunks-grid">
+					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
+						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+							<div class="result-section">
+								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
+							</div>
+							<div class="raw-button-row">
+								<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
+									View raw text
+								</Button>
+							</div>
+							<div class="meta-row">
+								<div class="result-section">
+									<span class="result-label">Topics</span>
+									<Keywords keywords={entry.chunk.data.topics} />
+								</div>
+								<div class="result-section">
+									<span class="result-label">Keywords</span>
+									<Keywords keywords={entry.chunk.data.keywords} />
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</Spacer>
+		{/if}
+
 		{#if showCombineMode}
 			<div class="level-row">
 				<span class="level-label">summary</span>
@@ -268,6 +297,8 @@
 				{/if}
 			</div>
 		{/if}
+
+
 
 		{#if !isRunning && task.embeddings}
 			<SimilarEmbeddingsComponent
@@ -299,38 +330,13 @@
 			</div>
 		{/if}
 
-		{#if multiData.chunks.length > 0}
-			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
-				<div class="chunks-grid">
-					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
-						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
-							<div class="result-section">
-								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
-							</div>
-							<div class="raw-button-row">
-								<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
-									View raw text
-								</Button>
-							</div>
-							<div class="meta-row">
-								<div class="result-section">
-									<span class="result-label">Topics</span>
-									<Keywords keywords={entry.chunk.data.topics} />
-								</div>
-								<div class="result-section">
-									<span class="result-label">Keywords</span>
-									<Keywords keywords={entry.chunk.data.keywords} />
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</Spacer>
-		{/if}
+
 
 		<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
 			{#if rawModalIndex !== null}
+			<div class="raw-text-modal-container">
 				<div class="chunk-raw-text">{chunkTexts[rawModalIndex] ?? ''}</div>
+			</div>
 			{/if}
 		</Modal>
 	</div>
@@ -390,12 +396,14 @@
 		}
 	}
 
+	.raw-text-modal-container {
+		padding: 0 1rem;
+	}
+
 	.chunk-raw-text {
 		font-size: 0.75rem;
-		height: 100px;
-		overflow-y: auto;
 		white-space: pre-wrap;
-		padding: 0.5rem;
+		padding: 2rem;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 4px;
 		color: gray;
