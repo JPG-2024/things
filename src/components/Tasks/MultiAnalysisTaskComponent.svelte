@@ -346,7 +346,7 @@
 	.multi-shell {
 		--tabs-pill-font-size: 0.7rem;
 		--keywords-font-size: 0.8rem;
-		--pill-font-size: 0.8rem;
+		--pill-font-size: 0.8em;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
