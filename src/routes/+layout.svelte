@@ -397,8 +397,8 @@
 	}
 
 	@font-face {
-		font-family: 'Oswald';
-		src: url('/Oswald-VariableFont_wght.ttf') format('truetype');
+		font-family: 'BetterVCR';
+		src: url('/BetterVCR 25.09.ttf') format('truetype');
 		font-weight: normal;
 		font-style: normal;
 	}

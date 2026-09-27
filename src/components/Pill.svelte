@@ -66,13 +66,14 @@
 	}
 
 	.pill.idle {
-		background-image: linear-gradient(
+		font-family: 'BetterVCR', monospace;
+/* 		background-image: linear-gradient(
 			150deg,
 			color-mix(in srgb, var(--bg-color) 30%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
-		);
+		); */
 		padding: 5px 10px;
 	}
 
