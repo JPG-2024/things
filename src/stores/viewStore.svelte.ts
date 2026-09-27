@@ -84,6 +84,9 @@ class ViewState {
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
 	embeddingsLoading = $state(false);
+	embeddingsServiceUp = $state(false);
+	categoryTopN = $state(1);
+	categoryMinSimilarity = $state(0.35);
 	autoSpeechEnabled = $state(false);
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);

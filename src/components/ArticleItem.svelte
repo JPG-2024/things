@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
+	import { viewState } from '@/stores/viewStore.svelte';
 	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
 	import { toVTName } from '@/lib/utils/url';
 	import { goto } from '$app/navigation';
@@ -50,6 +51,10 @@
 		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
 	);
 
+	function categoryLabel(value: string): string {
+		return viewState.categories.find((category) => category.id === value)?.name ?? value;
+	}
+
 	function shuffle<T>(list: T[]): T[] {
 		const copy = [...list];
 		for (let i = copy.length - 1; i > 0; i--) {
@@ -91,7 +96,7 @@
 	{#if categories.length > 0}
 		<div class="article-categories">
 			{#each categories as category, categoryIndex (`${category}-${categoryIndex}`)}
-				<span class="article-category-pill"><EmojiString value={category} /></span>
+				<span class="article-category-pill"><EmojiString value={categoryLabel(category)} /></span>
 			{/each}
 		</div>
 	{/if}
@@ -106,7 +111,7 @@
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
 >
-	{#if article.profilePictureSrc}
+<!-- 	{#if article.profilePictureSrc}
 		<span
 			class="article-profile-avatar"
 			role="button"
@@ -125,7 +130,7 @@
 		>
 			<img src={article.profilePictureSrc} alt="" />
 		</span>
-	{/if}
+	{/if} -->
 	{#if isRowMode}
 		<div class="article-content">
 			{#if article.thumbnailSrc}
@@ -418,7 +423,7 @@
 	}
 
 	.row .article-thumbnail-container {
-		flex: 0 0 40px;
+		flex: 0 0 80px;
 	}
 
 	.row .article-thumbnail {

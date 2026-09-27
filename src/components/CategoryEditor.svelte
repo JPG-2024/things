@@ -7,7 +7,8 @@
 		saveCategory,
 		updateTaskDataById
 	} from '@/stores/webStore';
-	import { resolveCategoryId, slugifyCategoryId } from '@/lib/utils/categories';
+	import { slugifyCategoryId } from '@/lib/utils/categories';
+	import { syncCategoryEmbedding } from '@/lib/utils/categoryEmbeddings';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import EmojiString from './EmojiString.svelte';
 	import Icon from './Icon.svelte';
@@ -17,18 +18,18 @@
 		articleUrl?: string | null;
 		runId?: string | null;
 		value?: string[];
-		onChange?: (names: string[]) => void;
+		onChange?: (ids: string[]) => void;
 	}
 
 	let { articleUrl = null, runId = null, value = [], onChange }: Props = $props();
 
-	let selectedNames = $state<string[]>([]);
+	let selectedIds = $state<string[]>([]);
 	let searchValue = $state('');
 	let seededKey = '';
 
 	const options = $derived(
 		viewState.categories
-			.filter((category) => !selectedNames.includes(category.name))
+			.filter((category) => !selectedIds.includes(category.id))
 			.map((category) => ({
 				label: category.name,
 				value: category.id,
@@ -36,37 +37,34 @@
 			}))
 	);
 
+	function categoryLabel(id: string): string {
+		return viewState.categories.find((category) => category.id === id)?.name ?? id;
+	}
+
 	async function loadCategories() {
 		viewState.categories = await getCategories();
 	}
 
-	function dedupeIds(ids: Array<string | null>): string[] {
-		return ids
-			.filter((id): id is string => Boolean(id))
-			.filter((id, i, arr) => arr.indexOf(id) === i);
+	function dedupeIds(ids: string[]): string[] {
+		return ids.filter((id, i, arr) => arr.indexOf(id) === i);
 	}
 
-	async function persist(nextNames: string[]) {
-		selectedNames = nextNames;
-		onChange?.(nextNames);
+	async function persist(nextIds: string[]) {
+		selectedIds = nextIds;
+		onChange?.(nextIds);
 		if (!articleUrl) return;
 
-		const categoryIds = dedupeIds(
-			nextNames.map((name) => resolveCategoryId(name, viewState.categories))
-		);
-
-		await assignCategoriesToArticle({ articleUrl, categoryIds });
-		await updateTaskDataById(articleUrl, 'category', nextNames);
+		await assignCategoriesToArticle({ articleUrl, categoryIds: dedupeIds(nextIds) });
+		await updateTaskDataById(articleUrl, 'category', nextIds);
 		if (runId) {
-			workflowManager.setTaskData(runId, 'category', nextNames);
+			workflowManager.setTaskData(runId, 'category', nextIds);
 		}
 	}
 
 	async function handleSelect(option: { value: string }) {
 		searchValue = '';
-		const category = viewState.categories.find((entry) => entry.id === option.value);
-		if (!category || selectedNames.includes(category.name)) return;
-		await persist([...selectedNames, category.name]);
+		if (selectedIds.includes(option.value)) return;
+		await persist([...selectedIds, option.value]);
 	}
 
 	async function handleCreate(query: string) {
@@ -80,15 +78,20 @@
 			await saveCategory({ id, name });
 			await loadCategories();
 			category = viewState.categories.find((entry) => entry.id === id);
+			try {
+				await syncCategoryEmbedding({ id, name });
+			} catch (error) {
+				console.error(`Error indexing category "${id}" embedding:`, error);
+			}
 		}
 
-		const resolvedName = category?.name ?? name;
-		if (selectedNames.includes(resolvedName)) return;
-		await persist([...selectedNames, resolvedName]);
+		const resolvedId = category?.id ?? id;
+		if (selectedIds.includes(resolvedId)) return;
+		await persist([...selectedIds, resolvedId]);
 	}
 
-	async function removeName(name: string) {
-		await persist(selectedNames.filter((entry) => entry !== name));
+	async function removeId(id: string) {
+		await persist(selectedIds.filter((entry) => entry !== id));
 	}
 
 	$effect(() => {
@@ -96,7 +99,7 @@
 		const key = incoming.join('\u0000');
 		if (key === seededKey) return;
 		seededKey = key;
-		selectedNames = [...incoming];
+		selectedIds = [...incoming];
 	});
 
 	onMount(() => {
@@ -105,16 +108,16 @@
 </script>
 
 <div class="category-editor">
-	{#if selectedNames.length > 0}
+	{#if selectedIds.length > 0}
 		<div class="category-pills">
-			{#each selectedNames as name (name)}
+			{#each selectedIds as id (id)}
 				<span class="category-pill">
-					<EmojiString value={name} />
+					<EmojiString value={categoryLabel(id)} />
 					<button
 						type="button"
 						class="remove-btn"
-						onclick={() => removeName(name)}
-						aria-label="Remove {name}"
+						onclick={() => removeId(id)}
+						aria-label="Remove {categoryLabel(id)}"
 					>
 						<Icon name="Trash" size={12} />
 					</button>

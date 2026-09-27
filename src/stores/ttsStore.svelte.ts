@@ -420,6 +420,21 @@ class TTSState {
 		}
 	}
 
+	private addVoiceStageMessage(
+		stage: 'downloading' | 'transcribing' | 'chunking',
+		data: unknown
+	): string {
+		if (stage === 'downloading') return 'Downloading audio…';
+		if (stage === 'transcribing') return 'Transcribing…';
+		if (typeof data === 'object' && data !== null) {
+			const { current, total } = data as { current?: unknown; total?: unknown };
+			if (typeof current === 'number' && typeof total === 'number') {
+				return `Creating chunks… ${current}/${total}`;
+			}
+		}
+		return 'Creating chunks…';
+	}
+
 	async startAddVoice(): Promise<void> {
 		if (this.abortController) {
 			this.abortController.abort();
@@ -452,6 +467,13 @@ class TTSState {
 							? String((data as { message: unknown }).message)
 							: 'Add voice failed';
 					throw new Error(message);
+				}
+				if (event === 'done') {
+					this.addVoiceStatus = 'done';
+					this.addVoiceMessage = 'Voice added';
+				} else if (event === 'downloading' || event === 'transcribing' || event === 'chunking') {
+					this.addVoiceStatus = event;
+					this.addVoiceMessage = this.addVoiceStageMessage(event, data);
 				}
 				viewState.subStatus = event;
 			}

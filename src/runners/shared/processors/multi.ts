@@ -2,12 +2,14 @@ import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider
 import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { MULTI_FIELD_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
-	MULTI_FIELD_SYSTEM_MESSAGE,
 	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
-	RECURSIVE_SUMMARY_SYSTEM_MESSAGE,
-	buildMultiFieldUserMessage
+	buildMultiFieldSystemMessage,
+	buildMultiFieldUserMessage,
+	buildRecursiveSummarySystemMessage
 } from '@/lib/utils/inference/prompts';
 import { multiFieldObjectGbnf, type MultiFieldSpec } from '@/lib/utils/gbnf';
+import { viewState } from '@/stores/viewStore.svelte';
+import { LANG_NAMES } from '@/constants';
 import type { ProcessorDef, MultiChunkData, MultiFinal } from './types';
 
 export const DEFAULT_MULTI_FIELDS: MultiFieldSpec[] = [
@@ -53,13 +55,14 @@ export const multiProcessor: ProcessorDef = {
 
 		return {
 			processChunk: async (chunk) => {
+				const langName = LANG_NAMES[viewState.language];
 				const res = await chatCompletions({
 					...MULTI_FIELD_COMPLETION_OPTIONS,
 					...config.completionOptions,
 					model: config.model,
 					grammar,
 					messages: [
-						{ role: 'system', content: MULTI_FIELD_SYSTEM_MESSAGE },
+						{ role: 'system', content: buildMultiFieldSystemMessage(langName) },
 						{ role: 'user', content: `${userMsg}:\n\n${chunk}` }
 					]
 				});
@@ -77,12 +80,13 @@ export const multiProcessor: ProcessorDef = {
 				let summary = combinedSummaries;
 				if ((config.combineMode ?? 'llm') === 'llm') {
 					try {
+						const langName = LANG_NAMES[viewState.language];
 						const res = await chatCompletions({
 							...MULTI_FIELD_COMPLETION_OPTIONS,
 							...config.completionOptions,
 							model: config.model,
 							messages: [
-								{ role: 'system', content: RECURSIVE_SUMMARY_SYSTEM_MESSAGE },
+								{ role: 'system', content: buildRecursiveSummarySystemMessage(langName) },
 								{
 									role: 'user',
 									content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`

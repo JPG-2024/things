@@ -3,6 +3,7 @@
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
 	import type { WebStoreCategoryRecord } from '@/stores/webStore';
 	import { generateCategoryDescription, generateEmojiForText } from '@/runners/shared/sharedTasks';
+	import { removeCategoryEmbedding, syncCategoryEmbedding } from '@/lib/utils/categoryEmbeddings';
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import Button from './inputs/Button.component.svelte';
@@ -20,11 +21,21 @@
 		const id = trimmed.toLowerCase().replace(/\s+/g, '-');
 		await saveCategory({ id, name: trimmed, description });
 		await loadCategories();
+		try {
+			await syncCategoryEmbedding({ id, name: trimmed, description });
+		} catch (error) {
+			console.error(`Error indexing category "${id}" embedding:`, error);
+		}
 	}
 
 	async function removeCategory(id: string) {
 		pruneCategory(id);
 		await deleteCategory(id);
+		try {
+			await removeCategoryEmbedding(id);
+		} catch (error) {
+			console.error(`Error removing category "${id}" embedding:`, error);
+		}
 		await loadCategories();
 	}
 
@@ -36,6 +47,11 @@
 		}
 		await saveCategory({ id: category.id, name: category.name, description });
 		await loadCategories();
+		try {
+			await syncCategoryEmbedding({ id: category.id, name: category.name, description });
+		} catch (error) {
+			console.error(`Error indexing category "${category.id}" embedding:`, error);
+		}
 	}
 
 	function isSelected(id: string): boolean {

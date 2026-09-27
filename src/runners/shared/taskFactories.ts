@@ -1,4 +1,5 @@
 import { buildIaTask, iaTask, requireFinalResponseString } from '@/runners/taskSchema';
+import { classifyByEmbedding } from '@/lib/utils/categoryEmbeddings';
 import type { IaTaskDef } from '@/runners/taskSchema';
 import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
 import { arrayToGbnf } from '@/lib/utils/gbnf';
@@ -159,8 +160,23 @@ export function createCategoryTask(options: CreateCategoryTaskOptions = {}): IaT
 
 	return {
 		...def,
-		directResult: () =>
-			viewState.selectedCategories.length > 0 ? viewState.selectedCategories : null
+		directResult: (ctx) => {
+			// Manual selection always wins.
+			if (viewState.selectedCategories.length > 0) {
+				return viewState.selectedCategories;
+			}
+			// Explicit lists (templates / custom tasks) keep the LLM + grammar path.
+			if (categoryNames && categoryNames.length > 0) {
+				return null;
+			}
+			// The health indicator is informational only: always attempt the
+			// classification and let the embeddings call surface failures.
+			const analysisData = ctx.state[deps[0]];
+			return classifyByEmbedding(analysisData, {
+				topN: viewState.categoryTopN,
+				minSimilarity: viewState.categoryMinSimilarity
+			});
+		}
 	};
 }
 

@@ -394,6 +394,8 @@
 		margin: 0;
 		font-size: 14px;
 		font-family: 'LiberationSans', monospace;
+		border-left: 1px solid rgba(128, 128, 128, 0.055);
+		border-right: 1px solid rgba(128, 128, 128, 0.055);
 	}
 
 	@font-face {

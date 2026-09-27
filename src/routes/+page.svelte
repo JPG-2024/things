@@ -10,13 +10,15 @@
 	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { deleteProfileById } from '@/stores/webStore';
+	import { deleteProfileById, getCategories } from '@/stores/webStore';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import Tooltip from '@/components/Tooltip.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
+	import { startEmbeddingsHealthPolling } from '@/lib/utils/embeddingsHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import TabHeader from '@/components/TabHeader.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -199,6 +201,16 @@
 		},
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
 	);
+
+	$effect(() => {
+		return startEmbeddingsHealthPolling();
+	});
+
+	$effect(() => {
+		void getCategories().then((categories) => {
+			viewState.categories = categories;
+		});
+	});
 </script>
 
 <div
@@ -266,6 +278,18 @@
 				<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
+				<Tooltip
+					content={viewState.embeddingsServiceUp
+						? 'Embeddings service online'
+						: 'Embeddings service offline'}
+				>
+					<span
+						class="embeddings-health"
+						class:up={viewState.embeddingsServiceUp}
+						role="status"
+						aria-label="Embeddings service status"
+					></span>
+				</Tooltip>
 				<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
 					<ToggleIcon
 						name="FileDigit"
@@ -387,6 +411,24 @@
 		flex-shrink: 0;
 	}
 
+	.embeddings-health {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		margin: 0 0.4rem;
+		flex-shrink: 0;
+		background: rgb(255, 140, 109);
+		box-shadow: 0 0 6px rgb(255, 140, 109);
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
+	}
+
+	.embeddings-health.up {
+		background: rgb(120, 220, 140);
+		box-shadow: 0 0 6px rgb(120, 220, 140);
+	}
+
 	.dashboard-container {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -403,7 +445,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 6rem;
+		padding-top: 7rem;
 	}
 
 	.dashboard-content.has-tab-header {

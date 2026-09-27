@@ -1,8 +1,24 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
+
+	let rebuildingCategories = $state(false);
+
+	async function handleRebuildCategoryIndex() {
+		if (rebuildingCategories) return;
+		rebuildingCategories = true;
+		try {
+			await rebuildCategoryIndex();
+		} catch (error) {
+			console.error('Error rebuilding category index:', error);
+		} finally {
+			rebuildingCategories = false;
+		}
+	}
 
 	const providerOptions = [
 		{ label: 'Llama', value: 'llama' },
@@ -42,6 +58,41 @@
 			<label for="aiModel">AI Model</label>
 			<input id="aiModel" type="text" bind:value={viewState.aiModel} />
 		</div>
+	</div>
+	<div class="inference-section">
+		<h3>Category classification</h3>
+		<div class="field">
+			<label for="category-topN">Top categories</label>
+			<input
+				id="category-topN"
+				type="number"
+				min="1"
+				max="10"
+				value={viewState.categoryTopN}
+				oninput={(e) => {
+					const v = Number((e.target as HTMLInputElement).value);
+					viewState.categoryTopN = Math.min(10, Math.max(1, Math.trunc(isNaN(v) ? 3 : v)));
+				}}
+			/>
+		</div>
+		<div class="field">
+			<label for="category-minSimilarity">Min similarity</label>
+			<input
+				id="category-minSimilarity"
+				type="number"
+				min="0"
+				max="1"
+				step="0.05"
+				value={viewState.categoryMinSimilarity}
+				oninput={(e) => {
+					const v = Number((e.target as HTMLInputElement).value);
+					viewState.categoryMinSimilarity = Math.min(1, Math.max(0, isNaN(v) ? 0.35 : v));
+				}}
+			/>
+		</div>
+		<Button onClick={handleRebuildCategoryIndex} disabled={rebuildingCategories} icon="RefreshCw">
+			{rebuildingCategories ? 'Rebuilding…' : 'Rebuild category index'}
+		</Button>
 	</div>
 	<div class="inference-section">
 		<h3>Media</h3>

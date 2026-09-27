@@ -38,7 +38,9 @@ mod embedding_store;
 mod llama_server;
 mod track_download;
 pub use crate::embedding_store::{
-	delete_article_embeddings, delete_chunk, delete_chunks_by_article, index_chunks, search_similar_chunks,
+	delete_article_embeddings, delete_category_embedding, delete_chunk, delete_chunks_by_article,
+	index_chunks, rebuild_category_embeddings, search_similar_categories, search_similar_chunks,
+	upsert_category_embeddings,
 };
 pub use crate::llama_server::launch_llama_server;
 pub use crate::track_download::download_track;
@@ -126,6 +128,10 @@ pub fn run() {
 			delete_chunks_by_article,
 			delete_article_embeddings,
 			delete_chunk,
+			upsert_category_embeddings,
+			search_similar_categories,
+			delete_category_embedding,
+			rebuild_category_embeddings,
 			download_track,
 			start_system_audio_recording,
 			stop_system_audio_recording,

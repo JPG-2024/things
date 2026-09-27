@@ -83,5 +83,10 @@ Constraints:
 
 export const LANG_NAMES: Record<string, string> = {
 	en: 'English',
-	sp: 'Spanish'
+	es: 'Spanish',
+	fr: 'French',
+	de: 'German',
+	pt: 'Portuguese',
+	it: 'Italian',
+	ja: 'Japanese'
 };

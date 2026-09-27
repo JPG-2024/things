@@ -2176,16 +2176,39 @@ pub async fn delete_web_store_category(
     app: AppHandle,
     category_id: String,
 ) -> Result<bool, String> {
-    let conn = get_db(&app)?;
+    let mut conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    let now = chrono_like_now();
+    let tx = conn.transaction().map_err(|error| {
+        format!(
+            "Failed to start transaction for category delete id='{}': {}",
+            category_id, error
+        )
+    })?;
 
-    conn.execute(
-        "UPDATE web_categories SET deleted_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
-        params![now, category_id],
+    tx.execute(
+        "DELETE FROM article_category WHERE category_id = ?1",
+        params![category_id],
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| {
+        format!(
+            "Failed to delete article links for category id='{}': {}",
+            category_id, error
+        )
+    })?;
+
+    tx.execute(
+        "DELETE FROM web_categories WHERE id = ?1",
+        params![category_id],
+    )
+    .map_err(|error| format!("Failed to delete category id='{}': {}", category_id, error))?;
+
+    tx.commit().map_err(|error| {
+        format!(
+            "Failed to commit category delete id='{}': {}",
+            category_id, error
+        )
+    })?;
 
     Ok(true)
 }

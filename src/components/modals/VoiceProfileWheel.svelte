@@ -235,6 +235,24 @@
 		panelView = 'add';
 	}
 
+	function addVoiceStatusLabel(): string {
+		if (ttsState.addVoiceMessage) return ttsState.addVoiceMessage;
+		switch (ttsState.addVoiceStatus) {
+			case 'downloading':
+				return 'Downloading audio…';
+			case 'transcribing':
+				return 'Transcribing…';
+			case 'chunking':
+				return 'Creating chunks…';
+			case 'done':
+				return 'Voice added';
+			case 'error':
+				return 'Add voice failed';
+			default:
+				return '';
+		}
+	}
+
 	function openEditPanel() {
 		const profile = profiles.find((p) => p.id === draftProfileId);
 		if (!profile) return;
@@ -647,8 +665,7 @@
 									class:error={ttsState.addVoiceStatus === 'error'}
 									class:done={ttsState.addVoiceStatus === 'done'}
 								>
-									{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{ttsState.addVoiceMessage ||
-										ttsState.addVoiceStatus}
+									{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{addVoiceStatusLabel()}
 								</p>
 							{/if}
 						</div>

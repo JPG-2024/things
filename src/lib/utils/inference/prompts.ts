@@ -44,6 +44,11 @@ export const SUMMARY_USER_MESSAGE = 'Summarize the content.';
 // Original: src/runners/shared/processors/summarize.ts:21-23
 export const RECURSIVE_SUMMARY_SYSTEM_MESSAGE =
 	'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles.';
+
+export function buildRecursiveSummarySystemMessage(langName?: string): string {
+	if (!langName) return RECURSIVE_SUMMARY_SYSTEM_MESSAGE;
+	return `${RECURSIVE_SUMMARY_SYSTEM_MESSAGE} Write the summary in ${langName}.`;
+}
 // Original: src/runners/shared/processors/summarize.ts:9
 export const RECURSIVE_SUMMARY_USER_MESSAGE =
 	'Summarize this section concisely, only summary. no titles, no markdown';
@@ -114,6 +119,11 @@ export const CUSTOM_FINAL_USER_MESSAGE = 'Combine the results into a coherent re
 export const MULTI_FIELD_SYSTEM_MESSAGE =
 	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown, no explanations.';
 
+export function buildMultiFieldSystemMessage(langName?: string): string {
+	if (!langName) return MULTI_FIELD_SYSTEM_MESSAGE;
+	return `${MULTI_FIELD_SYSTEM_MESSAGE} Write the "summary", "keywords" and "topics" values in ${langName}. Translate source terms when necessary; never return them in another language.`;
+}
+
 export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
-	return `Analyze this section. make a middle long summary, no titles. keywords: exactly ${keywordCount} specific keywords. explanatory topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
+	return `Analyze this section. make a middle long summary as a takeaway info, avoid titles, just start with: this section describes..". keywords: exactly ${keywordCount} specific keywords. explanatory topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
 }
