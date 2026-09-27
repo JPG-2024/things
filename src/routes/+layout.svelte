@@ -417,55 +417,6 @@
 		font-style: normal;
 	}
 
-	@font-face {
-		font-family: 'Sora-BoldItalic';
-		src: url('/Sora-BoldItalic.ttf') format('truetype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'OpenSauceTwo-Bold';
-		src: url('/OpenSauceTwo-Bold.ttf') format('truetype');
-		font-weight: bold;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'Metropolis-Regular';
-		src: url('/Metropolis-Regular.otf') format('opentype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'Metropolis-Regular';
-		src: url('/Metropolis-Regular.otf') format('opentype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'GlacialIndifference';
-		src: url('/GlacialIndifference-Regular.otf') format('opentype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'Metropolis-Bold';
-		src: url('/Metropolis-Bold.otf') format('opentype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'Silkscreen';
-		src: url('/Silkscreen-Regular.ttf') format('truetype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
 	*,
 	*::before,
 	*::after {
