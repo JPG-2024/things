@@ -25,10 +25,11 @@
 		background-size: 200% 200%;
 		width: max-content;
 		padding: 0 15px;
-		text-transform: capitalize;
 		font-size: var(--pill-font-size, 0.9rem);
-		font-family: 'OpenSauceTwo-Bold', monospace;
-		border-left: 3px solid color-mix(in srgb, var(--bg-color) 60%, transparent);
+		font-family: 'CaskaydiaCove NFM Light';
+		border-left: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
+/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
+		border-top: 3px solid color-mix(in srgb, var(--bg-color) 40%, transparent); */
 	}
 
 	.pill.show-point.loading::before {
@@ -48,6 +49,7 @@
 	}
 
 	.pill.loading {
+		font-family: 'CaskaydiaCove NFM Light';
 		background-image: linear-gradient(
 			120deg,
 			rgb(from var(--primary-color) r g b / 0.08) 0%,
@@ -55,7 +57,7 @@
 			rgb(from var(--bg-color) r g b / 0.08) 100%
 		);
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
-		border-left: none;
+		border: none;
 		padding: 0px 15px;
 	}
 
