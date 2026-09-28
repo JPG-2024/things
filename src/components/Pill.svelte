@@ -25,10 +25,10 @@
 		background-size: 200% 200%;
 		width: max-content;
 		padding: 0 15px;
-		font-size: var(--pill-font-size, 0.9rem);
+		font-size: var(--pill-font-size, 0.7rem);
 		font-family: 'CaskaydiaCove NFM Light';
 		border-left: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
-/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
+		/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
 		border-top: 3px solid color-mix(in srgb, var(--bg-color) 40%, transparent); */
 	}
 
@@ -50,6 +50,7 @@
 
 	.pill.loading {
 		font-family: 'CaskaydiaCove NFM Light';
+		color: var(--bg-color);
 		background-image: linear-gradient(
 			120deg,
 			rgb(from var(--primary-color) r g b / 0.08) 0%,
@@ -67,7 +68,7 @@
 
 	.pill.idle {
 		font-family: 'BetterVCR', monospace;
-/* 		background-image: linear-gradient(
+		/* 		background-image: linear-gradient(
 			150deg,
 			color-mix(in srgb, var(--bg-color) 30%, transparent),
 			rgba(0, 0, 0),

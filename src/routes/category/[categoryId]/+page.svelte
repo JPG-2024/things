@@ -60,7 +60,7 @@
 
 	<div class="articles-container">
 		{#if articleCacheStore.categoryArticles.length > 0}
-			<MasonryGrid items={articleCacheStore.categoryArticles}>
+			<MasonryGrid items={articleCacheStore.categoryArticles} showContentModeToggle>
 				{#snippet children(
 					article: ArticleWithTasks,
 					_i: number,

@@ -41,8 +41,7 @@
 
 	void runId;
 
-	const DEFAULT_SYSTEM_PROMPT =
-		'Response using the context';
+	const DEFAULT_SYSTEM_PROMPT = 'Response using the context';
 	const DEFAULT_MODEL = 'llama-server';
 	const DEFAULT_MAX_TOKENS = 10000;
 	const DEFAULT_TEMPERATURE = 0.2;
@@ -163,7 +162,7 @@
 			top_p: topP,
 			max_completion_tokens: maxTokens,
 			reasoning_effort: 'high',
-			n_predict: 5000,
+			n_predict: 5000
 		};
 
 		try {
@@ -171,10 +170,10 @@
 				onToken: (token) => {
 					streamedText += token;
 				},
-				onReasoningToken: (text) => console.log(text)	
+				onReasoningToken: (text) => console.log(text)
 			});
 
-			console.log(response)
+			console.log(response);
 
 			const finalText = response.choices?.[0]?.message?.content;
 			if (typeof finalText === 'string' && finalText.trim()) {

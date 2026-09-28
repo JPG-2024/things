@@ -178,7 +178,7 @@
 		})
 	);
 
-	const TAB_ORDER = ['domains', 'profiles', 'categories', 'articles'] as const;
+	const TAB_ORDER = ['profiles', 'domains', 'categories', 'articles'] as const;
 
 	const leftHotkey = createHotkey(
 		'ArrowLeft',

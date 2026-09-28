@@ -22,7 +22,6 @@
 
 	const config = getCurrentStyle();
 	let canvas = $state<HTMLCanvasElement | null>(null);
-	let transcriptContainer = $state<HTMLDivElement | null>(null);
 	let animationFrame: number | null = null;
 	let showTranscript = $state(false);
 	let mode = $state<'mini' | 'full'>('mini');
@@ -116,9 +115,8 @@
 		'R',
 		() => {
 			const t = podcastState.currentTopicIndex;
-			const e = podcastState.currentExchangeIndex;
-			if (podcastState.dialogs[t]?.[e]) {
-				void podcastState.regenerateExchange(t, e);
+			if (podcastState.dialogs[t]?.length) {
+				void podcastState.regenerateTopic(t);
 			}
 		},
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
@@ -181,12 +179,6 @@
 		if (animationFrame !== null) {
 			cancelAnimationFrame(animationFrame);
 			animationFrame = null;
-		}
-	}
-
-	function scrollToBottom() {
-		if (transcriptContainer) {
-			transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
 		}
 	}
 
@@ -323,8 +315,7 @@
 				{#if hasContent && podcastState.currentTopic}
 					<div class="current-topic-bar">
 						<span class="topic-index"
-							>{podcastState.config.mode === 'guided' ? 'Chunk' : 'Topic'}
-							{podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
+							>Topic {podcastState.currentTopicIndex + 1}/{podcastState.topics.length}</span
 						>
 						<span class="topic-text">{podcastState.currentTopic}</span>
 					</div>
@@ -391,12 +382,11 @@
 						class="control-btn"
 						onclick={() => {
 							const t = podcastState.currentTopicIndex;
-							const e = podcastState.currentExchangeIndex;
-							if (podcastState.dialogs[t]?.[e]) {
-								void podcastState.regenerateExchange(t, e);
+							if (podcastState.dialogs[t]?.length) {
+								void podcastState.regenerateTopic(t);
 							}
 						}}
-						aria-label="Regenerate current exchange"
+						aria-label="Regenerate current topic"
 					>
 						<Icon name="RotateCcw" size={20} />
 					</button>
@@ -405,14 +395,14 @@
 		</div>
 
 		{#if showTranscript}
-			<div class="podcast-transcript" bind:this={transcriptContainer}>
+			<div class="podcast-transcript">
 				{#if podcastState.currentExchanges.length === 0 && podcastState.status === 'idle'}
 					<div class="transcript-empty">
 						<p>Select settings and start the podcast</p>
 					</div>
 				{/if}
 
-				{#each podcastState.currentExchanges as exchange, i (i)}
+				{#each podcastState.currentExchanges.slice(0, podcastState.currentExchangeIndex + 1) as exchange, i (i)}
 					<div
 						class="exchange"
 						class:exchange-a={exchange.speaker === 'A'}
@@ -431,10 +421,9 @@
 								<button
 									type="button"
 									class="regen-btn"
-									onclick={() =>
-										void podcastState.regenerateExchange(podcastState.currentTopicIndex, i)}
-									aria-label="Regenerate exchange"
-									title="Regenerate (R)"
+									onclick={() => void podcastState.regenerateTopic(podcastState.currentTopicIndex)}
+									aria-label="Regenerate topic"
+									title="Regenerate topic (R)"
 								>
 									<Icon name="RotateCcw" size={14} />
 								</button>

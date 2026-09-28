@@ -12,6 +12,8 @@ export interface RawSearchMatch {
 	after: string;
 }
 
+export type ArticleContentMode = 'both' | 'thumbnail' | 'title';
+
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
 export const DEFAULT_PRIMARY_COLOR = 'rgb(255, 255, 255)';
@@ -20,8 +22,8 @@ export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'FileText' },
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
-	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
-	{ id: 'domains', label: 'Domains', icon: 'Globe' }
+	{ id: 'domains', label: 'Domains', icon: 'Globe' },
+	{ id: 'profiles', label: 'Profiles', icon: 'Users' }
 ];
 
 export function rgbToHue(rgb: string): number {
@@ -54,6 +56,7 @@ class ViewState {
 	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryArticlesLayoutIndex = $state(1);
 	masonryArticlesColumnOffset = $state(0);
+	masonryArticlesContentMode = $state<ArticleContentMode>('both');
 	masonryTasksLayoutIndex = $state(1);
 	masonryTasksColumnOffset = $state(-1);
 

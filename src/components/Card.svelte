@@ -38,6 +38,7 @@
 		max-width: 100%;
 		max-height: 100%;
 		box-sizing: border-box;
+		border-radius: var(--radius-md);
 		background-image: linear-gradient(
 			90deg,
 			color-mix(in srgb, var(--bg-color) 20%, transparent),

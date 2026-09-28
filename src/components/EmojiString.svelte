@@ -43,8 +43,8 @@
 	}
 
 	.emoji-string__text {
-		font-family: 'LiberationSans-Bold', monospace;
-		font-size: 1em;
+		font-family: 'BetterVCR', monospace;
+		font-size: var(--emoji-string-font-size, 0.7rem);
 		line-height: 1.2;
 		color: white;
 		font-weight: bold;

@@ -42,8 +42,7 @@ type CategoriesParams = {
 class ArticleCacheStore {
 	private readonly profiles = new PaginationResource<ArticleProfile, ProfilesParams>(
 		PROFILES_PAGE_SIZE,
-		(params) =>
-			JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'profile' }),
+		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'profile' }),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
 				categoryIds: params.categoryIds,
@@ -60,8 +59,7 @@ class ArticleCacheStore {
 
 	private readonly domains = new PaginationResource<ArticleProfile, ProfilesParams>(
 		PROFILES_PAGE_SIZE,
-		(params) =>
-			JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'domain' }),
+		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'domain' }),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
 				categoryIds: params.categoryIds,

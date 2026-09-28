@@ -481,8 +481,7 @@ export async function chatCompletions(
 	await parseSse(
 		res,
 		(chunk) => {
-
-			console.log(chunk)
+			console.log(chunk);
 
 			lastChunk = chunk;
 			if (chunk.usage) usage = chunk.usage;

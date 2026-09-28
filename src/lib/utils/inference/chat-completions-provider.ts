@@ -35,6 +35,15 @@ const LANGUAGE_MAP: Record<string, string> = {
 	ja: 'Japanese'
 };
 
+/**
+ * Resolves the display name of the language currently selected in viewState.
+ *
+ * @returns The language name (e.g. 'Spanish'), or undefined if unmapped.
+ */
+export function getResponseLanguageName(): string | undefined {
+	return LANGUAGE_MAP[viewState.language];
+}
+
 const LLAMA_SPECIFIC_FIELDS = new Set([
 	'grammar',
 	'mirostat',

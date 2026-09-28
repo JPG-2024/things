@@ -1,8 +1,9 @@
-import type { HostPersona } from './types';
+import type { HostPersona, SpeakerDynamics } from './types';
 
 // ─── Shared constants ────────────────────────────────────────────────
 
 export const CONTEXT_CAP = 6000;
+const PREVIOUS_SCRIPT_CAP = 2000;
 
 // ─── Shared helpers ──────────────────────────────────────────────────
 
@@ -15,157 +16,6 @@ export const CONTEXT_CAP = 6000;
 export function capContext(context: string): string {
 	if (context.length <= CONTEXT_CAP) return context;
 	return context.slice(0, CONTEXT_CAP) + '…';
-}
-
-/**
- * Returns singular-speaking rules for the co-host name usage.
- *
- * @param otherName - The name of the co-host to reference in the rules.
- * @returns Formatted rules text instructing singular form and optional name usage.
- */
-export function singularRules(otherName: string): string {
-	return `
-- Speak in singular form: address only your co-host directly, never "you all", "we", "everyone", or "guys". Avoid plural audience references.
-- Optionally, you may naturally address the other host by name once in a while (e.g., "What do you think, ${otherName}?") to make it feel like a real two-person conversation, but do not overdo it.`;
-}
-
-/**
- * Formats an array of dialog exchanges into a transcript string.
- *
- * @param exchanges - Array of objects with speaker and text properties.
- * @returns Formatted transcript with each exchange on its own line.
- */
-export function formatTranscript(exchanges: { speaker: string; text: string }[]): string {
-	return exchanges.map((e) => `Host ${e.speaker}: ${e.text}`).join('\n');
-}
-
-// ─── Prompt blocks (reusable fragments) ──────────────────────────────
-
-/**
- * Returns a reference material block for grounding responses in source content.
- *
- * @param context - The source content to include.
- * @returns Formatted block string, or empty if context is falsy.
- */
-export function referenceMaterialBlock(context: string | undefined): string {
-	if (!context) return '';
-	return `\n\nReference material:\n${capContext(context)}\n\nUse this material to ground your response. Draw specific facts or ideas from it, but stay conversational.`;
-}
-
-/**
- * Returns an intro block for the opening exchange of a new topic.
- *
- * @param topic - The topic name to introduce.
- * @returns Formatted block string, or empty if topic is falsy.
- */
-export function introTopicBlock(topic: string | undefined): string {
-	if (!topic) return '';
-	return `\n\nThis is the opening exchange of a new topic: "${topic}". Open by briefly introducing the topic with a natural phrase like "Now let's talk about ${topic}" as part of your spoken line, then continue the conversation. Keep the introduction to 1-2 short sentences and do not use labels or stage directions. avoid questions.`;
-}
-
-/**
- * Returns a new chunk announcement block for guided mode.
- *
- * @returns Formatted block string.
- */
-export function newChunkAnnouncementBlock(): string {
-	return `\n\nbriefly announce the new topic or section in 1 sentence, drawing it from the reference material above. Do not use labels or stage directions.`;
-}
-
-/**
- * Returns a forced question block for guided mode.
- *
- * @param question - The specific question the host must pose.
- * @returns Formatted block string.
- */
-export function guidedForcedQuestionBlock(question: string): string {
-	return `\n\nYou must pose this specific question to your co-host (you may rephrase it naturally but keep its meaning): "${question}". Ground your lead-in in the reference material, then ask the question.`;
-}
-
-/**
- * Returns a conclusion block for the final exchange of a topic.
- *
- * @returns Formatted block string.
- */
-export function topicConclusionBlock(): string {
-	return `\n\nThis is the final exchange of this topic. Do NOT ask a question and do NOT introduce new information or answers. Briefly summarize the key points discussed in this topic and end with a short, concise conclusion. Keep it to 2-3 sentences. Ignore any earlier instructions to ask questions or provide answers.`;
-}
-
-/**
- * Returns a rewrite directive block used when regenerating an exchange.
- *
- * @param previousText - The line that was just produced and must be replaced.
- * @returns Formatted block string, or empty if previousText is falsy.
- */
-export function regenerationBlock(previousText: string | undefined): string {
-	if (!previousText) return '';
-	return `\n\nYou are re-recording your previous line because the host was not satisfied with it. Produce a clearly different rewrite that keeps the same conversational intent but does NOT reuse its wording or sentence structure. Your rejected previous line was: "${previousText}"`;
-}
-
-/**
- * Returns a hook summary block for grounding introductions.
- *
- * @param summary - The hook summary text.
- * @returns Formatted block string, or empty if summary is falsy.
- */
-export function hookSummaryBlock(summary: string | undefined): string {
-	if (!summary) return '';
-	return `\n\nSegment overview (use to ground the introduction):\n${summary}`;
-}
-
-/**
- * Returns a reference material block for interview questions.
- *
- * @param context - The source content to include.
- * @returns Formatted block string, or empty if context is falsy.
- */
-export function interviewQuestionContextBlock(context: string | undefined): string {
-	if (!context) return '';
-	return `\n\nReference material (ground your question in it; do not quote verbatim):\n${capContext(context)}`;
-}
-
-/**
- * Returns a reference material block for interview answers.
- *
- * @param context - The source content to include.
- * @returns Formatted block string, or empty if context is falsy.
- */
-export function interviewAnswerContextBlock(context: string | undefined): string {
-	if (!context) return '';
-	return `\n\nReference material (draw specific facts from it, but stay conversational):\n${capContext(context)}`;
-}
-
-/**
- * Returns a forced question block for interview questions.
- *
- * @param question - The specific question to pose.
- * @returns Formatted block string, or empty if question is falsy.
- */
-export function interviewForcedQuestionBlock(question: string | undefined): string {
-	if (!question) return '';
-	return `\n\nYou must pose this specific question to your co-host (you may rephrase it naturally but keep its meaning): "${question}".`;
-}
-
-/**
- * Returns a casual reference material block for smalltalk.
- *
- * @param context - The source content to include.
- * @returns Formatted block string, or empty if context is falsy.
- */
-export function smalltalkContextBlock(context: string | undefined): string {
-	if (!context) return '';
-	return `\n\nReference material (you may draw on it lightly, but stay casual):\n${capContext(context)}`;
-}
-
-/**
- * Returns a segment overview block for smalltalk hooks.
- *
- * @param summary - The hook summary text.
- * @returns Formatted block string, or empty if summary is falsy.
- */
-export function smalltalkHookSummaryBlock(summary: string | undefined): string {
-	if (!summary) return '';
-	return `\n\nSegment overview:\n${summary}`;
 }
 
 /**
@@ -184,10 +34,153 @@ export function hostPersonaBlock(persona: HostPersona | undefined): string {
 	if (persona.catchphrases.trim()) lines.push(`Host catchphrases: ${persona.catchphrases.trim()}`);
 	if (persona.speechQuirks.trim()) lines.push(`Host speech quirks: ${persona.speechQuirks.trim()}`);
 	if (lines.length === 0) return '';
-	return `\n\n${lines.join('\n')}\n\nThese traits take precedence over the length and tone rules below.`;
+	return `\n\n${lines.join('\n')}`;
 }
 
-// ─── Dialog generator prompts ────────────────────────────────────────
+// ─── Script generator prompts ────────────────────────────────────────
+
+export interface ScriptPromptInput {
+	topic: string;
+	hostAName: string;
+	hostBName: string;
+	hostAPersona?: HostPersona;
+	hostBPersona?: HostPersona;
+	turnCount: number;
+	turnLengthSentences: number;
+	speakerDynamics: SpeakerDynamics;
+	language?: string;
+	context?: string;
+	relatedContext?: string;
+	previousScript?: string;
+}
+
+/**
+ * Renders a character sheet block for one host in the script prompt.
+ *
+ * @param hostName - The display name of the host.
+ * @param persona - The host persona fields.
+ * @returns Formatted character sheet, or empty string if all fields are empty.
+ */
+function characterSheetBlock(hostName: string, persona: HostPersona | undefined): string {
+	if (!persona) return '';
+	const lines: string[] = [];
+	if (persona.personality.trim()) lines.push(`  - Personality: ${persona.personality.trim()}`);
+	if (persona.humorStyle.trim()) lines.push(`  - Humor: ${persona.humorStyle.trim()}`);
+	if (persona.catchphrases.trim()) lines.push(`  - Catchphrases: ${persona.catchphrases.trim()}`);
+	if (persona.speechQuirks.trim()) lines.push(`  - Speech quirks: ${persona.speechQuirks.trim()}`);
+	if (lines.length === 0) return '';
+	return `\n${hostName}'s character:\n${lines.join('\n')}`;
+}
+
+/**
+ * Returns the system prompt for generating a full topic dialog script.
+ *
+ * Frames the LLM as a scriptwriter producing an entire multi-turn dialogue
+ * in one response, with both host personas as character sheets.
+ *
+ * @param input - The script prompt parameters.
+ * @returns The formatted system prompt string.
+ */
+export function scriptSystemPrompt(input: ScriptPromptInput): string {
+	const {
+		topic,
+		hostAName,
+		hostBName,
+		hostAPersona,
+		hostBPersona,
+		turnCount,
+		turnLengthSentences,
+		speakerDynamics,
+		language,
+		context,
+		relatedContext,
+		previousScript
+	} = input;
+
+	const sheetA = characterSheetBlock(hostAName, hostAPersona);
+	const sheetB = characterSheetBlock(hostBName, hostBPersona);
+
+	const dynamicsRule =
+		speakerDynamics === 'alternate'
+			? '- Strictly alternate speakers, starting with Host A.'
+			: '- Assign each turn to whichever host fits the flow best; do not force strict alternation.';
+
+	const languageRule = language
+		? `\n- Write ALL dialogue in ${language}, regardless of the language of the reference material, this prompt, or the style example.`
+		: '';
+
+	const styleExample =
+		language === 'Spanish'
+			? `A: A ver, explicame esto como si no supiera nada: ¿qué gano con una batería que dura más?
+B: Simple: menos ansiedad. Dejás de mirar el porcentaje cada diez minutos.
+A: Jaja, está bien, eso es verdad. ¿Pero no es solo marketing para venderte el modelo caro?
+B: Un poco sí. Pero la diferencia existe: hoy una batería aguanta el doble de ciclos que hace cinco años.
+A: O sea que no es humo. Me convenciste a medias.
+B: Me conformo. El punto es que la tecnología maduró, aunque el marketing exagere.`
+			: `A: Okay, explain this like I know nothing: what do I gain from a longer-lasting battery?
+B: Simple: less anxiety. You stop checking the percentage every ten minutes.
+A: Ha, fair, that's true. But isn't it just marketing to sell me the expensive model?
+B: A little, yes. But the difference is real: today a battery handles twice the charge cycles of five years ago.
+A: So it's not smoke. You half convinced me.
+B: I'll take it. The point is the tech matured, even if the marketing exaggerates.`;
+
+	const contextBlock = context
+		? `\n\nReference material:\n${capContext(context)}\n\nGround the dialogue in this material: draw specific facts and ideas from it, but keep the conversation natural.`
+		: '';
+
+	const relatedBlock = relatedContext
+		? `\n\nRelated material from another article (the hosts may bring it up as a contrasting viewpoint to debate):\n${capContext(relatedContext)}`
+		: '';
+
+	const previousBlock = previousScript
+		? `\n\nA previous version of this script was rejected. Write a clearly different take on the same topic: new angles, new wording, no reused lines. Rejected script:\n${previousScript.length > PREVIOUS_SCRIPT_CAP ? previousScript.slice(0, PREVIOUS_SCRIPT_CAP) + '…' : previousScript}`
+		: '';
+
+	return `You are writing the script for one segment of a two-host podcast${language ? `, entirely in ${language}` : ''}.
+
+Segment topic: "${topic}"
+
+Host A is ${hostAName}.${sheetA}
+Host B is ${hostBName}.${sheetB}
+
+Rules:
+- Write exactly ${turnCount} turns of dialogue.
+- Each turn is about ${turnLengthSentences} sentences long.
+${dynamicsRule}
+- Format: one turn per line. Start every line with "A: " or "B: ". No quotes, no markdown, no stage directions, no narration.${languageRule}
+- The reference material is SOURCE, not a script. Convert it into spoken dialogue. NEVER narrate, summarize or describe the material in third person (no "X claims that…", "the text highlights…", "this sets the stage…"). The hosts discuss the ideas directly, in first person.
+- Write lines people would actually say out loud: natural reactions, spoken rhythm, interruptions like "wait, but…". Not written prose.
+- Stay on the segment topic; never wander into unrelated subjects.
+- Open the segment by introducing the topic naturally; close it with a brief takeaway.
+- The hosts must sound DISTINCT from each other: different vocabulary, different energy, different opinions. Let their characters show in every turn.
+- The hosts speak directly to each other (singular "you"), occasionally using each other's name. Never address the audience.
+
+Style example (different subject, for tone only):
+${styleExample}${contextBlock}${relatedBlock}${previousBlock}`;
+}
+
+/**
+ * Returns the user message requesting the topic script.
+ *
+ * @param topic - The segment topic.
+ * @param turnCount - Number of dialogue turns to write.
+ * @returns The user prompt string.
+ */
+export function scriptUserPrompt(topic: string, turnCount: number): string {
+	return `Write the ${turnCount}-turn script for the segment about "${topic}" now.`;
+}
+
+/**
+ * Returns the correction message used when the first script attempt is unparseable.
+ *
+ * @param turnCount - Number of dialogue turns expected.
+ * @returns The retry user prompt string.
+ */
+export function scriptRetryUserPrompt(turnCount: number): string {
+	return `That was not a valid script. Respond with ONLY the dialogue lines, one turn per line, each line starting with "A: " or "B: ". Exactly ${turnCount} turns. No other text.`;
+}
+
+// ─── Hook prompts ────────────────────────────────────────────────────
 
 /**
  * Returns the default system prompt template for episode hooks.
@@ -215,80 +208,6 @@ Rules:
 }
 
 /**
- * Returns the system prompt for interview or guided mode.
- *
- * @param topic - The podcast topic.
- * @param currentName - The display name of the current speaker.
- * @param speaker - The speaker identifier ('A' or 'B').
- * @param otherName - The display name of the co-host.
- * @param blocks - Pre-built prompt blocks to append.
- * @returns The formatted system prompt string.
- */
-export function interviewModeSystemPrompt(
-	topic: string,
-	currentName: string,
-	speaker: string,
-	otherName: string,
-	blocks: {
-		singularRules: string;
-		contextBlock: string;
-		introBlock: string;
-		newChunkBlock: string;
-		forcedQuestionBlock: string;
-		conclusionBlock: string;
-		personaBlock: string;
-	}
-): string {
-	const role =
-		speaker === 'A'
-			? 'the interviewer who asks insightful questions'
-			: 'the expert who provides informative answers';
-	return `You are hosting a podcast interview about "${topic}".
-You are ${currentName} (Host ${speaker}), ${role}.${blocks.personaBlock}
-The other host is ${otherName} (Host ${speaker === 'A' ? 'B' : 'A'}).
-Rules:
-- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural.
-- If you are the interviewer, ask a focused question. If you are the expert, give a clear, engaging answer.
-- Build on what the other host just said.${blocks.singularRules}${blocks.contextBlock}${blocks.introBlock}${blocks.newChunkBlock}${blocks.forcedQuestionBlock}${blocks.conclusionBlock}`;
-}
-
-/**
- * Returns the system prompt for smalltalk mode.
- *
- * @param topic - The podcast topic.
- * @param currentName - The display name of the current speaker.
- * @param speaker - The speaker identifier ('A' or 'B').
- * @param otherName - The display name of the co-host.
- * @param blocks - Pre-built prompt blocks to append.
- * @returns The formatted system prompt string.
- */
-export function smalltalkModeSystemPrompt(
-	topic: string,
-	currentName: string,
-	speaker: string,
-	otherName: string,
-	blocks: {
-		singularRules: string;
-		contextBlock: string;
-		introBlock: string;
-		conclusionBlock: string;
-		personaBlock: string;
-	}
-): string {
-	return `You are hosting a casual podcast discussion about "${topic}".
-You are ${currentName} (Host ${speaker}). The other host is ${otherName}.${blocks.personaBlock}
-Rules:
-- Respond with ONLY the spoken line for ${currentName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural, like two friends chatting.
-- Build on what the other host said.
-- End your turn with a question, thought, or prompt for the other host.
-- Keep it energetic and engaging.${blocks.singularRules}${blocks.contextBlock}${blocks.introBlock}${blocks.conclusionBlock}`;
-}
-
-/**
  * Returns the user message for an initial hook.
  *
  * @returns The user message string.
@@ -303,38 +222,7 @@ export function initialHookUserMessage(): string {
  * @returns The user message string.
  */
 export function finalHookUserMessage(): string {
-	return 'Deliver your closing remarks to wrap up the podcast episode.';
-}
-
-/**
- * Returns the user message for opening a conversation.
- *
- * @returns The user message string.
- */
-export function openingConversationUserMessage(): string {
-	return 'Start the conversation with your opening line.';
-}
-
-/**
- * Returns the user message with conversation history and optional forced question.
- *
- * @param transcript - The formatted transcript of previous exchanges.
- * @param question - Optional forced question to answer.
- * @param speaker - The current speaker identifier ('A' or 'B').
- * @returns The user message string.
- */
-export function transcriptUserMessage(
-	transcript: string,
-	question?: string,
-	speaker?: string
-): string {
-	let base = `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
-
-	if (question && speaker === 'B') {
-		base += `\n\nThe interviewer asked this exact question — answer it directly:\n"${question}"`;
-	}
-
-	return base;
+	return 'Deliver your closing remarks to wrap up the episode.';
 }
 
 // ─── Summary prompts ─────────────────────────────────────────────────
@@ -357,196 +245,4 @@ export function topicSummarySystemPrompt(): string {
  */
 export function topicSummaryUserPrompt(topic: string, content: string): string {
 	return `Topic: ${topic}\n\nSource content:\n${content}`;
-}
-
-/**
- * Returns the system prompt for generating a chunk summary label.
- *
- * @returns The system prompt string.
- */
-export function chunkSummarySystemPrompt(): string {
-	return `You are preparing topic labels for a podcast. Given a segment of source material, summary that captures its main subject. Respond with plain text only, no headings or markdown. Maximum 10 words.`;
-}
-
-/**
- * Returns the user prompt for generating a chunk summary label.
- *
- * @param content - The source segment content.
- * @returns The user prompt string.
- */
-export function chunkSummaryUserPrompt(content: string): string {
-	return `Source segment:\n${content}. maximum 10 words.`;
-}
-
-// ─── Interview generator prompts (standalone module) ─────────────────
-
-/**
- * Returns the system prompt for an interview hook turn.
- *
- * @param hostAName - The display name of Host A (interviewer).
- * @param hostBName - The display name of Host B (expert).
- * @param hookSummary - Optional summary for grounding the introduction.
- * @param personaBlock - Optional persona block to inject.
- * @returns The formatted system prompt string.
- */
-export function interviewHookSystemPrompt(
-	hostAName: string,
-	hostBName: string,
-	hookSummary?: string,
-	personaBlock?: string
-): string {
-	const contextBlock = hookSummary
-		? `\n\nSegment overview (use to ground the introduction):\n${hookSummary}`
-		: '';
-	return `You are hosting a podcast interview.
-You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B).${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- This is the HOOK turn for a brand-new topic. Briefly introduce the topic in 1-2 short sentences, conversational and inviting, without quoting the segment overview verbatim.
-- Do not ask a question in this turn; the interviewer's first question follows in the next turn.${singularRules(hostBName)}${contextBlock}`;
-}
-
-/**
- * Returns the system prompt for an interview question turn.
- *
- * @param hostAName - The display name of Host A (interviewer).
- * @param hostBName - The display name of Host B (expert).
- * @param contextText - Optional reference material for grounding the question.
- * @param question - Optional forced question to pose.
- * @param personaBlock - Optional persona block to inject.
- * @returns The formatted system prompt string.
- */
-export function interviewQuestionSystemPrompt(
-	hostAName: string,
-	hostBName: string,
-	contextText?: string,
-	question?: string,
-	personaBlock?: string
-): string {
-	const forced = interviewForcedQuestionBlock(question);
-	const contextBlock = interviewQuestionContextBlock(contextText);
-	return `You are hosting a podcast interview.
-You are ${hostAName} (Host A), the interviewer. Your co-host is ${hostBName} (Host B), the expert.${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Ask a focused, insightful question that advances the discussion.${singularRules(hostBName)}${contextBlock}${forced}
-- Always end with the question.
-`;
-}
-
-/**
- * Returns the system prompt for an interview answer turn.
- *
- * @param hostAName - The display name of Host A (interviewer).
- * @param hostBName - The display name of Host B (expert).
- * @param contextText - Optional reference material for grounding the answer.
- * @param personaBlock - Optional persona block to inject.
- * @returns The formatted system prompt string.
- */
-export function interviewAnswerSystemPrompt(
-	hostAName: string,
-	hostBName: string,
-	contextText?: string,
-	personaBlock?: string
-): string {
-	const contextBlock = interviewAnswerContextBlock(contextText);
-	return `You are hosting a podcast interview.
-You are ${hostBName} (Host B), the expert. Your co-host is ${hostAName} (Host A), the interviewer.${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${hostBName}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Answer the interviewer's most recent question with a clear, engaging reply grounded in the reference material.${singularRules(hostAName)}${contextBlock}`;
-}
-
-/**
- * Returns the user prompt for an interview turn.
- *
- * @param role - The current turn role: 'hook', 'question', or 'answer'.
- * @param transcript - Optional formatted transcript of previous exchanges.
- * @returns The user prompt string.
- */
-export function interviewUserPrompt(
-	role: 'hook' | 'question' | 'answer',
-	transcript?: string
-): string {
-	if (!transcript) {
-		if (role === 'hook') return 'Deliver your hook introducing the new topic.';
-		if (role === 'question') return 'Open with your first interview question.';
-		return 'Open with your first answer.';
-	}
-	if (role === 'hook') {
-		return `Previous conversation:\n${transcript}\n\nDeliver your hook introducing the next topic.`;
-	}
-	return `Previous conversation:\n${transcript}\n\nIt is your turn now. Continue the conversation briefly and naturally.`;
-}
-
-// ─── Smalltalk generator prompts (standalone module) ─────────────────
-
-/**
- * Returns the system prompt for a smalltalk hook turn.
- *
- * @param hostAName - The display name of Host A.
- * @param hostBName - The display name of Host B.
- * @param hookSummary - Optional summary for grounding the introduction.
- * @param personaBlock - Optional persona block to inject.
- * @returns The formatted system prompt string.
- */
-export function smalltalkHookSystemPrompt(
-	hostAName: string,
-	hostBName: string,
-	hookSummary?: string,
-	personaBlock?: string
-): string {
-	const contextBlock = smalltalkHookSummaryBlock(hookSummary);
-	return `You are hosting a casual podcast.
-You are ${hostAName} (Host A). The other host is ${hostBName} (Host B).${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${hostAName}. No name labels, no quotes, no JSON, no stage directions.
-- This is the HOOK for a new topic. Open casually in 1-2 short sentences, like a friend inviting your co-host to chat. Do not ask a question; that comes next.${contextBlock}`;
-}
-
-/**
- * Returns the system prompt for a smalltalk casual turn.
- *
- * @param hostAName - The display name of Host A.
- * @param hostBName - The display name of Host B.
- * @param contextText - Optional reference material.
- * @param personaBlock - Optional persona block to inject.
- * @returns The formatted system prompt string.
- */
-export function smalltalkCasualSystemPrompt(
-	hostAName: string,
-	hostBName: string,
-	contextText?: string,
-	personaBlock?: string
-): string {
-	const contextBlock = smalltalkContextBlock(contextText);
-	return `You are hosting a casual podcast.
-You are one of the hosts (Host A is ${hostAName}, Host B is ${hostBName}).${personaBlock ?? ''}
-Rules:
-- Respond with ONLY your spoken line. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Be conversational and natural, like two friends chatting.
-- Build on what the other host just said.
-- End your turn with a question, thought, or prompt for the other host to keep the conversation flowing.
-- Keep it energetic and engaging.${contextBlock}`;
-}
-
-/**
- * Returns the user prompt for a smalltalk turn.
- *
- * @param role - The current turn role: 'hook' or 'casual'.
- * @param transcript - Optional formatted transcript of previous exchanges.
- * @returns The user prompt string.
- */
-export function smalltalkUserPrompt(role: 'hook' | 'casual', transcript?: string): string {
-	if (!transcript) {
-		if (role === 'hook') return 'Deliver your hook introducing the new topic.';
-		return 'Open the conversation with your opening line.';
-	}
-	if (role === 'hook') {
-		return `Previous conversation:\n${transcript}\n\nDeliver your hook introducing the next topic.`;
-	}
-	return `Previous conversation:\n${transcript}\n\nContinue the conversation briefly and naturally.`;
 }

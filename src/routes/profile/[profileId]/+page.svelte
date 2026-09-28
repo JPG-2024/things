@@ -211,7 +211,7 @@
 		</div>
 
 		<div class="articles-container">
-			<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+			<MasonryGrid items={articleCacheStore.articlesWithoutProfile} showContentModeToggle>
 				{#snippet headerLeft()}
 					<InitialArticlesToggle />
 				{/snippet}

@@ -13,6 +13,7 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import type { ArticleContentMode } from '@/stores/viewStore.svelte';
 	import { onMount, tick } from 'svelte';
 	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -29,6 +30,7 @@
 		onColumnOffsetChange?: (value: number) => void;
 		fixedColumns?: number;
 		spanOf?: (item: T) => 1 | 2;
+		showContentModeToggle?: boolean;
 	}
 
 	let {
@@ -41,7 +43,8 @@
 		columnOffset: columnOffsetProp,
 		onColumnOffsetChange,
 		fixedColumns,
-		spanOf
+		spanOf,
+		showContentModeToggle = false
 	}: Props = $props();
 
 	// Mirror of `items` that is filled after mount. Svelte suppresses intro
@@ -131,6 +134,25 @@
 		setColumnOffset(columnOffset + 1);
 	}
 
+	const CONTENT_MODES: ArticleContentMode[] = ['both', 'thumbnail', 'title'];
+
+	const contentModeIcon: Record<ArticleContentMode, string> = {
+		both: 'LayoutPanelTop',
+		thumbnail: 'Image',
+		title: 'Type'
+	};
+
+	const contentModeTooltip: Record<ArticleContentMode, string> = {
+		both: 'Content: images + text (click for images only)',
+		thumbnail: 'Content: images only (click for text only)',
+		title: 'Content: text only (click for images + text)'
+	};
+
+	function cycleContentMode() {
+		const index = CONTENT_MODES.indexOf(viewState.masonryArticlesContentMode);
+		viewState.masonryArticlesContentMode = CONTENT_MODES[(index + 1) % CONTENT_MODES.length];
+	}
+
 	// column density hotkeys. '+' is the Shift+= key (the + key sets shiftKey=true),
 	// expressed as a RawHotkey since the typed Hotkey literal forbids Shift+Punctuation.
 	// '-' is Minus (unshifted). Shift+Arrow nudges density too.
@@ -138,6 +160,13 @@
 	createHotkey('-', decreaseLayout, { ignoreInputs: true });
 	createHotkey('Shift+ArrowLeft', decreaseLayout, { ignoreInputs: true, preventDefault: true });
 	createHotkey('Shift+ArrowRight', increaseLayout, { ignoreInputs: true, preventDefault: true });
+
+	// 'V' cycles the article content mode (both / images only / text only) for
+	// grids that opted into the toolbar toggle.
+	createHotkey('V', cycleContentMode, () => ({
+		enabled: showContentModeToggle,
+		ignoreInputs: true
+	}));
 
 	function getRowMetrics() {
 		const computed = window.getComputedStyle(gridEl);
@@ -348,6 +377,14 @@
 	<div class="layout-header">
 		{#if headerLeft}
 			{@render headerLeft()}
+		{/if}
+		{#if showContentModeToggle}
+			<Icon
+				name={contentModeIcon[viewState.masonryArticlesContentMode]}
+				size={15}
+				onClick={cycleContentMode}
+				tooltipProps={{ content: contentModeTooltip[viewState.masonryArticlesContentMode] }}
+			/>
 		{/if}
 		<Icon
 			name={layoutIndex === 0 ? 'LayoutGrid' : 'List'}

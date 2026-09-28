@@ -1,168 +1,119 @@
 # Podcast Generation Flow
 
-This document traces how a podcast episode is generated in Notian, from the settings panel to final audio playback. It is the counterpart to `DOCS/tts-flow.md`, focused on the orchestration done by `PodcastSettings.svelte` and `podcastStore.svelte.ts`.
+This document traces how a podcast episode is generated, from the settings panel to final audio playback. It is the counterpart to `DOCS/tts-flow.md`, focused on the orchestration done by `PodcastSettings.svelte` and `podcastStore.svelte.ts`.
 
 ## Overview
 
 ```
-PodcastSettings (user configures → onStart)
+PodcastSettings (user configures)
   → podcastState.start()
     → validate hosts + context
-    → resolveTopics()            (LLM: topic extraction)
-    → playAllTopics()            (loop topics × interactions)
-        → prepareExchange()      (LLM dialog + TTS audio)
-        → playExchange()         (Web Audio playback)
-        → waitGap()              (random pause between hosts)
+    → resolveTopics()              (reads workflow 'analysis' task)
+    → playAllTopics()              (loop topics)
+        → prepareTopicScript()     (LLM: full dialog script, 1 call per topic)
+        → prepareExchangeAudio()   (TTS, prefetch lookahead)
+        → playExchange()           (Web Audio playback)
+        → waitMs(topicGap/exchangeGap)
 ```
 
-Unlike the lazy TTS flow, the podcast pipeline **pre-generates** the dialog text and audio for the current/next exchanges ahead of playback, then plays them in sequence.
+The podcast pipeline **pre-generates the whole dialog script for a topic in a single LLM call** (`generateTopicScript`), parses it into `DialogExchange[]`, and then only synthesizes audio turn by turn. While a topic plays, the next topic's script (and its first audio) is generated in the background, so the cold-start LLM wait is only perceived on the first topic.
 
 ---
 
 ## 1. Entry Point
 
-**`src/components/PodcastSettings.svelte`** — The user picks every setting described in section 4, then clicks "Start Podcast":
+**`src/features/podcast/PodcastSettings.svelte`** — every control writes directly into `podcastState.config` (`PodcastConfig`). Playback starts from `PodcastMode.svelte` (hotkey `P` or the play button) via `podcastState.start()`.
 
-```ts
-async function handleStart() {
-	loading = true;
-	drawersState.close('podcast-settings');
-	await podcastState.start();
-	loading = false;
-	onStart?.();
-}
-```
-
-`podcastState` (`src/stores/podcastStore.svelte.ts`) is a Svelte 5 runes singleton holding both the `config` (`PodcastConfig`) and all runtime state (`topics`, `dialogs`, `status`, blobs, etc.).
+`podcastState` (`src/features/podcast/podcastStore.svelte.ts`) is a Svelte 5 runes singleton holding both the `config` and all runtime state (`topics`, `dialogs`, `status`, blobs, etc.).
 
 ---
 
 ## 2. Start Orchestration
 
-**`podcastStore.svelte.ts:209-248`** — `start()`:
+**`podcastStore.svelte.ts` — `start()`**:
 
 1. **Validate voices** — Both `hostAProfileId` and `hostBProfileId` must be set, otherwise `errorMessage = 'Please select both host voices'` and abort.
-2. **Resolve context** — The source text for topic extraction and validation is the full content (`contentTaskText`, `podcastStore.svelte.ts`). In `summary` mode the per-topic summary is generated lazily (see section 4b).
-3. **Validate context** — If `contextSource !== 'none'` and the resolved source is empty, `errorMessage = 'No source content available…'` and abort.
-4. **Reset** — `stop()` bumps `_session` (invalidating any in-flight async work) and clears playback state.
-5. **Extract topics** — `resolveTopics()` (see section 3).
-6. **Set progress** — `total = topics.length × interactionsPerTopic`.
-7. **Play** — `playAllTopics()`.
-
-### Flowchart
-
-```mermaid
-flowchart TD
-    A[PodcastSettings.onStart] --> B[podcastState.start]
-    B --> C{both host profiles selected?}
-    C -- no --> E1[error: select both host voices]
-    C -- yes --> D[source = contextText]
-    D --> F{sourceSource != none AND source empty?}
-    F -- yes --> E2[error: No source content]
-    F -- no --> G[stop / bump session]
-    G --> H[status = extracting]
-    H --> I[resolveTopics source]
-    I --> J[set topics, dialogs, progress]
-    J --> K[playAllTopics]
-    K --> L[status = idle]
-```
+2. **Validate context** — If `contextSource !== 'none'` and `contentTaskText` is empty, `errorMessage = 'No source content available…'` and abort.
+3. **Reset** — `stop()` bumps `_session` (invalidating any in-flight async work) and clears playback state.
+4. **Extract topics** — `resolveTopics()` (see section 3), sliced to `config.topicCount`.
+5. **Set progress** — `total = topics.length × interactionsPerTopic + enabled hooks` (an estimate; scripts may yield slightly different turn counts).
+6. **Play** — `playAllTopics()`.
 
 ---
 
 ## 3. Topic Extraction
 
-**`podcastStore.svelte.ts:190-207`** — `resolveTopics()`:
+**`resolveTopics()`** — topics come exclusively from a completed workflow **`analysis`** task (stacked or focused run), normalized by `extractTopicsFromAnalysis()` in `topicExtractor.ts`. No LLM call happens here; if no analysis task exists, `start()` aborts with `No topics found.`
+
+`topicCount` slices the extracted topic list and therefore sets the outer loop size in `playAllTopics`.
+
+---
+
+## 4. Per-Topic Script Generation
+
+**`podcastStore.svelte.ts` — `playAllTopics()`** iterates `topic ∈ [0, topics.length)`. For each topic:
+
+1. If `dialogs[t]` is empty: `status = 'generating'` and `prepareTopicScript(t)` fills it (see section 5).
+2. For each exchange `e` in the generated script:
+   - `prepareExchangeAudio(t, e)` — TTS only (text already exists). Cached by `${t}:${e}` key in `_preparePromises`/`_blobs`.
+   - Prefetch: next exchange's audio; on the last exchange, the **next topic's script + its first audio** (fire-and-forget).
+   - `playExchange(t, e)` → `playBlobEntry` through the Web Audio graph.
+   - Wait `exchangeGapMs` between turns, `topicGapMs` between topics.
+
+### Script generation
+
+**`scriptGenerator.ts` — `generateTopicScript()`**:
 
 ```mermaid
 flowchart TD
-    A[resolveTopics] --> B{workflow 'topics' task exists?}
-    B -- yes --> C[use task data as topics]
-    B -- no --> D{source content empty?}
-    D -- yes --> E[generateFreeTopics topicCount]
-    D -- no --> F[extractTopics content, topicCount]
+    A[generateTopicScript] --> B{systemPromptOverride set?}
+    B -- yes --> C[use override, replace __HOST_A_NAME__/__HOST_B_NAME__]
+    B -- no --> D[scriptSystemPrompt: personas as character sheets + rules]
+    C --> E[chatCompletions, temperature = config.scriptTemperature]
+    D --> E
+    E --> F[parseScript]
+    F --> G{>= 2 valid turns?}
+    G -- yes --> H[DialogExchange array]
+    G -- no --> I[one retry with correction message]
+    I --> J{>= 2 valid turns?}
+    J -- yes --> H
+    J -- no --> K[throw → error toast]
 ```
 
-- **Existing workflow task** — If a `topics` task is present in `workflowStore.stackedTasks` or `focusedRunTasks`, its output is normalized and reused directly (no LLM call).
-- **No content** — `generateFreeTopics(topicCount)` asks the LLM for `topicCount` creative topics.
-- **With content** — `extractTopics(content, topicCount)` (see `topicExtractor.ts`) asks the LLM to pull exactly `topicCount` topics from the source text via a JSON-schema response.
+Key inputs (all from `podcastState.config`):
 
-`topicCount` controls how many topics are requested in the latter two paths, and therefore the outer loop size in `playAllTopics`.
+- **`interactionsPerTopic`** — requested number of turns in the script.
+- **`turnLengthSentences`** — target length of each turn ("about N sentences").
+- **`speakerDynamics`** — `alternate` forces strict A/B/A/B starting with A; `free` lets the LLM assign turns. The parser accepts either way; the flag is an instruction, not a contract.
+- **`scriptTemperature`** — LLM temperature (default 0.75; regeneration bumps it by +0.15 and includes the rejected script so the new take differs).
+- **`scriptReasoning`** — When ON (default), the script request enables LLM thinking (`reasoning_effort: 'low'` + `chat_template_kwargs.enable_thinking`; hooks stay fast, without reasoning). Slower first-topic generation, much better structure/style adherence.
+
+The built-in system prompt also enforces a **conversational register**: anti-narration rules (the reference material is source, never to be described in third person; hosts discuss ideas in first person) plus a built-in few-shot style example of spoken dialogue.
+
+- **`hostAPersona` / `hostBPersona`** — rendered as character sheets inside a single scriptwriter-style system prompt, so the model writes contrasting voices.
+- **`contextSource`** — `content` feeds `contentTaskText` (capped at 6000 chars); `summary` generates a per-topic briefing once (`generateTopicSummary`) and reuses it; `none` skips context.
+- **`scriptSystemPromptOverride`** — replaces the whole system prompt; `__HOST_A_NAME__` / `__HOST_B_NAME__` placeholders are substituted.
+- **`relatedContext`** — reserved seam for stage 2 (similar chunks from other articles as contrasting viewpoints). Not wired yet.
+
+**`parseScript()`** accepts lines labelled `A:`, `B:`, `Host A:`, `Host B:` or the actual host names, strips fences/quotes, and merges consecutive same-speaker lines into one turn (a coherent TTS unit).
 
 ---
 
-## 4. Per-Exchange Generation
+## 5. Audio Generation & Playback
 
-**`podcastStore.svelte.ts:250-349`** — `playAllTopics()` iterates `topic ∈ [0, topics.length)` and, for each, `exchange ∈ [0, interactionsPerTopic)`. For every exchange it:
-
-1. Sets `status = 'generating'`.
-2. Calls `prepareExchange(t, e)` which (if not cached):
-   - picks `speaker = exchangeIdx % 2 === 0 ? 'A' : 'B'`,
-   - calls `generateExchange()` (LLM dialog line),
-   - calls `generateExchangeAudio()` (TTS).
-3. Plays the exchange (`playExchange`).
-4. Prefetches the next exchange (or next topic's first) so playback is continuous.
-5. Calls `waitGap()` before the next exchange (unless it was the very last).
-
-### Speaker alternation
-
-```mermaid
-flowchart LR
-    A[exchangeIdx] --> B{exchangeIdx % 2 == 0}
-    B -- true --> C[Host A speaks]
-    B -- false --> D[Host B speaks]
-```
-
-The speaker determines both the **voice** (`getVoiceRef(speaker)`) and the **persona** inside the LLM prompt.
-
----
-
-## 5. LLM Dialog Generation
-
-**`src/lib/utils/podcast/dialogGenerator.ts`** — `generateExchange()`:
-
-```mermaid
-flowchart TD
-    A[generateExchange] --> B[buildSystemMessage]
-    B --> C{mode}
-    C -- interview --> D1[A: interviewer asks / B: expert answers]
-    C -- smalltalk --> D2[both: casual friends, end with question]
-    B --> E{context provided?}
-    E -- yes --> F[append Reference material block cap 6000]
-    E -- no --> G[no context block]
-    B --> H{isFirstInteractionOfTopic?}
-    H -- yes --> I[append topic-intro block]
-    B --> J{isLastInteractionOfTopic?}
-    J -- yes --> K[append conclusion block]
-    A --> L[chatCompletions temperature 0.8]
-    L --> M[cleanExchangeText]
-    M --> N[DialogExchange speaker, text]
-```
-
-Key modifiers:
-
-- **`mode`** — `interview` casts A as the question-asking interviewer and B as the answering expert; `smalltalk` makes both hosts casual friends who must end each turn with a question/prompt.
-- **`context`** — Capped at 6000 chars and appended as "Reference material" to ground responses in the source text.
-- **`isFirstInteractionOfTopic`** / **`isLastInteractionOfTopic`** — Derived from `exchangeIdx` and `interactionsPerTopic`; these inject the topic-introduction and topic-conclusion prompt blocks.
-
-`cleanExchangeText()` strips code fences, surrounding quotes, and any `Host A:` / name prefixes the model may emit.
-
----
-
-## 6. Audio Generation & Playback
-
-**`podcastStore.svelte.ts:408-461`** — `generateExchangeAudio()`:
+**`generateExchangeAudio()`** (unchanged from the pre-script architecture):
 
 ```
 exchange.text
-  → splitTextIntoChunks(text, ttsState.config.splitLevel)   // reused from TTS flow
+  → splitTextIntoChunksMeta(text, ttsState.config.splitLevel)
   → for each chunk:
-        voiceRef = getVoiceRef(speaker)                     // random chunk from host profile
-        generateSpeech({ text, ref_audio, ref_text, ...ttsState.config })  // POST /tts/mp3
+        voiceRef = getVoiceRef(speaker)                     // random/pinned chunk from host profile
+        generateSpeech(buildSpeechParams(...))              // POST /tts/mp3
         → push Blob
   → combined = new Blob(blobs, { type: 'audio/mpeg' })
 ```
 
-`playExchange()` decodes the combined blob and plays it through the same Web Audio graph used elsewhere:
+`playBlobEntry()` decodes each blob and plays it through:
 
 ```
 AudioBufferSourceNode → AnalyserNode → AudioContext.destination
@@ -172,64 +123,41 @@ AudioBufferSourceNode → AnalyserNode → AudioContext.destination
 
 ---
 
-## 7. Gap Between Hosts
+## 6. Episode Hooks
 
-**`podcastStore.svelte.ts:600-613`** — `waitGap()`:
-
-```ts
-const min = Math.max(0, Math.min(minGapMs, maxGapMs));
-const max = Math.max(minGapMs, maxGapMs);
-const delay = min + Math.random() * (max - min);
-```
-
-A random silence between `minGapMs` and `maxGapMs` is inserted after every exchange (except the final one), simulating a natural pause between hosts.
+Optional **opening** and **closing** hooks (`config.hooks.initial/final`) are single-turn lines delivered by Host A, generated by `hookGenerator.ts → generateHook()` with `cfg.prompt` as the system prompt (placeholders `__NAME__` / `__SPEAKER__` substituted). Opening hooks play before topic 0; closing hooks after the last topic (`finishSession`).
 
 ---
 
-## 8. Settings → Flow Impact
+## 7. Settings → Flow Impact
 
-Every control in `PodcastSettings.svelte` writes directly into `podcastState.config`. The table below maps each UI control to the field it sets and the exact stage of the flow it alters.
-
-| UI control                           | Config field            | Stage affected              | Effect on the flow                                                                                                                                                                                                                      |
-| ------------------------------------ | ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Interview** / **Small Talk**       | `mode`                  | §5 `buildSystemMessage`     | Switches host personas (interviewer/expert vs casual friends) and whether each turn must end with a question                                                                                                                            |
-| **Content** / **Summary** / **None** | `contextSource`         | §2 / §4b `topicContext`     | Chooses the source text fed into every `generateExchange`: full workflow `content` tasks, or empty. In `summary` mode a per-topic summary is generated once from the content (see §4b) and reused as context for that topic's exchanges |
-| **Topics**                           | `topicCount`            | §3 `resolveTopics`          | Number of topics requested from the LLM; sets the outer loop size and `progress.total`                                                                                                                                                  |
-| **Interactions per topic**           | `interactionsPerTopic`  | §4 `playAllTopics`          | Number of exchanges per topic; also sets the `isFirst`/`isLast` flags that trigger intro/conclusion prompt blocks                                                                                                                       |
-| **Min gap** / **Max gap**            | `minGapMs` / `maxGapMs` | §7 `waitGap`                | Random silence duration inserted between exchanges (between-host pause)                                                                                                                                                                 |
-| **Host A voice grid**                | `hostAProfileId`        | §4 `getVoiceRef` / §5 names | Voice reference (random chunk) for TTS of Host A's lines and the host name embedded in prompts; required to start                                                                                                                       |
-| **Host B voice grid**                | `hostBProfileId`        | §4 `getVoiceRef` / §5 names | Same as Host A, for Host B                                                                                                                                                                                                              |
-
-### Settings flow at a glance
-
-```mermaid
-flowchart TD
-    S[PodcastSettings UI] -->|writes| C[podcastState.config]
-    C --> M[mode]
-    C --> CS[contextSource]
-    C --> TC[topicCount]
-    C --> IP[interactionsPerTopic]
-    C --> G[minGapMs / maxGapMs]
-    C --> HA[hostAProfileId]
-    C --> HB[hostBProfileId]
-
-    M --> DLG[§5 buildSystemMessage persona]
-    CS --> DLG2[§2 contextText source]
-    DLG2 --> DLG
-    TC --> EXT[§3 resolveTopics count]
-    IP --> LOOP[§4 playAllTopics loop + isFirst/isLast]
-    G --> GAP[§7 waitGap]
-    HA --> VOICE[§6 getVoiceRef A]
-    HB --> VOICE2[§6 getVoiceRef B]
-```
+| UI control                           | Config field                  | Stage affected          | Effect on the flow                                                                             |
+| ------------------------------------ | ----------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| **Content** / **Summary** / **None** | `contextSource`               | §4 `prepareTopicScript` | Source text fed into the script prompt: full workflow content, a per-topic summary, or nothing |
+| **Alternate** / **Free**             | `speakerDynamics`             | §4 script prompt        | Strict A/B alternation vs LLM-chosen speaker per turn                                          |
+| **Opening / Closing hook**           | `hooks.initial/final`         | §6 `playHook`           | Enables the hook and sets its system prompt                                                    |
+| **Host A/B persona**                 | `hostAPersona`/`hostBPersona` | §4 script prompt        | Character sheets for the scriptwriter prompt                                                   |
+| **Topics**                           | `topicCount`                  | §2/§3 topic slice       | How many extracted topics enter the episode                                                    |
+| **Interactions per topic**           | `interactionsPerTopic`        | §4 script prompt        | Requested turns per script; also the `progress.total` estimate                                 |
+| **Sentences per turn**               | `turnLengthSentences`         | §4 script prompt        | Target length of each turn                                                                     |
+| **Creativity (temperature)**         | `scriptTemperature`           | §4/§6 LLM calls         | Sampling temperature for scripts and hooks                                                     |
+| **Deep thinking**                    | `scriptReasoning`             | §4 LLM call             | Enables LLM thinking for script generation (slower first topic, better structure/style)        |
+| **Topic gap** / **Exchange gap**     | `topicGapMs`/`exchangeGapMs`  | §4 waits                | Silence between topics / between turns                                                         |
+| **Script prompt override**           | `scriptSystemPromptOverride`  | §4 system prompt        | Full replacement of the built-in script prompt                                                 |
 
 ---
 
-## 9. Cancellation & Lifecycle
+## 8. Cancellation & Lifecycle
 
-- **`stop()`** — Bumps `_session` so all in-flight `prepareExchange`/playback promises bail out via session checks; aborts `_genAbort`/`_llmAbort`/`_playbackAbort`; clears gap timers and blob cache; resets `status` to `idle`.
+- **`stop()`** — Bumps `_session` so all in-flight script/audio/playback promises bail out via session checks; aborts `_genAbort`/`_llmAbort`/`_playbackAbort`; clears blob-promise caches; resets `status` to `idle`.
 - **`pause()` / `resume()`** — Pauses the active `AudioBufferSourceNode`; resume replays the current exchange blob from the start.
-- **`regenerateExchange(t, e)`** — Deletes the cached blob + promise for one exchange, regenerates its dialog + audio, and replays it.
+- **`regenerateTopic(t)`** — Hotkey `R`. Discards the topic's script and cached audio, regenerates a full new script (with the rejected script as negative context and +0.15 temperature), and restarts the topic from turn 0.
 - **`fullReset()`** — `stop()` plus clearing topics, dialogs, voice chunks, and progress.
 
 The `_session` counter is the central guard: every async step compares its captured `session` against `this._session` and returns early if they differ, making `stop()` an immediate hard reset.
+
+---
+
+## 9. Transcript Rendering
+
+`PodcastMode.svelte` renders the current topic's exchanges with **progressive reveal**: only turns up to `currentExchangeIndex` are shown, so the pre-generated script never spoils upcoming lines.

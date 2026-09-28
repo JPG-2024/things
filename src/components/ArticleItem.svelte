@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
+	import type { ArticleContentMode, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import { toVTName } from '@/lib/utils/url';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
@@ -11,7 +11,7 @@
 
 	interface Props {
 		article: ArticleWithTasks;
-		displayMode?: 'thumbnail' | 'title';
+		contentMode?: ArticleContentMode;
 		thumbnailOnly?: boolean;
 		withBackground?: boolean;
 		layoutKey?: LayoutKey;
@@ -25,7 +25,7 @@
 
 	let {
 		article,
-		displayMode = 'thumbnail',
+		contentMode = undefined,
 		thumbnailOnly = false,
 		withBackground = true,
 		layoutKey,
@@ -38,6 +38,14 @@
 	}: Props = $props();
 
 	let isRowMode = $derived(layoutKey === 'row');
+
+	// Category previews force thumbnail-only; otherwise the grid-wide preference
+	// (cycled from the masonry toolbar) decides what is rendered.
+	let mode = $derived(
+		contentMode ?? (thumbnailOnly ? 'thumbnail' : viewState.masonryArticlesContentMode)
+	);
+	let showThumbnail = $derived(mode !== 'title');
+	let showText = $derived(mode !== 'thumbnail' || !article.thumbnailSrc);
 
 	const title = $derived(
 		(
@@ -111,7 +119,7 @@
 	onmouseleave={onHoverLeave}
 	aria-label="View article"
 >
-<!-- 	{#if article.profilePictureSrc}
+	<!-- 	{#if article.profilePictureSrc}
 		<span
 			class="article-profile-avatar"
 			role="button"
@@ -133,7 +141,7 @@
 	{/if} -->
 	{#if isRowMode}
 		<div class="article-content">
-			{#if article.thumbnailSrc}
+			{#if showThumbnail && article.thumbnailSrc}
 				<div class="article-thumbnail-container">
 					<img
 						src={article.thumbnailSrc}
@@ -143,22 +151,24 @@
 					/>
 				</div>
 			{/if}
-			{#if matchSnippet}
-				<div class="article-match-snippet">
-					<span class="snippet-context">{matchSnippet.before}</span><mark
-						>{matchSnippet.matchText}</mark
-					><span class="snippet-context">{matchSnippet.after}</span>
-				</div>
-			{:else}
-				<div class="article-title">
-					<span>{article.title}</span>
-				</div>
-				{@render categoryPills()}
+			{#if showText}
+				{#if matchSnippet}
+					<div class="article-match-snippet">
+						<span class="snippet-context">{matchSnippet.before}</span><mark
+							>{matchSnippet.matchText}</mark
+						><span class="snippet-context">{matchSnippet.after}</span>
+					</div>
+				{:else}
+					<div class="article-title">
+						<span>{article.title}</span>
+					</div>
+					{@render categoryPills()}
+				{/if}
 			{/if}
 		</div>
 	{:else if layoutKey === 'grid-3'}
-		<div class="article-content article-content-stacked">
-			{#if article.thumbnailSrc}
+		<div class="article-content" class:no-thumb={!(showThumbnail && article.thumbnailSrc)}>
+			{#if showThumbnail && article.thumbnailSrc}
 				<div class="article-thumbnail-container">
 					<img
 						src={article.thumbnailSrc}
@@ -168,28 +178,30 @@
 					/>
 				</div>
 			{/if}
-			{#if matchSnippet}
-				<div class="article-match-snippet">
-					<span class="snippet-context">{matchSnippet.before}</span><mark
-						>{matchSnippet.matchText}</mark
-					><span class="snippet-context">{matchSnippet.after}</span>
-				</div>
-			{:else}
-				<div class="article-title">
-					<span>{article.title}</span>
-				</div>
-				{@render categoryPills()}
-				{#if randomTopics.length > 0}
-					<div class="article-item__keywords">
-						<Keywords keywords={randomTopics} />
+			{#if showText}
+				{#if matchSnippet}
+					<div class="article-match-snippet">
+						<span class="snippet-context">{matchSnippet.before}</span><mark
+							>{matchSnippet.matchText}</mark
+						><span class="snippet-context">{matchSnippet.after}</span>
 					</div>
+				{:else}
+					<div class="article-title">
+						<span>{article.title}</span>
+					</div>
+					{#if randomTopics.length > 0}
+						<div class="article-item__keywords">
+							<Keywords keywords={randomTopics} />
+						</div>
+					{/if}
+					{@render categoryPills()}
 				{/if}
 			{/if}
 		</div>
 	{:else}
 		<div class="article-content">
 			<div class="article-item-info">
-				{#if displayMode === 'thumbnail' && article.thumbnailSrc}
+				{#if showThumbnail && article.thumbnailSrc}
 					<div class="article-thumbnail-container">
 						<img
 							src={article.thumbnailSrc}
@@ -199,19 +211,21 @@
 						/>
 					</div>
 				{/if}
-				{#if matchSnippet}
-					<div class="article-match-snippet">
-						<span class="snippet-context">{matchSnippet.before}</span><mark
-							>{matchSnippet.matchText}</mark
-						><span class="snippet-context">{matchSnippet.after}</span>
-					</div>
-				{:else if !thumbnailOnly || !article.thumbnailSrc}
-					<div class="article-title">
-						<span>{article.title}</span>
-					</div>
-					{@render categoryPills()}
-					{#if randomTopics.length > 0}
-						<Keywords keywords={randomTopics} />
+				{#if showText}
+					{#if matchSnippet}
+						<div class="article-match-snippet">
+							<span class="snippet-context">{matchSnippet.before}</span><mark
+								>{matchSnippet.matchText}</mark
+							><span class="snippet-context">{matchSnippet.after}</span>
+						</div>
+					{:else}
+						<div class="article-title">
+							<span>{article.title}</span>
+						</div>
+						{@render categoryPills()}
+						{#if randomTopics.length > 0}
+							<Keywords keywords={randomTopics} />
+						{/if}
 					{/if}
 				{/if}
 			</div>
@@ -243,8 +257,8 @@
 	}
 
 	.article-card {
-		--keywords-font-size: 0.65rem;
-		--pill-font-size: 0.65rem;
+		--keywords-font-size: 0.7rem;
+		--pill-font-size: 0.6rem;
 	}
 
 	.article-profile-avatar {
@@ -275,19 +289,71 @@
 			rgba(0, 0, 0)
 		);
 		padding: 14px 16px;
-		flex-direction: column;
-		align-items: stretch;
+	}
+
+	.grid-3 .article-content {
+		display: grid;
+		grid-template-columns: minmax(0, 50%) minmax(0, 1fr);
+		column-gap: 0.75rem;
+		row-gap: 0.6rem;
+		align-items: start;
+		min-width: 0;
+	}
+
+	.grid-3 .article-content.no-thumb {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.grid-3 .article-thumbnail-container {
-		flex: none;
+		grid-column: 1;
+		grid-row: 1;
 		width: 100%;
+		min-width: 0;
+	}
+
+	/* thumbnail-only mode: fill the card */
+	.grid-3 .article-thumbnail-container:only-child {
+		grid-column: 1 / -1;
 	}
 
 	.grid-3 .article-title {
-		padding: 1rem 0;
-		font-size: 1rem;
+		grid-column: 2;
+		grid-row: 1;
+		padding: 0;
+		font-size: 0.9rem;
 		font-weight: bold;
+		min-width: 0;
+	}
+
+	.grid-3 .article-match-snippet {
+		grid-column: 2;
+		grid-row: 1;
+		min-width: 0;
+	}
+
+	.grid-3 .article-item__keywords {
+		grid-column: 1 / -1;
+		grid-row: 2;
+		padding: 0.4rem 0;
+		min-width: 0;
+	}
+
+	.grid-3 .article-categories {
+		grid-column: 2;
+		grid-row: 3;
+		min-width: 0;
+	}
+
+	.grid-3 .article-thumbnail {
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	/* title-only mode: collapse the empty left column */
+	.grid-3 .article-content.no-thumb .article-title,
+	.grid-3 .article-content.no-thumb .article-match-snippet,
+	.grid-3 .article-content.no-thumb .article-categories {
+		grid-column: 1 / -1;
 	}
 
 	.article-card.row {
@@ -309,11 +375,6 @@
 		align-items: flex-start;
 		width: 100%;
 		min-width: 0;
-	}
-
-	.article-content-stacked {
-		flex-direction: column;
-		align-items: stretch;
 	}
 
 	.article-item-info {
@@ -405,6 +466,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.25rem;
+		justify-content: flex-end;
 	}
 
 	.article-category-pill {

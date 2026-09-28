@@ -102,10 +102,10 @@
 	async function handleCreateFromFilter() {
 		const trimmed = viewState.unifiedFilter.trim();
 		if (!trimmed) return;
-		const emoji = await generateEmojiForText(trimmed);
-		const name = emoji ? `${emoji} ${trimmed}` : trimmed;
+		/* const emoji = await generateEmojiForText(trimmed);
+		const name = emoji ? `${emoji} ${trimmed}` : trimmed; */
 		const description = await generateCategoryDescription(trimmed);
-		await addCategory(name, description);
+		await addCategory(trimmed, description);
 		viewState.unifiedFilter = '';
 	}
 </script>
@@ -217,6 +217,14 @@
 		gap: 0.25rem;
 		text-transform: capitalize;
 		min-height: 30px;
+	}
+
+	.category-pill:not(:last-child)::after {
+		content: '';
+		width: 1px;
+		height: 14px;
+		background: rgba(255, 255, 255, 0.15);
+		margin: 0 0.6rem;
 	}
 
 	.pill {

@@ -62,7 +62,7 @@
 			</button>
 		</div>
 		{#if searchResults.length > 0}
-			<MasonryGrid items={searchResults}>
+			<MasonryGrid items={searchResults} showContentModeToggle>
 				{#snippet children(
 					article: ArticleWithTasks,
 					_i: number,
@@ -87,7 +87,7 @@
 			</div>
 		{/if}
 	{:else}
-		<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+		<MasonryGrid items={articleCacheStore.articlesWithoutProfile} showContentModeToggle>
 			{#snippet children(
 				article: ArticleWithTasks,
 				_i: number,

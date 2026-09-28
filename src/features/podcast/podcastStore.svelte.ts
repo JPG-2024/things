@@ -1,10 +1,7 @@
 import { extractTopicsFromAnalysis, type TopicWithOffset } from '@/features/podcast/topicExtractor';
-import { generateTopicSummary, generateChunkSummary } from '@/features/podcast/summaryGenerator';
-import {
-	generateExchange,
-	type DialogExchange,
-	type GenerateExchangeParams
-} from '@/features/podcast/dialogGenerator';
+import { generateTopicSummary } from '@/features/podcast/summaryGenerator';
+import { generateTopicScript } from '@/features/podcast/scriptGenerator';
+import { generateHook } from '@/features/podcast/hookGenerator';
 import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 import {
 	fetchVoiceProfiles,
@@ -21,20 +18,28 @@ import {
 	decodeBlob,
 	waitMs
 } from '@/lib/audioNodeHelpers';
-import { splitTextIntoChunksMeta, reconstructChunks } from '@/lib/utils/splitText';
-import { ensureAudioContext, getAudioContext, closeAudioContext } from '@/lib/audioContextManager';
+import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
+import { ensureAudioContext, getAudioContext } from '@/lib/audioContextManager';
 import { SvelteSet } from 'svelte/reactivity';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { workflowStore } from '@/stores/workflowStore.svelte';
-import type { Task } from '@/types/taskRunner.types';
-import type { TurnPlan, HookSlot, PodcastHookConfig, HostPersona } from '@/features/podcast/types';
+import type {
+	HookSlot,
+	PodcastHookConfig,
+	HostPersona,
+	DialogExchange,
+	SpeakerDynamics
+} from '@/features/podcast/types';
 
 export interface PodcastConfig {
 	topicCount: number;
 	interactionsPerTopic: number;
+	turnLengthSentences: number;
+	scriptTemperature: number;
+	scriptReasoning: boolean;
+	speakerDynamics: SpeakerDynamics;
 	topicGapMs: number;
 	exchangeGapMs: number;
-	mode: 'interview' | 'smalltalk' | 'guided';
 	hostAProfileId: string;
 	hostBProfileId: string;
 	hostAChunkFile: string;
@@ -45,8 +50,7 @@ export interface PodcastConfig {
 	hooks: Record<HookSlot, PodcastHookConfig>;
 	hostAPersona: HostPersona;
 	hostBPersona: HostPersona;
-	hostASystemPromptOverride: string;
-	hostBSystemPromptOverride: string;
+	scriptSystemPromptOverride: string;
 }
 
 export type PodcastStatus = 'idle' | 'extracting' | 'generating' | 'playing' | 'paused';
@@ -65,9 +69,6 @@ class PodcastState {
 	currentExchangeIndex = $state(0);
 	dialogs = $state<DialogExchange[][]>([]);
 
-	chunkRawTexts = $state<string[]>([]);
-	chunkQuestions = $state<string[][]>([]);
-	exchangeCounts = $state<number[]>([]);
 	activeSpeaker = $state<'A' | 'B' | null>(null);
 	isGenerating = $state(false);
 	lastVoiceChunkIndex = $state<number | null>(null);
@@ -76,9 +77,12 @@ class PodcastState {
 	config = $state<PodcastConfig>({
 		topicCount: 3,
 		interactionsPerTopic: 4,
+		turnLengthSentences: 3,
+		scriptTemperature: 0.75,
+		scriptReasoning: true,
+		speakerDynamics: 'alternate',
 		topicGapMs: 2000,
 		exchangeGapMs: 1500,
-		mode: 'smalltalk',
 		hostAProfileId: '',
 		hostBProfileId: '',
 		hostAChunkFile: '',
@@ -89,31 +93,18 @@ class PodcastState {
 		hooks: {
 			initial: {
 				enabled: false,
-				prompts: {
-					interview:
-						'Just say welcome to "things" the AI podcast. maximum 10 words. Do not ask a question. mention explicit "things" name.',
-					smalltalk:
-						'You are opening a casual podcast episode. Welcome the audience in a relaxed, friendly tone and hint at what you and your co-host will chat about. 2-3 sentences. Do not ask a question.',
-					guided:
-						'You are opening a guided walkthrough episode. Welcome listeners and preview the sections you will cover. 2-3 sentences. Do not ask a question.'
-				}
+				prompt:
+					'You are opening a casual podcast episode. Welcome the audience in a relaxed, friendly tone and hint at what you and your co-host will chat about. 2-3 sentences. Do not ask a question.'
 			},
 			final: {
 				enabled: false,
-				prompts: {
-					interview:
-						'You are closing a podcast interview episode. Thank the guest and the audience, recap the highlights briefly, and sign off warmly. 2-3 sentences. Do not ask a question.',
-					smalltalk:
-						'You are closing a casual podcast episode. Wrap up the chat warmly and thank the audience. 2-3 sentences. Do not ask a question.',
-					guided:
-						'You are closing a guided walkthrough episode. Summarize what was covered and thank the listeners. 2-3 sentences. Do not ask a question.'
-				}
+				prompt:
+					'You are closing a casual podcast episode. Wrap up the chat warmly and thank the audience. 2-3 sentences. Do not ask a question.'
 			}
 		},
 		hostAPersona: { personality: '', humorStyle: '', catchphrases: '', speechQuirks: '' },
 		hostBPersona: { personality: '', humorStyle: '', catchphrases: '', speechQuirks: '' },
-		hostASystemPromptOverride: '',
-		hostBSystemPromptOverride: ''
+		scriptSystemPromptOverride: ''
 	});
 
 	profiles = $state<VoiceProfile[]>([]);
@@ -121,8 +112,6 @@ class PodcastState {
 	private _voiceChunks: Map<string, Voice[]> = new Map();
 	private _blobs: Map<string, AudioBlobEntry> = new Map();
 	private _preparePromises: Map<string, Promise<void>> = new Map();
-	private _turnPlans: TurnPlan[][] = [];
-	private _blobReady: (() => void) | null = null;
 	private _genAbort: AbortController | null = null;
 	private _llmAbort: AbortController | null = null;
 	private _session = 0;
@@ -271,7 +260,7 @@ class PodcastState {
 	}
 
 	get contentTaskText(): string {
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 		const allTasks = [
 			...workflowStore.stackedTasks.map((e) => e.task),
 			...workflowStore.focusedRunTasks
@@ -315,7 +304,7 @@ class PodcastState {
 		this._topicSummaries.set(topicIdx, summary);
 	}
 
-	private async resolveTopics(_content: string, _signal: AbortSignal): Promise<TopicWithOffset[]> {
+	private resolveTopics(): TopicWithOffset[] {
 		const analysisTask = workflowStore.stackedTasks.find(({ task }) => task.id === 'analysis');
 		if (analysisTask) {
 			const fromTask = extractTopicsFromAnalysis(analysisTask.task.data);
@@ -333,117 +322,6 @@ class PodcastState {
 		return [];
 	}
 
-	private getAllTasks(): Task[] {
-		const seen = new SvelteSet<string>();
-		return [
-			...workflowStore.stackedTasks.map((e) => e.task),
-			...workflowStore.focusedRunTasks
-		].filter((t) => {
-			if (seen.has(t.id)) return false;
-			seen.add(t.id);
-			return true;
-		});
-	}
-
-	get hasQuestionsTask(): boolean {
-		return this.getAllTasks().some((t) => t.id === 'questions' && t.status === 'done' && t.data);
-	}
-
-	private getQuestionsTask(): Task | undefined {
-		return this.getAllTasks().find((t) => t.id === 'questions' && t.status === 'done' && t.data);
-	}
-
-	private getTaskById(id: string): Task | undefined {
-		return this.getAllTasks().find((t) => t.id === id);
-	}
-
-	private getSourceText(taskId: string): string {
-		const task = this.getTaskById(taskId);
-		if (!task || !task.data) return '';
-		return extractDependencyText(task.data) ?? '';
-	}
-
-	private normalizeChunkQuestions(data: unknown): string[] {
-		if (Array.isArray(data)) {
-			return data
-				.filter((q): q is string => typeof q === 'string')
-				.map((q) => q.trim())
-				.filter(Boolean);
-		}
-
-		return [];
-	}
-
-	private buildQuestionsSegments(): boolean {
-		const questionsTask = this.getQuestionsTask();
-		if (!questionsTask) return false;
-
-		const data = questionsTask.data as
-			| { chunks?: Array<{ key?: { startOffset: number; endOffset: number }; data?: unknown }> }
-			| undefined;
-		const chunks = data?.chunks;
-		if (!Array.isArray(chunks) || chunks.length === 0) return false;
-
-		const sourceId = questionsTask.dependencies?.[0];
-		const sourceText = sourceId ? this.getSourceText(sourceId) : this.contentTaskText;
-		if (!sourceText) return false;
-
-		const rawTexts: string[] = [];
-		const questions: string[][] = [];
-		const topicsWithOffsets: TopicWithOffset[] = [];
-		const counts: number[] = [];
-
-		for (const chunk of chunks) {
-			const key = chunk.key;
-			const raw =
-				key && typeof key.startOffset === 'number' && typeof key.endOffset === 'number'
-					? (reconstructChunks(sourceText, [key])[0] ?? '')
-					: '';
-			if (!raw) continue;
-
-			const qs = this.normalizeChunkQuestions(chunk.data);
-			if (qs.length === 0) continue;
-
-			rawTexts.push(raw);
-			questions.push(qs);
-			const label = raw.slice(0, 70).trim();
-			const text = label + (raw.length > 70 ? '…' : '');
-			const startOffset = key?.startOffset ?? 0;
-			const endOffset = key?.endOffset ?? 0;
-			topicsWithOffsets.push({ text, startOffset, endOffset });
-			counts.push(qs.length * 2);
-		}
-
-		if (rawTexts.length === 0) return false;
-
-		this.chunkRawTexts = rawTexts;
-		this.chunkQuestions = questions;
-		this.exchangeCounts = counts;
-		this.topics = topicsWithOffsets;
-		return true;
-	}
-
-	private buildInterviewTurnPlans(): void {
-		const plans: TurnPlan[][] = [];
-		for (let t = 0; t < this.topics.length; t++) {
-			const qs = this.chunkQuestions[t] ?? [];
-			const topicPlans: TurnPlan[] = [{ role: 'hook', speaker: 'A' }];
-			for (const q of qs) {
-				topicPlans.push({ role: 'question', speaker: 'A', question: q });
-				topicPlans.push({ role: 'answer', speaker: 'B' });
-			}
-			plans.push(topicPlans);
-		}
-		this._turnPlans = plans;
-		this.exchangeCounts = plans.map((p) => p.length);
-	}
-
-	private getInteractionCount(t: number): number {
-		if (this.config.mode === 'guided') return this.exchangeCounts[t] ?? 0;
-		if (this._turnPlans.length > 0) return this._turnPlans[t]?.length ?? 0;
-		return this.config.interactionsPerTopic;
-	}
-
 	get hookSlots(): HookSlot[] {
 		return ['initial', 'final'];
 	}
@@ -458,12 +336,7 @@ class PodcastState {
 	}
 
 	private get totalExchangeCount(): number {
-		let base = 0;
-		if (this._turnPlans.length > 0 || this.config.mode === 'guided') {
-			base = this.exchangeCounts.reduce((acc, n) => acc + n, 0);
-		} else {
-			base = this.topics.length * this.config.interactionsPerTopic;
-		}
+		const base = this.topics.length * this.config.interactionsPerTopic;
 		const hookCount = this.hookSlots.filter((s) => this.config.hooks[s].enabled).length;
 		return base + hookCount;
 	}
@@ -474,18 +347,13 @@ class PodcastState {
 			return;
 		}
 
-		let source = '';
-		if (this.config.mode !== 'guided') {
-			source = this.config.contextSource === 'none' ? '' : this.contentTaskText;
-			if (this.config.contextSource !== 'none' && !source) {
-				this.errorMessage = 'No source content available for the selected context';
-				return;
-			}
+		if (this.config.contextSource !== 'none' && !this.contentTaskText) {
+			this.errorMessage = 'No source content available for the selected context';
+			return;
 		}
 
 		this.stop();
 		this._session++;
-		const session = this._session;
 		this.status = 'extracting';
 		this.errorMessage = '';
 
@@ -493,47 +361,13 @@ class PodcastState {
 			const llmAbort = new AbortController();
 			this._llmAbort = llmAbort;
 
-			if (this.config.mode === 'guided') {
-				const ok = this.buildQuestionsSegments();
-				if (!ok) {
-					this.errorMessage = 'No questions task available to drive the guided podcast';
-					this.status = 'idle';
-					return;
-				}
-				this._turnPlans = [];
-			} else if (this.config.mode === 'interview') {
-				const ok = this.buildQuestionsSegments();
-				if (ok) {
-					const summaries = await Promise.all(
-						this.chunkRawTexts.map((raw) => generateChunkSummary(raw, llmAbort.signal))
-					);
-					if (this._session !== session) return;
-					this.topics = this.chunkRawTexts.map((raw, i) => ({
-						text: summaries[i] ?? '',
-						startOffset: 0,
-						endOffset: raw.length
-					}));
-					this.buildInterviewTurnPlans();
-				} else {
-					this.topics = await this.resolveTopics(source, llmAbort.signal);
-					this.chunkRawTexts = [];
-					this.chunkQuestions = [];
-					this.exchangeCounts = [];
-					this._turnPlans = [];
-				}
-			} else {
-				this.topics = await this.resolveTopics(source, llmAbort.signal);
-				this.chunkRawTexts = [];
-				this.chunkQuestions = [];
-				this.exchangeCounts = [];
-				this._turnPlans = [];
-			}
-
-			if (this.topics.length === 0) {
+			const topics = this.resolveTopics().slice(0, this.config.topicCount);
+			if (topics.length === 0) {
 				this.errorMessage = 'No topics found. Ensure an analysis task exists.';
 				this.status = 'idle';
 				return;
 			}
+			this.topics = topics;
 
 			this.dialogs = [];
 			this.currentTopicIndex = 0;
@@ -573,11 +407,19 @@ class PodcastState {
 			if (this._session !== session) return;
 
 			this.currentTopicIndex = t;
-			if (!this.dialogs[t]) {
-				this.dialogs[t] = [];
+
+			if (!this.dialogs[t]?.length) {
+				this.status = 'generating';
+				this.isGenerating = true;
+				try {
+					await this.prepareTopicScript(t, session);
+				} finally {
+					this.isGenerating = false;
+				}
+				if (this._session !== session) return;
 			}
 
-			const interactionCount = this.getInteractionCount(t);
+			const interactionCount = this.dialogs[t]?.length ?? 0;
 			const startExchange = t === resumeTopic ? resumeExchange : 0;
 
 			for (let e = startExchange; e < interactionCount; e++) {
@@ -587,7 +429,7 @@ class PodcastState {
 
 				this.status = 'generating';
 				this.isGenerating = true;
-				await this.prepareExchange(t, e, session);
+				await this.prepareExchangeAudio(t, e, session);
 				this.isGenerating = false;
 				if (this._session !== session) return;
 
@@ -595,19 +437,21 @@ class PodcastState {
 				this.activeSpeaker = exchange.speaker;
 
 				if (e + 1 < interactionCount) {
-					void this.prepareExchange(t, e + 1, session);
+					void this.prepareExchangeAudio(t, e + 1, session);
 				} else if (t + 1 < this.topics.length) {
-					void this.prepareExchange(t + 1, 0, session);
+					void this.prepareTopicScript(t + 1, session).then(() => {
+						if (this._session !== session) return;
+						void this.prepareExchangeAudio(t + 1, 0, session);
+					});
 				}
 
 				await this.playExchange(t, e, session);
 				if (this._session !== session) return;
 
-				const priorExchanges =
-					this.config.mode === 'guided' || this._turnPlans.length > 0
-						? this.exchangeCounts.slice(0, t).reduce((acc, n) => acc + n, 0)
-						: t * this.config.interactionsPerTopic;
-				this.progress.current = priorExchanges + e + 1;
+				this.progress.current = Math.min(
+					t * this.config.interactionsPerTopic + e + 1,
+					this.progress.total
+				);
 
 				const hasNextExchange = e + 1 < interactionCount || t + 1 < this.topics.length;
 				if (hasNextExchange) {
@@ -626,81 +470,42 @@ class PodcastState {
 		await this.finishSession(session);
 	}
 
-	private buildExchangeParams(
+	private async prepareTopicScript(
 		topicIdx: number,
-		exchangeIdx: number,
-		interactionCount: number,
-		regenPreviousText?: string
-	): GenerateExchangeParams {
-		const plans = this._turnPlans[topicIdx];
-		const plan = plans?.[exchangeIdx];
-		const speaker: 'A' | 'B' = plan ? plan.speaker : exchangeIdx % 2 === 0 ? 'A' : 'B';
-		const isFirst = exchangeIdx === 0;
-		const isLast = exchangeIdx + 1 === interactionCount;
-		const previousExchanges = (this.dialogs[topicIdx] ?? []).slice(0, exchangeIdx);
-		const regeneration = regenPreviousText ? { previousText: regenPreviousText } : undefined;
+		session: number,
+		previousScript?: string
+	): Promise<void> {
+		if (this.dialogs[topicIdx]?.length) return;
 
-		if (this.config.mode === 'guided') {
-			const raw = this.chunkRawTexts[topicIdx] ?? '';
-			const questions = this.chunkQuestions[topicIdx] ?? [];
-			const questionIndex = Math.floor(exchangeIdx / 2);
-			const question = speaker === 'A' ? (questions[questionIndex] ?? '') : '';
-
-			return {
-				topic: this.topics[topicIdx]?.text ?? '',
-				mode: this.config.mode,
-				previousExchanges,
-				speaker,
-				hostAName: this.getProfileName('A'),
-				hostBName: this.getProfileName('B'),
-				context: raw || undefined,
-				signal: this._llmAbort?.signal,
-				isFirstInteractionOfTopic: isFirst,
-				isLastInteractionOfTopic: isLast,
-				isNewChunkAfterFirst: topicIdx > 0 && isFirst,
-				question: question || undefined,
-				regeneration
-			};
+		if (this.config.contextSource === 'summary') {
+			await this.ensureTopicSummary(topicIdx, session);
+			if (this._session !== session) return;
 		}
 
-		if (this._turnPlans.length > 0 && plan) {
-			const raw = this.chunkRawTexts[topicIdx] ?? '';
-			const question =
-				plan.role === 'answer' ? (plans[exchangeIdx - 1]?.question ?? '') : (plan.question ?? '');
-
-			return {
-				topic: this.topics[topicIdx]?.text ?? '',
-				mode: this.config.mode,
-				previousExchanges,
-				speaker,
-				hostAName: this.getProfileName('A'),
-				hostBName: this.getProfileName('B'),
-				context: raw || undefined,
-				signal: this._llmAbort?.signal,
-				isFirstInteractionOfTopic: isFirst,
-				isLastInteractionOfTopic: isLast,
-				isNewChunkAfterFirst: topicIdx > 0 && isFirst,
-				question: question || undefined,
-				regeneration
-			};
-		}
-
-		return {
+		const script = await generateTopicScript({
 			topic: this.topics[topicIdx]?.text ?? '',
-			mode: this.config.mode,
-			previousExchanges,
-			speaker,
 			hostAName: this.getProfileName('A'),
 			hostBName: this.getProfileName('B'),
+			hostAPersona: this.config.hostAPersona,
+			hostBPersona: this.config.hostBPersona,
+			turnCount: this.config.interactionsPerTopic,
+			turnLengthSentences: this.config.turnLengthSentences,
+			speakerDynamics: this.config.speakerDynamics,
 			context: this.topicContext(topicIdx) || undefined,
-			signal: this._llmAbort?.signal,
-			isFirstInteractionOfTopic: isFirst,
-			isLastInteractionOfTopic: isLast,
-			regeneration
-		};
+			previousScript,
+			temperature: previousScript
+				? Math.min(this.config.scriptTemperature + 0.15, 1.5)
+				: this.config.scriptTemperature,
+			reasoning: this.config.scriptReasoning,
+			systemPromptOverride: this.config.scriptSystemPromptOverride,
+			signal: this._llmAbort?.signal
+		});
+		if (this._session !== session) return;
+		this.dialogs[topicIdx] = script;
+		this.dialogs = [...this.dialogs];
 	}
 
-	private async prepareExchange(
+	private async prepareExchangeAudio(
 		topicIdx: number,
 		exchangeIdx: number,
 		session: number
@@ -711,52 +516,12 @@ class PodcastState {
 
 		const promise = (async () => {
 			if (this._session !== session) return;
-			if (!this.dialogs[topicIdx]) {
-				this.dialogs[topicIdx] = [];
-			}
-
-			if (!this.dialogs[topicIdx][exchangeIdx]) {
-				const plans = this._turnPlans[topicIdx];
-				const plan = plans?.[exchangeIdx];
-
-				if (plan?.role === 'question' && plan.question) {
-					this.dialogs[topicIdx][exchangeIdx] = {
-						speaker: plan.speaker,
-						text: plan.question,
-						role: 'question',
-						direct: true
-					};
-					this.dialogs = [...this.dialogs];
-				} else {
-					const interactionCount =
-						this.config.mode === 'guided'
-							? this.exchangeCounts[topicIdx]
-							: this.config.interactionsPerTopic;
-
-					if (
-						this.config.mode !== 'guided' &&
-						this.config.contextSource === 'summary' &&
-						exchangeIdx === 0
-					) {
-						await this.ensureTopicSummary(topicIdx, session);
-						if (this._session !== session) return;
-					}
-
-					const exchange = await generateExchange(
-						this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount)
-					);
-					if (this._session !== session) return;
-					this.dialogs[topicIdx][exchangeIdx] = exchange;
-					this.dialogs = [...this.dialogs];
-				}
-			}
+			const exchange = this.dialogs[topicIdx]?.[exchangeIdx];
+			if (!exchange) return;
 
 			const entry = this._blobs.get(key);
 			if (!entry || !entry.combined) {
-				const audio = await this.generateExchangeAudio(
-					this.dialogs[topicIdx][exchangeIdx],
-					session
-				);
+				const audio = await this.generateExchangeAudio(exchange, session);
 				if (this._session !== session) return;
 				this._blobs.set(key, audio);
 			}
@@ -775,7 +540,7 @@ class PodcastState {
 		let entry = this._blobs.get(key);
 
 		if (!entry || entry.blobs.length === 0) {
-			await this.prepareExchange(topicIdx, exchangeIdx, session);
+			await this.prepareExchangeAudio(topicIdx, exchangeIdx, session);
 			entry = this._blobs.get(key);
 		}
 
@@ -873,17 +638,13 @@ class PodcastState {
 		this.isGenerating = true;
 
 		try {
-			const exchange = await generateExchange({
-				topic: '',
-				mode: this.config.mode,
-				previousExchanges: [],
-				speaker: 'A',
-				hostAName: this.getProfileName('A'),
-				hostBName: this.getProfileName('B'),
-				context: this.config.contextSource !== 'none' ? this.contentTaskText : undefined,
-				signal: this._llmAbort?.signal,
-				hookKind: slot,
-				customSystemPrompt: cfg.prompts[this.config.mode]
+			const exchange = await generateHook({
+				kind: slot,
+				hostName: this.getProfileName('A'),
+				persona: this.config.hostAPersona,
+				customPrompt: cfg.prompt,
+				temperature: this.config.scriptTemperature,
+				signal: this._llmAbort?.signal
 			});
 			if (this._session !== session) return;
 
@@ -940,8 +701,8 @@ class PodcastState {
 		return { blobs, combined, chunkEndsParagraph };
 	}
 
-	async regenerateExchange(topicIdx: number, exchangeIdx: number): Promise<void> {
-		const key = `${topicIdx}:${exchangeIdx}`;
+	async regenerateTopic(topicIdx: number): Promise<void> {
+		if (!this.dialogs[topicIdx]?.length) return;
 
 		// Takeover: cancel the running loop and stop whatever is playing right now
 		this._session++;
@@ -949,14 +710,13 @@ class PodcastState {
 		this._pausePlayback();
 		this.drainUnpauseWaiters();
 		this._preparePromises.clear();
-		this._blobs.delete(key);
 
-		const previousText = this.dialogs[topicIdx]?.[exchangeIdx]?.text;
-
-		const interactionCount =
-			this.config.mode === 'guided'
-				? this.exchangeCounts[topicIdx]
-				: this.config.interactionsPerTopic;
+		const previousScript = this.dialogs[topicIdx].map((e) => `${e.speaker}: ${e.text}`).join('\n');
+		for (let e = 0; e < this.dialogs[topicIdx].length; e++) {
+			this._blobs.delete(`${topicIdx}:${e}`);
+		}
+		this.dialogs[topicIdx] = [];
+		this.dialogs = [...this.dialogs];
 
 		this.status = 'generating';
 		this.isGenerating = true;
@@ -964,78 +724,22 @@ class PodcastState {
 		let handedOff = false;
 
 		try {
-			if (this.config.mode !== 'guided' && this.config.contextSource === 'summary') {
-				await this.ensureTopicSummary(topicIdx, session);
-				if (this._session !== session) return;
-			}
-
-			const plans = this._turnPlans[topicIdx];
-			const plan = plans?.[exchangeIdx];
-			let exchange = this.dialogs[topicIdx]?.[exchangeIdx];
-
-			if (plan?.role === 'question' && plan.question && (!exchange || !exchange.direct)) {
-				exchange = {
-					speaker: plan.speaker,
-					text: plan.question,
-					role: 'question',
-					direct: true
-				};
-				this.dialogs[topicIdx][exchangeIdx] = exchange;
-				this.dialogs = [...this.dialogs];
-			} else if (!exchange || !exchange.direct) {
-				exchange = await generateExchange(
-					this.buildExchangeParams(topicIdx, exchangeIdx, interactionCount, previousText)
-				);
-
-				if (this._session !== session) return;
-
-				this.dialogs[topicIdx][exchangeIdx] = exchange;
-				this.dialogs = [...this.dialogs];
-			}
-
-			const entry = await this.generateExchangeAudio(exchange, session);
+			await this.prepareTopicScript(topicIdx, session, previousScript);
 			if (this._session !== session) return;
-
-			this._blobs.set(key, entry);
 
 			this.currentTopicIndex = topicIdx;
-			this.currentExchangeIndex = exchangeIdx;
-			this.activeSpeaker = exchange.speaker;
-
-			await this.playBlobEntry(entry, session);
-			if (this._session !== session) return;
-
-			this.activeSpeaker = null;
-
-			const priorExchanges =
-				this.config.mode === 'guided' || this._turnPlans.length > 0
-					? this.exchangeCounts.slice(0, topicIdx).reduce((acc, n) => acc + n, 0)
-					: topicIdx * this.config.interactionsPerTopic;
-			this.progress.current = priorExchanges + exchangeIdx + 1;
-
-			const hasNextExchange =
-				exchangeIdx + 1 < interactionCount || topicIdx + 1 < this.topics.length;
-			if (!hasNextExchange) {
-				await this.finishSession(session);
-				return;
-			}
-
-			const isLastExchangeOfTopic = exchangeIdx + 1 >= interactionCount;
-			if (isLastExchangeOfTopic) {
-				this.currentTopicIndex = topicIdx + 1;
-				this.currentExchangeIndex = 0;
-				await waitMs(this.config.topicGapMs, this._playbackAbort?.signal);
-			} else {
-				this.currentExchangeIndex = exchangeIdx + 1;
-				await waitMs(this.config.exchangeGapMs, this._playbackAbort?.signal);
-			}
-			if (this._session !== session) return;
+			this.currentExchangeIndex = 0;
+			this.progress.current = Math.min(
+				topicIdx * this.config.interactionsPerTopic,
+				this.progress.total
+			);
 
 			handedOff = true;
 			void this.playAllTopics();
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') return;
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to regenerate';
+			this.status = 'idle';
 		} finally {
 			if (!handedOff) {
 				this.isGenerating = false;
@@ -1100,7 +804,6 @@ class PodcastState {
 
 		this._preparePromises.clear();
 		this._topicSummaries.clear();
-		this._turnPlans = [];
 
 		this.status = 'idle';
 		this.activeSpeaker = null;
@@ -1113,26 +816,18 @@ class PodcastState {
 		this.stop();
 		this.topics = [];
 		this.dialogs = [];
-		this.chunkRawTexts = [];
-		this.chunkQuestions = [];
-		this.exchangeCounts = [];
 		this.currentTopicIndex = 0;
 		this.currentExchangeIndex = 0;
 		this._blobs.clear();
 		this._voiceChunks.clear();
 		this._preparePromises.clear();
 		this._topicSummaries.clear();
-		this._turnPlans = [];
 		this.progress = { current: 0, total: 0 };
 		this.lastVoiceChunkIndex = null;
 	}
 
 	getAnalyserNode(): AnalyserNode | null {
 		return this._analyserNode;
-	}
-
-	private waitGap(session: number): Promise<void> {
-		return waitMs(ttsState.sentenceGapMs(), this._playbackAbort?.signal);
 	}
 }
 

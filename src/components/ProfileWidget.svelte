@@ -39,9 +39,7 @@
 	const iaTaskProgress = $derived(workflowStore.getIaTaskProgress(profileRunId));
 	const articles = $derived(profileWithArticles.articles ?? []);
 	const visibleArticles = $derived(isCollapsed ? articles.slice(0, 1) : articles);
-	const isDomain = $derived(
-		profileWithArticles.domainId === profileWithArticles.id
-	);
+	const isDomain = $derived(profileWithArticles.domainId === profileWithArticles.id);
 
 	async function goToprofile() {
 		viewState.currentProfileId = profileWithArticles.id;

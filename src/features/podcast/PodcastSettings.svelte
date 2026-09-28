@@ -123,40 +123,6 @@
 	</h2>
 
 	<div class="section">
-		<div class="mode-toggle">
-			<button
-				type="button"
-				class="mode-btn"
-				class:selected={podcastState.config.mode === 'interview'}
-				onclick={() => (podcastState.config.mode = 'interview')}
-			>
-				<Icon name="MessageCircleQuestionMark" size={18} />
-				Interview
-			</button>
-			<button
-				type="button"
-				class="mode-btn"
-				class:selected={podcastState.config.mode === 'smalltalk'}
-				onclick={() => (podcastState.config.mode = 'smalltalk')}
-			>
-				<Icon name="MessagesSquare" size={18} />
-				Small Talk
-			</button>
-			<button
-				type="button"
-				class="mode-btn"
-				class:selected={podcastState.config.mode === 'guided'}
-				disabled={!podcastState.hasQuestionsTask}
-				title={podcastState.hasQuestionsTask ? '' : 'Requires a completed "questions" task'}
-				onclick={() => (podcastState.config.mode = 'guided')}
-			>
-				<Icon name="ListCheck" size={18} />
-				Guided
-			</button>
-		</div>
-	</div>
-
-	<div class="section">
 		<div class="section-label">Context</div>
 		<div class="mode-toggle">
 			<button
@@ -190,21 +156,41 @@
 	</div>
 
 	<div class="section">
+		<div class="section-label">Speaker dynamics</div>
+		<div class="mode-toggle">
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.speakerDynamics === 'alternate'}
+				title="Hosts take turns strictly A, B, A, B..."
+				onclick={() => (podcastState.config.speakerDynamics = 'alternate')}
+			>
+				<Icon name="ArrowLeftRight" size={18} />
+				Alternate
+			</button>
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.speakerDynamics === 'free'}
+				title="The script assigns each turn to whichever host fits the flow"
+				onclick={() => (podcastState.config.speakerDynamics = 'free')}
+			>
+				<Icon name="Shuffle" size={18} />
+				Free
+			</button>
+		</div>
+	</div>
+
+	<div class="section">
 		<div class="section-label">Episode hooks (Host A)</div>
-		{#each podcastState.hookSlots as slot}
+		{#each podcastState.hookSlots as slot (slot)}
 			<div class="hook-row">
 				<label class="hook-toggle">
 					<input type="checkbox" bind:checked={podcastState.config.hooks[slot].enabled} />
 					<span>{slot === 'initial' ? 'Opening hook' : 'Closing hook'}</span>
 				</label>
 				{#if podcastState.config.hooks[slot].enabled}
-					<textarea
-						class="hook-prompt"
-						rows="4"
-						value={podcastState.config.hooks[slot].prompts[podcastState.config.mode]}
-						oninput={(e) =>
-							(podcastState.config.hooks[slot].prompts[podcastState.config.mode] =
-								e.currentTarget.value)}
+					<textarea class="hook-prompt" rows="4" bind:value={podcastState.config.hooks[slot].prompt}
 					></textarea>
 				{/if}
 			</div>
@@ -238,17 +224,6 @@
 				bind:value={podcastState.config.hostAPersona.speechQuirks}
 				rows={2}
 			/>
-			<div class="divider"></div>
-			<Textarea
-				label="System prompt override"
-				placeholder="Leave empty to use persona fields above. Write a full system prompt to override everything. Use __NAME__ and __SPEAKER__ as placeholders."
-				bind:value={podcastState.config.hostASystemPromptOverride}
-				rows={6}
-			/>
-			<div class="override-hint">
-				Overrides all persona fields above. Use <code>__NAME__</code> and
-				<code>__SPEAKER__</code> as placeholders.
-			</div>
 		</div>
 	</DetailsPanel>
 
@@ -279,47 +254,80 @@
 				bind:value={podcastState.config.hostBPersona.speechQuirks}
 				rows={2}
 			/>
-			<div class="divider"></div>
-			<Textarea
-				label="System prompt override"
-				placeholder="Leave empty to use persona fields above. Write a full system prompt to override everything. Use __NAME__ and __SPEAKER__ as placeholders."
-				bind:value={podcastState.config.hostBSystemPromptOverride}
-				rows={6}
-			/>
-			<div class="override-hint">
-				Overrides all persona fields above. Use <code>__NAME__</code> and
-				<code>__SPEAKER__</code> as placeholders.
-			</div>
 		</div>
 	</DetailsPanel>
 
-	{#if podcastState.config.mode !== 'guided'}
-		<div class="section">
-			<RangeSelector
-				id="podcast-topics"
-				label="Topics"
-				value={podcastState.config.topicCount}
-				min={1}
-				max={10}
-				step={1}
-				format={(v) => v.toString()}
-				onChange={(v) => (podcastState.config.topicCount = v)}
-			/>
-		</div>
+	<div class="section">
+		<RangeSelector
+			id="podcast-topics"
+			label="Topics"
+			value={podcastState.config.topicCount}
+			min={1}
+			max={10}
+			step={1}
+			format={(v) => v.toString()}
+			onChange={(v) => (podcastState.config.topicCount = v)}
+		/>
+	</div>
 
-		<div class="section">
-			<RangeSelector
-				id="podcast-interactions"
-				label="Interactions per topic"
-				value={podcastState.config.interactionsPerTopic}
-				min={2}
-				max={15}
-				step={1}
-				format={(v) => v.toString()}
-				onChange={(v) => (podcastState.config.interactionsPerTopic = v)}
-			/>
+	<div class="section">
+		<RangeSelector
+			id="podcast-interactions"
+			label="Interactions per topic"
+			value={podcastState.config.interactionsPerTopic}
+			min={2}
+			max={15}
+			step={1}
+			format={(v) => v.toString()}
+			onChange={(v) => (podcastState.config.interactionsPerTopic = v)}
+		/>
+	</div>
+
+	<div class="section">
+		<RangeSelector
+			id="podcast-turn-length"
+			label="Sentences per turn"
+			value={podcastState.config.turnLengthSentences}
+			min={1}
+			max={8}
+			step={1}
+			format={(v) => v.toString()}
+			onChange={(v) => (podcastState.config.turnLengthSentences = v)}
+		/>
+	</div>
+
+	<div class="section">
+		<RangeSelector
+			id="podcast-temperature"
+			label="Creativity (temperature)"
+			value={podcastState.config.scriptTemperature}
+			min={0}
+			max={1.5}
+			step={0.05}
+			format={(v) => v.toFixed(2)}
+			onChange={(v) => (podcastState.config.scriptTemperature = v)}
+		/>
+	</div>
+
+	<div class="section">
+		<div class="section-label">Deep thinking</div>
+		<div class="mode-toggle">
+			<button
+				type="button"
+				class="mode-btn"
+				class:selected={podcastState.config.scriptReasoning}
+				title="Let the LLM reason before writing the script. Slower, but follows structure and style much better."
+				onclick={() => (podcastState.config.scriptReasoning = !podcastState.config.scriptReasoning)}
+			>
+				<Icon name="Brain" size={18} />
+				{podcastState.config.scriptReasoning ? 'Reasoning ON' : 'Reasoning OFF'}
+			</button>
 		</div>
-	{/if}
+		<div class="override-hint">
+			Slower script generation (longer wait on the first topic), better structure and style
+			adherence.
+		</div>
+	</div>
 
 	<div class="section">
 		<RangeSelector
@@ -346,6 +354,21 @@
 			onChange={(v) => (podcastState.config.exchangeGapMs = v)}
 		/>
 	</div>
+
+	<DetailsPanel label="Script prompt override" defaultOpen={false}>
+		<div class="persona-content">
+			<Textarea
+				label="System prompt override"
+				placeholder="Leave empty to use the built-in script prompt. Write a full system prompt to override everything. Use __HOST_A_NAME__ and __HOST_B_NAME__ as placeholders."
+				bind:value={podcastState.config.scriptSystemPromptOverride}
+				rows={8}
+			/>
+			<div class="override-hint">
+				Overrides the built-in script prompt (topic, personas, rules). Use
+				<code>__HOST_A_NAME__</code> and <code>__HOST_B_NAME__</code> as placeholders.
+			</div>
+		</div>
+	</DetailsPanel>
 </div>
 
 <style>
@@ -451,12 +474,6 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		padding-top: 0.75rem;
-	}
-
-	.divider {
-		height: 1px;
-		background: rgba(255, 255, 255, 0.1);
-		margin: 0.5rem 0;
 	}
 
 	.override-hint {

@@ -298,8 +298,6 @@
 			</div>
 		{/if}
 
-
-
 		{#if !isRunning && task.embeddings}
 			<SimilarEmbeddingsComponent
 				id={task.id}
@@ -330,13 +328,11 @@
 			</div>
 		{/if}
 
-
-
 		<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
 			{#if rawModalIndex !== null}
-			<div class="raw-text-modal-container">
-				<div class="chunk-raw-text">{chunkTexts[rawModalIndex] ?? ''}</div>
-			</div>
+				<div class="raw-text-modal-container">
+					<div class="chunk-raw-text">{chunkTexts[rawModalIndex] ?? ''}</div>
+				</div>
 			{/if}
 		</Modal>
 	</div>

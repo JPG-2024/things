@@ -5,7 +5,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
+	import type { ArticleWithTasks } from '@/stores/webStore';
 
 	$effect(() => {
 		const categories = [...viewState.selectedCategories];
@@ -38,11 +38,15 @@
 			return dateB - dateA;
 		})
 	);
+
+	const visibleCategories = $derived(
+		sortedCategories.filter((category) => category.articles.length > 0)
+	);
 </script>
 
 {#if viewState.selectedCategories.length === 0}
 	<div class="category-list">
-		{#each sortedCategories as category (category.categoryId)}
+		{#each visibleCategories as category (category.categoryId)}
 			<div class="category-row">
 				<CategoryCard
 					{category}
@@ -55,7 +59,7 @@
 	</div>
 	{#if articleCacheStore.loadingCategories}
 		<div class="empty-profiles-container"></div>
-	{:else if articleCacheStore.categoriesWithArticles.length === 0}
+	{:else if visibleCategories.length === 0}
 		<div class="empty-profiles-container">
 			<div class="empty-profiles-pill">No categories</div>
 		</div>
