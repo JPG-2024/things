@@ -12,10 +12,11 @@
 		pickingHost: 'A' | 'B' | null;
 		onOpenPicker: (host: 'A' | 'B') => void;
 		onClosePicker: () => void;
+		onOpenHostSettings: () => void;
 		onExpand: () => void;
 	}
 
-	let { pickingHost, onOpenPicker, onClosePicker, onExpand }: Props = $props();
+	let { pickingHost, onOpenPicker, onClosePicker, onOpenHostSettings, onExpand }: Props = $props();
 
 	const config = getCurrentStyle();
 
@@ -23,14 +24,6 @@
 
 	const hostAProfile = $derived(podcastState.hostAProfile);
 	const hostBProfile = $derived(podcastState.hostBProfile);
-
-	const filteredProfiles = $derived(
-		filter.trim() === ''
-			? podcastState.profiles
-			: podcastState.profiles.filter((p) =>
-					p.name_prefix.toLowerCase().includes(filter.trim().toLowerCase())
-				)
-	);
 
 	const selectedProfileId = $derived(
 		pickingHost === 'A' ? podcastState.config.hostAProfileId : podcastState.config.hostBProfileId
@@ -81,13 +74,14 @@
 {#if pickingHost}
 	<MiniProfilePicker
 		bind:filter
-		{filteredProfiles}
+		profiles={podcastState.profiles}
 		{selectedProfileId}
 		label={pickingHost === 'A' ? 'Host A' : 'Host B'}
 		onPick={handlePick}
 		actionIcon="X"
 		actionLabel="Close picker"
 		onAction={onClosePicker}
+		onSettings={onOpenHostSettings}
 	/>
 {:else}
 	<div class="podcast-mini__content" transition:fly={{ duration: 200, y: -200 }}>

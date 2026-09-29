@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import Label from './Label.component.svelte';
 
 	interface Option {
@@ -19,6 +20,8 @@
 		searchPlaceholder?: string;
 		allowCreate?: boolean;
 		createLabel?: (query: string) => string;
+		trigger?: Snippet<[{ open: boolean }]>;
+		triggerTooltip?: string;
 		onChange?: (value: string) => void;
 		onSelect?: (option: Option) => void;
 		onCreate?: (query: string) => void;
@@ -34,6 +37,8 @@
 		searchPlaceholder = 'Search...',
 		allowCreate = false,
 		createLabel = (query: string) => `Create "${query}"`,
+		trigger,
+		triggerTooltip,
 		onChange,
 		onSelect,
 		onCreate
@@ -149,22 +154,29 @@
 <svelte:window onclick={handleClickOutside} />
 
 {#snippet dropdown()}
-	<div class="search-dropdown">
+	<div class="search-dropdown" class:icon-trigger={trigger !== undefined}>
 		<button
 			bind:this={triggerEl}
 			type="button"
 			class="trigger"
 			class:disabled
+			class:icon-only={trigger !== undefined}
 			onclick={toggle}
 			{disabled}
+			title={trigger ? triggerTooltip : undefined}
+			aria-label={trigger ? (triggerTooltip ?? placeholder) : undefined}
 			aria-expanded={open}
 			aria-haspopup="listbox"
 		>
-			{#if selectedOption?.emoji}
-				<span class="option-emoji" aria-hidden="true">{selectedOption.emoji}</span>
+			{#if trigger}
+				{@render trigger({ open })}
+			{:else}
+				{#if selectedOption?.emoji}
+					<span class="option-emoji" aria-hidden="true">{selectedOption.emoji}</span>
+				{/if}
+				<span class="trigger-label">{selectedOption?.label ?? placeholder}</span>
+				<span class="chevron" class:open>▾</span>
 			{/if}
-			<span class="trigger-label">{selectedOption?.label ?? placeholder}</span>
-			<span class="chevron" class:open>▾</span>
 		</button>
 
 		{#if open}
@@ -236,6 +248,36 @@
 	.search-dropdown {
 		position: relative;
 		width: 100%;
+	}
+
+	.search-dropdown.icon-trigger {
+		width: auto;
+	}
+
+	.search-dropdown.icon-trigger .trigger {
+		width: auto;
+		padding: 0.15rem;
+		border: none;
+		background: none;
+		box-shadow: none;
+	}
+
+	.search-dropdown.icon-trigger .trigger:focus {
+		box-shadow: none;
+	}
+
+	.search-dropdown.icon-trigger .trigger :global(svg) {
+		display: block;
+	}
+
+	.search-dropdown.icon-trigger .trigger:hover :global(svg) {
+		stroke: white !important;
+		transform: scale(1.05);
+	}
+
+	.search-dropdown.icon-trigger .panel {
+		right: auto;
+		min-width: 260px;
 	}
 
 	.trigger {

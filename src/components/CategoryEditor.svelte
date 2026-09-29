@@ -10,7 +10,7 @@
 	import { slugifyCategoryId } from '@/lib/utils/categories';
 	import { syncCategoryEmbedding } from '@/lib/utils/categoryEmbeddings';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
-	import EmojiString from './EmojiString.svelte';
+	import CategoryItem from './CategoryItem.svelte';
 	import Icon from './Icon.svelte';
 	import SearchDropdown from './inputs/SearchDropdown.component.svelte';
 
@@ -108,35 +108,38 @@
 </script>
 
 <div class="category-editor">
-	{#if selectedIds.length > 0}
-		<div class="category-pills">
-			{#each selectedIds as id (id)}
-				<span class="category-pill">
-					<EmojiString value={categoryLabel(id)} />
-					<button
-						type="button"
-						class="remove-btn"
-						onclick={() => removeId(id)}
-						aria-label="Remove {categoryLabel(id)}"
-					>
-						<Icon name="Trash" size={12} />
-					</button>
-				</span>
-			{/each}
-		</div>
-	{/if}
+	<div class="category-pills">
+		{#each selectedIds as id (id)}
+			<span class="category-pill">
+				<CategoryItem value={categoryLabel(id)} />
+				<button
+					type="button"
+					class="remove-btn"
+					onclick={() => removeId(id)}
+					aria-label="Remove {categoryLabel(id)}"
+				>
+					<Icon name="Trash" size={12} />
+				</button>
+			</span>
+		{/each}
 
-	<div class="category-search">
-		<SearchDropdown
-			bind:value={searchValue}
-			{options}
-			placeholder="+ add category"
-			searchPlaceholder="Search or create..."
-			allowCreate
-			createLabel={(query) => `Create "${query}"`}
-			onSelect={handleSelect}
-			onCreate={handleCreate}
-		/>
+		<div class="category-search">
+			<SearchDropdown
+				bind:value={searchValue}
+				{options}
+				placeholder="Add category"
+				searchPlaceholder="Search or create..."
+				allowCreate
+				createLabel={(query) => `Create "${query}"`}
+				onSelect={handleSelect}
+				onCreate={handleCreate}
+				triggerTooltip="add category"
+			>
+				{#snippet trigger()}
+					<Icon name="CirclePlus" size={18} />
+				{/snippet}
+			</SearchDropdown>
+		</div>
 	</div>
 </div>
 
@@ -151,6 +154,7 @@
 	.category-pills {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 0.4rem;
 	}
 
@@ -178,6 +182,6 @@
 	}
 
 	.category-search {
-		width: min(360px, 100%);
+		width: auto;
 	}
 </style>

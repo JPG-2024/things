@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { viewState, drawersState, voiceWheelState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 
@@ -11,10 +11,8 @@
 	import PodcastSettings from '@/features/podcast/PodcastSettings.svelte';
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
 
-	import VoiceProfileWheel from '@/components/modals/VoiceProfileWheel.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
@@ -68,9 +66,7 @@
 			ttsState.addVoiceLoading ||
 			!!ttsState.errorMessage;
 
-		if (ttsActive) {
-			viewState.ttsPlayerMode = 'mini';
-		} else {
+		if (!ttsActive) {
 			ttsState.clearPlaylist();
 		}
 
@@ -87,7 +83,7 @@
 
 	const blurActive = $derived(
 		ttsPlayerVisible ||
-			voiceWheelState.open ||
+			voiceSettingsState.ttsOpen ||
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
 			conversationMode ||
@@ -98,7 +94,7 @@
 	createHotkey(
 		',',
 		() => {
-			void mainVoiceState.toggle();
+			voiceSettingsState.toggleTts();
 		},
 		{
 			ignoreInputs: true
@@ -169,7 +165,7 @@
 			enabled:
 				viewState.hoveredArticleUrl !== null &&
 				!(page.url.pathname === '/' && viewState.activeProfileArticleTab === 'categories') &&
-				!voiceWheelState.open &&
+				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
 				!drawersState.isOpen('podcast-settings') &&
@@ -189,7 +185,7 @@
 		() => ({
 			enabled:
 				deleteSelectionStore.markedUrls.size > 0 &&
-				!voiceWheelState.open &&
+				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
 				!drawersState.isOpen('podcast-settings') &&
@@ -222,7 +218,7 @@
 		},
 		() => ({
 			enabled:
-				!voiceWheelState.open &&
+				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
 				!drawersState.isOpen('podcast-settings') &&
@@ -335,25 +331,7 @@
 
 <TaskWorkflowEditor />
 
-<TTSPlayer bind:mode={viewState.ttsPlayerMode} />
-
-<VoiceProfileWheel
-	show={voiceWheelState.open}
-	mode={voiceWheelState.mode}
-	profiles={voiceWheelState.profiles}
-	chunks={voiceWheelState.chunks}
-	initial={voiceWheelState.selection}
-	onCommit={(sel) => {
-		voiceWheelState.commit(sel);
-		voiceWheelState.close();
-	}}
-	onClose={() => voiceWheelState.close()}
-	onChunksChanged={voiceWheelState.onChunksChanged}
-	onAddVoice={() => mainVoiceState.runAddVoice()}
-	onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
-	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
-	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
-/>
+<TTSPlayer />
 
 {#if ttsState.lastVoiceChunkIndex !== null}
 	<div class="tts-chunk-log">

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ArticleItem from '@/components/ArticleItem.svelte';
-	import EmojiString from '@/components/EmojiString.svelte';
+	import CategoryItem from '@/components/CategoryItem.svelte';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
 
 	interface Props {
@@ -16,7 +16,7 @@
 <div class="categories-articles">
 	{#each categories as category (category.categoryId)}
 		<section class="category-section">
-			<h2 class="category-title"><EmojiString value={category.categoryName} /></h2>
+			<h2 class="category-title"><CategoryItem value={category.categoryName} /></h2>
 			{#if category.articles.length > 0}
 				<div class="category-articles-grid">
 					{#each category.articles as article (article.url)}

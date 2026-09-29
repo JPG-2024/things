@@ -69,4 +69,5 @@ libc = "0.2"
 grep-searcher = "0.1"
 grep-regex = "0.1"
 grep-matcher = "0.1"
+tauri-plugin-store = "2"
 

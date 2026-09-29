@@ -5,9 +5,8 @@
 	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
-	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
-	import { mainVoiceState } from '@/stores/mainVoice.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { deleteProfileById, getCategories } from '@/stores/webStore';
@@ -318,7 +317,7 @@
 				<button
 					type="button"
 					class="settings-trigger"
-					onclick={() => void mainVoiceState.open()}
+					onclick={() => voiceSettingsState.openTts()}
 					aria-label="Open settings"
 				>
 					<Icon name="AudioWaveform" />

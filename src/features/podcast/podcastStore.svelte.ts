@@ -20,9 +20,10 @@ import {
 } from '@/lib/audioNodeHelpers';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { ensureAudioContext, getAudioContext } from '@/lib/audioContextManager';
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { workflowStore } from '@/stores/workflowStore.svelte';
+import type { SynthParams } from '@/types/tts.types';
 import type {
 	HookSlot,
 	PodcastHookConfig,
@@ -30,6 +31,13 @@ import type {
 	DialogExchange,
 	SpeakerDynamics
 } from '@/features/podcast/types';
+
+const DEFAULT_HOST_SYNTH: SynthParams = {
+	numStep: 16,
+	guidanceScale: 2.0,
+	speed: 1.0,
+	splitLevel: 1
+};
 
 export interface PodcastConfig {
 	topicCount: number;
@@ -46,6 +54,8 @@ export interface PodcastConfig {
 	hostBChunkFile: string;
 	hostARandomChunk: boolean;
 	hostBRandomChunk: boolean;
+	hostASynthParams: SynthParams;
+	hostBSynthParams: SynthParams;
 	contextSource: 'content' | 'summary' | 'none';
 	hooks: Record<HookSlot, PodcastHookConfig>;
 	hostAPersona: HostPersona;
@@ -89,6 +99,8 @@ class PodcastState {
 		hostBChunkFile: '',
 		hostARandomChunk: true,
 		hostBRandomChunk: true,
+		hostASynthParams: { ...DEFAULT_HOST_SYNTH },
+		hostBSynthParams: { ...DEFAULT_HOST_SYNTH },
 		contextSource: 'content',
 		hooks: {
 			initial: {
@@ -115,7 +127,7 @@ class PodcastState {
 	 */
 	hostsHydrated = false;
 
-	private _voiceChunks: Map<string, Voice[]> = new Map();
+	private _voiceChunks: SvelteMap<string, Voice[]> = new SvelteMap();
 	private _blobs: Map<string, AudioBlobEntry> = new Map();
 	private _preparePromises: Map<string, Promise<void>> = new Map();
 	private _genAbort: AbortController | null = null;
@@ -268,6 +280,16 @@ class PodcastState {
 
 	getChunksForProfile(profileId: string): Voice[] {
 		return this._voiceChunks.get(profileId) ?? [];
+	}
+
+	/** Re-fetches a single profile's voice chunks (e.g. after deleting one). */
+	async refreshChunks(profileId: string): Promise<void> {
+		if (!profileId) return;
+		try {
+			this._voiceChunks.set(profileId, await fetchVoiceChunks(profileId));
+		} catch {
+			// keep the previous chunks on failure
+		}
 	}
 
 	get contentTaskText(): string {
@@ -674,7 +696,9 @@ class PodcastState {
 		exchange: DialogExchange,
 		session: number
 	): Promise<AudioBlobEntry> {
-		const meta = splitTextIntoChunksMeta(exchange.text, ttsState.config.splitLevel);
+		const synth =
+			exchange.speaker === 'A' ? this.config.hostASynthParams : this.config.hostBSynthParams;
+		const meta = splitTextIntoChunksMeta(exchange.text, synth.splitLevel);
 		const blobs: Blob[] = [];
 		const chunkEndsParagraph: boolean[] = [];
 
@@ -690,8 +714,14 @@ class PodcastState {
 			this._genAbort = abort;
 
 			try {
+				const speechConfig = {
+					...ttsState.config,
+					numStep: synth.numStep,
+					guidanceScale: synth.guidanceScale,
+					speed: synth.speed
+				};
 				const res = await generateSpeech(
-					buildSpeechParams(ttsState.config, chunk.text, voiceRef.ref_audio, voiceRef.ref_text),
+					buildSpeechParams(speechConfig, chunk.text, voiceRef.ref_audio, voiceRef.ref_text),
 					abort.signal
 				);
 

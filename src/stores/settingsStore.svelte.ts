@@ -188,6 +188,12 @@ function applyPodcast(raw: unknown): void {
 	merged.scriptTemperature = clamp(merged.scriptTemperature, 0, 1.5);
 	merged.topicGapMs = clamp(merged.topicGapMs, 0, 5000);
 	merged.exchangeGapMs = clamp(merged.exchangeGapMs, 0, 3000);
+	for (const synth of [merged.hostASynthParams, merged.hostBSynthParams]) {
+		synth.numStep = clamp(Math.trunc(synth.numStep), 1, 64);
+		synth.guidanceScale = clamp(synth.guidanceScale, 0, 5);
+		synth.speed = clamp(synth.speed, 0.25, 2);
+		synth.splitLevel = clamp(Math.trunc(synth.splitLevel), 0, 3) as 0 | 1 | 2 | 3;
+	}
 
 	podcastState.config = merged;
 	// A persisted podcast section exists: do not auto-randomize hosts anymore.

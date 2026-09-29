@@ -1,12 +1,16 @@
 use image::imageops::FilterType;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_http::reqwest;
 use webp::Encoder;
 
 fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
-    bytes.as_ref().iter().map(|b| format!("{:02x}", b)).collect()
+    bytes
+        .as_ref()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect()
 }
 
 /// Downloads an image from a URL and saves it locally to the app's local data directory
@@ -34,7 +38,9 @@ pub async fn download_and_save_image(
     }
 
     // Get the app's local data directory
-    let app_local_data = app.path().app_local_data_dir()
+    let app_local_data = app
+        .path()
+        .app_local_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
 
     let media_dir = app_local_data.join("media").join(&folder_name);
@@ -48,11 +54,17 @@ pub async fn download_and_save_image(
     // Skip download if file already exists
     let filepath = media_dir.join(&filename);
     if filepath.exists() {
-        println!("[Image] File already exists, skipping download: {}", filename);
+        println!(
+            "[Image] File already exists, skipping download: {}",
+            filename
+        );
         return Ok(filename);
     }
 
-    println!("[Image] Saving image to folder: media/{}", app_local_data.join("media").join(&folder_name).display());
+    println!(
+        "[Image] Saving image to folder: media/{}",
+        app_local_data.join("media").join(&folder_name).display()
+    );
 
     // Create the thumbs directory if it doesn't exist
     std::fs::create_dir_all(&media_dir)
@@ -67,16 +79,20 @@ pub async fn download_and_save_image(
 
     // Check if the response status is successful
     if !response.status().is_success() {
-        return Err(format!("Failed to download image: HTTP {}", response.status()));
+        return Err(format!(
+            "Failed to download image: HTTP {}",
+            response.status()
+        ));
     }
 
     // Get the image bytes
-    let bytes = response.bytes()
+    let bytes = response
+        .bytes()
         .await
         .map_err(|e| format!("Failed to read image data: {}", e))?;
 
-    let image = image::load_from_memory(&bytes)
-        .map_err(|e| format!("Failed to decode image: {}", e))?;
+    let image =
+        image::load_from_memory(&bytes).map_err(|e| format!("Failed to decode image: {}", e))?;
 
     let reduction = reduction_magnitud.unwrap_or(1).max(1);
     let (mut nw, mut nh) = (image.width() / reduction, image.height() / reduction);

@@ -1,5 +1,5 @@
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 
 use rusqlite::{params, Connection};
@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 use tauri::{AppHandle, Manager};
 
-const DB_FILE:&str = "things.db";
+const DB_FILE: &str = "things.db";
 pub const WEB_STORE_UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const WEB_STORE_UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
@@ -150,7 +150,10 @@ fn normalize_optional_string(value: Option<String>) -> Option<String> {
 }
 
 fn database_path(app: &AppHandle) -> Result<String, String> {
-    let app_data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
     Ok(app_data_dir.join(DB_FILE).to_string_lossy().to_string())
 }
@@ -186,17 +189,18 @@ fn delete_raw_content_file(app: &AppHandle, url: &str) {
 fn get_db(app: &AppHandle) -> Result<Connection, String> {
     let path = database_path(app)?;
     let conn = Connection::open(&path).map_err(|error| error.to_string())?;
-    
+
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA foreign_keys = ON;"
-    ).map_err(|error| error.to_string())?;
-    
+         PRAGMA foreign_keys = ON;",
+    )
+    .map_err(|error| error.to_string())?;
+
     Ok(conn)
 }
 
-fn init_schema(conn:&Connection) -> Result<(), String> {
+fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_rename_profiles_to_domains(conn)?;
 
     conn.execute_batch(
@@ -286,14 +290,24 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
-    ensure_column(conn, "web_domains", "url", "ALTER TABLE web_domains ADD COLUMN url TEXT")?;
+    ensure_column(
+        conn,
+        "web_domains",
+        "url",
+        "ALTER TABLE web_domains ADD COLUMN url TEXT",
+    )?;
     ensure_column(
         conn,
         "web_articles",
         "viewed",
         "ALTER TABLE web_articles ADD COLUMN viewed INTEGER NOT NULL DEFAULT 0",
     )?;
-    ensure_column(conn, "web_articles", "date", "ALTER TABLE web_articles ADD COLUMN date TEXT")?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "date",
+        "ALTER TABLE web_articles ADD COLUMN date TEXT",
+    )?;
     ensure_column(
         conn,
         "web_articles",
@@ -315,18 +329,22 @@ fn init_schema(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_rename_profiles_to_domains(conn:&Connection) -> Result<(), String> {
-    let has_old_profiles: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_profiles'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
+fn migrate_rename_profiles_to_domains(conn: &Connection) -> Result<(), String> {
+    let has_old_profiles: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_profiles'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
-    let has_domains: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_domains'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
+    let has_domains: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='web_domains'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     if has_old_profiles && !has_domains {
         conn.execute_batch("ALTER TABLE web_profiles RENAME TO web_domains")
@@ -336,12 +354,14 @@ fn migrate_rename_profiles_to_domains(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_article_domain_column(conn:&Connection) -> Result<(), String> {
-    let has_domain_column: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='domain'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
+fn migrate_article_domain_column(conn: &Connection) -> Result<(), String> {
+    let has_domain_column: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('web_articles') WHERE name='domain'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     if !has_domain_column {
         conn.execute_batch(
@@ -375,13 +395,15 @@ fn migrate_article_domain_column(conn:&Connection) -> Result<(), String> {
         }
     }
 
-    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_web_articles_domain ON web_articles(domain)")
-        .map_err(|error| error.to_string())?;
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_web_articles_domain ON web_articles(domain)",
+    )
+    .map_err(|error| error.to_string())?;
 
     Ok(())
 }
 
-fn migrate_article_ids_to_youtube_v(conn:&Connection) -> Result<(), String> {
+fn migrate_article_ids_to_youtube_v(conn: &Connection) -> Result<(), String> {
     let urls: Vec<String> = {
         let mut stmt = conn
             .prepare("SELECT url FROM web_articles WHERE id != url")
@@ -402,11 +424,13 @@ fn migrate_article_ids_to_youtube_v(conn:&Connection) -> Result<(), String> {
             continue;
         }
 
-        let id_taken: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM web_articles WHERE id = ?1 AND url != ?2 COLLATE NOCASE",
-            params![new_id, url],
-            |row| row.get(0),
-        ).unwrap_or(false);
+        let id_taken: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM web_articles WHERE id = ?1 AND url != ?2 COLLATE NOCASE",
+                params![new_id, url],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
 
         if !id_taken {
             conn.execute(
@@ -420,7 +444,7 @@ fn migrate_article_ids_to_youtube_v(conn:&Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
+fn migrate_channels_to_web_profiles(conn: &Connection) -> Result<(), String> {
     let rows: Vec<(String, String, Option<String>)> = {
         let mut stmt = conn
             .prepare(
@@ -430,7 +454,11 @@ fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         let row_iter = stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
             })
             .map_err(|error| error.to_string())?;
         let mut out = Vec::new();
@@ -449,7 +477,9 @@ fn migrate_channels_to_web_profiles(conn:&Connection) -> Result<(), String> {
 
     for (id, _name, url) in rows {
         let is_channel = id.trim_start().starts_with('@')
-            || url.as_deref().map_or(false, |u| u.contains("/api/profile/youtube/"));
+            || url
+                .as_deref()
+                .map_or(false, |u| u.contains("/api/profile/youtube/"));
 
         if is_channel {
             conn.execute(
@@ -548,12 +578,14 @@ fn migrate_strip_www_domains(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
-    let has_old_articles: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='articles'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or(false);
+fn migrate_legacy_tables(conn: &Connection) -> Result<(), String> {
+    let has_old_articles: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='articles'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     if !has_old_articles {
         return Ok(());
@@ -561,34 +593,39 @@ fn migrate_legacy_tables(conn:&Connection) -> Result<(), String> {
 
     conn.execute_batch(
         "ALTER TABLE articles RENAME TO old_articles;
-         ALTER TABLE profiles RENAME TO old_profiles;"
-    ).map_err(|error| error.to_string())?;
+         ALTER TABLE profiles RENAME TO old_profiles;",
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute_batch(
         "INSERT OR IGNORE INTO web_articles (id, url, created_at, title, thumbnail, content, 
                 media_directory, main_color, profile, embedding_source_text, updated_at)
          SELECT id, url, created_at, title, thumbnail, content, 
                 media_directory, main_color, profile, embedding_source_text, updated_at
-         FROM old_articles;"
-    ).map_err(|error| error.to_string())?;
+         FROM old_articles;",
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute_batch(
         "INSERT OR IGNORE INTO web_domains (id, name, count, profile_picture, updated_at)
          SELECT id, name, count, profile_picture, updated_at
-         FROM old_profiles;"
-    ).map_err(|error| error.to_string())?;
+         FROM old_profiles;",
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute_batch(
         "INSERT OR IGNORE INTO web_tasks (url, tasks_json, updated_at)
          SELECT url, tasks_json, updated_at
          FROM old_articles
-         WHERE tasks_json IS NOT NULL AND tasks_json != '[]';"
-    ).map_err(|error| error.to_string())?;
+         WHERE tasks_json IS NOT NULL AND tasks_json != '[]';",
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute_batch(
         "DROP TABLE old_articles;
-         DROP TABLE old_profiles;"
-    ).map_err(|error| error.to_string())?;
+         DROP TABLE old_profiles;",
+    )
+    .map_err(|error| error.to_string())?;
 
     Ok(())
 }
@@ -602,12 +639,7 @@ fn table_has_column(conn: &Connection, table: &str, column: &str) -> bool {
     .unwrap_or(false)
 }
 
-fn ensure_column(
-    conn: &Connection,
-    table: &str,
-    column: &str,
-    ddl: &str,
-) -> Result<(), String> {
+fn ensure_column(conn: &Connection, table: &str, column: &str, ddl: &str) -> Result<(), String> {
     if !table_has_column(conn, table, column) {
         conn.execute_batch(ddl).map_err(|error| error.to_string())?;
     }
@@ -615,7 +647,7 @@ fn ensure_column(
     Ok(())
 }
 
-fn migrate_drop_last_video_date_column(conn:&Connection) -> Result<(), String> {
+fn migrate_drop_last_video_date_column(conn: &Connection) -> Result<(), String> {
     if table_has_column(conn, "web_domains", "last_video_date") {
         conn.execute_batch("ALTER TABLE web_domains DROP COLUMN last_video_date")
             .map_err(|error| error.to_string())?;
@@ -704,11 +736,9 @@ fn normalize_profile_bucket(profile: Option<&str>) -> (String, String) {
     }
 }
 
-fn filter_record_to_json(record:&WebStoreArticleRecord, fields: &Option<Vec<String>>) -> Value {
+fn filter_record_to_json(record: &WebStoreArticleRecord, fields: &Option<Vec<String>>) -> Value {
     match fields {
-        None => {
-            serde_json::to_value(record).unwrap_or(Value::Null)
-        }
+        None => serde_json::to_value(record).unwrap_or(Value::Null),
         Some(field_list) => {
             let mut obj = serde_json::Map::new();
             let all_fields = serde_json::to_value(record)
@@ -766,7 +796,9 @@ fn sort_articles_by_created_at_desc(records: &mut [WebStoreArticleRecord]) {
     records.sort_by(|left, right| right.created_at.cmp(&left.created_at));
 }
 
-fn row_to_stored_article(row: &rusqlite::Row<'_>) -> Result<WebStoreArticleRecord, rusqlite::Error> {
+fn row_to_stored_article(
+    row: &rusqlite::Row<'_>,
+) -> Result<WebStoreArticleRecord, rusqlite::Error> {
     let id: String = row.get(0)?;
     let url: String = row.get(1)?;
     let created_at: i64 = row.get(2)?;
@@ -861,7 +893,10 @@ fn query_articles(
     query_articles_sql(conn, &body, &[])
 }
 
-fn query_domain_by_id(conn: &Connection, domain_id: &str) -> Result<Option<WebStoreDomainRecord>, String> {
+fn query_domain_by_id(
+    conn: &Connection,
+    domain_id: &str,
+) -> Result<Option<WebStoreDomainRecord>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, count, profile_picture, url,
@@ -921,7 +956,10 @@ fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String>
     Ok(domains)
 }
 
-fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<WebStoreProfileRecord>, String> {
+fn query_profile_by_id(
+    conn: &Connection,
+    profile_id: &str,
+) -> Result<Option<WebStoreProfileRecord>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, domain_id, count, profile_picture, url,
@@ -951,10 +989,7 @@ fn query_profile_by_id(conn: &Connection, profile_id: &str) -> Result<Option<Web
     }
 }
 
-fn upsert_domain(
-    conn: &Connection,
-    domain: &WebStoreDomainRecord,
-) -> Result<(), String> {
+fn upsert_domain(conn: &Connection, domain: &WebStoreDomainRecord) -> Result<(), String> {
     let updated_at = chrono_like_now();
     conn.execute(
         "INSERT INTO web_domains (id, name, count, profile_picture, url, updated_at) 
@@ -978,10 +1013,7 @@ fn upsert_domain(
     Ok(())
 }
 
-fn upsert_profile(
-    conn: &Connection,
-    profile: &WebStoreProfileRecord,
-) -> Result<(), String> {
+fn upsert_profile(conn: &Connection, profile: &WebStoreProfileRecord) -> Result<(), String> {
     ensure_web_domain(conn, &profile.domain_id)?;
 
     let updated_at = chrono_like_now();
@@ -1009,23 +1041,30 @@ fn upsert_profile(
     Ok(())
 }
 
-fn delete_domain(conn:&Connection, domain_id: &str) -> Result<(), String> {
+fn delete_domain(conn: &Connection, domain_id: &str) -> Result<(), String> {
     conn.execute(
         "DELETE FROM web_profile_templates WHERE profile_id = ?1",
-        params![domain_id]
-    ).map_err(|error| error.to_string())?;
+        params![domain_id],
+    )
+    .map_err(|error| error.to_string())?;
 
-    conn.execute("DELETE FROM web_profiles WHERE domain_id = ?1", params![domain_id])
-        .map_err(|error| error.to_string())?;
+    conn.execute(
+        "DELETE FROM web_profiles WHERE domain_id = ?1",
+        params![domain_id],
+    )
+    .map_err(|error| error.to_string())?;
 
     conn.execute("DELETE FROM web_domains WHERE id = ?1", params![domain_id])
         .map_err(|error| error.to_string())?;
     Ok(())
 }
 
-fn delete_profile(conn:&Connection, profile_id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM web_profiles WHERE id = ?1", params![profile_id])
-        .map_err(|error| error.to_string())?;
+fn delete_profile(conn: &Connection, profile_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM web_profiles WHERE id = ?1",
+        params![profile_id],
+    )
+    .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -1222,7 +1261,11 @@ pub async fn list_web_store_domains(
     if include {
         let per_domain_count = article_count.unwrap_or(10);
         for domain in &mut domains {
-            domain.articles = Some(query_articles_for_domain(&conn, &domain.id, per_domain_count)?);
+            domain.articles = Some(query_articles_for_domain(
+                &conn,
+                &domain.id,
+                per_domain_count,
+            )?);
         }
     }
 
@@ -1327,18 +1370,17 @@ pub async fn list_web_store_profiles(
     init_schema(&conn)?;
 
     let include = include_articles.unwrap_or(false);
-    let mut profiles = query_profiles_filtered(
-        &conn,
-        domain_id.as_deref(),
-        include,
-        offset,
-        limit,
-    )?;
+    let mut profiles =
+        query_profiles_filtered(&conn, domain_id.as_deref(), include, offset, limit)?;
 
     if include {
         let per_profile_count = article_count.unwrap_or(10);
         for profile in &mut profiles {
-            profile.articles = Some(query_articles_for_profile(&conn, &profile.id, per_profile_count)?);
+            profile.articles = Some(query_articles_for_profile(
+                &conn,
+                &profile.id,
+                per_profile_count,
+            )?);
         }
     }
 
@@ -1368,10 +1410,16 @@ async fn list_web_store_articles_by_column(
 
     let normalized_bucket_id = bucket_id.trim().to_lowercase();
 
-    let filter = if normalized_bucket_id.is_empty() || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID {
+    let filter = if normalized_bucket_id.is_empty()
+        || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID
+    {
         None
     } else {
-        Some(format!("LOWER({}) = '{}'", column, normalized_bucket_id.replace('\'', "''")))
+        Some(format!(
+            "LOWER({}) = '{}'",
+            column,
+            normalized_bucket_id.replace('\'', "''")
+        ))
     };
 
     let records = if let Some(ref from) = date_from {
@@ -1385,7 +1433,9 @@ async fn list_web_store_articles_by_column(
         query_articles(&conn, filter.as_deref(), limit, Some("date"))?
     };
 
-    let filtered_records = if normalized_bucket_id.is_empty() || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID {
+    let filtered_records = if normalized_bucket_id.is_empty()
+        || normalized_bucket_id == WEB_STORE_UNKNOWN_PROFILE_ID
+    {
         records
             .into_iter()
             .filter(|record| {
@@ -1454,10 +1504,15 @@ pub async fn filter_existing_article_urls(
     let mut existing = Vec::new();
     for chunk in urls.chunks(900) {
         let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let sql = format!(
+            "SELECT url FROM web_articles WHERE url IN ({})",
+            placeholders
+        );
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(rusqlite::params_from_iter(chunk.iter()), |row| row.get::<_, String>(0))
+            .query_map(rusqlite::params_from_iter(chunk.iter()), |row| {
+                row.get::<_, String>(0)
+            })
             .map_err(|e| e.to_string())?;
         for row in rows {
             existing.push(row.map_err(|e| e.to_string())?);
@@ -1496,11 +1551,15 @@ pub async fn upsert_web_store_article(
         })?;
     }
 
-    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone()).await
+    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone())
+        .await
         .map_err(|error| {
-            format!("Failed to query existing article for url='{}': {}", input.url, error)
+            format!(
+                "Failed to query existing article for url='{}': {}",
+                input.url, error
+            )
         })?;
-    
+
     if previous_article.is_some() {
         conn.execute(
             "UPDATE web_articles SET 
@@ -1570,10 +1629,7 @@ pub async fn upsert_web_store_article(
 }
 
 #[tauri::command]
-pub async fn delete_web_store_article_by_url(
-    app: AppHandle,
-    url: String,
-) -> Result<bool, String> {
+pub async fn delete_web_store_article_by_url(app: AppHandle, url: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
@@ -1583,8 +1639,11 @@ pub async fn delete_web_store_article_by_url(
         return Ok(false);
     };
 
-    conn.execute("DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE", params![url])
-        .map_err(|error| error.to_string())?;
+    conn.execute(
+        "DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE",
+        params![url],
+    )
+    .map_err(|error| error.to_string())?;
 
     rebuild_domains_from_articles(&conn, None)?;
 
@@ -1705,7 +1764,10 @@ pub async fn fetch_remote_profile(
         .map_err(|error| format!("Failed to fetch remote profile: {}", error))?;
 
     if !response.status().is_success() {
-        return Err(format!("Remote profile returned status {}", response.status()));
+        return Err(format!(
+            "Remote profile returned status {}",
+            response.status()
+        ));
     }
 
     response
@@ -1746,14 +1808,8 @@ pub async fn delete_web_store_domain(
     init_schema(&conn)?;
 
     let entity_url = query_domain_by_id(&conn, &domain_id)?.and_then(|domain| domain.url);
-    let articles = list_web_store_articles_by_domain(
-        app.clone(),
-        domain_id.clone(),
-        None,
-        None,
-        None,
-    )
-    .await?;
+    let articles =
+        list_web_store_articles_by_domain(app.clone(), domain_id.clone(), None, None, None).await?;
     let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
 
     delete_domain(&conn, &domain_id)?;
@@ -1773,14 +1829,9 @@ pub async fn delete_web_store_profile(
     init_schema(&conn)?;
 
     let entity_url = query_profile_by_id(&conn, &profile_id)?.and_then(|profile| profile.url);
-    let articles = list_web_store_articles_by_profile(
-        app.clone(),
-        profile_id.clone(),
-        None,
-        None,
-        None,
-    )
-    .await?;
+    let articles =
+        list_web_store_articles_by_profile(app.clone(), profile_id.clone(), None, None, None)
+            .await?;
     let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
 
     delete_profile(&conn, &profile_id)?;
@@ -1820,9 +1871,7 @@ fn strip_recursive_chunks(tasks_json: &str) -> String {
         .into_iter()
         .map(|mut task| {
             if let Some(data) = task.get_mut("data") {
-                let has_chunks = data
-                    .get("chunks")
-                    .map_or(false, |chunks| chunks.is_array());
+                let has_chunks = data.get("chunks").map_or(false, |chunks| chunks.is_array());
                 if has_chunks {
                     if let Some(final_response) = data.get("finalResponse").cloned() {
                         *data = final_response;
@@ -1856,9 +1905,7 @@ fn task_chunks_from_json(tasks_json: &str, task_id: &str) -> Option<Value> {
 }
 
 #[tauri::command]
-pub async fn list_web_store_tasks(
-    app: AppHandle,
-) -> Result<Vec<WebStoreTaskRecord>, String> {
+pub async fn list_web_store_tasks(app: AppHandle) -> Result<Vec<WebStoreTaskRecord>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
@@ -1949,15 +1996,15 @@ pub async fn upsert_web_store_tasks(
 }
 
 #[tauri::command]
-pub async fn delete_web_store_tasks_by_url(
-    app: AppHandle,
-    url: String,
-) -> Result<bool, String> {
+pub async fn delete_web_store_tasks_by_url(app: AppHandle, url: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
     let changes = conn
-        .execute("DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE", params![url])
+        .execute(
+            "DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
+            params![url],
+        )
         .map_err(|error| error.to_string())?;
 
     delete_raw_content_file(&app, &url);
@@ -1966,7 +2013,11 @@ pub async fn delete_web_store_tasks_by_url(
 }
 
 #[tauri::command]
-pub async fn write_raw_content(app: AppHandle, url: String, text: String) -> Result<String, String> {
+pub async fn write_raw_content(
+    app: AppHandle,
+    url: String,
+    text: String,
+) -> Result<String, String> {
     let key = raw_content_key(&url);
     let dir = raw_content_dir(&app)?;
     let path = dir.join(format!("{}.txt", key));
@@ -2008,8 +2059,8 @@ pub async fn search_raw_content(
 ) -> Result<Vec<RawContentMatchResult>, String> {
     use grep_matcher::Matcher;
     use grep_regex::RegexMatcherBuilder;
-    use grep_searcher::SearcherBuilder;
     use grep_searcher::sinks::UTF8;
+    use grep_searcher::SearcherBuilder;
 
     let context = context_chars.unwrap_or(20);
     let dir = raw_content_dir(&app)?;
@@ -2231,7 +2282,8 @@ pub async fn assign_categories_to_article(
     tx.execute(
         "DELETE FROM article_category WHERE article_url = ?1",
         params![input.article_url],
-    ).map_err(|error| {
+    )
+    .map_err(|error| {
         format!(
             "Failed to clear existing categories for article url='{}': {}",
             input.article_url, error
@@ -2239,16 +2291,18 @@ pub async fn assign_categories_to_article(
     })?;
 
     for category_id in &input.category_ids {
-        let category_exists: bool = tx.query_row(
-            "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
-            [category_id],
-            |row| row.get(0),
-        ).map_err(|error| {
-            format!(
-                "Failed to check existence of category '{}' for article url='{}': {}",
-                category_id, input.article_url, error
+        let category_exists: bool = tx
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
+                [category_id],
+                |row| row.get(0),
             )
-        })?;
+            .map_err(|error| {
+                format!(
+                    "Failed to check existence of category '{}' for article url='{}': {}",
+                    category_id, input.article_url, error
+                )
+            })?;
 
         if !category_exists {
             return Err(format!(
@@ -2260,7 +2314,8 @@ pub async fn assign_categories_to_article(
         tx.execute(
             "INSERT OR IGNORE INTO article_category (article_url, category_id) VALUES (?1, ?2)",
             params![input.article_url, category_id],
-        ).map_err(|error| {
+        )
+        .map_err(|error| {
             format!(
                 "Failed to assign category '{}' to article url='{}': {}",
                 category_id, input.article_url, error
@@ -2333,9 +2388,7 @@ pub async fn list_articles_without_profile(
     if let Some(ref pid) = profile_id {
         let normalized = pid.trim().to_lowercase();
         if !normalized.is_empty() {
-            where_clauses.push(
-                "(LOWER(a.profile) = ? OR LOWER(a.domain) = ?)".to_string(),
-            );
+            where_clauses.push("(LOWER(a.profile) = ? OR LOWER(a.domain) = ?)".to_string());
             params.push(Box::new(normalized.clone()));
             params.push(Box::new(normalized));
             where_clauses.push("(a.profile IS NOT NULL OR a.domain IS NOT NULL)".to_string());
@@ -2392,9 +2445,14 @@ pub async fn list_articles_without_profile(
     let count_sql = format!("SELECT COUNT(*) FROM web_articles a{}", where_sql);
 
     let total: usize = {
-        let mut count_stmt = conn.prepare(&count_sql).map_err(|error| error.to_string())?;
+        let mut count_stmt = conn
+            .prepare(&count_sql)
+            .map_err(|error| error.to_string())?;
         count_stmt
-            .query_row(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), |row| row.get(0))
+            .query_row(
+                rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+                |row| row.get(0),
+            )
             .map_err(|error| error.to_string())?
     };
 
@@ -2432,7 +2490,11 @@ fn query_categories_with_articles(
     let categories_sql = if category_ids.is_empty() {
         "SELECT id, name FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC".to_string()
     } else {
-        let placeholders = category_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = category_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(", ");
         format!(
             "SELECT id, name FROM web_categories WHERE id IN ({}) AND deleted_at IS NULL ORDER BY name ASC",
             placeholders
@@ -2453,7 +2515,8 @@ fn query_categories_with_articles(
     let mut result = Vec::new();
     for category_result in category_rows {
         let (category_id, category_name) = category_result.map_err(|error| error.to_string())?;
-        let articles = query_articles_for_category(conn, &category_id, article_count, created_at_from)?;
+        let articles =
+            query_articles_for_category(conn, &category_id, article_count, created_at_from)?;
         result.push(CategoryWithArticles {
             category_id,
             category_name,
@@ -2474,8 +2537,7 @@ fn query_articles_for_category(
         "INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
     );
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> =
-        vec![Box::new(category_id.to_string())];
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(category_id.to_string())];
 
     if let Some(from) = created_at_from {
         body.push_str(" AND a.created_at >= ?2");
@@ -2508,7 +2570,9 @@ pub struct UpsertWebStoreTemplateInput {
     pub tasks_json: String,
 }
 
-fn row_to_web_store_template(row: &rusqlite::Row<'_>) -> Result<WebStoreTemplateRecord, rusqlite::Error> {
+fn row_to_web_store_template(
+    row: &rusqlite::Row<'_>,
+) -> Result<WebStoreTemplateRecord, rusqlite::Error> {
     Ok(WebStoreTemplateRecord {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -2595,10 +2659,7 @@ pub async fn upsert_web_store_template(
 }
 
 #[tauri::command]
-pub async fn delete_web_store_template(
-    app: AppHandle,
-    id: String,
-) -> Result<bool, String> {
+pub async fn delete_web_store_template(app: AppHandle, id: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
@@ -2629,7 +2690,9 @@ pub struct WebProfileTemplateRecord {
     pub updated_at: i64,
 }
 
-fn row_to_web_profile_template(row: &rusqlite::Row<'_>) -> Result<WebProfileTemplateRecord, rusqlite::Error> {
+fn row_to_web_profile_template(
+    row: &rusqlite::Row<'_>,
+) -> Result<WebProfileTemplateRecord, rusqlite::Error> {
     Ok(WebProfileTemplateRecord {
         profile_id: row.get(0)?,
         template_id: row.get(1)?,
@@ -2696,7 +2759,10 @@ pub async fn delete_web_profile_template(
     init_schema(&conn)?;
 
     let changes = conn
-        .execute("DELETE FROM web_profile_templates WHERE profile_id = ?1", params![profile_id])
+        .execute(
+            "DELETE FROM web_profile_templates WHERE profile_id = ?1",
+            params![profile_id],
+        )
         .map_err(|error| error.to_string())?;
 
     Ok(changes > 0)
@@ -2725,7 +2791,15 @@ mod tests {
                 (id, url, created_at, title, thumbnail, content, media_directory,
                  main_color, profile, embedding_source_text, updated_at, viewed, date)
              VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, NULL, ?6, NULL, ?3, 0, ?7)",
-            params![id, id, created_at, format!("title-{}", id), None::<String>, profile, date],
+            params![
+                id,
+                id,
+                created_at,
+                format!("title-{}", id),
+                None::<String>,
+                profile,
+                date
+            ],
         )
         .expect("insert article");
     }
@@ -2755,7 +2829,13 @@ mod tests {
         insert_category(&conn, "cat-deleted", "Deleted");
 
         for i in 0..5 {
-            insert_article(&conn, &format!("a-{i}"), "channel", 2_000_000_000_000 + i, None);
+            insert_article(
+                &conn,
+                &format!("a-{i}"),
+                "channel",
+                2_000_000_000_000 + i,
+                None,
+            );
             link_article_to_category(&conn, &format!("a-{i}"), "cat-a");
         }
         insert_article(&conn, "b-1", "channel", 3_000_000_000_000, None);
@@ -2770,10 +2850,18 @@ mod tests {
         let result = query_categories_with_articles(&conn, &[], 4, None).expect("query");
 
         let names: Vec<&str> = result.iter().map(|c| c.category_name.as_str()).collect();
-        assert_eq!(names, vec!["Alpha", "Beta"], "expected all non-deleted categories");
+        assert_eq!(
+            names,
+            vec!["Alpha", "Beta"],
+            "expected all non-deleted categories"
+        );
 
         let alpha = result.iter().find(|c| c.category_id == "cat-a").unwrap();
-        assert_eq!(alpha.articles.len(), 4, "expected article count capped at 4");
+        assert_eq!(
+            alpha.articles.len(),
+            4,
+            "expected article count capped at 4"
+        );
     }
 
     #[test]
@@ -2786,8 +2874,13 @@ mod tests {
         link_article_to_category(&conn, "old-article", "cat-a");
         link_article_to_category(&conn, "new-article", "cat-a");
 
-        let result = query_categories_with_articles(&conn, &["cat-a".to_string()], 4, Some(1_500_000_000_000))
-            .expect("query");
+        let result = query_categories_with_articles(
+            &conn,
+            &["cat-a".to_string()],
+            4,
+            Some(1_500_000_000_000),
+        )
+        .expect("query");
 
         let category = &result[0];
         let urls: Vec<&str> = category
@@ -2795,7 +2888,11 @@ mod tests {
             .iter()
             .map(|a| a.url.as_deref().unwrap_or(""))
             .collect();
-        assert_eq!(urls, vec!["new-article"], "expected only articles created after the cutoff");
+        assert_eq!(
+            urls,
+            vec!["new-article"],
+            "expected only articles created after the cutoff"
+        );
     }
 
     #[test]
@@ -2803,10 +2900,34 @@ mod tests {
         let conn = build_in_memory_db();
         let profile = "channel-a";
 
-        insert_article(&conn, "old-yt-newly-added", profile, 2_000_000_000_000, Some("15 jun 2024"));
-        insert_article(&conn, "newer-yt-added-earlier", profile, 1_000_000_000_000, Some("20 dic 2025"));
-        insert_article(&conn, "newest-yt-old-publish", profile, 3_000_000_000_000, Some("1 ene 2023"));
-        insert_article(&conn, "other-profile", "channel-b", 9_000_000_000_000, Some("1 mar 2026"));
+        insert_article(
+            &conn,
+            "old-yt-newly-added",
+            profile,
+            2_000_000_000_000,
+            Some("15 jun 2024"),
+        );
+        insert_article(
+            &conn,
+            "newer-yt-added-earlier",
+            profile,
+            1_000_000_000_000,
+            Some("20 dic 2025"),
+        );
+        insert_article(
+            &conn,
+            "newest-yt-old-publish",
+            profile,
+            3_000_000_000_000,
+            Some("1 ene 2023"),
+        );
+        insert_article(
+            &conn,
+            "other-profile",
+            "channel-b",
+            9_000_000_000_000,
+            Some("1 mar 2026"),
+        );
 
         let articles = query_articles_for_profile(&conn, profile, 10).expect("query");
 
@@ -2816,7 +2937,11 @@ mod tests {
             .collect();
         assert_eq!(
             urls,
-            vec!["newest-yt-old-publish", "old-yt-newly-added", "newer-yt-added-earlier"],
+            vec![
+                "newest-yt-old-publish",
+                "old-yt-newly-added",
+                "newer-yt-added-earlier"
+            ],
             "expected most recently added article first, regardless of publication date"
         );
     }
@@ -3000,14 +3125,25 @@ mod tests {
         assert_eq!(domain_id.as_deref(), Some("youtube.com"));
 
         let channel_gone: i64 = conn
-            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = '@somechannel'", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = '@somechannel'",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(channel_gone, 0);
 
         let youtube_kept: i64 = conn
-            .query_row("SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
-        assert_eq!(youtube_kept, 1, "youtube.com must exist because a profile references it");
+        assert_eq!(
+            youtube_kept, 1,
+            "youtube.com must exist because a profile references it"
+        );
     }
 
     #[test]
@@ -3062,7 +3198,13 @@ mod tests {
             .iter()
             .map(|a| a.url.as_deref().unwrap_or(""))
             .collect();
-        assert_eq!(urls, vec!["https://youtube.com/watch?v=v2", "https://youtube.com/watch?v=v1"]);
+        assert_eq!(
+            urls,
+            vec![
+                "https://youtube.com/watch?v=v2",
+                "https://youtube.com/watch?v=v1"
+            ]
+        );
 
         let articles = query_articles_for_domain(&conn, "example.com", 10).expect("query");
         assert_eq!(articles.len(), 1);
@@ -3087,7 +3229,10 @@ mod tests {
         assert_eq!(title, "Hello");
 
         let summary_data = tasks[1].get("data").expect("summary data");
-        assert_eq!(summary_data, "Final summary", "chunks must be replaced by finalResponse");
+        assert_eq!(
+            summary_data, "Final summary",
+            "chunks must be replaced by finalResponse"
+        );
         assert!(summary_data.get("chunks").is_none());
     }
 
@@ -3155,10 +3300,15 @@ mod tests {
             "https://www.youtube.com/watch?v=missing".to_string(),
         ];
         let placeholders = urls.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let sql = format!(
+            "SELECT url FROM web_articles WHERE url IN ({})",
+            placeholders
+        );
         let mut stmt = conn.prepare(&sql).expect("prepare");
         let rows = stmt
-            .query_map(rusqlite::params_from_iter(urls.iter()), |r| r.get::<_, String>(0))
+            .query_map(rusqlite::params_from_iter(urls.iter()), |r| {
+                r.get::<_, String>(0)
+            })
             .expect("query");
         let mut existing: Vec<String> = rows.map(|r| r.expect("row")).collect();
         existing.sort();
@@ -3183,10 +3333,15 @@ mod tests {
         .expect("insert");
         let urls = vec!["https://www.youtube.com/watch?v=abc".to_string()];
         let placeholders = urls.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!("SELECT url FROM web_articles WHERE url IN ({})", placeholders);
+        let sql = format!(
+            "SELECT url FROM web_articles WHERE url IN ({})",
+            placeholders
+        );
         let mut stmt = conn.prepare(&sql).expect("prepare");
         let rows = stmt
-            .query_map(rusqlite::params_from_iter(urls.iter()), |r| r.get::<_, String>(0))
+            .query_map(rusqlite::params_from_iter(urls.iter()), |r| {
+                r.get::<_, String>(0)
+            })
             .expect("query");
         let existing: Vec<String> = rows.map(|r| r.expect("row")).collect();
         assert!(

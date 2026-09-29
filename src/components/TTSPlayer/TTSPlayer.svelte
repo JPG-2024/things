@@ -2,62 +2,53 @@
 	import { onMount } from 'svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { mainVoiceState } from '@/stores/mainVoice.svelte';
-	import { getCurrentStyle, type PlayerMode } from '@/lib/ttsPlayerConfig';
+	import { voiceSettingsState } from '@/stores/viewStore.svelte';
+	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import { resetAudioContext } from '@/lib/audioContextManager';
 	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import type { VoiceProfile } from '@/lib/utils/ttsService';
-	import type { WheelSelection } from '@/types/tts.types';
+	import type { SynthParams, PauseSettings } from '@/types/tts.types';
 	import { TtsPlaybackEngine } from './playbackEngine.svelte';
 	import { useVoiceProfiles } from './useVoiceProfiles.svelte';
 	import { formatTime } from './playbackMath';
-	import TTSPlayerFull from './TTSPlayerFull.svelte';
 	import TTSPlayerMini from './TTSPlayerMini.svelte';
+	import MiniProfilePicker from './MiniProfilePicker.svelte';
+	import VoiceSettingsModal from '@/components/modals/VoiceSettingsModal.svelte';
 
 	const config = getCurrentStyle();
-
-	let { mode = $bindable<PlayerMode>('mini') }: { mode?: PlayerMode } = $props();
 
 	const engine = new TtsPlaybackEngine();
 	const voice = useVoiceProfiles();
 
 	let showProfilePicker = $state(false);
 	let pickerFilter = $state('');
-	let showControls = $state(true);
+	let showControls = $state(false);
 	let hideControlsTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	const filteredProfiles = $derived(
-		pickerFilter.trim() === ''
-			? voice.profiles
-			: voice.profiles.filter((p) =>
-					p.name_prefix.toLowerCase().includes(pickerFilter.trim().toLowerCase())
-				)
-	);
+	const ttsSynthParams = $derived<SynthParams>({
+		numStep: ttsState.config.numStep,
+		guidanceScale: ttsState.config.guidanceScale,
+		speed: ttsState.config.speed,
+		splitLevel: ttsState.config.splitLevel
+	});
 
-	const wheelInitial = $derived<WheelSelection>({
+	const wheelInitial = $derived({
 		profileId: voice.selectedProfileId,
 		audioFile: ttsState.config.refAudioFilename,
 		randomChunk: ttsState.config.randomChunk,
-		synthParams: {
-			numStep: ttsState.config.numStep,
-			guidanceScale: ttsState.config.guidanceScale,
-			speed: ttsState.config.speed,
-			splitLevel: ttsState.config.splitLevel
-		},
+		synthParams: ttsSynthParams,
 		pauseSettings: { ...ttsState.pauseSettings }
 	});
 
-	const amplitudeScale = $derived(mode === 'mini' ? 1.7 : 0.5);
-	const wavelengthScale = 300;
-
-	const waveDrawConfig: WaveformDrawConfig = $derived({
+	const waveDrawConfig: WaveformDrawConfig = {
 		splineSampleStep: 0.4,
-		amplitudeScale,
+		amplitudeScale: 1.7,
 		maxWaveAmplitudePx: 120,
-		wavelengthScale,
+		wavelengthScale: 300,
 		sineFillAlpha: 0.24,
 		strokeWidth: 8
-	});
+	};
 
 	const waveColor = `rgba(255, 255, 255, ${config.strokeAlpha})`;
 
@@ -115,7 +106,7 @@
 	}
 
 	function openProfilePicker() {
-		if (mode !== 'mini' || showProfilePicker) return;
+		if (showProfilePicker) return;
 		pickerFilter = '';
 		showProfilePicker = true;
 	}
@@ -124,26 +115,46 @@
 		showProfilePicker = false;
 	}
 
-	function expandToFull() {
-		showProfilePicker = false;
-		mode = 'full';
-	}
-
 	function handlePickProfile(profile: VoiceProfile) {
 		void voice.handleLiveVoiceChange({ ...wheelInitial, profileId: profile.id });
 		showProfilePicker = false;
 	}
 
 	function handlePlayerClick() {
-		if (mode === 'mini' && !showProfilePicker) {
+		if (!showProfilePicker) {
 			openProfilePicker();
 		}
 	}
 
 	function handlePlayerKeydown(event: KeyboardEvent) {
-		if (mode === 'mini' && !showProfilePicker && (event.key === 'Enter' || event.key === ' ')) {
+		if (!showProfilePicker && (event.key === 'Enter' || event.key === ' ')) {
 			event.preventDefault();
 			openProfilePicker();
+		}
+	}
+
+	function applySynthSettings(value: {
+		audioFile: string;
+		randomChunk: boolean;
+		synthParams: SynthParams;
+		pauseSettings: PauseSettings;
+	}) {
+		ttsState.config.randomChunk = value.randomChunk;
+		ttsState.config.numStep = value.synthParams.numStep;
+		ttsState.config.guidanceScale = value.synthParams.guidanceScale;
+		ttsState.config.speed = value.synthParams.speed;
+		ttsState.config.splitLevel = value.synthParams.splitLevel;
+
+		ttsState.pauseSettings.minGapMs = value.pauseSettings.minGapMs;
+		ttsState.pauseSettings.maxGapMs = value.pauseSettings.maxGapMs;
+		ttsState.pauseSettings.betweenParagraphs = value.pauseSettings.betweenParagraphs;
+
+		if (value.audioFile && value.audioFile !== ttsState.config.refAudioFilename) {
+			const picked = voice.chunks.find((c) => c.audio_file === value.audioFile);
+			if (picked) {
+				ttsState.config.refAudioFilename = picked.audio_file;
+				ttsState.config.refText = picked.text_reference;
+			}
 		}
 	}
 
@@ -152,8 +163,6 @@
 		() => {
 			if (showProfilePicker) {
 				closeProfilePicker();
-			} else if (mode === 'full') {
-				mode = 'mini';
 			} else {
 				handleStop();
 			}
@@ -184,6 +193,7 @@
 
 	onMount(() => {
 		void voice.initProfiles();
+		void mainVoiceState.ensureProfiles();
 	});
 
 	$effect(() => {
@@ -261,25 +271,41 @@
 	});
 </script>
 
+{#snippet profilePicker()}
+	<MiniProfilePicker
+		bind:filter={pickerFilter}
+		profiles={voice.profiles}
+		selectedProfileId={voice.selectedProfileId}
+		onPick={handlePickProfile}
+		management={true}
+		onSettings={() => {
+			showProfilePicker = false;
+			voiceSettingsState.openTts();
+		}}
+		onAddVoice={() => mainVoiceState.runAddVoice()}
+		onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
+		onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
+		onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
+		onProfilesChanged={() => voice.initProfiles()}
+	/>
+{/snippet}
+
 {#if panelVisible}
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		class="tts-player"
-		class:tts-player--mini={mode === 'mini'}
-		class:tts-player--picking={mode === 'mini' && showProfilePicker}
-		role={mode === 'mini' && !showProfilePicker ? 'button' : undefined}
-		aria-label={mode === 'mini' && !showProfilePicker ? 'Select voice' : undefined}
-		tabindex={mode === 'mini' && !showProfilePicker ? 0 : undefined}
+		class="tts-player tts-player--mini"
+		class:tts-player--picking={showProfilePicker}
+		role={!showProfilePicker ? 'button' : undefined}
+		aria-label={!showProfilePicker ? 'Select voice' : undefined}
+		tabindex={!showProfilePicker ? 0 : undefined}
 		onmousemove={handlePlayerMouseMove}
 		onclick={handlePlayerClick}
 		onkeydown={handlePlayerKeydown}
 	>
-		{#if mode === 'full'}
-			<TTSPlayerFull
-				profiles={voice.profiles}
-				chunks={voice.chunks}
-				selection={wheelInitial}
-				onVoiceChange={voice.handleLiveVoiceChange}
+		{#if showProfilePicker}
+			{@render profilePicker()}
+		{:else}
+			<TTSPlayerMini
 				analyser={engine.analyser}
 				{waveColor}
 				drawConfig={waveDrawConfig}
@@ -289,25 +315,23 @@
 				{remainingLabel}
 				onPrimary={handlePrimaryClick}
 				onStop={handleStop}
-				onSettings={() => void mainVoiceState.toggle()}
-			/>
-		{:else}
-			<TTSPlayerMini
-				{showProfilePicker}
-				{filteredProfiles}
-				selectedProfileId={voice.selectedProfileId}
-				bind:filter={pickerFilter}
-				onPickProfile={handlePickProfile}
-				onExpand={expandToFull}
-				analyser={engine.analyser}
-				{waveColor}
-				drawConfig={waveDrawConfig}
-				waveConfig={config}
-				waitingForChunk={engine.waitingForChunk}
 			/>
 		{/if}
 	</div>
 {/if}
+
+<VoiceSettingsModal
+	show={voiceSettingsState.ttsOpen}
+	title="TTS synthesis settings"
+	chunks={voice.chunks}
+	audioFile={ttsState.config.refAudioFilename}
+	randomChunk={ttsState.config.randomChunk}
+	synthParams={ttsSynthParams}
+	pauseSettings={ttsState.pauseSettings}
+	onChange={applySynthSettings}
+	onClose={() => voiceSettingsState.closeTts()}
+	onChunksChanged={() => void voice.loadChunksForProfile(voice.selectedProfileId)}
+/>
 
 <style>
 	.tts-player {

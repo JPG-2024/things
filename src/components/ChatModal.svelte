@@ -134,7 +134,6 @@
 			if (idx !== -1) {
 				messages[idx] = { ...messages[idx], content: streamedText, done: true };
 				if (viewState.autoSpeechEnabled && streamedText.trim()) {
-					viewState.ttsPlayerMode = 'mini';
 					void ensureAudioContext();
 					void ttsState.generateFromClipboard(streamedText);
 				}

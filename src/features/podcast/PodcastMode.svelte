@@ -3,8 +3,11 @@
 	import { cubicOut } from 'svelte/easing';
 	import { onMount, onDestroy } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import VoiceSelector from '@/components/VoiceSelector.svelte';
-	import type { WheelSelection } from '@/types/tts.types';
+	import MiniProfilePicker from '@/components/TTSPlayer/MiniProfilePicker.svelte';
+	import VoiceSettingsModal from '@/components/modals/VoiceSettingsModal.svelte';
+	import { getImage, type VoiceProfile } from '@/lib/utils/ttsService';
+	import { colorFor, initialFor } from '@/lib/utils/avatar';
+	import type { SynthParams } from '@/types/tts.types';
 	import { podcastState } from '@/features/podcast/podcastStore.svelte';
 	import { drawersState, viewState } from '@/stores/viewStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -26,25 +29,18 @@
 	let showTranscript = $state(false);
 	let mode = $state<'mini' | 'full'>('mini');
 	let pickingHost = $state<'A' | 'B' | null>(null);
+	let settingsHost = $state<'A' | 'B' | null>(null);
+	let fullPickerFilter = $state('');
+
+	const DEFAULT_HOST_SYNTH: SynthParams = {
+		numStep: 16,
+		guidanceScale: 2.0,
+		speed: 1.0,
+		splitLevel: 1
+	};
 
 	let hostAChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostAProfileId));
 	let hostBChunks = $derived(podcastState.getChunksForProfile(podcastState.config.hostBProfileId));
-
-	let hostASelection = $derived<WheelSelection>({
-		profileId: podcastState.config.hostAProfileId,
-		audioFile: podcastState.config.hostAChunkFile || hostAChunks[0]?.audio_file || '',
-		randomChunk: podcastState.config.hostARandomChunk,
-		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
-		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
-	});
-
-	let hostBSelection = $derived<WheelSelection>({
-		profileId: podcastState.config.hostBProfileId,
-		audioFile: podcastState.config.hostBChunkFile || hostBChunks[0]?.audio_file || '',
-		randomChunk: podcastState.config.hostBRandomChunk,
-		synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
-		pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
-	});
 
 	const amplitudeScale = 0.8;
 	const wavelengthScale = 300;
@@ -89,7 +85,9 @@
 	createHotkey(
 		'Escape',
 		() => {
-			if (pickingHost !== null) {
+			if (settingsHost !== null) {
+				settingsHost = null;
+			} else if (pickingHost !== null) {
 				pickingHost = null;
 			} else if (mode === 'full') {
 				mode = 'mini';
@@ -197,26 +195,77 @@
 		}
 	}
 
-	function handleHostAChange(sel: WheelSelection) {
-		if (sel.profileId !== podcastState.config.hostAProfileId) {
-			podcastState.config.hostAProfileId = sel.profileId;
+	function handlePickHost(host: 'A' | 'B', profile: VoiceProfile) {
+		if (host === 'A') {
+			podcastState.config.hostAProfileId = profile.id;
 			podcastState.config.hostAChunkFile = '';
 			podcastState.config.hostARandomChunk = true;
-			return;
-		}
-		podcastState.config.hostAChunkFile = sel.audioFile;
-		podcastState.config.hostARandomChunk = sel.randomChunk;
-	}
-
-	function handleHostBChange(sel: WheelSelection) {
-		if (sel.profileId !== podcastState.config.hostBProfileId) {
-			podcastState.config.hostBProfileId = sel.profileId;
+		} else {
+			podcastState.config.hostBProfileId = profile.id;
 			podcastState.config.hostBChunkFile = '';
 			podcastState.config.hostBRandomChunk = true;
-			return;
 		}
-		podcastState.config.hostBChunkFile = sel.audioFile;
-		podcastState.config.hostBRandomChunk = sel.randomChunk;
+		pickingHost = null;
+	}
+
+	const settingsChunks = $derived(
+		settingsHost === 'A' ? hostAChunks : settingsHost === 'B' ? hostBChunks : []
+	);
+
+	const settingsAudioFile = $derived(
+		settingsHost === 'A'
+			? podcastState.config.hostAChunkFile || hostAChunks[0]?.audio_file || ''
+			: settingsHost === 'B'
+				? podcastState.config.hostBChunkFile || hostBChunks[0]?.audio_file || ''
+				: ''
+	);
+
+	const settingsRandomChunk = $derived(
+		settingsHost === 'A'
+			? podcastState.config.hostARandomChunk
+			: settingsHost === 'B'
+				? podcastState.config.hostBRandomChunk
+				: false
+	);
+
+	const settingsSynth = $derived(
+		settingsHost === 'A'
+			? podcastState.config.hostASynthParams
+			: settingsHost === 'B'
+				? podcastState.config.hostBSynthParams
+				: DEFAULT_HOST_SYNTH
+	);
+
+	function applyHostSettings(value: {
+		audioFile: string;
+		randomChunk: boolean;
+		synthParams: SynthParams;
+		pauseSettings: { minGapMs: number; maxGapMs: number; betweenParagraphs: number };
+	}) {
+		const host = settingsHost;
+		if (!host) return;
+		const synth = { ...value.synthParams };
+		if (host === 'A') {
+			podcastState.config.hostAChunkFile = value.audioFile;
+			podcastState.config.hostARandomChunk = value.randomChunk;
+			podcastState.config.hostASynthParams = synth;
+		} else {
+			podcastState.config.hostBChunkFile = value.audioFile;
+			podcastState.config.hostBRandomChunk = value.randomChunk;
+			podcastState.config.hostBSynthParams = synth;
+		}
+	}
+
+	function openHostSettings(host: 'A' | 'B') {
+		settingsHost = host;
+	}
+
+	function hostProfile(host: 'A' | 'B'): VoiceProfile | undefined {
+		return host === 'A' ? podcastState.hostAProfile : podcastState.hostBProfile;
+	}
+
+	function hostIsDimmed(host: 'A' | 'B'): boolean {
+		return podcastState.activeSpeaker !== null && podcastState.activeSpeaker !== host;
 	}
 
 	onMount(() => {
@@ -243,6 +292,11 @@
 				{pickingHost}
 				onOpenPicker={(host) => (pickingHost = host)}
 				onClosePicker={() => (pickingHost = null)}
+				onOpenHostSettings={() => {
+					const host = pickingHost;
+					pickingHost = null;
+					if (host) openHostSettings(host);
+				}}
 				onExpand={() => {
 					pickingHost = null;
 					mode = 'full';
@@ -321,21 +375,61 @@
 					</div>
 				{/if}
 				<div class="podcast-speakers">
-					<VoiceSelector
-						profiles={podcastState.profiles}
-						chunks={hostAChunks}
-						selection={hostASelection}
-						onChange={handleHostAChange}
-						dimmed={podcastState.activeSpeaker !== null && podcastState.activeSpeaker !== 'A'}
-					/>
+					<button
+						type="button"
+						class="podcast-host"
+						class:dimmed={hostIsDimmed('A')}
+						onclick={() => (pickingHost = 'A')}
+						aria-label={hostProfile('A')
+							? `Change Host A voice. Currently ${hostProfile('A')?.name_prefix}`
+							: 'Choose Host A voice'}
+					>
+						<div class="podcast-host__avatar-wrap">
+							{#if hostProfile('A')?.image_src}
+								<img
+									class="podcast-host__avatar"
+									src={getImage(hostProfile('A')?.image_src ?? '')}
+									alt={hostProfile('A')?.name_prefix}
+								/>
+							{:else}
+								<div
+									class="podcast-host__avatar fallback"
+									style="background: {colorFor(hostProfile('A')?.id ?? '')}"
+								>
+									<span>{initialFor(hostProfile('A')?.name_prefix ?? 'A')}</span>
+								</div>
+							{/if}
+						</div>
+						<span class="podcast-host__name">{hostProfile('A')?.name_prefix ?? 'Host A'}</span>
+					</button>
 					<span class="vs-separator">VS</span>
-					<VoiceSelector
-						profiles={podcastState.profiles}
-						chunks={hostBChunks}
-						selection={hostBSelection}
-						onChange={handleHostBChange}
-						dimmed={podcastState.activeSpeaker !== null && podcastState.activeSpeaker !== 'B'}
-					/>
+					<button
+						type="button"
+						class="podcast-host"
+						class:dimmed={hostIsDimmed('B')}
+						onclick={() => (pickingHost = 'B')}
+						aria-label={hostProfile('B')
+							? `Change Host B voice. Currently ${hostProfile('B')?.name_prefix}`
+							: 'Choose Host B voice'}
+					>
+						<div class="podcast-host__avatar-wrap">
+							{#if hostProfile('B')?.image_src}
+								<img
+									class="podcast-host__avatar"
+									src={getImage(hostProfile('B')?.image_src ?? '')}
+									alt={hostProfile('B')?.name_prefix}
+								/>
+							{:else}
+								<div
+									class="podcast-host__avatar fallback"
+									style="background: {colorFor(hostProfile('B')?.id ?? '')}"
+								>
+									<span>{initialFor(hostProfile('B')?.name_prefix ?? 'B')}</span>
+								</div>
+							{/if}
+						</div>
+						<span class="podcast-host__name">{hostProfile('B')?.name_prefix ?? 'Host B'}</span>
+					</button>
 				</div>
 
 				<div class="podcast-canvas-container">
@@ -444,6 +538,28 @@
 		{/if}
 	{/if}
 
+	{#if mode === 'full' && pickingHost}
+		<div class="podcast-picker-overlay">
+			<MiniProfilePicker
+				bind:filter={fullPickerFilter}
+				profiles={podcastState.profiles}
+				selectedProfileId={pickingHost === 'A'
+					? podcastState.config.hostAProfileId
+					: podcastState.config.hostBProfileId}
+				label={pickingHost === 'A' ? 'Host A' : 'Host B'}
+				onPick={(profile) => handlePickHost(pickingHost ?? 'A', profile)}
+				actionIcon="X"
+				actionLabel="Close picker"
+				onAction={() => (pickingHost = null)}
+				onSettings={() => {
+					const host = pickingHost;
+					pickingHost = null;
+					if (host) openHostSettings(host);
+				}}
+			/>
+		</div>
+	{/if}
+
 	{#if podcastState.errorMessage}
 		<div class="podcast-error">
 			<span>{podcastState.errorMessage}</span>
@@ -459,6 +575,26 @@
 		</div>
 	{/if} -->
 </div>
+
+<VoiceSettingsModal
+	show={settingsHost !== null}
+	title={settingsHost === 'A' ? 'Host A synthesis settings' : 'Host B synthesis settings'}
+	chunks={settingsChunks}
+	audioFile={settingsAudioFile}
+	randomChunk={settingsRandomChunk}
+	synthParams={settingsSynth}
+	pauseSettings={{ minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }}
+	showPauses={false}
+	onChange={applyHostSettings}
+	onClose={() => (settingsHost = null)}
+	onChunksChanged={() => {
+		const id =
+			settingsHost === 'A'
+				? podcastState.config.hostAProfileId
+				: podcastState.config.hostBProfileId;
+		void podcastState.refreshChunks(id);
+	}}
+/>
 
 <style>
 	.podcast-mode {
@@ -580,6 +716,78 @@
 		gap: 1.5rem;
 		padding: 0.5rem 0;
 		flex-shrink: 0;
+	}
+
+	.podcast-host {
+		all: unset;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.4rem;
+		transition: opacity 0.25s ease;
+	}
+
+	.podcast-host:hover {
+		opacity: 0.85;
+	}
+
+	.podcast-host.dimmed {
+		opacity: 0.4;
+	}
+
+	.podcast-host__avatar-wrap {
+		width: 100px;
+		height: 100px;
+		border-radius: 999px;
+		overflow: hidden;
+		transition: box-shadow 240ms ease;
+	}
+
+	.podcast-host:hover .podcast-host__avatar-wrap {
+		box-shadow: 0 0 0 2px var(--primary-color);
+	}
+
+	.podcast-host__avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		box-sizing: border-box;
+	}
+
+	.podcast-host__avatar.fallback {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		font-weight: bold;
+		font-size: 1.5rem;
+		user-select: none;
+	}
+
+	.podcast-host__name {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: white;
+		max-width: 120px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.podcast-picker-overlay {
+		position: absolute;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(720px, 90vw);
+		padding: 1rem 1.25rem;
+		background: rgba(9, 9, 9, 0.96);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: var(--radius-lg);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+		z-index: 10;
 	}
 
 	.status-label {

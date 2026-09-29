@@ -7,7 +7,7 @@
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import Button from './inputs/Button.component.svelte';
-	import EmojiString from './EmojiString.svelte';
+	import CategoryItem from './CategoryItem.svelte';
 
 	let isEditing = $state(false);
 
@@ -121,7 +121,7 @@
 						disabled={isEditing}
 						onclick={() => toggleCategory(category.id)}
 					>
-						<EmojiString value={category.name} active={isSelected(category.id)} />
+						<CategoryItem value={category.name} active={isSelected(category.id)} />
 					</button>
 				</Tooltip>
 				{#if isEditing}
@@ -169,7 +169,7 @@
 		{#each filteredCategories as category (category.id)}
 			<div class="category-edit">
 				<span class="category-edit-name"
-					><EmojiString value={category.name} active={isSelected(category.id)} /></span
+					><CategoryItem value={category.name} active={isSelected(category.id)} /></span
 				>
 				<input
 					autocomplete="off"

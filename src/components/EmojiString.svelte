@@ -46,7 +46,7 @@
 		font-family: 'BetterVCR', monospace;
 		font-size: var(--emoji-string-font-size, 0.7rem);
 		line-height: 1.2;
-		color: white;
+		color: var(--emoji-string-text-color, white);
 		font-weight: bold;
 	}
 

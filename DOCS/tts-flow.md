@@ -49,7 +49,6 @@ The same pattern exists in `webWorkflow.ts` and `rawWorkflow.ts`. The `freshRun`
 **`src/components/ChatModal.svelte`** — After a streamed assistant response completes (if `viewState.autoSpeechEnabled`):
 
 ```ts
-viewState.ttsPlayerMode = 'mini';
 void ttsState.generateFromClipboard(streamedText);
 ```
 

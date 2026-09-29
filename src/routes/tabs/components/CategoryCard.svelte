@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
-	import EmojiString from '@/components/EmojiString.svelte';
+	import CategoryItem from '@/components/CategoryItem.svelte';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 
@@ -23,7 +23,7 @@
 
 <Card>
 	<button type="button" class="category-header" onclick={handleCategoryClick}>
-		<EmojiString value={category.categoryName} />
+		<CategoryItem value={category.categoryName} />
 	</button>
 	{#if previewArticles.length > 0}
 		<div class="category-thumbnails">

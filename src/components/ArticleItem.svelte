@@ -5,7 +5,7 @@
 	import { toVTName } from '@/lib/utils/url';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import EmojiString from './EmojiString.svelte';
+	import CategoryItem from './CategoryItem.svelte';
 	import Keywords from './Keywords.svelte';
 	import type { LayoutKey } from './MasonryGrid.svelte';
 
@@ -104,7 +104,7 @@
 	{#if categories.length > 0}
 		<div class="article-categories">
 			{#each categories as category, categoryIndex (`${category}-${categoryIndex}`)}
-				<span class="article-category-pill"><EmojiString value={categoryLabel(category)} /></span>
+				<span class="article-category-pill"><CategoryItem value={categoryLabel(category)} /></span>
 			{/each}
 		</div>
 	{/if}
@@ -257,8 +257,8 @@
 	}
 
 	.article-card {
-		--keywords-font-size: 0.7rem;
-		--pill-font-size: 0.6rem;
+		--keywords-font-size: 0.8rem;
+		--pill-font-size: 0.75rem;
 	}
 
 	.article-profile-avatar {

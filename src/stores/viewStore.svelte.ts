@@ -1,9 +1,6 @@
-import type { PlayerMode } from '@/lib/ttsPlayerConfig';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
 import type { WebStoreCategoryRecord } from '@/stores/webStore';
-import type { WheelSelection } from '@/types/tts.types';
-import type { Voice, VoiceProfile } from '@/lib/utils/ttsService';
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface RawSearchMatch {
@@ -53,7 +50,6 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(false);
 	selectedTaskId = $state('title-summary');
-	ttsPlayerMode = $state<PlayerMode>('mini');
 	masonryArticlesLayoutIndex = $state(1);
 	masonryArticlesColumnOffset = $state(0);
 	masonryArticlesContentMode = $state<ArticleContentMode>('both');
@@ -184,51 +180,24 @@ class DrawersState {
 
 export const drawersState = new DrawersState();
 
-const DEFAULT_SELECTION: WheelSelection = {
-	profileId: '',
-	audioFile: '',
-	randomChunk: false,
-	synthParams: { numStep: 16, guidanceScale: 2.0, speed: 1.0, splitLevel: 1 },
-	pauseSettings: { minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 }
-};
+/**
+ * Global open state for the TTS synthesis settings modal, so the toolbar button
+ * and the `,` hotkey can reach it from anywhere.
+ */
+class VoiceSettingsState {
+	ttsOpen = $state(false);
 
-class VoiceWheelState {
-	open = $state(false);
-	mode = $state<'main' | 'select'>('select');
-	profiles = $state<VoiceProfile[]>([]);
-	chunks = $state<Voice[]>([]);
-	selection = $state<WheelSelection>({ ...DEFAULT_SELECTION });
-	private _onCommit: ((sel: WheelSelection) => void) | null = null;
-	private _onChunksChanged: (() => void) | undefined;
-
-	openWheel(
-		profiles: VoiceProfile[],
-		chunks: Voice[],
-		selection: WheelSelection,
-		onCommit: (sel: WheelSelection) => void,
-		onChunksChanged?: () => void,
-		mode: 'main' | 'select' = 'select'
-	) {
-		this.profiles = profiles;
-		this.chunks = chunks;
-		this.selection = selection;
-		this._onCommit = onCommit;
-		this._onChunksChanged = onChunksChanged;
-		this.mode = mode;
-		this.open = true;
+	openTts() {
+		this.ttsOpen = true;
 	}
 
-	commit(sel: WheelSelection) {
-		this._onCommit?.(sel);
+	closeTts() {
+		this.ttsOpen = false;
 	}
 
-	close() {
-		this.open = false;
-	}
-
-	get onChunksChanged(): (() => void) | undefined {
-		return this._onChunksChanged;
+	toggleTts() {
+		this.ttsOpen = !this.ttsOpen;
 	}
 }
 
-export const voiceWheelState = new VoiceWheelState();
+export const voiceSettingsState = new VoiceSettingsState();

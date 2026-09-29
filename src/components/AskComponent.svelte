@@ -184,7 +184,6 @@
 		} finally {
 			loading = false;
 			if (viewState.autoSpeechEnabled && streamedText.trim()) {
-				viewState.ttsPlayerMode = 'mini';
 				ttsState.generateFromClipboard(streamedText);
 			}
 		}

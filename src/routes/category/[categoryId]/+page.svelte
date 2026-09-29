@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import EmojiString from '@/components/EmojiString.svelte';
+	import CategoryItem from '@/components/CategoryItem.svelte';
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
@@ -52,7 +52,7 @@
 	</div>
 
 	<div class="category-header">
-		<h1 class="category-name"><EmojiString value={categoryName} /></h1>
+		<h1 class="category-name"><CategoryItem value={categoryName} /></h1>
 		{#if categoryDescription}
 			<p class="category-description">{categoryDescription}</p>
 		{/if}
