@@ -17,6 +17,11 @@ export type CategoryEmbeddingSource = {
 };
 
 const QUERY_KEYWORD_LIMIT = 15;
+const QUERY_TOPIC_LIMIT = 30;
+// Only used as a fallback when no compact fields are available; a full
+// `analysisTopic` summary is an entire merged document and would overflow the
+// embeddings context.
+const QUERY_SUMMARY_LIMIT = 2000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -38,8 +43,10 @@ export function buildCategoryText(name: string, description?: string | null): st
 /**
  * Derive the text used to query the category index from an analysis task result.
  *
- * Handles the recursive `{ chunks, finalResponse }` shape (using the multi
- * `summary` + `keywords`), a bare string, or a flat string array. Returns an
+ * Handles the recursive `{ chunks, finalResponse }` shape (preferring the
+ * compact `topics` + `keywords` the analysis processors emit), a bare string,
+ * or a flat string array. `summary` is only used as a capped fallback so a full
+ * `analysisTopic` document cannot overflow the embeddings context. Returns an
  * empty string when there is nothing usable to compare.
  */
 export function buildCategoryQueryText(taskData: unknown): string {
@@ -51,9 +58,13 @@ export function buildCategoryQueryText(taskData: unknown): string {
 	if (typeof source === 'string') return source.trim();
 	if (Array.isArray(source)) return uniqueStrings(source).join(', ');
 	if (isRecord(source)) {
-		const summary = typeof source.summary === 'string' ? source.summary.trim() : '';
+		const topics = uniqueStrings(source.topics, QUERY_TOPIC_LIMIT);
 		const keywords = uniqueStrings(source.keywords, QUERY_KEYWORD_LIMIT);
-		return [summary, keywords.join(', ')].filter(Boolean).join('\n').trim();
+		const compact = [topics.join(', '), keywords.join(', ')].filter(Boolean);
+		if (compact.length > 0) return compact.join('\n').trim();
+
+		const summary = typeof source.summary === 'string' ? source.summary.trim() : '';
+		return summary.slice(0, QUERY_SUMMARY_LIMIT).trim();
 	}
 
 	return '';
