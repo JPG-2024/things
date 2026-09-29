@@ -10,7 +10,6 @@ import type { WheelSelection } from '@/types/tts.types';
 export function useVoiceProfiles() {
 	let profiles = $state<VoiceProfile[]>([]);
 	let chunks = $state<Voice[]>([]);
-	let selectedProfileId = $state('');
 
 	async function loadChunksForProfile(profileId: string, silent = false): Promise<void> {
 		try {
@@ -28,7 +27,7 @@ export function useVoiceProfiles() {
 	async function handleVoiceChange(sel: WheelSelection): Promise<void> {
 		const profile = profiles.find((p) => p.id === sel.profileId);
 		if (profile) {
-			selectedProfileId = profile.id;
+			ttsState.selectedProfileId = profile.id;
 			ttsState.namePrefix = profile.name_prefix;
 			await loadChunksForProfile(profile.id);
 			const firstChunk = chunks[0];
@@ -65,8 +64,8 @@ export function useVoiceProfiles() {
 		}
 
 		const profile = profiles.find((p) => p.id === sel.profileId);
-		if (profile && profile.id !== selectedProfileId) {
-			selectedProfileId = profile.id;
+		if (profile && profile.id !== ttsState.selectedProfileId) {
+			ttsState.selectedProfileId = profile.id;
 			ttsState.namePrefix = profile.name_prefix;
 			void loadChunksForProfile(profile.id).then(() => {
 				const idx = sel.randomChunk
@@ -90,9 +89,11 @@ export function useVoiceProfiles() {
 	async function initProfiles(): Promise<void> {
 		try {
 			profiles = await fetchVoiceProfiles(true);
-			const match = profiles.find((p) => p.name_prefix === ttsState.namePrefix);
+			const resolvedId = ttsState.resolveProfileId(profiles);
+			const match = profiles.find((p) => p.id === resolvedId);
 			if (match) {
-				selectedProfileId = match.id;
+				ttsState.selectedProfileId = match.id;
+				ttsState.namePrefix = match.name_prefix;
 				await loadChunksForProfile(match.id, true);
 			}
 		} catch (err) {
@@ -111,10 +112,10 @@ export function useVoiceProfiles() {
 			return chunks;
 		},
 		get selectedProfileId() {
-			return selectedProfileId;
+			return ttsState.selectedProfileId;
 		},
 		set selectedProfileId(value: string) {
-			selectedProfileId = value;
+			ttsState.selectedProfileId = value;
 		},
 		loadChunksForProfile,
 		handleVoiceChange,

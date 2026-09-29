@@ -39,7 +39,7 @@
 		onSaveRecording?: (
 			blob: Blob,
 			opts: { namePrefix: string; imageSrc?: string }
-		) => Promise<boolean>;
+		) => Promise<string | null>;
 	};
 
 	let {
@@ -366,11 +366,17 @@
 
 		recordingSaving = true;
 		try {
-			const ok = await onSaveRecording?.(recordedBlob, {
+			const savedId = await onSaveRecording?.(recordedBlob, {
 				namePrefix,
 				imageSrc: target ? undefined : saveImageSrc.trim() || undefined
 			});
-			if (ok !== false) recordingSaved = true;
+			if (savedId) {
+				draftProfileId = savedId;
+				saveTargetProfileId = savedId;
+				if (filterText.trim()) filterText = '';
+				recordingSaved = true;
+				panelView = 'wheel';
+			}
 		} finally {
 			recordingSaving = false;
 		}

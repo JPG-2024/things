@@ -13,6 +13,9 @@ import type {
 	MultiChunkData,
 	MultiFinal,
 	MultiChunkProcessor,
+	AnalysisTopicChunkData,
+	AnalysisTopicFinal,
+	AnalysisTopicChunkProcessor,
 	ChunkProcessorConfig,
 	AnyChunkProcessor
 } from '@/runners/shared/processors';
@@ -32,12 +35,12 @@ export type ChunkOffset = {
 
 export type RecursiveChunk = {
 	key: ChunkOffset;
-	data: string[] | MultiChunkData;
+	data: string[] | MultiChunkData | AnalysisTopicChunkData;
 };
 
 export type RecursiveContentResult = {
 	chunks: RecursiveChunk[];
-	finalResponse: string | string[] | MultiFinal;
+	finalResponse: string | string[] | MultiFinal | AnalysisTopicFinal;
 	windowDivisor?: number;
 };
 
@@ -57,6 +60,8 @@ export interface RecursiveConfig {
 	customSystemMsg?: string;
 	multiFields?: MultiFieldSpec[];
 	localFinal?: boolean;
+	topicCount?: number;
+	keywordCount?: number;
 }
 
 export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
@@ -74,6 +79,8 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	model?: string;
 	completionOptions?: Record<string, unknown>;
 	multiFields?: MultiFieldSpec[];
+	topicCount?: number;
+	keywordCount?: number;
 };
 
 type Chunking = Pick<
@@ -211,7 +218,9 @@ function resolveProcessorConfig(
 		completionOptions: options.completionOptions ?? { ...SUMMARY_COMPLETION_OPTIONS, model },
 		combineMode: options.combineMode ?? (isMulti ? undefined : 'join'),
 		multiFields: options.multiFields,
-		localFinal: options.localFinal
+		localFinal: options.localFinal,
+		topicCount: options.topicCount,
+		keywordCount: options.keywordCount
 	};
 }
 
@@ -230,6 +239,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 	const model = resolveModel(options);
 	const chunking = resolveChunking(options);
 	const isMulti = options.processorType === 'multi' || options.multiFields !== undefined;
+	const isAnalysisTopic = options.processorType === 'analysisTopic';
 	const processorType: ProcessorType = isMulti
 		? 'multi'
 		: (options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize'));
@@ -256,7 +266,9 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		targetLang: options.targetLang,
 		customSystemMsg: options.customSystemMsg,
 		multiFields: options.multiFields,
-		localFinal: options.localFinal
+		localFinal: options.localFinal,
+		topicCount: options.topicCount,
+		keywordCount: options.keywordCount
 	};
 
 	return buildScriptTaskFromDef(
@@ -265,7 +277,9 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 			name: options.name,
 			subtype: 'recursive',
 			dependencies: options.dependencies ?? ['content'],
-			component: options.component ?? (isMulti ? 'multiAnalysis' : 'recursive'),
+			component:
+				options.component ??
+				(isMulti ? 'multiAnalysis' : isAnalysisTopic ? 'analysisTopic' : 'recursive'),
 			componentProps: mergeComponentProps(options.componentProps, recursiveConfig),
 			gridSpan: options.gridSpan,
 			renderOrder: options.renderOrder,
@@ -308,20 +322,34 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 
 						for (let i = 0; i < sections.length; i++) {
 							const result = await processor.processChunk(sections[i], i);
-							chunks.push({ key: chunkOffsets[i], data: result as string[] | MultiChunkData });
+							chunks.push({
+								key: chunkOffsets[i],
+								data: result as string[] | MultiChunkData | AnalysisTopicChunkData
+							});
 							update({
 								data: {
 									chunks: [...chunks],
-									finalResponse: isMulti ? { summary: '', keywords: [], topics: [] } : ''
+									finalResponse: isMulti
+										? { summary: '', keywords: [], topics: [] }
+										: isAnalysisTopic
+											? { summary: '', keywords: [], topics: [], sections: [] }
+											: ''
 								}
 							});
 						}
 
-						let finalResponse: string | string[] | MultiFinal;
+						let finalResponse: string | string[] | MultiFinal | AnalysisTopicFinal;
 						if (isMulti) {
 							const multiProcessor = processor as import('./processors').MultiChunkProcessor;
 							const multiData = chunks.map((c) => c.data as MultiChunkData);
 							finalResponse = await multiProcessor.combineChunks(multiData, sections);
+						} else if (isAnalysisTopic) {
+							const analysisTopicProcessor = processor as AnalysisTopicChunkProcessor;
+							const analysisTopicData = chunks.map((c) => c.data as AnalysisTopicChunkData);
+							finalResponse = await analysisTopicProcessor.combineChunks(
+								analysisTopicData,
+								sections
+							);
 						} else {
 							const flatData = chunks.flatMap((c) => c.data as string[]);
 							const singleProcessor = processor as import('./processors').ChunkProcessor;

@@ -103,9 +103,17 @@
 		font-weight: bold;
 	}
 
+	.markdown-container :global(h2) {
+		font-family: 'BetterVCR', monospace;
+		font-size: 0.9rem;
+		padding-top: 3rem;
+		padding-bottom: 1.2rem;
+	}
+
 	.markdown-container :global(p) {
-		margin: 0.8rem 0;
+		margin: 0.8rem;
 		line-height: 1.9;
+		text-indent: 20px;
 	}
 
 	.markdown-container :global(code) {

@@ -9,6 +9,7 @@ import ListItems from '@/components/ListItems.svelte';
 import ProfileTaskComponent from '@/components/Tasks/ProfileTaskComponent.svelte';
 import RecursiveTaskComponent from '@/components/Tasks/RecursiveTaskComponent.svelte';
 import MultiAnalysisTaskComponent from '@/components/Tasks/MultiAnalysisTaskComponent.svelte';
+import AnalysisTopicComponent from '@/components/Tasks/AnalysisTopicComponent.svelte';
 import TaskTitleComponent from '@/components/Tasks/TaskTitleComponent.svelte';
 
 export const taskRenderRegistry: Record<string, Component<Record<string, unknown>>> = {
@@ -22,5 +23,6 @@ export const taskRenderRegistry: Record<string, Component<Record<string, unknown
 	profile: ProfileTaskComponent,
 	recursive: RecursiveTaskComponent,
 	multiAnalysis: MultiAnalysisTaskComponent,
+	analysisTopic: AnalysisTopicComponent,
 	taskTitle: TaskTitleComponent
 };

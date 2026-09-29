@@ -133,6 +133,8 @@
 	let recCustomSystemMsg = $state('');
 	let recMultiKeywordsCount = $state('4');
 	let recMultiTopicsCount = $state('3');
+	let recTopicCount = $state('3');
+	let recKeywordCount = $state('4');
 	let recOriginalProcessorType = $state<ProcessorType>('summarize');
 	let recOriginalCombineMode = $state<CombineMode>('llm');
 	let recOriginalExtCount = $state('');
@@ -236,6 +238,8 @@
 			const multiFields = cfg?.multiFields;
 			recMultiKeywordsCount = String(multiFields?.find((f) => f.key === 'keywords')?.count ?? 4);
 			recMultiTopicsCount = String(multiFields?.find((f) => f.key === 'topics')?.count ?? 3);
+			recTopicCount = String(cfg?.topicCount ?? 3);
+			recKeywordCount = String(cfg?.keywordCount ?? 4);
 			recOriginalProcessorType = recProcessorType;
 			recOriginalCombineMode = recCombineMode;
 			recOriginalExtCount = recExtCount;
@@ -267,6 +271,8 @@
 			recExtDescription = 'keywords';
 			recTargetLang = 'Spanish';
 			recCustomSystemMsg = '';
+			recTopicCount = '3';
+			recKeywordCount = '4';
 			recOriginalProcessorType = 'summarize';
 			recOriginalCombineMode = 'llm';
 			recOriginalExtCount = '';
@@ -621,6 +627,9 @@
 				model: viewState.aiModel,
 				extractorConfig,
 				multiFields,
+				topicCount: recProcessorType === 'analysisTopic' ? Number(recTopicCount) || 3 : undefined,
+				keywordCount:
+					recProcessorType === 'analysisTopic' ? Number(recKeywordCount) || 4 : undefined,
 				localFinal: existingCfg?.localFinal,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
@@ -655,6 +664,9 @@
 				model: viewState.aiModel,
 				extractorConfig,
 				multiFields,
+				topicCount: recProcessorType === 'analysisTopic' ? Number(recTopicCount) || 3 : undefined,
+				keywordCount:
+					recProcessorType === 'analysisTopic' ? Number(recKeywordCount) || 4 : undefined,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder,
@@ -861,7 +873,8 @@
 							{ label: 'Extraction', value: 'extraction' },
 							{ label: 'Translate', value: 'translate' },
 							{ label: 'Custom', value: 'custom' },
-							{ label: 'Multi', value: 'multi' }
+							{ label: 'Multi', value: 'multi' },
+							{ label: 'Topic analysis', value: 'analysisTopic' }
 						]}
 					/>
 				</div>
@@ -875,6 +888,9 @@
 				{:else if recProcessorType === 'multi'}
 					<Input bind:value={recMultiKeywordsCount} label="Keywords count" />
 					<Input bind:value={recMultiTopicsCount} label="Topics count" />
+				{:else if recProcessorType === 'analysisTopic'}
+					<Input bind:value={recTopicCount} label="Topics count" />
+					<Input bind:value={recKeywordCount} label="Keywords count" />
 				{/if}
 				{#if recProcessorType === 'summarize'}
 					<Input bind:value={recUserMessage} label="Per-chunk prompt" />

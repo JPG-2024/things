@@ -10,12 +10,20 @@ import {
 } from '@/lib/utils/ttsService';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { viewState, voiceWheelState } from '@/stores/viewStore.svelte';
+import { settingsPersistence } from '@/stores/settingsStore.svelte';
 
 class MainVoiceState {
 	profiles = $state<VoiceProfile[]>([]);
 	chunks = $state<Voice[]>([]);
 	loading = $state(false);
-	selectedProfileId = $state('');
+
+	get selectedProfileId(): string {
+		return ttsState.selectedProfileId;
+	}
+
+	set selectedProfileId(value: string) {
+		ttsState.selectedProfileId = value;
+	}
 
 	async open(): Promise<void> {
 		await this.load();
@@ -60,10 +68,12 @@ class MainVoiceState {
 		this.loading = true;
 		try {
 			this.profiles = await fetchVoiceProfiles();
-			const match = this.profiles.find((p) => p.name_prefix === ttsState.namePrefix);
+			const resolvedId = ttsState.resolveProfileId(this.profiles);
+			const match = this.profiles.find((p) => p.id === resolvedId);
 			if (match) {
 				this.selectedProfileId = match.id;
-				if (match.language) {
+				ttsState.namePrefix = match.name_prefix;
+				if (match.language && !settingsPersistence.languagePersisted) {
 					viewState.language = match.language as 'en' | 'es';
 				}
 				await this.loadChunksForProfile(match.id);
@@ -97,7 +107,7 @@ class MainVoiceState {
 		const profile = this.profiles.find((p) => p.id === id);
 		if (!profile) return;
 		ttsState.namePrefix = profile.name_prefix;
-		if (profile.language) {
+		if (profile.language && !settingsPersistence.languagePersisted) {
 			viewState.language = profile.language as 'en' | 'es';
 		}
 		await this.loadChunksForProfile(profile.id);
@@ -147,7 +157,7 @@ class MainVoiceState {
 	async saveRecording(
 		blob: Blob,
 		opts: { namePrefix: string; imageSrc?: string }
-	): Promise<boolean> {
+	): Promise<string | null> {
 		try {
 			const result = await uploadVoiceFromAudio(blob, opts);
 			this.profiles = await fetchVoiceProfiles();
@@ -160,10 +170,14 @@ class MainVoiceState {
 				ttsState.config.refText = chunk.text_reference;
 			}
 			ttsState.namePrefix = result.name_prefix;
-			return true;
+			voiceWheelState.selection = {
+				...voiceWheelState.selection,
+				profileId: result.profile_id
+			};
+			return result.profile_id;
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to save recorded voice';
-			return false;
+			return null;
 		}
 	}
 

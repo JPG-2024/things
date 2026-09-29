@@ -5,7 +5,8 @@ import {
 	buildSpeechParams,
 	sanitizeForTTS,
 	parseSSE,
-	type Voice
+	type Voice,
+	type VoiceProfile
 } from '@/lib/utils/ttsService';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
@@ -110,6 +111,8 @@ class TTSState {
 
 	videoUrl = $state('');
 	segment = $state('00:00-01:00');
+	/** Single source of truth for the active TTS voice profile. */
+	selectedProfileId = $state('');
 	namePrefix = $state('@ia_innova');
 	chunkCount = $state(1);
 	imageSrc = $state('');
@@ -132,6 +135,25 @@ class TTSState {
 
 	setVoiceChunks(chunks: Voice[]): void {
 		this.voiceChunks = chunks;
+		if (chunks.length === 0) return;
+		// Silently drop a persisted reference chunk that no longer exists.
+		if (!chunks.some((c) => c.audio_file === this.config.refAudioFilename)) {
+			this.config.refAudioFilename = chunks[0].audio_file;
+			this.config.refText = chunks[0].text_reference;
+		}
+	}
+
+	/**
+	 * Resolves the active profile id: current id if still valid, else a match by
+	 * name, else the first available profile. Never returns an unknown id.
+	 */
+	resolveProfileId(profiles: VoiceProfile[]): string {
+		if (this.selectedProfileId && profiles.some((p) => p.id === this.selectedProfileId)) {
+			return this.selectedProfileId;
+		}
+		const byName = profiles.find((p) => p.name_prefix === this.namePrefix);
+		if (byName) return byName.id;
+		return profiles[0]?.id ?? '';
 	}
 
 	clearPlaylist(): void {

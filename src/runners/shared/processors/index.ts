@@ -4,6 +4,7 @@ import { extractionProcessor } from './extraction';
 import { translateProcessor } from './translate';
 import { customProcessor } from './custom';
 import { multiProcessor } from './multi';
+import { analysisTopicProcessor } from './analysisTopic';
 
 const registry = new Map<ProcessorType, ProcessorDef>();
 
@@ -16,6 +17,7 @@ register(extractionProcessor);
 register(translateProcessor);
 register(customProcessor);
 register(multiProcessor);
+register(analysisTopicProcessor);
 
 export function getProcessor(type: ProcessorType): ProcessorDef {
 	const def = registry.get(type);
@@ -36,5 +38,9 @@ export type {
 	MultiChunkProcessor,
 	AnyChunkProcessor,
 	MultiChunkData,
-	MultiFinal
+	MultiFinal,
+	TopicSection,
+	AnalysisTopicChunkData,
+	AnalysisTopicFinal,
+	AnalysisTopicChunkProcessor
 } from './types';

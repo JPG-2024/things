@@ -200,7 +200,7 @@ export async function youTubeRunner(
 		skipTaskIds: config?.skipTaskIds,
 		templateId: config?.templateId,
 		articleOverrides: config?.articleOverrides,
-		defaultTasksFactory: () => createDefaultTasks('content'),
+		defaultTasksFactory: () => createDefaultTasks('content', { analysis: 'analysisTopic' }),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			if (profileFetchPromise) {
 				await profileFetchPromise;

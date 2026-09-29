@@ -127,3 +127,19 @@ export function buildMultiFieldSystemMessage(langName?: string): string {
 export function buildMultiFieldUserMessage(keywordCount: number, topicCount: number): string {
 	return `Analyze this section. make a middle long summary as a takeaway info, avoid titles, just start with: this section describes..". keywords: exactly ${keywordCount} specific keywords. explanatory topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
 }
+
+// ── Analysis topic (topic extraction → per-topic summary → keywords) ──
+export const ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE =
+	'You are a professional content summarizer. Write a brief, focused summary about the requested topic, only the summary. No titles, no markdown.';
+
+export function buildAnalysisTopicSummarySystemMessage(langName?: string): string {
+	if (!langName) return ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE;
+	return `${ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE} Write the summary in ${langName}.`;
+}
+
+export function buildAnalysisTopicSummaryUserMessage(topic: string): string {
+	return `Summarize what this section says specifically about the topic "${topic}"`;
+}
+
+export const ANALYSIS_TOPIC_TOPIC_DESCRIPTION = 'main topics';
+export const ANALYSIS_TOPIC_KEYWORD_DESCRIPTION = 'specific keywords';

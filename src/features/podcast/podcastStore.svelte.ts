@@ -109,6 +109,12 @@ class PodcastState {
 
 	profiles = $state<VoiceProfile[]>([]);
 
+	/**
+	 * Set when a persisted podcast config was loaded. While true, hosts are
+	 * never auto-randomized; only invalid references are cleared silently.
+	 */
+	hostsHydrated = false;
+
 	private _voiceChunks: Map<string, Voice[]> = new Map();
 	private _blobs: Map<string, AudioBlobEntry> = new Map();
 	private _preparePromises: Map<string, Promise<void>> = new Map();
@@ -153,7 +159,12 @@ class PodcastState {
 					// silently skip profiles with failed chunks
 				}
 			}
-			this.randomizeHostsIfUnset();
+			if (this.hostsHydrated) {
+				if (!this.isValidHostId(this.config.hostAProfileId)) this.config.hostAProfileId = '';
+				if (!this.isValidHostId(this.config.hostBProfileId)) this.config.hostBProfileId = '';
+			} else {
+				this.randomizeHostsIfUnset();
+			}
 		} catch (err) {
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to load voice profiles';
 		}

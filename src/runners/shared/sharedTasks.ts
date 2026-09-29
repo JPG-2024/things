@@ -1,9 +1,13 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { viewState } from '@/stores/viewStore.svelte';
-import { buildRecursiveTask } from '@/runners/shared/recursiveTask';
+import { buildRecursiveTask, type RecursiveTaskOptions } from '@/runners/shared/recursiveTask';
 import { buildTask, createCategoryTask, createTitleTask } from '@/runners/shared/taskFactories';
 import { DEFAULT_MULTI_FIELDS } from '@/runners/shared/processors/multi';
+import {
+	DEFAULT_KEYWORD_COUNT,
+	DEFAULT_TOPIC_COUNT
+} from '@/runners/shared/processors/analysisTopic';
 import type { Task } from '@/types/taskRunner.types';
 import {
 	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
@@ -69,17 +73,21 @@ export async function generateCategoryDescription(name: string): Promise<string>
 
 export const DEFAULT_TASK_IDS = ['analysis', 'category', 'title'] as const;
 
+export type DefaultAnalysisKind = 'multi' | 'analysisTopic';
+
 export function createDefaultTasks(
 	contentDependency: string = 'content',
-	options: { splitByHeaders?: boolean } = {}
+	options: {
+		splitByHeaders?: boolean;
+		analysis?: DefaultAnalysisKind;
+		topicCount?: number;
+		keywordCount?: number;
+	} = {}
 ): Task[] {
-	const analysisDef = buildRecursiveTask('analysis', {
-		processorType: 'multi',
-		combineMode: 'llm',
-		multiFields: DEFAULT_MULTI_FIELDS,
+	const analysisKind: DefaultAnalysisKind = options.analysis ?? 'multi';
+
+	const shared: RecursiveTaskOptions = {
 		dependencies: [contentDependency],
-		component: 'multiAnalysis',
-		localFinal: true,
 		persist: true,
 		renderOrder: 3,
 		gridSpan: 2,
@@ -89,7 +97,25 @@ export function createDefaultTasks(
 		embeddings: true,
 		storeChunkText: true,
 		embedField: 'topics'
-	});
+	};
+
+	const kindOptions: RecursiveTaskOptions =
+		analysisKind === 'analysisTopic'
+			? {
+					processorType: 'analysisTopic',
+					component: 'analysisTopic',
+					topicCount: options.topicCount ?? DEFAULT_TOPIC_COUNT,
+					keywordCount: options.keywordCount ?? DEFAULT_KEYWORD_COUNT
+				}
+			: {
+					processorType: 'multi',
+					component: 'multiAnalysis',
+					combineMode: 'llm',
+					multiFields: DEFAULT_MULTI_FIELDS,
+					localFinal: true
+				};
+
+	const analysisDef = buildRecursiveTask('analysis', { ...shared, ...kindOptions });
 
 	const categoryDef = createCategoryTask({
 		persist: true,

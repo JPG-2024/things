@@ -12,6 +12,7 @@
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { mainVoiceState } from '@/stores/mainVoice.svelte';
+	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
 
 	import VoiceProfileWheel from '@/components/modals/VoiceProfileWheel.svelte';
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
@@ -234,6 +235,10 @@
 		})
 	);
 
+	onMount(() => {
+		startSettingsPersistence();
+	});
+
 	let consecutiveClipboardErrors = 0;
 	const MAX_CONSECUTIVE_CLIPBOARD_ERRORS = 5;
 
@@ -443,7 +448,7 @@
 			0 0 15px color-mix(in srgb, white 40%, transparent);
 
 		--gray-100: rgb(219, 219, 219);
-		--gray-200: rgb(246, 246, 246);
+		--gray-200: rgb(196, 194, 194);
 
 		color: var(--gray-100);
 
