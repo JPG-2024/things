@@ -166,7 +166,8 @@
 	}
 
 	.markdown-container :global(strong) {
-		font-family: LiberationSans-Bold;
+		color: var(--primary-color);
+		font-weight: bold;
 	}
 
 	.markdown-container :global(em) {
@@ -248,11 +249,6 @@
 		padding-left: 1rem;
 		color: #d0d0d0;
 		font-style: italic;
-	}
-
-	.markdown-container :global(strong) {
-		font-family: LiberationSans-Bold;
-		color: var(--gray-200);
 	}
 
 	.markdown-container :global(em) {

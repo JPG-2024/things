@@ -37,13 +37,13 @@ Category name:`;
 // ── Summary (non-recursive / factory default) ─────────────────────────
 // Original: src/runners/shared/taskFactories.ts:142-143
 export const SUMMARY_SYSTEM_MESSAGE =
-	'You are a professional content summarizer. Write a concise and clear summary.';
+	"You are a professional content summarizer. Write a concise and clear summary. Use bold (**) to emphasize the most relevant keywords, don't abuse.";
 export const SUMMARY_USER_MESSAGE = 'Summarize the content.';
 
 // ── Summary (recursive / processor) ───────────────────────────────────
 // Original: src/runners/shared/processors/summarize.ts:21-23
 export const RECURSIVE_SUMMARY_SYSTEM_MESSAGE =
-	'You are a professional content summarizer. Write a concise and clear summary, only summary. no titles.';
+	"You are a professional content summarizer. Write a concise and clear summary, only summary. no titles. Use bold (**) to emphasize the most relevant keywords, don't abuse.";
 
 export function buildRecursiveSummarySystemMessage(langName?: string): string {
 	if (!langName) return RECURSIVE_SUMMARY_SYSTEM_MESSAGE;
@@ -51,10 +51,10 @@ export function buildRecursiveSummarySystemMessage(langName?: string): string {
 }
 // Original: src/runners/shared/processors/summarize.ts:9
 export const RECURSIVE_SUMMARY_USER_MESSAGE =
-	'Summarize this section concisely, only summary. no titles, no markdown';
+	'Summarize this section concisely, only summary. no titles, no markdown except bold (**) for keywords';
 // Original: src/runners/shared/processors/summarize.ts:10
 export const RECURSIVE_SUMMARY_FINAL_USER_MESSAGE =
-	'Combine these section summaries into a markdow summary. no title. use bold (**) to enfatize most relevant keywords, dont abuse.';
+	"Combine these section summaries into a markdown summary. no title. use bold (**) to emphasize most relevant keywords, don't abuse.";
 
 // ── Title ─────────────────────────────────────────────────────────────
 // Original: src/runners/shared/taskFactories.ts:113
@@ -117,7 +117,7 @@ export const CUSTOM_FINAL_USER_MESSAGE = 'Combine the results into a coherent re
 
 // ── Multi-field (combined summary + keywords + topics) ────────────────
 export const MULTI_FIELD_SYSTEM_MESSAGE =
-	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown, no explanations.';
+	'You are a data analysis assistant. Return ONLY a JSON object with keys "summary" (string), "keywords" (array of strings) and "topics" (array of strings). No markdown except bold (**) for keywords; no explanations.';
 
 export function buildMultiFieldSystemMessage(langName?: string): string {
 	if (!langName) return MULTI_FIELD_SYSTEM_MESSAGE;
@@ -130,7 +130,7 @@ export function buildMultiFieldUserMessage(keywordCount: number, topicCount: num
 
 // ── Analysis topic (topic extraction → per-topic summary → keywords) ──
 export const ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE =
-	'You are a professional content summarizer. Write a brief, focused summary about the requested topic, only the summary. No titles, no markdown.';
+	"You are a professional content summarizer. Write a brief, focused summary about the requested topic, only the summary. No titles, no markdown except bold (**) for keywords. Use bold (**) to emphasize the most relevant keywords, don't abuse.";
 
 export function buildAnalysisTopicSummarySystemMessage(langName?: string): string {
 	if (!langName) return ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE;
@@ -141,5 +141,8 @@ export function buildAnalysisTopicSummaryUserMessage(topic: string): string {
 	return `Summarize what this section says specifically about the topic "${topic}"`;
 }
 
-export const ANALYSIS_TOPIC_TOPIC_DESCRIPTION = 'main topics';
+export function buildAnalysisTopicLabelDescription(maxWords: number): string {
+	return `main topic labels of ${maxWords} words each, each ending with a period`;
+}
+
 export const ANALYSIS_TOPIC_KEYWORD_DESCRIPTION = 'specific keywords';

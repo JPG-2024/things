@@ -5,9 +5,9 @@ import { extractionHelper } from '@/lib/utils/inference/extraction-helper';
 import { EMBEDDING_MODEL, SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
 	ANALYSIS_TOPIC_KEYWORD_DESCRIPTION,
-	ANALYSIS_TOPIC_TOPIC_DESCRIPTION,
 	buildAnalysisTopicSummarySystemMessage,
-	buildAnalysisTopicSummaryUserMessage
+	buildAnalysisTopicSummaryUserMessage,
+	buildAnalysisTopicLabelDescription
 } from '@/lib/utils/inference/prompts';
 import { viewState } from '@/stores/viewStore.svelte';
 import { LANG_NAMES } from '@/constants';
@@ -20,6 +20,11 @@ import type {
 
 export const DEFAULT_TOPIC_COUNT = 3;
 export const DEFAULT_KEYWORD_COUNT = 4;
+export const DEFAULT_TOPIC_WORD_COUNT = 5;
+export const MIN_TOPIC_COUNT = 1;
+export const MAX_TOPIC_COUNT = 10;
+export const MIN_TOPIC_WORD_COUNT = 1;
+export const MAX_TOPIC_WORD_COUNT = 10;
 const TOPIC_SIMILARITY_THRESHOLD = 0.85;
 
 function uniqueStrings(values: string[], key?: (value: string) => string): string[] {
@@ -100,6 +105,39 @@ function clusterByLabel(sections: TopicSection[]): TopicCluster[] {
 	return clusters;
 }
 
+/**
+ * Shrinks a raw topic label to a short, sentence-safe form.
+ *
+ * The LLM is asked for short labels, but nothing guarantees it, so this is the
+ * deterministic backstop: strip leading bullets/quotes, keep only the first
+ * clause, cap words and characters, and end with a single period.
+ */
+function normalizeTopicLabel(raw: string, maxWords: number): string {
+	let label = raw
+		.trim()
+		.replace(/^[-*•\d.)\s]+/, '')
+		.replace(/^["'`]+|["'`]+$/g, '')
+		.replace(/\s+/g, ' ')
+		.replace(/[.;:!?,]+$/, '');
+
+	label = label.split(/\s+[–—-]\s+|\s*:\s+/)[0].trim();
+
+	const words = label.split(' ');
+	if (words.length > maxWords) {
+		label = words.slice(0, maxWords).join(' ');
+	}
+
+	// Characters are a language-safe backstop (CJK has no word spaces).
+	const maxChars = Math.max(24, maxWords * 10);
+	if (label.length > maxChars) {
+		const clipped = label.slice(0, maxChars);
+		const lastSpace = clipped.lastIndexOf(' ');
+		label = (lastSpace > 0 ? clipped.slice(0, lastSpace) : clipped).trim();
+	}
+
+	return label ? `${label}.` : '';
+}
+
 function mergeSummaries(summaries: string[]): string {
 	const unique = uniqueStrings(summaries, (value) => value);
 	return unique
@@ -127,16 +165,19 @@ export const analysisTopicProcessor: ProcessorDef = {
 	build: (config) => {
 		const topicCount = config.topicCount ?? DEFAULT_TOPIC_COUNT;
 		const keywordCount = config.keywordCount ?? DEFAULT_KEYWORD_COUNT;
+		const topicWordCount = config.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT;
 
 		return {
 			processChunk: async (chunk: string): Promise<AnalysisTopicChunkData> => {
 				const rawTopics = await extractionHelper(
 					chunk,
 					topicCount,
-					ANALYSIS_TOPIC_TOPIC_DESCRIPTION,
+					buildAnalysisTopicLabelDescription(topicWordCount),
 					{ model: config.model }
 				);
-				const topics = uniqueStrings(rawTopics);
+				const topics = uniqueStrings(
+					rawTopics.map((topic) => normalizeTopicLabel(topic, topicWordCount)).filter(Boolean)
+				);
 
 				const langName = LANG_NAMES[viewState.language];
 				const sections: TopicSection[] = await Promise.all(
@@ -171,7 +212,13 @@ export const analysisTopicProcessor: ProcessorDef = {
 				return { topics, keywords: uniqueStrings(keywords), sections };
 			},
 			combineChunks: async (results: AnalysisTopicChunkData[]): Promise<AnalysisTopicFinal> => {
-				const sections = results.flatMap((result) => result.sections);
+				const sections = results
+					.flatMap((result) => result.sections)
+					.map((section) => ({
+						...section,
+						topic: normalizeTopicLabel(section.topic, topicWordCount)
+					}))
+					.filter((section) => section.topic);
 				const keywords = uniqueStrings(results.flatMap((result) => result.keywords));
 
 				let clusters: TopicCluster[];

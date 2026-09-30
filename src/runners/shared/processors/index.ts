@@ -29,6 +29,16 @@ export function getProcessorTypes(): ProcessorType[] {
 	return [...registry.keys()];
 }
 
+export {
+	DEFAULT_KEYWORD_COUNT,
+	DEFAULT_TOPIC_COUNT,
+	DEFAULT_TOPIC_WORD_COUNT,
+	MAX_TOPIC_COUNT,
+	MAX_TOPIC_WORD_COUNT,
+	MIN_TOPIC_COUNT,
+	MIN_TOPIC_WORD_COUNT
+} from './analysisTopic';
+
 export type {
 	ProcessorDef,
 	ProcessorType,

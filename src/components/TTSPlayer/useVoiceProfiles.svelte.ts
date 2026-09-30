@@ -54,6 +54,10 @@ export function useVoiceProfiles() {
 				ttsState.config.refText = picked.text_reference;
 			}
 		}
+
+		// Apply the new voice only to chunks that haven't been generated yet,
+		// so a profile switch while paused doesn't force a full rebuild.
+		ttsState.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
 	}
 
 	function handleLiveVoiceChange(sel: WheelSelection): void {
@@ -68,22 +72,12 @@ export function useVoiceProfiles() {
 			ttsState.selectedProfileId = profile.id;
 			ttsState.namePrefix = profile.name_prefix;
 			void loadChunksForProfile(profile.id).then(() => {
-				const idx = sel.randomChunk
-					? Math.floor(Math.random() * ttsState.voiceChunks.length)
-					: sel.audioFile
-						? ttsState.voiceChunks.findIndex((c) => c.audio_file === sel.audioFile)
-						: 0;
-				ttsState.updatePendingVoiceRefs(idx >= 0 ? idx : 0);
+				ttsState.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
 			});
 			return;
 		}
 
-		const idx = sel.randomChunk
-			? Math.floor(Math.random() * ttsState.voiceChunks.length)
-			: sel.audioFile
-				? chunks.findIndex((c) => c.audio_file === sel.audioFile)
-				: 0;
-		ttsState.updatePendingVoiceRefs(idx >= 0 ? idx : 0);
+		ttsState.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
 	}
 
 	async function initProfiles(): Promise<void> {

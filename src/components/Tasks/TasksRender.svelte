@@ -374,7 +374,7 @@
 		display: flex;
 		align-items: flex-start;
 		width: 100%;
-		padding: 5px;
+		padding: 1rem;
 	}
 
 	.content-task-wrapper {

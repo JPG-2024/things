@@ -249,7 +249,7 @@
 		min-width: 0;
 		max-width: 100%;
 		position: relative;
-		/* border-top: 1px solid var(--bg-color); */
+		border-top: 1px solid var(--bg-color);
 	}
 
 	.article-item__keywords {

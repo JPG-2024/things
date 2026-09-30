@@ -6,7 +6,8 @@ import { buildTask, createCategoryTask, createTitleTask } from '@/runners/shared
 import { DEFAULT_MULTI_FIELDS } from '@/runners/shared/processors/multi';
 import {
 	DEFAULT_KEYWORD_COUNT,
-	DEFAULT_TOPIC_COUNT
+	DEFAULT_TOPIC_COUNT,
+	DEFAULT_TOPIC_WORD_COUNT
 } from '@/runners/shared/processors/analysisTopic';
 import type { Task } from '@/types/taskRunner.types';
 import {
@@ -82,6 +83,7 @@ export function createDefaultTasks(
 		analysis?: DefaultAnalysisKind;
 		topicCount?: number;
 		keywordCount?: number;
+		topicWordCount?: number;
 	} = {}
 ): Task[] {
 	const analysisKind: DefaultAnalysisKind = options.analysis ?? 'multi';
@@ -105,7 +107,8 @@ export function createDefaultTasks(
 					processorType: 'analysisTopic',
 					component: 'analysisTopic',
 					topicCount: options.topicCount ?? DEFAULT_TOPIC_COUNT,
-					keywordCount: options.keywordCount ?? DEFAULT_KEYWORD_COUNT
+					keywordCount: options.keywordCount ?? DEFAULT_KEYWORD_COUNT,
+					topicWordCount: options.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT
 				}
 			: {
 					processorType: 'multi',

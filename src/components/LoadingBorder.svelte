@@ -106,7 +106,7 @@
 	.border-right::after {
 		width: 100%;
 		height: 100%;
-		background: linear-gradient(180deg, transparent, var(--primary-color, #7c6af7), transparent);
+		background: linear-gradient(40deg, transparent, var(--primary-color, #7c6af7), transparent);
 	}
 
 	.border-edge.is-loading::after {

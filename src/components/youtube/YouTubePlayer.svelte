@@ -90,6 +90,17 @@
 		border: 0;
 	}
 
+	.yt-thumbnail-btn {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+	}
+
 	.yt-play {
 		display: flex;
 		position: absolute;

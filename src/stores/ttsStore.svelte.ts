@@ -71,7 +71,32 @@ class TTSState {
 		randomChunk: true,
 		splitLevel: 1
 	});
-	configSig = $derived(JSON.stringify(this.config));
+	/**
+	 * Synthesis-parameter signature used to decide when the whole playlist must
+	 * be regenerated. The voice reference (`refAudioFilename`/`refText`) is
+	 * intentionally excluded: references are applied per-chunk through the
+	 * pending-refs mechanism, so switching voice/profile must not rebuild from
+	 * the first chunk.
+	 */
+	configSig = $derived(
+		JSON.stringify({
+			numStep: this.config.numStep,
+			denoise: this.config.denoise,
+			guidanceScale: this.config.guidanceScale,
+			speed: this.config.speed,
+			preprocessPrompt: this.config.preprocessPrompt,
+			postprocessOutput: this.config.postprocessOutput,
+			randomChunk: this.config.randomChunk,
+			splitLevel: this.config.splitLevel,
+			tShift: this.config.tShift,
+			positionTemperature: this.config.positionTemperature,
+			classTemperature: this.config.classTemperature,
+			layerPenaltyFactor: this.config.layerPenaltyFactor,
+			duration: this.config.duration,
+			audioChunkDuration: this.config.audioChunkDuration,
+			audioChunkThreshold: this.config.audioChunkThreshold
+		})
+	);
 	private generatedConfigSig = $state('');
 
 	pauseSettings = $state({ minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 });
@@ -242,6 +267,23 @@ class TTSState {
 		if (this._chunkVoiceIndices.length > 0) {
 			this.lastVoiceChunkIndex = this._chunkVoiceIndices[start] ?? null;
 		}
+	}
+
+	/**
+	 * Applies a voice selection to the chunks that haven't been synthesized yet,
+	 * leaving already-generated audio untouched. Used when the active
+	 * voice/profile changes mid-playback so generation resumes from the current
+	 * chunk instead of rebuilding from the first one.
+	 */
+	applyVoiceSelectionToPending(randomChunk: boolean, audioFile?: string): void {
+		let index = 0;
+		if (randomChunk && this.voiceChunks.length > 0) {
+			index = Math.floor(Math.random() * this.voiceChunks.length);
+		} else if (audioFile) {
+			const found = this.voiceChunks.findIndex((c) => c.audio_file === audioFile);
+			index = found >= 0 ? found : 0;
+		}
+		this.updatePendingVoiceRefs(this.voiceChunks.length > 0 ? index : null);
 	}
 
 	getVoiceRef(): { refAudioFilename: string; refText: string } {

@@ -1,7 +1,17 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
-	import type { AnalysisTopicChunkData, AnalysisTopicFinal } from '@/runners/shared/processors';
+	import {
+		type AnalysisTopicChunkData,
+		type AnalysisTopicFinal,
+		DEFAULT_TOPIC_COUNT,
+		DEFAULT_TOPIC_WORD_COUNT,
+		MAX_TOPIC_COUNT,
+		MAX_TOPIC_WORD_COUNT,
+		MIN_TOPIC_COUNT,
+		MIN_TOPIC_WORD_COUNT
+	} from '@/runners/shared/processors';
 	import type { ChunkOffset } from '@/runners/shared/recursiveTask';
 	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
@@ -10,6 +20,7 @@
 	import Tabs from '@/components/Tabs.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
+	import Input from '@/components/inputs/Input.component.svelte';
 	import { reconstructChunks } from '@/lib/utils/splitText';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -106,6 +117,30 @@
 			: 'auto'
 	);
 
+	const activeTopicCount = $derived(recursiveConfig?.topicCount ?? DEFAULT_TOPIC_COUNT);
+	const activeTopicWordCount = $derived(
+		recursiveConfig?.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT
+	);
+
+	let topicCountInput = $state(untrack(() => String(activeTopicCount)));
+	let topicWordInput = $state(untrack(() => String(activeTopicWordCount)));
+
+	$effect(() => {
+		topicCountInput = String(activeTopicCount);
+		topicWordInput = String(activeTopicWordCount);
+	});
+
+	const parsedTopicCount = $derived(
+		clampCount(Number(topicCountInput), MIN_TOPIC_COUNT, MAX_TOPIC_COUNT)
+	);
+	const parsedTopicWordCount = $derived(
+		clampCount(Number(topicWordInput), MIN_TOPIC_WORD_COUNT, MAX_TOPIC_WORD_COUNT)
+	);
+	const paramsDirty = $derived(
+		(parsedTopicCount !== null && parsedTopicCount !== activeTopicCount) ||
+			(parsedTopicWordCount !== null && parsedTopicWordCount !== activeTopicWordCount)
+	);
+
 	let rawModalIndex = $state<number | null>(null);
 
 	function handleLevelChange(levelId: string) {
@@ -154,17 +189,89 @@
 			console.error(`Failed to rerun analysis topic task "${task.id}" at level ${levelId}:`, error);
 		}
 	}
+
+	/** Rebuilds the task with override processor params and reruns it. */
+	async function applyAnalysisParams(overrides: { topicCount?: number; topicWordCount?: number }) {
+		if (!targetRunId || !recursiveConfig) return;
+		if (task.status === 'running') return;
+
+		try {
+			const newTask = buildRecursiveTask(task.id, {
+				...recursiveConfig,
+				name: task.name,
+				dependencies: task.dependencies,
+				renderOrder: task.renderOrder,
+				persist: true,
+				model: viewState.aiModel,
+				enableTTS: task.enableTTS,
+				gridSpan: task.gridSpan,
+				embeddings: task.embeddings,
+				storeChunkText: task.storeChunkText,
+				embedField: task.embedField,
+				...overrides
+			});
+			newTask.visible = task.visible;
+			workflowManager.addTask(targetRunId, newTask);
+			const summary = await workflowManager.rerunTask(targetRunId, task.id);
+			const updatedTask = summary.tasks.find((t) => t.id === task.id);
+			if (updatedTask?.persist) {
+				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
+			}
+		} catch (error) {
+			console.error(`Failed to update analysis params for "${task.id}":`, error);
+		}
+	}
+
+	function clampCount(raw: number, min: number, max: number): number | null {
+		if (!Number.isFinite(raw)) return null;
+		return Math.min(max, Math.max(min, Math.trunc(raw)));
+	}
+
+	function handleCommitParams() {
+		if (task.status === 'running') return;
+
+		const topicCount = parsedTopicCount ?? activeTopicCount;
+		const topicWordCount = parsedTopicWordCount ?? activeTopicWordCount;
+		if (topicCount === activeTopicCount && topicWordCount === activeTopicWordCount) return;
+
+		void applyAnalysisParams({ topicCount, topicWordCount });
+	}
 </script>
 
 {#if analysisData}
 	<div class="analysis-topic-shell">
-		{#if showLevelTabs}
+		{#if recursiveConfig}
 			<div class="level-row">
-				<span class="level-label">window ÷</span>
-				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
-				{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
-					<span class="level-label">÷{runtimeDivisor}</span>
+				{#if showLevelTabs}
+					<span class="level-label">window ÷</span>
+					<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
+					{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
+						<span class="level-label">÷{runtimeDivisor}</span>
+					{/if}
 				{/if}
+				<span class="level-label">topics</span>
+				<div class="params-field">
+					<Input
+						type="number"
+						min={String(MIN_TOPIC_COUNT)}
+						disabled={isRunning}
+						bind:value={topicCountInput}
+						onEnter={handleCommitParams}
+					/>
+				</div>
+				<span class="level-label">words/topic</span>
+				<div class="params-field">
+					<Input
+						type="number"
+						min={String(MIN_TOPIC_WORD_COUNT)}
+						disabled={isRunning}
+						bind:value={topicWordInput}
+						onEnter={handleCommitParams}
+					/>
+				</div>
+				<Button icon="RefreshCw" onClick={handleCommitParams} disabled={isRunning || !paramsDirty}>
+					Apply
+				</Button>
 			</div>
 		{/if}
 
@@ -249,12 +356,22 @@
 	.level-row {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 0.75rem;
 	}
 
 	.level-label {
 		font-size: 0.82rem;
 		opacity: 0.7;
+	}
+
+	.params-field {
+		width: 3.5rem;
+	}
+
+	.params-field :global(.text-input) {
+		padding: 0.15rem 0.4rem;
+		font-size: 0.8rem;
 	}
 
 	.chunks-grid {

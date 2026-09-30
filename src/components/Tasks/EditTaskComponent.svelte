@@ -631,6 +631,7 @@
 				keywordCount:
 					recProcessorType === 'analysisTopic' ? Number(recKeywordCount) || 4 : undefined,
 				localFinal: existingCfg?.localFinal,
+				topicWordCount: existingCfg?.topicWordCount,
 				targetLang: recProcessorType === 'translate' ? recTargetLang : undefined,
 				customSystemMsg: recProcessorType === 'custom' ? recCustomSystemMsg : undefined,
 				renderOrder:

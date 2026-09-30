@@ -114,9 +114,10 @@
 
 	.tts-player-mini__controls {
 		position: absolute;
-		top: 50%;
+		top: auto;
+		bottom: 0;
 		left: 50%;
-		transform: translate(-50%, -50%);
+		transform: translateX(-50%);
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;

@@ -42,6 +42,7 @@ export interface ChunkProcessorConfig {
 	localFinal?: boolean;
 	topicCount?: number;
 	keywordCount?: number;
+	topicWordCount?: number;
 }
 
 export interface ChunkProcessor {

@@ -27,7 +27,7 @@
 		padding: 0 15px;
 		font-size: var(--pill-font-size, 0.7rem);
 		font-family: 'CaskaydiaCove NFM Light';
-		border-left: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
+		border-left: 1px solid color-mix(in srgb, var(--bg-color) 50%, transparent);
 		/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
 		border-top: 3px solid color-mix(in srgb, var(--bg-color) 40%, transparent); */
 	}

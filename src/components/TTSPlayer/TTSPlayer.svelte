@@ -156,6 +156,11 @@
 				ttsState.config.refText = picked.text_reference;
 			}
 		}
+
+		// A reference-only change should revoice upcoming chunks, not rebuild the
+		// playlist. Actual synth-param changes still trigger a full regeneration
+		// through the configSig effect.
+		ttsState.applyVoiceSelectionToPending(value.randomChunk, value.audioFile);
 	}
 
 	createHotkey(

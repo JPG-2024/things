@@ -96,7 +96,7 @@
 	}
 
 	.wave-canvas--mini {
-		background: rgba(9, 9, 9, 0.565);
+		/* background: rgba(9, 9, 9, 0.565); */
 		border-radius: var(--radius-lg);
 	}
 </style>

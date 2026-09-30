@@ -216,6 +216,20 @@
 		cursor: not-allowed;
 	}
 
+	/* Hide the number input spinner (WebKit/Blink, incl. WebKitGTK on Linux) */
+	.text-input[type='number']::-webkit-outer-spin-button,
+	.text-input[type='number']::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		appearance: none;
+		margin: 0;
+	}
+
+	/* Hide the number input spinner (Firefox / standard) */
+	.text-input[type='number'] {
+		-moz-appearance: textfield;
+		appearance: textfield;
+	}
+
 	.search-wrapper {
 		position: relative;
 		display: flex;

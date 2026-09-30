@@ -62,6 +62,7 @@ export interface RecursiveConfig {
 	localFinal?: boolean;
 	topicCount?: number;
 	keywordCount?: number;
+	topicWordCount?: number;
 }
 
 export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
@@ -81,6 +82,7 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	multiFields?: MultiFieldSpec[];
 	topicCount?: number;
 	keywordCount?: number;
+	topicWordCount?: number;
 };
 
 type Chunking = Pick<
@@ -215,7 +217,8 @@ function resolveProcessorConfig(
 		multiFields: options.multiFields,
 		localFinal: options.localFinal,
 		topicCount: options.topicCount,
-		keywordCount: options.keywordCount
+		keywordCount: options.keywordCount,
+		topicWordCount: options.topicWordCount
 	};
 }
 
@@ -263,7 +266,8 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		multiFields: options.multiFields,
 		localFinal: options.localFinal,
 		topicCount: options.topicCount,
-		keywordCount: options.keywordCount
+		keywordCount: options.keywordCount,
+		topicWordCount: options.topicWordCount
 	};
 
 	return buildScriptTaskFromDef(
