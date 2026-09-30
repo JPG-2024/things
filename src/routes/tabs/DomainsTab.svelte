@@ -13,8 +13,7 @@
 	);
 
 	$effect(() => {
-		const categories = [...viewState.selectedCategories];
-		void articleCacheStore.fetchDomainsWithArticles({ categoryIds: categories });
+		void articleCacheStore.fetchDomainsWithArticles();
 	});
 </script>
 

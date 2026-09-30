@@ -161,10 +161,6 @@ export function createCategoryTask(options: CreateCategoryTaskOptions = {}): IaT
 	return {
 		...def,
 		directResult: (ctx) => {
-			// Manual selection always wins.
-			if (viewState.selectedCategories.length > 0) {
-				return viewState.selectedCategories;
-			}
 			// Explicit lists (templates / custom tasks) keep the LLM + grammar path.
 			if (categoryNames && categoryNames.length > 0) {
 				return null;

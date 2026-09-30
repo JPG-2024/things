@@ -13,8 +13,7 @@
 	);
 
 	$effect(() => {
-		const categories = [...viewState.selectedCategories];
-		void articleCacheStore.fetchProfilesWithArticles({ categoryIds: categories });
+		void articleCacheStore.fetchProfilesWithArticles();
 	});
 </script>
 

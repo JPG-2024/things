@@ -1,5 +1,4 @@
 <script lang="ts">
-	import CategoryArticles from '@/components/CategoryArticles.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -8,10 +7,9 @@
 	import type { ArticleWithTasks } from '@/stores/webStore';
 
 	$effect(() => {
-		const categories = [...viewState.selectedCategories];
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
 		void articleCacheStore.fetchCategoriesWithArticles({
-			categoryIds: categories,
+			categoryIds: [],
 			createdAtFrom: new Date(onlyArticlesAfter).getTime()
 		});
 	});
@@ -44,40 +42,24 @@
 	);
 </script>
 
-{#if viewState.selectedCategories.length === 0}
-	<div class="category-list">
-		{#each visibleCategories as category (category.categoryId)}
-			<div class="category-row">
-				<CategoryCard
-					{category}
-					onArticleClick={handleArticleClick}
-					onArticleHoverEnter={handleArticleHoverEnter}
-					onArticleHoverLeave={handleArticleHoverLeave}
-				/>
-			</div>
-		{/each}
+<div class="category-list">
+	{#each visibleCategories as category (category.categoryId)}
+		<div class="category-row">
+			<CategoryCard
+				{category}
+				onArticleClick={handleArticleClick}
+				onArticleHoverEnter={handleArticleHoverEnter}
+				onArticleHoverLeave={handleArticleHoverLeave}
+			/>
+		</div>
+	{/each}
+</div>
+{#if articleCacheStore.loadingCategories}
+	<div class="empty-profiles-container"></div>
+{:else if visibleCategories.length === 0}
+	<div class="empty-profiles-container">
+		<div class="empty-profiles-pill">No categories</div>
 	</div>
-	{#if articleCacheStore.loadingCategories}
-		<div class="empty-profiles-container"></div>
-	{:else if visibleCategories.length === 0}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">No categories</div>
-		</div>
-	{/if}
-{:else}
-	<CategoryArticles
-		categories={articleCacheStore.categoriesWithArticles}
-		onArticleClick={handleArticleClick}
-		onArticleHoverEnter={handleArticleHoverEnter}
-		onArticleHoverLeave={handleArticleHoverLeave}
-	/>
-	{#if articleCacheStore.loadingCategories}
-		<div class="empty-profiles-container"></div>
-	{:else if articleCacheStore.categoriesWithArticles.length === 0}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">No articles</div>
-		</div>
-	{/if}
 {/if}
 
 <style>

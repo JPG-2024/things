@@ -2,7 +2,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
 	import type { WebStoreCategoryRecord } from '@/stores/webStore';
-	import { generateCategoryDescription, generateEmojiForText } from '@/runners/shared/sharedTasks';
+	import { generateCategoryDescription } from '@/runners/shared/sharedTasks';
 	import { removeCategoryEmbedding, syncCategoryEmbedding } from '@/lib/utils/categoryEmbeddings';
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
@@ -29,7 +29,6 @@
 	}
 
 	async function removeCategory(id: string) {
-		pruneCategory(id);
 		await deleteCategory(id);
 		try {
 			await removeCategoryEmbedding(id);
@@ -54,46 +53,14 @@
 		}
 	}
 
-	function isSelected(id: string): boolean {
-		return viewState.selectedCategories.includes(id);
-	}
-
-	function toggleCategory(id: string) {
-		const list = viewState.selectedCategories;
-		const i = list.indexOf(id);
-		if (i >= 0) {
-			viewState.selectedCategories = list.filter((_, idx) => idx !== i);
-		} else {
-			viewState.selectedCategories = [...list, id];
-		}
-	}
-
-	function pruneCategory(id: string) {
-		viewState.selectedCategories = viewState.selectedCategories.filter((c) => c !== id);
-	}
-
-	function clearSelectedCategories() {
-		viewState.selectedCategories = [];
-	}
-
 	let filteredCategories = $derived(
-		isEditing
-			? viewState.categories.filter((c) => viewState.selectedCategories.includes(c.id))
-			: viewState.unifiedFilter.trim()
-				? viewState.categories.filter((c) => {
-						const term = viewState.unifiedFilter.trim().toLowerCase();
-						return (
-							c.name.toLowerCase().includes(term) || c.description?.toLowerCase().includes(term)
-						);
-					})
-				: viewState.categories
+		viewState.unifiedFilter.trim()
+			? viewState.categories.filter((c) => {
+					const term = viewState.unifiedFilter.trim().toLowerCase();
+					return c.name.toLowerCase().includes(term) || c.description?.toLowerCase().includes(term);
+				})
+			: viewState.categories
 	);
-
-	$effect(() => {
-		if (viewState.selectedCategories.length === 0) {
-			isEditing = false;
-		}
-	});
 
 	$effect(() => {
 		loadCategories();
@@ -102,8 +69,6 @@
 	async function handleCreateFromFilter() {
 		const trimmed = viewState.unifiedFilter.trim();
 		if (!trimmed) return;
-		/* const emoji = await generateEmojiForText(trimmed);
-		const name = emoji ? `${emoji} ${trimmed}` : trimmed; */
 		const description = await generateCategoryDescription(trimmed);
 		await addCategory(trimmed, description);
 		viewState.unifiedFilter = '';
@@ -115,43 +80,28 @@
 		{#each filteredCategories as category (category.id)}
 			<span class="category-pill">
 				<Tooltip content={category.description ?? ''}>
-					<button
-						type="button"
-						class="pill tag"
-						disabled={isEditing}
-						onclick={() => toggleCategory(category.id)}
-					>
-						<CategoryItem value={category.name} active={isSelected(category.id)} />
-					</button>
+					{#if isEditing}
+						<button
+							class="remove-btn"
+							onclick={() => removeCategory(category.id)}
+							aria-label="Remove {category.name}"
+						>
+							<Icon name="Trash" size={14} />
+						</button>
+					{/if}
+					<CategoryItem value={category.name} categoryId={category.id} />
 				</Tooltip>
-				{#if isEditing}
-					<button
-						class="remove-btn"
-						onclick={() => removeCategory(category.id)}
-						aria-label="Remove {category.name}"
-					>
-						<Icon name="Trash" size={14} />
-					</button>
-				{/if}
 			</span>
 		{/each}
 
-		{#if viewState.selectedCategories.length > 0}
-			<span class="category-pill icon-pill">
-				<Icon
-					name="Edit"
-					size={16}
-					onClick={() => (isEditing = !isEditing)}
-					style="opacity: {isEditing ? 1 : 0.5}"
-				/>
-			</span>
-		{/if}
-
-		{#if viewState.selectedCategories.length > 0}
-			<span class="category-pill icon-pill">
-				<Icon name="X" size={16} onClick={clearSelectedCategories} style="opacity: 0.5" />
-			</span>
-		{/if}
+		<span class="category-pill icon-pill">
+			<Icon
+				name="Edit"
+				size={16}
+				onClick={() => (isEditing = !isEditing)}
+				style="opacity: {isEditing ? 1 : 0.5}"
+			/>
+		</span>
 
 		{#if filteredCategories.length === 0}
 			{#if !isEditing && viewState.unifiedFilter.trim()}
@@ -168,9 +118,7 @@
 	{#if isEditing}
 		{#each filteredCategories as category (category.id)}
 			<div class="category-edit">
-				<span class="category-edit-name"
-					><CategoryItem value={category.name} active={isSelected(category.id)} /></span
-				>
+				<span class="category-edit-name"><CategoryItem value={category.name} /></span>
 				<input
 					autocomplete="off"
 					type="text"

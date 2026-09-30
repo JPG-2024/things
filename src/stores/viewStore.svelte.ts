@@ -125,7 +125,6 @@ class ViewState {
 	showOnlyInitialArticles = $state(false);
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
-	selectedCategories = $state<string[]>([]);
 	unifiedFilter = $state('');
 	rawSearchResults: SvelteMap<string, RawSearchMatch> | null = $state(null);
 	rawSearchLoading = $state(false);

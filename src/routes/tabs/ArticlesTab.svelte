@@ -22,12 +22,10 @@
 	}
 
 	$effect(() => {
-		const categories = [...viewState.selectedCategories];
 		const onlyRaw = viewState.showOnlyRawArticles;
 		const profileId = viewState.activeArticleProfileId;
 		const showOnlyInitial = viewState.showOnlyInitialArticles;
 		void articleCacheStore.fetchArticlesWithoutProfile({
-			categoryIds: categories,
 			onlyWithoutProfile: onlyRaw,
 			profileId: profileId ?? undefined,
 			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined
