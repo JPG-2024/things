@@ -50,7 +50,6 @@
 
 	.pill.loading {
 		font-family: 'CaskaydiaCove NFM Light';
-		color: var(--bg-color);
 		background-image: linear-gradient(
 			120deg,
 			rgb(from var(--primary-color) r g b / 0.08) 0%,
@@ -60,6 +59,7 @@
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
 		border: none;
 		padding: 0px 15px;
+		font-weight: bold;
 	}
 
 	.pill.error {

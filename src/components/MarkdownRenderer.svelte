@@ -113,7 +113,6 @@
 	.markdown-container :global(p) {
 		margin: 0.8rem;
 		line-height: 1.9;
-		text-indent: 20px;
 	}
 
 	.markdown-container :global(code) {

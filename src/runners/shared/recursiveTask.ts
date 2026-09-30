@@ -152,11 +152,6 @@ import {
 	WINDOW_OVERLAP_RATIO
 } from './constants';
 
-function computeAutoDivisor(contentLength: number): number {
-	if (contentLength <= 0) return 1;
-	return Math.min(Math.ceil(contentLength / TARGET_CHUNK_SIZE), MAX_WINDOW_DIVISOR);
-}
-
 function nextWindowDivisor(divisor: number): number {
 	return WINDOW_DIVISOR_LADDER.find((l) => l > divisor) ?? MAX_WINDOW_DIVISOR;
 }
@@ -299,9 +294,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 					!currentChunking.splitByString &&
 					!currentChunking.splitByHeaders
 				) {
-					const divisor = lockWindowDivisor
-						? currentChunking.windowDivisor
-						: computeAutoDivisor(content.length);
+					const divisor = lockWindowDivisor ? currentChunking.windowDivisor : 1;
 					currentChunking = {
 						...currentChunking,
 						windowDivisor: divisor,
@@ -367,7 +360,12 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 						) {
 							throw error;
 						}
-						currentChunking = { ...currentChunking, windowDivisor: nextWindowDivisor(divisor) };
+						const nextDivisor = nextWindowDivisor(divisor);
+						currentChunking = {
+							...currentChunking,
+							windowDivisor: nextDivisor,
+							overlap: Math.floor((content.length / nextDivisor) * WINDOW_OVERLAP_RATIO)
+						};
 					}
 				}
 			}

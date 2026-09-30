@@ -456,7 +456,7 @@
 		align-items: center;
 		min-width: 150px;
 		overflow: hidden;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-lg);
 	}
 
 	.grid-item.span-full {

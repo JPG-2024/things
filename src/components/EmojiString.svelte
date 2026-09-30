@@ -48,6 +48,7 @@
 		line-height: 1.2;
 		color: var(--emoji-string-text-color, white);
 		font-weight: bold;
+		padding-top: 3px;
 	}
 
 	.active .emoji-string__text {

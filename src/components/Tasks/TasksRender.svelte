@@ -171,7 +171,7 @@
 					{#if titleText}
 						<div class="tasks-title">{titleText}</div>
 					{/if}
-					{#if viewState.url}
+					{#if viewState.url && !workflowStore.isAnyRunning}
 						<CategoryEditor
 							articleUrl={viewState.url}
 							runId={categoryRunId}
