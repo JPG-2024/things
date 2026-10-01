@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { mainVoiceState } from '@/stores/mainVoice.svelte';
-	import { voiceSettingsState } from '@/stores/viewStore.svelte';
+	import { viewState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { getCurrentStyle } from '@/lib/ttsPlayerConfig';
 	import { resetAudioContext } from '@/lib/audioContextManager';
 	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
@@ -50,7 +50,13 @@
 		strokeWidth: 8
 	};
 
-	const waveColor = `rgba(255, 255, 255, ${config.strokeAlpha})`;
+	const waveColor = $derived.by(() => {
+		const alpha = config.strokeAlpha;
+		if (alpha >= 1) return viewState.backgroundColor;
+		const match = viewState.backgroundColor.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+		if (!match) return viewState.backgroundColor;
+		return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+	});
 
 	const remainingLabel = $derived(
 		engine.totalPlaybackDuration > 0 && (ttsState.isPlaying || ttsState.isPaused)

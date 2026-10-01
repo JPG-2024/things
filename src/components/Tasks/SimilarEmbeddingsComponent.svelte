@@ -37,6 +37,7 @@
 
 	const queryChunks = $derived(extractQueryChunks(data, embedField));
 	const hasQuery = $derived(queryChunks.length > 0);
+	const serviceUp = $derived(viewState.embeddingsServiceUp);
 
 	type GroupedResult = {
 		articleUrl: string;
@@ -90,6 +91,7 @@
 	}
 
 	async function runSearch(overrideQuery?: string): Promise<SearchChunkResult[]> {
+		if (!serviceUp) return [];
 		const chunks = overrideQuery ? [overrideQuery] : queryChunks;
 		if (chunks.length === 0) return [];
 		error = null;
@@ -121,12 +123,13 @@
 	}
 
 	$effect(() => {
-		if (!manual && enabled && hasQuery) {
+		if (!manual && enabled && hasQuery && serviceUp) {
 			void runSearch();
 		}
 	});
 </script>
 
+{#if serviceUp}
 <div class="similar-embeddings">
 	{#if manual && !hasSearched}
 		<div class="manual-trigger">
@@ -163,6 +166,7 @@
 		</div>
 	{/if}
 </div>
+{/if}
 
 <style>
 	.similar-embeddings {

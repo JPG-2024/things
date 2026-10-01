@@ -18,9 +18,9 @@ import type {
 	TopicSection
 } from './types';
 
-export const DEFAULT_TOPIC_COUNT = 3;
+export const DEFAULT_TOPIC_COUNT = 1;
 export const DEFAULT_KEYWORD_COUNT = 4;
-export const DEFAULT_TOPIC_WORD_COUNT = 5;
+export const DEFAULT_TOPIC_WORD_COUNT = 15;
 export const MIN_TOPIC_COUNT = 1;
 export const MAX_TOPIC_COUNT = 10;
 export const MIN_TOPIC_WORD_COUNT = 1;
