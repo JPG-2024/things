@@ -13,45 +13,74 @@
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import CategoryEditor from '@/components/CategoryEditor.svelte';
-	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
+	import type { Task } from '@/types/taskRunner.types';
+import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 
-	const titleText = $derived(
-		stackedTasks.find((e) => e.task.id === 'title' && e.task.status === 'done')?.task.data as
-			| string
-			| undefined
-	);
-	const sortedTasks = $derived(
-		[...stackedTasks].sort((a, b) => (a.task.renderOrder ?? 0) - (b.task.renderOrder ?? 0))
-	);
+	type StackedEntry = { runId: string; task: Task };
 
-	const contentTask = $derived(sortedTasks.find((e) => e.task.id === 'content'));
-	const thumbnailEntry = $derived(
-		stackedTasks.find((e) => e.task.id === 'thumbnail' && e.task.status === 'done')
-	);
-	const thumbnailData = $derived(thumbnailEntry?.task.data as YouTubePlayerContext | undefined);
-	const thumbnailComponent = $derived(thumbnailEntry?.task.component?.trim());
-	const categoryData = $derived(
-		stackedTasks.find((e) => e.task.id === 'category' && e.task.status === 'done')?.task.data as
-			| string[]
-			| undefined
-	);
-	const categoryRunId = $derived(
-		stackedTasks.find((e) => e.task.id === 'category')?.runId ?? workflowStore.focusedRunId ?? null
-	);
-	const otherTasks = $derived(
-		sortedTasks.filter(
-			(e) =>
-				e.task.id !== 'content' &&
-				e.task.id !== 'thumbnail' &&
-				e.task.id !== 'category' &&
-				e.task.id !== 'title' &&
-				e.task.id !== 'init-youtube' &&
-				e.task.id !== 'init-web' &&
-				e.task.id !== 'timed-captions'
-		)
-	);
+	// Single-pass view model: one loop over stackedTasks instead of
+	// ~7 separate find/filter/sort passes per reactive invalidation.
+	const taskViews = $derived.by(() => {
+		let titleText: string | undefined;
+		let contentTask: StackedEntry | undefined;
+		let thumbnailEntry: StackedEntry | undefined;
+		let categoryData: string[] | undefined;
+		let firstCategoryRunId: string | undefined;
+		const others: StackedEntry[] = [];
+
+		for (const entry of stackedTasks as StackedEntry[]) {
+			const id = entry.task.id;
+			if (id === 'title') {
+				if (titleText === undefined && entry.task.status === 'done') {
+					titleText = entry.task.data as string;
+				}
+			} else if (id === 'content') {
+				contentTask ??= entry;
+			} else if (id === 'thumbnail') {
+				if (!thumbnailEntry && entry.task.status === 'done') {
+					thumbnailEntry = entry;
+				}
+			} else if (id === 'category') {
+				firstCategoryRunId ??= entry.runId;
+				if (categoryData === undefined && entry.task.status === 'done') {
+					categoryData = entry.task.data as string[];
+				}
+			} else if (
+				id === 'init-youtube' ||
+				id === 'init-web' ||
+				id === 'timed-captions'
+			) {
+				// hidden plumbing tasks, skip
+			} else {
+				others.push(entry);
+			}
+		}
+
+		others.sort((a, b) => (a.task.renderOrder ?? 0) - (b.task.renderOrder ?? 0));
+
+		return {
+			titleText,
+			contentTask,
+			thumbnailEntry,
+			thumbnailData: thumbnailEntry?.task.data as YouTubePlayerContext | undefined,
+			thumbnailComponent: thumbnailEntry?.task.component?.trim(),
+			categoryData,
+			categoryRunId: firstCategoryRunId ?? workflowStore.focusedRunId ?? null,
+			otherTasks: others
+		};
+	});
+
+	// Cheap O(1) projections so the markup below stays unchanged.
+	const titleText = $derived(taskViews.titleText);
+	const contentTask = $derived(taskViews.contentTask);
+	const thumbnailEntry = $derived(taskViews.thumbnailEntry);
+	const thumbnailData = $derived(taskViews.thumbnailData);
+	const thumbnailComponent = $derived(taskViews.thumbnailComponent);
+	const categoryData = $derived(taskViews.categoryData);
+	const categoryRunId = $derived(taskViews.categoryRunId);
+	const otherTasks = $derived(taskViews.otherTasks);
 
 	const taskHeights = $state<Record<string, number>>({});
 
@@ -59,6 +88,7 @@
 		viewState.url !== null &&
 			stackedTasks.some(
 				({ task }) =>
+					task.id !== 'content' &&
 					task.id === viewState.selectedTaskId &&
 					task.status === 'done' &&
 					extractDependencyText(task.data).length > 0
@@ -71,7 +101,7 @@
 			const entry = stackedTasks.find(
 				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
 			);
-			if (!entry?.task.data) return;
+			if (!entry?.task.data || entry.task.id === 'content') return;
 			const text = extractDependencyText(entry.task.data);
 			if (!text.trim()) return;
 			void ensureAudioContext();
@@ -92,13 +122,18 @@
 	$effect(() => {
 		const currentDoneKeys = new SvelteSet<string>();
 
-		for (const entry of sortedTasks) {
+		// Iterate the source array directly (no sorted copy) and skip the
+		// giant `content` payload: its full markdown must never go through
+		// extractDependencyText on every reactive tick.
+		for (const entry of stackedTasks) {
 			const task = entry.task;
 			const key = `${entry.runId}:${task.id}`;
 
 			if (task.status === 'done') {
 				currentDoneKeys.add(key);
 			}
+
+			if (task.id === 'content') continue;
 
 			if (
 				task.enableTTS &&

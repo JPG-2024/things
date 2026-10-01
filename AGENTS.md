@@ -37,6 +37,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Preview built frontend: `bun run preview`
 - Run ESLint checks: `bun run lint`
 - Format code with Prettier: `bun run format`
+- Run JS/TS tests: `bun run test` (see `bun test <file>` for a single file)
 - Run Svelte type checking in watch mode: `bun run check:watch`
 - Start Tauri dev app: `bun run tauri dev`
 - Start Linux Tauri dev with repo env flags: `bun run linux`
@@ -54,9 +55,12 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 
 ## Test Status
 
-- There is currently no JS test runner configured in `package.json`.
-- No frontend `*.test.*` or `*.spec.*` files were found.
-- Automated tests are Rust unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
+- JS/TS tests run on `bun test` (scripts: `test`, `test:watch`). Types come from `@types/bun`, wired via `"types": ["svelte", "bun"]` in `tsconfig.json`.
+- Test files live next to the module under test as `*.test.ts` and import from `bun:test`.
+- Run the whole suite: `bun run test`
+- Run a single file: `bun test src/lib/utils/splitText.test.ts`
+- Existing test file at time of writing: `src/lib/utils/splitText.test.ts`
+- Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
 - Known Rust tests at time of writing:
   `web_store::tests::query_articles_for_profile_orders_by_created_at_desc` (`src-tauri/src/web_store.rs`)
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.

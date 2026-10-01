@@ -84,6 +84,7 @@ export function createDefaultTasks(
 		topicCount?: number;
 		keywordCount?: number;
 		topicWordCount?: number;
+		embedField?: string;
 	} = {}
 ): Task[] {
 	const analysisKind: DefaultAnalysisKind = options.analysis ?? 'multi';
@@ -98,7 +99,7 @@ export function createDefaultTasks(
 		enableTTS: true,
 		embeddings: true,
 		storeChunkText: true,
-		embedField: 'topics'
+		embedField: options.embedField ?? 'topics'
 	};
 
 	const kindOptions: RecursiveTaskOptions =

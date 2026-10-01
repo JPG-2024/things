@@ -36,6 +36,11 @@ export type ChunkOffset = {
 export type RecursiveChunk = {
 	key: ChunkOffset;
 	data: string[] | MultiChunkData | AnalysisTopicChunkData;
+	/**
+	 * Section heading this chunk was split under, when heading-aware splitting
+	 * produced it. Carries through to sub-chunks of an oversized section.
+	 */
+	heading?: string;
 };
 
 export type RecursiveContentResult = {
@@ -124,6 +129,9 @@ function splitContent(content: string, chunking: Chunking) {
 					result.push({
 						text: sub.text,
 						index,
+						// A heading describes the whole section, so every sub-chunk
+						// inherits it — not just the one containing the heading line.
+						heading: chunk.heading,
 						startOffset: sub.startOffset,
 						endOffset: sub.endOffset
 					});
@@ -321,6 +329,7 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 							const result = await processor.processChunk(sections[i], i);
 							chunks.push({
 								key: chunkOffsets[i],
+								heading: chunksResult[i].heading,
 								data: result as string[] | MultiChunkData | AnalysisTopicChunkData
 							});
 							update({

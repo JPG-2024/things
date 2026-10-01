@@ -1,8 +1,11 @@
 import { runTemplateWorkflow } from '@/runners/templateRunner';
+import { workflowManager } from '@/runners/workflowManager.svelte';
 import {
+	getArticleWithTasksByUrl,
 	saveArticle,
 	saveDomain,
 	saveTasks,
+	type ArticleWithTasks,
 	type PersistedTaskState,
 	type ArticleFieldOverrides
 } from '@/stores/webStore';
@@ -91,7 +94,7 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 	const thumbnailTask: Task = {
 		id: 'thumbnail',
 		name: 'Thumbnail',
-		dependencies: ['init-web', 'metadata', 'extract-web-profile'],
+		dependencies: ['init-web', 'metadata'],
 		type: 'script',
 		component: 'image',
 		persist: true,
@@ -124,8 +127,6 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 			});
 			const thumbnailImageSrc = await getMediaSrc(thumbnailImage);
 
-			viewState.hoveredPictureSrc = thumbnailImageSrc;
-
 			return {
 				mediaDirectory,
 				thumbnailImage,
@@ -151,7 +152,55 @@ async function buildWebInitialTasks(url: string): Promise<Task[]> {
 	return [initTask, extractProfileTask, metadataTask, thumbnailTask, contentTask];
 }
 
+/**
+ * Lightweight pending shells with the same ids/components/renderOrder as the
+ * real initial tasks. Hydrated before `extract_blog` resolves so TasksRender
+ * paints skeletons instead of staying blank during extraction.
+ */
+function buildPendingPlaceholderTasks(): Task[] {
+	const base: { type: 'script'; status: 'pending'; dependencies: string[]; run: () => null } = {
+		type: 'script',
+		status: 'pending',
+		dependencies: [],
+		run: () => null
+	};
+
+	return [
+		{ ...base, id: 'init-web', name: 'Initialize Web' },
+		{
+			...base,
+			id: 'extract-web-profile',
+			name: 'Extract Web Profile',
+			dependencies: ['init-web'],
+			persist: true
+		},
+		{ ...base, id: 'metadata', name: 'Metadata', dependencies: ['init-web'], persist: true },
+		{
+			...base,
+			id: 'thumbnail',
+			name: 'Thumbnail',
+			dependencies: ['init-web', 'metadata'],
+			component: 'image',
+			persist: true,
+			renderOrder: 0.1
+		},
+		{
+			...base,
+			id: 'content',
+			name: 'Content',
+			dependencies: ['init-web'],
+			component: 'ask',
+			persist: true,
+			renderOrder: 999
+		}
+	];
+}
+
 export async function webRunner(url: string, options: WebRunnerOptions = {}): Promise<Task[]> {
+	workflowManager.hydrateRun(url, buildPendingPlaceholderTasks(), {
+		makeActive: options.makeActive ?? true
+	});
+
 	const initialTasks = await buildWebInitialTasks(url);
 	const domainUrl = deriveDomainFromUrl(url);
 
@@ -161,21 +210,21 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
 		articleOverrides: options.articleOverrides,
-		defaultTasksFactory: () => createDefaultTasks('content', { splitByHeaders: true }),
+		defaultTasksFactory: () =>
+			createDefaultTasks('content', { splitByHeaders: true, embedField: 'summary' }),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
-			const saveOperations: Promise<unknown>[] = [
-				saveArticle(url, runResult.tasks, { ...articleOverrides, templateId }),
-				saveTasks(url, runResult.tasks)
-			];
+			const existingArticle: ArticleWithTasks | null = await getArticleWithTasksByUrl(url);
+			await Promise.all([
+				saveArticle(url, runResult.tasks, { ...articleOverrides, templateId }, existingArticle),
+				saveTasks(url, runResult.tasks, existingArticle)
+			]);
 
-			await Promise.all(saveOperations);
-
-			if (viewState.embeddingsEnabled) {
-				await generateEmbeddingsFromTasks(runResult.tasks, url, {
-					model: EMBEDDING_MODEL,
-					category: extractCategoryFromTasks(runResult.tasks)
-				});
-			}
+			if (!viewState.embeddingsEnabled) return;
+			const category = extractCategoryFromTasks(runResult.tasks);
+			void generateEmbeddingsFromTasks(runResult.tasks, url, {
+				model: EMBEDDING_MODEL,
+				category
+			}).catch((error) => console.error('[webRunner] background embeddings failed', error));
 		}
 	});
 

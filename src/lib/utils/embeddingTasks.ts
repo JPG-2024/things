@@ -39,21 +39,38 @@ interface EmbeddableItem {
 	endOffset?: number;
 }
 
+/**
+ * Prefix an item's text with the section heading it was split under.
+ *
+ * Applied to both the indexed text and the query text so the two sides of the
+ * comparison stay in the same embedding space. The heading arrives hash-free
+ * (the splitter stores the text after `#`/`##`), so it is prefixed verbatim.
+ */
+function withHeading(text: string, heading?: string): string {
+	if (!heading) return text;
+	return `${heading}\n${text}`;
+}
+
 function collectEmbeddableItems(task: Task): EmbeddableItem[] {
 	const data = task.data;
 	const items: EmbeddableItem[] = [];
 
-	const pushText = (value: unknown, startOffset?: number, endOffset?: number) => {
+	const pushText = (value: unknown, startOffset?: number, endOffset?: number, heading?: string) => {
 		if (typeof value === 'string' && value.trim()) {
-			items.push({ text: value, startOffset, endOffset });
+			items.push({ text: withHeading(value, heading), startOffset, endOffset });
 		}
 	};
 
-	const pushFieldValues = (fieldValue: unknown, startOffset?: number, endOffset?: number) => {
+	const pushFieldValues = (
+		fieldValue: unknown,
+		startOffset?: number,
+		endOffset?: number,
+		heading?: string
+	) => {
 		if (typeof fieldValue === 'string') {
-			pushText(fieldValue, startOffset, endOffset);
+			pushText(fieldValue, startOffset, endOffset, heading);
 		} else if (Array.isArray(fieldValue)) {
-			for (const v of fieldValue) pushText(v, startOffset, endOffset);
+			for (const v of fieldValue) pushText(v, startOffset, endOffset, heading);
 		}
 	};
 
@@ -77,14 +94,15 @@ function collectEmbeddableItems(task: Task): EmbeddableItem[] {
 		const entryRecord = entry as Record<string, unknown>;
 		const key = entryRecord.key as ChunkOffset | undefined;
 		const chunkData = entryRecord.data;
+		const heading = typeof entryRecord.heading === 'string' ? entryRecord.heading : undefined;
 		const startOffset = key?.startOffset;
 		const endOffset = key?.endOffset;
 
 		if (Array.isArray(chunkData)) {
-			for (const v of chunkData) pushText(v, startOffset, endOffset);
+			for (const v of chunkData) pushText(v, startOffset, endOffset, heading);
 		} else if (chunkData && typeof chunkData === 'object') {
 			const fieldValue = (chunkData as Record<string, unknown>)[field];
-			pushFieldValues(fieldValue, startOffset, endOffset);
+			pushFieldValues(fieldValue, startOffset, endOffset, heading);
 		}
 	}
 
@@ -101,9 +119,14 @@ function collectEmbeddableItems(task: Task): EmbeddableItem[] {
  * (object chunks with a selected field via `task.embedField`, default `'topics'`),
  * bare `string[]`, or a plain `string`.
  *
+ * When a chunk carries a `heading`, it is prefixed to every text extracted from
+ * that chunk — on the indexing side and on the query side alike — so heading text
+ * is part of the embedded meaning.
+ *
  * `chunkText` is stored only for tasks that opt in via `storeChunkText: true`.
- * When unset, the search side reconstructs the text from raw article content
- * using `startOffset` / `endOffset` as a fallback.
+ * Note this is the *embedded* text (the `embedField` value, heading-prefixed),
+ * not the raw source chunk; `startOffset` / `endOffset` are what allow the source
+ * range to be recovered afterwards.
  */
 export async function generateEmbeddingsFromTasks(
 	tasks: Task[],
@@ -191,13 +214,20 @@ export function extractQueryChunks(data: unknown, field = 'topics'): string[] {
 				if (!entry || typeof entry !== 'object') continue;
 				const e = entry as Record<string, unknown>;
 				const chunkData = e.data;
+				// Mirror the indexed side: same heading prefix, so query and document
+				// vectors live in the same space.
+				const heading = typeof e.heading === 'string' ? e.heading : undefined;
+				const push = (value: unknown) => {
+					if (typeof value === 'string' && value.trim()) {
+						items.push(withHeading(value, heading));
+					}
+				};
 				if (Array.isArray(chunkData)) {
-					items.push(...chunkData.filter((v): v is string => typeof v === 'string'));
+					for (const v of chunkData) push(v);
 				} else if (chunkData && typeof chunkData === 'object') {
 					const fieldValue = (chunkData as Record<string, unknown>)[field];
-					if (typeof fieldValue === 'string') items.push(fieldValue);
-					else if (Array.isArray(fieldValue))
-						items.push(...fieldValue.filter((v): v is string => typeof v === 'string'));
+					if (typeof fieldValue === 'string') push(fieldValue);
+					else if (Array.isArray(fieldValue)) for (const v of fieldValue) push(v);
 				}
 			}
 			if (items.length > 0) return items;

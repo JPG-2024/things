@@ -805,15 +805,17 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 export async function saveArticle(
 	url: string,
 	tasksToSave: Array<{ id?: string; data?: unknown }>,
-	valuesToOverride?: ArticleFieldOverrides | undefined
+	valuesToOverride?: ArticleFieldOverrides | undefined,
+	existingArticle?: ArticleWithTasks | null
 ): Promise<void> {
 	let input: Awaited<ReturnType<typeof buildUpsertInput>> | undefined;
 	try {
-		const existingArticle = await getArticleWithTasksByUrl(url);
+		const resolvedExisting =
+			existingArticle !== undefined ? existingArticle : await getArticleWithTasksByUrl(url);
 		input = await buildUpsertInput({
 			url,
 			tasksToSave,
-			existingArticle,
+			existingArticle: resolvedExisting,
 			valuesToOverride
 		});
 
@@ -843,11 +845,13 @@ export async function saveArticle(
 
 export async function saveTasks<TMap extends TaskMapBase>(
 	url: string,
-	tasks: Task<TMap>[]
+	tasks: Task<TMap>[],
+	existingArticle?: ArticleWithTasks | null
 ): Promise<void> {
 	try {
-		const existingArticle = await getArticleWithTasksByUrl(url);
-		const tasksToSave = mergeStoredTasks(existingArticle?.persistedTasks, tasks);
+		const resolvedExisting =
+			existingArticle !== undefined ? existingArticle : await getArticleWithTasksByUrl(url);
+		const tasksToSave = mergeStoredTasks(resolvedExisting?.persistedTasks, tasks);
 
 		for (const task of tasksToSave) {
 			await wrapRawContentRef(url, task);

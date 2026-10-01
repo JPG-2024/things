@@ -5,6 +5,11 @@ export type EmbeddingChunk = {
 	index: number;
 	startOffset: number;
 	endOffset: number;
+	/**
+	 * Section heading this chunk belongs to, when the splitter is heading-aware.
+	 * `undefined` for preambles, header-less documents and non-heading splitters.
+	 */
+	heading?: string;
 };
 
 export type SplitForEmbeddingsOptions = {
@@ -443,19 +448,52 @@ export function reconstructChunks(
 	return offsets.map(({ startOffset, endOffset }) => content.slice(startOffset, endOffset));
 }
 
+const HEADING_RE = /^(#{1,2})\s+(.+)$/;
+const FENCE_RE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+
+/**
+ * Find top-level `#`/`##` headings, ignoring lines inside fenced code blocks.
+ *
+ * A shell/Python/YAML comment (`# do the thing`) is indistinguishable from a
+ * real heading by pattern alone, so fences are tracked while scanning. Walking
+ * line by line computes each match's offset on the original string: no masking
+ * pass, and no length-preservation invariant to uphold.
+ */
+function findHeadingMatches(text: string): { index: number; heading: string }[] {
+	const matches: { index: number; heading: string }[] = [];
+	let fence: { char: string; length: number } | null = null;
+	let offset = 0;
+
+	for (const line of text.split('\n')) {
+		const fenceLine = FENCE_RE.exec(line);
+
+		if (fence) {
+			const closes = Boolean(
+				fenceLine &&
+				fenceLine[2][0] === fence.char &&
+				fenceLine[2].length >= fence.length &&
+				fenceLine[3].trim() === ''
+			);
+			if (closes) fence = null;
+		} else if (fenceLine) {
+			fence = { char: fenceLine[2][0], length: fenceLine[2].length };
+		} else {
+			const heading = HEADING_RE.exec(line);
+			if (heading) matches.push({ index: offset, heading: heading[2].trim() });
+		}
+
+		offset += line.length + 1;
+	}
+
+	return matches;
+}
+
 export function splitByMarkdownHeaders(text: string): EmbeddingChunk[] {
 	const trimmed = text.trim();
 	if (!trimmed) return [];
 
 	const trimOffset = text.indexOf(trimmed);
-	const headerRegex = /^(#{1,2})\s+(.+)$/gm;
-
-	const headerMatches: { index: number; length: number }[] = [];
-	let match: RegExpExecArray | null;
-
-	while ((match = headerRegex.exec(trimmed)) !== null) {
-		headerMatches.push({ index: match.index, length: match[0].length });
-	}
+	const headerMatches = findHeadingMatches(trimmed);
 
 	if (headerMatches.length === 0) {
 		return [
@@ -471,33 +509,27 @@ export function splitByMarkdownHeaders(text: string): EmbeddingChunk[] {
 	const chunks: EmbeddingChunk[] = [];
 	let currentIndex = 0;
 
+	const pushRange = (start: number, end: number, heading?: string) => {
+		const chunkText = trimmed.slice(start, end).trim();
+		if (!chunkText) return;
+		chunks.push({
+			text: chunkText,
+			index: currentIndex,
+			heading,
+			startOffset: start + trimOffset,
+			endOffset: end + trimOffset
+		});
+		currentIndex++;
+	};
+
 	if (headerMatches[0].index > 0) {
-		const preHeaderText = trimmed.slice(0, headerMatches[0].index).trim();
-		if (preHeaderText.length > 0) {
-			chunks.push({
-				text: preHeaderText,
-				index: currentIndex,
-				startOffset: trimOffset,
-				endOffset: headerMatches[0].index + trimOffset
-			});
-			currentIndex++;
-		}
+		pushRange(0, headerMatches[0].index);
 	}
 
 	for (let i = 0; i < headerMatches.length; i++) {
 		const start = headerMatches[i].index;
 		const end = i + 1 < headerMatches.length ? headerMatches[i + 1].index : trimmed.length;
-		const sectionText = trimmed.slice(start, end).trim();
-
-		if (sectionText.length > 0) {
-			chunks.push({
-				text: sectionText,
-				index: currentIndex,
-				startOffset: start + trimOffset,
-				endOffset: end + trimOffset
-			});
-			currentIndex++;
-		}
+		pushRange(start, end, headerMatches[i].heading);
 	}
 
 	return chunks;

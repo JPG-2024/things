@@ -37,6 +37,7 @@
 	type MultiChunkEntry = {
 		key: ChunkOffset;
 		data: MultiChunkData;
+		heading?: string;
 	};
 
 	type MultiData = {
@@ -78,9 +79,9 @@
 		return reconstructChunks(sourceContent, offsets);
 	});
 
-	const reversedChunks = $derived.by((): { chunk: MultiChunkEntry; originalIndex: number }[] => {
+	const orderedChunks = $derived.by((): { chunk: MultiChunkEntry; originalIndex: number }[] => {
 		if (!multiData) return [];
-		return multiData.chunks.map((chunk, originalIndex) => ({ chunk, originalIndex })).reverse();
+		return multiData.chunks.map((chunk, originalIndex) => ({ chunk, originalIndex }));
 	});
 
 	const isRunning = $derived(task.status === 'running');
@@ -258,8 +259,16 @@
 		{#if multiData.chunks.length > 0}
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
 				<div class="chunks-grid">
-					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
+					{#each orderedChunks as entry (entry.chunk.key.startOffset)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+							<div class="chunk-heading">
+								<span class="chunk-index">{entry.originalIndex + 1}/{multiData.chunks.length}</span>
+								{#if entry.chunk.heading}
+									<span class="chunk-title">{entry.chunk.heading}</span>
+								{:else}
+									<span class="chunk-title chunk-title-empty">sin encabezado</span>
+								{/if}
+							</div>
 							<div class="result-section">
 								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
 							</div>
@@ -373,6 +382,33 @@
 	.chunk-item:last-child {
 		padding-bottom: 0;
 		border-bottom: none;
+	}
+
+	.chunk-heading {
+		display: flex;
+		gap: 0.6rem;
+		align-items: baseline;
+		margin-bottom: 0.75rem;
+	}
+
+	.chunk-index {
+		font-size: 0.7rem;
+		opacity: 0.45;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.chunk-title {
+		font-family: 'BetterVCR', monospace;
+		font-size: 0.8rem;
+		margin: 0 0 0.4rem;
+		overflow-wrap: anywhere;
+	}
+
+	.chunk-title-empty {
+		font-weight: 400;
+		font-style: italic;
+		opacity: 0.45;
 	}
 
 	.raw-button-row {

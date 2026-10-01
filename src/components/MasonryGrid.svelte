@@ -55,12 +55,11 @@
 	let renderedItems = $state<T[]>([]);
 
 	let gridEl: HTMLDivElement;
-	let resizeObservers: ResizeObserver[] = [];
+	let contentObserver: ResizeObserver | null = null;
 	let containerObserver: ResizeObserver | null = null;
 	let pendingCleanups: (() => void)[] = [];
-	let mutationObserver: MutationObserver | null = null;
-	let resizeDirty = false;
-	let rafId = 0;
+	let resizeQueued = false;
+	let resizeRafId = 0;
 	let fontsReadyDone = false;
 	let resizeGeneration = 0;
 	let lastSpans = new WeakMap<HTMLDivElement, number>();
@@ -168,11 +167,28 @@
 		ignoreInputs: true
 	}));
 
+	// Computed row metrics are a pure function of the active layout, but reading
+	// them costs a getComputedStyle() forced style recalc, and resizeAll() runs
+	// several times per cycle (two rAFs, the settle timer, fonts.ready, finish()).
+	// Cache them and re-read only when the layout object changes or the window
+	// resizes — zoom alters the rem-based grid gap without changing the layout.
+	let rowMetricsKey: LayoutConfig | null = null;
+	let rowMetricsValue = { rowHeight: 0, rowGap: 0 };
+
 	function getRowMetrics() {
+		if (rowMetricsKey === currentLayout) return rowMetricsValue;
 		const computed = window.getComputedStyle(gridEl);
-		const rowHeight = Number.parseFloat(computed.getPropertyValue('grid-auto-rows'));
-		const rowGap = Number.parseFloat(computed.getPropertyValue('row-gap'));
-		return { rowHeight, rowGap };
+		rowMetricsValue = {
+			rowHeight: Number.parseFloat(computed.getPropertyValue('grid-auto-rows')),
+			rowGap: Number.parseFloat(computed.getPropertyValue('row-gap'))
+		};
+		rowMetricsKey = currentLayout;
+		return rowMetricsValue;
+	}
+
+	function handleWindowResize() {
+		rowMetricsKey = null;
+		scheduleResize();
 	}
 
 	function setRowSpan(wrapper: HTMLDivElement, rowSpan: number) {
@@ -199,6 +215,13 @@
 		return exact;
 	}
 
+	// Scratch buffer reused across measurement passes. resizeAll() runs several
+	// times per cycle, so allocating an array plus one object per item each time
+	// churned GC on large grids. It is resized to the live item count at the end
+	// of each pass, which also drops references to any detached grid items.
+	type MeasuredItem = { wrapper: HTMLDivElement; contentHeight: number };
+	const measured: MeasuredItem[] = [];
+
 	function resizeAll() {
 		if (!gridEl?.isConnected) return;
 
@@ -208,24 +231,37 @@
 			for (const wrapper of wrappers) {
 				if (wrapper?.isConnected) setRowSpan(wrapper, 1);
 			}
+			// row mode does not use the scratch buffer; drop any stale entries so
+			// detached grid items (and their images) are not retained
+			measured.length = 0;
 			return;
 		}
 
 		const { rowHeight, rowGap } = getRowMetrics();
-		const measured: { wrapper: HTMLDivElement; contentHeight: number }[] = [];
 
 		// read phase: all measurements before any writes to avoid layout thrashing
+		let count = 0;
 		for (const wrapper of wrappers) {
 			if (!wrapper?.isConnected) continue;
 			const content = wrapper.querySelector('.content') as HTMLElement | null;
 			if (!content) continue;
-			measured.push({ wrapper, contentHeight: content.getBoundingClientRect().height });
+			let slot = measured[count];
+			if (slot === undefined) {
+				slot = { wrapper, contentHeight: 0 };
+				measured[count] = slot;
+			}
+			slot.wrapper = wrapper;
+			slot.contentHeight = content.getBoundingClientRect().height;
+			count += 1;
 		}
 
 		// write phase
-		for (const { wrapper, contentHeight } of measured) {
-			setRowSpan(wrapper, computeRowSpan(wrapper, contentHeight, rowHeight, rowGap));
+		for (let i = 0; i < count; i++) {
+			const slot = measured[i];
+			setRowSpan(slot.wrapper, computeRowSpan(slot.wrapper, slot.contentHeight, rowHeight, rowGap));
 		}
+
+		measured.length = count;
 	}
 
 	// Live collection of item wrappers queried from the DOM. We intentionally
@@ -237,8 +273,12 @@
 		return Array.from(gridEl.querySelectorAll<HTMLDivElement>('.grid-item'));
 	}
 
-	const prefersReducedMotion = () =>
-		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// Allocated once per component (not per item) and read live, so a mid-session
+	// change to the OS setting is still honoured by the next transition.
+	const reducedMotionQuery =
+		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+	const prefersReducedMotion = (): boolean => reducedMotionQuery?.matches ?? false;
 
 	// Subtle fade + scale used when items enter or leave the list. Becomes a
 	// no-op when the user prefers reduced motion.
@@ -247,17 +287,26 @@
 		return scale(node, { duration, start: 0.96, opacity: 0, easing: cubicOut });
 	}
 
+	// A single ResizeObserver tracks every item's content box. Browsers already
+	// batch callback invocations for all observed elements into one frame, so one
+	// shared observer is equivalent to N per-item observers while avoiding N
+	// allocations per observeAll() and N separate callback invocations.
+	function getContentObserver(): ResizeObserver {
+		if (!contentObserver) {
+			contentObserver = new ResizeObserver(() => scheduleResize());
+		}
+		return contentObserver;
+	}
+
 	function observeAll() {
-		resizeObservers.forEach((obs) => obs.disconnect());
-		resizeObservers = [];
+		const observer = getContentObserver();
+		observer.disconnect();
 		// spans from a previous items/layout state must not feed hysteresis
 		lastSpans = new WeakMap();
 		for (const wrapper of getWrappers()) {
 			if (!wrapper?.isConnected) continue;
-			const content = wrapper.querySelector('.content') as HTMLElement;
-			const observer = new ResizeObserver(() => scheduleResize());
+			const content = wrapper.querySelector('.content') as HTMLElement | null;
 			if (content) observer.observe(content);
-			resizeObservers.push(observer);
 		}
 	}
 
@@ -266,7 +315,22 @@
 		pendingCleanups = [];
 	}
 
+	// Coalesce bursts of resize signals into a single measurement pass per frame.
+	// A batch of image loads makes the shared observer deliver all of its entries
+	// at once, and window-resize / mutation events can also arrive in bursts.
+	// Without this guard, each signal ran the full O(N) scan below, so N signals
+	// meant N passes of which all but the last were discarded by the generation
+	// check — quadratic work for a single visual update.
 	function scheduleResize() {
+		if (resizeQueued) return;
+		resizeQueued = true;
+		resizeRafId = requestAnimationFrame(() => {
+			resizeQueued = false;
+			runResize();
+		});
+	}
+
+	function runResize() {
 		const generation = ++resizeGeneration;
 		cleanupPending();
 
@@ -334,7 +398,7 @@
 	}
 
 	onMount(() => {
-		window.addEventListener('resize', scheduleResize);
+		window.addEventListener('resize', handleWindowResize);
 
 		if (gridEl?.isConnected) containerWidth = gridEl.clientWidth;
 		containerObserver = new ResizeObserver(() => {
@@ -342,27 +406,23 @@
 		});
 		if (gridEl) containerObserver.observe(gridEl);
 
-		mutationObserver = new MutationObserver(() => {
-			if (resizeDirty) return;
-			resizeDirty = true;
-			rafId = requestAnimationFrame(() => {
-				resizeDirty = false;
-				scheduleResize();
-			});
-		});
-		mutationObserver.observe(gridEl, { childList: true, subtree: true });
-
 		return () => {
-			resizeObservers.forEach((obs) => obs.disconnect());
+			contentObserver?.disconnect();
 			containerObserver?.disconnect();
-			mutationObserver?.disconnect();
 			cleanupPending();
 			resizeGeneration += 1;
-			window.removeEventListener('resize', scheduleResize);
-			cancelAnimationFrame(rafId);
+			window.removeEventListener('resize', handleWindowResize);
+			cancelAnimationFrame(resizeRafId);
 		};
 	});
 
+	// Single entry point for keeping spans in sync with the DOM:
+	//   - a changed `items` array (add/remove/refetch) re-observes and re-measures
+	//   - an existing item whose content resizes is caught by the shared
+	//     ResizeObserver registered in observeAll()
+	// This covers every mutation that can affect a span, so there is deliberately
+	// no MutationObserver here — a `subtree: true` one would fire on every node
+	// inserted by the intro/outro transitions and multiply this work for no gain.
 	$effect(() => {
 		renderedItems = items;
 		void currentLayout;

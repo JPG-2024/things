@@ -256,7 +256,6 @@
 						min={String(MIN_TOPIC_COUNT)}
 						disabled={isRunning}
 						bind:value={topicCountInput}
-						onEnter={handleCommitParams}
 					/>
 				</div>
 				<span class="level-label">words/topic</span>
@@ -266,7 +265,6 @@
 						min={String(MIN_TOPIC_WORD_COUNT)}
 						disabled={isRunning}
 						bind:value={topicWordInput}
-						onEnter={handleCommitParams}
 					/>
 				</div>
 				<Button icon="RefreshCw" onClick={handleCommitParams} disabled={isRunning || !paramsDirty}>

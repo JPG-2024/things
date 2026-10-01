@@ -249,7 +249,7 @@
 		min-width: 0;
 		max-width: 100%;
 		position: relative;
-		border-top: 1px solid var(--bg-color);
+		/* border-top: 1px solid var(--bg-color); */
 	}
 
 	.article-item__keywords {
@@ -283,8 +283,9 @@
 
 	.article-card.grid-3 {
 		background-image: linear-gradient(
-			180deg,
-			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			145deg,
+			color-mix(in srgb, var(--primary-color) 15%, transparent),
+			color-mix(in srgb, var(--bg-color) 15%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);
@@ -512,8 +513,8 @@
 	}
 
 	.article-match-snippet {
-		font-size: 0.75rem;
-		opacity: 0.7;
+		font-size: 0.93rem;
+		opacity: 0.95;
 		padding: 0.25rem 0;
 		font-style: italic;
 		line-height: 1.4;
@@ -523,7 +524,7 @@
 		background: color-mix(in srgb, var(--primary-color) 40%, transparent);
 		color: inherit;
 		border-radius: 2px;
-		padding: 0 2px;
+		padding: 5px 0;
 	}
 
 	.snippet-context {
