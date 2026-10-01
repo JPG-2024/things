@@ -4,6 +4,7 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import type { RawSearchResult } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ArticleWithTasks } from '@/stores/webStore';
@@ -11,11 +12,7 @@
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 
-	const searchResults = $derived.by(() => {
-		if (!viewState.rawSearchResults) return null;
-		const urls = new Set(viewState.rawSearchResults.keys());
-		return articleCacheStore.articlesWithoutProfile.filter((a) => urls.has(a.url ?? ''));
-	});
+	const searchResults = $derived(viewState.rawSearchResults);
 
 	function handleClearSearch() {
 		viewState.rawSearchResults = null;
@@ -60,19 +57,23 @@
 			</button>
 		</div>
 		{#if searchResults.length > 0}
-			<MasonryGrid items={searchResults} showContentModeToggle>
+			<MasonryGrid
+				items={searchResults}
+				keyOf={(result: RawSearchResult) => result.article.url ?? ''}
+				showContentModeToggle
+			>
 				{#snippet children(
-					article: ArticleWithTasks,
+					result: RawSearchResult,
 					_i: number,
 					_layoutIndex: number,
 					layoutKey: LayoutKey
 				)}
 					<ArticleItem
-						{article}
+						article={result.article}
 						{layoutKey}
 						animate={false}
-						marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-						matchSnippet={viewState.rawSearchResults?.get(article.url ?? '')}
+						marked={deleteSelectionStore.markedUrls.has(result.article.url ?? '')}
+						matchSnippet={result.match}
 						onClick={handleArticleClick}
 						onHoverEnter={handleArticleHoverEnter}
 						onHoverLeave={handleArticleHoverLeave}

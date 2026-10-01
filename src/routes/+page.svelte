@@ -6,10 +6,15 @@
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
-	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
+	import type { RawSearchResult } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { deleteProfileById, getCategories } from '@/stores/webStore';
+	import {
+		deleteProfileById,
+		getCategories,
+		mapArticlesFromRecords,
+		type WebStoreArticleRecord
+	} from '@/stores/webStore';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
@@ -21,7 +26,6 @@
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import TabHeader from '@/components/TabHeader.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
-	import { SvelteMap } from 'svelte/reactivity';
 
 	import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
@@ -63,19 +67,34 @@
 		viewState.rawSearchLoading = true;
 		try {
 			const results = await invoke<
-				Array<{ url: string; before: string; match_text: string; after: string }>
+				Array<{
+					url: string;
+					before: string;
+					matchText: string;
+					after: string;
+					article: WebStoreArticleRecord;
+				}>
 			>('search_raw_content', {
 				pattern: trimmed,
 				contextChars: viewState.rawSearchContextChars
 			});
-			const map = new SvelteMap<string, RawSearchMatch>();
+
+			const articles = await mapArticlesFromRecords(results.map((r) => r.article));
+			const articleByUrl = new Map(articles.map((article) => [article.url ?? '', article]));
+
+			const mapped: RawSearchResult[] = [];
 			for (const r of results) {
-				map.set(r.url, { before: r.before, matchText: r.match_text, after: r.after });
+				const article = articleByUrl.get(r.url);
+				if (!article) continue;
+				mapped.push({
+					article,
+					match: { before: r.before, matchText: r.matchText, after: r.after }
+				});
 			}
-			viewState.rawSearchResults = map;
+			viewState.rawSearchResults = mapped;
 		} catch (error) {
 			console.warn('[raw-search] error', error);
-			viewState.rawSearchResults = new SvelteMap();
+			viewState.rawSearchResults = [];
 		} finally {
 			viewState.rawSearchLoading = false;
 		}

@@ -2044,11 +2044,85 @@ pub async fn read_raw_content_by_url(app: AppHandle, url: String) -> Option<Stri
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RawContentMatchResult {
     pub url: String,
     pub before: String,
     pub match_text: String,
     pub after: String,
+    pub article: WebStoreArticleRecord,
+}
+
+/// Literal, case-insensitive first-match search inside a raw content document.
+/// The user query is escaped so regex metacharacters are treated as text.
+fn find_first_match_snippet(
+    content: &str,
+    pattern: &str,
+    context: usize,
+) -> Option<(String, String, String)> {
+    let re = regex::RegexBuilder::new(&regex::escape(pattern))
+        .case_insensitive(true)
+        .build()
+        .ok()?;
+
+    for line in content.lines() {
+        if let Some(m) = re.find(line) {
+            let match_start = m.start();
+            let match_end = m.end();
+            let snippet_start = match_start.saturating_sub(context);
+            let snippet_end = std::cmp::min(line.len(), match_end + context);
+
+            return Some((
+                line[snippet_start..match_start].to_string(),
+                line[match_start..match_end].to_string(),
+                line[match_end..snippet_end].to_string(),
+            ));
+        }
+    }
+
+    None
+}
+
+fn load_raw_content_url_index(conn: &Connection) -> Result<HashMap<String, String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT url FROM web_articles")
+        .map_err(|e| e.to_string())?;
+    let urls = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+
+    let mut index = HashMap::new();
+    for url_result in urls {
+        let url = url_result.map_err(|e| e.to_string())?;
+        index.insert(raw_content_key(&url), url);
+    }
+    Ok(index)
+}
+
+fn fetch_articles_by_urls(
+    conn: &Connection,
+    urls: &[String],
+) -> Result<HashMap<String, WebStoreArticleRecord>, String> {
+    let mut map = HashMap::new();
+    if urls.is_empty() {
+        return Ok(map);
+    }
+
+    for chunk in urls.chunks(900) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let body = format!("WHERE a.url IN ({})", placeholders);
+        let params: Vec<Box<dyn rusqlite::types::ToSql>> = chunk
+            .iter()
+            .map(|url| Box::new(url.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let records = query_articles_sql(conn, &body, &params)?;
+        for record in records {
+            if let Some(url) = record.url.clone() {
+                map.insert(url, record);
+            }
+        }
+    }
+    Ok(map)
 }
 
 #[tauri::command]
@@ -2057,31 +2131,31 @@ pub async fn search_raw_content(
     pattern: String,
     context_chars: Option<usize>,
 ) -> Result<Vec<RawContentMatchResult>, String> {
-    use grep_matcher::Matcher;
-    use grep_regex::RegexMatcherBuilder;
-    use grep_searcher::sinks::UTF8;
-    use grep_searcher::SearcherBuilder;
-
     let context = context_chars.unwrap_or(20);
-    let dir = raw_content_dir(&app)?;
+    let pattern = pattern.trim();
+    if pattern.is_empty() {
+        return Ok(Vec::new());
+    }
 
+    let dir = raw_content_dir(&app)?;
     if !dir.exists() {
         return Ok(Vec::new());
     }
 
-    let mut results: Vec<RawContentMatchResult> = Vec::new();
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    let url_index = load_raw_content_url_index(&conn)?;
+    if url_index.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut matched: Vec<(String, String, String, String)> = Vec::new();
     let mut seen_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
-
     for entry in entries {
-        if results.len() >= 10 {
-            break;
-        }
-
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
-
         if !path.is_file() {
             continue;
         }
@@ -2091,79 +2165,48 @@ pub async fn search_raw_content(
             None => continue,
         };
 
-        let matcher = RegexMatcherBuilder::new()
-            .build(&pattern)
-            .map_err(|e| e.to_string())?;
-
-        let mut found_match = false;
-        let mut match_before = String::new();
-        let mut match_text = String::new();
-        let mut match_after = String::new();
-
-        let mut searcher = SearcherBuilder::new().build();
-
-        let _ = searcher.search_path(
-            &matcher,
-            &path,
-            UTF8(|_lnum, line| {
-                if found_match {
-                    return Ok(true);
-                }
-
-                if let Some(m) = matcher.find(line.as_bytes()).ok().flatten() {
-                    let line_str = line;
-                    let match_start = m.start();
-                    let match_end = m.end();
-
-                    let snippet_start = if match_start > context {
-                        match_start - context
-                    } else {
-                        0
-                    };
-                    let snippet_end = std::cmp::min(line_str.len(), match_end + context);
-
-                    match_before = line_str[snippet_start..match_start].to_string();
-                    match_text = line_str[match_start..match_end].to_string();
-                    match_after = line_str[match_end..snippet_end].to_string();
-                    found_match = true;
-                }
-                Ok(true)
-            }),
-        );
-
-        if !found_match {
+        let Some(url) = url_index.get(&file_name).cloned() else {
+            continue;
+        };
+        if seen_urls.contains(&url) {
             continue;
         }
 
-        let conn = get_db(&app)?;
-        let mut stmt = conn
-            .prepare("SELECT url FROM web_articles")
-            .map_err(|e| e.to_string())?;
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
 
-        let url_iter = stmt
-            .query_map([], |row| row.get::<_, String>(0))
-            .map_err(|e| e.to_string())?;
+        let Some((before, match_text, after)) = find_first_match_snippet(&content, pattern, context)
+        else {
+            continue;
+        };
 
-        for url_result in url_iter {
-            if results.len() >= 10 {
-                break;
-            }
-
-            let url = url_result.map_err(|e| e.to_string())?;
-            let key = raw_content_key(&url);
-
-            if key == file_name && !seen_urls.contains(&url) {
-                seen_urls.insert(url.clone());
-                results.push(RawContentMatchResult {
-                    url,
-                    before: match_before.clone(),
-                    match_text: match_text.clone(),
-                    after: match_after.clone(),
-                });
-                break;
-            }
-        }
+        seen_urls.insert(url.clone());
+        matched.push((url, before, match_text, after));
     }
+
+    if matched.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let matched_urls: Vec<String> = matched.iter().map(|(url, _, _, _)| url.clone()).collect();
+    let articles = fetch_articles_by_urls(&conn, &matched_urls)?;
+
+    let mut results: Vec<RawContentMatchResult> = Vec::new();
+    for (url, before, match_text, after) in matched {
+        let Some(article) = articles.get(&url).cloned() else {
+            continue;
+        };
+        results.push(RawContentMatchResult {
+            url,
+            before,
+            match_text,
+            after,
+            article,
+        });
+    }
+
+    results.sort_by(|left, right| right.article.created_at.cmp(&left.article.created_at));
 
     Ok(results)
 }
@@ -2965,6 +3008,43 @@ mod tests {
             "https://example.com/article?id=123"
         );
         assert_eq!(article_id_for_url("raw-abc"), "raw-abc");
+    }
+
+    #[test]
+    fn find_first_match_snippet_is_case_insensitive_literal() {
+        let content = "Intro line\nsay Hello World from the article\noutro";
+
+        let (before, match_text, after) =
+            find_first_match_snippet(content, "hello world", 5).expect("match");
+
+        assert_eq!(match_text, "Hello World");
+        assert_eq!(before, "say ");
+        assert_eq!(after, " from");
+    }
+
+    #[test]
+    fn find_first_match_snippet_escapes_regex_metacharacters() {
+        let content = "price is 100.50 today";
+
+        let (_, match_text, _) =
+            find_first_match_snippet(content, "100.50", 10).expect("literal dot match");
+
+        assert_eq!(match_text, "100.50");
+
+        assert!(
+            find_first_match_snippet(content, "100X50", 10).is_none(),
+            "escaped dot must not match arbitrary characters"
+        );
+    }
+
+    #[test]
+    fn find_first_match_snippet_returns_first_line_only() {
+        let content = "nothing here\nsecond line has TARGET\nthird TARGET";
+
+        let (_, match_text, _) =
+            find_first_match_snippet(content, "target", 4).expect("match");
+
+        assert_eq!(match_text, "TARGET");
     }
 
     #[test]

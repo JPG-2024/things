@@ -1,12 +1,16 @@
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
-import type { WebStoreCategoryRecord } from '@/stores/webStore';
-import { SvelteMap } from 'svelte/reactivity';
+import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
 
 export interface RawSearchMatch {
 	before: string;
 	matchText: string;
 	after: string;
+}
+
+export interface RawSearchResult {
+	article: ArticleWithTasks;
+	match: RawSearchMatch;
 }
 
 export type ArticleContentMode = 'both' | 'thumbnail' | 'title';
@@ -126,7 +130,7 @@ class ViewState {
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	unifiedFilter = $state('');
-	rawSearchResults: SvelteMap<string, RawSearchMatch> | null = $state(null);
+	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
 

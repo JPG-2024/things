@@ -580,6 +580,17 @@ async function mapAndResolveArticles(
 	return resolveArticleProfilePictureBatch(await resolveArticleThumbnailBatch(mappedArticles));
 }
 
+export async function mapArticlesFromRecords(
+	rows: WebStoreArticleRecord[]
+): Promise<ArticleWithTasks[]> {
+	if (rows.length === 0) {
+		return [];
+	}
+
+	const tasksByUrl = await getTasksByUrlMap();
+	return mapAndResolveArticles(rows, tasksByUrl);
+}
+
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
 		const [articles, tasksByUrl] = await Promise.all([
