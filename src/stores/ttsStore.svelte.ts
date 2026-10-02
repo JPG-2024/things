@@ -47,9 +47,9 @@ class TTSState {
 	generatedId = $state('');
 	chunksGenerated = $state(0);
 	totalChunks = $state(0);
-	chunkNotifyVersion = $state(0);
 	lastVoiceChunkIndex = $state<number | null>(null);
 	private _generationAbort: AbortController | null = null;
+	private _nextChunkPromise: Promise<boolean> | null = null;
 	private _allChunks: string[] = [];
 	private _nextChunkIndex = 0;
 	private _generationSession = 0;
@@ -189,7 +189,6 @@ class TTSState {
 		this.errorMessage = '';
 		this.chunksGenerated = 0;
 		this.totalChunks = 0;
-		this.chunkNotifyVersion = 0;
 		this.lastVoiceChunkIndex = null;
 		this.generatedId = '';
 		this.generatedConfigSig = '';
@@ -215,6 +214,7 @@ class TTSState {
 			this._generationAbort.abort();
 			this._generationAbort = null;
 		}
+		this._nextChunkPromise = null;
 		this._generationSession++;
 		this.isGenerating = false;
 		this._allChunks = [];
@@ -230,7 +230,6 @@ class TTSState {
 		this.durationSeconds = null;
 		this.chunksGenerated = 0;
 		this.totalChunks = 0;
-		this.chunkNotifyVersion = 0;
 		this.lastVoiceChunkIndex = null;
 		this.generatedId = '';
 		this.generatedConfigSig = '';
@@ -382,7 +381,6 @@ class TTSState {
 
 			this.blobs.push(res.blob);
 			this.chunksGenerated = 1;
-			this.chunkNotifyVersion++;
 			this.lastVoiceChunkIndex = this._chunkVoiceIndices[0];
 			this.generatedId = id;
 			this.generatedConfigSig = this.configSig;
@@ -411,14 +409,36 @@ class TTSState {
 		await this.generateTTS('clipboard-direct');
 	}
 
-	async generateNextChunk(): Promise<void> {
-		if (this._nextChunkIndex >= this._allChunks.length || this._allChunks.length === 0) {
-			this.isGenerating = false;
-			return;
+	/**
+	 * Generates the next pending chunk. Single-flight: concurrent callers (the
+	 * playback prefetch and the playback engine waiting for audio) receive the
+	 * same in-flight promise, and it resolves `true` once a new chunk blob is
+	 * available so callers can resume playback.
+	 */
+	generateNextChunk(): Promise<boolean> {
+		if (this._nextChunkPromise !== null) {
+			return this._nextChunkPromise;
 		}
 
+		// An initial `generateTTS` owns the abort controller; don't start a
+		// parallel generation on top of it.
 		if (this._generationAbort !== null) {
-			return;
+			return Promise.resolve(false);
+		}
+
+		const promise = this._runGenerateNextChunk().finally(() => {
+			if (this._nextChunkPromise === promise) {
+				this._nextChunkPromise = null;
+			}
+		});
+		this._nextChunkPromise = promise;
+		return promise;
+	}
+
+	private async _runGenerateNextChunk(): Promise<boolean> {
+		if (this._nextChunkIndex >= this._allChunks.length || this._allChunks.length === 0) {
+			this.isGenerating = false;
+			return false;
 		}
 
 		const session = this._generationSession;
@@ -444,7 +464,7 @@ class TTSState {
 			}
 
 			if (this._generationSession !== session) {
-				return;
+				return false;
 			}
 
 			if (res.blob.size === 0) {
@@ -453,19 +473,20 @@ class TTSState {
 
 			this.blobs.push(res.blob);
 			this.chunksGenerated = i + 1;
-			this.chunkNotifyVersion++;
 			this.lastVoiceChunkIndex = this._chunkVoiceIndices[i];
 			this._nextChunkIndex = i + 1;
+			return true;
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
-				return;
+				return false;
 			}
 			if (this._generationSession !== session) {
-				return;
+				return false;
 			}
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
 			this.isGenerating = false;
 			console.error('[TTS] Generation error:', err);
+			return false;
 		} finally {
 			if (this._generationAbort === abort) {
 				this._generationAbort = null;

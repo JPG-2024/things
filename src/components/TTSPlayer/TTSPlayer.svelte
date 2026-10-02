@@ -222,13 +222,6 @@
 	});
 
 	$effect(() => {
-		const version = ttsState.chunkNotifyVersion;
-		if (version > 0 && engine.waitingForChunk && ttsState.isPlaying && !engine.isSettingUp) {
-			engine.onChunkAvailable();
-		}
-	});
-
-	$effect(() => {
 		const generating = ttsState.isGenerating;
 		const blobCount = ttsState.blobs.length;
 		const total = ttsState.totalChunks;

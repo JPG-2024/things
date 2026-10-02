@@ -155,12 +155,24 @@ export class TtsPlaybackEngine {
 			}
 		} else if (nextIdx < ttsState.totalChunks) {
 			this.waitingForChunk = true;
-			if (!this.nextChunkPrefetchRequested) {
-				void ttsState.generateNextChunk();
-			}
+			this.requestChunk(nextIdx);
 		} else {
 			this.stop();
 		}
+	}
+
+	/**
+	 * Waits for the pending chunk to be generated and resumes playback once it
+	 * is available. Safe to call while a prefetch is already in flight: the
+	 * single-flight promise in the store is shared, so we simply chain on it.
+	 */
+	private requestChunk(expectedIndex: number): void {
+		void ttsState.generateNextChunk().then((generated) => {
+			if (!generated) return;
+			if (!this.waitingForChunk || this.currentSource) return;
+			if (this.currentChunkIndex + 1 !== expectedIndex) return;
+			void this.playChunkAt(expectedIndex);
+		});
 	}
 
 	async start(): Promise<void> {
@@ -282,11 +294,6 @@ export class TtsPlaybackEngine {
 			if (ttsState.isGenerating) return;
 			await this.start();
 		}
-	}
-
-	onChunkAvailable(): void {
-		this.waitingForChunk = false;
-		void this.playChunkAt(this.currentChunkIndex + 1);
 	}
 
 	async decodeAll(blobCount: number): Promise<void> {
