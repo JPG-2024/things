@@ -130,19 +130,18 @@ export function buildMultiFieldUserMessage(keywordCount: number, topicCount: num
 
 // ── Analysis topic (topic extraction → per-topic summary → keywords) ──
 export const ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE =
-	"You are a professional content summarizer. Write a brief, focused summary about the requested topic, only the summary. No titles, no markdown except bold (**) for keywords. Use bold (**) to emphasize the most relevant keywords, don't abuse.";
+	'You are a professional content summarizer. Write a brief, focused summary about the requested topic using ONLY information from the SECTION below. 1-3 sentences, max 80 words. No titles, no markdown except bold (**) for keywords. If the topic is not really discussed, reply exactly: No specific mention.';
 
-export function buildAnalysisTopicSummarySystemMessage(langName?: string): string {
-	if (!langName) return ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE;
-	return `${ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE} Write the summary in ${langName}.`;
+export function buildAnalysisTopicSummarySystemMessage(): string {
+	return ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE;
 }
 
-export function buildAnalysisTopicSummaryUserMessage(topic: string): string {
-	return `Summarize what this section says specifically about the topic "${topic}"`;
+export function buildAnalysisTopicSummaryUserMessage(topic: string, maxWords = 80): string {
+	return `Summarize what the SECTION below says specifically about the topic "${topic}". Max ${maxWords} words.\n\nSECTION:\n"""`;
 }
 
 export function buildAnalysisTopicLabelDescription(maxWords: number): string {
-	return `main topic labels of ${maxWords} words each, each ending with a period`;
+	return `distinct main topic labels, at most ${maxWords} words each, as short noun phrases`;
 }
 
 export const ANALYSIS_TOPIC_KEYWORD_DESCRIPTION = 'specific keywords';

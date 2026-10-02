@@ -43,6 +43,9 @@ export interface ChunkProcessorConfig {
 	topicCount?: number;
 	keywordCount?: number;
 	topicWordCount?: number;
+	topicSimilarityThreshold?: number;
+	topicConcurrency?: number;
+	maxSummaryWords?: number;
 }
 
 export interface ChunkProcessor {

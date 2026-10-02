@@ -47,6 +47,25 @@ export function stringArrayGbnf(count: number, ruleName = 'root'): string {
 	return `${ruleName} ::= "["${items} ws "]"\nstring ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})\nws ::= [ \\t\\n\\r]*`;
 }
 
+/**
+ * Grammar for "up to maxCount" string arrays.
+ *
+ * Unlike `stringArrayGbnf` (exactly N items), small LLMs cope better with a
+ * capped range: return 1..maxCount items, fewer when the content is short,
+ * never filler. `minItems` defaults to 1 so empty arrays are rejected by the
+ * grammar and fall back to deterministic handling in the caller.
+ */
+export function stringArrayUpToGbnf(maxCount: number, minItems = 1, ruleName = 'root'): string {
+	const max = Math.max(1, Math.trunc(maxCount));
+	const min = Math.max(0, Math.min(Math.trunc(minItems), max));
+	const tail: string[] = [];
+	for (let i = 0; i < max; i++) {
+		tail.push(i < min ? (i === 0 ? 'ws string' : 'ws "," ws string') : `(ws "," ws string)?`);
+	}
+
+	return `${ruleName} ::= "["${tail.join(' ')} ws "]"\nstring ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})\nws ::= [ \\t\\n\\r]*`;
+}
+
 export function objectWithEnumAndStringGbnf(
 	enumKey: string,
 	enumValues: string[],
