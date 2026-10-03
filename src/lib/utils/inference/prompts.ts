@@ -128,21 +128,16 @@ export function buildMultiFieldUserMessage(keywordCount: number, topicCount: num
 	return `Analyze this section. make a middle long summary as a takeaway info, avoid titles, just start with: this section describes..". keywords: exactly ${keywordCount} specific keywords. explanatory topics: exactly ${topicCount} topic in 20 words each one. Respond in JSON.`;
 }
 
-// ── Analysis topic (topic extraction → per-topic summary → keywords) ──
-export const ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE =
-	"You are a professional content summarizer. Write a brief, focused summary about the requested topic, only the summary. No titles, no markdown except bold (**) for keywords. Use bold (**) to emphasize the most relevant keywords, don't abuse.";
+// ── Analysis topic (single-call extraction) ───────────────────────────
+export const ANALYSIS_TOPIC_SYSTEM_MESSAGE =
+	'You are analyzing video content. Extract the main discussion points with summaries and key terms. Return ONLY valid JSON.';
 
-export function buildAnalysisTopicSummarySystemMessage(langName?: string): string {
-	if (!langName) return ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE;
-	return `${ANALYSIS_TOPIC_SUMMARY_SYSTEM_MESSAGE} Write the summary in ${langName}.`;
+export function buildAnalysisTopicUserMessage(
+	topicCount: number,
+	keywordCount: number,
+	topicWordCount: number,
+	langName?: string
+): string {
+	const langInstruction = langName ? ` Respond in ${langName}.` : '';
+	return `Extract exactly ${topicCount} main topics (each label max ${topicWordCount} words). For each topic, provide a clear summary of what is explained or demonstrated. Also extract ${keywordCount} key terms.${langInstruction} Respond in JSON: { topics: [{label: string, summary: string}], keywords: string[] }`;
 }
-
-export function buildAnalysisTopicSummaryUserMessage(topic: string): string {
-	return `Summarize what this section says specifically about the topic "${topic}"`;
-}
-
-export function buildAnalysisTopicLabelDescription(maxWords: number): string {
-	return `main topic labels of ${maxWords} words each, each ending with a period`;
-}
-
-export const ANALYSIS_TOPIC_KEYWORD_DESCRIPTION = 'specific keywords';

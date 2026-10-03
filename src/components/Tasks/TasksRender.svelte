@@ -14,7 +14,7 @@
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import CategoryEditor from '@/components/CategoryEditor.svelte';
 	import type { Task } from '@/types/taskRunner.types';
-import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
+	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 
 	const stackedTasks = $derived(workflowStore.stackedTasks);
 
@@ -47,11 +47,7 @@ import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.
 				if (categoryData === undefined && entry.task.status === 'done') {
 					categoryData = entry.task.data as string[];
 				}
-			} else if (
-				id === 'init-youtube' ||
-				id === 'init-web' ||
-				id === 'timed-captions'
-			) {
+			} else if (id === 'init-youtube' || id === 'init-web' || id === 'timed-captions') {
 				// hidden plumbing tasks, skip
 			} else {
 				others.push(entry);

@@ -3,7 +3,7 @@
 ## Voz y selección
 
 - **VoiceProfile**: perfil de voz (`id`, `name_prefix`, `image_src`, `language`). Fuente de verdad en el backend de voces.
-- **Voice / chunk (de voz)**: muestra de audio de referencia de un perfil (`audio_file`, `text_reference`). No confundir con los *chunks de texto* de `splitText`.
+- **Voice / chunk (de voz)**: muestra de audio de referencia de un perfil (`audio_file`, `text_reference`). No confundir con los _chunks de texto_ de `splitText`.
 - **MiniProfilePicker**: selector único de voces de la app. Fila horizontal de perfiles + filtro; incluye gestión (Add/Edit/Record) y el acceso a settings en contexto TTS.
 - **VoiceSettingsModal**: modal de configuración de síntesis. Parametrizado por contexto (TTS o Host A/B). No lista ni selecciona voces.
 - **SynthParams**: `numStep`, `guidanceScale`, `speed`, `splitLevel`.

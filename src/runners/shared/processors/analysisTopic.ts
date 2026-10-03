@@ -1,19 +1,17 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
-import { extractionHelper } from '@/lib/utils/inference/extraction-helper';
-import { EMBEDDING_MODEL, SUMMARY_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import {
-	ANALYSIS_TOPIC_KEYWORD_DESCRIPTION,
-	buildAnalysisTopicSummarySystemMessage,
-	buildAnalysisTopicSummaryUserMessage,
-	buildAnalysisTopicLabelDescription
+	ANALYSIS_TOPIC_SYSTEM_MESSAGE,
+	buildAnalysisTopicUserMessage
 } from '@/lib/utils/inference/prompts';
 import { viewState } from '@/stores/viewStore.svelte';
 import { LANG_NAMES } from '@/constants';
 import type {
 	AnalysisTopicChunkData,
 	AnalysisTopicFinal,
+	ChunkProcessorConfig,
 	ProcessorDef,
 	TopicSection
 } from './types';
@@ -26,6 +24,7 @@ export const MAX_TOPIC_COUNT = 10;
 export const MIN_TOPIC_WORD_COUNT = 1;
 export const MAX_TOPIC_WORD_COUNT = 10;
 const TOPIC_SIMILARITY_THRESHOLD = 0.85;
+const MAX_RETRIES = 1;
 
 function uniqueStrings(values: string[], key?: (value: string) => string): string[] {
 	const seen = new Set<string>();
@@ -157,6 +156,50 @@ function buildBlog(clusters: TopicCluster[]): { markdown: string; sections: Topi
 	return { markdown, sections };
 }
 
+async function extractTopicsAndKeywords(
+	chunk: string,
+	config: ChunkProcessorConfig,
+	topicCount: number,
+	keywordCount: number,
+	topicWordCount: number
+): Promise<AnalysisTopicChunkData> {
+	const langName = LANG_NAMES[viewState.language];
+
+	const response = await chatCompletions({
+		...config.completionOptions,
+		model: config.model,
+		stream: false,
+		messages: [
+			{ role: 'system', content: ANALYSIS_TOPIC_SYSTEM_MESSAGE },
+			{
+				role: 'user',
+				content:
+					buildAnalysisTopicUserMessage(topicCount, keywordCount, topicWordCount, langName) +
+					'\n\n' +
+					chunk
+			}
+		]
+	});
+
+	const text = assistantText(response);
+	const parsed = JSON.parse(text);
+
+	const topics = (parsed.topics || [])
+		.map((t: { label: string; summary: string }) => ({
+			topic: normalizeTopicLabel(t.label, topicWordCount),
+			summary: (t.summary || '').trim()
+		}))
+		.filter((t: { topic: string; summary: string }) => t.topic && t.summary);
+
+	const keywords = uniqueStrings(parsed.keywords || []);
+
+	return {
+		topics: topics.map((t: { topic: string }) => t.topic),
+		keywords,
+		sections: topics
+	};
+}
+
 export const analysisTopicProcessor: ProcessorDef = {
 	type: 'analysisTopic',
 	defaults: {
@@ -169,47 +212,30 @@ export const analysisTopicProcessor: ProcessorDef = {
 
 		return {
 			processChunk: async (chunk: string): Promise<AnalysisTopicChunkData> => {
-				const rawTopics = await extractionHelper(
-					chunk,
-					topicCount,
-					buildAnalysisTopicLabelDescription(topicWordCount),
-					{ model: config.model }
-				);
-				const topics = uniqueStrings(
-					rawTopics.map((topic) => normalizeTopicLabel(topic, topicWordCount)).filter(Boolean)
-				);
-
-				const langName = LANG_NAMES[viewState.language];
-				const sections: TopicSection[] = await Promise.all(
-					topics.map(async (topic) => {
-						const res = await chatCompletions({
-							...SUMMARY_COMPLETION_OPTIONS,
-							...config.completionOptions,
-							model: config.model,
-							stream: false,
-							messages: [
-								{
-									role: 'system',
-									content: buildAnalysisTopicSummarySystemMessage(langName)
-								},
-								{
-									role: 'user',
-									content: `${buildAnalysisTopicSummaryUserMessage(topic)}:\n\n${chunk}`
-								}
-							]
-						});
-						return { topic, summary: assistantText(res).trim() };
-					})
-				);
-
-				const keywords = await extractionHelper(
-					chunk,
-					keywordCount,
-					ANALYSIS_TOPIC_KEYWORD_DESCRIPTION,
-					{ model: config.model }
-				);
-
-				return { topics, keywords: uniqueStrings(keywords), sections };
+				for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+					try {
+						const result = await extractTopicsAndKeywords(
+							chunk,
+							config,
+							topicCount,
+							keywordCount,
+							topicWordCount
+						);
+						if (result.topics.length > 0) {
+							return result;
+						}
+						if (attempt < MAX_RETRIES) {
+							console.warn(
+								`[analysisTopic] empty result, retrying (${attempt + 1}/${MAX_RETRIES})`
+							);
+						}
+					} catch (error) {
+						if (attempt === MAX_RETRIES) {
+							console.warn('[analysisTopic] extraction failed after retries', error);
+						}
+					}
+				}
+				return { topics: [], keywords: [], sections: [] };
 			},
 			combineChunks: async (results: AnalysisTopicChunkData[]): Promise<AnalysisTopicFinal> => {
 				const sections = results

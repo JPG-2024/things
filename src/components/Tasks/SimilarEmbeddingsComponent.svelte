@@ -130,42 +130,42 @@
 </script>
 
 {#if serviceUp}
-<div class="similar-embeddings">
-	{#if manual && !hasSearched}
-		<div class="manual-trigger">
-			<Icon
-				name="FileDigit"
-				size={16}
-				onClick={() => void runSearch()}
-				tooltipProps={{ content: 'retrieve similar' }}
-			/>
-		</div>
-	{/if}
+	<div class="similar-embeddings">
+		{#if manual && !hasSearched}
+			<div class="manual-trigger">
+				<Icon
+					name="FileDigit"
+					size={16}
+					onClick={() => void runSearch()}
+					tooltipProps={{ content: 'retrieve similar' }}
+				/>
+			</div>
+		{/if}
 
-	{#if error}
-		<p class="similar-error">{error}</p>
-	{:else if hasSearched && results.length === 0}
-		<p class="similar-empty">No similar chunks found{hasQuery ? '' : ' for this task'}.</p>
-	{:else if results.length > 0}
-		<p class="similar-header">Similar embeddings ({results.length})</p>
-		<div class="similar-thumbs">
-			{#each groupedResults as group (group.articleUrl)}
-				<Tooltip content={formatTooltipContent(group.chunks)} position="bottom">
-					<button
-						class="similar-thumb-btn"
-						onclick={() => navigateToArticle(group.articleUrl, group.chunks[0]?.profileId)}
-					>
-						{#if thumbnails[group.articleUrl]}
-							<img class="similar-thumb" src={thumbnails[group.articleUrl]} alt="" />
-						{:else}
-							<div class="similar-thumb-fallback">{group.chunks.length}</div>
-						{/if}
-					</button>
-				</Tooltip>
-			{/each}
-		</div>
-	{/if}
-</div>
+		{#if error}
+			<p class="similar-error">{error}</p>
+		{:else if hasSearched && results.length === 0}
+			<p class="similar-empty">No similar chunks found{hasQuery ? '' : ' for this task'}.</p>
+		{:else if results.length > 0}
+			<p class="similar-header">Similar embeddings ({results.length})</p>
+			<div class="similar-thumbs">
+				{#each groupedResults as group (group.articleUrl)}
+					<Tooltip content={formatTooltipContent(group.chunks)} position="bottom">
+						<button
+							class="similar-thumb-btn"
+							onclick={() => navigateToArticle(group.articleUrl, group.chunks[0]?.profileId)}
+						>
+							{#if thumbnails[group.articleUrl]}
+								<img class="similar-thumb" src={thumbnails[group.articleUrl]} alt="" />
+							{:else}
+								<div class="similar-thumb-fallback">{group.chunks.length}</div>
+							{/if}
+						</button>
+					</Tooltip>
+				{/each}
+			</div>
+		{/if}
+	</div>
 {/if}
 
 <style>
