@@ -2,6 +2,7 @@ import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider
 import { assistantText } from '@/lib/utils/inference/assistant-text';
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
+import { analysisTopicGbnf } from '@/lib/utils/gbnf';
 import {
 	ANALYSIS_TOPIC_SYSTEM_MESSAGE,
 	buildAnalysisTopicUserMessage
@@ -24,7 +25,66 @@ export const MAX_TOPIC_COUNT = 10;
 export const MIN_TOPIC_WORD_COUNT = 1;
 export const MAX_TOPIC_WORD_COUNT = 10;
 const TOPIC_SIMILARITY_THRESHOLD = 0.85;
-const MAX_RETRIES = 1;
+
+/**
+ * Tolerant parse of the LLM response for the OpenRouter path, where the GBNF
+ * grammar is stripped and the reply may be wrapped in a code fence or prose.
+ * Transport errors are never caught here; only unusable output falls back to
+ * the empty shape (no retries, matching `parseMultiFieldResponse`).
+ */
+function parseAnalysisTopicResponse(text: string): AnalysisTopicChunkData {
+	const empty: AnalysisTopicChunkData = { topics: [], keywords: [], sections: [] };
+
+	let raw = text.trim();
+	if (!raw) return empty;
+
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		const result = toChunkData(parsed);
+		if (result) return result;
+	} catch {
+		// fall through to fence/prose salvage
+	}
+
+	const start = raw.indexOf('{');
+	const end = raw.lastIndexOf('}');
+	if (start === -1 || end <= start) return empty;
+	raw = raw.slice(start, end + 1);
+
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		const result = toChunkData(parsed);
+		if (result) return result;
+	} catch {
+		console.warn('[analysisTopic] Failed to parse LLM response as JSON');
+	}
+	return empty;
+}
+
+function toChunkData(parsed: unknown): AnalysisTopicChunkData | null {
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+	const record = parsed as Record<string, unknown>;
+
+	const topics: { topic: string; summary: string }[] = [];
+	if (Array.isArray(record.topics)) {
+		for (const entry of record.topics) {
+			if (typeof entry !== 'object' || entry === null) continue;
+			const { label, summary } = entry as Record<string, unknown>;
+			if (typeof label !== 'string' || typeof summary !== 'string') continue;
+			topics.push({ topic: label, summary });
+		}
+	}
+
+	const uniqueKeywords = Array.isArray(record.keywords)
+		? uniqueStrings(record.keywords.filter((k): k is string => typeof k === 'string'))
+		: [];
+
+	return {
+		topics: topics.map((t: { topic: string }) => t.topic),
+		keywords: uniqueKeywords,
+		sections: topics
+	};
+}
 
 function uniqueStrings(values: string[], key?: (value: string) => string): string[] {
 	const seen = new Set<string>();
@@ -169,6 +229,11 @@ async function extractTopicsAndKeywords(
 		...config.completionOptions,
 		model: config.model,
 		stream: false,
+		// Always applied, even if user completionOptions omit or disable it.
+		reasoning_effort: 'none',
+		// Only constrains the llama-server path; OpenRouter strips `grammar`
+		// (LLAMA_SPECIFIC_FIELDS) and relies on the JSON prompt instruction.
+		grammar: analysisTopicGbnf(topicCount, keywordCount),
 		messages: [
 			{ role: 'system', content: ANALYSIS_TOPIC_SYSTEM_MESSAGE },
 			{
@@ -181,23 +246,7 @@ async function extractTopicsAndKeywords(
 		]
 	});
 
-	const text = assistantText(response);
-	const parsed = JSON.parse(text);
-
-	const topics = (parsed.topics || [])
-		.map((t: { label: string; summary: string }) => ({
-			topic: normalizeTopicLabel(t.label, topicWordCount),
-			summary: (t.summary || '').trim()
-		}))
-		.filter((t: { topic: string; summary: string }) => t.topic && t.summary);
-
-	const keywords = uniqueStrings(parsed.keywords || []);
-
-	return {
-		topics: topics.map((t: { topic: string }) => t.topic),
-		keywords,
-		sections: topics
-	};
+	return parseAnalysisTopicResponse(assistantText(response));
 }
 
 export const analysisTopicProcessor: ProcessorDef = {
@@ -211,32 +260,11 @@ export const analysisTopicProcessor: ProcessorDef = {
 		const topicWordCount = config.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT;
 
 		return {
-			processChunk: async (chunk: string): Promise<AnalysisTopicChunkData> => {
-				for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-					try {
-						const result = await extractTopicsAndKeywords(
-							chunk,
-							config,
-							topicCount,
-							keywordCount,
-							topicWordCount
-						);
-						if (result.topics.length > 0) {
-							return result;
-						}
-						if (attempt < MAX_RETRIES) {
-							console.warn(
-								`[analysisTopic] empty result, retrying (${attempt + 1}/${MAX_RETRIES})`
-							);
-						}
-					} catch (error) {
-						if (attempt === MAX_RETRIES) {
-							console.warn('[analysisTopic] extraction failed after retries', error);
-						}
-					}
-				}
-				return { topics: [], keywords: [], sections: [] };
-			},
+			// One attempt per chunk. Transport errors (unreachable server,
+			// context-size, abort) propagate so the runner can re-chunk or stop;
+			// only unusable LLM output yields the empty shape.
+			processChunk: (chunk: string): Promise<AnalysisTopicChunkData> =>
+				extractTopicsAndKeywords(chunk, config, topicCount, keywordCount, topicWordCount),
 			combineChunks: async (results: AnalysisTopicChunkData[]): Promise<AnalysisTopicFinal> => {
 				const sections = results
 					.flatMap((result) => result.sections)
