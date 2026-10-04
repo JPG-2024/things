@@ -388,12 +388,13 @@
 	}
 
 	.tasks-title {
-		font-family: CaskaydiaCove NFM Light;
+		font-family: BetterVCR, monospace;
 		font-size: 1.2rem;
 		margin-right: auto;
 		width: 100%;
 		padding: 1rem 0;
 		padding-bottom: 2rem;
+		font-variant: all-small-caps;
 	}
 
 	.tasks-title::after {

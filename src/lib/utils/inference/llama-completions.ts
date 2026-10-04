@@ -408,8 +408,6 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
-	console.log('chatCompletions request:', request);
-
 	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8080';
 	const url = joinUrl(baseUrl, '/v1/chat/completions');
 	const streamEnabled =
@@ -481,8 +479,6 @@ export async function chatCompletions(
 	await parseSse(
 		res,
 		(chunk) => {
-			console.log(chunk);
-
 			lastChunk = chunk;
 			if (chunk.usage) usage = chunk.usage;
 

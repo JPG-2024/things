@@ -240,57 +240,68 @@
 
 {#if analysisData}
 	<div class="analysis-topic-shell">
-		{#if recursiveConfig}
-			<div class="level-row">
-				{#if showLevelTabs}
-					<span class="level-label">window ÷</span>
-					<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
-					{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
-						<span class="level-label">÷{runtimeDivisor}</span>
-					{/if}
-				{/if}
-				<span class="level-label">topics</span>
-				<div class="params-field">
-					<Input
-						type="number"
-						min={String(MIN_TOPIC_COUNT)}
-						disabled={isRunning}
-						bind:value={topicCountInput}
-					/>
-				</div>
-				<span class="level-label">words/topic</span>
-				<div class="params-field">
-					<Input
-						type="number"
-						min={String(MIN_TOPIC_WORD_COUNT)}
-						disabled={isRunning}
-						bind:value={topicWordInput}
-					/>
-				</div>
-				<Button icon="RefreshCw" onClick={handleCommitParams} disabled={isRunning || !paramsDirty}>
-					Apply
-				</Button>
-			</div>
-		{/if}
-
 		{#if analysisData.chunks.length > 0}
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
+				{#if recursiveConfig}
+					<div class="level-row">
+						{#if showLevelTabs}
+							<span class="level-label">window ÷</span>
+							<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
+							{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
+								<span class="level-label">÷{runtimeDivisor}</span>
+							{/if}
+						{/if}
+						<span class="level-label">topics</span>
+						<div class="params-field">
+							<Input
+								type="number"
+								min={String(MIN_TOPIC_COUNT)}
+								disabled={isRunning}
+								bind:value={topicCountInput}
+							/>
+						</div>
+						<span class="level-label">words/topic</span>
+						<div class="params-field">
+							<Input
+								type="number"
+								min={String(MIN_TOPIC_WORD_COUNT)}
+								disabled={isRunning}
+								bind:value={topicWordInput}
+							/>
+						</div>
+						<Button
+							icon="RefreshCw"
+							onClick={handleCommitParams}
+							disabled={isRunning || !paramsDirty}
+						>
+							Apply
+						</Button>
+					</div>
+				{/if}
+
 				<div class="chunks-grid">
 					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 							<div class="topic-sections">
 								{#each entry.chunk.data.sections as section (section.topic)}
 									<div class="topic-section">
-										<h3 class="topic-heading">{section.topic}</h3>
+										<div class="topic-heading">
+											<h3 class="topic-title">{section.topic}</h3>
+											<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
+												View raw text
+											</Button>
+										</div>
 										<MarkdownRenderer content={section.summary} />
 									</div>
 								{/each}
 							</div>
-							<div class="raw-button-row">
-								<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
-									View raw text
-								</Button>
-							</div>
+							{#if entry.chunk.data.sections.length === 0}
+								<div class="raw-button-row">
+									<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
+										View raw text
+									</Button>
+								</div>
+							{/if}
 							<div class="result-section">
 								<span class="result-label">Keywords</span>
 								<Keywords keywords={entry.chunk.data.keywords} />
@@ -356,6 +367,7 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 0.75rem;
+		padding: 2rem 0;
 	}
 
 	.level-label {
@@ -395,9 +407,25 @@
 	}
 
 	.topic-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.topic-title {
 		font-family: 'BetterVCR', monospace;
 		font-size: 0.8rem;
-		margin: 0 0 0.4rem;
+		margin: 0;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.topic-heading :global(button) {
+		font-size: 0.7rem;
+		padding: 0;
+		white-space: nowrap;
 	}
 
 	.raw-button-row {

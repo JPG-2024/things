@@ -1,5 +1,5 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
-import { assistantText } from '@/lib/utils/inference/assistant-text';
+import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import { analysisTopicGbnf } from '@/lib/utils/gbnf';
@@ -229,8 +229,11 @@ async function extractTopicsAndKeywords(
 		...config.completionOptions,
 		model: config.model,
 		stream: false,
-		// Always applied, even if user completionOptions omit or disable it.
-		reasoning_effort: 'none',
+		// Ask reasoner models for a short reasoning pass instead of forcing it
+		// off: thinking templates may ignore `enabled: false`, answer inside
+		// the thinking trace, and close the turn with an empty `content`.
+		// `assistantAnswerText` falls back to `reasoning_content` for that case.
+		reasoning_effort: 'low',
 		// Only constrains the llama-server path; OpenRouter strips `grammar`
 		// (LLAMA_SPECIFIC_FIELDS) and relies on the JSON prompt instruction.
 		grammar: analysisTopicGbnf(topicCount, keywordCount),
@@ -246,7 +249,7 @@ async function extractTopicsAndKeywords(
 		]
 	});
 
-	return parseAnalysisTopicResponse(assistantText(response));
+	return parseAnalysisTopicResponse(assistantAnswerText(response));
 }
 
 export const analysisTopicProcessor: ProcessorDef = {

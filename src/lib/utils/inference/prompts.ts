@@ -139,5 +139,5 @@ export function buildAnalysisTopicUserMessage(
 	langName?: string
 ): string {
 	const langInstruction = langName ? ` Respond in ${langName}.` : '';
-	return `Extract exactly ${topicCount} main topics (each label max ${topicWordCount} words). For each topic, provide a detailed summary (3-5 sentences) explaining what is covered, including key points, examples, or conclusions. Also extract ${keywordCount} key terms.${langInstruction} Respond in JSON: { topics: [{label: string, summary: string}], keywords: string[] }`;
+	return `Extract exactly ${topicCount} self explanatory topics. For each topic, provide a detailed summary (3-5 sentences) explaining what is covered, including key points (**), examples, or conclusions. Also extract ${keywordCount} key terms.${langInstruction} Respond in JSON: { topics: [{label: string, summary: string}], keywords: string[] }`;
 }

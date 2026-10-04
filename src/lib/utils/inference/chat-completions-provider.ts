@@ -98,16 +98,35 @@ function stripThinkingIntent(request: LlamaChatCompletionsRequest): LlamaChatCom
  * @returns The request with llama-server reasoning fields set.
  */
 function applyLlamaThinking(request: LlamaChatCompletionsRequest): LlamaChatCompletionsRequest {
-	if (!wantsThinkingDisabled(request)) return request;
+	if (wantsThinkingDisabled(request)) {
+		return {
+			...stripThinkingIntent(request),
+			reasoning_effort: 'none',
+			chat_template_kwargs: {
+				...(request.chat_template_kwargs ?? {}),
+				enable_thinking: false
+			}
+		};
+	}
 
-	return {
-		...stripThinkingIntent(request),
-		reasoning_effort: 'none',
-		chat_template_kwargs: {
-			...(request.chat_template_kwargs ?? {}),
-			enable_thinking: false
-		}
-	};
+	// Forward effort levels into llama-server's template kwargs, where
+	// thinking templates (e.g. gpt-oss) actually read them from; the top-level
+	// `reasoning_effort` field is not reliably mapped by every server version.
+	const effort = request.reasoning_effort;
+	if (
+		effort &&
+		effort !== 'none' &&
+		!('reasoning_effort' in (request.chat_template_kwargs ?? {}))
+	) {
+		return {
+			...stripThinkingIntent(request),
+			chat_template_kwargs: {
+				...(request.chat_template_kwargs ?? {}),
+				reasoning_effort: effort
+			}
+		};
+	}
+	return request;
 }
 
 /**
@@ -118,15 +137,29 @@ function applyLlamaThinking(request: LlamaChatCompletionsRequest): LlamaChatComp
 function applyOpenRouterThinking(
 	request: LlamaChatCompletionsRequest
 ): LlamaChatCompletionsRequest {
-	if (!wantsThinkingDisabled(request)) return request;
+	if (wantsThinkingDisabled(request)) {
+		return {
+			...request,
+			reasoning: {
+				...(request.reasoning ?? {}),
+				enabled: false
+			}
+		};
+	}
 
-	return {
-		...request,
-		reasoning: {
-			...(request.reasoning ?? {}),
-			enabled: false
-		}
-	};
+	// Map non-'none' effort levels onto OpenRouter's unified `reasoning`
+	// param; the raw `reasoning_effort` field alone is OpenAI-specific.
+	const effort = request.reasoning?.effort ?? request.reasoning_effort;
+	if (effort && effort !== 'none' && request.reasoning?.effort === undefined) {
+		return {
+			...request,
+			reasoning: {
+				...(request.reasoning ?? {}),
+				effort
+			}
+		};
+	}
+	return request;
 }
 
 let openrouterClient: OpenAI | null = null;
@@ -184,11 +217,19 @@ function mapToolCalls(toolCalls: any[] | undefined): LlamaChatMessage['tool_call
 }
 
 function mapChoice(choice: ChatCompletion.Choice): LlamaChatCompletionsChoice {
+	// OpenRouter returns the thinking trace in `reasoning_content`, which is
+	// not part of the OpenAI SDK types; keep it so callers can recover
+	// reasoner-only answers when `content` is empty.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const reasoningContent = (choice.message as any).reasoning_content;
 	return {
 		index: choice.index,
 		message: {
 			role: choice.message.role as LlamaChatMessage['role'],
 			content: choice.message.content ?? null,
+			...(typeof reasoningContent === 'string' && reasoningContent
+				? { reasoning_content: reasoningContent }
+				: {}),
 			...(choice.message.tool_calls ? { tool_calls: mapToolCalls(choice.message.tool_calls) } : {})
 		},
 		finish_reason: choice.finish_reason as LlamaChatCompletionsChoice['finish_reason'],
@@ -223,16 +264,26 @@ function mapChunk(chunk: ChatCompletionChunk): any {
 		object: 'chat.completion.chunk' as const,
 		created: chunk.created,
 		model: chunk.model,
-		choices: chunk.choices.map((c) => ({
-			index: c.index,
-			delta: {
-				role: c.delta.role,
-				content: c.delta.content ?? null,
-				...(c.delta.tool_calls ? { tool_calls: mapToolCalls(c.delta.tool_calls) } : {})
-			},
-			finish_reason: c.finish_reason,
-			...(c.logprobs ? { logprobs: c.logprobs } : {})
-		})),
+		choices: chunk.choices.map((c) => {
+			// OpenRouter streams the thinking trace here (not in the OpenAI
+			// SDK types); the streaming accumulator reads it back off the
+			// mapped chunk to build `message.reasoning_content`.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const reasoningContent = (c.delta as any).reasoning_content as unknown;
+			return {
+				index: c.index,
+				delta: {
+					role: c.delta.role,
+					content: c.delta.content ?? null,
+					...(typeof reasoningContent === 'string' && reasoningContent
+						? { reasoning_content: reasoningContent }
+						: {}),
+					...(c.delta.tool_calls ? { tool_calls: mapToolCalls(c.delta.tool_calls) } : {})
+				},
+				finish_reason: c.finish_reason,
+				...(c.logprobs ? { logprobs: c.logprobs } : {})
+			};
+		}),
 		...(chunk.usage
 			? {
 					usage: {

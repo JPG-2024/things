@@ -268,14 +268,12 @@
 								{:else}
 									<span class="chunk-title chunk-title-empty">sin encabezado</span>
 								{/if}
-							</div>
-							<div class="result-section">
-								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
-							</div>
-							<div class="raw-button-row">
 								<Button icon="FileText" onClick={() => (rawModalIndex = entry.originalIndex)}>
 									View raw text
 								</Button>
+							</div>
+							<div class="result-section">
+								<MarkdownRenderer content={entry.chunk.data.summary.join('\n')} />
 							</div>
 							<div class="meta-row">
 								<div class="result-section">
@@ -391,6 +389,13 @@
 		margin-bottom: 0.75rem;
 	}
 
+	.chunk-heading :global(button) {
+		margin-left: auto;
+		font-size: 0.7rem;
+		padding: 0;
+		white-space: nowrap;
+	}
+
 	.chunk-index {
 		font-size: 0.7rem;
 		opacity: 0.45;
@@ -409,11 +414,6 @@
 		font-weight: 400;
 		font-style: italic;
 		opacity: 0.45;
-	}
-
-	.raw-button-row {
-		margin-bottom: 1rem;
-		text-align: right;
 	}
 
 	.meta-row {
