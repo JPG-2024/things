@@ -356,7 +356,7 @@
 	.analysis-topic-shell {
 		--tabs-pill-font-size: 0.7rem;
 		--keywords-font-size: 0.8rem;
-		--pill-font-size: 0.8em;
+		--pill-font-size: 0.8rem;
 		display: flex;
 		padding: 1rem 0;
 		flex-direction: column;
