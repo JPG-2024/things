@@ -4,7 +4,10 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
+	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
+
+	const categoryItemTransition = tabAnimationStore.transitionFor('categories');
 
 	$effect(() => {
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
@@ -40,11 +43,24 @@
 	const visibleCategories = $derived(
 		sortedCategories.filter((category) => category.articles.length > 0)
 	);
+
+	// Mirror the visible list after mount so the keyed {#each} sees items as
+	// added. Svelte suppresses intro transitions for elements present during the
+	// initial render, which is exactly the case when re-entering the tab with
+	// cached categories.
+	// The suggested writable $derived would evaluate during the initial render and
+	// defeat this.
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let renderedCategories = $state<CategoryWithArticles[]>([]);
+
+	$effect(() => {
+		renderedCategories = visibleCategories;
+	});
 </script>
 
 <div class="category-list">
-	{#each visibleCategories as category (category.categoryId)}
-		<div class="category-row">
+	{#each renderedCategories as category (category.categoryId)}
+		<div class="category-row" in:categoryItemTransition out:categoryItemTransition>
 			<CategoryCard
 				{category}
 				onArticleClick={handleArticleClick}

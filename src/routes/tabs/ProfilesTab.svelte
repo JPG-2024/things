@@ -3,6 +3,9 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
+
+	const profileItemTransition = tabAnimationStore.transitionFor('profiles');
 
 	const visibleProfiles = $derived(
 		viewState.activeArticleProfileId
@@ -17,7 +20,7 @@
 	});
 </script>
 
-<ProfileList items={visibleProfiles} />
+<ProfileList items={visibleProfiles} itemTransition={profileItemTransition} />
 {#if visibleProfiles.length === 0}
 	{#if articleCacheStore.loadingProfiles}
 		<div class="empty-profiles-container"></div>

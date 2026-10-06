@@ -7,6 +7,7 @@
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import type { RawSearchResult } from '@/stores/viewStore.svelte';
+	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
@@ -203,7 +204,9 @@
 		() => {
 			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
 			if (currentIndex < TAB_ORDER.length - 1) {
-				viewState.activeProfileArticleTab = TAB_ORDER[currentIndex + 1];
+				const next = TAB_ORDER[currentIndex + 1];
+				tabAnimationStore.recordTabChange(next);
+				viewState.activeProfileArticleTab = next;
 			}
 		},
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
@@ -214,7 +217,9 @@
 		() => {
 			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
 			if (currentIndex > 0) {
-				viewState.activeProfileArticleTab = TAB_ORDER[currentIndex - 1];
+				const next = TAB_ORDER[currentIndex - 1];
+				tabAnimationStore.recordTabChange(next);
+				viewState.activeProfileArticleTab = next;
 			}
 		},
 		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }

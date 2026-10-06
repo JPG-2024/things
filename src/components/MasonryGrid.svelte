@@ -18,6 +18,7 @@
 	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import type { ItemTransition } from '@/lib/utils/itemTransitions';
 
 	interface Props {
 		items: T[];
@@ -31,6 +32,7 @@
 		fixedColumns?: number;
 		spanOf?: (item: T) => 1 | 2;
 		showContentModeToggle?: boolean;
+		itemTransition?: ItemTransition;
 	}
 
 	let {
@@ -44,7 +46,8 @@
 		onColumnOffsetChange,
 		fixedColumns,
 		spanOf,
-		showContentModeToggle = false
+		showContentModeToggle = false,
+		itemTransition = enterLeave
 	}: Props = $props();
 
 	// Mirror of `items` that is filled after mount. Svelte suppresses intro
@@ -471,8 +474,8 @@
 			<div
 				class="grid-item"
 				class:span-full={(spanOf?.(item) ?? 1) === 2}
-				in:enterLeave
-				out:enterLeave
+				in:itemTransition
+				out:itemTransition
 			>
 				<div class="content">
 					{@render children(item, i, layoutIndex, currentLayout.key)}

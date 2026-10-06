@@ -3,6 +3,9 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
+
+	const domainItemTransition = tabAnimationStore.transitionFor('domains');
 
 	const visibleDomains = $derived(
 		viewState.activeArticleProfileId
@@ -17,7 +20,7 @@
 	});
 </script>
 
-<ProfileList items={visibleDomains} />
+<ProfileList items={visibleDomains} itemTransition={domainItemTransition} />
 {#if visibleDomains.length === 0}
 	{#if articleCacheStore.loadingDomains}
 		<div class="empty-profiles-container"></div>

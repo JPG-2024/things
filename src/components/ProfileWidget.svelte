@@ -11,8 +11,6 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
 		profileWithArticles: ArticleProfile;
@@ -71,11 +69,7 @@
 	}
 </script>
 
-<div
-	class="category-container"
-	in:fade={{ duration: 700, easing: cubicOut }}
-	out:fade={{ duration: 80 }}
->
+<div class="category-container">
 	<div class="category-widget">
 		<Card loading={isProfileRunning}>
 			{#if showTitle}

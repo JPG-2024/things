@@ -3,12 +3,26 @@
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { ArticleProfile } from '@/stores/webStore';
+	import type { ItemTransition } from '@/lib/utils/itemTransitions';
 
 	interface Props {
 		items: ArticleProfile[];
+		itemTransition: ItemTransition;
 	}
 
-	let { items }: Props = $props();
+	let { items, itemTransition }: Props = $props();
+
+	// Mirror items after mount so the keyed {#each} sees them as added. Svelte
+	// suppresses intro transitions for elements present during the initial
+	// render, which is the case when re-entering a tab with cached data.
+	// The suggested writable $derived would evaluate during the initial render and
+	// defeat this.
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let renderedItems = $state<ArticleProfile[]>([]);
+
+	$effect(() => {
+		renderedItems = items;
+	});
 </script>
 
 <div class="profile-list">
@@ -21,8 +35,8 @@
 			tooltipProps={{ content: viewState.collapseProfiles ? 'Expand all' : 'Collapse all' }}
 		/>
 	</div>
-	{#each items as profile (profile.id)}
-		<div class="profile-row">
+	{#each renderedItems as profile (profile.id)}
+		<div class="profile-row" in:itemTransition out:itemTransition>
 			<ProfileWidget
 				profileWithArticles={profile}
 				showTitle={false}
