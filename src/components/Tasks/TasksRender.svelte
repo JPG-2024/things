@@ -1,5 +1,4 @@
 <script lang="ts">
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import BaseTaskComponent from '@/components/Tasks/baseTaskComponent.svelte';
 	import { taskRenderRegistry } from '@/components/Tasks/taskRenderRegistry';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -77,8 +76,6 @@
 	const categoryData = $derived(taskViews.categoryData);
 	const categoryRunId = $derived(taskViews.categoryRunId);
 	const otherTasks = $derived(taskViews.otherTasks);
-
-	const taskHeights = $state<Record<string, number>>({});
 
 	const canGenerateTTS = $derived(
 		viewState.url !== null &&
@@ -215,32 +212,20 @@
 	{/if}
 
 	{#if otherTasks.length > 0}
-		<MasonryGrid
-			items={otherTasks}
-			keyOf={(entry) => `${entry.runId}:${entry.task.id}`}
-			layoutIndex={viewState.masonryTasksLayoutIndex}
-			onLayoutIndexChange={(value) => {
-				viewState.masonryTasksLayoutIndex = value;
-			}}
-			columnOffset={viewState.masonryTasksColumnOffset}
-			onColumnOffsetChange={(value) => {
-				viewState.masonryTasksColumnOffset = value;
-			}}
-			spanOf={(entry) => entry.task.gridSpan ?? 1}
-		>
-			{#snippet children(entry)}
+		<div class="tasks-list">
+			{#each otherTasks as entry (`${entry.runId}:${entry.task.id}`)}
 				{@const task = entry.task}
 				{@const skipRender =
 					task.visible === false && task.status !== 'running' && task.status !== 'pending'}
 				{@const componentKey = task.component?.trim()}
 				{@const componentProps = task.componentProps}
 				{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-				{@const taskKey = `${entry.runId}:${entry.task.id}`}
+				{@const widthClass = task.gridSpan === 2 ? 'task-wrapper--half' : 'task-wrapper--full'}
 
 				{#if !skipRender}
 					{#if Renderer && task.status === 'done'}
 						<div
-							class="task-wrapper"
+							class="task-wrapper {widthClass}"
 							transition:fade={{ duration: 250 }}
 							onmouseenter={() => {
 								viewState.selectedTaskId = task.id;
@@ -253,8 +238,7 @@
 						</div>
 					{:else if task.status === 'running'}
 						<div
-							class="task-wrapper"
-							style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
+							class="task-wrapper {widthClass}"
 							onmouseenter={() => {
 								viewState.selectedTaskId = task.id;
 							}}
@@ -268,7 +252,7 @@
 						</div>
 					{:else if task.status === 'editing'}
 						<div
-							class="task-wrapper"
+							class="task-wrapper {widthClass}"
 							transition:fade={{ duration: 250 }}
 							onmouseenter={() => {
 								viewState.selectedTaskId = task.id;
@@ -279,7 +263,7 @@
 						</div>
 					{:else if task.status === 'pending'}
 						<div
-							class="task-wrapper"
+							class="task-wrapper {widthClass}"
 							transition:fade={{ duration: 250 }}
 							onmouseenter={() => {
 								viewState.selectedTaskId = task.id;
@@ -290,7 +274,7 @@
 						</div>
 					{:else if task.status === 'failed'}
 						<div
-							class="task-wrapper"
+							class="task-wrapper {widthClass}"
 							onmouseenter={() => {
 								viewState.selectedTaskId = task.id;
 							}}
@@ -300,8 +284,8 @@
 						</div>
 					{/if}
 				{/if}
-			{/snippet}
-		</MasonryGrid>
+			{/each}
+		</div>
 	{/if}
 
 	{#if contentTask}
@@ -311,7 +295,6 @@
 		{@const componentKey = task.component?.trim()}
 		{@const componentProps = task.componentProps}
 		{@const Renderer = componentKey ? taskRenderRegistry[componentKey] : undefined}
-		{@const taskKey = `${contentTask.runId}:${task.id}`}
 
 		{#if !skipRender}
 			{#if Renderer && task.status === 'done'}
@@ -330,7 +313,6 @@
 			{:else if task.status === 'running'}
 				<div
 					class="task-wrapper content-task-wrapper"
-					style:height={taskHeights[taskKey] ? `${taskHeights[taskKey]}px` : undefined}
 					onmouseenter={() => {
 						viewState.selectedTaskId = task.id;
 					}}
@@ -401,12 +383,30 @@
 		content: '.';
 	}
 
+	.tasks-list {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		align-items: start;
+		column-gap: 1rem;
+	}
+
 	.task-wrapper {
 		min-width: 0;
 		display: flex;
 		align-items: flex-start;
 		width: 100%;
 		padding: 1rem;
+		grid-column: 1 / -1;
+	}
+
+	.task-wrapper--half {
+		grid-column: auto;
+	}
+
+	@media (max-width: 700px) {
+		.tasks-list {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	.content-task-wrapper {

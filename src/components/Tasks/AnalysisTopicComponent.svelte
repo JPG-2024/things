@@ -358,6 +358,7 @@
 		--keywords-font-size: 0.8rem;
 		--pill-font-size: 0.8em;
 		display: flex;
+		padding: 1rem 0;
 		flex-direction: column;
 		gap: 0.75rem;
 	}

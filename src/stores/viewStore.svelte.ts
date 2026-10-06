@@ -57,8 +57,6 @@ class ViewState {
 	masonryArticlesLayoutIndex = $state(1);
 	masonryArticlesColumnOffset = $state(0);
 	masonryArticlesContentMode = $state<ArticleContentMode>('both');
-	masonryTasksLayoutIndex = $state(1);
-	masonryTasksColumnOffset = $state(-1);
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);

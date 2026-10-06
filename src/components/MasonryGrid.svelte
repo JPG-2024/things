@@ -78,7 +78,7 @@
 	// width) and the column count scales with it, up to MAX_COLUMNS
 	const MIN_COLUMN_WIDTH = 280;
 	const MIN_COLUMNS = 2;
-	const MAX_COLUMNS = 4;
+	const MAX_COLUMNS = 6;
 
 	const layouts: LayoutConfig[] = [
 		{ columns: 1, padding: '0.6rem', rowHeight: 50, key: 'row' },

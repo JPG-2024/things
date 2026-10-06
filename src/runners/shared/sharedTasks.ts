@@ -93,7 +93,7 @@ export function createDefaultTasks(
 		dependencies: [contentDependency],
 		persist: true,
 		renderOrder: 3,
-		gridSpan: 2,
+		gridSpan: 1,
 		model: viewState.aiModel,
 		splitByHeaders: options.splitByHeaders,
 		enableTTS: true,

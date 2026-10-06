@@ -412,12 +412,12 @@
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
-		--radius-sm: 4px;
-		--radius-md: 8px;
-		--radius-lg: 12px;
+		--radius-sm: 6px;
+		--radius-md: 10px;
+		--radius-lg: 14px;
 
-		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent));
-		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent));
+		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, white 80%, transparent));
+		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, white 40%, transparent));
 		--glow-lg: drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
 
 		--glow-text:

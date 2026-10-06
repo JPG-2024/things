@@ -13,7 +13,8 @@
 		article: ArticleWithTasks;
 		contentMode?: ArticleContentMode;
 		thumbnailOnly?: boolean;
-		withBackground?: boolean;
+		thumbnailWidth?: number;
+		thumbnailHeight?: number;
 		layoutKey?: LayoutKey;
 		animate?: boolean;
 		marked?: boolean;
@@ -27,7 +28,8 @@
 		article,
 		contentMode = undefined,
 		thumbnailOnly = false,
-		withBackground = true,
+		thumbnailWidth = undefined,
+		thumbnailHeight = undefined,
 		layoutKey,
 		animate = true,
 		marked = false,
@@ -38,6 +40,7 @@
 	}: Props = $props();
 
 	let isRowMode = $derived(layoutKey === 'row');
+	let isFixedThumb = $derived(thumbnailWidth !== undefined && thumbnailHeight !== undefined);
 
 	// Category previews force thumbnail-only; otherwise the grid-wide preference
 	// (cycled from the masonry toolbar) decides what is rendered.
@@ -114,6 +117,10 @@
 	type="button"
 	class="article-card {layoutKey ?? ''}"
 	class:marked-for-delete={marked}
+	class:fixed-thumb-card={isFixedThumb}
+	style={isFixedThumb
+		? `--fixed-thumb-w: ${thumbnailWidth}px; --fixed-thumb-h: ${thumbnailHeight}px;`
+		: undefined}
 	onclick={() => onClick(article)}
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
@@ -201,7 +208,22 @@
 	{:else}
 		<div class="article-content">
 			<div class="article-item-info">
-				{#if showThumbnail && article.thumbnailSrc}
+				{#if isFixedThumb}
+					<div class="article-thumbnail-container fixed-thumb">
+						{#if showThumbnail && article.thumbnailSrc}
+							<img
+								src={article.thumbnailSrc}
+								alt="Article"
+								class="article-thumbnail"
+								style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+							/>
+						{:else}
+							<div class="article-thumbnail-fallback">
+								{article.title?.slice(0, 80) ?? ''}
+							</div>
+						{/if}
+					</div>
+				{:else if showThumbnail && article.thumbnailSrc}
 					<div class="article-thumbnail-container">
 						<img
 							src={article.thumbnailSrc}
@@ -211,7 +233,7 @@
 						/>
 					</div>
 				{/if}
-				{#if showText}
+				{#if showText && !isFixedThumb}
 					{#if matchSnippet}
 						<div class="article-match-snippet">
 							<span class="snippet-context">{matchSnippet.before}</span><mark
@@ -257,8 +279,8 @@
 	}
 
 	.article-card {
-		--keywords-font-size: 0.8rem;
-		--pill-font-size: 0.75rem;
+		--keywords-font-size: 0.7rem;
+		--pill-font-size: 0.6rem;
 	}
 
 	.article-profile-avatar {
@@ -419,10 +441,6 @@
 		background: rgba(255, 0, 0, 0.25);
 	}
 
-	.no-background {
-		background: transparent;
-	}
-
 	.article-thumbnail-container {
 		flex: 0 0 30%;
 		position: relative;
@@ -442,6 +460,46 @@
 
 	.thumbnail-only .article-thumbnail-container {
 		flex: 1;
+	}
+
+	.article-card.fixed-thumb-card {
+		flex: 0 0 auto;
+		width: var(--fixed-thumb-w);
+		min-width: var(--fixed-thumb-w);
+		max-width: var(--fixed-thumb-w);
+		padding: 0;
+	}
+
+	.article-card.fixed-thumb-card .fixed-thumb {
+		flex: none;
+		width: 100%;
+		height: var(--fixed-thumb-h);
+	}
+
+	.article-card.fixed-thumb-card .fixed-thumb .article-thumbnail {
+		width: 100%;
+		height: 100%;
+		aspect-ratio: auto;
+		border-radius: var(--radius-sm);
+	}
+
+	.article-thumbnail-fallback {
+		display: -webkit-box;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		height: 100%;
+		padding: 0.4rem;
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(255, 255, 255, 0.75);
+		font-size: 0.7rem;
+		line-height: 1.15;
+		text-align: left;
+		overflow: hidden;
+		border-radius: var(--radius-sm);
+		-webkit-line-clamp: 4;
+		-webkit-box-orient: vertical;
+		line-clamp: 4;
 	}
 
 	.article-thumbnail-raw {
@@ -521,7 +579,7 @@
 	}
 
 	.article-match-snippet mark {
-		background: color-mix(in srgb, var(--primary-color) 40%, transparent);
+		background: color-mix(in srgb, var(--bg-color) 40%, transparent);
 		color: inherit;
 		border-radius: 2px;
 		padding: 5px 0;

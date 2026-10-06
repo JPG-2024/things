@@ -29,7 +29,8 @@
 
 <style>
 	.category-item {
-		--emoji-string-text-color: var(--bg-color);
+		text-transform: capitalize;
+		
 	}
 
 	.category-item--link {

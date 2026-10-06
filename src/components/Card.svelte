@@ -40,14 +40,15 @@
 		box-sizing: border-box;
 		border-radius: var(--radius-md);
 		background-image: linear-gradient(
-			90deg,
-			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			145deg,
+			color-mix(in srgb, var(--primary-color) 15%, transparent),
+			color-mix(in srgb, var(--bg-color) 15%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);
 		background-size: 200% 200%;
 		backdrop-filter: blur(20px);
-		padding: 5px;
+		padding: 1rem;
 		overflow: hidden;
 	}
 
@@ -63,7 +64,6 @@
 
 	.widget-title {
 		padding: 5px;
-
 		line-height: 1;
 		font-size: 1rem;
 		font-weight: 600;
@@ -72,13 +72,7 @@
 		z-index: 20;
 	}
 
-	.widget.no-borders::before,
-	.widget.no-borders::after,
-	.widget.no-borders .widget-corner,
-	.widget.no-borders .widget-curve-tl,
-	.widget.no-borders .widget-curve-br {
-		display: none;
-	}
+
 
 	/* Esquina superior izquierda + lado superior */
 	.widget::before {
@@ -86,13 +80,14 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 40%; /* Cubre 40% del ancho superior */
-		height: 1px;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0.8) 0%,
-			rgba(255, 255, 255, 0.159) 80%,
-			transparent 100%
+		width: 100%; /* Cubre 40% del ancho superior */
+		height: 2px;
+		background-image: linear-gradient(
+			145deg,
+			rgba(0, 0, 0) 1%,
+			color-mix(in srgb, var(--primary-color) 20%, transparent),
+			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			rgba(0, 0, 0) 100%
 		);
 		border-radius: 30px 0 0 0;
 	}
@@ -102,13 +97,13 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 1px;
-		height: 40%; /* Cubre 40% de la altura izquierda */
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.8) 0%,
-			rgba(255, 255, 255, 0.159) 80%,
-			transparent 100%
+		width: 0px; /* <-- TOGGLE with 1px */
+		height: 100%; /* Cubre 40% de la altura izquierda */
+		background-image: linear-gradient(
+			145deg,	
+			color-mix(in srgb, var(--primary-color) 50%, transparent),
+			color-mix(in srgb, var(--bg-color) 40%, transparent),
+			rgba(0, 0, 0) 50%
 		);
 		border-radius: 30px 0 0 0;
 	}

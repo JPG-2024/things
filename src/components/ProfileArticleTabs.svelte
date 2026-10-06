@@ -9,11 +9,11 @@
 		tabs={PROFILE_ARTICLE_TABS}
 		bind:activeTab={viewState.activeProfileArticleTab}
 		iconOnly
-		iconSize={18}
+		iconSize={22}
 	/>
-	{#if viewState.activeProfileArticleTab === 'articles'}
+<!-- 	{#if viewState.activeProfileArticleTab === 'articles'}
 		<InitialArticlesToggle />
-	{/if}
+	{/if} -->
 </div>
 
 <style>

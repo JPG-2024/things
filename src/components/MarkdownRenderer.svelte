@@ -106,7 +106,7 @@
 	.markdown-container :global(h2) {
 		font-family: 'BetterVCR', monospace;
 		font-size: 0.9rem;
-		padding-top: 3rem;
+		padding-top: 2rem;
 		padding-bottom: 1.2rem;
 	}
 

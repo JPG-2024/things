@@ -37,7 +37,7 @@
 	}}
 >
 	<span class="icon-glow" class:glow={checked}>
-		<Icon {name} {...props} {color} {size} {tooltipProps} />
+		<Icon {name} {...props} color={checked ? 'white' : 'var(--primary-color)'} {size} {tooltipProps} />
 	</span>
 	{#if label}
 		<span class="label" class:glow={checked}>{label}</span>
@@ -88,7 +88,7 @@
 		transition: opacity 0.2s ease;
 	}
 	.icon-glow:not(.glow) :global(svg) {
-		opacity: 0.2;
+		opacity: 0.3;
 	}
 	.label {
 		color: var(--primary-color);

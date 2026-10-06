@@ -122,7 +122,7 @@
 
 <style>
 	.article-tab__container {
-		padding: 2rem;
+		padding: 3rem;
 	}
 	.empty-profiles-container {
 		display: flex;

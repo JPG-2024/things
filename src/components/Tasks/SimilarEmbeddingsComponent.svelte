@@ -145,7 +145,7 @@
 		{#if error}
 			<p class="similar-error">{error}</p>
 		{:else if hasSearched && results.length === 0}
-			<p class="similar-empty">No similar chunks found{hasQuery ? '' : ' for this task'}.</p>
+			<!-- <p class="similar-empty">No similar chunks found{hasQuery ? '' : ' for this task'}.</p> -->
 		{:else if results.length > 0}
 			<p class="similar-header">Similar embeddings ({results.length})</p>
 			<div class="similar-thumbs">
@@ -170,7 +170,7 @@
 
 <style>
 	.similar-embeddings {
-		margin-top: 0.5rem;
+		
 	}
 
 	.manual-trigger {

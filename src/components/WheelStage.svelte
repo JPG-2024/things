@@ -6,17 +6,48 @@
 		gap?: number;
 		fadeEdges?: boolean;
 		scrollSpeed?: number;
+		keyboard?: boolean;
+		label?: string;
 		children: Snippet;
 	}
 
-	let { width = '100%', gap = 12, fadeEdges = true, scrollSpeed = 1, children }: Props = $props();
+	let {
+		width = '100%',
+		gap = 12,
+		fadeEdges = true,
+		scrollSpeed = 1,
+		keyboard = false,
+		label = 'Scrollable content',
+		children
+	}: Props = $props();
 
 	function handleWheel(e: WheelEvent) {
 		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
 		const el = e.currentTarget as HTMLDivElement;
-		const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-		el.scrollLeft += delta * scrollSpeed;
+		const max = el.scrollWidth - el.clientWidth;
+		if (max <= 0) return;
+
+		const delta = (e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * scrollSpeed;
+		// Let the page scroll when the strip is already at the edge in that direction.
+		const atStart = el.scrollLeft <= 0 && delta < 0;
+		const atEnd = el.scrollLeft >= max - 1 && delta > 0;
+		if (atStart || atEnd) return;
+
+		el.scrollLeft += delta;
 		e.preventDefault();
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		const el = e.currentTarget as HTMLDivElement;
+		const step = el.clientWidth * 0.8;
+
+		if (e.key === 'ArrowRight') {
+			el.scrollLeft += step;
+			e.preventDefault();
+		} else if (e.key === 'ArrowLeft') {
+			el.scrollLeft -= step;
+			e.preventDefault();
+		}
 	}
 
 	export function scrollChildIntoView(child: HTMLElement): void {
@@ -24,11 +55,16 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region may take focus for keyboard scrolling -->
 <div
 	class="wheel-stage"
 	class:fade-edges={fadeEdges}
 	style="width: {width}; --stage-gap: {gap}px;"
 	onwheel={handleWheel}
+	role={keyboard ? 'region' : undefined}
+	aria-label={keyboard ? label : undefined}
+	tabindex={keyboard ? 0 : undefined}
+	onkeydown={keyboard ? handleKeydown : undefined}
 >
 	<div class="stage-track">
 		{@render children()}
@@ -49,6 +85,12 @@
 
 	.wheel-stage::-webkit-scrollbar {
 		display: none;
+	}
+
+	.wheel-stage:focus-visible {
+		outline: 2px solid var(--primary-color);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
 	}
 
 	.wheel-stage.fade-edges {

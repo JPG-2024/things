@@ -463,7 +463,7 @@
 		min-width: 0;
 		overflow-y: auto;
 		padding: 0 1rem;
-		padding-top: 7rem;
+		padding: 7rem 0;
 	}
 
 	.dashboard-content.has-tab-header {

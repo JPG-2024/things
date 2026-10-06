@@ -2,6 +2,7 @@
 	import Card from '@/components/Card.svelte';
 	import ArticleItem from '@/components/ArticleItem.svelte';
 	import CategoryItem from '@/components/CategoryItem.svelte';
+	import WheelStage from '@/components/WheelStage.svelte';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
 	import { goto } from '$app/navigation';
 
@@ -14,36 +15,45 @@
 
 	let { category, onArticleClick, onArticleHoverEnter, onArticleHoverLeave }: Props = $props();
 
-	const previewArticles = $derived(category.articles.slice(0, 18));
+	const previewArticles = $derived(category.articles);
 
 	function handleCategoryClick() {
 		goto(`/category/${category.categoryId}?name=${encodeURIComponent(category.categoryName)}`);
 	}
 </script>
 
-<Card>
-	<button type="button" class="category-header" onclick={handleCategoryClick}>
-		<CategoryItem value={category.categoryName} />
-	</button>
-	{#if previewArticles.length > 0}
-		<div class="category-thumbnails">
-			{#each previewArticles as article (article.url)}
-				<ArticleItem
-					{article}
-					thumbnailOnly
-					withBackground={false}
-					onClick={onArticleClick}
-					onHoverEnter={onArticleHoverEnter}
-					onHoverLeave={onArticleHoverLeave}
-				/>
-			{/each}
-		</div>
-	{:else}
-		<div class="category-empty">No articles</div>
-	{/if}
-</Card>
+<div class="category-card">
+	<Card>
+		<button type="button" class="category-header" onclick={handleCategoryClick}>
+			<CategoryItem value={category.categoryName} />
+		</button>
+		{#if previewArticles.length > 0}
+			<WheelStage fadeEdges gap={12} scrollSpeed={6} keyboard label="Category articles">
+				{#each previewArticles as article (article.url)}
+					<ArticleItem
+						{article}
+						thumbnailOnly
+						thumbnailWidth={140}
+						thumbnailHeight={70}
+						onClick={onArticleClick}
+						onHoverEnter={onArticleHoverEnter}
+						onHoverLeave={onArticleHoverLeave}
+					/>
+				{/each}
+			</WheelStage>
+		{:else}
+			<div class="category-empty">No articles</div>
+		{/if}
+	</Card>
+</div>
 
 <style>
+	.category-card {
+		width: 100%;
+		height: 140px;
+		min-width: 0;
+	}
+
 	.category-header {
 		all: unset;
 		cursor: pointer;
@@ -51,15 +61,6 @@
 		box-sizing: border-box;
 		padding: 6px 10px;
 		padding-bottom: 10px;
-	}
-
-	.category-thumbnails {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-		gap: 0.5rem;
-		width: 100%;
-		box-sizing: border-box;
-		padding: 5px;
 	}
 
 	.category-empty {
