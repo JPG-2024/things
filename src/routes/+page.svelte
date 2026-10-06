@@ -23,7 +23,7 @@
 	import Tooltip from '@/components/Tooltip.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
-	import { startEmbeddingsHealthPolling } from '@/lib/utils/embeddingsHealth';
+	import { startLlamaHealthPolling } from '@/lib/utils/llamaHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import TabHeader from '@/components/TabHeader.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -57,6 +57,16 @@
 		const g = parseInt(hex.slice(3, 5), 16);
 		const b = parseInt(hex.slice(5, 7), 16);
 		viewState.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+	}
+
+	function llamaServiceTooltip(
+		name: 'inference' | 'embeddings',
+		label: string,
+		up: boolean
+	): string {
+		const status = viewState.llamaServersStatus.find((entry) => entry.name === name);
+		if (status?.error) return `${label}: ${status.error}`;
+		return `${label} ${up ? 'online' : 'offline'}`;
 	}
 
 	let askInputValue = $state('');
@@ -226,7 +236,7 @@
 	);
 
 	$effect(() => {
-		return startEmbeddingsHealthPolling();
+		return startLlamaHealthPolling();
 	});
 
 	$effect(() => {
@@ -302,9 +312,25 @@
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
 				<Tooltip
-					content={viewState.embeddingsServiceUp
-						? 'Embeddings service online'
-						: 'Embeddings service offline'}
+					content={llamaServiceTooltip(
+						'inference',
+						'Inference service',
+						viewState.inferenceServiceUp
+					)}
+				>
+					<span
+						class="embeddings-health"
+						class:up={viewState.inferenceServiceUp}
+						role="status"
+						aria-label="Inference service status"
+					></span>
+				</Tooltip>
+				<Tooltip
+					content={llamaServiceTooltip(
+						'embeddings',
+						'Embeddings service',
+						viewState.embeddingsServiceUp
+					)}
 				>
 					<span
 						class="embeddings-health"

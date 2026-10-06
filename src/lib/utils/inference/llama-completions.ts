@@ -1,3 +1,5 @@
+import { viewState } from '@/stores/viewStore.svelte';
+
 export const DEFAULT_COMPLETION_OPTIONS = {
 	model: 'llama-server',
 	temperature: 0.8,
@@ -408,7 +410,7 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
-	const baseUrl = import.meta.env.VITE_LLAMA_URL ?? 'http://localhost:8080';
+	const baseUrl = viewState.llamaBaseUrl;
 	const url = joinUrl(baseUrl, '/v1/chat/completions');
 	const streamEnabled =
 		request.stream === true ||
@@ -588,7 +590,7 @@ export async function createEmbeddings(
 	request: LlamaEmbeddingsRequest,
 	options?: LlamaEmbeddingsOptions
 ): Promise<LlamaEmbeddingsResponse> {
-	const baseUrl = import.meta.env.VITE_EMBEDDINGS_URL ?? 'http://localhost:8083';
+	const baseUrl = viewState.embeddingsBaseUrl;
 	const url = joinUrl(baseUrl, '/v1/embeddings');
 
 	let res: Response;

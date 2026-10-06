@@ -39,8 +39,8 @@ pub use crate::embedding_store::{
     index_chunks, rebuild_category_embeddings, search_similar_categories, search_similar_chunks,
     upsert_category_embeddings,
 };
-pub use crate::llama_server::launch_llama_server;
-use crate::llama_server::{stop_llama_server, LlamaServerState};
+pub use crate::llama_server::{ensure_llama_servers, list_llama_models, llama_defaults};
+use crate::llama_server::{stop_llama_servers, LlamaServersState};
 pub use crate::track_download::download_track;
 use tauri::Manager;
 use tauri::RunEvent;
@@ -68,7 +68,7 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
-        .manage(LlamaServerState::default())
+        .manage(LlamaServersState::default())
         .manage(AudioRecorderState::default())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -119,7 +119,9 @@ pub fn run() {
             get_youtube_transcript_timed_text,
             download_and_save_image,
             url_to_folder_name,
-            launch_llama_server,
+            ensure_llama_servers,
+            list_llama_models,
+            llama_defaults,
             read_clipboard_text,
             index_chunks,
             search_similar_chunks,
@@ -141,8 +143,8 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {
-            let state = app_handle.state::<LlamaServerState>();
-            stop_llama_server(&state);
+            let state = app_handle.state::<LlamaServersState>();
+            stop_llama_servers(&state);
         }
     });
 }

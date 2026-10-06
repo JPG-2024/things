@@ -1,6 +1,7 @@
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
 import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
+import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 
 export interface RawSearchMatch {
 	before: string;
@@ -40,6 +41,18 @@ type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
 export const DEFAULT_PRIMARY_COLOR = 'rgb(255, 255, 255)';
 export const DEFAULT_BG_COLOR = 'rgb(155, 93, 194)';
+
+const ENV_LLAMA_URL = import.meta.env.VITE_LLAMA_URL ?? 'http://127.0.0.1:8080';
+const ENV_EMBEDDINGS_URL = import.meta.env.VITE_EMBEDDINGS_URL ?? 'http://127.0.0.1:8083';
+
+function envPort(url: string, fallback: number): number {
+	try {
+		const port = new URL(url).port;
+		return port ? Number(port) : fallback;
+	} catch {
+		return fallback;
+	}
+}
 
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'FileText' },
@@ -99,6 +112,14 @@ class ViewState {
 	aiUrl = $state<string>('');
 	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 
+	llamaModelsDir = $state<string>('');
+	llamaInferenceModel = $state<string>('');
+	llamaInferencePort = $state(envPort(ENV_LLAMA_URL, 8080));
+	llamaEmbeddingsModel = $state<string>('');
+	llamaEmbeddingsPort = $state(envPort(ENV_EMBEDDINGS_URL, 8083));
+	llamaBaseUrl = $derived(`http://127.0.0.1:${this.llamaInferencePort}`);
+	embeddingsBaseUrl = $derived(`http://127.0.0.1:${this.llamaEmbeddingsPort}`);
+
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	backgroundColor = $state(DEFAULT_BG_COLOR);
 	tintHue = $derived(rgbToHue(this.backgroundColor));
@@ -113,6 +134,8 @@ class ViewState {
 	embeddingsProcessed = $state(false);
 	embeddingsLoading = $state(false);
 	embeddingsServiceUp = $state(false);
+	inferenceServiceUp = $state(false);
+	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);
 	categoryMinSimilarity = $state(0.35);
 	autoSpeechEnabled = $state(false);

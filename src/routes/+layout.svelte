@@ -12,6 +12,7 @@
 	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
+	import { ensureLlamaServers } from '@/lib/utils/llamaHealth';
 
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
@@ -233,6 +234,7 @@
 
 	onMount(() => {
 		startSettingsPersistence();
+		void ensureLlamaServers();
 	});
 
 	let consecutiveClipboardErrors = 0;

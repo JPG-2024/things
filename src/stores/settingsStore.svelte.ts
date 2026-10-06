@@ -86,6 +86,11 @@ function serializeView() {
 		aiProvider: viewState.aiProvider,
 		aiUrl: viewState.aiUrl,
 		aiModel: viewState.aiModel,
+		llamaModelsDir: viewState.llamaModelsDir,
+		llamaInferenceModel: viewState.llamaInferenceModel,
+		llamaInferencePort: viewState.llamaInferencePort,
+		llamaEmbeddingsModel: viewState.llamaEmbeddingsModel,
+		llamaEmbeddingsPort: viewState.llamaEmbeddingsPort,
 		categoryTopN: viewState.categoryTopN,
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
@@ -130,6 +135,19 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.aiUrl === 'string') viewState.aiUrl = raw.aiUrl;
 	if (typeof raw.aiModel === 'string') viewState.aiModel = raw.aiModel;
+	if (typeof raw.llamaModelsDir === 'string') viewState.llamaModelsDir = raw.llamaModelsDir;
+	if (typeof raw.llamaInferenceModel === 'string') {
+		viewState.llamaInferenceModel = raw.llamaInferenceModel;
+	}
+	if (typeof raw.llamaInferencePort === 'number') {
+		viewState.llamaInferencePort = clamp(Math.trunc(raw.llamaInferencePort), 1024, 65535);
+	}
+	if (typeof raw.llamaEmbeddingsModel === 'string') {
+		viewState.llamaEmbeddingsModel = raw.llamaEmbeddingsModel;
+	}
+	if (typeof raw.llamaEmbeddingsPort === 'number') {
+		viewState.llamaEmbeddingsPort = clamp(Math.trunc(raw.llamaEmbeddingsPort), 1024, 65535);
+	}
 	if (typeof raw.categoryTopN === 'number') {
 		viewState.categoryTopN = clamp(Math.trunc(raw.categoryTopN), 1, 10);
 	}
