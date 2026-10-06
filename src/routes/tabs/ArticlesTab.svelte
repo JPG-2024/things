@@ -8,7 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ArticleWithTasks } from '@/stores/webStore';
-	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
@@ -64,7 +64,6 @@
 			<MasonryGrid
 				items={searchResults}
 				keyOf={(result: RawSearchResult) => result.article.url ?? ''}
-				showContentModeToggle
 				itemTransition={articleItemTransition}
 			>
 				{#snippet children(
@@ -93,7 +92,6 @@
 	{:else}
 		<MasonryGrid
 			items={articleCacheStore.articlesWithoutProfile}
-			showContentModeToggle
 			itemTransition={articleItemTransition}
 		>
 			{#snippet children(

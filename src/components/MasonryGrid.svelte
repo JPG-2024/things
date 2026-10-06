@@ -1,19 +1,7 @@
-<script module lang="ts">
-	export type LayoutKey = 'row' | 'grid-3' | 'grid-2';
-
-	export interface LayoutConfig {
-		columns: number;
-		padding: string;
-		rowHeight?: number;
-		key: LayoutKey;
-	}
-</script>
-
 <script lang="ts" generics="T extends object">
 	import type { Snippet } from 'svelte';
-	import Icon from '@/components/Icon.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
-	import type { ArticleContentMode } from '@/stores/viewStore.svelte';
+	import { viewState, MASONRY_PRESETS } from '@/stores/viewStore.svelte';
+	import type { LayoutKey, MasonryPreset } from '@/stores/viewStore.svelte';
 	import { onMount, tick } from 'svelte';
 	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -25,13 +13,7 @@
 		keyOf?: (item: T) => string;
 		children: Snippet<[T, number, number, LayoutKey]>;
 		headerLeft?: Snippet<[]>;
-		layoutIndex?: number;
-		onLayoutIndexChange?: (value: number) => void;
-		columnOffset?: number;
-		onColumnOffsetChange?: (value: number) => void;
-		fixedColumns?: number;
 		spanOf?: (item: T) => 1 | 2;
-		showContentModeToggle?: boolean;
 		itemTransition?: ItemTransition;
 	}
 
@@ -40,13 +22,7 @@
 		keyOf = (item: T) => (item as { url?: string | null }).url ?? '',
 		children,
 		headerLeft,
-		layoutIndex: layoutIndexProp,
-		onLayoutIndexChange,
-		columnOffset: columnOffsetProp,
-		onColumnOffsetChange,
-		fixedColumns,
 		spanOf,
-		showContentModeToggle = false,
 		itemTransition = enterLeave
 	}: Props = $props();
 
@@ -71,8 +47,9 @@
 	// prevents subpixel measurement noise from oscillating spans (flicker)
 	const SHRINK_TOLERANCE = 1;
 
-	let layoutIndex = $derived(layoutIndexProp ?? viewState.masonryArticlesLayoutIndex);
-	let columnOffset = $derived(columnOffsetProp ?? viewState.masonryArticlesColumnOffset);
+	// Active preset lives in the store so every grid on a page stays in sync.
+	const presetIndex = $derived(viewState.masonryArticlesPresetIndex);
+	const currentPreset = $derived(viewState.masonryPreset);
 
 	// measured content-box width of the grid container; drives responsive columns
 	let containerWidth = $state(0);
@@ -83,109 +60,63 @@
 	const MIN_COLUMNS = 2;
 	const MAX_COLUMNS = 6;
 
-	const layouts: LayoutConfig[] = [
-		{ columns: 1, padding: '0.6rem', rowHeight: 50, key: 'row' },
-		{ columns: 3, padding: '2rem 3rem', key: 'grid-3' },
-		{ columns: 2, padding: '1rem 2rem', key: 'grid-2' }
-	];
-
-	let currentLayout = $derived(layouts[layoutIndex] ?? layouts[1]);
-
 	const baseColumns = $derived(
 		containerWidth > 0
 			? Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, Math.floor(containerWidth / MIN_COLUMN_WIDTH)))
 			: MIN_COLUMNS
 	);
 
-	// grid modes get responsive columns nudged by the manual density offset;
-	// row mode is always a single column. A fixedColumns prop overrides the
-	// responsive calculation entirely (e.g. tabs that should never reflow).
+	// Each preset requests a column count; it is capped by what actually fits
+	// (responsive clamp) so narrow windows never overflow. Row mode is always 1.
 	const effectiveColumns = $derived(
-		fixedColumns
-			? fixedColumns
-			: layoutIndex === 0
-				? 1
-				: Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, baseColumns + columnOffset))
+		currentPreset.key === 'row'
+			? 1
+			: Math.max(MIN_COLUMNS, Math.min(currentPreset.columns, baseColumns))
 	);
 
-	function setLayoutIndex(value: number) {
-		const next = Math.max(0, Math.min(value, layouts.length - 1));
-		if (next === layoutIndex) return;
-		if (onLayoutIndexChange) onLayoutIndexChange(next);
-		else viewState.masonryArticlesLayoutIndex = next;
+	// ArrowUp/ArrowDown step through MASONRY_PRESETS, clamped at both ends and
+	// only while an article is hovered, so they never hijack normal page scroll.
+	function movePreset(delta: number) {
+		const next = Math.max(0, Math.min(presetIndex + delta, MASONRY_PRESETS.length - 1));
+		if (next === presetIndex) return;
+		viewState.masonryArticlesPresetIndex = next;
 	}
 
-	function toggleRowMode() {
-		setLayoutIndex(layoutIndex === 0 ? 1 : 0);
-	}
-
-	function setColumnOffset(value: number) {
-		const minOffset = MIN_COLUMNS - baseColumns;
-		const maxOffset = MAX_COLUMNS - baseColumns;
-		const next = Math.max(minOffset, Math.min(value, maxOffset));
-		if (next === columnOffset) return;
-		if (onColumnOffsetChange) onColumnOffsetChange(next);
-		else viewState.masonryArticlesColumnOffset = next;
-	}
-
-	function decreaseLayout() {
-		setColumnOffset(columnOffset - 1);
-	}
-
-	function increaseLayout() {
-		setColumnOffset(columnOffset + 1);
-	}
-
-	const CONTENT_MODES: ArticleContentMode[] = ['both', 'thumbnail', 'title'];
-
-	const contentModeIcon: Record<ArticleContentMode, string> = {
-		both: 'LayoutPanelTop',
-		thumbnail: 'Image',
-		title: 'Type'
-	};
-
-	const contentModeTooltip: Record<ArticleContentMode, string> = {
-		both: 'Content: images + text (click for images only)',
-		thumbnail: 'Content: images only (click for text only)',
-		title: 'Content: text only (click for images + text)'
-	};
-
-	function cycleContentMode() {
-		const index = CONTENT_MODES.indexOf(viewState.masonryArticlesContentMode);
-		viewState.masonryArticlesContentMode = CONTENT_MODES[(index + 1) % CONTENT_MODES.length];
-	}
-
-	// column density hotkeys. '+' is the Shift+= key (the + key sets shiftKey=true),
-	// expressed as a RawHotkey since the typed Hotkey literal forbids Shift+Punctuation.
-	// '-' is Minus (unshifted). Shift+Arrow nudges density too.
-	createHotkey({ key: '=', shift: true }, increaseLayout, { ignoreInputs: true });
-	createHotkey('-', decreaseLayout, { ignoreInputs: true });
-	createHotkey('Shift+ArrowLeft', decreaseLayout, { ignoreInputs: true, preventDefault: true });
-	createHotkey('Shift+ArrowRight', increaseLayout, { ignoreInputs: true, preventDefault: true });
-
-	// 'V' cycles the article content mode (both / images only / text only) for
-	// grids that opted into the toolbar toggle.
-	createHotkey('V', cycleContentMode, () => ({
-		enabled: showContentModeToggle,
-		ignoreInputs: true
-	}));
+	createHotkey(
+		'ArrowDown',
+		() => movePreset(1),
+		() => ({
+			enabled: viewState.hoveredArticleUrl !== null,
+			ignoreInputs: true,
+			preventDefault: true
+		})
+	);
+	createHotkey(
+		'ArrowUp',
+		() => movePreset(-1),
+		() => ({
+			enabled: viewState.hoveredArticleUrl !== null,
+			ignoreInputs: true,
+			preventDefault: true
+		})
+	);
 
 	// Computed row metrics are a pure function of the active layout, but reading
 	// them costs a getComputedStyle() forced style recalc, and resizeAll() runs
 	// several times per cycle (two rAFs, the settle timer, fonts.ready, finish()).
 	// Cache them and re-read only when the layout object changes or the window
 	// resizes — zoom alters the rem-based grid gap without changing the layout.
-	let rowMetricsKey: LayoutConfig | null = null;
+	let rowMetricsKey: MasonryPreset | null = null;
 	let rowMetricsValue = { rowHeight: 0, rowGap: 0 };
 
 	function getRowMetrics() {
-		if (rowMetricsKey === currentLayout) return rowMetricsValue;
+		if (rowMetricsKey === currentPreset) return rowMetricsValue;
 		const computed = window.getComputedStyle(gridEl);
 		rowMetricsValue = {
 			rowHeight: Number.parseFloat(computed.getPropertyValue('grid-auto-rows')),
 			rowGap: Number.parseFloat(computed.getPropertyValue('row-gap'))
 		};
-		rowMetricsKey = currentLayout;
+		rowMetricsKey = currentPreset;
 		return rowMetricsValue;
 	}
 
@@ -230,7 +161,7 @@
 
 		const wrappers = getWrappers();
 
-		if (currentLayout.rowHeight) {
+		if (currentPreset.rowHeight) {
 			for (const wrapper of wrappers) {
 				if (wrapper?.isConnected) setRowSpan(wrapper, 1);
 			}
@@ -428,7 +359,7 @@
 	// inserted by the intro/outro transitions and multiply this work for no gain.
 	$effect(() => {
 		renderedItems = items;
-		void currentLayout;
+		void currentPreset;
 		tick().then(() => {
 			observeAll();
 			scheduleResize();
@@ -441,34 +372,18 @@
 		{#if headerLeft}
 			{@render headerLeft()}
 		{/if}
-		{#if showContentModeToggle}
-			<Icon
-				name={contentModeIcon[viewState.masonryArticlesContentMode]}
-				size={15}
-				onClick={cycleContentMode}
-				tooltipProps={{ content: contentModeTooltip[viewState.masonryArticlesContentMode] }}
-			/>
-		{/if}
-		<Icon
-			name={layoutIndex === 0 ? 'LayoutGrid' : 'List'}
-			size={15}
-			onClick={toggleRowMode}
-			tooltipProps={{ content: layoutIndex === 0 ? 'Show grid' : 'Show list' }}
-		/>
-		{#if !fixedColumns}
-			<Icon name="Minus" size={15} onClick={decreaseLayout} />
-			<span class="column-count">{effectiveColumns}</span>
-			<Icon name="Plus" size={15} onClick={increaseLayout} />
-		{/if}
+		<span class="preset-indicator" title="Layout preset (↑/↓ while hovering an article)">
+			{presetIndex + 1}/{MASONRY_PRESETS.length}
+		</span>
 	</div>
 	<div
 		class="masonry-grid"
 		bind:this={gridEl}
 		style:grid-template-columns={`repeat(${effectiveColumns}, 1fr)`}
-		style:grid-auto-rows={currentLayout.rowHeight ? `${currentLayout.rowHeight}px` : '1px'}
-		style:gap={currentLayout.padding}
-		style:padding-bottom={currentLayout.padding}
-		class:fixed-row-layout={currentLayout.rowHeight !== undefined}
+		style:grid-auto-rows={currentPreset.rowHeight ? `${currentPreset.rowHeight}px` : '1px'}
+		style:gap={currentPreset.padding}
+		style:padding-bottom={currentPreset.padding}
+		class:fixed-row-layout={currentPreset.rowHeight !== undefined}
 	>
 		{#each renderedItems as item, i (keyOf(item))}
 			<div
@@ -478,7 +393,7 @@
 				out:itemTransition
 			>
 				<div class="content">
-					{@render children(item, i, layoutIndex, currentLayout.key)}
+					{@render children(item, i, presetIndex, currentPreset.key)}
 				</div>
 			</div>
 		{/each}
@@ -486,10 +401,11 @@
 </div>
 
 <style>
-	.column-count {
+	.preset-indicator {
 		font-size: 0.75rem;
 		min-width: 1rem;
 		text-align: center;
+		opacity: 0.6;
 	}
 
 	.masonry-container {

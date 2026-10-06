@@ -20,7 +20,7 @@
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	let profileId = $derived(page.params.profileId);
@@ -211,7 +211,7 @@
 		</div>
 
 		<div class="articles-container">
-			<MasonryGrid items={articleCacheStore.articlesWithoutProfile} showContentModeToggle>
+			<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
 				{#snippet headerLeft()}
 					<InitialArticlesToggle />
 				{/snippet}

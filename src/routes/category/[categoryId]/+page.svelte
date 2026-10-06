@@ -11,7 +11,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ArticleWithTasks } from '@/stores/webStore';
-	import type { LayoutKey } from '@/components/MasonryGrid.svelte';
+	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	let categoryId = $derived(page.params.categoryId);
@@ -60,7 +60,7 @@
 
 	<div class="articles-container">
 		{#if articleCacheStore.categoryArticles.length > 0}
-			<MasonryGrid items={articleCacheStore.categoryArticles} showContentModeToggle>
+			<MasonryGrid items={articleCacheStore.categoryArticles}>
 				{#snippet children(
 					article: ArticleWithTasks,
 					_i: number,

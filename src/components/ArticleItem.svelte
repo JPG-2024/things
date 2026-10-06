@@ -1,13 +1,12 @@
 <script lang="ts">
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import type { ArticleContentMode, RawSearchMatch } from '@/stores/viewStore.svelte';
+	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import { toVTName } from '@/lib/utils/url';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import CategoryItem from './CategoryItem.svelte';
 	import Keywords from './Keywords.svelte';
-	import type { LayoutKey } from './MasonryGrid.svelte';
 
 	interface Props {
 		article: ArticleWithTasks;

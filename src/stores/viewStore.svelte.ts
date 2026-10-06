@@ -15,6 +15,27 @@ export interface RawSearchResult {
 
 export type ArticleContentMode = 'both' | 'thumbnail' | 'title';
 
+export type LayoutKey = 'row' | 'grid-3' | 'grid';
+
+export interface MasonryPreset {
+	key: LayoutKey;
+	columns: number;
+	contentMode: ArticleContentMode;
+	padding: string;
+	rowHeight?: number;
+}
+
+// Ordered presets switched with ArrowUp/ArrowDown over the article grids.
+// `key` selects the visual style rendered by ArticleItem, `columns` is a
+// responsive target (clamped down on narrow windows), and `contentMode`
+// decides whether images/text are shown.
+export const MASONRY_PRESETS: MasonryPreset[] = [
+	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 50 },
+	{ key: 'grid', columns: 5, contentMode: 'thumbnail', padding: '1rem 1.5rem' },
+	/* { key: 'grid', columns: 3, contentMode: 'thumbnail', padding: '1.5rem 2rem' }, */
+	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
+];
+
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
 export const DEFAULT_PRIMARY_COLOR = 'rgb(255, 255, 255)';
@@ -54,9 +75,15 @@ class ViewState {
 	showAllTasks = $state(false);
 	collapseProfiles = $state(false);
 	selectedTaskId = $state('title-summary');
-	masonryArticlesLayoutIndex = $state(1);
-	masonryArticlesColumnOffset = $state(0);
-	masonryArticlesContentMode = $state<ArticleContentMode>('both');
+	masonryArticlesPresetIndex = $state(0);
+
+	get masonryPreset(): MasonryPreset {
+		return MASONRY_PRESETS[this.masonryArticlesPresetIndex] ?? MASONRY_PRESETS[0];
+	}
+
+	get masonryArticlesContentMode(): ArticleContentMode {
+		return this.masonryPreset.contentMode;
+	}
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
