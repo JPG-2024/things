@@ -105,6 +105,10 @@ class ViewState {
 	hoveredProfileId = $state<string | null>(null);
 	hoveredPictureSrc = $state<string | null>(null);
 	hoveredArticleUrl = $state<string | null>(null);
+	// true mientras hay un overlay modal/drawer/modo a pantalla completa. Lo
+	// mantiene `+layout.svelte` desde su `blurActive`; los hotkeys de componentes
+	// lo consultan para no dispararse por debajo de un overlay.
+	overlayOpen = $state(false);
 
 	messages = $state<Message[]>([]);
 

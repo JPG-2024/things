@@ -26,7 +26,7 @@
 </script>
 
 <div class="profile-list">
-	<div class="list-header">
+<!-- 	<div class="list-header">
 		<span class="count">{items.length}</span>
 		<ToggleIcon
 			name={viewState.collapseProfiles ? 'ChevronsDownUp' : 'ChevronsUpDown'}
@@ -34,7 +34,7 @@
 			size={15}
 			tooltipProps={{ content: viewState.collapseProfiles ? 'Expand all' : 'Collapse all' }}
 		/>
-	</div>
+	</div> -->
 	{#each renderedItems as profile (profile.id)}
 		<div class="profile-row" in:itemTransition out:itemTransition>
 			<ProfileWidget

@@ -92,6 +92,12 @@
 			chatOpen
 	);
 
+	// Mirror the overlay state into the store so descendant components (e.g.
+	// MasonryGrid) can gate their hotkeys without prop drilling.
+	$effect(() => {
+		viewState.overlayOpen = blurActive;
+	});
+
 	createHotkey(
 		',',
 		() => {

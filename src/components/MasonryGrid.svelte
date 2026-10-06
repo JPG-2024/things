@@ -74,8 +74,10 @@
 			: Math.max(MIN_COLUMNS, Math.min(currentPreset.columns, baseColumns))
 	);
 
-	// ArrowUp/ArrowDown step through MASONRY_PRESETS, clamped at both ends and
-	// only while an article is hovered, so they never hijack normal page scroll.
+	// Alt+ArrowDown/Alt+ArrowUp step through MASONRY_PRESETS, clamped at both
+	// ends. The Alt modifier keeps plain arrow keys free for normal page scroll,
+	// and the hotkeys are disabled while an overlay is open (blurActive from the
+	// layout, mirrored into viewState.overlayOpen).
 	function movePreset(delta: number) {
 		const next = Math.max(0, Math.min(presetIndex + delta, MASONRY_PRESETS.length - 1));
 		if (next === presetIndex) return;
@@ -83,21 +85,21 @@
 	}
 
 	createHotkey(
-		'ArrowDown',
+		'Alt+ArrowDown',
 		() => movePreset(1),
 		() => ({
-			enabled: viewState.hoveredArticleUrl !== null,
+			enabled: !viewState.overlayOpen,
 			ignoreInputs: true,
-			preventDefault: true
+			stopPropagation: true
 		})
 	);
 	createHotkey(
-		'ArrowUp',
+		'Alt+ArrowUp',
 		() => movePreset(-1),
 		() => ({
-			enabled: viewState.hoveredArticleUrl !== null,
+			enabled: !viewState.overlayOpen,
 			ignoreInputs: true,
-			preventDefault: true
+			stopPropagation: true
 		})
 	);
 
@@ -372,7 +374,7 @@
 		{#if headerLeft}
 			{@render headerLeft()}
 		{/if}
-		<span class="preset-indicator" title="Layout preset (↑/↓ while hovering an article)">
+		<span class="preset-indicator" title="Layout preset (Alt+↑/↓)">
 			{presetIndex + 1}/{MASONRY_PRESETS.length}
 		</span>
 	</div>

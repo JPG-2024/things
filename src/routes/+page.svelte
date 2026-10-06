@@ -210,7 +210,7 @@
 	const TAB_ORDER = ['profiles', 'domains', 'categories', 'articles'] as const;
 
 	const leftHotkey = createHotkey(
-		'ArrowLeft',
+		'Alt+ArrowLeft',
 		() => {
 			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
 			if (currentIndex < TAB_ORDER.length - 1) {
@@ -223,7 +223,7 @@
 	);
 
 	const rightHotkey = createHotkey(
-		'ArrowRight',
+		'Alt+ArrowRight',
 		() => {
 			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
 			if (currentIndex > 0) {
