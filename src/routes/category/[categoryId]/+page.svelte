@@ -5,7 +5,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import CategoryItem from '@/components/CategoryItem.svelte';
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
-	import ArticleItem from '@/components/ArticleItem.svelte';
+	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';

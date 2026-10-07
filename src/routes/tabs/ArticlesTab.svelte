@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
-	import ArticleItem from '@/components/ArticleItem.svelte';
+	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -75,7 +75,6 @@
 					<ArticleItem
 						article={result.article}
 						{layoutKey}
-						animate={false}
 						marked={deleteSelectionStore.markedUrls.has(result.article.url ?? '')}
 						matchSnippet={result.match}
 						onClick={handleArticleClick}
@@ -103,7 +102,6 @@
 				<ArticleItem
 					{article}
 					{layoutKey}
-					animate={false}
 					marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
 					onClick={handleArticleClick}
 					onHoverEnter={handleArticleHoverEnter}

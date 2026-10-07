@@ -311,34 +311,6 @@
 				<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
-				<Tooltip
-					content={llamaServiceTooltip(
-						'inference',
-						'Inference service',
-						viewState.inferenceServiceUp
-					)}
-				>
-					<span
-						class="embeddings-health"
-						class:up={viewState.inferenceServiceUp}
-						role="status"
-						aria-label="Inference service status"
-					></span>
-				</Tooltip>
-				<Tooltip
-					content={llamaServiceTooltip(
-						'embeddings',
-						'Embeddings service',
-						viewState.embeddingsServiceUp
-					)}
-				>
-					<span
-						class="embeddings-health"
-						class:up={viewState.embeddingsServiceUp}
-						role="status"
-						aria-label="Embeddings service status"
-					></span>
-				</Tooltip>
 				<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
 					<ToggleIcon
 						name="FileDigit"
@@ -347,14 +319,14 @@
 					/>
 				</button>
 				<ToolbarDivider />
-				<!-- 				<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
+				<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
 					<ToggleIcon
 						name="Download"
 						bind:checked={viewState.downloadTracksEnabled}
 						size={18}
 						tooltipProps={{ content: 'download tracks from queue' }}
 					/>
-				</button> -->
+				</button> 
 				<button
 					type="button"
 					class="settings-trigger"
@@ -383,24 +355,57 @@
 				</button>
 
 				<ToolbarDivider />
-				<label class="color-dot-trigger" aria-label="Change primary color">
-					<span class="color-dot" style:background-color={viewState.primaryColor}></span>
-					<input
-						type="color"
-						class="color-picker-input"
-						value={rgbToHex(viewState.primaryColor)}
-						oninput={handleColorChange}
-					/>
-				</label>
-				<label class="color-dot-trigger" aria-label="Change background color">
-					<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
-					<input
-						type="color"
-						class="color-picker-input"
-						value={rgbToHex(viewState.backgroundColor)}
-						oninput={handleBgColorChange}
-					/>
-				</label>
+
+								<Tooltip
+					content={llamaServiceTooltip(
+						'inference',
+						'Inference service',
+						viewState.inferenceServiceUp
+					)}
+				>
+					<span
+						class="embeddings-health"
+						class:up={viewState.inferenceServiceUp}
+						role="status"
+						aria-label="Inference service status"
+					></span>
+				</Tooltip>
+				<Tooltip
+					content={llamaServiceTooltip(
+						'embeddings',
+						'Embeddings service',
+						viewState.embeddingsServiceUp
+					)}
+				>
+					<span
+						class="embeddings-health"
+						class:up={viewState.embeddingsServiceUp}
+						role="status"
+						aria-label="Embeddings service status"
+					></span>
+				</Tooltip>
+				<Tooltip content="Change primary color">
+					<label class="color-dot-trigger" aria-label="Change primary color">
+						<span class="color-dot" style:background-color={viewState.primaryColor}></span>
+						<input
+							type="color"
+							class="color-picker-input"
+							value={rgbToHex(viewState.primaryColor)}
+							oninput={handleColorChange}
+						/>
+					</label>
+				</Tooltip>
+				<Tooltip content="Change secondary color">
+					<label class="color-dot-trigger" aria-label="Change background color">
+						<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
+						<input
+							type="color"
+							class="color-picker-input"
+							value={rgbToHex(viewState.backgroundColor)}
+							oninput={handleBgColorChange}
+						/>
+					</label>
+				</Tooltip>
 			</div>
 		</Toolbar>
 	</div>

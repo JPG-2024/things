@@ -56,7 +56,7 @@
 
 	// min column width (px) and hard cap; the grid fills its container (full viewport
 	// width) and the column count scales with it, up to MAX_COLUMNS
-	const MIN_COLUMN_WIDTH = 280;
+	const MIN_COLUMN_WIDTH = 150;
 	const MIN_COLUMNS = 2;
 	const MAX_COLUMNS = 6;
 

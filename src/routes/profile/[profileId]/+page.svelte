@@ -5,7 +5,7 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import Icon from '@/components/Icon.svelte';
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
-	import ArticleItem from '@/components/ArticleItem.svelte';
+	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';

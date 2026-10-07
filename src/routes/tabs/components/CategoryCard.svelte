@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
-	import ArticleItem from '@/components/ArticleItem.svelte';
+	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import CategoryItem from '@/components/CategoryItem.svelte';
 	import WheelStage from '@/components/WheelStage.svelte';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';

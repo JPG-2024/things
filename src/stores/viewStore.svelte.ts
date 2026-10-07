@@ -31,8 +31,8 @@ export interface MasonryPreset {
 // responsive target (clamped down on narrow windows), and `contentMode`
 // decides whether images/text are shown.
 export const MASONRY_PRESETS: MasonryPreset[] = [
-	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 50 },
-	{ key: 'grid', columns: 5, contentMode: 'thumbnail', padding: '1rem 1.5rem' },
+	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 80 },
+	{ key: 'grid', columns: 6, contentMode: 'thumbnail', padding: '1rem 1.5rem' },
 	/* { key: 'grid', columns: 3, contentMode: 'thumbnail', padding: '1.5rem 2rem' }, */
 	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
 ];
