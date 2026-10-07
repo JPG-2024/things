@@ -297,11 +297,17 @@ export async function searchSimilarByTexts(
 	}
 
 	const ordered = [...response.data].sort((a, b) => a.index - b.index);
+	// Over-fetch: `excludeArticleUrl` and id-dedupe are applied after the
+	// nearest-neighbour truncation, and the current article's own chunks
+	// (distance ~0 for its own topic text) can occupy several top slots. The
+	// extra rows are cheap — the query vector already exists — so fetch a
+	// multiple of `limit` and let the post-processing cut it back down.
+	const fetchLimit = limit * 4;
 	const searches = ordered.map((entry) =>
 		searchChunks({
 			table,
 			embedding: entry.embedding,
-			limit,
+			limit: fetchLimit,
 			profileId,
 			category
 		}).catch(() => [] as SearchChunkResult[])
