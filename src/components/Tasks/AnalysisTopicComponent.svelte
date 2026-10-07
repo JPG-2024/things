@@ -24,9 +24,7 @@
 		MIN_ANALYSIS_DEPTH,
 		nearestAnalysisDepth
 	} from '@/runners/shared/constants';
-	import PillWithEmbeddings from '@/components/PillWithEmbeddings.component.svelte';
-	import { searchSimilarByTexts } from '@/lib/utils/embeddingTasks';
-	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
+	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
 
 	type Props = {
 		runId?: string;
@@ -97,36 +95,7 @@
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!analysisData?.finalResponse);
 
-	const serviceUp = $derived(viewState.embeddingsServiceUp);
 	const finalTopics = $derived(analysisData?.finalResponse.topics ?? []);
-	// Search is decoupled from `task.embeddings`: that flag only controls
-	// indexing. The `task.id` table is shared across articles, so topics can
-	// be searched against other articles' indexed topics regardless.
-	const searchEnabled = $derived(!isRunning && serviceUp && finalTopics.length > 0);
-
-	/** Per-topic similar-article results, keyed by the topic string. */
-	let topicResults = $state<Map<string, SearchChunkResult[]> | null>(null);
-
-	// One batched inference call for all topics, re-run when the final
-	// response changes (e.g. after a depth re-run).
-	$effect(() => {
-		let cancelled = false;
-		topicResults = null;
-		if (!searchEnabled) return;
-		void searchSimilarByTexts(finalTopics, {
-			table: task.id,
-			excludeArticleUrl: viewState.url ?? undefined,
-			limit: 3,
-			maxDistance: 0.4
-		}).then((results) => {
-			if (cancelled) return;
-			console.log(`[analysis-topic] searchSimilarByTexts results:`, results);
-			topicResults = results;
-		});
-		return () => {
-			cancelled = true;
-		};
-	});
 
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
 	const runtimeDivisor = $derived.by((): number | undefined => {
@@ -268,15 +237,7 @@
 					<div class="meta-row">
 						<div class="result-section">
 							<span class="result-label">Topics</span>
-							{#if searchEnabled}
-								<div class="topic-pills">
-									{#each finalTopics as topic (topic)}
-										<PillWithEmbeddings text={topic} results={topicResults?.get(topic)} />
-									{/each}
-								</div>
-							{:else}
-								<Keywords keywords={finalTopics} />
-							{/if}
+							<SimilarByTexts texts={finalTopics} table={task.id} disabled={isRunning} />
 						</div>
 						<div class="result-section">
 							<span class="result-label">Keywords</span>
@@ -382,15 +343,6 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 2rem;
-	}
-
-	.topic-pills {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.4rem;
-		min-width: 0;
-		max-width: 100%;
 	}
 
 	@media (max-width: 600px) {

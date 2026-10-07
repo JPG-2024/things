@@ -20,7 +20,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
 	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
-	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
 
 	type Props = {
 		runId?: string;
@@ -305,16 +305,6 @@
 			</div>
 		{/if}
 
-		{#if !isRunning && task.embeddings}
-			<SimilarEmbeddingsComponent
-				id={task.id}
-				data={task.data}
-				enabled={task.embeddings === true}
-				embedField={task.embedField}
-				maxDistance={0.4}
-			/>
-		{/if}
-
 		{#if !isRunning && multiData.finalResponse}
 			<div class="final-section">
 				<div class="final-content">
@@ -324,7 +314,11 @@
 					<div class="meta-row">
 						<div class="result-section">
 							<span class="result-label">Topics</span>
-							<Keywords keywords={multiData.finalResponse.topics} />
+							<SimilarByTexts
+								texts={multiData.finalResponse.topics}
+								table={task.id}
+								disabled={isRunning}
+							/>
 						</div>
 						<div class="result-section">
 							<span class="result-label">Keywords</span>

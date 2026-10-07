@@ -210,8 +210,7 @@ export async function webRunner(url: string, options: WebRunnerOptions = {}): Pr
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
 		articleOverrides: options.articleOverrides,
-		defaultTasksFactory: () =>
-			createDefaultTasks('content', { splitByHeaders: true, embedField: 'summary' }),
+		defaultTasksFactory: () => createDefaultTasks('content', { splitByHeaders: true }),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			const existingArticle: ArticleWithTasks | null = await getArticleWithTasksByUrl(url);
 			await Promise.all([
