@@ -58,33 +58,35 @@
 
 	.article-content :global(.article-thumbnail-container) {
 		grid-column: 1;
-		grid-row: 1;
+		grid-row: 2;
 		width: 100%;
 		min-width: 0;
 	}
 
-	/* thumbnail-only mode: fill the card */
+	/* thumbnail-only mode: fill the card (no empty row above) */
 	.article-content :global(.article-thumbnail-container:only-child) {
 		grid-column: 1 / -1;
+		grid-row: 1;
 	}
 
 	.article-content :global(.article-title) {
-		grid-column: 2;
+		font-family: 'BetterVCR', monospace;
+		grid-column: 1 / -1;
 		grid-row: 1;
-		padding: 0;
-		font-size: 0.9rem;
+		padding: 3px 0;
+		font-size: 0.7rem;
 		font-weight: bold;
 		min-width: 0;
 	}
 
 	.article-content :global(.article-match-snippet) {
-		grid-column: 2;
+		grid-column: 1 / -1;
 		grid-row: 1;
 		min-width: 0;
 	}
 
 	.article-content :global(.article-item__keywords) {
-		grid-column: 1 / -1;
+		grid-column: 2;
 		grid-row: 2;
 		padding: 0.4rem 0;
 		min-width: 0;
@@ -101,9 +103,10 @@
 		min-width: 0;
 	}
 
-	/* title-only mode: collapse the empty left column */
+	/* no-thumb / title-only: collapse the empty left column */
 	.article-content.no-thumb :global(.article-title),
 	.article-content.no-thumb :global(.article-match-snippet),
+	.article-content.no-thumb :global(.article-item__keywords),
 	.article-content.no-thumb :global(.article-categories) {
 		grid-column: 1 / -1;
 	}
