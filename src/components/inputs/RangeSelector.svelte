@@ -9,8 +9,11 @@
 		min: number;
 		max: number;
 		step: number;
+		disabled?: boolean;
 		format?: (v: number) => string;
 		onChange?: (v: number) => void;
+		/** Fires once on release (native `change`), not on every drag tick. */
+		onCommit?: (v: number) => void;
 	};
 
 	let {
@@ -21,8 +24,10 @@
 		min,
 		max,
 		step,
+		disabled = false,
 		format = (v) => v.toFixed(2).replace(/\.?0+$/, ''),
-		onChange
+		onChange,
+		onCommit
 	}: Props = $props();
 
 	let displayValue = $derived(format(value));
@@ -33,17 +38,44 @@
 		value = newValue;
 		onChange?.(newValue);
 	}
+
+	function onChangeEvent(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const newValue = parseFloat(target.value);
+		if (!Number.isFinite(newValue)) return;
+		onCommit?.(newValue);
+	}
 </script>
 
 {#if label}
 	<Label text={label} htmlFor={id} position={labelPosition} value={displayValue}>
 		<div class="range-wrapper">
-			<input {id} type="range" {min} {max} {step} {value} oninput={onInput} />
+			<input
+				{id}
+				type="range"
+				{min}
+				{max}
+				{step}
+				{disabled}
+				{value}
+				oninput={onInput}
+				onchange={onChangeEvent}
+			/>
 		</div>
 	</Label>
 {:else}
 	<div class="range-wrapper">
-		<input {id} type="range" {min} {max} {step} {value} oninput={onInput} />
+		<input
+			{id}
+			type="range"
+			{min}
+			{max}
+			{step}
+			{disabled}
+			{value}
+			oninput={onInput}
+			onchange={onChangeEvent}
+		/>
 	</div>
 {/if}
 
