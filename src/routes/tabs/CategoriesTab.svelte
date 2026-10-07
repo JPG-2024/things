@@ -89,7 +89,7 @@
 
 	.category-row {
 		width: 100%;
-		max-width: 860px;
+		max-width: 80vw ;
 		margin: 0 auto;
 	}
 
