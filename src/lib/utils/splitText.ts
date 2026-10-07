@@ -450,6 +450,17 @@ export function reconstructChunks(
 
 const HEADING_RE = /^(#{1,2})\s+(.+)$/;
 const FENCE_RE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+const HEADING_LINK_RE = /!?\[([^\]]+)\]\([^)]*\)/g;
+
+/**
+ * Headings whose text is a markdown link (common in TOC-style documents, e.g.
+ * `## [Validate with static renders](#validate-with-static-renders)`) are
+ * flattened to their label. Chunk titles render this heading as plain text, so
+ * otherwise the raw `[label](url)` syntax leaks into the UI.
+ */
+function flattenHeadingLinks(heading: string): string {
+	return heading.replace(HEADING_LINK_RE, '$1');
+}
 
 /**
  * Find top-level `#`/`##` headings, ignoring lines inside fenced code blocks.
@@ -479,7 +490,9 @@ function findHeadingMatches(text: string): { index: number; heading: string }[] 
 			fence = { char: fenceLine[2][0], length: fenceLine[2].length };
 		} else {
 			const heading = HEADING_RE.exec(line);
-			if (heading) matches.push({ index: offset, heading: heading[2].trim() });
+			if (heading) {
+				matches.push({ index: offset, heading: flattenHeadingLinks(heading[2].trim()) });
+			}
 		}
 
 		offset += line.length + 1;

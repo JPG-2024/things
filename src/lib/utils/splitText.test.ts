@@ -50,6 +50,39 @@ describe('splitByMarkdownHeaders', () => {
 		expect(splitByMarkdownHeaders('')).toEqual([]);
 		expect(splitByMarkdownHeaders('   \n  ')).toEqual([]);
 	});
+
+	test('flattens a markdown-link heading to its label', () => {
+		const md = join(
+			'## [Validate with static renders](#validate-with-static-renders)',
+			'',
+			'Body.'
+		);
+
+		const chunks = splitByMarkdownHeaders(md);
+
+		expect(chunks).toHaveLength(1);
+		expect(chunks[0].heading).toBe('Validate with static renders');
+		// The body keeps the original link markup for the markdown renderer.
+		expect(chunks[0].text).toContain(
+			'[Validate with static renders](#validate-with-static-renders)'
+		);
+	});
+
+	test('flattens external links and images inside a heading', () => {
+		const md = join('## [Docs](https://example.com) and ![Logo](logo.png)', '', 'Body.');
+
+		const chunks = splitByMarkdownHeaders(md);
+
+		expect(chunks[0].heading).toBe('Docs and Logo');
+	});
+
+	test('leaves plain headings untouched', () => {
+		const md = join('## Validate with static renders', '', 'Body.');
+
+		const chunks = splitByMarkdownHeaders(md);
+
+		expect(chunks[0].heading).toBe('Validate with static renders');
+	});
 });
 
 describe('splitByMarkdownHeaders and fenced code blocks', () => {
