@@ -14,6 +14,6 @@
 	.article-title {
 		flex: 1;
 		min-width: 0;
-		padding: 1rem 0;
+		padding-bottom: 1.2rem;
 	}
 </style>

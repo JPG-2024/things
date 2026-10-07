@@ -20,7 +20,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		color: rgb(219, 219, 219);
+		color: var(--pill-text-color, rgb(219, 219, 219));
 		background-color: transparent;
 		background-size: 200% 200%;
 		width: max-content;

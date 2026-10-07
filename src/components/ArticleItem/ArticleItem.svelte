@@ -102,7 +102,7 @@
 	aria-label="View article"
 >
 	{#if isRowMode}
-		<ArticleItemRow {article} {categories} {showThumbnail} {showText} {matchSnippet} />
+		<ArticleItemRow {article} {categories} {showThumbnail} {showText} {matchSnippet} topics={randomTopics} />
 	{:else if layoutKey === 'grid-3'}
 		<ArticleItemGrid3
 			{article}
@@ -144,7 +144,8 @@
 
 	.article-card {
 		--keywords-font-size: 0.7rem;
-		--pill-font-size: 0.6rem;
+		--pill-font-size: 0.65rem;
+		--pill-text-color: rgb(163, 162, 162);
 	}
 
 	.article-card.grid-3 {

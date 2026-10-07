@@ -5,16 +5,25 @@
 	import ArticleTitle from './ArticleTitle.svelte';
 	import ArticleMatchSnippet from './ArticleMatchSnippet.svelte';
 	import ArticleCategoryPills from './ArticleCategoryPills.svelte';
+	import ArticleTopics from './ArticleTopics.svelte';
 
 	interface Props {
 		article: ArticleWithTasks;
 		categories: string[];
 		showThumbnail: boolean;
 		showText: boolean;
+		topics: string[];
 		matchSnippet?: RawSearchMatch;
 	}
 
-	let { article, categories, showThumbnail, showText, matchSnippet = undefined }: Props = $props();
+	let {
+		article,
+		categories,
+		showThumbnail,
+		showText,
+		topics,
+		matchSnippet = undefined
+	}: Props = $props();
 </script>
 
 <div class="article-content">
@@ -25,7 +34,10 @@
 		{#if matchSnippet}
 			<ArticleMatchSnippet match={matchSnippet} />
 		{:else}
-			<ArticleTitle title={article.title} />
+			<div class="article-row-text">
+				<ArticleTitle title={article.title} />
+				<ArticleTopics {topics} />
+			</div>
 			<ArticleCategoryPills {categories} />
 		{/if}
 	{/if}
@@ -54,15 +66,29 @@
 		opacity: 0.9;
 	}
 
+	.article-row-text {
+		flex: 1;
+		min-width: 0;
+		gap: 0.2rem;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		overflow: hidden;
+	}
+
 	.article-content :global(.article-title) {
 		font-family: 'BetterVCR', monospace;
 		font-variant: all-small-caps;
-		flex: 1;
+		flex: none;
 		font-size: 0.8rem;
 		padding: 0 1rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.article-row-text :global(.keywords) {
+		padding: 0 1rem;
 	}
 
 	.article-content :global(.article-categories) {
