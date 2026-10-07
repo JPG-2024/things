@@ -802,6 +802,25 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 	}
 }
 
+/**
+ * Resolved thumbnail URL by article URL, memoized per session.
+ *
+ * Caches the in-flight promise so concurrent callers (e.g. one
+ * PillWithEmbeddings instance per topic in the same render) share a single
+ * article fetch per URL. Failures resolve to `null` rather than rejecting.
+ * The cache does not expire; thumbnails are assumed stable within a session.
+ */
+const thumbnailByUrl = new Map<string, Promise<string | null>>();
+
+export function getArticleThumbnailByUrl(url: string): Promise<string | null> {
+	let promise = thumbnailByUrl.get(url);
+	if (!promise) {
+		promise = getArticleWithTasksByUrl(url).then((article) => article?.thumbnailSrc ?? null);
+		thumbnailByUrl.set(url, promise);
+	}
+	return promise;
+}
+
 export async function saveArticle(
 	url: string,
 	tasksToSave: Array<{ id?: string; data?: unknown }>,

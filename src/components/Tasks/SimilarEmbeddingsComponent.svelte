@@ -2,10 +2,14 @@
 	import { goto } from '$app/navigation';
 	import Icon from '@/components/Icon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
-	import { findSimilarChunks, extractQueryChunks } from '@/lib/utils/embeddingTasks';
+	import {
+		findSimilarChunks,
+		extractQueryChunks,
+		formatSearchChunkTooltip
+	} from '@/lib/utils/embeddingTasks';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { getArticleWithTasksByUrl } from '@/stores/webStore';
+	import { getArticleThumbnailByUrl } from '@/stores/webStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -65,22 +69,9 @@
 	async function loadThumbnails(groups: GroupedResult[]) {
 		const urls = groups.map((g) => g.articleUrl);
 		const entries = await Promise.all(
-			urls.map(async (url) => {
-				const article = await getArticleWithTasksByUrl(url);
-				return [url, article?.thumbnailSrc ?? null] as const;
-			})
+			urls.map(async (url) => [url, await getArticleThumbnailByUrl(url)] as const)
 		);
 		thumbnails = Object.fromEntries(entries);
-	}
-
-	function formatTooltipContent(chunks: SearchChunkResult[]): string {
-		return chunks
-			.map((c) => {
-				const dist = c.distance.toFixed(2);
-				const excerpt = c.chunkText.length > 60 ? c.chunkText.slice(0, 60) + '…' : c.chunkText;
-				return `${dist} - ${excerpt}`;
-			})
-			.join('\n');
 	}
 
 	async function navigateToArticle(url: string, profileId?: string) {
@@ -150,7 +141,7 @@
 			<p class="similar-header">Similar embeddings ({results.length})</p>
 			<div class="similar-thumbs">
 				{#each groupedResults as group (group.articleUrl)}
-					<Tooltip content={formatTooltipContent(group.chunks)} position="bottom">
+					<Tooltip content={formatSearchChunkTooltip(group.chunks)} position="bottom">
 						<button
 							class="similar-thumb-btn"
 							onclick={() => navigateToArticle(group.articleUrl, group.chunks[0]?.profileId)}
@@ -170,7 +161,6 @@
 
 <style>
 	.similar-embeddings {
-		
 	}
 
 	.manual-trigger {

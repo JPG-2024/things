@@ -243,6 +243,112 @@ export function extractQueryChunks(data: unknown, field = 'topics'): string[] {
 	return [];
 }
 
+export interface SearchSimilarByTextsOptions {
+	table: string;
+	model?: string;
+	/** Maximum article pills rendered per text. */
+	limit?: number;
+	maxDistance?: number;
+	excludeArticleUrl?: string;
+	profileId?: string;
+	category?: string;
+}
+
+/**
+ * Find chunks similar to each supplied text within an embedding table.
+ *
+ * Embeds ALL texts in a single `createEmbeddings` call (one inference request
+ * regardless of how many texts are searched), then runs a nearest-neighbour
+ * search per resulting vector against the LanceDB table named `table`.
+ *
+ * Results are grouped per text: deduped by result id, optionally excluding
+ * `excludeArticleUrl`, sorted by distance, filtered by `maxDistance`, and
+ * capped at `limit` per text.
+ *
+ * The table may not exist yet (task never indexed); each text maps to an
+ * empty array in that case.
+ */
+export async function searchSimilarByTexts(
+	texts: string[],
+	options: SearchSimilarByTextsOptions
+): Promise<Map<string, SearchChunkResult[]>> {
+	const {
+		table,
+		model = EMBEDDING_MODEL,
+		limit = 3,
+		maxDistance = 0.4,
+		excludeArticleUrl,
+		profileId,
+		category
+	} = options;
+
+	const results = new Map<string, SearchChunkResult[]>();
+	const capped = texts.filter((text) => typeof text === 'string' && text.trim());
+	if (capped.length === 0) return results;
+
+	for (const text of capped) results.set(text, []);
+
+	let response;
+	try {
+		response = await createEmbeddings({ model, input: capped });
+	} catch (error) {
+		console.error('[embeddings] failed to embed texts for similarity search', error);
+		return results;
+	}
+
+	const ordered = [...response.data].sort((a, b) => a.index - b.index);
+	const searches = ordered.map((entry) =>
+		searchChunks({
+			table,
+			embedding: entry.embedding,
+			limit,
+			profileId,
+			category
+		}).catch(() => [] as SearchChunkResult[])
+	);
+
+	const perText = await Promise.all(searches);
+
+	console.log(`[embeddings] `, perText);
+	for (let i = 0; i < capped.length; i++) {
+		const seen = new Set<string>();
+		const merged: SearchChunkResult[] = [];
+		for (const result of perText[i]) {
+			if (excludeArticleUrl && result.articleUrl === excludeArticleUrl) continue;
+			if (result.id && seen.has(result.id)) continue;
+			seen.add(result.id);
+			merged.push(result);
+		}
+		merged.sort((a, b) => a.distance - b.distance);
+		const filtered = maxDistance != null ? merged.filter((r) => r.distance <= maxDistance) : merged;
+		results.set(capped[i], filtered.slice(0, limit));
+	}
+	console.log(`[embeddings] searchSimilarByTexts results:`, results);
+
+	return results;
+}
+
+/**
+ * Stored `chunkText` carries the heading prefix (`heading\ntext`); strip it
+ * for display so tooltips show the readable text after the last newline.
+ */
+export function displayChunkText(chunkText: string): string {
+	if (typeof chunkText !== 'string') return '';
+	const parts = chunkText.split('\n');
+	return (parts[parts.length - 1] ?? chunkText).trim();
+}
+
+/**
+ * One tooltip line per matched chunk: `stored text - distance`, chunks
+ * without a stored text are skipped (tasks may opt out via `storeChunkText`).
+ */
+export function formatSearchChunkTooltip(chunks: SearchChunkResult[]): string {
+	return chunks
+		.filter((c) => typeof c.chunkText === 'string' && c.chunkText.trim())
+		.map((c) => `${displayChunkText(c.chunkText)} - ${c.distance.toFixed(2)}`)
+		.join('\n');
+}
+
 /**
  * Find chunks similar to a task's own data within its embedding table.
  *
