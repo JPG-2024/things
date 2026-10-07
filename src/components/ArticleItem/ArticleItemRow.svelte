@@ -51,12 +51,14 @@
 		aspect-ratio: 1;
 		object-fit: cover;
 		border-radius: var(--radius-md);
-		opacity: 0.8;
+		opacity: 0.9;
 	}
 
 	.article-content :global(.article-title) {
+		font-family: 'BetterVCR', monospace;
+		font-variant: all-small-caps;
 		flex: 1;
-		font-size: 0.9rem;
+		font-size: 0.8rem;
 		padding: 0 1rem;
 		overflow: hidden;
 		text-overflow: ellipsis;

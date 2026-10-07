@@ -170,6 +170,7 @@
 
 <style>
 	.category-container {
+		
 	}
 
 	.thumbnail-container {

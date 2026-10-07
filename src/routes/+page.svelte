@@ -282,25 +282,26 @@
 	</button> -->
 				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
 					<ToggleIcon
+						name="ClipboardPaste"
+						bind:checked={viewState.clipboardPollingEnabled}
+						tooltipProps={{ content: 'listen clipboard' }}
+					/>
+				</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle auto speech">
+					<ToggleIcon
 						name="Speech"
 						bind:checked={viewState.autoSpeechEnabled}
 						tooltipProps={{ content: 'auto start voice' }}
 					/>
 				</button>
-				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
+				<button type="button" class="settings-trigger" aria-label="Translate to current language">
 					<ToggleIcon
 						name="Languages"
 						bind:checked={viewState.forceLanguageEnabled}
 						tooltipProps={{ content: 'translate to current language' }}
 					/>
 				</button>
-				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-					<ToggleIcon
-						name="ClipboardPaste"
-						bind:checked={viewState.clipboardPollingEnabled}
-						tooltipProps={{ content: 'listen clipboard' }}
-					/>
-				</button>
+
 				<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
 					<ToggleIcon
 						name="MessageSquareText"
@@ -311,23 +312,24 @@
 				<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
-				<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
-					<ToggleIcon
-						name="FileDigit"
-						bind:checked={viewState.embeddingsEnabled}
-						tooltipProps={{ content: 'generate embeddings' }}
-					/>
-				</button>
 				<ToolbarDivider />
-				<button
-					type="button"
-					class="settings-trigger"
-					onclick={() => drawersState.open('downloads')}
-					aria-label="Open downloads"
-				>
-					<Icon name="ListMusic" size={18} />
-				</button>
+					<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
+						<ToggleIcon
+							name="FileDigit"
+							bind:checked={viewState.embeddingsEnabled}
+							tooltipProps={{ content: 'generate embeddings' }}
+						/>
+					</button>
 				<ToolbarDivider />
+<!-- 					<button
+						type="button"
+						class="settings-trigger"
+						onclick={() => drawersState.open('downloads')}
+						aria-label="Open downloads"
+					>
+						<Icon name="ListMusic" size={18} />
+					</button>
+				<ToolbarDivider /> -->
 				<button
 					type="button"
 					class="settings-trigger"
@@ -387,17 +389,15 @@
 						/>
 					</label>
 				</Tooltip>
-				<Tooltip content="Change secondary color">
-					<label class="color-dot-trigger" aria-label="Change background color">
-						<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
-						<input
-							type="color"
-							class="color-picker-input"
-							value={rgbToHex(viewState.backgroundColor)}
-							oninput={handleBgColorChange}
-						/>
-					</label>
-				</Tooltip>
+				<label class="color-dot-trigger" aria-label="Change background color">
+					<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
+					<input
+						type="color"
+						class="color-picker-input"
+						value={rgbToHex(viewState.backgroundColor)}
+						oninput={handleBgColorChange}
+					/>
+				</label>
 			</div>
 		</Toolbar>
 	</div>
