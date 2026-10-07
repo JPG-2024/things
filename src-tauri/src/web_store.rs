@@ -325,6 +325,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_article_ids_to_youtube_v(conn)?;
     migrate_channels_to_web_profiles(conn)?;
     migrate_strip_www_domains(conn)?;
+    migrate_remove_unknown_profile_domain(conn)?;
 
     Ok(())
 }
@@ -578,6 +579,25 @@ fn migrate_strip_www_domains(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Removes the synthetic `__unknown_profile__` bucket that older builds wrote
+/// into `web_domains` for articles with a NULL domain. It is never a real
+/// domain: it has no articles pointing at it, and clicking it in the UI opened
+/// an empty list. The reference guards keep this safe with foreign keys enabled.
+fn migrate_remove_unknown_profile_domain(conn: &Connection) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM web_domains
+         WHERE id = ?1
+           AND NOT EXISTS (SELECT 1 FROM web_articles WHERE LOWER(domain) = LOWER(?1))
+           AND NOT EXISTS (SELECT 1 FROM web_profiles WHERE LOWER(domain_id) = LOWER(?1))
+           AND NOT EXISTS (
+               SELECT 1 FROM web_profile_templates WHERE LOWER(profile_id) = LOWER(?1)
+           )",
+        params![WEB_STORE_UNKNOWN_PROFILE_ID],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn migrate_legacy_tables(conn: &Connection) -> Result<(), String> {
     let has_old_articles: bool = conn
         .query_row(
@@ -759,21 +779,26 @@ fn aggregate_domains(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreDomainR
     let mut aggregated = HashMap::<String, WebStoreDomainRecord>::new();
 
     for record in records {
-        let (raw_id, name) = normalize_profile_bucket(record.domain.as_deref());
-        let id = raw_id.to_lowercase();
-        let display_name = if id == WEB_STORE_UNKNOWN_PROFILE_ID {
-            name
-        } else {
-            name.to_lowercase()
+        // Articles without a parseable domain (e.g. raw-text pastes saved as
+        // `raw-<timestamp>`) have no domain to group under, so they are simply
+        // not part of the domains list.
+        let Some(domain) = record
+            .domain
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
         };
+        let id = domain.to_lowercase();
         aggregated
             .entry(id.clone())
             .and_modify(|domain| {
                 domain.count += 1;
             })
             .or_insert(WebStoreDomainRecord {
+                name: id.clone(),
                 id,
-                name: display_name,
                 count: 1,
                 profile_picture: None,
                 url: None,
@@ -1108,6 +1133,8 @@ fn rebuild_domains_from_articles(
     for domain in &aggregated {
         upsert_domain(conn, domain)?;
     }
+
+    migrate_remove_unknown_profile_domain(conn)?;
 
     Ok(())
 }
@@ -3180,6 +3207,93 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM web_domains", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 0, "fresh db must not contain seeded domains");
+    }
+
+    #[test]
+    fn aggregate_domains_skips_articles_without_domain() {
+        let conn = build_in_memory_db();
+        // raw-text pastes are saved under a `raw-<timestamp>` url, which has no
+        // parseable domain, so their `domain` column stays NULL.
+        insert_article(&conn, "raw-123", "raw-text", 1_000_000_000_000, None);
+        ensure_web_domain(&conn, "youtube.com").expect("ensure domain");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0)",
+            params![
+                "v1",
+                "https://youtube.com/watch?v=v1",
+                "youtube.com",
+                2_000_000_000_000i64,
+                "title-1"
+            ],
+        )
+        .expect("insert article");
+
+        let articles = query_articles(&conn, None, None, None).expect("query articles");
+        let domains = aggregate_domains(articles);
+
+        let ids: Vec<&str> = domains.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["youtube.com"],
+            "articles without a domain must not produce a bucket"
+        );
+        assert!(
+            domains.iter().all(|d| d.id != WEB_STORE_UNKNOWN_PROFILE_ID),
+            "the synthetic unknown bucket must never be aggregated"
+        );
+    }
+
+    #[test]
+    fn migrate_remove_unknown_profile_domain_removes_stale_bucket() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, WEB_STORE_UNKNOWN_PROFILE_ID).expect("insert stale bucket");
+        ensure_web_domain(&conn, "youtube.com").expect("insert real domain");
+
+        init_schema(&conn).expect("re-run migrations");
+
+        let stale: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = ?1",
+                params![WEB_STORE_UNKNOWN_PROFILE_ID],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stale, 0, "stale unknown bucket must be removed");
+
+        let real: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = 'youtube.com'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(real, 1, "real domains must be kept");
+    }
+
+    #[test]
+    fn migrate_remove_unknown_profile_domain_keeps_referenced_bucket() {
+        let conn = build_in_memory_db();
+        ensure_web_domain(&conn, WEB_STORE_UNKNOWN_PROFILE_ID).expect("insert bucket");
+        // A row still referenced by an article cannot be deleted with foreign
+        // keys enabled; the guard must leave it in place.
+        conn.execute(
+            "INSERT INTO web_articles (id, url, domain, created_at, title, updated_at, viewed)
+             VALUES ('a1', 'a1', ?1, 1, 'title', 1, 0)",
+            params![WEB_STORE_UNKNOWN_PROFILE_ID],
+        )
+        .expect("insert referencing article");
+
+        init_schema(&conn).expect("re-run migrations");
+
+        let kept: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM web_domains WHERE id = ?1",
+                params![WEB_STORE_UNKNOWN_PROFILE_ID],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(kept, 1, "referenced bucket must not be deleted");
     }
 
     #[test]
