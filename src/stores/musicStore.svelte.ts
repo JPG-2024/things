@@ -1,4 +1,5 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
+import { downloadDir as tauriDownloadDir } from '@tauri-apps/api/path';
 import { playCoinSound } from '@/lib/utils/coinSound';
 
 export type TrackStatus = 'pending' | 'downloading' | 'done' | 'error';
@@ -28,14 +29,36 @@ function keepWatchParamOnly(urlString: string): string {
 	}
 }
 
+function normalizeDownloadError(err: unknown): string {
+	if (err instanceof Error) return err.message;
+	if (typeof err === 'string' && err.trim()) return err;
+	return 'Download failed';
+}
+
 class MusicState {
 	downloads = $state<TrackDownload[]>([]);
 	isDownloading = $state(false);
-	downloadDir = $state('/run/media/jhon/Games/music/');
+	downloadDir = $state('');
 	downloadFolder = $state('');
 	downloadPlaylist = $state(false);
 	private abortController: AbortController | null = null;
 	private submittedUrls = new Set<string>();
+
+	/** Resolves the OS download dir the first time it is needed, so the default
+	 * is always a valid, existing path instead of a hardcoded one. */
+	async resolveDownloadDir(): Promise<string> {
+		const current = this.downloadDir.trim();
+		if (current) return current;
+
+		try {
+			const resolved = await tauriDownloadDir();
+			if (resolved) this.downloadDir = resolved;
+			return resolved;
+		} catch (err) {
+			console.warn('[music] failed to resolve download dir', err);
+			return this.downloadDir;
+		}
+	}
 
 	clearFinished(): void {
 		this.downloads = this.downloads.filter((d) => d.status !== 'done' && d.status !== 'error');
@@ -126,9 +149,11 @@ class MusicState {
 				}
 			};
 
+			const downloadDir = await this.resolveDownloadDir();
+
 			await invoke('download_track', {
 				url: item.url,
-				downloadDir: this.downloadDir,
+				downloadDir,
 				folderName: this.downloadFolder,
 				onEvent
 			});
@@ -140,9 +165,9 @@ class MusicState {
 				}
 				return;
 			}
-			const message = err instanceof Error ? err.message : 'Download failed';
+			// Keep the more specific message delivered through the error channel.
+			if (!item.error) item.error = normalizeDownloadError(err);
 			item.status = 'error';
-			item.error = message;
 		} finally {
 			if (this.abortController === controller) {
 				this.abortController = null;

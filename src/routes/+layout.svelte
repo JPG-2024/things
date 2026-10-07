@@ -251,7 +251,7 @@
 
 		async function pollClipboard() {
 			if (!viewState.clipboardPollingEnabled) return;
-			if (viewState.processingUrl && !viewState.downloadTracksEnabled) return;
+			if (viewState.processingUrl) return;
 
 			try {
 				const clipboardText = await invoke<string>('read_clipboard_text');
@@ -270,10 +270,6 @@
 				}
 
 				if (viewState.processingUrl || viewState.loading) {
-					if (viewState.downloadTracksEnabled) {
-						await handlePasteUrl(trimmed);
-						return;
-					}
 					if (
 						viewState.forceLanguageEnabled ||
 						viewState.urlQueue.length < viewState.maxUrlQueueSize

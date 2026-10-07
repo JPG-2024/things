@@ -1,5 +1,4 @@
 import { viewState } from '@/stores/viewStore.svelte';
-import { musicState } from '@/stores/musicStore.svelte';
 import { navigate, extractUrlList } from '@/lib/utils/url';
 import { urlRouter } from '@/lib/urlRouter/urlRouter';
 import { rawRunner } from '@/runners/raw/rawRunner';
@@ -42,11 +41,6 @@ export async function handlePasteUrl(
 		const clipboardToken = content.trim();
 		viewState.lastHandledClipboardUrl = clipboardToken;
 
-		if (viewState.downloadTracksEnabled) {
-			musicState.addToQueue(urlList);
-			return;
-		}
-
 		const capacity = Math.max(0, viewState.maxUrlQueueSize - viewState.urlQueue.length);
 
 		if (viewState.processingUrl || viewState.loading) {
@@ -65,12 +59,6 @@ export async function handlePasteUrl(
 	}
 
 	const validUrl = extractValidUrl(content);
-
-	if (validUrl && viewState.downloadTracksEnabled) {
-		viewState.lastHandledClipboardUrl = validUrl;
-		musicState.addToQueue([validUrl]);
-		return;
-	}
 
 	if (viewState.processingUrl) return;
 

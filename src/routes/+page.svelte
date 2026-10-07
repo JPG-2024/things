@@ -319,14 +319,6 @@
 					/>
 				</button>
 				<ToolbarDivider />
-				<button type="button" class="settings-trigger" aria-label="Toggle download tracks">
-					<ToggleIcon
-						name="Download"
-						bind:checked={viewState.downloadTracksEnabled}
-						size={18}
-						tooltipProps={{ content: 'download tracks from queue' }}
-					/>
-				</button> 
 				<button
 					type="button"
 					class="settings-trigger"

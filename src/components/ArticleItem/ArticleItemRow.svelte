@@ -43,13 +43,14 @@
 	.article-content :global(.article-thumbnail-container) {
 		flex: 0 0 150px;
 		width: 150px;
+		height: 80px;
 		opacity: 0.8;
 	}
 
 	.article-content :global(.article-thumbnail) {
 		aspect-ratio: 1;
 		object-fit: cover;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		opacity: 0.8;
 	}
 

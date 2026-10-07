@@ -7,10 +7,15 @@
 	import { extractValidUrl } from '@/lib/utils/pasteUrl';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { onMount } from 'svelte';
 
 	let manualInput = $state('');
 	let feedback = $state<{ added: number; skipped: number } | null>(null);
 	let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	onMount(() => {
+		void musicState.resolveDownloadDir();
+	});
 
 	async function handlePickFolder() {
 		const selected = await open({ directory: true, multiple: false });
