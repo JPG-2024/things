@@ -228,8 +228,5 @@ pub async fn extract_blog(
 
     let markdown = extract_markdown_from_html(&app, &html, &document, selectors)?;
 
-    println!("<< ✅ Blog extraído completamente >>");
-    println!("Metadatos extraídos: {} elementos", markdown);
-
     Ok(BlogContent { metadata, markdown })
 }
