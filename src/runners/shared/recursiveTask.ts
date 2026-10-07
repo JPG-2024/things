@@ -68,6 +68,7 @@ export interface RecursiveConfig {
 	topicCount?: number;
 	keywordCount?: number;
 	topicWordCount?: number;
+	analysisDepth?: number;
 }
 
 export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
@@ -88,6 +89,7 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	topicCount?: number;
 	keywordCount?: number;
 	topicWordCount?: number;
+	analysisDepth?: number;
 };
 
 type Chunking = Pick<
@@ -159,7 +161,8 @@ import {
 	MAX_WINDOW_DIVISOR,
 	TARGET_CHUNK_SIZE,
 	WINDOW_DIVISOR_LADDER,
-	WINDOW_OVERLAP_RATIO
+	WINDOW_OVERLAP_RATIO,
+	analysisDepthLevel
 } from './constants';
 
 function nextWindowDivisor(divisor: number): number {
@@ -241,7 +244,19 @@ export async function recombineMultiFinal(
 	return processor.combineChunks(chunks, []);
 }
 
-export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): Task {
+export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions): Task {
+	const depthLevel = analysisDepthLevel(rawOptions.analysisDepth);
+	// Depth is the authoritative knob when present: it pins the starting
+	// divisor and the per-window topic count. The context-overflow ladder in
+	// the run loop still climbs past the pinned divisor on context errors.
+	const options: RecursiveTaskOptions = depthLevel
+		? {
+				...rawOptions,
+				windowDivisor: depthLevel.divisor,
+				windowDivisorLocked: true,
+				topicCount: depthLevel.topicCount
+			}
+		: rawOptions;
 	const model = resolveModel(options);
 	const chunking = resolveChunking(options);
 	const isMulti = options.processorType === 'multi' || options.multiFields !== undefined;
@@ -275,7 +290,8 @@ export function buildRecursiveTask(id: string, options: RecursiveTaskOptions): T
 		localFinal: options.localFinal,
 		topicCount: options.topicCount,
 		keywordCount: options.keywordCount,
-		topicWordCount: options.topicWordCount
+		topicWordCount: options.topicWordCount,
+		analysisDepth: options.analysisDepth
 	};
 
 	return buildScriptTaskFromDef(

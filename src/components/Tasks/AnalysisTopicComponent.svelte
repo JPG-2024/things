@@ -1,32 +1,29 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import {
 		type AnalysisTopicChunkData,
-		type AnalysisTopicFinal,
-		DEFAULT_TOPIC_COUNT,
-		DEFAULT_TOPIC_WORD_COUNT,
-		MAX_TOPIC_COUNT,
-		MAX_TOPIC_WORD_COUNT,
-		MIN_TOPIC_COUNT,
-		MIN_TOPIC_WORD_COUNT
+		type AnalysisTopicFinal
 	} from '@/runners/shared/processors';
 	import type { ChunkOffset } from '@/runners/shared/recursiveTask';
 	import { buildRecursiveTask, recursiveConfigFromTask } from '@/runners/shared/recursiveTask';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Keywords from '@/components/Keywords.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
-	import Tabs from '@/components/Tabs.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
-	import Input from '@/components/inputs/Input.component.svelte';
+	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import { reconstructChunks } from '@/lib/utils/splitText';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
-	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
+	import {
+		analysisDepthLevel,
+		MAX_ANALYSIS_DEPTH,
+		MIN_ANALYSIS_DEPTH,
+		nearestAnalysisDepth
+	} from '@/runners/shared/constants';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 
 	type Props = {
@@ -98,77 +95,60 @@
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!analysisData?.finalResponse);
 
-	const levelTabs = [
-		{ id: 'auto', label: 'auto' },
-		...WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }))
-	];
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
-	const showLevelTabs = $derived(
-		!!recursiveConfig && !recursiveConfig.splitByString && !recursiveConfig.splitByHeaders
-	);
 	const runtimeDivisor = $derived.by((): number | undefined => {
 		const data = task.data as Record<string, unknown> | undefined;
 		return typeof data?.windowDivisor === 'number' ? (data.windowDivisor as number) : undefined;
 	});
-	const levelLocked = $derived(recursiveConfig?.windowDivisorLocked === true);
-	const activeLevel = $derived(
-		levelLocked && recursiveConfig?.windowDivisor !== undefined
-			? String(recursiveConfig.windowDivisor)
-			: 'auto'
+
+	/**
+	 * Depth is authoritative once persisted. Tasks saved before the field
+	 * existed fall back to snapping their stored divisor/topic count to the
+	 * closest slider row (display only; the stored values keep running until
+	 * the slider is committed).
+	 */
+	const activeDepth = $derived(
+		recursiveConfig?.analysisDepth ??
+			nearestAnalysisDepth(
+				recursiveConfig?.windowDivisor ?? runtimeDivisor,
+				recursiveConfig?.topicCount
+			)
 	);
 
-	const activeTopicCount = $derived(recursiveConfig?.topicCount ?? DEFAULT_TOPIC_COUNT);
-	const activeTopicWordCount = $derived(
-		recursiveConfig?.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT
-	);
-
-	let topicCountInput = $state(untrack(() => String(activeTopicCount)));
-	let topicWordInput = $state(untrack(() => String(activeTopicWordCount)));
-
-	$effect(() => {
-		topicCountInput = String(activeTopicCount);
-		topicWordInput = String(activeTopicWordCount);
-	});
-
-	const parsedTopicCount = $derived(
-		clampCount(Number(topicCountInput), MIN_TOPIC_COUNT, MAX_TOPIC_COUNT)
-	);
-	const parsedTopicWordCount = $derived(
-		clampCount(Number(topicWordInput), MIN_TOPIC_WORD_COUNT, MAX_TOPIC_WORD_COUNT)
-	);
-	const paramsDirty = $derived(
-		(parsedTopicCount !== null && parsedTopicCount !== activeTopicCount) ||
-			(parsedTopicWordCount !== null && parsedTopicWordCount !== activeTopicWordCount)
-	);
+	let depthValue = $derived(activeDepth);
 
 	let rawModalIndex = $state<number | null>(null);
 
-	function handleLevelChange(levelId: string) {
-		void applyLevel(levelId);
+	function formatDepth(depth: number): string {
+		const level = analysisDepthLevel(depth);
+		if (!level) return String(depth);
+		const topics = `${level.topicCount} topic${level.topicCount === 1 ? '' : 's'}`;
+		const runtime =
+			runtimeDivisor !== undefined && runtimeDivisor !== level.divisor
+				? ` · runtime ÷${runtimeDivisor}`
+				: '';
+		return `÷${level.divisor} · ${topics}${runtime}`;
 	}
 
-	async function applyLevel(levelId: string) {
+	/**
+	 * Commits the selected depth: rebuilds the task pinned to the depth's
+	 * divisor/topic count and reruns it. The context-overflow ladder in the
+	 * runner still rescues overflows by climbing the divisor.
+	 */
+	async function applyDepth(depth: number) {
 		if (!targetRunId || !recursiveConfig) return;
 		if (task.status === 'running') return;
-
-		const isAuto = levelId === 'auto';
-		const level = isAuto ? (recursiveConfig.windowDivisor ?? 2) : Number(levelId);
-		if (isAuto) {
-			if (recursiveConfig.windowDivisorLocked !== true) return;
-		} else {
-			if (!Number.isFinite(level) || level < 1) return;
-			if (recursiveConfig.windowDivisorLocked === true && recursiveConfig.windowDivisor === level) {
-				return;
-			}
-		}
+		if (recursiveConfig.analysisDepth === depth) return;
 
 		try {
 			const newTask = buildRecursiveTask(task.id, {
 				...recursiveConfig,
 				name: task.name,
 				dependencies: task.dependencies,
-				windowDivisor: level,
-				windowDivisorLocked: !isAuto,
+				analysisDepth: depth,
+				// Words/topic is no longer user-editable: clear any stored value
+				// so the processor default applies.
+				topicWordCount: undefined,
 				renderOrder: task.renderOrder,
 				persist: true,
 				model: viewState.aiModel,
@@ -186,99 +166,33 @@
 				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
 			}
 		} catch (error) {
-			console.error(`Failed to rerun analysis topic task "${task.id}" at level ${levelId}:`, error);
+			console.error(`Failed to rerun analysis topic task "${task.id}" at depth ${depth}:`, error);
 		}
-	}
-
-	/** Rebuilds the task with override processor params and reruns it. */
-	async function applyAnalysisParams(overrides: { topicCount?: number; topicWordCount?: number }) {
-		if (!targetRunId || !recursiveConfig) return;
-		if (task.status === 'running') return;
-
-		try {
-			const newTask = buildRecursiveTask(task.id, {
-				...recursiveConfig,
-				name: task.name,
-				dependencies: task.dependencies,
-				renderOrder: task.renderOrder,
-				persist: true,
-				model: viewState.aiModel,
-				enableTTS: task.enableTTS,
-				gridSpan: task.gridSpan,
-				embeddings: task.embeddings,
-				storeChunkText: task.storeChunkText,
-				embedField: task.embedField,
-				...overrides
-			});
-			newTask.visible = task.visible;
-			workflowManager.addTask(targetRunId, newTask);
-			const summary = await workflowManager.rerunTask(targetRunId, task.id);
-			const updatedTask = summary.tasks.find((t) => t.id === task.id);
-			if (updatedTask?.persist) {
-				await updateTaskDataById(targetRunId, task.id, updatedTask.data);
-			}
-		} catch (error) {
-			console.error(`Failed to update analysis params for "${task.id}":`, error);
-		}
-	}
-
-	function clampCount(raw: number, min: number, max: number): number | null {
-		if (!Number.isFinite(raw)) return null;
-		return Math.min(max, Math.max(min, Math.trunc(raw)));
-	}
-
-	function handleCommitParams() {
-		if (task.status === 'running') return;
-
-		const topicCount = parsedTopicCount ?? activeTopicCount;
-		const topicWordCount = parsedTopicWordCount ?? activeTopicWordCount;
-		if (topicCount === activeTopicCount && topicWordCount === activeTopicWordCount) return;
-
-		void applyAnalysisParams({ topicCount, topicWordCount });
 	}
 </script>
 
 {#if analysisData}
 	<div class="analysis-topic-shell">
+		{#if recursiveConfig}
+			<div class="level-row">
+				<RangeSelector
+					id="analysis-depth"
+					label="analysis depth"
+					labelPosition="inline"
+					value={depthValue}
+					min={MIN_ANALYSIS_DEPTH}
+					max={MAX_ANALYSIS_DEPTH}
+					step={1}
+					disabled={isRunning}
+					format={formatDepth}
+					onChange={(v) => (depthValue = v)}
+					onCommit={(v) => void applyDepth(v)}
+				/>
+			</div>
+		{/if}
+
 		{#if analysisData.chunks.length > 0}
 			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
-				{#if recursiveConfig}
-					<div class="level-row">
-						{#if showLevelTabs}
-							<span class="level-label">window ÷</span>
-							<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
-							{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
-								<span class="level-label">÷{runtimeDivisor}</span>
-							{/if}
-						{/if}
-						<span class="level-label">topics</span>
-						<div class="params-field">
-							<Input
-								type="number"
-								min={String(MIN_TOPIC_COUNT)}
-								disabled={isRunning}
-								bind:value={topicCountInput}
-							/>
-						</div>
-						<span class="level-label">words/topic</span>
-						<div class="params-field">
-							<Input
-								type="number"
-								min={String(MIN_TOPIC_WORD_COUNT)}
-								disabled={isRunning}
-								bind:value={topicWordInput}
-							/>
-						</div>
-						<Button
-							icon="RefreshCw"
-							onClick={handleCommitParams}
-							disabled={isRunning || !paramsDirty}
-						>
-							Apply
-						</Button>
-					</div>
-				{/if}
-
 				<div class="chunks-grid">
 					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
@@ -368,21 +282,21 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 0.75rem;
-		padding: 2rem 0;
+		padding: 1rem 0;
 	}
 
-	.level-label {
-		font-size: 0.82rem;
-		opacity: 0.7;
+	.level-row :global(.label-children) {
+		order: -1;
 	}
 
-	.params-field {
-		width: 3.5rem;
+	.level-row :global(.label-wrapper.inline) {
+		justify-content: flex-start;
+		gap: 0.5rem;
 	}
 
-	.params-field :global(.text-input) {
-		padding: 0.15rem 0.4rem;
-		font-size: 0.8rem;
+	.level-row :global(.label-wrapper.inline label) {
+		justify-content: flex-start;
+		gap: 0.4rem;
 	}
 
 	.chunks-grid {
