@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProfileList from '@/components/ProfileList.svelte';
+	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -20,7 +21,15 @@
 	});
 </script>
 
-<ProfileList items={visibleProfiles} itemTransition={profileItemTransition} />
+<ProfileList items={visibleProfiles} itemTransition={profileItemTransition} key={(p) => p.id}>
+	{#snippet row(profile)}
+		<ProfileWidget
+			profileWithArticles={profile}
+			showTitle={false}
+			collapsed={viewState.collapseProfiles}
+		/>
+	{/snippet}
+</ProfileList>
 {#if visibleProfiles.length === 0}
 	{#if articleCacheStore.loadingProfiles}
 		<div class="empty-profiles-container"></div>

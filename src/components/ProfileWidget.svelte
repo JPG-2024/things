@@ -16,10 +16,17 @@
 		profileWithArticles: ArticleProfile;
 		showTitle?: boolean;
 		collapsed?: boolean;
+		articleLayout?: 'strip' | 'grid';
 	}
 
-	let { profileWithArticles, showTitle = false, collapsed = false }: Props = $props();
+	let {
+		profileWithArticles,
+		showTitle = false,
+		collapsed = false,
+		articleLayout = 'strip'
+	}: Props = $props();
 	let isCollapsed = $state(false);
+	const isGrid = $derived(articleLayout === 'grid');
 
 	$effect(() => {
 		isCollapsed = collapsed;
@@ -69,8 +76,44 @@
 	}
 </script>
 
+{#snippet articleThumb(article: ArticleWithTasks)}
+	<button
+		type="button"
+		class="img-button"
+		onclick={() => handleNavigateToArticle(article)}
+		onmouseenter={() => {
+			viewState.hoveredArticleUrl = article.url ?? null;
+			viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
+		}}
+		onmouseleave={() => {
+			viewState.hoveredArticleUrl = null;
+		}}
+		aria-label="View article"
+	>
+		<div class="thumbnail-container">
+			{#if !article.viewed}
+				<span class="unread-dot"></span>
+			{/if}
+			<Tooltip content={article.title ?? ''}>
+				{#if article.thumbnailSrc}
+					<img
+						src={article.thumbnailSrc}
+						alt="Article"
+						class="mini-img"
+						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+					/>
+				{:else}
+					<div class="mini-img-fallback" title={article.title ?? ''}>
+						{article.title?.slice(0, 45).concat('...') ?? ''}
+					</div>
+				{/if}
+			</Tooltip>
+		</div>
+	</button>
+{/snippet}
+
 <div class="category-container">
-	<div class="category-widget">
+	<div class="category-widget" class:fill={isGrid}>
 		<Card loading={isProfileRunning}>
 			{#if showTitle}
 				<div class="title-row">
@@ -94,7 +137,7 @@
 				</div>
 			{/if}
 			{#if profileWithArticles.profilePictureSrc || articles.length}
-				<div class="img-flex">
+				<div class="img-flex" class:fill={isGrid}>
 					{#if profileWithArticles.profilePictureSrc}
 						<div class="avatar-container">
 							<button
@@ -122,45 +165,21 @@
 						</div>
 					{/if}
 					{#if visibleArticles.length}
-						<div class="strip-wrap">
-							<WheelStage fadeEdges gap={16} scrollSpeed={6}>
+						{#if isGrid}
+							<div class="strip-wrap article-grid">
 								{#each visibleArticles as article (article.url)}
-									<button
-										type="button"
-										class="img-button"
-										onclick={() => handleNavigateToArticle(article)}
-										onmouseenter={() => {
-											viewState.hoveredArticleUrl = article.url ?? null;
-											viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-										}}
-										onmouseleave={() => {
-											viewState.hoveredArticleUrl = null;
-										}}
-										aria-label="View article"
-									>
-										<div class="thumbnail-container">
-											{#if !article.viewed}
-												<span class="unread-dot"></span>
-											{/if}
-											<Tooltip content={article.title ?? ''}>
-												{#if article.thumbnailSrc}
-													<img
-														src={article.thumbnailSrc}
-														alt="Article"
-														class="mini-img"
-														style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-													/>
-												{:else}
-													<div class="mini-img-fallback" title={article.title ?? ''}>
-														{article.title?.slice(0, 45).concat('...') ?? ''}
-													</div>
-												{/if}
-											</Tooltip>
-										</div>
-									</button>
+									{@render articleThumb(article)}
 								{/each}
-							</WheelStage>
-						</div>
+							</div>
+						{:else}
+							<div class="strip-wrap">
+								<WheelStage fadeEdges gap={16} scrollSpeed={6}>
+									{#each visibleArticles as article (article.url)}
+										{@render articleThumb(article)}
+									{/each}
+								</WheelStage>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{/if}
@@ -170,7 +189,6 @@
 
 <style>
 	.category-container {
-		
 	}
 
 	.thumbnail-container {
@@ -196,6 +214,20 @@
 		box-sizing: border-box;
 		padding: 1px;
 		width: 100%;
+	}
+
+	/* Column layout: Card fills the row height and the article grid takes the rest */
+	.category-widget.fill {
+		height: 100%;
+	}
+
+	.category-widget.fill .img-flex {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.category-widget.fill .strip-wrap {
+		align-self: stretch;
 	}
 
 	.title-row {
@@ -244,6 +276,30 @@
 	.strip-wrap {
 		flex: 1 1 auto;
 		min-width: 0;
+	}
+
+	/* Grid mode: thumbnails flow in two columns filling the card */
+	.strip-wrap.article-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-auto-rows: 4rem;
+		align-content: start;
+		gap: 0.75rem;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.strip-wrap.article-grid .mini-img,
+	.strip-wrap.article-grid .mini-img-fallback {
+		width: 100%;
+	}
+
+	.strip-wrap.article-grid .img-button {
+		min-width: 0;
+	}
+
+	.strip-wrap.article-grid .thumbnail-container {
+		width: 100%;
 	}
 
 	.avatar-container {
