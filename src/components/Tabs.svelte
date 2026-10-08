@@ -32,9 +32,22 @@
 		e.stopPropagation();
 		selectTab(tabId);
 	}
+
+	// Scroll up goes left, scroll down goes right. DeltaX (horizontal trackpad
+	// scrolls, Shift+scroll) is intentionally ignored so it stays available for
+	// horizontal page/container scrolling. Clamped at the edges, no wrap-around.
+	function switchTabByOffset(offset: 1 | -1) {
+		const index = tabs.findIndex((t) => t.id === activeTab);
+		const nextIndex = Math.min(tabs.length - 1, Math.max(0, index + offset));
+		if (nextIndex !== index) selectTab(tabs[nextIndex].id);
+	}
 </script>
 
-<div class="tabs" class:tabs--icon-only={iconOnly}>
+<div
+	class="tabs"
+	class:tabs--icon-only={iconOnly}
+	onwheel={(e) => switchTabByOffset(e.deltaY > 0 ? 1 : -1)}
+>
 	{#each tabs as tab (tab.id)}
 		<button
 			type="button"
