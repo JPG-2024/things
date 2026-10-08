@@ -2,7 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
-	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
+	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
@@ -17,7 +17,6 @@
 		type WebStoreArticleRecord
 	} from '@/stores/webStore';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
-	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
@@ -69,7 +68,6 @@
 		return `${label} ${up ? 'online' : 'offline'}`;
 	}
 
-	let askInputValue = $state('');
 	let toolbarEl = $state<HTMLDivElement>();
 
 	async function handleRawSearch(pattern: string) {
@@ -112,12 +110,6 @@
 	}
 
 	$effect(() => {
-		if (!viewState.clipboardPollingEnabled) {
-			viewState.lastHandledClipboardUrl = '';
-		}
-	});
-
-	$effect(() => {
 		if (viewState.unifiedFilter.trim().length < 4) {
 			viewState.rawSearchResults = null;
 		}
@@ -142,23 +134,7 @@
 	}
 
 	async function handleTitleClick() {
-		try {
-			const clipboardText = await invoke<string>('read_clipboard_text');
-			const trimmed = (clipboardText ?? '').trim();
-			if (!trimmed) return;
-
-			if (viewState.autoSpeechEnabled && viewState.clipboardTtsEnabled) {
-				const inputTrimmed = askInputValue.trim();
-				if (!inputTrimmed) return;
-				void ensureAudioContext();
-				await ttsState.generateFromClipboard(inputTrimmed);
-				return;
-			}
-
-			await handlePasteUrl(trimmed);
-		} catch (error) {
-			console.warn('[clipboard-paste] error', error);
-		}
+		await readClipboardAndHandle();
 	}
 
 	const sHotkey = createHotkey(
@@ -280,13 +256,6 @@
 	>
 		<Icon name="ChevronRight" />
 	</button> -->
-				<button type="button" class="settings-trigger" aria-label="Toggle clipboard listener">
-					<ToggleIcon
-						name="ClipboardPaste"
-						bind:checked={viewState.clipboardPollingEnabled}
-						tooltipProps={{ content: 'listen clipboard' }}
-					/>
-				</button>
 				<button type="button" class="settings-trigger" aria-label="Toggle auto speech">
 					<ToggleIcon
 						name="Speech"
@@ -313,15 +282,15 @@
 		<ToggleIcon name="Library" bind:checked={viewState.showOnlyRawArticles} size={18} />
 	</button> -->
 				<ToolbarDivider />
-					<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
-						<ToggleIcon
-							name="FileDigit"
-							bind:checked={viewState.embeddingsEnabled}
-							tooltipProps={{ content: 'generate embeddings' }}
-						/>
-					</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle embeddings generation">
+					<ToggleIcon
+						name="FileDigit"
+						bind:checked={viewState.embeddingsEnabled}
+						tooltipProps={{ content: 'generate embeddings' }}
+					/>
+				</button>
 				<ToolbarDivider />
-<!-- 					<button
+				<!-- 					<button
 						type="button"
 						class="settings-trigger"
 						onclick={() => drawersState.open('downloads')}
@@ -350,7 +319,7 @@
 
 				<ToolbarDivider />
 
-								<Tooltip
+				<Tooltip
 					content={llamaServiceTooltip(
 						'inference',
 						'Inference service',

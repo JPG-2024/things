@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
-	import { invoke } from '@tauri-apps/api/core';
+	import { listen } from '@tauri-apps/api/event';
 
 	import { afterNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer/TTSPlayer.svelte';
@@ -22,11 +22,9 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import { handlePasteUrl } from '@/lib/utils/pasteUrl';
+	import { GLOBAL_CLIPBOARD_TRIGGER_EVENT, readClipboardAndHandle } from '@/lib/utils/clipboard';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { page } from '$app/state';
-
-	const CLIPBOARD_POLL_INTERVAL_MS = 3000;
 
 	let { children } = $props();
 
@@ -243,78 +241,23 @@
 		void ensureLlamaServers();
 	});
 
-	let consecutiveClipboardErrors = 0;
-	const MAX_CONSECUTIVE_CLIPBOARD_ERRORS = 5;
-
 	onMount(() => {
-		let clipboardInterval: ReturnType<typeof setInterval>;
+		let unlisten: (() => void) | undefined;
+		let disposed = false;
 
-		async function pollClipboard() {
-			if (!viewState.clipboardPollingEnabled) return;
-			if (viewState.processingUrl) return;
-
-			try {
-				const clipboardText = await invoke<string>('read_clipboard_text');
-				consecutiveClipboardErrors = 0;
-				const trimmed = (clipboardText ?? '').trim();
-
-				if (!trimmed || trimmed === viewState.lastHandledClipboardUrl) {
-					return;
-				}
-
-				if (viewState.clipboardTtsEnabled) {
-					void ensureAudioContext();
-					await ttsState.generateFromClipboard(trimmed);
-					viewState.lastHandledClipboardUrl = trimmed;
-					return;
-				}
-
-				if (viewState.processingUrl || viewState.loading) {
-					if (
-						viewState.forceLanguageEnabled ||
-						viewState.urlQueue.length < viewState.maxUrlQueueSize
-					) {
-						viewState.urlQueue.push(trimmed);
-					}
-					viewState.lastHandledClipboardUrl = trimmed;
-					return;
-				}
-
-				await handlePasteUrl(trimmed);
-			} catch (error) {
-				consecutiveClipboardErrors += 1;
-				console.warn('[clipboard-poll] error', {
-					attempt: consecutiveClipboardErrors,
-					error
-				});
-				if (consecutiveClipboardErrors >= MAX_CONSECUTIVE_CLIPBOARD_ERRORS) {
-					viewState.clipboardPollingEnabled = false;
-					console.warn(
-						'[clipboard-poll] disabled after',
-						MAX_CONSECUTIVE_CLIPBOARD_ERRORS,
-						'consecutive failures'
-					);
-				}
+		void listen(GLOBAL_CLIPBOARD_TRIGGER_EVENT, () => {
+			void readClipboardAndHandle();
+		}).then((cleanup) => {
+			if (disposed) {
+				cleanup();
+			} else {
+				unlisten = cleanup;
 			}
-		}
-
-		void pollClipboard();
-		clipboardInterval = setInterval(() => {
-			void pollClipboard();
-		}, CLIPBOARD_POLL_INTERVAL_MS);
-
-		function handleVisible() {
-			if (document.visibilityState === 'visible') {
-				void pollClipboard();
-			}
-		}
-		document.addEventListener('visibilitychange', handleVisible);
-		window.addEventListener('focus', handleVisible);
+		});
 
 		return () => {
-			clearInterval(clipboardInterval);
-			document.removeEventListener('visibilitychange', handleVisible);
-			window.removeEventListener('focus', handleVisible);
+			disposed = true;
+			unlisten?.();
 		};
 	});
 </script>

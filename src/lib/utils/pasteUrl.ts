@@ -38,9 +38,6 @@ export async function handlePasteUrl(
 	const urlList = extractUrlList(content);
 
 	if (urlList.length > 1) {
-		const clipboardToken = content.trim();
-		viewState.lastHandledClipboardUrl = clipboardToken;
-
 		const capacity = Math.max(0, viewState.maxUrlQueueSize - viewState.urlQueue.length);
 
 		if (viewState.processingUrl || viewState.loading) {
@@ -50,11 +47,7 @@ export async function handlePasteUrl(
 
 		const [firstUrl, ...restUrls] = urlList;
 		viewState.urlQueue.push(...restUrls.slice(0, capacity));
-		try {
-			await handlePasteUrl(firstUrl, { replaceState });
-		} finally {
-			viewState.lastHandledClipboardUrl = clipboardToken;
-		}
+		await handlePasteUrl(firstUrl, { replaceState });
 		return;
 	}
 
@@ -66,7 +59,6 @@ export async function handlePasteUrl(
 		playCoinSound();
 		viewState.processingUrl = true;
 		try {
-			viewState.lastHandledClipboardUrl = validUrl;
 			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
 			await urlRouter(validUrl);
 			articleCacheStore.invalidate();
@@ -84,7 +76,6 @@ export async function handlePasteUrl(
 	const rawId = `raw-${Date.now()}`;
 
 	try {
-		viewState.lastHandledClipboardUrl = trimmed;
 		viewState.url = rawId;
 		viewState.loading = true;
 		viewState.loaded = false;
