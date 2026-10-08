@@ -102,7 +102,8 @@
 		flex-direction: column;
 		align-items: center;
 		min-height: 100vh;
-		padding: 1rem;
+		padding: 3rem;
+		padding-right: 5rem
 	}
 
 	.top-bar {

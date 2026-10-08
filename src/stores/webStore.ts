@@ -1124,36 +1124,50 @@ export async function getArticlesWithoutProfile(options?: {
 	}
 }
 
-export async function getArticlesByCategories(
-	categoryIds: string[],
-	articleCount: number,
-	createdAtFrom?: number
-): Promise<CategoryWithArticles[]> {
+export interface CategoryArticlesQuery {
+	/** null resolves every non-deleted category (initial full fetch). */
+	categoryId: string | null;
+	offset: number;
+	articleCount: number;
+}
+
+export interface CategoryArticlesPage {
+	categoryId: string;
+	categoryName: string;
+	articles: ArticleWithTasks[];
+	hasMore: boolean;
+}
+
+export async function getArticlesByCategories(options: {
+	queries: CategoryArticlesQuery[];
+	createdAtFrom?: number | null;
+}): Promise<CategoryArticlesPage[]> {
 	try {
 		const result = await invoke<
 			Array<{
 				categoryId: string;
 				categoryName: string;
 				articles: WebStoreArticleRecord[];
+				hasMore: boolean;
 			}>
 		>('list_articles_by_categories', {
-			categoryIds,
-			articleCount,
-			createdAtFrom: createdAtFrom ?? null
+			queries: options.queries,
+			createdAtFrom: options.createdAtFrom ?? null
 		});
 
-		const categoriesWithArticles: CategoryWithArticles[] = [];
-		for (const category of result) {
-			const resolvedArticles = await mapAndResolveArticles(category.articles, new Map());
+		const pages: CategoryArticlesPage[] = [];
+		for (const page of result) {
+			const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
 
-			categoriesWithArticles.push({
-				categoryId: category.categoryId,
-				categoryName: category.categoryName,
-				articles: resolvedArticles
+			pages.push({
+				categoryId: page.categoryId,
+				categoryName: page.categoryName,
+				articles: resolvedArticles,
+				hasMore: page.hasMore
 			});
 		}
 
-		return categoriesWithArticles;
+		return pages;
 	} catch (error) {
 		console.error('Error fetching articles by categories:', error);
 		return [];

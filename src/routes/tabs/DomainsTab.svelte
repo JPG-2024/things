@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProfileList from '@/components/ProfileList.svelte';
+	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -20,7 +21,24 @@
 	});
 </script>
 
-<ProfileList items={visibleDomains} itemTransition={domainItemTransition} />
+<ProfileList items={visibleDomains} itemTransition={domainItemTransition} columns key={(d) => d.id}>
+	{#snippet row(domain)}
+		<ProfileWidget
+			profileWithArticles={domain}
+			showTitle={false}
+			collapsed={viewState.collapseProfiles}
+			articleLayout="grid"
+		/>
+	{/snippet}
+	{#snippet sentinel()}
+		{#if articleCacheStore.hasMoreDomains && !viewState.activeArticleProfileId}
+			<LoadMoreSentinel
+				onLoadMore={() => articleCacheStore.loadMoreDomains()}
+				disabled={articleCacheStore.loadingDomains}
+			/>
+		{/if}
+	{/snippet}
+</ProfileList>
 {#if visibleDomains.length === 0}
 	{#if articleCacheStore.loadingDomains}
 		<div class="empty-profiles-container"></div>
@@ -29,12 +47,6 @@
 			<div class="empty-profiles-pill">No domains</div>
 		</div>
 	{/if}
-{/if}
-{#if articleCacheStore.hasMoreDomains && !viewState.activeArticleProfileId}
-	<LoadMoreSentinel
-		onLoadMore={() => articleCacheStore.loadMoreDomains()}
-		disabled={articleCacheStore.loadingDomains}
-	/>
 {/if}
 
 <style>

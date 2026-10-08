@@ -490,8 +490,7 @@
 		align-items: center;
 		min-width: 0;
 		overflow-y: auto;
-		padding: 0 1rem;
-		padding: 7rem 0;
+		padding-top: 7rem;
 	}
 
 	.dashboard-content.has-tab-header {

@@ -8,6 +8,8 @@
 		scrollSpeed?: number;
 		keyboard?: boolean;
 		label?: string;
+		/** Blank space added to both ends of the track (any CSS length). */
+		edgeSpace?: string;
 		children: Snippet;
 	}
 
@@ -18,6 +20,7 @@
 		scrollSpeed = 1,
 		keyboard = false,
 		label = 'Scrollable content',
+		edgeSpace = '0px',
 		children
 	}: Props = $props();
 
@@ -59,7 +62,7 @@
 <div
 	class="wheel-stage"
 	class:fade-edges={fadeEdges}
-	style="width: {width}; --stage-gap: {gap}px;"
+	style="width: {width}; --stage-gap: {gap}px; --stage-edge-space: {edgeSpace};"
 	onwheel={handleWheel}
 	role={keyboard ? 'region' : undefined}
 	aria-label={keyboard ? label : undefined}
@@ -110,6 +113,7 @@
 		width: max-content;
 		min-width: 100%;
 		gap: var(--stage-gap);
+		padding-inline: var(--stage-edge-space);
 		box-sizing: border-box;
 	}
 </style>

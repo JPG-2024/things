@@ -1,5 +1,8 @@
 <script lang="ts">
+	import ProfileList from '@/components/ProfileList.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
+	import CategoryItem from '@/components/CategoryItem.svelte';
+	import { CATEGORY_ARTICLE_COLUMN_WIDTH } from '@/constants';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
@@ -32,44 +35,42 @@
 		viewState.hoveredArticleUrl = null;
 	}
 
-	const sortedCategories = $derived(
-		[...articleCacheStore.categoriesWithArticles].sort((a, b) => {
-			const dateA = (a.articles[0]?.createdAt as number) ?? 0;
-			const dateB = (b.articles[0]?.createdAt as number) ?? 0;
-			return dateB - dateA;
-		})
-	);
+	function handleCategoryClick(category: CategoryWithArticles) {
+		goto(`/category/${category.categoryId}?name=${encodeURIComponent(category.categoryName)}`);
+	}
 
 	const visibleCategories = $derived(
-		sortedCategories.filter((category) => category.articles.length > 0)
+		[...articleCacheStore.categoriesWithArticles]
+			.sort((a, b) => {
+				const dateA = (a.articles[0]?.createdAt as number) ?? 0;
+				const dateB = (b.articles[0]?.createdAt as number) ?? 0;
+				return dateB - dateA;
+			})
+			.filter((category) => category.articles.length > 0)
 	);
-
-	// Mirror the visible list after mount so the keyed {#each} sees items as
-	// added. Svelte suppresses intro transitions for elements present during the
-	// initial render, which is exactly the case when re-entering the tab with
-	// cached categories.
-	// The suggested writable $derived would evaluate during the initial render and
-	// defeat this.
-	// eslint-disable-next-line svelte/prefer-writable-derived
-	let renderedCategories = $state<CategoryWithArticles[]>([]);
-
-	$effect(() => {
-		renderedCategories = visibleCategories;
-	});
 </script>
 
-<div class="category-list">
-	{#each renderedCategories as category (category.categoryId)}
-		<div class="category-row" in:categoryItemTransition out:categoryItemTransition>
-			<CategoryCard
-				{category}
-				onArticleClick={handleArticleClick}
-				onArticleHoverEnter={handleArticleHoverEnter}
-				onArticleHoverLeave={handleArticleHoverLeave}
-			/>
-		</div>
-	{/each}
-</div>
+<ProfileList
+	items={visibleCategories}
+	itemTransition={categoryItemTransition}
+	columns
+	columnWidth={CATEGORY_ARTICLE_COLUMN_WIDTH}
+	key={(category) => category.categoryId}
+>
+	{#snippet header(category)}
+		<button type="button" class="category-header" onclick={() => handleCategoryClick(category)}>
+			<CategoryItem value={category.categoryName} />
+		</button>
+	{/snippet}
+	{#snippet row(category)}
+		<CategoryCard
+			{category}
+			onArticleClick={handleArticleClick}
+			onArticleHoverEnter={handleArticleHoverEnter}
+			onArticleHoverLeave={handleArticleHoverLeave}
+		/>
+	{/snippet}
+</ProfileList>
 {#if articleCacheStore.loadingCategories}
 	<div class="empty-profiles-container"></div>
 {:else if visibleCategories.length === 0}
@@ -79,18 +80,12 @@
 {/if}
 
 <style>
-	.category-list {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
+	.category-header {
+		all: unset;
+		cursor: pointer;
+		display: block;
 		width: 100%;
-		gap: 2rem;
-	}
-
-	.category-row {
-		width: 100%;
-		max-width: 80vw ;
-		margin: 0 auto;
+		box-sizing: border-box;
 	}
 
 	.empty-profiles-container {

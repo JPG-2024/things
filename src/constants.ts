@@ -1,5 +1,14 @@
 export const RAW_PROCESS_LIMIT = 1000;
 
+// 📐 Category wheel layout (CategoriesTab column cards)
+// Sentinel fetches follow the same page size so each scroll load keeps the
+// card's grid populated: 6 rows x 2 columns.
+export const CATEGORY_ARTICLE_PAGE_SIZE = 6;
+export const CATEGORY_ARTICLE_THUMBNAIL_WIDTH = 140;
+export const CATEGORY_ARTICLE_THUMBNAIL_HEIGHT = 70;
+export const PROFILE_COLUMN_WIDTH = '17rem';
+export const CATEGORY_ARTICLE_COLUMN_WIDTH = '20rem';
+
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`;
 
 export const TECH_SUMMARY_SYSTEM_PROMPT = `Eres un experto en tecnología y comunicación técnica. Acabo de ver un vídeo sobre tecnología y quiero un resumen perfecto para compartir o recordar los puntos clave.

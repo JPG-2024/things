@@ -4,14 +4,17 @@ import {
 	getProfiles,
 	type ArticleWithTasks,
 	type ArticleProfile,
+	type CategoryArticlesQuery,
 	type CategoryWithArticles
 } from '@/stores/webStore';
 import { PaginationResource } from '@/stores/paginationResource.svelte';
+import { SvelteMap } from 'svelte/reactivity';
+import { CATEGORY_ARTICLE_PAGE_SIZE } from '@/constants';
 
-const PROFILES_PAGE_SIZE = 20;
-const ARTICLES_PAGE_SIZE = 20;
+const PROFILES_PAGE_SIZE = 10;
+const ARTICLES_PAGE_SIZE = 10;
 const ARTICLES_PER_PROFILE = 5;
-const ARTICLE_COUNT_PER_CATEGORY = 20;
+const ARTICLE_COUNT_PER_CATEGORY = 10;
 
 function sortedIds(ids?: string[]): string[] | null {
 	return ids ? [...ids].sort() : null;
@@ -34,9 +37,13 @@ type CategoryArticlesParams = {
 	categoryId: string;
 };
 
-type CategoriesParams = {
-	categoryIds: string[];
-	createdAtFrom?: number;
+type CategoryPageEntry = {
+	categoryName: string;
+	articles: ArticleWithTasks[];
+	/** Next page offset (articles loaded so far, including deduped pages). */
+	offset: number;
+	hasMore: boolean;
+	loading: boolean;
 };
 
 class ArticleCacheStore {
@@ -101,20 +108,6 @@ class ArticleCacheStore {
 		}
 	);
 
-	private readonly categories = new PaginationResource<CategoryWithArticles, CategoriesParams>(
-		ARTICLE_COUNT_PER_CATEGORY,
-		(params) =>
-			JSON.stringify({
-				categoryIds: sortedIds(params.categoryIds),
-				createdAtFrom: params.createdAtFrom ?? null
-			}),
-		async (params, _offset, limit) => {
-			const items = await getArticlesByCategories(params.categoryIds, limit, params.createdAtFrom);
-
-			return { items, total: items.length };
-		}
-	);
-
 	private readonly categoryArticlesResource = new PaginationResource<
 		ArticleWithTasks,
 		CategoryArticlesParams
@@ -132,6 +125,16 @@ class ArticleCacheStore {
 			return { items: result.articles, total: result.total };
 		}
 	);
+
+	// Per-category article paging (CategoriesTab wheel). Unlike the resources
+	// above, one batched invoke carries the offset of every category that needs
+	// a page, so several card sentinels can be served by a single round-trip.
+	private categoryPages = new SvelteMap<string, CategoryPageEntry>();
+	private categoryPagesLoading = $state(false);
+	private categoryPagesStale = true;
+	private categoryPagesSignature: string | null = null;
+	private categoryPagesCreatedAtFrom: number | undefined = undefined;
+	private categoryPagesFetchId = 0;
 
 	get profilesWithArticles(): ArticleProfile[] {
 		return this.profiles.items;
@@ -186,11 +189,31 @@ class ArticleCacheStore {
 	}
 
 	get categoriesWithArticles(): CategoryWithArticles[] {
-		return this.categories.items;
+		const pages: CategoryWithArticles[] = [];
+		for (const [categoryId, entry] of this.categoryPages) {
+			pages.push({
+				categoryId,
+				categoryName: entry.categoryName,
+				articles: entry.articles
+			});
+		}
+		return pages;
 	}
 
 	get loadingCategories(): boolean {
-		return this.categories.loading;
+		return this.categoryPagesLoading;
+	}
+
+	categoryArticlesFor(categoryId: string): ArticleWithTasks[] {
+		return this.categoryPages.get(categoryId)?.articles ?? [];
+	}
+
+	hasMoreCategoryArticlesFor(categoryId: string): boolean {
+		return this.categoryPages.get(categoryId)?.hasMore ?? false;
+	}
+
+	loadingCategoryArticlesFor(categoryId: string): boolean {
+		return this.categoryPages.get(categoryId)?.loading ?? false;
 	}
 
 	get categoryArticles(): ArticleWithTasks[] {
@@ -285,22 +308,111 @@ class ArticleCacheStore {
 		categoryIds?: string[];
 		createdAtFrom?: number;
 	}) {
-		const categoryIds = options?.categoryIds ?? this.categories.lastParams?.categoryIds ?? [];
-		const createdAtFrom = options?.createdAtFrom ?? this.categories.lastParams?.createdAtFrom;
+		const categoryIds = options?.categoryIds ?? [];
+		const createdAtFrom = options?.createdAtFrom ?? this.categoryPagesCreatedAtFrom;
+		const signature = JSON.stringify({
+			categoryIds: sortedIds(categoryIds),
+			createdAtFrom: createdAtFrom ?? null
+		});
 
-		await this.categories.fetch({ categoryIds, createdAtFrom }, { force: options?.force });
+		if (!options?.force && !this.categoryPagesStale && signature === this.categoryPagesSignature) {
+			return;
+		}
+
+		// A null categoryId resolves every non-deleted category server-side.
+		const queries: CategoryArticlesQuery[] =
+			categoryIds.length > 0
+				? categoryIds.map((categoryId) => ({
+						categoryId,
+						offset: 0,
+						articleCount: ARTICLE_COUNT_PER_CATEGORY
+					}))
+				: [{ categoryId: null, offset: 0, articleCount: ARTICLE_COUNT_PER_CATEGORY }];
+
+		const fetchId = ++this.categoryPagesFetchId;
+		this.categoryPagesLoading = true;
+		try {
+			const pages = await getArticlesByCategories({
+				queries,
+				createdAtFrom: createdAtFrom ?? null
+			});
+			if (fetchId !== this.categoryPagesFetchId) {
+				return;
+			}
+
+			const next = new SvelteMap<string, CategoryPageEntry>();
+			for (const page of pages) {
+				next.set(page.categoryId, {
+					categoryName: page.categoryName,
+					articles: page.articles,
+					offset: page.articles.length,
+					hasMore: page.hasMore,
+					loading: false
+				});
+			}
+
+			this.categoryPages = next;
+			this.categoryPagesCreatedAtFrom = createdAtFrom;
+			this.categoryPagesSignature = signature;
+			this.categoryPagesStale = false;
+		} finally {
+			if (fetchId === this.categoryPagesFetchId) {
+				this.categoryPagesLoading = false;
+			}
+		}
+	}
+
+	async loadMoreCategoryArticlesFor(categoryId: string): Promise<void> {
+		const entry = this.categoryPages.get(categoryId);
+		if (!entry || entry.loading || !entry.hasMore) return;
+
+		this.categoryPages.set(categoryId, { ...entry, loading: true });
+		try {
+			const pages = await getArticlesByCategories({
+				queries: [
+					{
+						categoryId,
+						offset: entry.offset,
+						articleCount: CATEGORY_ARTICLE_PAGE_SIZE
+					}
+				],
+				// Keep the initial fetch's cutoff so pages stay consistent.
+				createdAtFrom: this.categoryPagesCreatedAtFrom ?? null
+			});
+			const page = pages.find((candidate) => candidate.categoryId === categoryId);
+			if (!page) return;
+
+			const current = this.categoryPages.get(categoryId);
+			if (!current) return;
+
+			const knownUrls = new Set(current.articles.map((article) => article.url ?? ''));
+			const appended = page.articles.filter((article) => !knownUrls.has(article.url ?? ''));
+			this.categoryPages.set(categoryId, {
+				...current,
+				articles: [...current.articles, ...appended],
+				offset: current.offset + page.articles.length,
+				hasMore: page.hasMore,
+				loading: false
+			});
+		} catch (error) {
+			const current = this.categoryPages.get(categoryId);
+			if (current) {
+				this.categoryPages.set(categoryId, { ...current, loading: false });
+			}
+			throw error;
+		}
 	}
 
 	invalidate() {
 		this.profiles.invalidate();
 		this.domains.invalidate();
 		this.articles.invalidate();
-		this.categories.invalidate();
+		this.categoryPagesStale = true;
 		this.categoryArticlesResource.invalidate();
 	}
 
 	invalidateCategories() {
-		this.categories.invalidate();
+		this.categoryPagesStale = true;
 	}
 
 	invalidateProfiles() {
@@ -354,16 +466,18 @@ class ArticleCacheStore {
 		this.profiles.replace(filterProfileArticles);
 		this.domains.replace(filterProfileArticles);
 
-		this.categories.replace((categories) =>
-			categories.map((category) => ({
-				...category,
-				articles: category.articles.filter((article) => !hasUrl(article))
-			}))
-		);
+		const pruned = new SvelteMap<string, CategoryPageEntry>();
+		for (const [categoryId, entry] of this.categoryPages) {
+			pruned.set(categoryId, {
+				...entry,
+				articles: entry.articles.filter((article) => !hasUrl(article))
+			});
+		}
+		this.categoryPages = pruned;
 
 		this.profiles.invalidate();
 		this.domains.invalidate();
-		this.categories.invalidate();
+		this.categoryPagesStale = true;
 	}
 }
 
