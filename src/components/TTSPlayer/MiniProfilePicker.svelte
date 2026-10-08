@@ -357,7 +357,7 @@
 		{#if filteredProfiles.length === 0}
 			<p class="mini-picker__empty">No matching voices</p>
 		{:else}
-			<WheelStage gap={12} scrollSpeed={4}>
+			<WheelStage gap={12} scrollSpeed={10}>
 				{#each filteredProfiles as profile (profile.id)}
 					{@const isSelected = profile.id === selectedProfileId}
 					<button
