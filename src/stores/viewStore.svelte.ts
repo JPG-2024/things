@@ -37,6 +37,20 @@ export const MASONRY_PRESETS: MasonryPreset[] = [
 	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
 ];
 
+// Icon and label per preset for the vertical preset rail in ArticleList. Keyed
+// by LayoutKey since presets can share a key; tabs are identified by index.
+export const MASONRY_PRESET_ICONS: Record<LayoutKey, string> = {
+	row: 'Rows',
+	grid: 'LayoutGrid',
+	'grid-3': 'Columns3'
+};
+
+export const MASONRY_PRESET_LABELS: Record<LayoutKey, string> = {
+	row: 'Row',
+	grid: 'Thumbnails',
+	'grid-3': 'Grid 3'
+};
+
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
 export const DEFAULT_PRIMARY_COLOR = 'rgb(255, 255, 255)';

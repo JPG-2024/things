@@ -11,6 +11,10 @@
 		tabs: Tab[];
 		activeTab: string;
 		iconOnly?: boolean;
+		// Stacks the tabs in a column and centers them vertically. The container
+		// must get its height from outside; the vertical rail in ArticleList is
+		// sticky and fills the viewport height.
+		vertical?: boolean;
 		onTabChange?: (tabId: string) => void;
 		iconSize?: number;
 	}
@@ -19,6 +23,7 @@
 		tabs,
 		activeTab = $bindable(),
 		iconOnly = false,
+		vertical = false,
 		onTabChange = undefined,
 		iconSize = 16
 	}: Props = $props();
@@ -36,17 +41,28 @@
 	// Scroll up goes left, scroll down goes right. DeltaX (horizontal trackpad
 	// scrolls, Shift+scroll) is intentionally ignored so it stays available for
 	// horizontal page/container scrolling. Clamped at the edges, no wrap-around.
-	function switchTabByOffset(offset: 1 | -1) {
+	// Returns whether a switch occurred, so the wheel handler can cancel the
+	// browser's default scroll only when a tab actually flips (at the edges the
+	// page keeps scrolling naturally).
+	function switchTabByOffset(offset: 1 | -1): boolean {
 		const index = tabs.findIndex((t) => t.id === activeTab);
 		const nextIndex = Math.min(tabs.length - 1, Math.max(0, index + offset));
-		if (nextIndex !== index) selectTab(tabs[nextIndex].id);
+		if (nextIndex === index) return false;
+		selectTab(tabs[nextIndex].id);
+		return true;
+	}
+
+	function handleWheel(e: WheelEvent) {
+		if (e.deltaY === 0) return;
+		if (switchTabByOffset(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
 	}
 </script>
 
 <div
 	class="tabs"
 	class:tabs--icon-only={iconOnly}
-	onwheel={(e) => switchTabByOffset(e.deltaY > 0 ? 1 : -1)}
+	class:tabs--vertical={vertical}
+	onwheel={handleWheel}
 >
 	{#each tabs as tab (tab.id)}
 		<button
@@ -77,6 +93,14 @@
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		justify-content: flex-start;
+	}
+
+	.tabs--vertical {
+		flex-direction: column;
+		flex-wrap: nowrap;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
 	}
 
 	.pill {

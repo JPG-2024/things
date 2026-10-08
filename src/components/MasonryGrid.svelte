@@ -374,9 +374,6 @@
 		{#if headerLeft}
 			{@render headerLeft()}
 		{/if}
-		<span class="preset-indicator" title="Layout preset (Alt+↑/↓)">
-			{presetIndex + 1}/{MASONRY_PRESETS.length}
-		</span>
 	</div>
 	<div
 		class="masonry-grid"
@@ -403,13 +400,6 @@
 </div>
 
 <style>
-	.preset-indicator {
-		font-size: 0.75rem;
-		min-width: 1rem;
-		text-align: center;
-		opacity: 0.6;
-	}
-
 	.masonry-container {
 		width: 100%;
 		display: flex;
