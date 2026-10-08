@@ -99,7 +99,6 @@ function serializeView() {
 		toggles: {
 			autoSpeechEnabled: viewState.autoSpeechEnabled,
 			forceLanguageEnabled: viewState.forceLanguageEnabled,
-			clipboardPollingEnabled: viewState.clipboardPollingEnabled,
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
 			embeddingsEnabled: viewState.embeddingsEnabled
 		}
@@ -166,9 +165,6 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.forceLanguageEnabled === 'boolean') {
 		viewState.forceLanguageEnabled = toggles.forceLanguageEnabled;
-	}
-	if (typeof toggles.clipboardPollingEnabled === 'boolean') {
-		viewState.clipboardPollingEnabled = toggles.clipboardPollingEnabled;
 	}
 	if (typeof toggles.clipboardTtsEnabled === 'boolean') {
 		viewState.clipboardTtsEnabled = toggles.clipboardTtsEnabled;

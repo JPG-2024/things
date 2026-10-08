@@ -22,6 +22,13 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 APP_ID="things"
+# The portal requires an app id that is a valid reverse-DNS id *and* matches an
+# installed `<app_id>.desktop` file. Keep this in sync with the Tauri identifier
+# in tauri.conf.json (read below, with a fallback).
+PORTAL_APP_ID="$(sed -n 's/.*"identifier"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+	"$ROOT_DIR/src-tauri/tauri.conf.json" | head -1)"
+PORTAL_APP_ID="${PORTAL_APP_ID:-com.juangargiulo.things}"
+
 BIN_PATH="${THINGS_BIN:-$ROOT_DIR/src-tauri/target/debug/things}"
 ICON_SRC="$ROOT_DIR/src-tauri/icons/icon.png"
 
@@ -29,13 +36,14 @@ DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 DESKTOP_DIR="$DATA_HOME/applications"
 ICON_THEME_DIR="$DATA_HOME/icons/hicolor"
 DESKTOP_FILE="$DESKTOP_DIR/$APP_ID.desktop"
+PORTAL_DESKTOP_FILE="$DESKTOP_DIR/$PORTAL_APP_ID.desktop"
 
 remove() {
-	rm -f "$DESKTOP_FILE"
+	rm -f "$DESKTOP_FILE" "$PORTAL_DESKTOP_FILE"
 	find "$ICON_THEME_DIR" -type f -path "*/apps/$APP_ID.png" -delete 2>/dev/null || true
 	command -v update-desktop-database >/dev/null && update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
 	command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t "$ICON_THEME_DIR" 2>/dev/null || true
-	echo "Removed $DESKTOP_FILE and icons/$APP_ID.png from the user icon theme."
+	echo "Removed $DESKTOP_FILE, $PORTAL_DESKTOP_FILE and icons/$APP_ID.png."
 }
 
 if [[ "${1:-}" == "--remove" ]]; then
@@ -63,6 +71,22 @@ Terminal=false
 Categories=Utility;
 EOF
 
+# Hidden entry whose *file name* is the portal app id, so
+# org.freedesktop.host.portal.Registry can associate the app (required by GNOME's
+# GlobalShortcuts backend). No StartupWMClass: window/icon matching keeps using
+# the $APP_ID.desktop entry above.
+cat >"$PORTAL_DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Things (dev)
+Comment=Things development build (portal identity)
+Exec=$BIN_PATH
+Icon=$APP_ID
+Terminal=false
+NoDisplay=true
+Categories=Utility;
+EOF
+
 if [[ ! -x "$BIN_PATH" ]]; then
 	echo "warning: dev binary not found at $BIN_PATH" >&2
 	echo "         run 'bun run linux' once, or set THINGS_BIN=<path>." >&2
@@ -72,5 +96,6 @@ command -v update-desktop-database >/dev/null && update-desktop-database "$DESKT
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t "$ICON_THEME_DIR" 2>/dev/null || true
 
 echo "Installed $DESKTOP_FILE"
+echo "Installed $PORTAL_DESKTOP_FILE (portal app id: $PORTAL_APP_ID)"
 echo "Icon: $ICON_THEME_DIR/512x512/apps/$APP_ID.png"
 echo "Restart the dev app to see the icon in the dock / Activities."

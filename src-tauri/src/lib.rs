@@ -42,6 +42,7 @@ pub use crate::embedding_store::{
 pub use crate::llama_server::{ensure_llama_servers, list_llama_models, llama_defaults};
 use crate::llama_server::{stop_llama_servers, LlamaServersState};
 pub use crate::track_download::download_track;
+mod global_shortcut;
 use tauri::Manager;
 use tauri::RunEvent;
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -75,6 +76,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            global_shortcut::spawn(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_web_store_articles,
             list_web_store_domains,

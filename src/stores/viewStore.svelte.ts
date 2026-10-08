@@ -129,7 +129,6 @@ class ViewState {
 	tintHue = $derived(rgbToHue(this.backgroundColor));
 	primaryTintHue = $derived(rgbToHue(this.primaryColor));
 	blur = $state(false);
-	clipboardPollingEnabled = $state(false);
 	clipboardTtsEnabled = $state(false);
 	forceLanguageEnabled = $state(false);
 	thumbnailReductionMagnitud = $state(2);
@@ -145,7 +144,6 @@ class ViewState {
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);
-	lastHandledClipboardUrl = $state('');
 	conversationSystemPrompt = $state(
 		`You are a concise conversational assistant.
 		
