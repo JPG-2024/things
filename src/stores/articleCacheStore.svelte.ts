@@ -129,6 +129,8 @@ class ArticleCacheStore {
 	// Per-category article paging (CategoriesTab wheel). Unlike the resources
 	// above, one batched invoke carries the offset of every category that needs
 	// a page, so several card sentinels can be served by a single round-trip.
+	// Reactive through SvelteMap internals: always mutate in place (set/clear),
+	// never reassign this field or readers of the old instance stop tracking.
 	private categoryPages = new SvelteMap<string, CategoryPageEntry>();
 	private categoryPagesLoading = $state(false);
 	private categoryPagesStale = true;
@@ -340,9 +342,12 @@ class ArticleCacheStore {
 				return;
 			}
 
-			const next = new SvelteMap<string, CategoryPageEntry>();
+			// Mutate the map in place: SvelteMap reactivity is per-instance, so
+			// reassigning the field would never invalidate readers that tracked
+			// the previous instance (cards stayed blank after the first fetch).
+			this.categoryPages.clear();
 			for (const page of pages) {
-				next.set(page.categoryId, {
+				this.categoryPages.set(page.categoryId, {
 					categoryName: page.categoryName,
 					articles: page.articles,
 					offset: page.articles.length,
@@ -350,8 +355,6 @@ class ArticleCacheStore {
 					loading: false
 				});
 			}
-
-			this.categoryPages = next;
 			this.categoryPagesCreatedAtFrom = createdAtFrom;
 			this.categoryPagesSignature = signature;
 			this.categoryPagesStale = false;
@@ -466,14 +469,19 @@ class ArticleCacheStore {
 		this.profiles.replace(filterProfileArticles);
 		this.domains.replace(filterProfileArticles);
 
-		const pruned = new SvelteMap<string, CategoryPageEntry>();
+		// Collect pruned entries first, then mutate in place — SvelteMap must
+		// not be replaced (its reactivity is per-instance) nor mutated while
+		// being iterated.
+		const pruned: Array<[string, CategoryPageEntry]> = [];
 		for (const [categoryId, entry] of this.categoryPages) {
-			pruned.set(categoryId, {
-				...entry,
-				articles: entry.articles.filter((article) => !hasUrl(article))
-			});
+			const articles = entry.articles.filter((article) => !hasUrl(article));
+			if (articles.length !== entry.articles.length) {
+				pruned.push([categoryId, { ...entry, articles }]);
+			}
 		}
-		this.categoryPages = pruned;
+		for (const [categoryId, entry] of pruned) {
+			this.categoryPages.set(categoryId, entry);
+		}
 
 		this.profiles.invalidate();
 		this.domains.invalidate();
