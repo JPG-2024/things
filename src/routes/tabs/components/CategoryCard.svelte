@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
-	import CategoryItem from '@/components/CategoryItem.svelte';
-	import WheelStage from '@/components/WheelStage.svelte';
+	// Wheel cards show the latest 10 articles only; infinite scroll is disabled.
+	// import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import { CATEGORY_ARTICLE_THUMBNAIL_HEIGHT, CATEGORY_ARTICLE_THUMBNAIL_WIDTH } from '@/constants';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
-	import { goto } from '$app/navigation';
+	// import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 
 	interface Props {
 		category: CategoryWithArticles;
@@ -15,32 +16,57 @@
 
 	let { category, onArticleClick, onArticleHoverEnter, onArticleHoverLeave }: Props = $props();
 
-	const previewArticles = $derived(category.articles);
+	const articles = $derived(category.articles);
+	// Infinite scroll disabled: show only the latest ARTICLE_COUNT_PER_CATEGORY articles.
+	// const hasMore = $derived(articleCacheStore.hasMoreCategoryArticlesFor(category.categoryId));
+	// const loadingMore = $derived(articleCacheStore.loadingCategoryArticlesFor(category.categoryId));
 
-	function handleCategoryClick() {
-		goto(`/category/${category.categoryId}?name=${encodeURIComponent(category.categoryName)}`);
+	// function handleLoadMore() {
+	// 	void articleCacheStore.loadMoreCategoryArticlesFor(category.categoryId);
+	// }
+
+	// Vertical wheel over the grid scrolls the grid instead of being converted
+	// to horizontal scrolling by the surrounding WheelStage. At the grid's edges
+	// the event is left to bubble so the wheel keeps chaining outward.
+	function handleGridWheel(e: WheelEvent) {
+		const el = e.currentTarget as HTMLDivElement;
+		const max = el.scrollHeight - el.clientHeight;
+		if (max <= 0) return;
+
+		const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+		const atStart = el.scrollTop <= 0 && delta < 0;
+		const atEnd = el.scrollTop >= max - 1 && delta > 0;
+		if (atStart || atEnd) return;
+
+		e.stopPropagation();
 	}
 </script>
 
 <div class="category-card">
 	<Card>
-		<button type="button" class="category-header" onclick={handleCategoryClick}>
-			<CategoryItem value={category.categoryName} />
-		</button>
-		{#if previewArticles.length > 0}
-			<WheelStage fadeEdges gap={12} scrollSpeed={6} keyboard label="Category articles">
-				{#each previewArticles as article (article.url)}
+		{#if articles.length > 0}
+			<div class="article-grid" onwheel={handleGridWheel}>
+				{#each articles as article (article.url)}
 					<ArticleItem
 						{article}
 						thumbnailOnly
-						thumbnailWidth={140}
-						thumbnailHeight={70}
+						thumbnailWidth={CATEGORY_ARTICLE_THUMBNAIL_WIDTH}
+						thumbnailHeight={CATEGORY_ARTICLE_THUMBNAIL_HEIGHT}
 						onClick={onArticleClick}
 						onHoverEnter={onArticleHoverEnter}
 						onHoverLeave={onArticleHoverLeave}
 					/>
 				{/each}
-			</WheelStage>
+				<!-- {#if hasMore}
+					<div class="sentinel-row">
+						<LoadMoreSentinel
+							onLoadMore={handleLoadMore}
+							disabled={loadingMore}
+							rootMargin="100px"
+						/>
+					</div>
+				{/if} -->
+			</div>
 		{:else}
 			<div class="category-empty">No articles</div>
 		{/if}
@@ -50,17 +76,32 @@
 <style>
 	.category-card {
 		width: 100%;
-		height: 140px;
 		min-width: 0;
 	}
 
-	.category-header {
-		all: unset;
-		cursor: pointer;
+	.article-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+		align-content: start;
 		width: 100%;
-		box-sizing: border-box;
-		padding: 6px 10px;
-		padding-bottom: 10px;
+		min-height: 0;
+		/* Clamp the grid so the card behaves like a fixed-height viewport inside
+		   the wheel track (track height is min(70vh, 44rem)). */
+		max-height: calc(min(70vh, 44rem) - 5rem);
+		overflow-y: auto;
+		scrollbar-width: none;
+	}
+
+	.article-grid::-webkit-scrollbar {
+		display: none;
+	}
+
+	.sentinel-row {
+		grid-column: 1 / -1;
+		min-height: 40px;
+		display: flex;
+		align-items: center;
 	}
 
 	.category-empty {
