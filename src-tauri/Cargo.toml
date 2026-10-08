@@ -68,3 +68,6 @@ libc = "0.2"
 
 tauri-plugin-store = "2"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.13", features = ["global_shortcuts"] }
+
