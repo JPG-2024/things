@@ -96,6 +96,17 @@ pub struct CategoryWithArticles {
     pub category_id: String,
     pub category_name: String,
     pub articles: Vec<WebStoreArticleRecord>,
+    pub has_more: bool,
+}
+
+/// One page request for a single category, or all categories when
+/// `category_id` is None (initial fetch).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoryArticlesQuery {
+    pub category_id: Option<String>,
+    pub offset: usize,
+    pub article_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2541,68 +2552,89 @@ pub async fn list_articles_without_profile(
 #[tauri::command]
 pub async fn list_articles_by_categories(
     app: AppHandle,
-    category_ids: Vec<String>,
-    article_count: usize,
+    queries: Vec<CategoryArticlesQuery>,
     created_at_from: Option<i64>,
 ) -> Result<Vec<CategoryWithArticles>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
 
-    query_categories_with_articles(&conn, &category_ids, article_count, created_at_from)
+    query_articles_by_categories(&conn, &queries, created_at_from)
 }
 
-fn query_categories_with_articles(
+fn query_articles_by_categories(
     conn: &Connection,
-    category_ids: &[String],
-    article_count: usize,
+    queries: &[CategoryArticlesQuery],
     created_at_from: Option<i64>,
 ) -> Result<Vec<CategoryWithArticles>, String> {
-    let categories_sql = if category_ids.is_empty() {
-        "SELECT id, name FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC".to_string()
-    } else {
-        let placeholders = category_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!(
-            "SELECT id, name FROM web_categories WHERE id IN ({}) AND deleted_at IS NULL ORDER BY name ASC",
-            placeholders
-        )
-    };
-
-    let mut category_stmt = conn
-        .prepare(&categories_sql)
-        .map_err(|error| error.to_string())?;
-
-    let category_params: Vec<&String> = category_ids.iter().collect();
-    let category_rows = category_stmt
-        .query_map(rusqlite::params_from_iter(category_params), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|error| error.to_string())?;
-
     let mut result = Vec::new();
-    for category_result in category_rows {
-        let (category_id, category_name) = category_result.map_err(|error| error.to_string())?;
-        let articles =
-            query_articles_for_category(conn, &category_id, article_count, created_at_from)?;
-        result.push(CategoryWithArticles {
-            category_id,
-            category_name,
-            articles,
-        });
+    for query in queries {
+        let targets: Vec<(String, String)> = match &query.category_id {
+            Some(id) => match get_category_name(conn, id)? {
+                Some(name) => vec![(id.clone(), name)],
+                None => Vec::new(),
+            },
+            None => list_all_category_names(conn)?,
+        };
+
+        for (category_id, category_name) in targets {
+            let (articles, has_more) = query_articles_for_category(
+                conn,
+                &category_id,
+                query.offset,
+                query.article_count,
+                created_at_from,
+            )?;
+            result.push(CategoryWithArticles {
+                category_id,
+                category_name,
+                articles,
+                has_more,
+            });
+        }
     }
 
     Ok(result)
 }
 
+fn list_all_category_names(conn: &Connection) -> Result<Vec<(String, String)>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC")
+        .map_err(|error| error.to_string())?;
+
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .map_err(|error| error.to_string())?;
+
+    let mut names = Vec::new();
+    for row in rows {
+        names.push(row.map_err(|error| error.to_string())?);
+    }
+
+    Ok(names)
+}
+
+fn get_category_name(conn: &Connection, category_id: &str) -> Result<Option<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT name FROM web_categories WHERE id = ?1 AND deleted_at IS NULL")
+        .map_err(|error| error.to_string())?;
+
+    let mut rows = stmt
+        .query_map([category_id], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+
+    match rows.next() {
+        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
+        None => Ok(None),
+    }
+}
+
 fn query_articles_for_category(
     conn: &Connection,
     category_id: &str,
+    offset: usize,
     article_count: usize,
     created_at_from: Option<i64>,
-) -> Result<Vec<WebStoreArticleRecord>, String> {
+) -> Result<(Vec<WebStoreArticleRecord>, bool), String> {
     let mut body = String::from(
         "INNER JOIN article_category ac ON ac.article_url = a.url
          WHERE ac.category_id = ?1",
@@ -2614,10 +2646,17 @@ fn query_articles_for_category(
         params.push(Box::new(from));
     }
 
-    body.push_str(" ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT ?");
-    params.push(Box::new(article_count));
+    // Fetch one extra row so the caller can tell whether another page exists.
+    let fetch_limit = article_count.saturating_add(1);
+    body.push_str(" ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT ? OFFSET ?");
+    params.push(Box::new(fetch_limit));
+    params.push(Box::new(offset));
 
-    query_articles_sql(conn, &body, &params)
+    let mut articles = query_articles_sql(conn, &body, &params)?;
+    let has_more = articles.len() > article_count;
+    articles.truncate(article_count);
+
+    Ok((articles, has_more))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2892,7 +2931,7 @@ mod tests {
     }
 
     #[test]
-    fn query_categories_with_articles_returns_all_when_ids_empty() {
+    fn query_articles_by_categories_returns_all_when_category_id_none() {
         let conn = build_in_memory_db();
         insert_category(&conn, "cat-a", "Alpha");
         insert_category(&conn, "cat-b", "Beta");
@@ -2917,7 +2956,12 @@ mod tests {
         )
         .expect("mark category deleted");
 
-        let result = query_categories_with_articles(&conn, &[], 4, None).expect("query");
+        let queries = vec![CategoryArticlesQuery {
+            category_id: None,
+            offset: 0,
+            article_count: 4,
+        }];
+        let result = query_articles_by_categories(&conn, &queries, None).expect("query");
 
         let names: Vec<&str> = result.iter().map(|c| c.category_name.as_str()).collect();
         assert_eq!(
@@ -2932,10 +2976,65 @@ mod tests {
             4,
             "expected article count capped at 4"
         );
+        assert!(
+            alpha.has_more,
+            "expected has_more when more articles exist beyond the page"
+        );
     }
 
     #[test]
-    fn query_categories_with_articles_filters_by_created_at() {
+    fn query_articles_by_categories_respects_offset_and_reports_has_more() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+
+        for i in 0..5 {
+            insert_article(
+                &conn,
+                &format!("a-{i}"),
+                "channel",
+                2_000_000_000_000 + i,
+                None,
+            );
+            link_article_to_category(&conn, &format!("a-{i}"), "cat-a");
+        }
+
+        let page = |offset: usize| -> Vec<CategoryWithArticles> {
+            let queries = vec![CategoryArticlesQuery {
+                category_id: Some("cat-a".to_string()),
+                offset,
+                article_count: 2,
+            }];
+            query_articles_by_categories(&conn, &queries, None).expect("query")
+        };
+
+        let first = page(0);
+        let second = page(2);
+        let last = page(4);
+
+        assert_eq!(first[0].articles.len(), 2, "first page full");
+        assert!(first[0].has_more, "more pages exist after the first");
+        assert_eq!(second[0].articles.len(), 2, "second page full");
+        assert!(second[0].has_more, "last article lands on page three");
+        assert_eq!(
+            last[0].articles.len(),
+            1,
+            "tail page carries the remaining article"
+        );
+        assert!(!last[0].has_more, "no page after the tail");
+
+        let first_urls: Vec<Option<String>> = first[0].articles.iter().map(|a| a.url.clone()).collect();
+        let second_urls: Vec<Option<String>> =
+            second[0].articles.iter().map(|a| a.url.clone()).collect();
+        for url in &first_urls {
+            assert!(
+                !second_urls.contains(url),
+                "paged results must not overlap"
+            );
+        }
+    }
+
+    #[test]
+    fn query_articles_by_categories_filters_by_created_at() {
         let conn = build_in_memory_db();
         insert_category(&conn, "cat-a", "Alpha");
 
@@ -2944,13 +3043,13 @@ mod tests {
         link_article_to_category(&conn, "old-article", "cat-a");
         link_article_to_category(&conn, "new-article", "cat-a");
 
-        let result = query_categories_with_articles(
-            &conn,
-            &["cat-a".to_string()],
-            4,
-            Some(1_500_000_000_000),
-        )
-        .expect("query");
+        let queries = vec![CategoryArticlesQuery {
+            category_id: Some("cat-a".to_string()),
+            offset: 0,
+            article_count: 4,
+        }];
+        let result =
+            query_articles_by_categories(&conn, &queries, Some(1_500_000_000_000)).expect("query");
 
         let category = &result[0];
         let urls: Vec<&str> = category
@@ -2962,6 +3061,10 @@ mod tests {
             urls,
             vec!["new-article"],
             "expected only articles created after the cutoff"
+        );
+        assert!(
+            !category.has_more,
+            "a page shorter than the limit has no next page"
         );
     }
 
