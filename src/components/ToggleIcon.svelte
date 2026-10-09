@@ -88,7 +88,7 @@
 		transition: opacity 0.2s ease;
 	}
 	.icon-glow:not(.glow) :global(svg) {
-		opacity: 0.3;
+		opacity: 0.6;
 	}
 	.label {
 		color: var(--primary-color);
