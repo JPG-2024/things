@@ -95,7 +95,7 @@
 				tabs={presetTabs}
 				bind:activeTab={activePresetTab}
 				onTabChange={handleTabChange}
-				iconSize={20}
+				iconSize={22}
 				iconOnly
 				vertical
 			/>
@@ -146,6 +146,7 @@
 	.article-list__body {
 		display: flex;
 		align-items: stretch;
+		gap: 1rem;
 		width: 100%;
 	}
 

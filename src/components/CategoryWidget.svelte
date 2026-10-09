@@ -220,7 +220,7 @@
 	.img-flex {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: 4rem;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
@@ -265,6 +265,7 @@
 		justify-content: center;
 		border-radius: 50%;
 		transition: transform 0.2s;
+		min-width: 100px;
 	}
 
 	.avatar-button:hover {
