@@ -61,8 +61,11 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Run a single file: `bun test src/lib/utils/splitText.test.ts`
 - Existing test file at time of writing: `src/lib/utils/splitText.test.ts`
 - Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
-- Known Rust tests at time of writing:
-  `web_store::tests::query_articles_for_profile_orders_by_created_at_desc` (`src-tauri/src/web_store.rs`)
+- Known Rust tests at time of writing (all in `src-tauri/src/web_store.rs`, `web_store::tests`):
+  - `query_articles_for_profile_orders_by_created_at_desc`
+  - `query_categories_with_articles_orders_by_recent_and_paginates`
+  - `query_categories_with_articles_respects_created_at_cutoff`
+  - `query_categories_with_articles_breaks_ties_deterministically`
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
 # Always consider use hotkey as UX principle

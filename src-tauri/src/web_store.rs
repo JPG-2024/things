@@ -2716,7 +2716,11 @@ fn query_categories_with_articles(
     }
 
     // Fetch one extra row so the caller can tell whether another page exists.
-    sql.push_str(" GROUP BY c.id, c.name ORDER BY MAX(a.created_at) DESC LIMIT ? OFFSET ?");
+    // Tiebreak on c.id so two categories sharing the same newest-article
+    // timestamp keep a deterministic order across OFFSET page fetches.
+    sql.push_str(
+        " GROUP BY c.id, c.name ORDER BY MAX(a.created_at) DESC, c.id ASC LIMIT ? OFFSET ?",
+    );
     params.push(Box::new(limit.saturating_add(1)));
     params.push(Box::new(offset));
 
@@ -3197,6 +3201,36 @@ mod tests {
             .collect();
         assert_eq!(ids, vec!["cat-new", "cat-old"]);
         assert!(!all.has_more);
+    }
+
+    #[test]
+    fn query_categories_with_articles_breaks_ties_deterministically() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-b", "Beta");
+        insert_category(&conn, "cat-a", "Alpha");
+
+        // Both categories' newest articles share the same timestamp: without a
+        // tiebreaker, truncating and paging can duplicate or skip categories.
+        insert_article(&conn, "a-1", "channel", 1_500_000_000_000, None);
+        insert_article(&conn, "b-1", "channel", 1_500_000_000_000, None);
+        link_article_to_category(&conn, "a-1", "cat-a");
+        link_article_to_category(&conn, "b-1", "cat-b");
+
+        let first = query_categories_with_articles(&conn, 0, 1, 10, None).expect("query");
+        let second = query_categories_with_articles(&conn, 1, 1, 10, None).expect("query");
+
+        assert!(!second.has_more, "no page after the second category");
+        let ids: Vec<&str> = [
+            first.categories[0].category_id.as_str(),
+            second.categories[0].category_id.as_str(),
+        ]
+        .to_vec();
+        assert_eq!(ids.len(), 2, "pages must not overlap on ties");
+        assert_eq!(
+            ids[0], "cat-a",
+            "equal newest timestamps fall back to id ordering"
+        );
+        assert_eq!(ids[1], "cat-b");
     }
 
     #[test]
