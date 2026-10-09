@@ -99,6 +99,15 @@ pub struct CategoryWithArticles {
     pub has_more: bool,
 }
 
+/// One page of the category catalog for the categories wheel. `has_more`
+/// signals whether another page of categories exists after this one.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoriesWithArticlesPage {
+    pub categories: Vec<CategoryWithArticles>,
+    pub has_more: bool,
+}
+
 /// One page request for a single category, or all categories when
 /// `category_id` is None (initial fetch).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2214,7 +2223,8 @@ pub async fn search_raw_content(
             continue;
         };
 
-        let Some((before, match_text, after)) = find_first_match_snippet(&content, pattern, context)
+        let Some((before, match_text, after)) =
+            find_first_match_snippet(&content, pattern, context)
         else {
             continue;
         };
@@ -2602,7 +2612,9 @@ fn list_all_category_names(conn: &Connection) -> Result<Vec<(String, String)>, S
         .map_err(|error| error.to_string())?;
 
     let rows = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(|error| error.to_string())?;
 
     let mut names = Vec::new();
@@ -2657,6 +2669,89 @@ fn query_articles_for_category(
     articles.truncate(article_count);
 
     Ok((articles, has_more))
+}
+
+#[tauri::command]
+pub async fn list_categories_with_articles(
+    app: AppHandle,
+    offset: Option<usize>,
+    limit: Option<usize>,
+    article_count: Option<usize>,
+    created_at_from: Option<i64>,
+) -> Result<CategoriesWithArticlesPage, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    query_categories_with_articles(
+        &conn,
+        offset.unwrap_or(0),
+        limit.unwrap_or(50),
+        article_count.unwrap_or(10),
+        created_at_from,
+    )
+}
+
+/// Paginated category catalog for the categories wheel. Ordering (most recent
+/// article first) and the "has at least one article" filter are resolved in SQL
+/// so the offset stays stable across pages.
+fn query_categories_with_articles(
+    conn: &Connection,
+    offset: usize,
+    limit: usize,
+    article_count: usize,
+    created_at_from: Option<i64>,
+) -> Result<CategoriesWithArticlesPage, String> {
+    let mut sql = String::from(
+        "SELECT c.id, c.name
+         FROM web_categories c
+         INNER JOIN article_category ac ON ac.category_id = c.id
+         INNER JOIN web_articles a ON a.url = ac.article_url
+         WHERE c.deleted_at IS NULL",
+    );
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(from) = created_at_from {
+        sql.push_str(" AND a.created_at >= ?");
+        params.push(Box::new(from));
+    }
+
+    // Fetch one extra row so the caller can tell whether another page exists.
+    sql.push_str(" GROUP BY c.id, c.name ORDER BY MAX(a.created_at) DESC LIMIT ? OFFSET ?");
+    params.push(Box::new(limit.saturating_add(1)));
+    params.push(Box::new(offset));
+
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(|error| error.to_string())?;
+
+    let mut targets: Vec<(String, String)> = Vec::new();
+    for row in rows {
+        targets.push(row.map_err(|error| error.to_string())?);
+    }
+
+    let has_more = targets.len() > limit;
+    targets.truncate(limit);
+
+    let mut categories = Vec::with_capacity(targets.len());
+    for (category_id, category_name) in targets {
+        let (articles, _) =
+            query_articles_for_category(conn, &category_id, 0, article_count, created_at_from)?;
+        categories.push(CategoryWithArticles {
+            category_id,
+            category_name,
+            articles,
+            has_more: false,
+        });
+    }
+
+    Ok(CategoriesWithArticlesPage {
+        categories,
+        has_more,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3022,14 +3117,12 @@ mod tests {
         );
         assert!(!last[0].has_more, "no page after the tail");
 
-        let first_urls: Vec<Option<String>> = first[0].articles.iter().map(|a| a.url.clone()).collect();
+        let first_urls: Vec<Option<String>> =
+            first[0].articles.iter().map(|a| a.url.clone()).collect();
         let second_urls: Vec<Option<String>> =
             second[0].articles.iter().map(|a| a.url.clone()).collect();
         for url in &first_urls {
-            assert!(
-                !second_urls.contains(url),
-                "paged results must not overlap"
-            );
+            assert!(!second_urls.contains(url), "paged results must not overlap");
         }
     }
 
@@ -3066,6 +3159,68 @@ mod tests {
             !category.has_more,
             "a page shorter than the limit has no next page"
         );
+    }
+
+    #[test]
+    fn query_categories_with_articles_orders_by_recent_and_paginates() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-old", "Old");
+        insert_category(&conn, "cat-new", "New");
+        insert_category(&conn, "cat-empty", "Empty");
+
+        insert_article(&conn, "old-1", "channel", 1_000_000_000_000, None);
+        link_article_to_category(&conn, "old-1", "cat-old");
+        insert_article(&conn, "new-1", "channel", 2_000_000_000_000, None);
+        link_article_to_category(&conn, "new-1", "cat-new");
+
+        let first = query_categories_with_articles(&conn, 0, 1, 10, None).expect("query");
+        assert!(
+            first.has_more,
+            "two non-empty categories remain after a page of one"
+        );
+        assert_eq!(first.categories.len(), 1);
+        assert_eq!(
+            first.categories[0].category_id, "cat-new",
+            "most recent article first"
+        );
+
+        let second = query_categories_with_articles(&conn, 1, 1, 10, None).expect("query");
+        assert!(!second.has_more, "no page after the second category");
+        assert_eq!(second.categories[0].category_id, "cat-old");
+
+        // Empty categories never appear, and both pages together cover the set.
+        let all = query_categories_with_articles(&conn, 0, 10, 10, None).expect("query");
+        let ids: Vec<&str> = all
+            .categories
+            .iter()
+            .map(|c| c.category_id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["cat-new", "cat-old"]);
+        assert!(!all.has_more);
+    }
+
+    #[test]
+    fn query_categories_with_articles_respects_created_at_cutoff() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_article(&conn, "old-1", "channel", 1_000_000_000_000, None);
+        insert_article(&conn, "new-1", "channel", 2_000_000_000_000, None);
+        link_article_to_category(&conn, "old-1", "cat-a");
+        link_article_to_category(&conn, "new-1", "cat-a");
+
+        let page = query_categories_with_articles(&conn, 0, 10, 10, Some(1_500_000_000_000))
+            .expect("query");
+        assert_eq!(
+            page.categories.len(),
+            1,
+            "category survives via its newer article"
+        );
+        let urls: Vec<&str> = page.categories[0]
+            .articles
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(urls, vec!["new-1"], "cutoff filters older articles");
     }
 
     #[test]
@@ -3171,8 +3326,7 @@ mod tests {
     fn find_first_match_snippet_returns_first_line_only() {
         let content = "nothing here\nsecond line has TARGET\nthird TARGET";
 
-        let (_, match_text, _) =
-            find_first_match_snippet(content, "target", 4).expect("match");
+        let (_, match_text, _) = find_first_match_snippet(content, "target", 4).expect("match");
 
         assert_eq!(match_text, "TARGET");
     }
