@@ -21,8 +21,8 @@ export interface TabPageConfig {
  * a card.
  */
 export const TAB_PAGE_CONFIG = {
-	profiles: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
-	domains: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
+	profiles: { pageSize: 10, articlesPerCard: 6 },
+	domains: { pageSize: 10, articlesPerCard: 6 },
 	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
 	articles: { pageSize: 10 }
 } satisfies Record<string, TabPageConfig>;
