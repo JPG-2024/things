@@ -454,7 +454,6 @@
 	}
 
 	.dashboard-content {
-
 		overflow-y: auto;
 		padding-top: 7rem;
 	}
