@@ -1190,35 +1190,33 @@ export async function getCategoriesWithArticlesPage(options?: {
 	articleCount?: number;
 	createdAtFrom?: number | null;
 }): Promise<CategoriesWithArticlesPage> {
-	try {
-		const result = await invoke<{
-			categories: Array<{
-				categoryId: string;
-				categoryName: string;
-				articles: WebStoreArticleRecord[];
-				hasMore: boolean;
-			}>;
+	// Propagates errors: callers must distinguish "no more pages" from a
+	// failed fetch, otherwise loadMoreCategories would flip hasMore to false
+	// on a transient failure and silently truncate pagination.
+	const result = await invoke<{
+		categories: Array<{
+			categoryId: string;
+			categoryName: string;
+			articles: WebStoreArticleRecord[];
 			hasMore: boolean;
-		}>('list_categories_with_articles', {
-			offset: options?.offset ?? null,
-			limit: options?.limit ?? null,
-			articleCount: options?.articleCount ?? null,
-			createdAtFrom: options?.createdAtFrom ?? null
+		}>;
+		hasMore: boolean;
+	}>('list_categories_with_articles', {
+		offset: options?.offset ?? null,
+		limit: options?.limit ?? null,
+		articleCount: options?.articleCount ?? null,
+		createdAtFrom: options?.createdAtFrom ?? null
+	});
+
+	const categories: CategoryWithArticles[] = [];
+	for (const page of result.categories) {
+		const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
+		categories.push({
+			categoryId: page.categoryId,
+			categoryName: page.categoryName,
+			articles: resolvedArticles
 		});
-
-		const categories: CategoryWithArticles[] = [];
-		for (const page of result.categories) {
-			const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
-			categories.push({
-				categoryId: page.categoryId,
-				categoryName: page.categoryName,
-				articles: resolvedArticles
-			});
-		}
-
-		return { categories, hasMore: result.hasMore };
-	} catch (error) {
-		console.error('Error fetching categories with articles:', error);
-		return { categories: [], hasMore: false };
 	}
+
+	return { categories, hasMore: result.hasMore };
 }

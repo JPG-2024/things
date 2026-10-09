@@ -365,6 +365,12 @@ class ArticleCacheStore {
 			this.categoryPagesCreatedAtFrom = createdAtFrom;
 			this.categoryPagesSignature = signature;
 			this.categoryPagesStale = false;
+		} catch (error) {
+			// Keep last-known-good data and do not touch categoryPagesSignature /
+			// categoryPagesStale: stamping either would make the guard at the top
+			// of this method short-circuit retries and permanently show stale or
+			// empty categories. The next call retries the fetch instead.
+			console.error('Failed to fetch categories with articles:', error);
 		} finally {
 			if (fetchId === this.categoryPagesFetchId) {
 				this.categoryPagesLoading = false;
@@ -396,6 +402,11 @@ class ArticleCacheStore {
 			}
 			this.categoryOffset += page.categories.length;
 			this.categoryHasMore = page.hasMore;
+		} catch (error) {
+			// Keep categoryOffset / categoryHasMore untouched so a retry picks up
+			// at the same offset instead of treating the failure as the end of
+			// pagination.
+			console.error('Failed to load more categories:', error);
 		} finally {
 			if (fetchId === this.categoryPagesFetchId) {
 				this.categoryPagesLoading = false;

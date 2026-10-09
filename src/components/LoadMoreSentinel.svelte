@@ -12,6 +12,18 @@
 	let sentinel: HTMLDivElement | undefined = $state();
 	let observer: IntersectionObserver | undefined;
 
+	async function requestLoadMore() {
+		if (disabled) return;
+		try {
+			await onLoadMore();
+		} catch (error) {
+			// Rejections inside the observer callback would otherwise be
+			// unhandled. State mutated by the callee decides whether the sentinel
+			// retries via its own re-observe cycle.
+			console.error('Load more failed:', error);
+		}
+	}
+
 	onMount(() => {
 		if (!sentinel) return;
 
@@ -19,7 +31,7 @@
 			(entries) => {
 				const entry = entries[0];
 				if (entry?.isIntersecting && !disabled) {
-					onLoadMore();
+					void requestLoadMore();
 				}
 			},
 			{ rootMargin }
