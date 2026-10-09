@@ -10,13 +10,15 @@
 		/** Renders each item's card inside the row cell. */
 		row: Snippet<[T]>;
 		key: (item: T) => string | number;
-		/** Optional per-item header block (e.g. category name, favicon). */
-		header?: Snippet<[T]>;
-		/** 'top' pins the header above the card; 'column' renders it as its own wheel cell. */
-		headerPlacement?: 'top' | 'column';
 		columns?: boolean;
 		/** Column width in columns mode (e.g. '17rem'). */
 		columnWidth?: string;
+		/** Items stacked vertically inside a single wheel column. */
+		rowsPerColumn?: number;
+		/** Vertical gap between stacked rows. */
+		rowGap?: number;
+		/** Wheel track height (any CSS length). */
+		height?: string;
 		sentinel?: Snippet;
 	}
 
@@ -25,10 +27,11 @@
 		itemTransition,
 		row,
 		key,
-		header = undefined,
-		headerPlacement = 'top',
 		columns = false,
 		columnWidth = PROFILE_COLUMN_WIDTH,
+		rowsPerColumn = 1,
+		rowGap = 24,
+		height = 'auto',
 		sentinel = undefined
 	}: Props = $props();
 
@@ -48,19 +51,16 @@
 {#if columns}
 	<div class="profile-list columns">
 		<WheelStage
-			fadeEdges
 			gap={60}
+			{rowGap}
+			rows={rowsPerColumn}
+			{height}
 			scrollSpeed={12}
 			keyboard
 			label="Column cards"
 			edgeSpace="25vw"
 		>
 			{#each renderedItems as item (key(item))}
-				{#if header && headerPlacement === 'column'}
-					<div class="header-column" in:itemTransition out:itemTransition>
-						{@render header(item)}
-					</div>
-				{/if}
 				<div
 					class="profile-row"
 					class:column={columns}
@@ -68,9 +68,6 @@
 					in:itemTransition
 					out:itemTransition
 				>
-					{#if header && headerPlacement === 'top'}
-						<div class="header-row">{@render header(item)}</div>
-					{/if}
 					{@render row(item)}
 				</div>
 			{/each}
@@ -107,37 +104,14 @@
 	}
 
 	/* Columns mode: cards flow horizontally, cardinal scroll handled by WheelStage */
-	.profile-list.columns {
-		height: min(70vh, 44rem);
-	}
-
-	.profile-list.columns :global(.wheel-stage) {
-		height: 100%;
-	}
-
-	.profile-list.columns :global(.stage-track) {
-		height: 100%;
-	}
-
 	.profile-row.column {
 		max-width: none;
-		flex-shrink: 0;
-	}
-
-	.header-row {
-		box-sizing: border-box;
-		padding: 4px 10px 6px;
-	}
-
-	.header-column {
-		flex-shrink: 0;
-		align-self: stretch;
-		display: flex;
-		align-items: center;
 	}
 
 	.sentinel-cell {
-		flex: 0 0 auto;
+		/* Span every row so the sentinel starts its own column instead of
+		   filling a partial column left over from an uneven item count. */
+		grid-row: 1 / -1;
 		align-self: center;
 		width: 8rem;
 	}

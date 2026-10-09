@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ProfileList from '@/components/ProfileList.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
-	import CategoryItem from '@/components/CategoryItem.svelte';
-	import { CATEGORY_ARTICLE_COLUMN_WIDTH } from '@/constants';
+	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import { CATEGORY_ARTICLE_COLUMN_WIDTH, TAB_PAGE_CONFIG } from '@/constants';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
@@ -39,15 +39,9 @@
 		goto(`/category/${category.categoryId}?name=${encodeURIComponent(category.categoryName)}`);
 	}
 
-	const visibleCategories = $derived(
-		[...articleCacheStore.categoriesWithArticles]
-			.sort((a, b) => {
-				const dateA = (a.articles[0]?.createdAt as number) ?? 0;
-				const dateB = (b.articles[0]?.createdAt as number) ?? 0;
-				return dateB - dateA;
-			})
-			.filter((category) => category.articles.length > 0)
-	);
+	// Ordering (most recent article first) and the "has articles" filter are
+	// applied server-side so catalog paging stays consistent.
+	const visibleCategories = $derived(articleCacheStore.categoriesWithArticles);
 </script>
 
 <ProfileList
@@ -55,39 +49,39 @@
 	itemTransition={categoryItemTransition}
 	columns
 	columnWidth={CATEGORY_ARTICLE_COLUMN_WIDTH}
+	rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
+	rowGap={1}
 	key={(category) => category.categoryId}
 >
-	{#snippet header(category)}
-		<button type="button" class="category-header" onclick={() => handleCategoryClick(category)}>
-			<CategoryItem value={category.categoryName} />
-		</button>
-	{/snippet}
 	{#snippet row(category)}
 		<CategoryCard
 			{category}
+			onCategoryClick={handleCategoryClick}
 			onArticleClick={handleArticleClick}
 			onArticleHoverEnter={handleArticleHoverEnter}
 			onArticleHoverLeave={handleArticleHoverLeave}
 		/>
 	{/snippet}
+	{#snippet sentinel()}
+		{#if articleCacheStore.hasMoreCategories && visibleCategories.length > 0}
+			<LoadMoreSentinel
+				onLoadMore={() => articleCacheStore.loadMoreCategories()}
+				disabled={articleCacheStore.loadingCategories}
+			/>
+		{/if}
+	{/snippet}
 </ProfileList>
-{#if articleCacheStore.loadingCategories}
-	<div class="empty-profiles-container"></div>
-{:else if visibleCategories.length === 0}
-	<div class="empty-profiles-container">
-		<div class="empty-profiles-pill">No categories</div>
-	</div>
+{#if visibleCategories.length === 0}
+	{#if articleCacheStore.loadingCategories}
+		<div class="empty-profiles-container"></div>
+	{:else}
+		<div class="empty-profiles-container">
+			<div class="empty-profiles-pill">No categories</div>
+		</div>
+	{/if}
 {/if}
 
 <style>
-	.category-header {
-		all: unset;
-		cursor: pointer;
-		display: block;
-		width: 100%;
-		box-sizing: border-box;
-	}
-
 	.empty-profiles-container {
 		display: flex;
 		align-items: center;

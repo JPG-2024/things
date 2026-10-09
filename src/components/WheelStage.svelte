@@ -3,7 +3,13 @@
 
 	interface Props {
 		width?: string;
+		/** Track height (any CSS length). */
+		height?: string;
 		gap?: number;
+		/** Vertical gap between rows in the same column. Defaults to `gap`. */
+		rowGap?: number;
+		/** Items stacked vertically inside a single column. */
+		rows?: number;
 		fadeEdges?: boolean;
 		scrollSpeed?: number;
 		keyboard?: boolean;
@@ -15,7 +21,10 @@
 
 	let {
 		width = '100%',
+		height = 'auto',
 		gap = 12,
+		rowGap = gap,
+		rows = 1,
 		fadeEdges = true,
 		scrollSpeed = 1,
 		keyboard = false,
@@ -62,7 +71,7 @@
 <div
 	class="wheel-stage"
 	class:fade-edges={fadeEdges}
-	style="width: {width}; --stage-gap: {gap}px; --stage-edge-space: {edgeSpace};"
+	style="width: {width}; height: {height}; --stage-gap: {gap}px; --stage-row-gap: {rowGap}px; --stage-rows: {rows}; --stage-edge-space: {edgeSpace};"
 	onwheel={handleWheel}
 	role={keyboard ? 'region' : undefined}
 	aria-label={keyboard ? label : undefined}
@@ -108,11 +117,15 @@
 	}
 
 	.stage-track {
-		display: flex;
+		display: grid;
+		grid-auto-flow: column;
+		grid-template-rows: repeat(var(--stage-rows, 1), auto);
+		grid-auto-columns: max-content;
 		align-items: center;
 		width: max-content;
 		min-width: 100%;
-		gap: var(--stage-gap);
+		column-gap: var(--stage-gap);
+		row-gap: var(--stage-row-gap, var(--stage-gap));
 		padding-inline: var(--stage-edge-space);
 		box-sizing: border-box;
 	}
