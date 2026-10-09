@@ -480,12 +480,22 @@ class ArticleCacheStore {
 		// Collect pruned entries first, then mutate in place — SvelteMap must
 		// not be replaced (its reactivity is per-instance) nor mutated while
 		// being iterated.
+		// Mirror the server-side catalog filter: a category whose last loaded
+		// article was removed drops out of the wheel instead of rendering an
+		// empty "No articles" card until the next refetch.
 		const pruned: Array<[string, CategoryPageEntry]> = [];
+		const emptied: string[] = [];
 		for (const [categoryId, entry] of this.categoryPages) {
 			const articles = entry.articles.filter((article) => !hasUrl(article));
-			if (articles.length !== entry.articles.length) {
-				pruned.push([categoryId, { ...entry, articles }]);
+			if (articles.length === entry.articles.length) continue;
+			if (articles.length === 0) {
+				emptied.push(categoryId);
+				continue;
 			}
+			pruned.push([categoryId, { ...entry, articles }]);
+		}
+		for (const categoryId of emptied) {
+			this.categoryPages.delete(categoryId);
 		}
 		for (const [categoryId, entry] of pruned) {
 			this.categoryPages.set(categoryId, entry);
