@@ -166,7 +166,7 @@
 	}
 
 	.markdown-container :global(strong) {
-		color: var(--primary-color);
+		color: var(--bg-color);
 		font-weight: bold;
 	}
 
