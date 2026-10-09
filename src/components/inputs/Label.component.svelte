@@ -55,11 +55,14 @@
 	}
 
 	.label-text {
-		color: rgba(207, 205, 205, 0.602);
+		font-family: 'BetterVCR', monospace;
+		font-size: 0.7rem;
+		color: var(--gray-200);
 	}
 
 	.label-value {
-		font-weight: bold;
-		color: var(--primary-color, #000);
+		font-family: 'BetterVCR', monospace;
+		font-size: 0.7rem;
+		color: var(--primary-color);
 	}
 </style>

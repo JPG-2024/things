@@ -68,10 +68,12 @@ export function objectWithEnumAndStringGbnf(
 
 /**
  * GBNF for the analysisTopic processor response:
- * `{ "topics": [ { "label": string, "summary": string } ], "keywords": [ string ] }`
- * Both arrays are forced to their exact count (same fixed-count style as
- * `multiFieldObjectGbnf`'s string arrays), so short chunks still yield full
- * outputs; duplicates are later merged via embedding clustering.
+ * `{ "title": string, "summary": string, "topics": [ { "label": string, "summary": string } ], "keywords": [ string ] }`
+ * `title` and `summary` describe the whole window (one heading + one
+ * paragraph, i.e. one summary block per window), while both arrays are forced
+ * to their exact count (same fixed-count style as `multiFieldObjectGbnf`'s
+ * string arrays), so short chunks still yield full outputs; duplicates are
+ * later merged via embedding clustering.
  */
 export function analysisTopicGbnf(
 	topicCount: number,
@@ -91,7 +93,7 @@ export function analysisTopicGbnf(
 		i === 0 ? 'ws string' : 'ws "," ws string'
 	).join(' ');
 
-	const rootRule = `${ruleName} ::= "{" ws "\\"topics\\"" ws ":" ws "["${topicsItems} ws "]" ws "," ws "\\"keywords\\"" ws ":" ws "["${keywordsItems} ws "]" ws "}"`;
+	const rootRule = `${ruleName} ::= "{" ws "\\"title\\"" ws ":" ws string ws "," ws "\\"summary\\"" ws ":" ws string ws "," ws "\\"topics\\"" ws ":" ws "["${topicsItems} ws "]" ws "," ws "\\"keywords\\"" ws ":" ws "["${keywordsItems} ws "]" ws "}"`;
 	const topicRule = `topic ::= "{" ws "\\"label\\"" ws ":" ws string ws "," ws "\\"summary\\"" ws ":" ws string ws "}"`;
 
 	return [rootRule, topicRule, stringRule, wsRule].join('\n');

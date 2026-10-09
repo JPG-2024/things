@@ -17,6 +17,17 @@ export type MultiFinal = { summary: string; keywords: string[]; topics: string[]
 export type TopicSection = { topic: string; summary: string };
 
 export type AnalysisTopicChunkData = {
+	/**
+	 * Heading for the window's summary block, offered by the LLM. Optional:
+	 * chunks persisted before the field existed don't carry it, and the
+	 * OpenRouter path tolerates models that omit it (empty renders no heading).
+	 */
+	title?: string;
+	/**
+	 * One-paragraph summary of the whole window. Optional like `title`; the
+	 * final summary falls back to the window's stitched topic summaries.
+	 */
+	summary?: string;
 	topics: string[];
 	keywords: string[];
 	sections: TopicSection[];

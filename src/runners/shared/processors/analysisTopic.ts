@@ -9,6 +9,12 @@ import {
 } from '@/lib/utils/inference/prompts';
 import { viewState } from '@/stores/viewStore.svelte';
 import { LANG_NAMES } from '@/constants';
+import {
+	buildWindowBlocks,
+	parseAnalysisTopicResponse,
+	mergeSummaries,
+	uniqueStrings
+} from './analysisParse';
 import type {
 	AnalysisTopicChunkData,
 	AnalysisTopicFinal,
@@ -25,80 +31,6 @@ export const MAX_TOPIC_COUNT = 10;
 export const MIN_TOPIC_WORD_COUNT = 1;
 export const MAX_TOPIC_WORD_COUNT = 10;
 const TOPIC_SIMILARITY_THRESHOLD = 0.85;
-
-/**
- * Tolerant parse of the LLM response for the OpenRouter path, where the GBNF
- * grammar is stripped and the reply may be wrapped in a code fence or prose.
- * Transport errors are never caught here; only unusable output falls back to
- * the empty shape (no retries, matching `parseMultiFieldResponse`).
- */
-function parseAnalysisTopicResponse(text: string): AnalysisTopicChunkData {
-	const empty: AnalysisTopicChunkData = { topics: [], keywords: [], sections: [] };
-
-	let raw = text.trim();
-	if (!raw) return empty;
-
-	try {
-		const parsed = JSON.parse(raw) as unknown;
-		const result = toChunkData(parsed);
-		if (result) return result;
-	} catch {
-		// fall through to fence/prose salvage
-	}
-
-	const start = raw.indexOf('{');
-	const end = raw.lastIndexOf('}');
-	if (start === -1 || end <= start) return empty;
-	raw = raw.slice(start, end + 1);
-
-	try {
-		const parsed = JSON.parse(raw) as unknown;
-		const result = toChunkData(parsed);
-		if (result) return result;
-	} catch {
-		console.warn('[analysisTopic] Failed to parse LLM response as JSON');
-	}
-	return empty;
-}
-
-function toChunkData(parsed: unknown): AnalysisTopicChunkData | null {
-	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
-	const record = parsed as Record<string, unknown>;
-
-	const topics: { topic: string; summary: string }[] = [];
-	if (Array.isArray(record.topics)) {
-		for (const entry of record.topics) {
-			if (typeof entry !== 'object' || entry === null) continue;
-			const { label, summary } = entry as Record<string, unknown>;
-			if (typeof label !== 'string' || typeof summary !== 'string') continue;
-			topics.push({ topic: label, summary });
-		}
-	}
-
-	const uniqueKeywords = Array.isArray(record.keywords)
-		? uniqueStrings(record.keywords.filter((k): k is string => typeof k === 'string'))
-		: [];
-
-	return {
-		topics: topics.map((t: { topic: string }) => t.topic),
-		keywords: uniqueKeywords,
-		sections: topics
-	};
-}
-
-function uniqueStrings(values: string[], key?: (value: string) => string): string[] {
-	const seen = new Set<string>();
-	const result: string[] = [];
-	for (const raw of values) {
-		const value = raw.trim();
-		if (!value) continue;
-		const lookup = key ? key(value) : value.toLowerCase();
-		if (seen.has(lookup)) continue;
-		seen.add(lookup);
-		result.push(value);
-	}
-	return result;
-}
 
 function cosineSimilarity(a: number[], b: number[]): number {
 	let dot = 0;
@@ -197,25 +129,6 @@ function normalizeTopicLabel(raw: string, maxWords: number): string {
 	return label ? `${label}.` : '';
 }
 
-function mergeSummaries(summaries: string[]): string {
-	const unique = uniqueStrings(summaries, (value) => value);
-	return unique
-		.filter((summary) => !unique.some((other) => other !== summary && other.includes(summary)))
-		.join('\n\n');
-}
-
-function buildBlog(clusters: TopicCluster[]): { markdown: string; sections: TopicSection[] } {
-	const sections: TopicSection[] = clusters.map((cluster) => ({
-		topic: cluster.label,
-		summary: mergeSummaries(cluster.summaries)
-	}));
-	const markdown = sections
-		.filter((section) => section.summary)
-		.map((section) => `## ${section.topic}\n\n${section.summary}`)
-		.join('\n\n');
-	return { markdown, sections };
-}
-
 async function extractTopicsAndKeywords(
 	chunk: string,
 	config: ChunkProcessorConfig,
@@ -258,7 +171,12 @@ export const analysisTopicProcessor: ProcessorDef = {
 		userMessage: 'Extract the main topics, summarize each one and extract keywords.'
 	},
 	build: (config) => {
-		const topicCount = config.topicCount ?? DEFAULT_TOPIC_COUNT;
+		// The depth table can express any per-window topic count; clamp it so
+		// both the prompt and the fixed-count grammar stay inside the cap.
+		const topicCount = Math.min(
+			MAX_TOPIC_COUNT,
+			Math.max(MIN_TOPIC_COUNT, config.topicCount ?? DEFAULT_TOPIC_COUNT)
+		);
 		const keywordCount = config.keywordCount ?? DEFAULT_KEYWORD_COUNT;
 		const topicWordCount = config.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT;
 
@@ -303,9 +221,17 @@ export const analysisTopicProcessor: ProcessorDef = {
 					clusters = clusterByLabel(sections);
 				}
 
-				const { markdown, sections: mergedSections } = buildBlog(clusters);
+				const mergedSections: TopicSection[] = clusters.map((cluster) => ({
+					topic: cluster.label,
+					summary: mergeSummaries(cluster.summaries)
+				}));
+
 				return {
-					summary: markdown,
+					// One block per window (`## title` + paragraph); each window
+					// deterministically falls back on its own to stitched topic
+					// summaries when title/summary are missing. Topics and keywords
+					// keep the pooled, dedupe-merged shape.
+					summary: buildWindowBlocks(results),
 					keywords,
 					topics: mergedSections.map((section) => section.topic),
 					sections: mergedSections

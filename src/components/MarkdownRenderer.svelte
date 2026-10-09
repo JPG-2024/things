@@ -13,7 +13,7 @@
 
 	// Initialize markdown-it
 	const md = new MarkdownIt({
-		html: true,
+		html: false,
 		linkify: true,
 		typographer: true,
 		breaks: true
@@ -111,6 +111,7 @@
 	}
 
 	.markdown-container :global(p) {
+		color: var(--gray-200);
 		margin: 0.8rem;
 		line-height: 1.9;
 	}

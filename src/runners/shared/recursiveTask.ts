@@ -161,9 +161,9 @@ import {
 	MAX_WINDOW_DIVISOR,
 	TARGET_CHUNK_SIZE,
 	WINDOW_DIVISOR_LADDER,
-	WINDOW_OVERLAP_RATIO,
-	analysisDepthLevel
+	WINDOW_OVERLAP_RATIO
 } from './constants';
+import { analysisDepthLevel } from './analysisConstants';
 
 function nextWindowDivisor(divisor: number): number {
 	return WINDOW_DIVISOR_LADDER.find((l) => l > divisor) ?? MAX_WINDOW_DIVISOR;
@@ -254,7 +254,9 @@ export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions)
 				...rawOptions,
 				windowDivisor: depthLevel.divisor,
 				windowDivisorLocked: true,
-				topicCount: depthLevel.topicCount
+				topicCount: depthLevel.topicCount,
+				// Depth rows omit keywordCount to keep the processor default.
+				keywordCount: depthLevel.keywordCount ?? rawOptions.keywordCount
 			}
 		: rawOptions;
 	const model = resolveModel(options);

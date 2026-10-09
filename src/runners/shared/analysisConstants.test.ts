@@ -6,11 +6,15 @@ import {
 	MAX_ANALYSIS_DEPTH,
 	MIN_ANALYSIS_DEPTH,
 	nearestAnalysisDepth
-} from './constants';
+} from './analysisConstants';
 
 describe('analysis depth levels', () => {
-	test('depth 1 is the basic single-window pass', () => {
-		expect(analysisDepthLevel(1)).toEqual({ depth: 1, divisor: 1, topicCount: 1 });
+	test('depth 1 is the basic overview: one block, four topics', () => {
+		expect(analysisDepthLevel(1)).toEqual({ depth: 1, divisor: 1, topicCount: 4 });
+	});
+
+	test('depth 2 splits the content into two blocks', () => {
+		expect(analysisDepthLevel(2)).toEqual({ depth: 2, divisor: 2, topicCount: 4 });
 	});
 
 	test('every rung has a unique depth and non-decreasing effort', () => {
@@ -21,7 +25,7 @@ describe('analysis depth levels', () => {
 			expect(level.divisor).toBeGreaterThanOrEqual(1);
 			expect(level.topicCount).toBeGreaterThanOrEqual(1);
 			if (i > 0) {
-				expect(level.divisor).toBeGreaterThanOrEqual(ANALYSIS_DEPTH_LEVELS[i - 1].divisor);
+				expect(level.divisor).toBeGreaterThan(ANALYSIS_DEPTH_LEVELS[i - 1].divisor);
 				expect(level.topicCount).toBeGreaterThanOrEqual(ANALYSIS_DEPTH_LEVELS[i - 1].topicCount);
 			}
 		}
@@ -54,6 +58,6 @@ describe('nearestAnalysisDepth', () => {
 	});
 
 	test('snaps by combined distance when nothing matches', () => {
-		expect(nearestAnalysisDepth(3, 3)).toBe(3);
+		expect(nearestAnalysisDepth(3, 3)).toBe(2);
 	});
 });
