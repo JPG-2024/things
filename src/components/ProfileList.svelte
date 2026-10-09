@@ -50,7 +50,7 @@
 		<WheelStage
 			fadeEdges
 			gap={60}
-			scrollSpeed={7}
+			scrollSpeed={12}
 			keyboard
 			label="Column cards"
 			edgeSpace="25vw"
