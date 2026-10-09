@@ -2,14 +2,17 @@ import { describe, expect, test } from 'bun:test';
 import { analysisTopicGbnf } from './gbnf';
 
 describe('analysisTopicGbnf', () => {
-	test('forces exact topic and keyword counts in the root object', () => {
+	test('forces title, summary and exact topic/keyword counts in the root object', () => {
 		const grammar = analysisTopicGbnf(2, 4);
 		const rootRule = grammar.split('\n')[0];
 
-		expect(rootRule).toContain('root ::= "{" ws "\\"topics\\"" ws ":" ws "["');
+		expect(rootRule).toContain(
+			'root ::= "{" ws "\\"title\\"" ws ":" ws string ws "," ws "\\"summary\\"" ws ":" ws string ws "," ws "\\"topics\\"" ws ":" ws "["'
+		);
 		expect(rootRule).toContain('"\\"keywords\\"" ws ":" ws "["');
 		expect(rootRule.match(/ws topic/g)?.length).toBe(2);
-		expect(rootRule.match(/ws string/g)?.length).toBe(4);
+		// title + summary + keywordCount keywords.
+		expect(rootRule.match(/ws string/g)?.length).toBe(6);
 	});
 
 	test('topic objects require label and summary strings', () => {
@@ -25,6 +28,6 @@ describe('analysisTopicGbnf', () => {
 		const rootRule = grammar.split('\n')[0];
 
 		expect(rootRule.match(/ws topic/g)?.length).toBe(1);
-		expect(rootRule.match(/ws string/g)?.length).toBe(1);
+		expect(rootRule.match(/ws string/g)?.length).toBe(3);
 	});
 });

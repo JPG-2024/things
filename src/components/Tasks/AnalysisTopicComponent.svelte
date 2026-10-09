@@ -23,7 +23,7 @@
 		MAX_ANALYSIS_DEPTH,
 		MIN_ANALYSIS_DEPTH,
 		nearestAnalysisDepth
-	} from '@/runners/shared/constants';
+	} from '@/runners/shared/analysisConstants';
 	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
 
 	type Props = {
@@ -105,14 +105,15 @@
 
 	/**
 	 * Depth is authoritative once persisted. Tasks saved before the field
-	 * existed fall back to snapping their stored divisor/topic count to the
-	 * closest slider row (display only; the stored values keep running until
-	 * the slider is committed).
+	 * existed fall back to snapping their last-run divisor/topic count to the
+	 * closest slider row: the runtime divisor reflects what actually ran,
+	 * while the stored config divisor can be a stale default (unlocked runs
+	 * start at 1 regardless of it).
 	 */
 	const activeDepth = $derived(
 		recursiveConfig?.analysisDepth ??
 			nearestAnalysisDepth(
-				recursiveConfig?.windowDivisor ?? runtimeDivisor,
+				runtimeDivisor ?? recursiveConfig?.windowDivisor,
 				recursiveConfig?.topicCount
 			)
 	);
@@ -124,7 +125,10 @@
 	function formatDepth(depth: number): string {
 		const level = analysisDepthLevel(depth);
 		if (!level) return String(depth);
-		const topics = `${level.topicCount} topic${level.topicCount === 1 ? '' : 's'}`;
+		// Topics are per window; the slider shows the per-level total
+		// (`divisor * topicCount`), which is what the merge will aim for.
+		const totalTopics = level.divisor * level.topicCount;
+		const topics = `${totalTopics} topic${totalTopics === 1 ? '' : 's'}`;
 		const runtime =
 			runtimeDivisor !== undefined && runtimeDivisor !== level.divisor
 				? ` · runtime ÷${runtimeDivisor}`
@@ -179,8 +183,7 @@
 			<div class="level-row">
 				<RangeSelector
 					id="analysis-depth"
-					label="analysis depth"
-					labelPosition="inline"
+					label="Analysis depth"
 					value={depthValue}
 					min={MIN_ANALYSIS_DEPTH}
 					max={MAX_ANALYSIS_DEPTH}
@@ -194,11 +197,19 @@
 		{/if}
 
 		{#if analysisData.chunks.length > 0}
-			<Spacer title="Chunks" defaultOpen={!chunksCollapsed}>
+			<Spacer title="Chunks" defaultOpen={!chunksCollapsed} icon="ListOrdered">
 				<div class="chunks-grid">
 					{#each reversedChunks as entry (entry.chunk.key.startOffset)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 							<div class="topic-sections">
+								{#if entry.chunk.data.summary}
+									<div class="window-summary">
+										{#if entry.chunk.data.title}
+											<h3 class="topic-title">{entry.chunk.data.title}</h3>
+										{/if}
+										<MarkdownRenderer content={entry.chunk.data.summary} />
+									</div>
+								{/if}
 								{#each entry.chunk.data.sections as section (section.topic)}
 									<div class="topic-section">
 										<div class="topic-heading">
@@ -276,20 +287,6 @@
 		padding: 1rem 0;
 	}
 
-	.level-row :global(.label-children) {
-		order: -1;
-	}
-
-	.level-row :global(.label-wrapper.inline) {
-		justify-content: flex-start;
-		gap: 0.5rem;
-	}
-
-	.level-row :global(.label-wrapper.inline label) {
-		justify-content: flex-start;
-		gap: 0.4rem;
-	}
-
 	.chunks-grid {
 		display: flex;
 		flex-direction: column;
@@ -318,6 +315,18 @@
 		justify-content: space-between;
 		gap: 1rem;
 		margin-bottom: 0.4rem;
+	}
+
+	.window-summary {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.window-summary .topic-title {
+		font-size: 0.85rem;
 	}
 
 	.topic-title {

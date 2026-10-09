@@ -306,6 +306,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
+		min-width: 50px;
 	}
 
 	.img-button {

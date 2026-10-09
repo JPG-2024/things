@@ -4,9 +4,7 @@
 	import { onMount } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import Icon from '@/components/Icon.svelte';
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
-	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
-	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import ArticleList from '@/components/ArticleList.svelte';
 	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import {
@@ -20,8 +18,6 @@
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { LayoutKey } from '@/stores/viewStore.svelte';
-	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
@@ -211,47 +207,17 @@
 		</div>
 
 		<div class="articles-container">
-			<MasonryGrid items={articleCacheStore.articlesWithoutProfile}>
+			<ArticleList
+				items={articleCacheStore.articlesWithoutProfile}
+				loading={articleCacheStore.loadingArticles}
+				hasMore={articleCacheStore.hasMoreArticles}
+				onLoadMore={() => articleCacheStore.loadMoreArticles()}
+				onArticleClick={handleNavigateToArticle}
+			>
 				{#snippet headerLeft()}
 					<InitialArticlesToggle />
 				{/snippet}
-				{#snippet children(
-					article: ArticleWithTasks,
-					_i: number,
-					_layoutIndex: number,
-					layoutKey: LayoutKey
-				)}
-					<ArticleItem
-						{article}
-						{layoutKey}
-						marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-						onClick={handleNavigateToArticle}
-						onHoverEnter={(a) => {
-							viewState.hoveredArticleUrl = a.url ?? null;
-							viewState.hoveredPictureSrc = a.thumbnailSrc ?? null;
-						}}
-						onHoverLeave={() => {
-							viewState.hoveredArticleUrl = null;
-						}}
-					/>
-				{/snippet}
-			</MasonryGrid>
-			{#if articleCacheStore.articlesWithoutProfile.length === 0 && !articleCacheStore.loadingArticles}
-				<div class="empty-state">
-					<div class="empty-state-pill">No articles</div>
-				</div>
-			{/if}
-			{#if articleCacheStore.loadingArticles && articleCacheStore.articlesWithoutProfile.length === 0}
-				<div class="loading-container">
-					<div class="loading-indicator"></div>
-				</div>
-			{/if}
-			{#if articleCacheStore.hasMoreArticles}
-				<LoadMoreSentinel
-					onLoadMore={() => articleCacheStore.loadMoreArticles()}
-					disabled={articleCacheStore.loadingArticles}
-				/>
-			{/if}
+			</ArticleList>
 		</div>
 	{:else}
 		<div class="empty-state">

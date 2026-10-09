@@ -1,7 +1,7 @@
 ---
 description: Generates Conventional-Commit messages and commits current changes
 mode: primary
-model: opencode-go/mimo-v2.5
+model: alibaba/qwen3.8-flash
 permissions:
   - action: '*'
     resource: '*'

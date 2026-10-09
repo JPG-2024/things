@@ -95,7 +95,7 @@
 		appearance: none;
 		height: 6px;
 		border-radius: var(--radius-sm);
-		background: rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.2);
 		outline: none;
 		cursor: pointer;
 	}
@@ -106,7 +106,7 @@
 		width: 14px;
 		height: 14px;
 		border-radius: 50%;
-		background: var(--primary-color, #7c6af7);
+		background: var(--primary-color);
 		cursor: pointer;
 		box-shadow: 0 0 6px rgba(124, 106, 247, 0.4);
 		transition: transform 150ms ease;
@@ -121,7 +121,7 @@
 		height: 18px;
 		border: none;
 		border-radius: 50%;
-		background: var(--primary-color, #7c6af7);
+		background: var(--primary-color);
 		cursor: pointer;
 		box-shadow: 0 0 6px rgba(124, 106, 247, 0.4);
 		transition: transform 150ms ease;

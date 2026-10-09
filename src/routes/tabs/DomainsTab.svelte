@@ -2,6 +2,7 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import { TAB_PAGE_CONFIG } from '@/constants';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
@@ -21,7 +22,13 @@
 	});
 </script>
 
-<ProfileList items={visibleDomains} itemTransition={domainItemTransition} columns key={(d) => d.id}>
+<ProfileList
+	items={visibleDomains}
+	itemTransition={domainItemTransition}
+	columns
+	rowsPerColumn={TAB_PAGE_CONFIG.domains.rowsPerColumn}
+	key={(d) => d.id}
+>
 	{#snippet row(domain)}
 		<ProfileWidget
 			profileWithArticles={domain}

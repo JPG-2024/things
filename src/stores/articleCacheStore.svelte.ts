@@ -1,20 +1,23 @@
 import {
 	getArticlesByCategories,
 	getArticlesWithoutProfile,
+	getCategoriesWithArticlesPage,
 	getProfiles,
 	type ArticleWithTasks,
 	type ArticleProfile,
-	type CategoryArticlesQuery,
 	type CategoryWithArticles
 } from '@/stores/webStore';
 import { PaginationResource } from '@/stores/paginationResource.svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import { CATEGORY_ARTICLE_PAGE_SIZE } from '@/constants';
+import { TAB_PAGE_CONFIG } from '@/constants';
 
-const PROFILES_PAGE_SIZE = 10;
-const ARTICLES_PAGE_SIZE = 10;
-const ARTICLES_PER_PROFILE = 5;
-const ARTICLE_COUNT_PER_CATEGORY = 10;
+const PROFILES_PAGE_SIZE = TAB_PAGE_CONFIG.profiles.pageSize;
+const DOMAINS_PAGE_SIZE = TAB_PAGE_CONFIG.domains.pageSize;
+const ARTICLES_PAGE_SIZE = TAB_PAGE_CONFIG.articles.pageSize;
+const ARTICLES_PER_PROFILE = TAB_PAGE_CONFIG.profiles.articlesPerCard ?? 5;
+const ARTICLES_PER_DOMAIN = TAB_PAGE_CONFIG.domains.articlesPerCard ?? 5;
+const ARTICLE_COUNT_PER_CATEGORY = TAB_PAGE_CONFIG.categories.articlesPerCard ?? 10;
+const CATEGORIES_PAGE_SIZE = TAB_PAGE_CONFIG.categories.pageSize;
 
 function sortedIds(ids?: string[]): string[] | null {
 	return ids ? [...ids].sort() : null;
@@ -40,10 +43,6 @@ type CategoryArticlesParams = {
 type CategoryPageEntry = {
 	categoryName: string;
 	articles: ArticleWithTasks[];
-	/** Next page offset (articles loaded so far, including deduped pages). */
-	offset: number;
-	hasMore: boolean;
-	loading: boolean;
 };
 
 class ArticleCacheStore {
@@ -65,7 +64,7 @@ class ArticleCacheStore {
 	);
 
 	private readonly domains = new PaginationResource<ArticleProfile, ProfilesParams>(
-		PROFILES_PAGE_SIZE,
+		DOMAINS_PAGE_SIZE,
 		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'domain' }),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
@@ -73,7 +72,7 @@ class ArticleCacheStore {
 				offset,
 				limit,
 				includeArticles: true,
-				articleCount: ARTICLES_PER_PROFILE,
+				articleCount: ARTICLES_PER_DOMAIN,
 				kind: 'domain'
 			});
 
@@ -126,15 +125,20 @@ class ArticleCacheStore {
 		}
 	);
 
-	// Per-category article paging (CategoriesTab wheel). Unlike the resources
-	// above, one batched invoke carries the offset of every category that needs
-	// a page, so several card sentinels can be served by a single round-trip.
+	// Category catalog paging (CategoriesTab wheel). The wheel paginates cards,
+	// not the articles inside a card: each page carries a bounded number of
+	// categories, each with a fixed number of embedded articles. Ordering and
+	// the "has articles" filter live server-side so pages never overlap.
+	// Reactive through SvelteMap internals: always mutate in place (set/clear),
+	// never reassign this field or readers of the old instance stop tracking.
 	private categoryPages = new SvelteMap<string, CategoryPageEntry>();
 	private categoryPagesLoading = $state(false);
 	private categoryPagesStale = true;
 	private categoryPagesSignature: string | null = null;
 	private categoryPagesCreatedAtFrom: number | undefined = undefined;
 	private categoryPagesFetchId = 0;
+	private categoryOffset = 0;
+	private categoryHasMore = $state(true);
 
 	get profilesWithArticles(): ArticleProfile[] {
 		return this.profiles.items;
@@ -204,16 +208,8 @@ class ArticleCacheStore {
 		return this.categoryPagesLoading;
 	}
 
-	categoryArticlesFor(categoryId: string): ArticleWithTasks[] {
-		return this.categoryPages.get(categoryId)?.articles ?? [];
-	}
-
-	hasMoreCategoryArticlesFor(categoryId: string): boolean {
-		return this.categoryPages.get(categoryId)?.hasMore ?? false;
-	}
-
-	loadingCategoryArticlesFor(categoryId: string): boolean {
-		return this.categoryPages.get(categoryId)?.loading ?? false;
+	get hasMoreCategories(): boolean {
+		return this.categoryHasMore;
 	}
 
 	get categoryArticles(): ArticleWithTasks[] {
@@ -319,42 +315,62 @@ class ArticleCacheStore {
 			return;
 		}
 
-		// A null categoryId resolves every non-deleted category server-side.
-		const queries: CategoryArticlesQuery[] =
-			categoryIds.length > 0
-				? categoryIds.map((categoryId) => ({
-						categoryId,
-						offset: 0,
-						articleCount: ARTICLE_COUNT_PER_CATEGORY
-					}))
-				: [{ categoryId: null, offset: 0, articleCount: ARTICLE_COUNT_PER_CATEGORY }];
-
 		const fetchId = ++this.categoryPagesFetchId;
 		this.categoryPagesLoading = true;
 		try {
-			const pages = await getArticlesByCategories({
-				queries,
-				createdAtFrom: createdAtFrom ?? null
-			});
-			if (fetchId !== this.categoryPagesFetchId) {
-				return;
-			}
-
-			const next = new SvelteMap<string, CategoryPageEntry>();
-			for (const page of pages) {
-				next.set(page.categoryId, {
-					categoryName: page.categoryName,
-					articles: page.articles,
-					offset: page.articles.length,
-					hasMore: page.hasMore,
-					loading: false
+			if (categoryIds.length > 0) {
+				// Explicit category ids: one page per id, no catalog paging.
+				const pages = await getArticlesByCategories({
+					queries: categoryIds.map((categoryId) => ({
+						categoryId,
+						offset: 0,
+						articleCount: ARTICLE_COUNT_PER_CATEGORY
+					})),
+					createdAtFrom: createdAtFrom ?? null
 				});
+				if (fetchId !== this.categoryPagesFetchId) return;
+
+				this.categoryPages.clear();
+				for (const page of pages) {
+					this.categoryPages.set(page.categoryId, {
+						categoryName: page.categoryName,
+						articles: page.articles
+					});
+				}
+				this.categoryOffset = this.categoryPages.size;
+				this.categoryHasMore = false;
+			} else {
+				const page = await getCategoriesWithArticlesPage({
+					offset: 0,
+					limit: CATEGORIES_PAGE_SIZE,
+					articleCount: ARTICLE_COUNT_PER_CATEGORY,
+					createdAtFrom: createdAtFrom ?? null
+				});
+				if (fetchId !== this.categoryPagesFetchId) return;
+
+				// Mutate the map in place: SvelteMap reactivity is per-instance, so
+				// reassigning the field would never invalidate readers that tracked
+				// the previous instance (cards stayed blank after the first fetch).
+				this.categoryPages.clear();
+				for (const category of page.categories) {
+					this.categoryPages.set(category.categoryId, {
+						categoryName: category.categoryName,
+						articles: category.articles
+					});
+				}
+				this.categoryOffset = page.categories.length;
+				this.categoryHasMore = page.hasMore;
 			}
 
-			this.categoryPages = next;
 			this.categoryPagesCreatedAtFrom = createdAtFrom;
 			this.categoryPagesSignature = signature;
 			this.categoryPagesStale = false;
+		} catch (error) {
+			// Keep last-known-good data and do not touch categoryPagesSignature /
+			// categoryPagesStale: stamping either would make the guard at the top
+			// of this method short-circuit retries and permanently show stale or
+			// empty categories. The next call retries the fetch instead.
+			console.error('Failed to fetch categories with articles:', error);
 		} finally {
 			if (fetchId === this.categoryPagesFetchId) {
 				this.categoryPagesLoading = false;
@@ -362,44 +378,39 @@ class ArticleCacheStore {
 		}
 	}
 
-	async loadMoreCategoryArticlesFor(categoryId: string): Promise<void> {
-		const entry = this.categoryPages.get(categoryId);
-		if (!entry || entry.loading || !entry.hasMore) return;
+	async loadMoreCategories(): Promise<void> {
+		if (!this.categoryHasMore || this.categoryPagesLoading) return;
 
-		this.categoryPages.set(categoryId, { ...entry, loading: true });
+		const fetchId = ++this.categoryPagesFetchId;
+		this.categoryPagesLoading = true;
 		try {
-			const pages = await getArticlesByCategories({
-				queries: [
-					{
-						categoryId,
-						offset: entry.offset,
-						articleCount: CATEGORY_ARTICLE_PAGE_SIZE
-					}
-				],
+			const page = await getCategoriesWithArticlesPage({
+				offset: this.categoryOffset,
+				limit: CATEGORIES_PAGE_SIZE,
+				articleCount: ARTICLE_COUNT_PER_CATEGORY,
 				// Keep the initial fetch's cutoff so pages stay consistent.
-				createdAtFrom: this.categoryPagesCreatedAtFrom ?? null
+				createdAtFrom: this.categoryPagesCreatedAtFrom
 			});
-			const page = pages.find((candidate) => candidate.categoryId === categoryId);
-			if (!page) return;
+			if (fetchId !== this.categoryPagesFetchId) return;
 
-			const current = this.categoryPages.get(categoryId);
-			if (!current) return;
-
-			const knownUrls = new Set(current.articles.map((article) => article.url ?? ''));
-			const appended = page.articles.filter((article) => !knownUrls.has(article.url ?? ''));
-			this.categoryPages.set(categoryId, {
-				...current,
-				articles: [...current.articles, ...appended],
-				offset: current.offset + page.articles.length,
-				hasMore: page.hasMore,
-				loading: false
-			});
-		} catch (error) {
-			const current = this.categoryPages.get(categoryId);
-			if (current) {
-				this.categoryPages.set(categoryId, { ...current, loading: false });
+			for (const category of page.categories) {
+				if (this.categoryPages.has(category.categoryId)) continue;
+				this.categoryPages.set(category.categoryId, {
+					categoryName: category.categoryName,
+					articles: category.articles
+				});
 			}
-			throw error;
+			this.categoryOffset += page.categories.length;
+			this.categoryHasMore = page.hasMore;
+		} catch (error) {
+			// Keep categoryOffset / categoryHasMore untouched so a retry picks up
+			// at the same offset instead of treating the failure as the end of
+			// pagination.
+			console.error('Failed to load more categories:', error);
+		} finally {
+			if (fetchId === this.categoryPagesFetchId) {
+				this.categoryPagesLoading = false;
+			}
 		}
 	}
 
@@ -466,14 +477,29 @@ class ArticleCacheStore {
 		this.profiles.replace(filterProfileArticles);
 		this.domains.replace(filterProfileArticles);
 
-		const pruned = new SvelteMap<string, CategoryPageEntry>();
+		// Collect pruned entries first, then mutate in place — SvelteMap must
+		// not be replaced (its reactivity is per-instance) nor mutated while
+		// being iterated.
+		// Mirror the server-side catalog filter: a category whose last loaded
+		// article was removed drops out of the wheel instead of rendering an
+		// empty "No articles" card until the next refetch.
+		const pruned: Array<[string, CategoryPageEntry]> = [];
+		const emptied: string[] = [];
 		for (const [categoryId, entry] of this.categoryPages) {
-			pruned.set(categoryId, {
-				...entry,
-				articles: entry.articles.filter((article) => !hasUrl(article))
-			});
+			const articles = entry.articles.filter((article) => !hasUrl(article));
+			if (articles.length === entry.articles.length) continue;
+			if (articles.length === 0) {
+				emptied.push(categoryId);
+				continue;
+			}
+			pruned.push([categoryId, { ...entry, articles }]);
 		}
-		this.categoryPages = pruned;
+		for (const categoryId of emptied) {
+			this.categoryPages.delete(categoryId);
+		}
+		for (const [categoryId, entry] of pruned) {
+			this.categoryPages.set(categoryId, entry);
+		}
 
 		this.profiles.invalidate();
 		this.domains.invalidate();

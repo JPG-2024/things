@@ -1,13 +1,31 @@
 export const RAW_PROCESS_LIMIT = 1000;
 
-// 📐 Category wheel layout (CategoriesTab column cards)
-// Sentinel fetches follow the same page size so each scroll load keeps the
-// card's grid populated: 6 rows x 2 columns.
-export const CATEGORY_ARTICLE_PAGE_SIZE = 6;
+// 📐 Wheel layout per tab
 export const CATEGORY_ARTICLE_THUMBNAIL_WIDTH = 140;
 export const CATEGORY_ARTICLE_THUMBNAIL_HEIGHT = 70;
 export const PROFILE_COLUMN_WIDTH = '17rem';
 export const CATEGORY_ARTICLE_COLUMN_WIDTH = '20rem';
+
+export interface TabPageConfig {
+	/** Cards fetched per page (initial + each sentinel load). */
+	pageSize: number;
+	/** Articles embedded in each card. */
+	articlesPerCard?: number;
+	/** Cards stacked vertically inside a single wheel column. */
+	rowsPerColumn?: number;
+}
+
+/**
+ * Pagination and layout sizes per tab. This is the single place that defines
+ * how much each tab fetches; the wheel paginates cards, not the articles inside
+ * a card.
+ */
+export const TAB_PAGE_CONFIG = {
+	profiles: { pageSize: 10, articlesPerCard: 6 },
+	domains: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
+	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
+	articles: { pageSize: 10 }
+} satisfies Record<string, TabPageConfig>;
 
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`;
 

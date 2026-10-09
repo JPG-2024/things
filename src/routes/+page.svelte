@@ -454,10 +454,6 @@
 	}
 
 	.dashboard-content {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		min-width: 0;
 		overflow-y: auto;
 		padding-top: 7rem;
 	}

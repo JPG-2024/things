@@ -31,11 +31,25 @@ export interface MasonryPreset {
 // responsive target (clamped down on narrow windows), and `contentMode`
 // decides whether images/text are shown.
 export const MASONRY_PRESETS: MasonryPreset[] = [
-	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 80 },
 	{ key: 'grid', columns: 6, contentMode: 'thumbnail', padding: '1rem 1.5rem' },
+	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 80 },
 	/* { key: 'grid', columns: 3, contentMode: 'thumbnail', padding: '1.5rem 2rem' }, */
 	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
 ];
+
+// Icon and label per preset for the vertical preset rail in ArticleList. Keyed
+// by LayoutKey since presets can share a key; tabs are identified by index.
+export const MASONRY_PRESET_ICONS: Record<LayoutKey, string> = {
+	row: 'LayoutList',
+	grid: 'LayoutGrid',
+	'grid-3': 'Square'
+};
+
+export const MASONRY_PRESET_LABELS: Record<LayoutKey, string> = {
+	row: 'Row',
+	grid: 'Thumbnails',
+	'grid-3': 'Grid 3'
+};
 
 type language = 'en' | 'es' | 'fr' | 'de' | 'pt' | 'it' | 'ja';
 
@@ -55,7 +69,7 @@ function envPort(url: string, fallback: number): number {
 }
 
 export const PROFILE_ARTICLE_TABS = [
-	{ id: 'articles', label: 'Articles', icon: 'FileText' },
+	{ id: 'articles', label: 'Articles', icon: 'LayoutGrid' },
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
 	{ id: 'domains', label: 'Domains', icon: 'Globe' },
 	{ id: 'profiles', label: 'Profiles', icon: 'Users' }

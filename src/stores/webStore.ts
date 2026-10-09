@@ -1173,3 +1173,50 @@ export async function getArticlesByCategories(options: {
 		return [];
 	}
 }
+
+export interface CategoriesWithArticlesPage {
+	categories: CategoryWithArticles[];
+	hasMore: boolean;
+}
+
+/**
+ * Paginated category catalog for the categories wheel. Ordering (most recent
+ * article first) and the "has articles" filter are applied server-side so the
+ * offset stays consistent across pages.
+ */
+export async function getCategoriesWithArticlesPage(options?: {
+	offset?: number;
+	limit?: number;
+	articleCount?: number;
+	createdAtFrom?: number | null;
+}): Promise<CategoriesWithArticlesPage> {
+	// Propagates errors: callers must distinguish "no more pages" from a
+	// failed fetch, otherwise loadMoreCategories would flip hasMore to false
+	// on a transient failure and silently truncate pagination.
+	const result = await invoke<{
+		categories: Array<{
+			categoryId: string;
+			categoryName: string;
+			articles: WebStoreArticleRecord[];
+			hasMore: boolean;
+		}>;
+		hasMore: boolean;
+	}>('list_categories_with_articles', {
+		offset: options?.offset ?? null,
+		limit: options?.limit ?? null,
+		articleCount: options?.articleCount ?? null,
+		createdAtFrom: options?.createdAtFrom ?? null
+	});
+
+	const categories: CategoryWithArticles[] = [];
+	for (const page of result.categories) {
+		const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
+		categories.push({
+			categoryId: page.categoryId,
+			categoryName: page.categoryName,
+			articles: resolvedArticles
+		});
+	}
+
+	return { categories, hasMore: result.hasMore };
+}

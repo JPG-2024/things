@@ -113,7 +113,7 @@
 		white-space: pre-wrap;
 		z-index: 9999;
 		pointer-events: none;
-		max-width: 300px;
+		max-width: 600px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		transform: translate(-50%, -100%);

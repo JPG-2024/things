@@ -1,15 +1,7 @@
 <script lang="ts">
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
-	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
-	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import type { RawSearchResult } from '@/stores/viewStore.svelte';
-	import { goto } from '$app/navigation';
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { ArticleWithTasks } from '@/stores/webStore';
-	import type { LayoutKey } from '@/stores/viewStore.svelte';
-	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
@@ -17,6 +9,14 @@
 
 	// Created once so the transition function identity stays stable across renders.
 	const articleItemTransition = tabAnimationStore.transitionFor('articles');
+
+	const searchArticles = $derived((searchResults ?? []).map((result) => result.article));
+
+	// ArticleList works on ArticleWithTasks[]; the match lookup is by article
+	// identity so results are displayed even when `url` is missing.
+	const searchMatches = $derived(
+		new Map((searchResults ?? []).map((result) => [result.article, result.match]))
+	);
 
 	function handleClearSearch() {
 		viewState.rawSearchResults = null;
@@ -32,21 +32,6 @@
 			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined
 		});
 	});
-
-	function handleArticleClick(article: ArticleWithTasks) {
-		if (!article.url) return;
-		urlRouter(article.url);
-		goto(`/youtube/${encodeURIComponent(article.url)}`);
-	}
-
-	function handleArticleHoverEnter(article: ArticleWithTasks) {
-		viewState.hoveredArticleUrl = article.url ?? null;
-		viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-	}
-
-	function handleArticleHoverLeave() {
-		viewState.hoveredArticleUrl = null;
-	}
 </script>
 
 <div class="article-tab__container">
@@ -60,74 +45,28 @@
 				{searchResults.length} result{searchResults.length !== 1 ? 's' : ''} — clear
 			</button>
 		</div>
-		{#if searchResults.length > 0}
-			<MasonryGrid
-				items={searchResults}
-				keyOf={(result: RawSearchResult) => result.article.url ?? ''}
-				itemTransition={articleItemTransition}
-			>
-				{#snippet children(
-					result: RawSearchResult,
-					_i: number,
-					_layoutIndex: number,
-					layoutKey: LayoutKey
-				)}
-					<ArticleItem
-						article={result.article}
-						{layoutKey}
-						marked={deleteSelectionStore.markedUrls.has(result.article.url ?? '')}
-						matchSnippet={result.match}
-						onClick={handleArticleClick}
-						onHoverEnter={handleArticleHoverEnter}
-						onHoverLeave={handleArticleHoverLeave}
-					/>
-				{/snippet}
-			</MasonryGrid>
-		{:else}
-			<div class="empty-profiles-container">
-				<div class="empty-profiles-pill">No matches found</div>
-			</div>
-		{/if}
+		<ArticleList
+			items={searchArticles}
+			itemTransition={articleItemTransition}
+			matchOf={(article) => searchMatches.get(article) ?? null}
+			emptyMessage="No matches found"
+		/>
 	{:else}
-		<MasonryGrid
+		<ArticleList
 			items={articleCacheStore.articlesWithoutProfile}
 			itemTransition={articleItemTransition}
-		>
-			{#snippet children(
-				article: ArticleWithTasks,
-				_i: number,
-				_layoutIndex: number,
-				layoutKey: LayoutKey
-			)}
-				<ArticleItem
-					{article}
-					{layoutKey}
-					marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-					onClick={handleArticleClick}
-					onHoverEnter={handleArticleHoverEnter}
-					onHoverLeave={handleArticleHoverLeave}
-				/>
-			{/snippet}
-		</MasonryGrid>
-		{#if articleCacheStore.loadingArticles}
-			<div class="empty-profiles-container"></div>
-		{:else if articleCacheStore.articlesWithoutProfile.length === 0}
-			<div class="empty-profiles-container">
-				<div class="empty-profiles-pill">No articles</div>
-			</div>
-		{/if}
-		{#if articleCacheStore.hasMoreArticles}
-			<LoadMoreSentinel
-				onLoadMore={() => articleCacheStore.loadMoreArticles()}
-				disabled={articleCacheStore.loadingArticles}
-			/>
-		{/if}
+			loading={articleCacheStore.loadingArticles}
+			hasMore={articleCacheStore.hasMoreArticles}
+			onLoadMore={() => articleCacheStore.loadMoreArticles()}
+		/>
 	{/if}
 </div>
 
 <style>
 	.article-tab__container {
-		padding: 3rem;
+		padding-left: 1.5rem;
+		padding-right: 2rem;
+		
 	}
 	.empty-profiles-container {
 		display: flex;

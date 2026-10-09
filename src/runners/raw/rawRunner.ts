@@ -8,7 +8,8 @@ import {
 import { viewState } from '@/stores/viewStore.svelte';
 import type { Task } from '@/types/taskRunner.types';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
-import { generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
+import { extractCategoryFromTasks, generateEmbeddingsFromTasks } from '@/lib/utils/embeddingTasks';
+import { createDefaultTasks } from '@/runners/shared/sharedTasks';
 
 type RawRunnerOptions = {
 	makeActive?: boolean;
@@ -45,6 +46,7 @@ export async function rawRunner(
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
 		articleOverrides: options.articleOverrides,
+		defaultTasksFactory: () => createDefaultTasks('content', { analysis: 'analysisTopic' }),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			await Promise.all([
 				saveArticle(rawId, runResult.tasks, { ...articleOverrides, templateId }),
@@ -54,7 +56,7 @@ export async function rawRunner(
 			if (viewState.embeddingsEnabled) {
 				await generateEmbeddingsFromTasks(runResult.tasks, rawId, {
 					model: EMBEDDING_MODEL,
-					profileId: RAW_TEXT_PROFILE
+					category: extractCategoryFromTasks(runResult.tasks)
 				});
 			}
 		}
