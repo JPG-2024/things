@@ -170,7 +170,7 @@
 	}
 
 	.spacer-title {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		color: rgba(255, 255, 255, 0.9);
 		font-weight: bold;
 		font-size: 0.8rem;

@@ -81,7 +81,7 @@
 	}
 
 	.article-content :global(.article-title) {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-variant: all-small-caps;
 		flex: none;
 		font-size: 0.8rem;

@@ -12,7 +12,7 @@
 
 <style>
 	.article-title {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		text-align: left;
 		font-size: 0.6rem;
 		flex: 1;

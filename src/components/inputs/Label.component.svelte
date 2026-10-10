@@ -55,13 +55,13 @@
 	}
 
 	.label-text {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.7rem;
 		color: var(--gray-200);
 	}
 
 	.label-value {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.7rem;
 		color: var(--primary-color);
 	}

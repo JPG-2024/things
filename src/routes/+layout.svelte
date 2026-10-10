@@ -341,19 +341,11 @@
 		font-weight: normal;
 		font-style: normal;
 	}
-	
 
 	@font-face {
-		font-family: 'LiberationSans';
-		src: url('/LiberationSans-Regular.ttf') format('truetype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'LiberationSans-Bold';
-		src: url('/LiberationSans-Bold.ttf') format('truetype');
-		font-weight: normal;
+		font-family: 'MonaspaceXenonFrozenBold';
+		src: url('/MonaspaceXenonFrozen-Bold.ttf') format('truetype');
+		font-weight: bold;
 		font-style: normal;
 	}
 
@@ -366,6 +358,9 @@
 	:root {
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+
+		--font-secondary: 'BetterVCR', monospace;
+		--font-primary-bold: 'MonaspaceXenonFrozenBold';
 
 		--radius-sm: 6px;
 		--radius-md: 10px;

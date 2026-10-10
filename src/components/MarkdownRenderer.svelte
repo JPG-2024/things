@@ -103,7 +103,7 @@
 	}
 
 	.markdown-container :global(h2) {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.9rem;
 		padding-top: 2rem;
 		padding-bottom: 1.2rem;
@@ -195,7 +195,7 @@
 
 	.markdown-container :global(th) {
 		background-color: rgba(33, 207, 117, 0.1);
-		font-family: LiberationSans-Bold;
+		font-family: var(--font-secondary);
 	}
 
 	.markdown-container :global(code) {

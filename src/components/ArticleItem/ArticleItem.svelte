@@ -154,7 +154,7 @@
 
 	.article-card {
 		--keywords-font-size: 0.7rem;
-		--pill-font-size: 0.65rem;
+		--pill-font-size: 0.6rem;
 		--pill-text-color: rgb(163, 162, 162);
 	}
 

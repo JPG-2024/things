@@ -43,10 +43,10 @@
 	}
 
 	.emoji-string__text {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: var(--emoji-string-font-size, 0.7rem);
 		line-height: 1.2;
-		color: var(--emoji-string-text-color, white);
+		color: var(--emoji-string-text-color, var(--gray-300));
 		font-weight: bold;
 		padding-top: 3px;
 	}

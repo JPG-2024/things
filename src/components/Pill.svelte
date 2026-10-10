@@ -17,6 +17,7 @@
 
 <style>
 	.pill {
+		
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -26,8 +27,8 @@
 		width: max-content;
 		padding: 0 15px;
 		font-size: var(--pill-font-size, 0.7rem);
-		font-family: 'CaskaydiaCove NFM Light';
-		border-left: 1px solid color-mix(in srgb, var(--bg-color) 50%, transparent);
+		font-family: var(--font-secondary);
+		border-left: 2px solid var(--bg-color);
 		/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
 		border-top: 3px solid color-mix(in srgb, var(--bg-color) 40%, transparent); */
 	}
@@ -49,7 +50,6 @@
 	}
 
 	.pill.loading {
-		font-family: 'CaskaydiaCove NFM Light';
 		background-image: linear-gradient(
 			120deg,
 			rgb(from var(--primary-color) r g b / 0.08) 0%,
@@ -67,7 +67,6 @@
 	}
 
 	.pill.idle {
-		font-family: 'BetterVCR', monospace;
 		/* 		background-image: linear-gradient(
 			150deg,
 			color-mix(in srgb, var(--bg-color) 30%, transparent),
@@ -75,7 +74,8 @@
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		); */
-		padding: 5px 10px;
+		padding: 2px 10px;
+		text-transform: uppercase;
 	}
 
 	.pill.done {

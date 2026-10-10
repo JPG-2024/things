@@ -23,7 +23,7 @@
 
 <style>
 	.task-title-container {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		padding: 1rem 0;
 	}
 </style>

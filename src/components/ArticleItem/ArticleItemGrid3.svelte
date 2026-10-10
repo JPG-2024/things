@@ -70,7 +70,7 @@
 	}
 
 	.article-content :global(.article-title) {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		grid-column: 1 / -1;
 		grid-row: 1;
 		padding: 3px 0;
