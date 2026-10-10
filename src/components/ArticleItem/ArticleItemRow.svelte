@@ -27,8 +27,13 @@
 </script>
 
 <div class="article-content">
-	{#if showThumbnail && article.thumbnailSrc}
-		<ArticleThumbnail src={article.thumbnailSrc} url={article.url} />
+	{#if showThumbnail}
+		<ArticleThumbnail
+			src={article.thumbnailSrc}
+			url={article.url}
+			fallbackText={article.title?.trim().charAt(0) ?? ''}
+			fallbackVariant="initial"
+		/>
 	{/if}
 	{#if showText}
 		{#if matchSnippet}
@@ -60,7 +65,6 @@
 	}
 
 	.article-content :global(.article-thumbnail) {
-		aspect-ratio: 1;
 		object-fit: cover;
 		border-radius: var(--radius-md);
 		opacity: 0.9;

@@ -30,23 +30,21 @@
 
 <div class="article-content">
 	<div class="article-item-info">
-		{#if isFixedThumb}
+		{#if showThumbnail}
 			<ArticleThumbnail
-				variant="fixed"
-				src={showThumbnail ? article.thumbnailSrc : undefined}
+				variant={isFixedThumb ? 'fixed' : 'default'}
+				src={article.thumbnailSrc}
 				url={article.url}
 				fallbackText={article.title?.slice(0, 80) ?? ''}
 			/>
-		{:else if showThumbnail && article.thumbnailSrc}
-			<ArticleThumbnail src={article.thumbnailSrc} url={article.url} />
 		{/if}
 		{#if showText && !isFixedThumb}
 			{#if matchSnippet}
 				<ArticleMatchSnippet match={matchSnippet} />
 			{:else}
 				<ArticleTitle title={article.title} />
-				<ArticleCategoryPills {categories} />
-				<ArticleTopics {topics} />
+				<!-- 				<ArticleCategoryPills {categories} />
+				<ArticleTopics {topics} /> -->
 			{/if}
 		{/if}
 	</div>
