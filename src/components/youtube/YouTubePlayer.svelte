@@ -2,6 +2,7 @@
 	import type { TaskComponentProps } from '@/types/taskRunner.types';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 	import { fade } from 'svelte/transition';
+	import { toThumbnailVTName } from '@/lib/utils/url';
 
 	type Props = {
 		data?: YouTubePlayerContext;
@@ -34,7 +35,14 @@
 			}}
 			aria-label="Play video"
 		>
-			<img src={playerData.thumbnailImageSrc} alt="YouTube thumbnail" class="yt-thumbnail" />
+			<img
+				src={playerData.thumbnailImageSrc}
+				alt="YouTube thumbnail"
+				class="yt-thumbnail"
+				style={playerData.thumbnailImageSrc
+					? `view-transition-name: ${toThumbnailVTName(playerData.url ?? '')}`
+					: undefined}
+			/>
 		</button>
 
 		<button
