@@ -323,7 +323,7 @@
 	:global(body) {
 		margin: 0;
 		font-size: 14px;
-		font-family: 'LiberationSans', monospace;
+		font-family: 'MonaspaceXenonFrozen', monospace;
 		border-left: 1px solid rgba(128, 128, 128, 0.055);
 		border-right: 1px solid rgba(128, 128, 128, 0.055);
 	}
@@ -334,6 +334,14 @@
 		font-weight: normal;
 		font-style: normal;
 	}
+
+	@font-face {
+		font-family: 'MonaspaceXenonFrozen';
+		src: url('/MonaspaceXenonFrozen-Light.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+	
 
 	@font-face {
 		font-family: 'LiberationSans';
