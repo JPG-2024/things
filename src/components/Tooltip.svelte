@@ -106,9 +106,10 @@
 		border: none;
 		border-radius: var(--radius-sm);
 		background: black;
-		border: 1px solid rgb(38, 37, 37);
-		color: white;
+
+		color: var(--gray-100);
 		padding: 0.4rem 0.7rem;
+		font-family: 'BetterVCR', monospace;
 		font-size: 0.8rem;
 		white-space: pre-wrap;
 		z-index: 9999;

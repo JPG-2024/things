@@ -52,7 +52,6 @@
 
 <style>
 	.markdown-container {
-		font-family: 'LiberationSans', monospace;
 		display: flex;
 		flex-direction: column;
 		width: 100%;

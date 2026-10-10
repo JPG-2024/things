@@ -12,8 +12,10 @@
 
 <style>
 	.article-title {
+		font-family: 'BetterVCR', monospace;
+		text-align: left;
+		font-size: 0.6rem;
 		flex: 1;
 		min-width: 0;
-		padding-bottom: 1.2rem;
 	}
 </style>

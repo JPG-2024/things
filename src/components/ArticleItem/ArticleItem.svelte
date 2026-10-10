@@ -42,8 +42,11 @@
 	const mode = $derived(
 		contentMode ?? (thumbnailOnly ? 'thumbnail' : viewState.masonryArticlesContentMode)
 	);
+	// Text follows the content mode: `both` (row, grid-3) and `title` always show
+	// text, `thumbnail` (grid) shows only the thumbnail slot. In grid-3 `both` with
+	// no image the text renders alone; in row the empty placeholder sits beside it.
 	const showThumbnail = $derived(mode !== 'title');
-	const showText = $derived(mode !== 'thumbnail' || !article.thumbnailSrc);
+	const showText = $derived(mode !== 'thumbnail');
 
 	const categories = $derived(
 		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
@@ -102,7 +105,14 @@
 	aria-label="View article"
 >
 	{#if isRowMode}
-		<ArticleItemRow {article} {categories} {showThumbnail} {showText} {matchSnippet} topics={randomTopics} />
+		<ArticleItemRow
+			{article}
+			{categories}
+			{showThumbnail}
+			{showText}
+			{matchSnippet}
+			topics={randomTopics}
+		/>
 	{:else if layoutKey === 'grid-3'}
 		<ArticleItemGrid3
 			{article}
