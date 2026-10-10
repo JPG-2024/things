@@ -2,14 +2,12 @@ export const SITES_ROUTES: Record<string, string> = {
 	'www.youtube.com': 'youtube'
 };
 
-// Create a valid CSS ident for view-transition-name from a URL/string
 import { goto } from '$app/navigation';
 
-export function toVTName(input: string): string {
-	// ensure it starts with letters to be a safe ident
-	const base = 'vt-' + input.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
-	return base || 'vt-default';
-}
+// View-transition-name helpers live in a pure module so they stay importable
+// (and testable) without pulling in `$app/navigation`. Re-exported here to
+// keep the existing `@/lib/utils/url` import sites working.
+export { toVTName, toThumbnailVTName } from '@/lib/utils/vtNames';
 
 // Programmatic navigation. The global onNavigate hook coordinates view transitions.
 export function navigate(route: string, options?: { replaceState?: boolean }) {
