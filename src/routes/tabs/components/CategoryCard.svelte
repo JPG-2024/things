@@ -63,7 +63,7 @@
 		display: block;
 		width: 100%;
 		box-sizing: border-box;
-		padding: 4px 10px 6px;
+		padding-bottom: 10px;
 	}
 
 	.article-grid {

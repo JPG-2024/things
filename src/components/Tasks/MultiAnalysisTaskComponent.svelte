@@ -343,7 +343,7 @@
 	.multi-shell {
 		--tabs-pill-font-size: 0.7rem;
 		--keywords-font-size: 0.8rem;
-		--pill-font-size: 0.8em;
+		--pill-font-size: 0.6em;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
@@ -398,7 +398,7 @@
 	}
 
 	.chunk-title {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.8rem;
 		margin: 0 0 0.4rem;
 		overflow-wrap: anywhere;

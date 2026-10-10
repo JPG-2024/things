@@ -109,7 +109,7 @@
 
 		color: var(--gray-100);
 		padding: 0.4rem 0.7rem;
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.8rem;
 		white-space: pre-wrap;
 		z-index: 9999;

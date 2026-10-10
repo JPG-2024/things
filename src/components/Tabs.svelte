@@ -41,9 +41,7 @@
 	// Scroll up goes left, scroll down goes right. DeltaX (horizontal trackpad
 	// scrolls, Shift+scroll) is intentionally ignored so it stays available for
 	// horizontal page/container scrolling. Clamped at the edges, no wrap-around.
-	// Returns whether a switch occurred, so the wheel handler can cancel the
-	// browser's default scroll only when a tab actually flips (at the edges the
-	// page keeps scrolling naturally).
+	// Returns whether a switch occurred.
 	function switchTabByOffset(offset: 1 | -1): boolean {
 		const index = tabs.findIndex((t) => t.id === activeTab);
 		const nextIndex = Math.min(tabs.length - 1, Math.max(0, index + offset));
@@ -52,9 +50,14 @@
 		return true;
 	}
 
+	// Wheel over the tabs is owned by the tabs: deltaY switches the active tab
+	// (clamped, no wrap-around) and the event is always cancelled, so the scroll
+	// container behind the bar never scrolls — including at the first/last tab
+	// where the switch is clamped.
 	function handleWheel(e: WheelEvent) {
 		if (e.deltaY === 0) return;
-		if (switchTabByOffset(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
+		switchTabByOffset(e.deltaY > 0 ? 1 : -1);
+		e.preventDefault();
 	}
 </script>
 

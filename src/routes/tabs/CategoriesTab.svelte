@@ -50,7 +50,6 @@
 	columns
 	columnWidth={CATEGORY_ARTICLE_COLUMN_WIDTH}
 	rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
-	rowGap={1}
 	key={(category) => category.categoryId}
 >
 	{#snippet row(category)}

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { listen } from '@tauri-apps/api/event';
 
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, onNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer/TTSPlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
@@ -56,6 +56,32 @@
 			}, 200);
 		} 
 	}); */
+
+	// Wrap client-side navigations in a View Transition so elements that share
+	// a `view-transition-name` across routes (e.g. the article/YouTube
+	// thumbnail) morph into each other. SvelteKit has no built-in integration;
+	// this is the documented `onNavigate` pattern.
+	//
+	// DISABLED: on WebKitGTK (Tauri's Linux webview) calling
+	// `document.startViewTransition()` as the first trigger of accelerated
+	// compositing SIGSEGVs the UI process — a release-build null-pointer crash,
+	// not our code. See https://bugs.webkit.org/show_bug.cgi?id=321683
+	// (and https://bugs.webkit.org/show_bug.cgi?id=323949). It reproduces on
+	// WebKitGTK 2.52.6 (Ubuntu 26.04) regardless of
+	// WEBKIT_DISABLE_DMABUF_RENDERER. Flip to true once Ubuntu ships a patched
+	// WebKitGTK; the morph anchors (toThumbnailVTName) are already in place.
+	const VIEW_TRANSITIONS_ENABLED = false;
+
+	onNavigate((navigation) => {
+		if (!VIEW_TRANSITIONS_ENABLED) return;
+		if (!document.startViewTransition) return;
+		return new Promise<void>((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 
 	afterNavigate(() => {
 		const ttsActive =
@@ -341,19 +367,11 @@
 		font-weight: normal;
 		font-style: normal;
 	}
-	
 
 	@font-face {
-		font-family: 'LiberationSans';
-		src: url('/LiberationSans-Regular.ttf') format('truetype');
-		font-weight: normal;
-		font-style: normal;
-	}
-
-	@font-face {
-		font-family: 'LiberationSans-Bold';
-		src: url('/LiberationSans-Bold.ttf') format('truetype');
-		font-weight: normal;
+		font-family: 'MonaspaceXenonFrozenBold';
+		src: url('/MonaspaceXenonFrozen-Bold.ttf') format('truetype');
+		font-weight: bold;
 		font-style: normal;
 	}
 
@@ -366,6 +384,9 @@
 	:root {
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+
+		--font-secondary: 'BetterVCR', monospace;
+		--font-primary-bold: 'MonaspaceXenonFrozenBold';
 
 		--radius-sm: 6px;
 		--radius-md: 10px;

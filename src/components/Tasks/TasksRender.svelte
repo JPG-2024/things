@@ -370,7 +370,7 @@
 	}
 
 	.tasks-title {
-		font-family: BetterVCR, monospace;
+		font-family: var(--font-secondary);
 		font-size: 1.2rem;
 		margin-right: auto;
 		width: 100%;

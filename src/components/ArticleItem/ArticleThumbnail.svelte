@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toVTName } from '@/lib/utils/url';
+	import { toThumbnailVTName } from '@/lib/utils/url';
 	import ArticleTitle from './ArticleTitle.svelte';
 
 	interface Props {
@@ -28,7 +28,7 @@
 			{src}
 			alt="Article"
 			class="article-thumbnail"
-			style={`view-transition-name: vt-main-image-${toVTName(url ?? '')}`}
+			style={`view-transition-name: ${toThumbnailVTName(url ?? '')}`}
 		/>
 	{:else}
 		<div class="article-thumbnail-placeholder" class:initial={fallbackVariant === 'initial'}>

@@ -156,7 +156,7 @@
 	.article-list__rail {
 		position: sticky;
 		top: 0;
-		height: 100vh;
+		height: 22vh;
 		width: max-content;
 		flex-shrink: 0;
 	}

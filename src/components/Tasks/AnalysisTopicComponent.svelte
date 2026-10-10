@@ -330,7 +330,7 @@
 	}
 
 	.topic-title {
-		font-family: 'BetterVCR', monospace;
+		font-family: var(--font-secondary);
 		font-size: 0.8rem;
 		margin: 0;
 		min-width: 0;
