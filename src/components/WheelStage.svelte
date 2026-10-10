@@ -23,7 +23,7 @@
 		width = '100%',
 		height = 'auto',
 		gap = 12,
-		rowGap = gap,
+		rowGap = 12,
 		rows = 1,
 		fadeEdges = true,
 		scrollSpeed = 1,
