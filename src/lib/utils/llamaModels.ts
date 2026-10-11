@@ -14,6 +14,21 @@ export interface LlamaServerStatus {
 }
 
 /**
+ * Liveness of the llama-server processes the app itself spawned, as reported
+ * by the `llama_servers_runtime` Tauri command. Servers started outside the
+ * app never appear here.
+ */
+export interface LlamaServerRuntime {
+	name: string;
+	running: boolean;
+	pid: number | null;
+}
+
+/** Names of the llama-server slots managed by the backend, in fixed order. */
+export const SERVER_NAMES = ['inference', 'embeddings'] as const;
+export type ServerName = (typeof SERVER_NAMES)[number];
+
+/**
  * Case-insensitive filename fragments used to guess whether a `.gguf` file is
  * an embedding model. The guess only drives the Settings dropdowns; the
  * "Show all models" toggle lets the user override it.

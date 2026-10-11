@@ -2,6 +2,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
@@ -10,7 +11,9 @@
 	import {
 		ensureLlamaServers,
 		listLlamaModels,
-		reconcileLlamaModels
+		reconcileLlamaModels,
+		startLlamaServers,
+		stopLlamaServers
 	} from '@/lib/utils/llamaHealth';
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
 
@@ -20,6 +23,8 @@
 	let loadingModels = $state(false);
 	let showAllModels = $state(false);
 	let restarting = $state(false);
+	let starting = $state(false);
+	let stopping = $state(false);
 
 	function toOptions(entries: LlamaModelEntry[]) {
 		return entries.map((model) => ({ label: model.name, value: model.name }));
@@ -83,6 +88,33 @@
 		}
 	}
 
+	async function handleStartServers() {
+		if (starting) return;
+		starting = true;
+		try {
+			await startLlamaServers();
+		} finally {
+			starting = false;
+		}
+	}
+
+	async function handleStopServers() {
+		if (stopping) return;
+		stopping = true;
+		try {
+			await stopLlamaServers();
+		} finally {
+			stopping = false;
+		}
+	}
+
+	function handleAutoStartToggle() {
+		viewState.llamaAutoStart = !viewState.llamaAutoStart;
+		// Enabling it starts the servers right away; disabling only affects the
+		// next app launch and never stops servers that are already running.
+		if (viewState.llamaAutoStart) void startLlamaServers();
+	}
+
 	onMount(() => {
 		void reconcileLlamaModels().then(() => refreshModels());
 	});
@@ -140,6 +172,15 @@
 	</div>
 	<div class="inference-section">
 		<h3>Local models (llama.cpp)</h3>
+		<div class="field auto-start-field">
+			<span class="field-label">Launch servers automatically</span>
+			<ToggleIcon
+				name="Power"
+				checked={viewState.llamaAutoStart}
+				onClick={() => handleAutoStartToggle()}
+				label="Auto-start"
+			/>
+		</div>
 		<div class="field">
 			<label for="llama-models-dir">Models directory</label>
 			<div class="dir-row">
@@ -220,17 +261,37 @@
 						{#if status.error}
 							<span class="error-text">{status.error}</span>
 						{:else}
-							<span class="status-port">
-								{status.healthy ? 'online' : 'starting…'} · :{status.port}
+							<span class="status-port" class:up={status.healthy}>
+								{status.running ? (status.healthy ? 'online' : 'starting…') : 'stopped'} · :{status.port}
 							</span>
 						{/if}
 					</li>
 				{/each}
 			</ul>
 		{/if}
-		<Button onClick={() => void handleRestartServers()} disabled={restarting} icon="RefreshCw">
-			{restarting ? 'Restarting…' : 'Restart servers'}
-		</Button>
+		<div class="server-actions">
+			<Button
+				onClick={() => void handleStartServers()}
+				disabled={starting || stopping || restarting}
+				icon="Play"
+			>
+				{starting ? 'Starting…' : 'Start'}
+			</Button>
+			<Button
+				onClick={() => void handleStopServers()}
+				disabled={starting || stopping || restarting}
+				icon="Square"
+			>
+				{stopping ? 'Stopping…' : 'Stop'}
+			</Button>
+			<Button
+				onClick={() => void handleRestartServers()}
+				disabled={starting || stopping || restarting}
+				icon="RefreshCw"
+			>
+				{restarting ? 'Restarting…' : 'Restart servers'}
+			</Button>
+		</div>
 	</div>
 	<div class="inference-section">
 		<h3>Category classification</h3>
@@ -446,5 +507,21 @@
 
 	.status-port {
 		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.status-port.up {
+		color: rgb(140, 220, 160);
+	}
+
+	.server-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.auto-start-field {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
 	}
 </style>

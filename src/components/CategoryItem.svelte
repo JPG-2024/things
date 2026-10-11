@@ -30,7 +30,6 @@
 <style>
 	.category-item {
 		text-transform: capitalize;
-		
 	}
 
 	.category-item--link {

@@ -281,16 +281,10 @@
 		profiles={voice.profiles}
 		selectedProfileId={voice.selectedProfileId}
 		onPick={handlePickProfile}
-		management={true}
 		onSettings={() => {
 			showProfilePicker = false;
 			voiceSettingsState.openTts();
 		}}
-		onAddVoice={() => mainVoiceState.runAddVoice()}
-		onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
-		onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
-		onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
-		onProfilesChanged={() => voice.initProfiles()}
 	/>
 {/snippet}
 
@@ -332,6 +326,14 @@
 	randomChunk={ttsState.config.randomChunk}
 	synthParams={ttsSynthParams}
 	pauseSettings={ttsState.pauseSettings}
+	management={true}
+	profiles={voice.profiles}
+	selectedProfileId={voice.selectedProfileId}
+	onAddVoice={() => mainVoiceState.runAddVoice()}
+	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
+	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
+	onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
+	onProfilesChanged={() => voice.initProfiles()}
 	onChange={applySynthSettings}
 	onClose={() => voiceSettingsState.closeTts()}
 	onChunksChanged={() => void voice.loadChunksForProfile(voice.selectedProfileId)}

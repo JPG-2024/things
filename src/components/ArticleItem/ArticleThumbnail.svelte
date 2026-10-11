@@ -33,7 +33,7 @@
 	{:else}
 		<div class="article-thumbnail-placeholder" class:initial={fallbackVariant === 'initial'}>
 			{#if fallbackText}
-					<ArticleTitle title={fallbackText} />
+				<ArticleTitle title={fallbackText} />
 			{/if}
 		</div>
 	{/if}

@@ -72,6 +72,14 @@ impl LlamaServerStatus {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LlamaServerRuntime {
+    pub name: String,
+    pub running: bool,
+    pub pid: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LlamaModelEntry {
     pub name: String,
     pub size_bytes: u64,
@@ -387,7 +395,7 @@ pub async fn ensure_llama_servers(
     let servers = state.inner();
 
     if config.restart {
-        stop_llama_servers(servers);
+        kill_spawned_servers(servers);
         wait_for_ports_free([config.inference.port, config.embeddings.port]).await;
     }
 
@@ -498,8 +506,41 @@ pub fn llama_defaults() -> LlamaDefaults {
     }
 }
 
+fn runtime_for(slot: &Mutex<Option<Child>>, name: &str) -> LlamaServerRuntime {
+    let pid = live_child_pid(slot);
+    LlamaServerRuntime {
+        name: name.to_string(),
+        running: pid.is_some(),
+        pid,
+    }
+}
+
+/// Report which app-spawned servers are still alive, without starting anything.
+/// Servers started outside the app are never reported here; the frontend must
+/// combine this with HTTP health to know if something is serving on the port.
+#[tauri::command]
+pub fn llama_servers_runtime(state: tauri::State<'_, LlamaServersState>) -> Vec<LlamaServerRuntime> {
+    let servers = state.inner();
+    vec![
+        runtime_for(&servers.inference, "inference"),
+        runtime_for(&servers.embeddings, "embeddings"),
+    ]
+}
+
+/// Kill only the processes this app spawned, then wait briefly for the ports to
+/// free up so an immediate restart can bind them.
+#[tauri::command]
+pub async fn stop_llama_servers(
+    state: tauri::State<'_, LlamaServersState>,
+    config: LlamaServersConfig,
+) -> Result<(), String> {
+    kill_spawned_servers(state.inner());
+    wait_for_ports_free([config.inference.port, config.embeddings.port]).await;
+    Ok(())
+}
+
 /// Kill only the processes this app spawned.
-pub fn stop_llama_servers(state: &LlamaServersState) {
+pub fn kill_spawned_servers(state: &LlamaServersState) {
     for slot in [&state.inference, &state.embeddings] {
         if let Ok(mut guard) = slot.lock() {
             if let Some(mut child) = guard.take() {

@@ -100,7 +100,8 @@ function serializeView() {
 			autoSpeechEnabled: viewState.autoSpeechEnabled,
 			forceLanguageEnabled: viewState.forceLanguageEnabled,
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
-			embeddingsEnabled: viewState.embeddingsEnabled
+			embeddingsEnabled: viewState.embeddingsEnabled,
+			llamaAutoStart: viewState.llamaAutoStart
 		}
 	};
 }
@@ -171,6 +172,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.embeddingsEnabled === 'boolean') {
 		viewState.embeddingsEnabled = toggles.embeddingsEnabled;
+	}
+	if (typeof toggles.llamaAutoStart === 'boolean') {
+		viewState.llamaAutoStart = toggles.llamaAutoStart;
 	}
 }
 

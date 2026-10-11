@@ -2,10 +2,7 @@
 	import Tabs from '@/components/Tabs.svelte';
 	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import { viewState, PROFILE_ARTICLE_TABS } from '@/stores/viewStore.svelte';
-	import {
-		tabAnimationStore,
-		type ProfileArticleTabId
-	} from '@/stores/tabAnimationStore.svelte';
+	import { tabAnimationStore, type ProfileArticleTabId } from '@/stores/tabAnimationStore.svelte';
 
 	// Record synchronously before the bound tab value changes, so the entering
 	// tab's transitions already read the fresh direction.
@@ -28,7 +25,7 @@
 		iconOnly
 		iconSize={22}
 	/>
-<!-- 	{#if viewState.activeProfileArticleTab === 'articles'}
+	<!-- 	{#if viewState.activeProfileArticleTab === 'articles'}
 		<InitialArticlesToggle />
 	{/if} -->
 </div>

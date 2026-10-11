@@ -1,8 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
-import type { LlamaModelEntry, LlamaServerStatus } from '@/lib/utils/llamaModels';
+import type {
+	LlamaModelEntry,
+	LlamaServerRuntime,
+	LlamaServerStatus
+} from '@/lib/utils/llamaModels';
+import { SERVER_NAMES, type ServerName } from '@/lib/utils/llamaModels';
 
-export type { LlamaServerStatus };
+export type { LlamaServerStatus, LlamaServerRuntime };
 
 const POLL_INTERVAL_MS = 15000;
 const REQUEST_TIMEOUT_MS = 4000;
@@ -31,7 +36,8 @@ async function checkService(baseUrl: string): Promise<boolean> {
 }
 
 /**
- * Check both llama-server instances and mirror the result into `viewState`.
+ * Check both llama-server instances and sync the result into `viewState`: the
+ * plain service flags plus the full status list the Settings modal renders.
  */
 export async function refreshLlamaHealth(): Promise<void> {
 	const [inferenceUp, embeddingsUp] = await Promise.all([
@@ -40,6 +46,72 @@ export async function refreshLlamaHealth(): Promise<void> {
 	]);
 	viewState.inferenceServiceUp = inferenceUp;
 	viewState.embeddingsServiceUp = embeddingsUp;
+	await syncLlamaServerStatus(inferenceUp, embeddingsUp);
+}
+
+/**
+ * Merge HTTP health and app-owned process liveness into `llamaServersStatus`.
+ * A healthy port may belong to a server started outside the app, so HTTP
+ * health alone forces `running`; app ownership only explains a pid and the
+ * "starting…" phase while the process loads the model.
+ */
+async function syncLlamaServerStatus(inferenceUp: boolean, embeddingsUp: boolean): Promise<void> {
+	let runtime: LlamaServerRuntime[] = [];
+	try {
+		runtime = await invoke<LlamaServerRuntime[]>('llama_servers_runtime');
+	} catch (error) {
+		console.warn('[llama] failed to query server runtime', error);
+	}
+	const owned = new Map(runtime.map((entry) => [entry.name, entry]));
+	const healthy: Record<ServerName, boolean> = {
+		inference: inferenceUp,
+		embeddings: embeddingsUp
+	};
+	const ports: Record<ServerName, number> = {
+		inference: viewState.llamaInferencePort,
+		embeddings: viewState.llamaEmbeddingsPort
+	};
+
+	viewState.llamaServersStatus = SERVER_NAMES.map((name) => {
+		const existing = viewState.llamaServersStatus.find((entry) => entry.name === name);
+		const ownedEntry = owned.get(name);
+		const up = healthy[name];
+		const ownedRunning = ownedEntry?.running ?? false;
+		return {
+			name,
+			port: ports[name],
+			running: up || ownedRunning,
+			healthy: up,
+			pid: ownedRunning ? (ownedEntry?.pid ?? existing?.pid ?? null) : null,
+			error: up ? null : (existing?.error ?? null)
+		} satisfies LlamaServerStatus;
+	});
+}
+
+const BURST_ATTEMPTS = 10;
+const BURST_INTERVAL_MS = 1500;
+let burstPolling = false;
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Refresh health repeatedly right after a start/restart so the UI moves from
+ * "starting…" to "online" quickly instead of waiting for the 15 s poll.
+ */
+async function pollUntilHealthy(attempts = BURST_ATTEMPTS): Promise<void> {
+	if (burstPolling) return;
+	burstPolling = true;
+	try {
+		for (let attempt = 0; attempt < attempts; attempt++) {
+			await sleep(BURST_INTERVAL_MS);
+			await refreshLlamaHealth();
+			if (viewState.inferenceServiceUp && viewState.embeddingsServiceUp) return;
+		}
+	} finally {
+		burstPolling = false;
+	}
 }
 
 /**
@@ -149,9 +221,54 @@ export async function ensureLlamaServers(restart = false): Promise<LlamaServerSt
 		const embeddings = statuses.find((status) => status.name === 'embeddings');
 		if (embeddings) viewState.embeddingsServiceUp = embeddings.error ? false : embeddings.healthy;
 
+		void pollUntilHealthy();
+
 		return statuses;
 	} catch (error) {
 		console.warn('[llama] failed to ensure servers', error);
 		return [];
 	}
+}
+
+/**
+ * Start only the servers that are down. Already-running servers are left
+ * untouched.
+ */
+export async function startLlamaServers(): Promise<LlamaServerStatus[]> {
+	return ensureLlamaServers(false);
+}
+
+/**
+ * Kill only the servers the app itself spawned and mirror the stopped state.
+ * Servers started outside the app are never affected.
+ */
+export async function stopLlamaServers(): Promise<void> {
+	try {
+		await invoke('stop_llama_servers', {
+			config: {
+				modelsDir: viewState.llamaModelsDir,
+				inference: {
+					model: viewState.llamaInferenceModel,
+					port: viewState.llamaInferencePort
+				},
+				embeddings: {
+					model: viewState.llamaEmbeddingsModel,
+					port: viewState.llamaEmbeddingsPort
+				},
+				restart: false
+			}
+		});
+	} catch (error) {
+		console.warn('[llama] failed to stop servers', error);
+		return;
+	}
+
+	viewState.llamaServersStatus = viewState.llamaServersStatus.map((status) => ({
+		...status,
+		running: false,
+		healthy: false,
+		pid: null
+	}));
+	viewState.inferenceServiceUp = false;
+	viewState.embeddingsServiceUp = false;
 }

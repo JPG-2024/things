@@ -37,7 +37,13 @@
 	}}
 >
 	<span class="icon-glow" class:glow={checked}>
-		<Icon {name} {...props} color={checked ? 'white' : 'var(--primary-color)'} {size} {tooltipProps} />
+		<Icon
+			{name}
+			{...props}
+			color={checked ? 'white' : 'var(--primary-color)'}
+			{size}
+			{tooltipProps}
+		/>
 	</span>
 	{#if label}
 		<span class="label" class:glow={checked}>{label}</span>

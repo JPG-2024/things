@@ -264,7 +264,7 @@
 
 	onMount(() => {
 		startSettingsPersistence();
-		void ensureLlamaServers();
+		if (viewState.llamaAutoStart) void ensureLlamaServers();
 	});
 
 	onMount(() => {

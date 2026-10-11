@@ -59,7 +59,7 @@
 {#if enabled}
 	<div class="similar-by-texts">
 		{#each texts as text (text)}
-			<PillWithEmbeddings text={text} results={results?.get(text)} />
+			<PillWithEmbeddings {text} results={results?.get(text)} />
 		{/each}
 	</div>
 {:else}

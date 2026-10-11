@@ -72,8 +72,6 @@
 		z-index: 20;
 	}
 
-
-
 	/* Esquina superior izquierda + lado superior */
 	.widget::before {
 		content: '';
@@ -100,7 +98,7 @@
 		width: 0px; /* <-- TOGGLE with 1px */
 		height: 100%; /* Cubre 40% de la altura izquierda */
 		background-image: linear-gradient(
-			145deg,	
+			145deg,
 			color-mix(in srgb, var(--primary-color) 50%, transparent),
 			color-mix(in srgb, var(--bg-color) 40%, transparent),
 			rgba(0, 0, 0) 50%

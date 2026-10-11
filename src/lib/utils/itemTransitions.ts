@@ -9,10 +9,7 @@ export interface ItemTransitionOptions {
 }
 
 /** Shape of the transition function shared by every tab item renderer. */
-export type ItemTransition = (
-	node: Element,
-	options?: ItemTransitionOptions
-) => TransitionConfig;
+export type ItemTransition = (node: Element, options?: ItemTransitionOptions) => TransitionConfig;
 
 export interface ItemTransitionConfig {
 	preset: AnimationPreset;

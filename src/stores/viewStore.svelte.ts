@@ -135,6 +135,7 @@ class ViewState {
 	llamaInferencePort = $state(envPort(ENV_LLAMA_URL, 8080));
 	llamaEmbeddingsModel = $state<string>('');
 	llamaEmbeddingsPort = $state(envPort(ENV_EMBEDDINGS_URL, 8083));
+	llamaAutoStart = $state(true);
 	llamaBaseUrl = $derived(`http://127.0.0.1:${this.llamaInferencePort}`);
 	embeddingsBaseUrl = $derived(`http://127.0.0.1:${this.llamaEmbeddingsPort}`);
 
