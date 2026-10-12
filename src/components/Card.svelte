@@ -80,7 +80,7 @@
 		top: 0;
 		left: 0;
 		width: 100%; /* Cubre 40% del ancho superior */
-		height: 2px;
+		height: 4px;
 		background-image: linear-gradient(
 			145deg,
 			rgba(0, 0, 0) 1%,
@@ -97,7 +97,7 @@
 		bottom: 0;
 		left: 0;
 		width: 100%;
-		height: 2px;
+		height: 4px;
 		background-image: linear-gradient(
 			145deg,
 			rgba(0, 0, 0) 1%,
