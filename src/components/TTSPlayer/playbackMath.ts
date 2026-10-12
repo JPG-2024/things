@@ -1,13 +1,18 @@
+/**
+ * Offsets/total math reads durations only. The engine keeps these in a plain
+ * `number[]` so decoded `AudioBuffer`s (raw PCM, ~10x the blob size) can be
+ * pruned a few chunks behind the playhead without distorting the scrubber.
+ */
 export function recomputeChunkOffsets(
-	decodedChunks: (AudioBuffer | null)[],
+	decodedDurations: number[],
 	pauseAfter: (index: number) => number
 ): number[] {
 	const offsets: number[] = [];
 	let cumulative = 0;
-	const count = decodedChunks.length;
+	const count = decodedDurations.length;
 	for (let i = 0; i < count; i++) {
 		offsets.push(cumulative);
-		cumulative += decodedChunks[i]?.duration ?? 0;
+		cumulative += decodedDurations[i] ?? 0;
 		if (i < count - 1) {
 			cumulative += pauseAfter(i);
 		}
@@ -16,13 +21,13 @@ export function recomputeChunkOffsets(
 }
 
 export function computeTotalDuration(
-	decodedChunks: (AudioBuffer | null)[],
+	decodedDurations: number[],
 	pauseAfter: (index: number) => number
 ): number {
 	let total = 0;
-	const count = decodedChunks.length;
+	const count = decodedDurations.length;
 	for (let i = 0; i < count; i++) {
-		total += decodedChunks[i]?.duration ?? 0;
+		total += decodedDurations[i] ?? 0;
 		if (i < count - 1) {
 			total += pauseAfter(i);
 		}

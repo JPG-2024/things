@@ -217,6 +217,7 @@
 			void engine.start();
 		} else if (ttsState.blobs.length === 0 && !ttsState.isPaused) {
 			engine.decodedChunks = [];
+			engine.decodedDurations = [];
 			engine.chunkOffsets = [];
 		}
 	});

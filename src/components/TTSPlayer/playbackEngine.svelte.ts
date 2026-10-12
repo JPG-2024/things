@@ -27,6 +27,10 @@ export class TtsPlaybackEngine {
 	countdownInterval: ReturnType<typeof setInterval> | null = null;
 	pausedAt = 0;
 	decodedChunks: (AudioBuffer | null)[] = [];
+	/** Per-chunk durations kept for the whole session: offsets, the scrubber
+	 * total and seek math only need these, so decoded buffers can be pruned
+	 * (see `pruneDecodedBehind`). */
+	decodedDurations: number[] = [];
 	currentChunkIndex = 0;
 	chunkOffsets: number[] = [];
 	currentChunkDuration = 0;
@@ -58,11 +62,23 @@ export class TtsPlaybackEngine {
 	}
 
 	recomputeOffsets(): void {
-		this.chunkOffsets = recomputeChunkOffsets(this.decodedChunks, (i) => this.pauseAfter(i));
+		this.chunkOffsets = recomputeChunkOffsets(this.decodedDurations, (i) => this.pauseAfter(i));
 	}
 
 	computeTotal(): number {
-		return computeTotalDuration(this.decodedChunks, (i) => this.pauseAfter(i));
+		return computeTotalDuration(this.decodedDurations, (i) => this.pauseAfter(i));
+	}
+
+	/** Drop decoded buffers more than this many chunks behind the playhead.
+	 * Raw PCM retention is the dominant TTS memory cost; re-decoding a dropped
+	 * chunk on a backward seek is cheap by comparison. */
+	private static PRUNE_BEHIND = 2;
+
+	private pruneDecodedBehind(): void {
+		const cutoff = this.currentChunkIndex - TtsPlaybackEngine.PRUNE_BEHIND;
+		for (let i = 0; i < cutoff && i < this.decodedChunks.length; i++) {
+			this.decodedChunks[i] = null;
+		}
 	}
 
 	async ensureDecodedChunk(index: number): Promise<AudioBuffer | null> {
@@ -71,6 +87,7 @@ export class TtsPlaybackEngine {
 		const ctx = getAudioContext();
 		const buf = await decodeBlob(ttsState.blobs[index], ctx);
 		this.decodedChunks[index] = buf;
+		this.decodedDurations[index] = buf.duration;
 		this.recomputeOffsets();
 		return buf;
 	}
@@ -113,6 +130,7 @@ export class TtsPlaybackEngine {
 			this.currentChunkIndex = index;
 			this.currentChunkDuration = buf.duration;
 			this.nextChunkPrefetchRequested = false;
+			this.pruneDecodedBehind();
 
 			this.recomputeOffsets();
 			this.totalPlaybackDuration = this.computeTotal();
@@ -178,6 +196,7 @@ export class TtsPlaybackEngine {
 	async start(): Promise<void> {
 		if (this.isSettingUp || ttsState.blobs.length === 0) return;
 		this.decodedChunks = new Array(ttsState.blobs.length).fill(null);
+		this.decodedDurations = new Array(ttsState.blobs.length).fill(0);
 		this.chunkOffsets = [];
 		this.currentChunkIndex = 0;
 		try {
@@ -230,6 +249,7 @@ export class TtsPlaybackEngine {
 		this.elapsedSeconds = 0;
 		this.totalPlaybackDuration = 0;
 		this.decodedChunks = [];
+		this.decodedDurations = [];
 		this.chunkOffsets = [];
 		this.currentChunkIndex = 0;
 		this.waitingForChunk = false;
@@ -297,15 +317,22 @@ export class TtsPlaybackEngine {
 	}
 
 	async decodeAll(blobCount: number): Promise<void> {
-		const ctx = getAudioContext();
-		while (this.decodedChunks.length < blobCount) {
-			this.decodedChunks.push(null);
+		while (this.decodedDurations.length < blobCount) {
+			this.decodedDurations.push(0);
 		}
+		const ctx = getAudioContext();
 		try {
 			await Promise.all(
 				ttsState.blobs.map(async (blob, i) => {
-					if (!this.decodedChunks[i]) {
-						this.decodedChunks[i] = await decodeBlob(blob, ctx);
+					if (!this.decodedDurations[i]) {
+						// Decode just to measure the duration, then drop the PCM
+						// buffer: retaining every chunk as AudioBuffer keeps raw
+						// PCM (megabytes per article) alive for the whole session.
+						const buf = await decodeBlob(blob, ctx);
+						this.decodedDurations[i] = buf.duration;
+						if (this.decodedChunks[i]) {
+							this.decodedChunks[i] = null;
+						}
 					}
 				})
 			);
@@ -325,6 +352,7 @@ export class TtsPlaybackEngine {
 
 	resetForForeground(): void {
 		this.decodedChunks = [];
+		this.decodedDurations = [];
 		this.chunkOffsets = [];
 	}
 
