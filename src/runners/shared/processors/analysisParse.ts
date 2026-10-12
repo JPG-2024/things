@@ -1,3 +1,4 @@
+import { sanitizeTitle } from '@/lib/utils/inference/titleText';
 import type { AnalysisTopicChunkData } from './types';
 
 /**
@@ -91,33 +92,23 @@ export function uniqueStrings(values: string[], key?: (value: string) => string)
 	return result;
 }
 
+/** Heading budget for a window's `## title` block. */
+const WINDOW_TITLE_MAX_WORDS = 12;
+const WINDOW_TITLE_MAX_CHARS = 80;
+
 /**
- * Heading-safe window title: strips markdown hashes, leading bullets and
- * quotes, keeps the first clause and caps length. Unlike `normalizeTopicLabel`
- * it does not append a trailing period, and an unusable value yields '' (the
- * fallback renders the window block without a heading).
+ * Heading-safe window title: keeps the first clause and caps length, dropping
+ * any trailing connector left by a clip so the heading stays a complete phrase.
+ * Unlike `normalizeTopicLabel` it does not append a trailing period, and an
+ * unusable value yields '' (the fallback renders the block without a heading).
  */
 export function normalizeWindowTitle(raw: string): string {
-	let title = raw
-		.trim()
-		.replace(/^#{1,6}\s*/, '')
-		// Strip list markers only when the digits are followed by a delimiter,
-		// so numbered titles ("5 Key Ideas", "2024 Election") survive intact.
-		.replace(/^(?:[-*•]\s+|\d+[.)]\s+)+/, '')
-		.replace(/^["'`]+|["'`]+$/g, '')
-		.replace(/\s+/g, ' ')
-		.replace(/[.;:!?,]+$/, '');
-
-	title = title.split(/\s+[–—-]\s+/)[0].trim();
-
-	const words = title.split(' ');
-	if (words.length > 8) {
-		title = words.slice(0, 8).join(' ');
-	}
-	if (title.length > 64) {
-		title = title.slice(0, 64).trim();
-	}
-	return title;
+	return sanitizeTitle(raw, {
+		maxWords: WINDOW_TITLE_MAX_WORDS,
+		maxChars: WINDOW_TITLE_MAX_CHARS,
+		separators: /\s+[–—-]\s+/,
+		stripConnectors: true
+	});
 }
 
 export function mergeSummaries(summaries: string[]): string {

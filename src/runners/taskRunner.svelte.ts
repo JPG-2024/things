@@ -3,6 +3,7 @@ import {
 	LlamaChatCompletionError,
 	type LlamaChatCompletionsRequest
 } from '@/lib/utils/inference/chat-completions-provider';
+import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 
 import type {
 	IaTask,
@@ -57,32 +58,6 @@ function formatTaskExecutionError(error: unknown): {
 	}
 
 	return { message: rawMessage };
-}
-
-/**
- * Extract plain assistant text from a Task data payload.
- * @param content - Task data which may be text, array chunks, or other.
- * @returns Concatenated assistant text or empty string.
- */
-function collectAssistantText(content: Task['data']): string {
-	if (typeof content === 'string') return content;
-	if (!Array.isArray(content)) return '';
-
-	let text = '';
-	for (const part of content) {
-		if (
-			part &&
-			typeof part === 'object' &&
-			'type' in part &&
-			part.type === 'text' &&
-			'text' in part
-		) {
-			const chunk = part.text;
-			if (typeof chunk === 'string') text += chunk;
-		}
-	}
-
-	return text;
 }
 
 function createRunId() {
@@ -496,8 +471,11 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				: undefined
 		);
 
-		const message = response.choices?.[0]?.message;
-		const text = collectAssistantText(message?.content ?? null);
+		// Think-block aware extraction with a `reasoning_content` fallback:
+		// reasoner models can answer inside the reasoning trace and leave
+		// `content` empty, or ignore the thinking switch and emit the trace
+		// inline. Either way the raw text must never become the task result.
+		const text = assistantAnswerText(response);
 		const finalData = task.resultParser
 			? await task.resultParser(text, { state: runtime.state })
 			: text;

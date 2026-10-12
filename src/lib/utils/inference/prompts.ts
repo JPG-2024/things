@@ -58,7 +58,8 @@ export const RECURSIVE_SUMMARY_FINAL_USER_MESSAGE =
 
 // ── Title ─────────────────────────────────────────────────────────────
 // Original: src/runners/shared/taskFactories.ts:113
-export const TITLE_SYSTEM_MESSAGE = 'Avoid Markdown.';
+export const TITLE_SYSTEM_MESSAGE =
+	'Avoid Markdown. Respond with only the title: no reasoning, no preamble, no explanation, no quotes, no trailing period.';
 
 // Original: src/runners/shared/taskFactories.ts:116-119
 export function buildTitleUserMessage(lang?: string): string {
@@ -139,5 +140,5 @@ export function buildAnalysisTopicUserMessage(
 	langName?: string
 ): string {
 	const langInstruction = langName ? ` Respond in ${langName}.` : '';
-	return `Summarize this section in one paragraph, and give that summary a very short title (2-6 words). This paragraph is the one summary block for the whole section. Also extract exactly ${topicCount} self explanatory topics, each with a detailed summary (3-5 sentences) covering key points (**), examples, or conclusions, plus ${keywordCount} key terms.${langInstruction} Respond in JSON: { title: string, summary: string, topics: [{label: string, summary: string}], keywords: string[] }`;
+	return `Summarize this section in one paragraph, and give that summary a short title (2-8 words). This paragraph is the one summary block for the whole section. Also extract exactly ${topicCount} self explanatory topics, each with a detailed summary (3-5 sentences) covering key points (**), examples, or conclusions, plus ${keywordCount} key terms.${langInstruction} Respond in JSON: { title: string, summary: string, topics: [{label: string, summary: string}], keywords: string[] }`;
 }

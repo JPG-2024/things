@@ -2,6 +2,7 @@ import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
+import { sanitizeTitle } from '@/lib/utils/inference/titleText';
 import { analysisTopicGbnf } from '@/lib/utils/gbnf';
 import {
 	ANALYSIS_TOPIC_SYSTEM_MESSAGE,
@@ -100,31 +101,18 @@ function clusterByLabel(sections: TopicSection[]): TopicCluster[] {
  * Shrinks a raw topic label to a short, sentence-safe form.
  *
  * The LLM is asked for short labels, but nothing guarantees it, so this is the
- * deterministic backstop: strip leading bullets/quotes, keep only the first
- * clause, cap words and characters, and end with a single period.
+ * deterministic backstop: the shared `sanitizeTitle` strips decoration, keeps
+ * only the first clause and caps the length; here it just gains the single
+ * trailing period the label list renders.
  */
 function normalizeTopicLabel(raw: string, maxWords: number): string {
-	let label = raw
-		.trim()
-		.replace(/^[-*•\d.)\s]+/, '')
-		.replace(/^["'`]+|["'`]+$/g, '')
-		.replace(/\s+/g, ' ')
-		.replace(/[.;:!?,]+$/, '');
-
-	label = label.split(/\s+[–—-]\s+|\s*:\s+/)[0].trim();
-
-	const words = label.split(' ');
-	if (words.length > maxWords) {
-		label = words.slice(0, maxWords).join(' ');
-	}
-
-	// Characters are a language-safe backstop (CJK has no word spaces).
-	const maxChars = Math.max(24, maxWords * 10);
-	if (label.length > maxChars) {
-		const clipped = label.slice(0, maxChars);
-		const lastSpace = clipped.lastIndexOf(' ');
-		label = (lastSpace > 0 ? clipped.slice(0, lastSpace) : clipped).trim();
-	}
+	const label = sanitizeTitle(raw, {
+		maxWords,
+		// Characters are a language-safe backstop (CJK has no word spaces).
+		maxChars: Math.max(24, maxWords * 10),
+		separators: /\s+[–—-]\s+|\s*:\s+/,
+		stripConnectors: true
+	});
 
 	return label ? `${label}.` : '';
 }

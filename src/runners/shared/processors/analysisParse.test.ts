@@ -121,11 +121,38 @@ describe('normalizeWindowTitle', () => {
 		expect(normalizeWindowTitle('- Bulleted Title')).toBe('Bulleted Title');
 	});
 
-	test('caps to 8 words and drops separator suffixes', () => {
+	test('caps word count and drops separator suffixes', () => {
+		expect(
+			normalizeWindowTitle(
+				'One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen'
+			)
+		).toBe('One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve');
 		expect(
 			normalizeWindowTitle('One Two Three Four Five Six Seven Eight Nine Ten – and even more')
-		).toBe('One Two Three Four Five Six Seven Eight');
+		).toBe('One Two Three Four Five Six Seven Eight Nine Ten');
 		expect(normalizeWindowTitle('')).toBe('');
+	});
+
+	test('keeps a complete title intact (regression: depth 1 whole-content title)', () => {
+		expect(normalizeWindowTitle('La adopción de IA en el desarrollo de software')).toBe(
+			'La adopción de IA en el desarrollo de software'
+		);
+	});
+
+	test('drops trailing connectors left by a word clip', () => {
+		expect(
+			normalizeWindowTitle(
+				'Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda de extra words'
+			)
+		).toBe('Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda');
+	});
+
+	test('drops trailing connectors left by a character clip', () => {
+		expect(
+			normalizeWindowTitle(
+				'Extraordinarily comprehensive methodologies underpinning contemporary for subsequent analysis'
+			)
+		).toBe('Extraordinarily comprehensive methodologies underpinning contemporary');
 	});
 });
 

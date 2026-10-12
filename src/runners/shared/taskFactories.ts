@@ -10,6 +10,7 @@ import {
 	DEFAULT_TITLE_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
 import { buildExtractionCompletionOptions } from '@/lib/utils/inference/extraction-helper';
+import { parseTitleText } from '@/lib/utils/inference/finalResponse';
 import {
 	buildCategorySystemMessage,
 	buildCategoryUserMessage,
@@ -87,6 +88,7 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 		systemMessage,
 		userMessage,
 		completionOptions,
+		resultParser,
 		...rest
 	} = options;
 	const sourceDependency = dependencies[0];
@@ -105,6 +107,9 @@ export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef
 				return buildTitleUserMessage(lang);
 			}),
 		run: ({ state }) => requireFinalResponseString(state, sourceDependency),
+		// Reasoner models answer with their thinking trace before the title;
+		// keep only the final response so the header never shows the trace.
+		resultParser: resultParser ?? ((text) => parseTitleText(text)),
 		completionOptions: completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS
 	});
 }
