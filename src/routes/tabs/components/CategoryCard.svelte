@@ -27,7 +27,7 @@
 </script>
 
 <div class="category-card">
-	<Card>
+	<Card showBorders>
 		<button type="button" class="category-header" onclick={() => onCategoryClick(category)}>
 			<CategoryItem value={category.categoryName} />
 		</button>

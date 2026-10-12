@@ -24,6 +24,7 @@
 		<div class="widget-title">{title}</div>
 	{/if}
 	{@render children?.()}
+	<span class="widget-edge-bottom" aria-hidden="true"></span>
 </div>
 
 <style>
@@ -90,10 +91,34 @@
 		border-radius: 30px 0 0 0;
 	}
 
+	/* Espejo inferior del borde superior */
+	.widget-edge-bottom {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 2px;
+		background-image: linear-gradient(
+			145deg,
+			rgba(0, 0, 0) 1%,
+			color-mix(in srgb, var(--primary-color) 20%, transparent),
+			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			rgba(0, 0, 0) 100%
+		);
+		border-radius: 30px 0 0 0;
+		transform: scaleY(-1);
+		pointer-events: none;
+	}
+
+	.widget.no-borders::before,
+	.widget.no-borders .widget-edge-bottom {
+		display: none;
+	}
+
 	.widget::after {
 		content: '';
 		position: absolute;
-		top: 0;
+		bottom: 0;
 		left: 0;
 		width: 0px; /* <-- TOGGLE with 1px */
 		height: 100%; /* Cubre 40% de la altura izquierda */
