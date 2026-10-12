@@ -160,7 +160,12 @@ fn binary_candidates() -> Vec<PathBuf> {
 
 fn split_extra_args(key: &str) -> Vec<String> {
     env_string(key)
-        .map(|value| value.split_whitespace().map(|part| part.to_string()).collect())
+        .map(|value| {
+            value
+                .split_whitespace()
+                .map(|part| part.to_string())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -184,8 +189,8 @@ fn resolve_model(dir: &Path, name: &str) -> Result<PathBuf, String> {
     }
     let root = std::fs::canonicalize(dir)
         .map_err(|error| format!("models directory invalid: {} ({})", dir.display(), error))?;
-    let full = std::fs::canonicalize(root.join(name))
-        .map_err(|_| format!("model not found: {}", name))?;
+    let full =
+        std::fs::canonicalize(root.join(name)).map_err(|_| format!("model not found: {}", name))?;
     if !full.starts_with(&root) {
         return Err(format!("model outside models directory: {}", name));
     }
@@ -423,7 +428,15 @@ async fn ensure_named(
 
     let host = env_string(host_env).unwrap_or_else(|| default_host.to_string());
     let extra = split_extra_args(extra_env);
-    let args = build_args(name, &model, &host, port, &extra, inference_ctx, cache_ram_mb);
+    let args = build_args(
+        name,
+        &model,
+        &host,
+        port,
+        &extra,
+        inference_ctx,
+        cache_ram_mb,
+    );
 
     ensure_slot(app, slot, name, port, &args).await
 }
@@ -574,7 +587,9 @@ fn runtime_for(slot: &Mutex<Option<Child>>, name: &str) -> LlamaServerRuntime {
 /// Servers started outside the app are never reported here; the frontend must
 /// combine this with HTTP health to know if something is serving on the port.
 #[tauri::command]
-pub fn llama_servers_runtime(state: tauri::State<'_, LlamaServersState>) -> Vec<LlamaServerRuntime> {
+pub fn llama_servers_runtime(
+    state: tauri::State<'_, LlamaServersState>,
+) -> Vec<LlamaServerRuntime> {
     let servers = state.inner();
     vec![
         runtime_for(&servers.inference, "inference"),
@@ -611,11 +626,8 @@ mod tests {
     use super::*;
 
     fn unique_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "things-llama-{}-{}",
-            label,
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("things-llama-{}-{}", label, std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -645,7 +657,15 @@ mod tests {
     #[test]
     fn build_args_places_port_and_extra_last() {
         let extra = vec!["--threads".to_string(), "8".to_string()];
-        let args = build_args("inference", "/models/a.gguf", "127.0.0.1", 8080, &extra, 16384, 512);
+        let args = build_args(
+            "inference",
+            "/models/a.gguf",
+            "127.0.0.1",
+            8080,
+            &extra,
+            16384,
+            512,
+        );
         let port_index = args.iter().position(|arg| arg == "--port").unwrap();
         assert_eq!(args[port_index + 1], "8080");
         assert_eq!(&args[args.len() - 2..], &extra[..]);
@@ -654,7 +674,15 @@ mod tests {
 
     #[test]
     fn build_args_marks_embeddings_mode() {
-        let args = build_args("embeddings", "/models/b.gguf", "0.0.0.0", 8083, &[], 16384, 512);
+        let args = build_args(
+            "embeddings",
+            "/models/b.gguf",
+            "0.0.0.0",
+            8083,
+            &[],
+            16384,
+            512,
+        );
         assert!(args.iter().any(|arg| arg == "--embedding"));
         assert!(args.iter().any(|arg| arg == "--pooling"));
         // Embeddings keep their fixed context; memory tuning is inference-only.
@@ -663,7 +691,15 @@ mod tests {
 
     #[test]
     fn build_args_uses_configured_context_and_cache() {
-        let args = build_args("inference", "/models/a.gguf", "127.0.0.1", 8080, &[], 8192, 256);
+        let args = build_args(
+            "inference",
+            "/models/a.gguf",
+            "127.0.0.1",
+            8080,
+            &[],
+            8192,
+            256,
+        );
         let ctx_index = args.iter().position(|arg| arg == "-c").unwrap();
         assert_eq!(args[ctx_index + 1], "8192");
         let cache_index = args.iter().position(|arg| arg == "--cache-ram").unwrap();

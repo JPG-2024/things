@@ -40,7 +40,8 @@ pub use crate::embedding_store::{
     upsert_category_embeddings,
 };
 pub use crate::llama_server::{
-    ensure_llama_servers, llama_defaults, llama_servers_runtime, list_llama_models, stop_llama_servers,
+    ensure_llama_servers, list_llama_models, llama_defaults, llama_servers_runtime,
+    stop_llama_servers,
 };
 use crate::llama_server::{kill_spawned_servers, LlamaServersState};
 pub use crate::track_download::download_track;
