@@ -133,6 +133,10 @@ class ViewState {
 	llamaModelsDir = $state<string>('');
 	llamaInferenceModel = $state<string>('');
 	llamaInferencePort = $state(envPort(ENV_LLAMA_URL, 8080));
+	// llama-server memory tuning: context window in tokens and prompt-cache
+	// budget in MiB. Both only take effect when a server (re)starts.
+	llamaInferenceCtxSize = $state(32768);
+	llamaCacheRamMb = $state(1024);
 	llamaEmbeddingsModel = $state<string>('');
 	llamaEmbeddingsPort = $state(envPort(ENV_EMBEDDINGS_URL, 8083));
 	llamaAutoStart = $state(true);

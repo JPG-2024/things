@@ -12,6 +12,35 @@ const DEFAULT_INFERENCE_HOST: &str = "127.0.0.1";
 const DEFAULT_EMBEDDINGS_HOST: &str = "0.0.0.0";
 const HEALTH_TIMEOUT_MS: u64 = 1500;
 
+/// llama-server memory tuning for the inference server. The context window
+/// bounds the KV-cache allocation; the prompt-cache budget bounds how much
+/// previously processed prompt state is kept in RAM across requests.
+const DEFAULT_INFERENCE_CTX: u32 = 32768;
+const DEFAULT_CACHE_RAM_MB: u32 = 1024;
+const MIN_INFERENCE_CTX: u32 = 512;
+const MAX_INFERENCE_CTX: u32 = 131_072;
+const MAX_CACHE_RAM_MB: u32 = 65_536;
+
+fn env_u32(key: &str) -> Option<u32> {
+    env_string(key).and_then(|value| value.parse::<u32>().ok())
+}
+
+/// Resolve the inference context size: explicit IPC value, then
+/// `LLAMA_INFERENCE_CTX`, then the default. Always kept inside a sane range.
+fn effective_inference_ctx(raw: Option<u32>) -> u32 {
+    let value = raw.or_else(|| env_u32("LLAMA_INFERENCE_CTX"));
+    value
+        .unwrap_or(DEFAULT_INFERENCE_CTX)
+        .clamp(MIN_INFERENCE_CTX, MAX_INFERENCE_CTX)
+}
+
+/// Resolve the prompt-cache budget in MiB: explicit IPC value, then
+/// `LLAMA_CACHE_RAM_MB`, then the default. 0 disables the prompt cache.
+fn effective_cache_ram_mb(raw: Option<u32>) -> u32 {
+    let value = raw.or_else(|| env_u32("LLAMA_CACHE_RAM_MB"));
+    value.unwrap_or(DEFAULT_CACHE_RAM_MB).min(MAX_CACHE_RAM_MB)
+}
+
 /// Owns the llama-server child processes the app started. Servers that were
 /// already running before the app (or started outside it) are never tracked
 /// here, so they are never killed on exit.
@@ -44,6 +73,12 @@ pub struct LlamaServersConfig {
     pub embeddings: LlamaServerTarget,
     #[serde(default)]
     pub restart: bool,
+    /// Inference context window in tokens (KV-cache size bound).
+    #[serde(default)]
+    pub inference_ctx_size: Option<u32>,
+    /// Prompt-cache budget for the inference server in MiB (0 disables it).
+    #[serde(default)]
+    pub cache_ram_mb: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -165,7 +200,15 @@ fn resolve_model(dir: &Path, name: &str) -> Result<PathBuf, String> {
     Ok(full)
 }
 
-fn build_args(name: &str, model: &str, host: &str, port: u16, extra: &[String]) -> Vec<String> {
+fn build_args(
+    name: &str,
+    model: &str,
+    host: &str,
+    port: u16,
+    extra: &[String],
+    inference_ctx: u32,
+    cache_ram_mb: u32,
+) -> Vec<String> {
     let mut args: Vec<String> = match name {
         "embeddings" => vec![
             "-m".into(),
@@ -182,13 +225,13 @@ fn build_args(name: &str, model: &str, host: &str, port: u16, extra: &[String]) 
             "-m".into(),
             model.into(),
             "-c".into(),
-            "32768".into(),
+            inference_ctx.to_string(),
             "-b".into(),
             "512".into(),
             "--n-gpu-layers".into(),
             "99".into(),
             "--cache-ram".into(),
-            "4096".into(),
+            cache_ram_mb.to_string(),
             "--ctx-checkpoints".into(),
             "0".into(),
             "--cache-type-k".into(),
@@ -356,6 +399,8 @@ async fn ensure_named(
     default_host: &str,
     extra_env: &str,
     default_model_env: &str,
+    inference_ctx: u32,
+    cache_ram_mb: u32,
 ) -> LlamaServerStatus {
     let port = target.port;
     if let Err(error) = validate_port(port, name) {
@@ -378,7 +423,7 @@ async fn ensure_named(
 
     let host = env_string(host_env).unwrap_or_else(|| default_host.to_string());
     let extra = split_extra_args(extra_env);
-    let args = build_args(name, &model, &host, port, &extra);
+    let args = build_args(name, &model, &host, port, &extra, inference_ctx, cache_ram_mb);
 
     ensure_slot(app, slot, name, port, &args).await
 }
@@ -399,6 +444,12 @@ pub async fn ensure_llama_servers(
         wait_for_ports_free([config.inference.port, config.embeddings.port]).await;
     }
 
+    // Memory tuning only affects the inference server; the embeddings server
+    // keeps its fixed context. Resolved once per ensure call so a restart with
+    // new settings respawns with fresh args.
+    let inference_ctx = effective_inference_ctx(config.inference_ctx_size);
+    let cache_ram_mb = effective_cache_ram_mb(config.cache_ram_mb);
+
     let inference = ensure_named(
         &app,
         &servers.inference,
@@ -409,6 +460,8 @@ pub async fn ensure_llama_servers(
         DEFAULT_INFERENCE_HOST,
         "LLAMA_INFERENCE_EXTRA_ARGS",
         "LLAMA_INFERENCE_MODEL",
+        inference_ctx,
+        cache_ram_mb,
     )
     .await;
 
@@ -422,6 +475,8 @@ pub async fn ensure_llama_servers(
         DEFAULT_EMBEDDINGS_HOST,
         "LLAMA_EMBEDDINGS_EXTRA_ARGS",
         "LLAMA_EMBEDDINGS_MODEL",
+        inference_ctx,
+        cache_ram_mb,
     )
     .await;
 
@@ -590,7 +645,7 @@ mod tests {
     #[test]
     fn build_args_places_port_and_extra_last() {
         let extra = vec!["--threads".to_string(), "8".to_string()];
-        let args = build_args("inference", "/models/a.gguf", "127.0.0.1", 8080, &extra);
+        let args = build_args("inference", "/models/a.gguf", "127.0.0.1", 8080, &extra, 16384, 512);
         let port_index = args.iter().position(|arg| arg == "--port").unwrap();
         assert_eq!(args[port_index + 1], "8080");
         assert_eq!(&args[args.len() - 2..], &extra[..]);
@@ -599,9 +654,35 @@ mod tests {
 
     #[test]
     fn build_args_marks_embeddings_mode() {
-        let args = build_args("embeddings", "/models/b.gguf", "0.0.0.0", 8083, &[]);
+        let args = build_args("embeddings", "/models/b.gguf", "0.0.0.0", 8083, &[], 16384, 512);
         assert!(args.iter().any(|arg| arg == "--embedding"));
         assert!(args.iter().any(|arg| arg == "--pooling"));
+        // Embeddings keep their fixed context; memory tuning is inference-only.
+        assert!(args.iter().any(|arg| arg == "--ctx-size"));
+    }
+
+    #[test]
+    fn build_args_uses_configured_context_and_cache() {
+        let args = build_args("inference", "/models/a.gguf", "127.0.0.1", 8080, &[], 8192, 256);
+        let ctx_index = args.iter().position(|arg| arg == "-c").unwrap();
+        assert_eq!(args[ctx_index + 1], "8192");
+        let cache_index = args.iter().position(|arg| arg == "--cache-ram").unwrap();
+        assert_eq!(args[cache_index + 1], "256");
+    }
+
+    #[test]
+    fn effective_inference_ctx_clamps_and_defaults() {
+        assert_eq!(effective_inference_ctx(None), DEFAULT_INFERENCE_CTX);
+        assert_eq!(effective_inference_ctx(Some(8192)), 8192);
+        assert_eq!(effective_inference_ctx(Some(1)), MIN_INFERENCE_CTX);
+        assert_eq!(effective_inference_ctx(Some(u32::MAX)), MAX_INFERENCE_CTX);
+    }
+
+    #[test]
+    fn effective_cache_ram_clamps_high_and_allows_zero() {
+        assert_eq!(effective_cache_ram_mb(None), DEFAULT_CACHE_RAM_MB);
+        assert_eq!(effective_cache_ram_mb(Some(0)), 0);
+        assert_eq!(effective_cache_ram_mb(Some(u32::MAX)), MAX_CACHE_RAM_MB);
     }
 
     #[test]

@@ -89,6 +89,8 @@ function serializeView() {
 		llamaModelsDir: viewState.llamaModelsDir,
 		llamaInferenceModel: viewState.llamaInferenceModel,
 		llamaInferencePort: viewState.llamaInferencePort,
+		llamaInferenceCtxSize: viewState.llamaInferenceCtxSize,
+		llamaCacheRamMb: viewState.llamaCacheRamMb,
 		llamaEmbeddingsModel: viewState.llamaEmbeddingsModel,
 		llamaEmbeddingsPort: viewState.llamaEmbeddingsPort,
 		categoryTopN: viewState.categoryTopN,
@@ -141,6 +143,12 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.llamaInferencePort === 'number') {
 		viewState.llamaInferencePort = clamp(Math.trunc(raw.llamaInferencePort), 1024, 65535);
+	}
+	if (typeof raw.llamaInferenceCtxSize === 'number') {
+		viewState.llamaInferenceCtxSize = clamp(Math.trunc(raw.llamaInferenceCtxSize), 512, 131072);
+	}
+	if (typeof raw.llamaCacheRamMb === 'number') {
+		viewState.llamaCacheRamMb = clamp(Math.trunc(raw.llamaCacheRamMb), 0, 65536);
 	}
 	if (typeof raw.llamaEmbeddingsModel === 'string') {
 		viewState.llamaEmbeddingsModel = raw.llamaEmbeddingsModel;

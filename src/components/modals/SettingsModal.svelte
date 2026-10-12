@@ -216,6 +216,22 @@
 				bind:value={viewState.llamaEmbeddingsPort}
 			/>
 		</FieldsRow>
+		<FieldsRow columns={2}>
+			<NumberField
+				label="Inference context"
+				min={512}
+				max={131072}
+				tooltip="Maximum context in tokens. Smaller values use less KV-cache RAM, but prompts longer than this get truncated. Applies after restarting the servers."
+				bind:value={viewState.llamaInferenceCtxSize}
+			/>
+			<NumberField
+				label="Prompt cache (MB)"
+				min={0}
+				max={65536}
+				tooltip="RAM reserved to reuse already processed prompts (0 disables it). Lower values use less RAM but repeated long prompts get re-processed. Applies after restarting the servers."
+				bind:value={viewState.llamaCacheRamMb}
+			/>
+		</FieldsRow>
 		<DropdownField
 			label="Embeddings model"
 			bind:value={viewState.llamaEmbeddingsModel}
