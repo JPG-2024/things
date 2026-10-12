@@ -480,6 +480,7 @@ class PodcastState {
 
 				await this.playExchange(t, e, session);
 				if (this._session !== session) return;
+				this.prunePlayedAudioBehind(t, e);
 
 				this.progress.current = Math.min(
 					t * this.config.interactionsPerTopic + e + 1,
@@ -562,6 +563,30 @@ class PodcastState {
 
 		this._preparePromises.set(key, promise);
 		return promise;
+	}
+
+	/** Drop prepared audio for exchanges the playback loop has left behind: the
+	 * entry one exchange back is kept so a manual step back replays from cache,
+	 * anything older regenerates lazily via playExchange → prepareExchangeAudio.
+	 * The matching prepare promises are dropped too, otherwise a cached resolved
+	 * promise would short-circuit the regeneration and the exchange would play
+	 * nothing. */
+	private prunePlayedAudioBehind(topicIdx: number, exchangeIdx: number): void {
+		const KEEP_BEHIND = 1;
+		const firstStale = exchangeIdx - KEEP_BEHIND;
+		const drop = (t: number, i: number) => {
+			const key = `${t}:${i}`;
+			this._blobs.delete(key);
+			this._preparePromises.delete(key);
+		};
+		if (firstStale >= 0) {
+			for (let i = 0; i < firstStale; i++) drop(topicIdx, i);
+		} else if (topicIdx > 0) {
+			const previousCount = this.dialogs[topicIdx - 1]?.length ?? 0;
+			for (let i = 0; i < previousCount - KEEP_BEHIND; i++) {
+				drop(topicIdx - 1, i);
+			}
+		}
 	}
 
 	private async playExchange(
