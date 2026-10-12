@@ -314,7 +314,7 @@
 					onclick={() => drawersState.open('settings')}
 					aria-label="Open settings"
 				>
-					<Icon name="Cog" />
+					<Icon name="SlidersHorizontal" />
 				</button>
 
 				<ToolbarDivider />
