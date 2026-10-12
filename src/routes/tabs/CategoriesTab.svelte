@@ -47,7 +47,6 @@
 <ProfileList
 	items={visibleCategories}
 	itemTransition={categoryItemTransition}
-	columns
 	columnWidth={CATEGORY_ARTICLE_COLUMN_WIDTH}
 	rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
 	key={(category) => category.categoryId}
