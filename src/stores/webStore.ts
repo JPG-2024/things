@@ -85,7 +85,9 @@ export type WebStoreArticleRecord = {
 	createdAt: number;
 	title: string | null;
 	thumbnail: string | null;
-	content: string | null;
+	/** Only present on the article-detail fetch; list queries omit these
+	 * heavyweight columns to keep bodies out of webview memory. */
+	content?: string | null;
 	directory: string | null;
 	mediaDirectory: string | null;
 	profile: string | null;
@@ -93,7 +95,7 @@ export type WebStoreArticleRecord = {
 	mainColor: string | null;
 	primaryColor: string | null;
 	updatedAt: number;
-	embeddingSourceText: string | null;
+	embeddingSourceText?: string | null;
 	profilePicture: string | null;
 	viewed: boolean;
 	date: string | null;

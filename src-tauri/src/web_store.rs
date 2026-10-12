@@ -844,22 +844,26 @@ fn sort_articles_by_created_at_desc(records: &mut [WebStoreArticleRecord]) {
 fn row_to_stored_article(
     row: &rusqlite::Row<'_>,
 ) -> Result<WebStoreArticleRecord, rusqlite::Error> {
-    let id: String = row.get(0)?;
-    let url: String = row.get(1)?;
-    let created_at: i64 = row.get(2)?;
-    let title: Option<String> = row.get(3)?;
-    let thumbnail: Option<String> = row.get(4)?;
-    let content: Option<String> = row.get(5)?;
-    let media_directory: Option<String> = row.get(6)?;
-    let main_color: Option<String> = row.get(7)?;
-    let profile: Option<String> = row.get(8)?;
-    let embedding_source_text: Option<String> = row.get(9)?;
-    let updated_at: i64 = row.get(10)?;
-    let viewed_int: i64 = row.get(11)?;
-    let date: Option<String> = row.get(12)?;
-    let domain: Option<String> = row.get(13)?;
-    let profile_picture: Option<String> = row.get(14)?;
-    let template_id: Option<String> = row.get(15)?;
+    // Map by column name, not index: list queries select a trimmed column set
+    // (see ARTICLE_LIST_COLUMNS), so a positional mapping breaks the moment a
+    // column is dropped. The two body columns only exist on the detail shape,
+    // so they resolve through a fallback that treats a missing column as NULL.
+    let id: String = row.get("id")?;
+    let url: String = row.get("url")?;
+    let created_at: i64 = row.get("created_at")?;
+    let title: Option<String> = row.get("title")?;
+    let thumbnail: Option<String> = row.get("thumbnail")?;
+    let media_directory: Option<String> = row.get("media_directory")?;
+    let main_color: Option<String> = row.get("main_color")?;
+    let profile: Option<String> = row.get("profile")?;
+    let updated_at: i64 = row.get("updated_at")?;
+    let viewed_int: i64 = row.get("viewed")?;
+    let date: Option<String> = row.get("date")?;
+    let domain: Option<String> = row.get("domain")?;
+    let profile_picture: Option<String> = row.get("profile_picture")?;
+    let template_id: Option<String> = row.get("template_id")?;
+    let content: Option<String> = body_column_or_none(row, "content");
+    let embedding_source_text: Option<String> = body_column_or_none(row, "embedding_source_text");
 
     Ok(WebStoreArticleRecord {
         id,
@@ -883,6 +887,12 @@ fn row_to_stored_article(
     })
 }
 
+/// Body columns disappear from the list column set, so a missing column maps
+/// to NULL instead of failing the row.
+fn body_column_or_none(row: &rusqlite::Row<'_>, name: &str) -> Option<String> {
+    row.get::<_, Option<String>>(name).unwrap_or(None)
+}
+
 const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
         a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
         a.viewed, a.date, a.domain,
@@ -891,12 +901,25 @@ const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, 
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
         )) AS profile_picture, a.template_id";
 
+/// Columns for list/card queries: cards only render title + thumbnail, and the
+/// body shown inside an article comes from its task data (`raw_content`
+/// files), not from the `content` column. The full set above stays reserved
+/// for the article-detail path.
+const ARTICLE_LIST_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail,
+        a.media_directory, a.main_color, a.profile, a.updated_at,
+        a.viewed, a.date, a.domain,
+        (SELECT COALESCE(
+            (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
+            (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
+        )) AS profile_picture, a.template_id";
+
 fn query_articles_sql(
     conn: &Connection,
+    columns: &str,
     body: &str,
     params: &[Box<dyn rusqlite::types::ToSql>],
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
-    let sql = format!("SELECT {} FROM web_articles a {}", ARTICLE_COLUMNS, body);
+    let sql = format!("SELECT {} FROM web_articles a {}", columns, body);
     let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let article_iter = stmt
         .query_map(
@@ -915,6 +938,7 @@ fn query_articles_sql(
 
 fn query_articles(
     conn: &Connection,
+    columns: &str,
     filter: Option<&str>,
     limit: Option<usize>,
     sort: Option<&str>,
@@ -935,7 +959,7 @@ fn query_articles(
         body.push_str(&format!(" LIMIT {}", lim));
     }
 
-    query_articles_sql(conn, &body, &[])
+    query_articles_sql(conn, columns, &body, &[])
 }
 
 fn query_domain_by_id(
@@ -1123,7 +1147,7 @@ fn rebuild_domains_from_articles(
         .map(|d| (d.id, d.profile_picture))
         .collect();
 
-    let all_articles = query_articles(conn, None, None, None)?;
+    let all_articles = query_articles(conn, ARTICLE_COLUMNS, None, None, None)?;
     let mut aggregated = aggregate_domains(all_articles);
 
     for domain in &mut aggregated {
@@ -1166,7 +1190,7 @@ pub async fn list_web_store_articles(
 ) -> Result<Vec<Value>, String> {
     let conn = get_db(&app)?;
     init_schema(&conn)?;
-    let records = query_articles(&conn, None, None, None)?;
+    let records = query_articles(&conn, ARTICLE_LIST_COLUMNS, None, None, None)?;
     Ok(records
         .iter()
         .map(|record| filter_record_to_json(record, &fields))
@@ -1291,7 +1315,8 @@ pub async fn list_web_store_domains(
     )?;
 
     if domains.is_empty() && !include {
-        let aggregated = aggregate_domains(query_articles(&conn, None, None, None)?);
+        let aggregated =
+            aggregate_domains(query_articles(&conn, ARTICLE_COLUMNS, None, None, None)?);
         for domain in &aggregated {
             upsert_domain(&conn, domain)?;
         }
@@ -1475,9 +1500,21 @@ async fn list_web_store_articles_by_column(
             Some(f) => format!("{} AND {}", base_filter, f),
             None => base_filter,
         };
-        query_articles(&conn, Some(&combined_filter), limit, Some("date"))?
+        query_articles(
+            &conn,
+            ARTICLE_LIST_COLUMNS,
+            Some(&combined_filter),
+            limit,
+            Some("date"),
+        )?
     } else {
-        query_articles(&conn, filter.as_deref(), limit, Some("date"))?
+        query_articles(
+            &conn,
+            ARTICLE_LIST_COLUMNS,
+            filter.as_deref(),
+            limit,
+            Some("date"),
+        )?
     };
 
     let filtered_records = if normalized_bucket_id.is_empty()
@@ -1533,7 +1570,7 @@ pub async fn get_web_store_article_by_url(
     let conn = get_db(&app)?;
     init_schema(&conn)?;
     let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
-    let mut records = query_articles(&conn, Some(&filter), Some(1), None)?;
+    let mut records = query_articles(&conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None)?;
     Ok(records.pop())
 }
 
@@ -2162,7 +2199,7 @@ fn fetch_articles_by_urls(
             .iter()
             .map(|url| Box::new(url.clone()) as Box<dyn rusqlite::types::ToSql>)
             .collect();
-        let records = query_articles_sql(conn, &body, &params)?;
+        let records = query_articles_sql(conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
         for record in records {
             if let Some(url) = record.url.clone() {
                 map.insert(url, record);
@@ -2437,6 +2474,7 @@ fn query_articles_for_bucket(
 
     query_articles_sql(
         conn,
+        ARTICLE_LIST_COLUMNS,
         &body,
         &[Box::new(bucket_id.to_string()), Box::new(article_count)],
     )
@@ -2554,7 +2592,7 @@ pub async fn list_articles_without_profile(
         offset.unwrap_or(0)
     );
 
-    let articles = query_articles_sql(&conn, &body, &params)?;
+    let articles = query_articles_sql(&conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
 }
@@ -2664,7 +2702,7 @@ fn query_articles_for_category(
     params.push(Box::new(fetch_limit));
     params.push(Box::new(offset));
 
-    let mut articles = query_articles_sql(conn, &body, &params)?;
+    let mut articles = query_articles_sql(conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
     let has_more = articles.len() > article_count;
     articles.truncate(article_count);
 
@@ -3027,6 +3065,50 @@ mod tests {
             params![article_url, category_id],
         )
         .expect("link article to category");
+    }
+
+    /// List queries must not drag the article body through IPC: the frontend
+    /// renders bodies from task data (`raw_content` files), so the `content`
+    /// and `embedding_source_text` columns stay reserved for the detail path.
+    #[test]
+    fn list_columns_omit_content_and_detail_columns_include_it() {
+        let conn = build_in_memory_db();
+        conn.execute(
+            "INSERT INTO web_articles
+                (id, url, created_at, title, content, embedding_source_text, updated_at, viewed)
+             VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?2, 0)",
+            params![
+                "https://example.com/article",
+                1_000_000_000_000i64,
+                "title",
+                "FULL BODY",
+                "EMBEDDING SOURCE"
+            ],
+        )
+        .expect("insert article with body");
+
+        let body = " ORDER BY a.created_at DESC";
+
+        let listed =
+            query_articles_sql(&conn, ARTICLE_LIST_COLUMNS, body, &[]).expect("list query");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].title.as_deref(), Some("title"));
+        assert!(
+            listed[0].content.is_none(),
+            "list queries must not select the article body"
+        );
+        assert!(
+            listed[0].embedding_source_text.is_none(),
+            "list queries must not select the embedding source text"
+        );
+
+        let detail = query_articles_sql(&conn, ARTICLE_COLUMNS, body, &[]).expect("detail query");
+        assert_eq!(detail.len(), 1);
+        assert_eq!(detail[0].content.as_deref(), Some("FULL BODY"));
+        assert_eq!(
+            detail[0].embedding_source_text.as_deref(),
+            Some("EMBEDDING SOURCE")
+        );
     }
 
     #[test]
@@ -3520,7 +3602,8 @@ mod tests {
         )
         .expect("insert article");
 
-        let articles = query_articles(&conn, None, None, None).expect("query articles");
+        let articles =
+            query_articles(&conn, ARTICLE_COLUMNS, None, None, None).expect("query articles");
         let domains = aggregate_domains(articles);
 
         let ids: Vec<&str> = domains.iter().map(|d| d.id.as_str()).collect();
