@@ -1,8 +1,13 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
-	import IconDropdown from '../inputs/IconDropdown.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
-	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
+	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
+	import FieldsRow from '@/components/inputs/fields/FieldsRow.component.svelte';
+	import IconDropdownField from '@/components/inputs/fields/IconDropdownField.component.svelte';
+	import NumberField from '@/components/inputs/fields/NumberField.component.svelte';
+	import TextField from '@/components/inputs/fields/TextField.component.svelte';
+	import ToggleField from '@/components/inputs/fields/ToggleField.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
@@ -108,11 +113,10 @@
 		}
 	}
 
-	function handleAutoStartToggle() {
-		viewState.llamaAutoStart = !viewState.llamaAutoStart;
-		// Enabling it starts the servers right away; disabling only affects the
-		// next app launch and never stops servers that are already running.
-		if (viewState.llamaAutoStart) void startLlamaServers();
+	// Enabling auto-start starts the servers right away; disabling only affects the
+	// next app launch and never stops servers that are already running.
+	function handleAutoStartChange(checked: boolean) {
+		if (checked) void startLlamaServers();
 	}
 
 	onMount(() => {
@@ -149,107 +153,76 @@
 
 <div class="drawer-inner">
 	<h2>
-		<Icon name="Cog" size={30} color={viewState.primaryColor} />
+		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 		Settings
 	</h2>
-	<IconDropdown
+	<IconDropdownField
 		label="Language"
 		options={languageOptions}
 		iconSize={20}
+		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
 	<div class="inference-section">
 		<h3>Inference</h3>
-		<IconDropdown label="AI Provider" options={providerOptions} bind:value={viewState.aiProvider} />
-		<div class="field">
-			<label for="aiUrl">AI URL</label>
-			<input id="aiUrl" type="text" bind:value={viewState.aiUrl} />
-		</div>
-		<div class="field">
-			<label for="aiModel">AI Model</label>
-			<input id="aiModel" type="text" bind:value={viewState.aiModel} />
-		</div>
+		<DropdownField
+			label="AI Provider"
+			options={providerOptions}
+			tooltip="Where inference requests are sent."
+			bind:value={viewState.aiProvider}
+		/>
+		<TextField
+			label="AI URL"
+			tooltip="Base URL of the OpenAI-compatible endpoint."
+			bind:value={viewState.aiUrl}
+		/>
+		<TextField label="AI Model" bind:value={viewState.aiModel} />
 	</div>
 	<div class="inference-section">
 		<h3>Local models (llama.cpp)</h3>
-		<div class="field auto-start-field">
-			<span class="field-label">Launch servers automatically</span>
-			<ToggleIcon
-				name="Power"
-				checked={viewState.llamaAutoStart}
-				onClick={() => handleAutoStartToggle()}
-				label="Auto-start"
-			/>
-		</div>
-		<div class="field">
-			<label for="llama-models-dir">Models directory</label>
-			<div class="dir-row">
-				<input
-					id="llama-models-dir"
-					type="text"
-					bind:value={viewState.llamaModelsDir}
-					onchange={() => void refreshModels()}
-					placeholder="~/Downloads/models"
-				/>
+		<ToggleField
+			label="Launch servers automatically"
+			tooltip="Start the local llama.cpp servers when the app opens."
+			bind:checked={viewState.llamaAutoStart}
+			onChange={handleAutoStartChange}
+		/>
+		<TextField
+			label="Models directory"
+			placeholder="~/Downloads/models"
+			bind:value={viewState.llamaModelsDir}
+			onBlur={() => void refreshModels()}
+		>
+			{#snippet suffix()}
 				<Button onClick={() => void handlePickModelsDir()} icon="FolderOpen">Browse</Button>
-			</div>
-		</div>
-		<div class="field">
-			<span class="field-label">Inference model</span>
-			<IconDropdown
-				bind:value={viewState.llamaInferenceModel}
-				options={inferenceOptions}
-				placeholder={loadingModels ? 'Loading…' : 'Select a model'}
+			{/snippet}
+		</TextField>
+		<DropdownField
+			label="Inference model"
+			bind:value={viewState.llamaInferenceModel}
+			options={inferenceOptions}
+			placeholder={loadingModels ? 'Loading…' : 'Select a model'}
+		/>
+		<FieldsRow columns={2}>
+			<NumberField
+				label="Inference port"
+				min={1024}
+				max={65535}
+				bind:value={viewState.llamaInferencePort}
 			/>
-		</div>
-		<div class="field">
-			<label for="llama-inference-port">Inference port</label>
-			<input
-				id="llama-inference-port"
-				type="number"
-				min="1024"
-				max="65535"
-				value={viewState.llamaInferencePort}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					viewState.llamaInferencePort = Math.min(
-						65535,
-						Math.max(1024, Math.trunc(isNaN(v) ? 8080 : v))
-					);
-				}}
+			<NumberField
+				label="Embeddings port"
+				min={1024}
+				max={65535}
+				bind:value={viewState.llamaEmbeddingsPort}
 			/>
-		</div>
-		<div class="field">
-			<span class="field-label">Embeddings model</span>
-			<IconDropdown
-				bind:value={viewState.llamaEmbeddingsModel}
-				options={embeddingsOptions}
-				placeholder={loadingModels ? 'Loading…' : 'Select a model'}
-			/>
-		</div>
-		<div class="field">
-			<label for="llama-embeddings-port">Embeddings port</label>
-			<input
-				id="llama-embeddings-port"
-				type="number"
-				min="1024"
-				max="65535"
-				value={viewState.llamaEmbeddingsPort}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					viewState.llamaEmbeddingsPort = Math.min(
-						65535,
-						Math.max(1024, Math.trunc(isNaN(v) ? 8083 : v))
-					);
-				}}
-			/>
-		</div>
-		<div class="field checkbox-field">
-			<label>
-				<input type="checkbox" bind:checked={showAllModels} />
-				Show all models
-			</label>
-		</div>
+		</FieldsRow>
+		<DropdownField
+			label="Embeddings model"
+			bind:value={viewState.llamaEmbeddingsModel}
+			options={embeddingsOptions}
+			placeholder={loadingModels ? 'Loading…' : 'Select a model'}
+		/>
+		<CheckboxField label="Show all models" bind:checked={showAllModels} />
 		{#if modelsError}
 			<p class="error-text">{modelsError}</p>
 		{/if}
@@ -295,96 +268,53 @@
 	</div>
 	<div class="inference-section">
 		<h3>Category classification</h3>
-		<div class="field">
-			<label for="category-topN">Top categories</label>
-			<input
-				id="category-topN"
-				type="number"
-				min="1"
-				max="10"
-				value={viewState.categoryTopN}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					viewState.categoryTopN = Math.min(10, Math.max(1, Math.trunc(isNaN(v) ? 3 : v)));
-				}}
+		<FieldsRow columns={2}>
+			<NumberField
+				label="Top categories"
+				min={1}
+				max={10}
+				tooltip="How many categories are considered when classifying an article."
+				bind:value={viewState.categoryTopN}
 			/>
-		</div>
-		<div class="field">
-			<label for="category-minSimilarity">Min similarity</label>
-			<input
-				id="category-minSimilarity"
-				type="number"
-				min="0"
-				max="1"
-				step="0.05"
-				value={viewState.categoryMinSimilarity}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					viewState.categoryMinSimilarity = Math.min(1, Math.max(0, isNaN(v) ? 0.35 : v));
-				}}
+			<NumberField
+				label="Min similarity"
+				min={0}
+				max={1}
+				step={0.05}
+				integer={false}
+				precision={2}
+				tooltip="Minimum cosine similarity required to assign a category."
+				bind:value={viewState.categoryMinSimilarity}
 			/>
-		</div>
+		</FieldsRow>
 		<Button onClick={handleRebuildCategoryIndex} disabled={rebuildingCategories} icon="RefreshCw">
 			{rebuildingCategories ? 'Rebuilding…' : 'Rebuild category index'}
 		</Button>
 	</div>
 	<div class="inference-section">
 		<h3>Media</h3>
-		<div class="field">
-			<label for="media-thumbnail-reduction">Thumbnail Reduction</label>
-			<input
-				id="media-thumbnail-reduction"
-				type="number"
-				min="1"
-				max="8"
-				value={viewState.thumbnailReductionMagnitud}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					viewState.thumbnailReductionMagnitud = Math.min(
-						8,
-						Math.max(1, Math.trunc(isNaN(v) ? 1 : v))
-					);
-				}}
-			/>
-		</div>
+		<NumberField
+			label="Thumbnail Reduction"
+			min={1}
+			max={8}
+			tooltip="Downscale factor applied to generated thumbnails."
+			bind:value={viewState.thumbnailReductionMagnitud}
+		/>
 	</div>
 	<div class="inference-section">
 		<h3>Scraping</h3>
-		<div class="field checkbox-field">
-			<label>
-				<input type="checkbox" bind:checked={scrapStore.parallelFetch} />
-				Parallel Fetch
-			</label>
-		</div>
-		<div class="field">
-			<label for="scrap-maxVideos">Max Videos</label>
-			<input
-				id="scrap-maxVideos"
-				type="number"
-				min="1"
-				max="50"
-				value={scrapStore.maxVideos}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					scrapStore.maxVideos = Math.min(50, Math.max(1, Math.trunc(isNaN(v) ? 5 : v)));
-				}}
-			/>
-		</div>
-		<div class="field">
-			<label for="scrap-parallelAmount">Parallel Videos Amount</label>
-			<input
-				id="scrap-parallelAmount"
-				type="number"
-				min="1"
-				max="10"
-				value={scrapStore.parallelVideosAmount}
+		<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />
+		<FieldsRow columns={2}>
+			<NumberField label="Max Videos" min={1} max={50} bind:value={scrapStore.maxVideos} />
+			<NumberField
+				label="Parallel Videos Amount"
+				min={1}
+				max={10}
 				disabled={!scrapStore.parallelFetch}
-				oninput={(e) => {
-					const v = Number((e.target as HTMLInputElement).value);
-					scrapStore.parallelVideosAmount = Math.min(10, Math.max(1, Math.trunc(isNaN(v) ? 2 : v)));
-				}}
+				tooltip="Enabled only when Parallel Fetch is on."
+				bind:value={scrapStore.parallelVideosAmount}
 			/>
-		</div>
+		</FieldsRow>
 	</div>
 </div>
 
@@ -398,6 +328,7 @@
 	}
 
 	h2 {
+		font-family: var(--font-secondary);
 		margin: 0 0 0.5rem 0;
 		font-size: 1.1rem;
 		color: var(--primary-color);
@@ -416,65 +347,10 @@
 	}
 
 	.inference-section h3 {
+		font-family: var(--font-secondary);
 		margin: 0;
 		font-size: 1rem;
 		color: var(--primary-color, #fae4c0);
-	}
-
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.field label,
-	.field .field-label {
-		font-weight: 600;
-		font-size: 0.875rem;
-		color: rgba(255, 255, 255, 0.8);
-	}
-
-	.field input {
-		padding: 0.5rem;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: var(--radius-md);
-		font-size: 0.875rem;
-		background: rgba(0, 0, 0, 0.3);
-		color: white;
-	}
-
-	.field input:focus {
-		outline: none;
-		border-color: var(--primary-color, #fae4c0);
-	}
-
-	.field input:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.checkbox-field label {
-		flex-direction: row;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
-	}
-
-	.checkbox-field input[type='checkbox'] {
-		width: 16px;
-		height: 16px;
-		padding: 0;
-	}
-
-	.dir-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.dir-row input {
-		flex: 1;
-		min-width: 0;
 	}
 
 	.error-text {
@@ -517,11 +393,5 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-	}
-
-	.auto-start-field {
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
 	}
 </style>
