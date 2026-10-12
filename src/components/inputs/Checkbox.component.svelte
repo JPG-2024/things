@@ -9,7 +9,13 @@
 		onChange?: (v: boolean) => void;
 	};
 
-	let { id, label, labelPosition = 'inline', checked, onChange }: Props = $props();
+	let {
+		id,
+		label,
+		labelPosition = 'inline',
+		checked = $bindable(false),
+		onChange
+	}: Props = $props();
 
 	function onInput(e: Event) {
 		const target = e.target as HTMLInputElement;

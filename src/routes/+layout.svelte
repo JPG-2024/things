@@ -426,7 +426,7 @@
 			180deg,
 			rgba(0, 0, 0),
 			rgba(0, 0, 0),
-			color-mix(in srgb, var(--bg-color) 20%, transparent)
+			color-mix(in srgb, var(--bg-color) 30%, transparent)
 		);
 		background-size: 100% 150%;
 		background-attachment: fixed;

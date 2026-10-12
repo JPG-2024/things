@@ -20,7 +20,7 @@
 		id,
 		label,
 		labelPosition = 'top',
-		value,
+		value = $bindable(0),
 		min,
 		max,
 		step,

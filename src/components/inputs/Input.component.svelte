@@ -10,11 +10,14 @@
 		disabled?: boolean;
 		type?: string;
 		min?: string;
+		max?: string;
+		step?: string;
 		label?: string;
 		labelPosition?: 'top' | 'inline';
 		search?: boolean;
 		autofocus?: boolean;
 		onChange?: (value: string) => void;
+		onBlur?: (value: string) => void;
 		onEnter?: (value: string) => void;
 		onShiftEnter?: (value: string) => void;
 	}
@@ -26,11 +29,14 @@
 		disabled = false,
 		type = 'text',
 		min,
+		max,
+		step,
 		label,
 		labelPosition = 'top',
 		search = false,
 		autofocus = false,
 		onChange,
+		onBlur,
 		onEnter,
 		onShiftEnter
 	}: Props = $props();
@@ -52,6 +58,10 @@
 		if (onChange) {
 			onChange(newValue);
 		}
+	}
+
+	function handleBlur() {
+		onBlur?.(value);
 	}
 
 	function extractUrlFromHtml(html: string): string {
@@ -121,10 +131,13 @@
 					class="text-input search-input"
 					{type}
 					{min}
+					{max}
+					{step}
 					bind:value
 					{placeholder}
 					{disabled}
 					oninput={handleInput}
+					onblur={handleBlur}
 					onkeydown={handleKeydown}
 					ondrop={handleDrop}
 					onpaste={handlePaste}
@@ -137,10 +150,13 @@
 				class="text-input"
 				{type}
 				{min}
+				{max}
+				{step}
 				bind:value
 				{placeholder}
 				{disabled}
 				oninput={handleInput}
+				onblur={handleBlur}
 				onkeydown={handleKeydown}
 				ondrop={handleDrop}
 				onpaste={handlePaste}
@@ -156,10 +172,13 @@
 			class="text-input search-input"
 			{type}
 			{min}
+			{max}
+			{step}
 			bind:value
 			{placeholder}
 			{disabled}
 			oninput={handleInput}
+			onblur={handleBlur}
 			onkeydown={handleKeydown}
 			ondrop={handleDrop}
 			onpaste={handlePaste}
@@ -173,10 +192,13 @@
 		class="text-input"
 		{type}
 		{min}
+		{max}
+		{step}
 		bind:value
 		{placeholder}
 		{disabled}
 		oninput={handleInput}
+		onblur={handleBlur}
 		onkeydown={handleKeydown}
 		ondrop={handleDrop}
 		onpaste={handlePaste}
