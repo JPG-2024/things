@@ -181,18 +181,21 @@
 	<div class="analysis-topic-shell">
 		{#if recursiveConfig}
 			<div class="level-row">
-				<RangeSelector
-					id="analysis-depth"
-					label="Analysis depth"
-					value={depthValue}
-					min={MIN_ANALYSIS_DEPTH}
-					max={MAX_ANALYSIS_DEPTH}
-					step={1}
-					disabled={isRunning}
-					format={formatDepth}
-					onChange={(v) => (depthValue = v)}
-					onCommit={(v) => void applyDepth(v)}
-				/>
+				<div class="level-cell">
+					<RangeSelector
+						id="analysis-depth"
+						label="Analysis depth"
+						value={depthValue}
+						min={MIN_ANALYSIS_DEPTH}
+						max={MAX_ANALYSIS_DEPTH}
+						step={1}
+						disabled={isRunning}
+						format={formatDepth}
+						onChange={(v) => (depthValue = v)}
+						onCommit={(v) => void applyDepth(v)}
+					/>
+				</div>
+				<div class="level-cell" aria-hidden="true"></div>
 			</div>
 		{/if}
 
@@ -273,18 +276,34 @@
 	.analysis-topic-shell {
 		--tabs-pill-font-size: 0.7rem;
 		--keywords-font-size: 0.8rem;
+		--pill-font-size: 0.7rem;
 		display: flex;
 		padding: 1rem 0;
 		flex-direction: column;
 		gap: 0.75rem;
+		container-type: inline-size;
+		container-name: analysis-topic;
 	}
 
 	.level-row {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
 		gap: 0.75rem;
+		align-items: start;
 		padding: 1rem 0;
+	}
+
+	.level-cell {
+		min-width: 0;
+	}
+
+	/* A quarter-width depth cell crushes its label/value on narrow cards, so
+	 * stack it across the full row. Keyed off the card width, not the viewport,
+	 * to match the final-section behavior below. */
+	@container analysis-topic (max-width: 560px) {
+		.level-row {
+			grid-template-columns: minmax(0, 1fr);
+		}
 	}
 
 	.chunks-grid {
@@ -350,14 +369,8 @@
 
 	.meta-row {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr);
 		gap: 2rem;
-	}
-
-	@media (max-width: 600px) {
-		.meta-row {
-			grid-template-columns: minmax(0, 1fr);
-		}
 	}
 
 	.raw-text-modal-container {
@@ -404,11 +417,30 @@
 		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 		padding-bottom: 0.75rem;
 		margin-bottom: 0.5rem;
+		container-type: inline-size;
+		container-name: analysis-final;
 	}
 
 	.final-content {
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 0.5rem;
+	}
+
+	/* Split the summary (left) from the topics/keywords (right) once the card
+	 * itself is wide enough. Keyed off the card width, not the viewport: a
+	 * narrow span of the tasks grid stays stacked even on a wide monitor. */
+	@container analysis-final (min-width: 560px) {
+		.final-content {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			column-gap: 2rem;
+			align-items: start;
+		}
+
+		/* The summary is unlabeled, so drop the labels' top margin to keep the
+		 * two columns top-aligned. */
+		.result-label {
+			margin-top: 0;
+		}
 	}
 </style>

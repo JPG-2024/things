@@ -343,7 +343,7 @@
 	.multi-shell {
 		--tabs-pill-font-size: 0.7rem;
 		--keywords-font-size: 0.8rem;
-		--pill-font-size: 0.6em;
+		--pill-font-size: 0.7rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
@@ -466,6 +466,8 @@
 		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 		padding-bottom: 0.75rem;
 		margin-bottom: 0.5rem;
+		container-type: inline-size;
+		container-name: analysis-final;
 	}
 
 	.final-label {
@@ -477,8 +479,31 @@
 	}
 
 	.final-content {
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 0.5rem;
+	}
+
+	/* The final meta-row stacks its Topics/Keywords; the chunk meta-rows keep
+	 * their own responsive two-column layout (see .meta-row above). */
+	.final-content > .meta-row {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* Split the summary (left) from the topics/keywords (right) once the card
+	 * itself is wide enough. Keyed off the card width, not the viewport: a
+	 * narrow span of the tasks grid stays stacked even on a wide monitor. */
+	@container analysis-final (min-width: 560px) {
+		.final-content {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			column-gap: 2rem;
+			align-items: start;
+		}
+
+		/* The summary is unlabeled, so drop the labels' top margin to keep the
+		 * two columns top-aligned. */
+		.final-content .result-label {
+			margin-top: 0;
+		}
 	}
 </style>
