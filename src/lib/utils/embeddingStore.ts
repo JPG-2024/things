@@ -57,42 +57,62 @@ export async function deleteArticleEmbeddings(articleUrl: string): Promise<boole
 	return invoke('delete_article_embeddings', { articleUrl });
 }
 
-export interface CategoryEmbeddingInput {
+export interface CategoryExemplarEmbeddingInput {
 	id: string;
-	name: string;
-	description?: string;
+	categoryId: string;
+	articleUrl: string;
 	embedding: number[];
-	updatedAt?: number;
+	createdAt?: number;
 	modelName?: string;
 	modelDimensions?: number;
 }
 
-export interface CategorySearchResult {
+export interface CategoryExemplarSearchResult {
 	id: string;
-	name: string;
-	description?: string;
+	categoryId: string;
+	articleUrl: string;
 	distance: number;
 	modelName?: string;
 	modelDimensions?: number;
 }
 
-export const CATEGORIES_TABLE = 'categories';
+export const CATEGORY_EXEMPLARS_TABLE = 'category_exemplars';
 
-export async function upsertCategoryEmbeddings(items: CategoryEmbeddingInput[]): Promise<number> {
-	return invoke('upsert_category_embeddings', { table: CATEGORIES_TABLE, items });
+export async function upsertCategoryExemplarEmbeddings(
+	items: CategoryExemplarEmbeddingInput[]
+): Promise<number> {
+	return invoke('upsert_category_exemplar_embeddings', { table: CATEGORY_EXEMPLARS_TABLE, items });
 }
 
-export async function searchSimilarCategories(
+export async function searchSimilarCategoryExemplars(
 	embedding: number[],
 	limit?: number
-): Promise<CategorySearchResult[]> {
-	return invoke('search_similar_categories', { table: CATEGORIES_TABLE, embedding, limit });
+): Promise<CategoryExemplarSearchResult[]> {
+	return invoke('search_similar_category_exemplars', {
+		table: CATEGORY_EXEMPLARS_TABLE,
+		embedding,
+		limit
+	});
 }
 
-export async function deleteCategoryEmbedding(id: string): Promise<boolean> {
-	return invoke('delete_category_embedding', { table: CATEGORIES_TABLE, id });
+export async function deleteCategoryExemplarEmbedding(id: string): Promise<boolean> {
+	return invoke('delete_category_exemplar_embedding', { table: CATEGORY_EXEMPLARS_TABLE, id });
 }
 
-export async function rebuildCategoryEmbeddings(items: CategoryEmbeddingInput[]): Promise<number> {
-	return invoke('rebuild_category_embeddings', { table: CATEGORIES_TABLE, items });
+export async function deleteCategoryExemplarEmbeddingsByCategory(
+	categoryId: string
+): Promise<boolean> {
+	return invoke('delete_category_exemplar_embeddings_by_category', {
+		table: CATEGORY_EXEMPLARS_TABLE,
+		categoryId
+	});
+}
+
+export async function rebuildCategoryExemplarEmbeddings(
+	items: CategoryExemplarEmbeddingInput[]
+): Promise<number> {
+	return invoke('rebuild_category_exemplar_embeddings', {
+		table: CATEGORY_EXEMPLARS_TABLE,
+		items
+	});
 }

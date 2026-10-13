@@ -10,23 +10,26 @@ export const DEFAULT_EMOJI_COMPLETION_OPTIONS = {
 	reasoning_effort: 'low'
 } satisfies Record<string, unknown>;
 
-export const DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS = {
-	temperature: 0.2,
-	top_p: 0.9,
-	max_tokens: 2000,
-	frequency_penalty: 0,
-	presence_penalty: 0,
-	stream: false,
-	reasoning_effort: 'none'
-	/* stop: ['\n', '. '] */
-} satisfies Record<string, unknown>;
-
 export const SUMMARY_COMPLETION_OPTIONS = {
 	temperature: 0.2,
 	top_k: 40,
 	min_p: 0.05,
 	presence_penalty: 0,
 	n_predict: 1500,
+	stream: false
+} as const;
+
+// Analysis output feeds the category comparison (`title + summary`). Run it
+// greedily so a re-run reproduces the same topics/keywords instead of drifting
+// and quietly changing which category the same article lands in.
+export const ANALYSIS_COMPLETION_OPTIONS = {
+	temperature: 0,
+	top_p: 1,
+	top_k: 1,
+	min_p: 0,
+	presence_penalty: 0,
+	repetition_penalty: 1,
+	n_predict: 2048,
 	stream: false
 } as const;
 

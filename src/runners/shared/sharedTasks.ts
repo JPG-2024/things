@@ -12,13 +12,10 @@ import {
 import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 import type { Task } from '@/types/taskRunner.types';
 import {
-	DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
+	ANALYSIS_COMPLETION_OPTIONS,
 	DEFAULT_EMOJI_COMPLETION_OPTIONS
 } from '@/lib/utils/inference/constants';
-import {
-	CATEGORY_DESCRIPTION_SYSTEM_MESSAGE,
-	EMOJI_SYSTEM_MESSAGE
-} from '@/lib/utils/inference/prompts';
+import { EMOJI_SYSTEM_MESSAGE } from '@/lib/utils/inference/prompts';
 
 function extractFirstGrapheme(text: string): string {
 	const trimmed = text.trim();
@@ -54,25 +51,6 @@ export async function generateEmojiForText(text: string): Promise<string> {
 	}
 }
 
-export async function generateCategoryDescription(name: string): Promise<string> {
-	const trimmed = name.trim();
-	if (!trimmed) return '';
-	try {
-		const response = await chatCompletions({
-			model: viewState.aiModel,
-			...DEFAULT_CATEGORY_DESCRIPTION_COMPLETION_OPTIONS,
-			stream: false,
-			messages: [
-				{ role: 'system', content: CATEGORY_DESCRIPTION_SYSTEM_MESSAGE },
-				{ role: 'user', content: trimmed }
-			]
-		});
-		return assistantText(response).trim();
-	} catch {
-		return '';
-	}
-}
-
 export const DEFAULT_TASK_IDS = ['analysis', 'category', 'title'] as const;
 
 export type DefaultAnalysisKind = 'multi' | 'analysisTopic';
@@ -100,7 +78,8 @@ export function createDefaultTasks(
 		enableTTS: true,
 		embeddings: true,
 		storeChunkText: true,
-		embedField: options.embedField ?? 'topics'
+		embedField: options.embedField ?? 'topics',
+		completionOptions: ANALYSIS_COMPLETION_OPTIONS
 	};
 
 	const kindOptions: RecursiveTaskOptions =
@@ -128,7 +107,9 @@ export function createDefaultTasks(
 	const categoryDef = createCategoryTask({
 		persist: true,
 		renderOrder: 0.5,
-		dependencies: ['analysis']
+		// Depend on `title` so the article title is ready when classification
+		// runs (otherwise the two are siblings and race).
+		dependencies: ['analysis', 'title']
 	});
 
 	const titleDef = createTitleTask({

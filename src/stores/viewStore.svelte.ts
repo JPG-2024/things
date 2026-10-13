@@ -158,7 +158,13 @@ class ViewState {
 	inferenceServiceUp = $state(false);
 	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);
-	categoryMinSimilarity = $state(0.35);
+	// Both sides of the category comparison are now `topics + keywords`
+	// embeddings (query and fed exemplars), so the threshold sits higher than
+	// the old name/description-vs-document value of 0.35.
+	categoryMinSimilarity = $state(0.5);
+	// Minimum top1-top2 similarity gap required to assign a category. Below it
+	// the result is ambiguous and nothing is assigned.
+	categoryMargin = $state(0.05);
 	autoSpeechEnabled = $state(false);
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);

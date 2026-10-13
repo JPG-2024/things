@@ -491,102 +491,106 @@ pub async fn delete_chunk(app: AppHandle, table: String, id: String) -> Result<b
     Ok(true)
 }
 
-// ── Category embeddings ───────────────────────────────────────────────
+// ── Category exemplars ────────────────────────────────────────────────
 //
-// The category index is a small, derived table keyed by category id. It is
-// rebuilt from SQLite (`web_categories`, the source of truth) whenever needed
-// and searched with cosine distance so the frontend can expose a similarity
-// score in the 0..1 range.
+// One row per fed example: a `(category_id, article_url)` pair whose vector was
+// derived from the article's `topics + keywords` text. The category index is a
+// small, derived table keyed by exemplar id. It is rebuilt from SQLite
+// (`category_exemplars`, the source of truth) whenever needed and searched with
+// cosine distance so the caller can expose a similarity score in the 0..1 range
+// and aggregate the best match per category.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CategoryEmbeddingInput {
+pub struct CategoryExemplarEmbeddingInput {
     pub id: String,
-    pub name: String,
-    pub description: Option<String>,
+    pub category_id: String,
+    pub article_url: String,
     pub embedding: Vec<f32>,
-    pub updated_at: Option<i64>,
+    pub created_at: Option<i64>,
     pub model_name: Option<String>,
     pub model_dimensions: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CategorySearchResult {
+pub struct CategoryExemplarSearchResult {
     pub id: String,
-    pub name: String,
-    pub description: Option<String>,
+    pub category_id: String,
+    pub article_url: String,
     pub distance: f64,
     pub model_name: Option<String>,
     pub model_dimensions: Option<i32>,
 }
 
-fn category_schema(dim: i32) -> Arc<Schema> {
+fn category_exemplar_schema(dim: i32) -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("id", DataType::Utf8, false),
-        Field::new("name", DataType::Utf8, false),
-        Field::new("description", DataType::Utf8, true),
+        Field::new("category_id", DataType::Utf8, false),
+        Field::new("article_url", DataType::Utf8, false),
         Field::new(
             "embedding",
             DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Float32, true)), dim),
             false,
         ),
+        Field::new("created_at", DataType::Int64, false),
         Field::new("model_name", DataType::Utf8, true),
         Field::new("model_dimensions", DataType::Int32, true),
-        Field::new("updated_at", DataType::Int64, false),
     ]))
 }
 
-fn build_category_batch(
-    items: &[CategoryEmbeddingInput],
+fn build_category_exemplar_batch(
+    items: &[CategoryExemplarEmbeddingInput],
     schema: &Arc<Schema>,
     dim: i32,
 ) -> Result<RecordBatch, String> {
     let count = items.len();
     let mut ids: Vec<String> = Vec::with_capacity(count);
-    let mut names: Vec<String> = Vec::with_capacity(count);
-    let mut descriptions: Vec<Option<String>> = Vec::with_capacity(count);
+    let mut category_ids: Vec<String> = Vec::with_capacity(count);
+    let mut urls: Vec<String> = Vec::with_capacity(count);
     let mut embeddings: Vec<Option<Vec<Option<f32>>>> = Vec::with_capacity(count);
+    let mut created_ats: Vec<i64> = Vec::with_capacity(count);
     let mut model_names: Vec<Option<&str>> = Vec::with_capacity(count);
     let mut model_dimensions_values: Vec<Option<i32>> = Vec::with_capacity(count);
-    let mut updated_ats: Vec<i64> = Vec::with_capacity(count);
 
     let now = now_millis();
 
     for item in items {
         ids.push(item.id.clone());
-        names.push(item.name.clone());
-        descriptions.push(item.description.clone());
+        category_ids.push(item.category_id.clone());
+        urls.push(item.article_url.clone());
         embeddings.push(Some(item.embedding.iter().map(|&v| Some(v)).collect()));
+        created_ats.push(item.created_at.unwrap_or(now));
         model_names.push(item.model_name.as_deref());
         model_dimensions_values.push(item.model_dimensions);
-        updated_ats.push(item.updated_at.unwrap_or(now));
     }
 
     RecordBatch::try_new(
         schema.clone(),
         vec![
             Arc::new(StringArray::from(ids)),
-            Arc::new(StringArray::from(names)),
-            Arc::new(StringArray::from(descriptions)),
-            Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(embeddings, dim)),
+            Arc::new(StringArray::from(category_ids)),
+            Arc::new(StringArray::from(urls)),
+            Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+                embeddings, dim,
+            )),
+            Arc::new(Int64Array::from(created_ats)),
             Arc::new(StringArray::from(model_names)),
             Arc::new(Int32Array::from(model_dimensions_values)),
-            Arc::new(Int64Array::from(updated_ats)),
         ],
     )
     .map_err(|e: arrow::error::ArrowError| e.to_string())
 }
 
-/// Insert or replace category vectors, keyed by category id.
+/// Insert or replace exemplar vectors, keyed by exemplar id.
 ///
 /// Creates the table on first write and deletes any existing row for each id
-/// before adding, so re-embedding a category never duplicates it.
+/// before adding, so re-embedding an exemplar never duplicates it.
 #[tauri::command]
-pub async fn upsert_category_embeddings(
+pub async fn upsert_category_exemplar_embeddings(
     app: AppHandle,
     table: String,
-    items: Vec<CategoryEmbeddingInput>,
+    items: Vec<CategoryExemplarEmbeddingInput>,
 ) -> Result<usize, String> {
     if items.is_empty() {
         return Ok(0);
@@ -599,8 +603,8 @@ pub async fn upsert_category_embeddings(
         .await
         .map_err(|e: lancedb::Error| e.to_string())?;
 
-    let schema = category_schema(dim);
-    let batch = build_category_batch(&items, &schema, dim)?;
+    let schema = category_exemplar_schema(dim);
+    let batch = build_category_exemplar_batch(&items, &schema, dim)?;
 
     match db.open_table(&table).execute().await {
         Ok(tbl) => {
@@ -616,25 +620,30 @@ pub async fn upsert_category_embeddings(
                 .map_err(|e: lancedb::Error| e.to_string())?;
         }
         Err(_) => {
-            db.create_table(&table, vec![batch])
+            let tbl = db
+                .create_table(&table, vec![batch])
                 .execute()
                 .await
                 .map_err(|e: lancedb::Error| e.to_string())?;
+            let _ = tbl
+                .create_index(&["embedding"], Index::Auto)
+                .execute()
+                .await;
         }
     }
 
     Ok(items.len())
 }
 
-/// Drop and recreate the category table from the provided items.
+/// Drop and recreate the exemplar table from the provided items.
 ///
 /// Used when the derived index is missing, corrupted, or built with a
 /// different embedding model/dimension.
 #[tauri::command]
-pub async fn rebuild_category_embeddings(
+pub async fn rebuild_category_exemplar_embeddings(
     app: AppHandle,
     table: String,
-    items: Vec<CategoryEmbeddingInput>,
+    items: Vec<CategoryExemplarEmbeddingInput>,
 ) -> Result<usize, String> {
     let path = embeddings_path(&app)?;
     let db = connect(&path)
@@ -649,28 +658,34 @@ pub async fn rebuild_category_embeddings(
     }
 
     let dim = items[0].embedding.len() as i32;
-    let schema = category_schema(dim);
-    let batch = build_category_batch(&items, &schema, dim)?;
+    let schema = category_exemplar_schema(dim);
+    let batch = build_category_exemplar_batch(&items, &schema, dim)?;
 
-    db.create_table(&table, vec![batch])
+    let tbl = db
+        .create_table(&table, vec![batch])
         .execute()
         .await
         .map_err(|e: lancedb::Error| e.to_string())?;
+    let _ = tbl
+        .create_index(&["embedding"], Index::Auto)
+        .execute()
+        .await;
 
     Ok(items.len())
 }
 
-/// Search the category index with cosine distance.
+/// Search the exemplar index with cosine distance.
 ///
 /// `distance` is cosine distance (`1 - cosine similarity`), so the caller can
-/// expose `1 - distance` as a 0..1 similarity score.
+/// expose `1 - distance` as a 0..1 similarity score and keep the best match per
+/// category.
 #[tauri::command]
-pub async fn search_similar_categories(
+pub async fn search_similar_category_exemplars(
     app: AppHandle,
     table: String,
     embedding: Vec<f32>,
     limit: Option<usize>,
-) -> Result<Vec<CategorySearchResult>, String> {
+) -> Result<Vec<CategoryExemplarSearchResult>, String> {
     let path = embeddings_path(&app)?;
     let db = connect(&path)
         .execute()
@@ -705,26 +720,26 @@ pub async fn search_similar_categories(
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or("column 0 is not StringArray")?;
-        let names: &StringArray = batch
+        let category_ids: &StringArray = batch
             .column(1)
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or("column 1 is not StringArray")?;
-        let descriptions: &StringArray = batch
+        let urls: &StringArray = batch
             .column(2)
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or("column 2 is not StringArray")?;
         let model_names: &StringArray = batch
-            .column(4)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or("column 4 is not StringArray")?;
-        let model_dimensions_col: &Int32Array = batch
             .column(5)
             .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("column 5 is not StringArray")?;
+        let model_dimensions_col: &Int32Array = batch
+            .column(6)
+            .as_any()
             .downcast_ref::<Int32Array>()
-            .ok_or("column 5 is not Int32Array")?;
+            .ok_or("column 6 is not Int32Array")?;
 
         let dist_col = batch
             .column_by_name("_distance")
@@ -741,14 +756,10 @@ pub async fn search_similar_categories(
             };
 
         for i in 0..batch.num_rows() {
-            results.push(CategorySearchResult {
+            results.push(CategoryExemplarSearchResult {
                 id: ids.value(i).to_string(),
-                name: names.value(i).to_string(),
-                description: if descriptions.is_null(i) {
-                    None
-                } else {
-                    Some(descriptions.value(i).to_string())
-                },
+                category_id: category_ids.value(i).to_string(),
+                article_url: urls.value(i).to_string(),
                 distance: dist_values[i],
                 model_name: if model_names.is_null(i) {
                     None
@@ -767,11 +778,11 @@ pub async fn search_similar_categories(
     Ok(results)
 }
 
-/// Hard-delete a single category vector by id.
+/// Hard-delete a single exemplar vector by id.
 ///
 /// Missing table is treated as success (nothing to delete).
 #[tauri::command]
-pub async fn delete_category_embedding(
+pub async fn delete_category_exemplar_embedding(
     app: AppHandle,
     table: String,
     id: String,
@@ -788,6 +799,35 @@ pub async fn delete_category_embedding(
     };
 
     let predicate = format!("id = '{}'", escape_sql_ident(&id));
+    tbl.delete(&predicate)
+        .await
+        .map_err(|e: lancedb::Error| e.to_string())?;
+
+    Ok(true)
+}
+
+/// Hard-delete every exemplar vector that belongs to a category.
+///
+/// Used when a category is removed: the SQLite rows are deleted by the store,
+/// this clears the derived vectors.
+#[tauri::command]
+pub async fn delete_category_exemplar_embeddings_by_category(
+    app: AppHandle,
+    table: String,
+    category_id: String,
+) -> Result<bool, String> {
+    let path = embeddings_path(&app)?;
+    let db = connect(&path)
+        .execute()
+        .await
+        .map_err(|e: lancedb::Error| e.to_string())?;
+
+    let tbl = match db.open_table(&table).execute().await {
+        Ok(tbl) => tbl,
+        Err(_) => return Ok(true),
+    };
+
+    let predicate = format!("category_id = '{}'", escape_sql_ident(&category_id));
     tbl.delete(&predicate)
         .await
         .map_err(|e: lancedb::Error| e.to_string())?;

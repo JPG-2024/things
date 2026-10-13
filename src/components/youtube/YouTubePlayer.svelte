@@ -127,8 +127,9 @@
 		height: 80px;
 		color: white;
 		font-size: 60px;
-		padding-bottom: 9px;
+
 		padding-left: 5px;
 		opacity: 0.9;
+		transform: translateY(-20px);
 	}
 </style>

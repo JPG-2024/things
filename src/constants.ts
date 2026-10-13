@@ -4,7 +4,14 @@ export const RAW_PROCESS_LIMIT = 1000;
 export const CATEGORY_ARTICLE_THUMBNAIL_WIDTH = 140;
 export const CATEGORY_ARTICLE_THUMBNAIL_HEIGHT = 70;
 export const PROFILE_COLUMN_WIDTH = '17rem';
+/** Width of a single category card (fits two article thumbnails). */
 export const CATEGORY_ARTICLE_COLUMN_WIDTH = '20rem';
+/** Space reserved to the left of each card for the category name. */
+export const CATEGORY_LABEL_COLUMN_WIDTH = '8rem';
+/** Gap between the category label and the card. */
+export const CATEGORY_CARD_GAP = '0.75rem';
+/** Full wheel cell width: label + gap + card. */
+export const CATEGORY_COLUMN_WIDTH = `calc(${CATEGORY_LABEL_COLUMN_WIDTH} + ${CATEGORY_CARD_GAP} + ${CATEGORY_ARTICLE_COLUMN_WIDTH})`;
 
 export interface TabPageConfig {
 	/** Cards fetched per page (initial + each sentinel load). */

@@ -4,7 +4,12 @@
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	// Wheel cards show the latest ARTICLE_COUNT_PER_CATEGORY articles only;
 	// catalog paging happens on the wheel (card) level, not inside the card.
-	import { CATEGORY_ARTICLE_THUMBNAIL_HEIGHT, CATEGORY_ARTICLE_THUMBNAIL_WIDTH } from '@/constants';
+	import {
+		CATEGORY_ARTICLE_THUMBNAIL_HEIGHT,
+		CATEGORY_ARTICLE_THUMBNAIL_WIDTH,
+		CATEGORY_CARD_GAP,
+		CATEGORY_LABEL_COLUMN_WIDTH
+	} from '@/constants';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
 
 	interface Props {
@@ -26,33 +31,43 @@
 	const articles = $derived(category.articles);
 </script>
 
-<div class="category-card">
-	<Card showBorders>
-		<button type="button" class="category-header" onclick={() => onCategoryClick(category)}>
-			<CategoryItem value={category.categoryName} />
-		</button>
-		{#if articles.length > 0}
-			<div class="article-grid">
-				{#each articles as article (article.url)}
-					<ArticleItem
-						{article}
-						thumbnailOnly
-						thumbnailWidth={CATEGORY_ARTICLE_THUMBNAIL_WIDTH}
-						thumbnailHeight={CATEGORY_ARTICLE_THUMBNAIL_HEIGHT}
-						onClick={onArticleClick}
-						onHoverEnter={onArticleHoverEnter}
-						onHoverLeave={onArticleHoverLeave}
-					/>
-				{/each}
-			</div>
-		{:else}
-			<div class="category-empty">No articles</div>
-		{/if}
-	</Card>
+<div class="category-card" style:gap={CATEGORY_CARD_GAP}>
+	<button
+		type="button"
+		class="category-header"
+		style:flex-basis={CATEGORY_LABEL_COLUMN_WIDTH}
+		onclick={() => onCategoryClick(category)}
+	>
+		<CategoryItem value={category.categoryName} />
+	</button>
+	<div class="category-card-body">
+		<Card showBorders>
+			{#if articles.length > 0}
+				<div class="article-grid">
+					{#each articles as article (article.url)}
+						<ArticleItem
+							{article}
+							thumbnailOnly
+							thumbnailWidth={CATEGORY_ARTICLE_THUMBNAIL_WIDTH}
+							thumbnailHeight={CATEGORY_ARTICLE_THUMBNAIL_HEIGHT}
+							onClick={onArticleClick}
+							onHoverEnter={onArticleHoverEnter}
+							onHoverLeave={onArticleHoverLeave}
+						/>
+					{/each}
+				</div>
+			{:else}
+				<div class="category-empty">No articles</div>
+			{/if}
+		</Card>
+	</div>
 </div>
 
 <style>
 	.category-card {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
 		width: 100%;
 		min-width: 0;
 	}
@@ -60,10 +75,22 @@
 	.category-header {
 		all: unset;
 		cursor: pointer;
+		flex: 0 0 auto;
 		display: block;
-		width: 100%;
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
 		box-sizing: border-box;
-		padding-bottom: 10px;
+	}
+
+	.category-header:hover {
+		opacity: 0.8;
+	}
+
+	.category-card-body {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.article-grid {

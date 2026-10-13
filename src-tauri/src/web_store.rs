@@ -143,6 +143,42 @@ pub struct AssignCategoriesToArticleInput {
     pub category_ids: Vec<String>,
 }
 
+/// A single fed example for a category: the `topics + keywords` text of an
+/// article the user assigned to it. The text is the source of truth; the
+/// per-exemplar vector is derived from it in the LanceDB index.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoryExemplarRecord {
+    pub id: String,
+    pub category_id: String,
+    pub article_url: String,
+    pub article_title: Option<String>,
+    pub text: String,
+    pub model_name: Option<String>,
+    pub model_dimensions: Option<i32>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertCategoryExemplarInput {
+    pub category_id: String,
+    pub article_url: String,
+    pub text: String,
+    pub model_name: Option<String>,
+    pub model_dimensions: Option<i32>,
+}
+
+/// How many stored exemplars were embedded with the given model signature.
+/// `total > matching` means the derived index is stale and must be rebuilt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoryExemplarModelStatus {
+    pub total: i64,
+    pub matching: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpsertWebStoreArticleInput {
@@ -291,6 +327,21 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 
         CREATE INDEX IF NOT EXISTS idx_article_category_category_id ON article_category(category_id);
 
+        CREATE TABLE IF NOT EXISTS category_exemplars (
+            id TEXT PRIMARY KEY,
+            category_id TEXT NOT NULL,
+            article_url TEXT NOT NULL,
+            text TEXT NOT NULL,
+            model_name TEXT,
+            model_dimensions INTEGER,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            UNIQUE (category_id, article_url)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_category_exemplars_category_id
+            ON category_exemplars(category_id);
+
         CREATE TABLE IF NOT EXISTS web_templates (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -346,6 +397,33 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_channels_to_web_profiles(conn)?;
     migrate_strip_www_domains(conn)?;
     migrate_remove_unknown_profile_domain(conn)?;
+    migrate_clear_category_exemplars(conn)?;
+
+    Ok(())
+}
+
+/// Version of the category exemplar comparison text. Bump it whenever the
+/// representation changes so the derived SQLite text (which cannot be
+/// re-derived) is dropped once.
+const CATEGORY_EXEMPLARS_REPR_VERSION: i64 = 1;
+
+/// One-time clear of the category exemplars after the comparison text changed
+/// from `topics + keywords` to `title + summary`. The stored `text` column is
+/// the old representation and cannot be recomputed, so it is dropped once,
+/// guarded by `PRAGMA user_version` so later startups keep the new exemplars.
+fn migrate_clear_category_exemplars(conn: &Connection) -> Result<(), String> {
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(|error| error.to_string())?;
+
+    if version < CATEGORY_EXEMPLARS_REPR_VERSION {
+        conn.execute("DELETE FROM category_exemplars", [])
+            .map_err(|error| error.to_string())?;
+        conn.execute_batch(&format!(
+            "PRAGMA user_version = {CATEGORY_EXEMPLARS_REPR_VERSION}"
+        ))
+        .map_err(|error| error.to_string())?;
+    }
 
     Ok(())
 }
@@ -2350,14 +2428,7 @@ pub async fn upsert_web_store_category(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn delete_web_store_category(
-    app: AppHandle,
-    category_id: String,
-) -> Result<bool, String> {
-    let mut conn = get_db(&app)?;
-    init_schema(&conn)?;
-
+fn delete_category_rows(conn: &mut Connection, category_id: &str) -> Result<(), String> {
     let tx = conn.transaction().map_err(|error| {
         format!(
             "Failed to start transaction for category delete id='{}': {}",
@@ -2377,6 +2448,17 @@ pub async fn delete_web_store_category(
     })?;
 
     tx.execute(
+        "DELETE FROM category_exemplars WHERE category_id = ?1",
+        params![category_id],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to delete exemplars for category id='{}': {}",
+            category_id, error
+        )
+    })?;
+
+    tx.execute(
         "DELETE FROM web_categories WHERE id = ?1",
         params![category_id],
     )
@@ -2388,6 +2470,19 @@ pub async fn delete_web_store_category(
             category_id, error
         )
     })?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_web_store_category(
+    app: AppHandle,
+    category_id: String,
+) -> Result<bool, String> {
+    let mut conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    delete_category_rows(&mut conn, &category_id)?;
 
     Ok(true)
 }
@@ -2458,6 +2553,180 @@ pub async fn assign_categories_to_article(
         )
     })?;
     Ok(())
+}
+
+fn map_category_exemplar_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CategoryExemplarRecord> {
+    Ok(CategoryExemplarRecord {
+        id: row.get(0)?,
+        category_id: row.get(1)?,
+        article_url: row.get(2)?,
+        article_title: row.get(3)?,
+        text: row.get(4)?,
+        model_name: row.get(5)?,
+        model_dimensions: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+    })
+}
+
+const CATEGORY_EXEMPLAR_SELECT: &str = "SELECT e.id, e.category_id, e.article_url,
+        (SELECT a.title FROM web_articles a WHERE a.url = e.article_url
+            ORDER BY a.updated_at DESC LIMIT 1),
+        e.text, e.model_name, e.model_dimensions, e.created_at, e.updated_at
+     FROM category_exemplars e";
+
+fn query_category_exemplars(
+    conn: &Connection,
+    where_clause: &str,
+    params: &[&dyn rusqlite::ToSql],
+) -> Result<Vec<CategoryExemplarRecord>, String> {
+    let sql = format!(
+        "{CATEGORY_EXEMPLAR_SELECT} {where_clause} ORDER BY e.created_at DESC, e.id ASC"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map(params, map_category_exemplar_row)
+        .map_err(|error| error.to_string())?;
+
+    let mut exemplars = Vec::new();
+    for row in rows {
+        exemplars.push(row.map_err(|error| error.to_string())?);
+    }
+    Ok(exemplars)
+}
+
+/// List the exemplars fed to a single category (most recent first).
+#[tauri::command]
+pub async fn list_category_exemplars(
+    app: AppHandle,
+    category_id: String,
+) -> Result<Vec<CategoryExemplarRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&category_id])
+}
+
+/// List every exemplar across all categories. Used to rebuild the derived
+/// LanceDB index from the SQLite source of truth.
+#[tauri::command]
+pub async fn list_all_category_exemplars(
+    app: AppHandle,
+) -> Result<Vec<CategoryExemplarRecord>, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+    query_category_exemplars(&conn, "", &[])
+}
+
+/// Insert a new exemplar or replace the text of an existing
+/// `(category_id, article_url)` pair. Returns the persisted row so the caller
+/// can key the derived vector with the same id.
+#[tauri::command]
+pub async fn upsert_category_exemplar(
+    app: AppHandle,
+    input: UpsertCategoryExemplarInput,
+) -> Result<CategoryExemplarRecord, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let now = chrono_like_now();
+    let id = uuid::Uuid::new_v4().to_string();
+
+    conn.execute(
+        "INSERT INTO category_exemplars
+            (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+         ON CONFLICT(category_id, article_url) DO UPDATE SET
+            text = excluded.text,
+            model_name = excluded.model_name,
+            model_dimensions = excluded.model_dimensions,
+            updated_at = excluded.updated_at",
+        params![
+            id,
+            input.category_id,
+            input.article_url,
+            input.text,
+            input.model_name,
+            input.model_dimensions,
+            now
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+
+    let mut rows = query_category_exemplars(
+        &conn,
+        "WHERE e.category_id = ?1 AND e.article_url = ?2",
+        &[&input.category_id, &input.article_url],
+    )?;
+
+    rows.pop()
+        .ok_or_else(|| "Exemplar upsert did not persist a row".to_string())
+}
+
+#[tauri::command]
+pub async fn delete_category_exemplar(app: AppHandle, id: String) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute("DELETE FROM category_exemplars WHERE id = ?1", params![id])
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+/// Compare the stored exemplar model signature against the current embedding
+/// model. When `matching < total` the derived index is stale and the caller
+/// should rebuild it.
+fn category_exemplar_model_status(
+    conn: &Connection,
+    model_name: &str,
+    model_dimensions: Option<i32>,
+) -> Result<CategoryExemplarModelStatus, String> {
+    let (total, matching): (i64, i64) = conn
+        .query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN model_name = ?1
+                        AND ((?2 IS NULL AND model_dimensions IS NULL) OR model_dimensions = ?2)
+                        THEN 1 ELSE 0 END), 0)
+             FROM category_exemplars",
+            params![model_name, model_dimensions],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(CategoryExemplarModelStatus { total, matching })
+}
+
+#[tauri::command]
+pub async fn get_category_exemplar_model_status(
+    app: AppHandle,
+    model_name: String,
+    model_dimensions: Option<i32>,
+) -> Result<CategoryExemplarModelStatus, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    category_exemplar_model_status(&conn, &model_name, model_dimensions)
+}
+
+/// Stamp every exemplar with the current model signature after a rebuild.
+#[tauri::command]
+pub async fn update_category_exemplars_model(
+    app: AppHandle,
+    model_name: String,
+    model_dimensions: Option<i32>,
+) -> Result<usize, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    let changes = conn
+        .execute(
+            "UPDATE category_exemplars SET model_name = ?1, model_dimensions = ?2, updated_at = ?3",
+            params![model_name, model_dimensions, chrono_like_now()],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes)
 }
 
 fn query_articles_for_bucket(
@@ -3916,5 +4185,128 @@ mod tests {
             existing.is_empty(),
             "lowercased v should not match stored mixed-case ID"
         );
+    }
+
+    fn insert_exemplar(
+        conn: &Connection,
+        id: &str,
+        category_id: &str,
+        article_url: &str,
+        text: &str,
+        model_name: &str,
+    ) {
+        conn.execute(
+            "INSERT INTO category_exemplars
+                (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 1024, 0, 0)",
+            params![id, category_id, article_url, text, model_name],
+        )
+        .expect("insert exemplar");
+    }
+
+    #[test]
+    fn category_exemplar_upsert_replaces_same_article_and_exposes_title() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
+        insert_exemplar(
+            &conn,
+            "e1",
+            "cat-a",
+            "https://example.com/a",
+            "rust, ownership",
+            "bge-m3",
+        );
+
+        // Same (category_id, article_url) pair must update in place, keeping id.
+        conn.execute(
+            "INSERT INTO category_exemplars
+                (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
+             VALUES ('e2', 'cat-a', 'https://example.com/a', 'python, pandas', 'bge-m3', 1024, 20, 20)
+             ON CONFLICT(category_id, article_url) DO UPDATE SET
+                text = excluded.text,
+                model_name = excluded.model_name,
+                model_dimensions = excluded.model_dimensions,
+                updated_at = excluded.updated_at",
+            [],
+        )
+        .expect("upsert exemplar");
+
+        let rows =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(rows.len(), 1, "upsert must not duplicate the pair");
+        assert_eq!(rows[0].id, "e1", "conflict must keep the original id");
+        assert_eq!(rows[0].text, "python, pandas");
+        assert_eq!(
+            rows[0].article_title.as_deref(),
+            Some("title-https://example.com/a"),
+            "list must surface the joined article title"
+        );
+    }
+
+    #[test]
+    fn delete_category_rows_cascades_to_exemplars_and_links() {
+        let mut conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
+        link_article_to_category(&conn, "https://example.com/a", "cat-a");
+        insert_exemplar(&conn, "e1", "cat-a", "https://example.com/a", "text", "bge-m3");
+
+        delete_category_rows(&mut conn, "cat-a").expect("delete category");
+
+        let exemplar_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM category_exemplars", [], |r| r.get(0))
+            .expect("count exemplars");
+        let link_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM article_category", [], |r| r.get(0))
+            .expect("count links");
+        let category_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_categories", [], |r| r.get(0))
+            .expect("count categories");
+
+        assert_eq!(exemplar_count, 0);
+        assert_eq!(link_count, 0);
+        assert_eq!(category_count, 0);
+    }
+
+    #[test]
+    fn category_exemplar_model_status_flags_stale_rows() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_exemplar(&conn, "e1", "cat-a", "a", "text", "bge-m3");
+        insert_exemplar(&conn, "e2", "cat-a", "b", "text", "bge-m3");
+
+        let same =
+            category_exemplar_model_status(&conn, "bge-m3", Some(1024)).expect("status same");
+        assert_eq!((same.total, same.matching), (2, 2));
+
+        let stale =
+            category_exemplar_model_status(&conn, "other-model", Some(1024)).expect("status stale");
+        assert_eq!((stale.total, stale.matching), (2, 0));
+    }
+
+    #[test]
+    fn migrate_clear_category_exemplars_drops_old_text_once() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_exemplar(&conn, "e1", "cat-a", "a", "old keywords", "bge-m3");
+
+        // Simulate a database created before the representation change.
+        conn.execute_batch("PRAGMA user_version = 0")
+            .expect("reset version");
+        init_schema(&conn).expect("init schema");
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM category_exemplars", [], |r| r.get(0))
+            .expect("count");
+        assert_eq!(count, 0, "old exemplars must be cleared once");
+
+        // Later inits must not clear exemplars added with the new representation.
+        insert_exemplar(&conn, "e2", "cat-a", "b", "new text", "bge-m3");
+        init_schema(&conn).expect("init schema again");
+        let count_after: i64 = conn
+            .query_row("SELECT COUNT(*) FROM category_exemplars", [], |r| r.get(0))
+            .expect("count");
+        assert_eq!(count_after, 1, "new exemplars must survive later inits");
     }
 }

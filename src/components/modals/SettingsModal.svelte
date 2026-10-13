@@ -284,7 +284,7 @@
 	</div>
 	<div class="inference-section">
 		<h3>Category classification</h3>
-		<FieldsRow columns={2}>
+		<FieldsRow columns={3}>
 			<NumberField
 				label="Top categories"
 				min={1}
@@ -299,8 +299,18 @@
 				step={0.05}
 				integer={false}
 				precision={2}
-				tooltip="Minimum cosine similarity required to assign a category."
+				tooltip="Minimum cosine similarity between the article and a category's fed examples required to assign it."
 				bind:value={viewState.categoryMinSimilarity}
+			/>
+			<NumberField
+				label="Min margin"
+				min={0}
+				max={1}
+				step={0.01}
+				integer={false}
+				precision={2}
+				tooltip="Minimum gap between the best and second category. Below it the result is ambiguous and nothing is assigned."
+				bind:value={viewState.categoryMargin}
 			/>
 		</FieldsRow>
 		<Button onClick={handleRebuildCategoryIndex} disabled={rebuildingCategories} icon="RefreshCw">

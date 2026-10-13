@@ -173,9 +173,12 @@ export function createCategoryTask(options: CreateCategoryTaskOptions = {}): IaT
 			// The health indicator is informational only: always attempt the
 			// classification and let the embeddings call surface failures.
 			const analysisData = ctx.state[deps[0]];
+			const title = ctx.state['title'];
 			return classifyByEmbedding(analysisData, {
 				topN: viewState.categoryTopN,
-				minSimilarity: viewState.categoryMinSimilarity
+				minSimilarity: viewState.categoryMinSimilarity,
+				margin: viewState.categoryMargin,
+				title: typeof title === 'string' ? title : null
 			});
 		}
 	};

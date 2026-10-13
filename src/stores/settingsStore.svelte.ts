@@ -95,6 +95,7 @@ function serializeView() {
 		llamaEmbeddingsPort: viewState.llamaEmbeddingsPort,
 		categoryTopN: viewState.categoryTopN,
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
+		categoryMargin: viewState.categoryMargin,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
@@ -161,6 +162,14 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.categoryMinSimilarity === 'number') {
 		viewState.categoryMinSimilarity = clamp(raw.categoryMinSimilarity, 0, 1);
+		// Legacy default: the comparison now runs `topics + keywords` on both
+		// sides (query and fed exemplars), so lift the old 0.35 default.
+		if (raw.categoryMinSimilarity === 0.35) {
+			viewState.categoryMinSimilarity = 0.5;
+		}
+	}
+	if (typeof raw.categoryMargin === 'number') {
+		viewState.categoryMargin = clamp(raw.categoryMargin, 0, 1);
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);

@@ -127,6 +127,31 @@ export type UpsertWebStoreCategoryInput = {
 	description?: string | null;
 };
 
+export type WebStoreCategoryExemplarRecord = {
+	id: string;
+	categoryId: string;
+	articleUrl: string;
+	articleTitle?: string | null;
+	text: string;
+	modelName?: string | null;
+	modelDimensions?: number | null;
+	createdAt: number;
+	updatedAt: number;
+};
+
+export type UpsertCategoryExemplarInput = {
+	categoryId: string;
+	articleUrl: string;
+	text: string;
+	modelName?: string | null;
+	modelDimensions?: number | null;
+};
+
+export type CategoryExemplarModelStatus = {
+	total: number;
+	matching: number;
+};
+
 export type AssignCategoriesToArticleInput = {
 	articleUrl: string;
 	categoryIds: string[];
@@ -1088,6 +1113,78 @@ export async function assignCategoriesToArticle(
 		await invoke('assign_categories_to_article', { input });
 	} catch (error) {
 		console.error('Error assigning categories to article:', error);
+	}
+}
+
+export async function getCategoryExemplars(
+	categoryId: string
+): Promise<WebStoreCategoryExemplarRecord[]> {
+	try {
+		return await invoke<WebStoreCategoryExemplarRecord[]>('list_category_exemplars', {
+			categoryId
+		});
+	} catch (error) {
+		console.error('Error fetching category exemplars:', error);
+		return [];
+	}
+}
+
+export async function getAllCategoryExemplars(): Promise<WebStoreCategoryExemplarRecord[]> {
+	try {
+		return await invoke<WebStoreCategoryExemplarRecord[]>('list_all_category_exemplars');
+	} catch (error) {
+		console.error('Error fetching all category exemplars:', error);
+		return [];
+	}
+}
+
+export async function saveCategoryExemplar(
+	input: UpsertCategoryExemplarInput
+): Promise<WebStoreCategoryExemplarRecord | null> {
+	try {
+		return await invoke<WebStoreCategoryExemplarRecord>('upsert_category_exemplar', { input });
+	} catch (error) {
+		console.error('Error saving category exemplar:', error);
+		return null;
+	}
+}
+
+export async function deleteCategoryExemplar(exemplarId: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('delete_category_exemplar', { id: exemplarId });
+	} catch (error) {
+		console.error('Error deleting category exemplar:', error);
+		return false;
+	}
+}
+
+export async function getCategoryExemplarModelStatus(params: {
+	modelName: string;
+	modelDimensions?: number | null;
+}): Promise<CategoryExemplarModelStatus> {
+	try {
+		return await invoke<CategoryExemplarModelStatus>('get_category_exemplar_model_status', {
+			modelName: params.modelName,
+			modelDimensions: params.modelDimensions ?? null
+		});
+	} catch (error) {
+		console.error('Error fetching category exemplar model status:', error);
+		return { total: 0, matching: 0 };
+	}
+}
+
+export async function updateCategoryExemplarsModel(params: {
+	modelName: string;
+	modelDimensions?: number | null;
+}): Promise<number> {
+	try {
+		return await invoke<number>('update_category_exemplars_model', {
+			modelName: params.modelName,
+			modelDimensions: params.modelDimensions ?? null
+		});
+	} catch (error) {
+		console.error('Error updating category exemplar model:', error);
+		return 0;
 	}
 }
 

@@ -2,8 +2,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { deleteCategory, getCategories, saveCategory } from '@/stores/webStore';
 	import type { WebStoreCategoryRecord } from '@/stores/webStore';
-	import { generateCategoryDescription } from '@/runners/shared/sharedTasks';
-	import { removeCategoryEmbedding, syncCategoryEmbedding } from '@/lib/utils/categoryEmbeddings';
+	import { removeCategoryExemplarEmbeddings } from '@/lib/utils/categoryEmbeddings';
 	import Icon from './Icon.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import Button from './inputs/Button.component.svelte';
@@ -15,42 +14,32 @@
 		viewState.categories = await getCategories();
 	}
 
-	async function addCategory(name: string, description?: string) {
+	async function addCategory(name: string) {
 		const trimmed = name.trim();
 		if (!trimmed) return;
 		const id = trimmed.toLowerCase().replace(/\s+/g, '-');
-		await saveCategory({ id, name: trimmed, description });
+		await saveCategory({ id, name: trimmed });
 		await loadCategories();
-		try {
-			await syncCategoryEmbedding({ id, name: trimmed, description });
-		} catch (error) {
-			console.error(`Error indexing category "${id}" embedding:`, error);
-		}
 	}
 
 	async function removeCategory(id: string) {
 		await deleteCategory(id);
 		try {
-			await removeCategoryEmbedding(id);
+			// SQLite exemplar rows cascade with the category; clear the derived
+			// vectors so the index does not keep orphaned embeddings.
+			await removeCategoryExemplarEmbeddings(id);
 		} catch (error) {
-			console.error(`Error removing category "${id}" embedding:`, error);
+			console.error(`Error removing category "${id}" embeddings:`, error);
 		}
 		await loadCategories();
 	}
 
 	async function saveCategoryDescription(category: WebStoreCategoryRecord) {
-		let description = category.description?.trim() ?? '';
-		if (!description) {
-			description = await generateCategoryDescription(category.name);
-			category.description = description;
-		}
+		// Description is manual only: never inferred. Persist exactly what the
+		// user typed (empty clears it).
+		const description = category.description?.trim() ?? '';
 		await saveCategory({ id: category.id, name: category.name, description });
 		await loadCategories();
-		try {
-			await syncCategoryEmbedding({ id: category.id, name: category.name, description });
-		} catch (error) {
-			console.error(`Error indexing category "${category.id}" embedding:`, error);
-		}
 	}
 
 	let filteredCategories = $derived(
@@ -69,8 +58,7 @@
 	async function handleCreateFromFilter() {
 		const trimmed = viewState.unifiedFilter.trim();
 		if (!trimmed) return;
-		const description = await generateCategoryDescription(trimmed);
-		await addCategory(trimmed, description);
+		await addCategory(trimmed);
 		viewState.unifiedFilter = '';
 	}
 </script>

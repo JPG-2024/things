@@ -99,7 +99,7 @@
 
 	.profile-row {
 		width: 100%;
-		max-width: 80vw;
+		max-width: 90vw;
 		margin: 0 auto;
 	}
 

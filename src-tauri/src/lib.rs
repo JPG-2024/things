@@ -24,6 +24,8 @@ pub use crate::web_store::{
     search_raw_content, update_web_store_article_viewed, upsert_web_profile_template,
     upsert_web_store_article, upsert_web_store_category, upsert_web_store_domain,
     upsert_web_store_profile, upsert_web_store_tasks, upsert_web_store_template, write_raw_content,
+    list_category_exemplars, list_all_category_exemplars, upsert_category_exemplar,
+    delete_category_exemplar, get_category_exemplar_model_status, update_category_exemplars_model,
 };
 
 mod audio_capture;
@@ -35,9 +37,10 @@ mod embedding_store;
 mod llama_server;
 mod track_download;
 pub use crate::embedding_store::{
-    delete_article_embeddings, delete_category_embedding, delete_chunk, delete_chunks_by_article,
-    index_chunks, rebuild_category_embeddings, search_similar_categories, search_similar_chunks,
-    upsert_category_embeddings,
+    delete_article_embeddings, delete_category_exemplar_embedding,
+    delete_category_exemplar_embeddings_by_category, delete_chunk, delete_chunks_by_article,
+    index_chunks, rebuild_category_exemplar_embeddings, search_similar_category_exemplars,
+    search_similar_chunks, upsert_category_exemplar_embeddings,
 };
 pub use crate::llama_server::{
     ensure_llama_servers, list_llama_models, llama_defaults, llama_servers_runtime,
@@ -114,6 +117,12 @@ pub fn run() {
             upsert_web_store_category,
             delete_web_store_category,
             assign_categories_to_article,
+            list_category_exemplars,
+            list_all_category_exemplars,
+            upsert_category_exemplar,
+            delete_category_exemplar,
+            get_category_exemplar_model_status,
+            update_category_exemplars_model,
             list_web_store_templates,
             get_web_store_template,
             upsert_web_store_template,
@@ -139,10 +148,11 @@ pub fn run() {
             delete_chunks_by_article,
             delete_article_embeddings,
             delete_chunk,
-            upsert_category_embeddings,
-            search_similar_categories,
-            delete_category_embedding,
-            rebuild_category_embeddings,
+            upsert_category_exemplar_embeddings,
+            search_similar_category_exemplars,
+            delete_category_exemplar_embedding,
+            delete_category_exemplar_embeddings_by_category,
+            rebuild_category_exemplar_embeddings,
             download_track,
             start_system_audio_recording,
             stop_system_audio_recording,

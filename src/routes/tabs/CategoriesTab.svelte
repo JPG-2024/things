@@ -2,7 +2,7 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { CATEGORY_ARTICLE_COLUMN_WIDTH, TAB_PAGE_CONFIG } from '@/constants';
+	import { CATEGORY_COLUMN_WIDTH, TAB_PAGE_CONFIG } from '@/constants';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
@@ -47,7 +47,7 @@
 <ProfileList
 	items={visibleCategories}
 	itemTransition={categoryItemTransition}
-	columnWidth={CATEGORY_ARTICLE_COLUMN_WIDTH}
+	columnWidth={CATEGORY_COLUMN_WIDTH}
 	rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
 	key={(category) => category.categoryId}
 >

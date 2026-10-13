@@ -1,187 +1,197 @@
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import {
-	deleteCategoryEmbedding,
-	rebuildCategoryEmbeddings,
-	searchSimilarCategories,
-	upsertCategoryEmbeddings,
-	type CategoryEmbeddingInput,
-	type CategorySearchResult
+	deleteCategoryExemplarEmbedding,
+	deleteCategoryExemplarEmbeddingsByCategory,
+	rebuildCategoryExemplarEmbeddings,
+	searchSimilarCategoryExemplars,
+	upsertCategoryExemplarEmbeddings,
+	type CategoryExemplarSearchResult
 } from '@/lib/utils/embeddingStore';
-import { getCategories } from '@/stores/webStore';
+import {
+	deleteCategoryExemplar,
+	getAllCategoryExemplars,
+	getCategoryExemplarModelStatus,
+	saveCategoryExemplar,
+	updateCategoryExemplarsModel,
+	type WebStoreCategoryExemplarRecord
+} from '@/stores/webStore';
+import { buildCategoryText, rankExemplarMatches } from '@/lib/utils/categoryText';
 
-export type CategoryEmbeddingSource = {
-	id: string;
-	name: string;
-	description?: string | null;
-};
+export { buildCategoryText, rankExemplarMatches } from '@/lib/utils/categoryText';
 
-const QUERY_KEYWORD_LIMIT = 15;
-const QUERY_TOPIC_LIMIT = 30;
-// Only used as a fallback when no compact fields are available; a full
-// `analysisTopic` summary is an entire merged document and would overflow the
-// embeddings context.
-const QUERY_SUMMARY_LIMIT = 2000;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function uniqueStrings(values: unknown, limit?: number): string[] {
-	if (!Array.isArray(values)) return [];
-	const deduped = [
-		...new Set(values.filter((v): v is string => typeof v === 'string').map((v) => v.trim()))
-	].filter(Boolean);
-	return limit != null ? deduped.slice(0, limit) : deduped;
-}
-
-export function buildCategoryText(name: string, description?: string | null): string {
-	const descriptionText = description?.trim();
-	return descriptionText ? `${name}\n${descriptionText}` : name;
-}
-
-/**
- * Derive the text used to query the category index from an analysis task result.
- *
- * Handles the recursive `{ chunks, finalResponse }` shape (preferring the
- * compact `topics` + `keywords` the analysis processors emit), a bare string,
- * or a flat string array. `summary` is only used as a capped fallback so a full
- * `analysisTopic` document cannot overflow the embeddings context. Returns an
- * empty string when there is nothing usable to compare.
- */
-export function buildCategoryQueryText(taskData: unknown): string {
-	if (taskData == null) return '';
-
-	const record = isRecord(taskData) ? taskData : null;
-	const source = record && 'finalResponse' in record ? record.finalResponse : taskData;
-
-	if (typeof source === 'string') return source.trim();
-	if (Array.isArray(source)) return uniqueStrings(source).join(', ');
-	if (isRecord(source)) {
-		const topics = uniqueStrings(source.topics, QUERY_TOPIC_LIMIT);
-		const keywords = uniqueStrings(source.keywords, QUERY_KEYWORD_LIMIT);
-		const compact = [topics.join(', '), keywords.join(', ')].filter(Boolean);
-		if (compact.length > 0) return compact.join('\n').trim();
-
-		const summary = typeof source.summary === 'string' ? source.summary.trim() : '';
-		return summary.slice(0, QUERY_SUMMARY_LIMIT).trim();
-	}
-
-	return '';
-}
+// How many nearest exemplars to pull before collapsing to the best match per
+// category. Local scale only; keep it comfortably above per-category counts.
+const EXEMPLAR_SEARCH_LIMIT = 100;
 
 async function embedTexts(texts: string[], model: string): Promise<number[][]> {
 	const response = await createEmbeddings({ model, input: texts });
 	return [...response.data].sort((a, b) => a.index - b.index).map((entry) => entry.embedding);
 }
 
-async function embedCategoryRecords(
-	categories: CategoryEmbeddingSource[],
-	model: string
-): Promise<CategoryEmbeddingInput[]> {
-	const texts = categories.map((category) =>
-		buildCategoryText(category.name, category.description)
-	);
-	const embeddings = await embedTexts(texts, model);
-	return categories.map((category, index) => {
-		const embedding = embeddings[index];
-		return {
-			id: category.id,
-			name: category.name,
-			description: category.description ?? undefined,
+/**
+ * Feed one article into a category's exemplar set.
+ *
+ * Embeds the `topics + keywords` text, persists it in SQLite (the source of
+ * truth) and upserts the derived vector in LanceDB. Throws when the text is
+ * empty or the embeddings service fails, so callers can surface the error.
+ */
+export async function addCategoryExemplar(
+	params: { categoryId: string; articleUrl: string; text: string },
+	model: string = EMBEDDING_MODEL
+): Promise<WebStoreCategoryExemplarRecord> {
+	const text = params.text.trim();
+	if (!text) {
+		throw new Error('No analysis text available to add to the category');
+	}
+
+	const [embedding] = await embedTexts([text], model);
+	if (!embedding || embedding.length === 0) {
+		throw new Error('Embeddings service returned no vector');
+	}
+
+	const record = await saveCategoryExemplar({
+		categoryId: params.categoryId,
+		articleUrl: params.articleUrl,
+		text,
+		modelName: model,
+		modelDimensions: embedding.length
+	});
+	if (!record) {
+		throw new Error('Failed to persist the category exemplar');
+	}
+
+	await upsertCategoryExemplarEmbeddings([
+		{
+			id: record.id,
+			categoryId: params.categoryId,
+			articleUrl: params.articleUrl,
 			embedding,
-			updatedAt: Date.now(),
+			createdAt: record.createdAt,
 			modelName: model,
 			modelDimensions: embedding.length
-		};
-	});
-}
-
-/**
- * Embed a single category and upsert its vector. Throws when the embeddings
- * service fails so callers can surface the error on create/edit.
- */
-export async function syncCategoryEmbedding(
-	category: CategoryEmbeddingSource,
-	model: string = EMBEDDING_MODEL
-): Promise<void> {
-	const [input] = await embedCategoryRecords([category], model);
-	await upsertCategoryEmbeddings([input]);
-}
-
-export async function removeCategoryEmbedding(id: string): Promise<void> {
-	await deleteCategoryEmbedding(id);
-}
-
-let rebuildPromise: Promise<void> | null = null;
-
-/**
- * Rebuild the derived category index from SQLite. Concurrent calls share a
- * single in-flight rebuild.
- */
-export async function rebuildCategoryIndex(
-	categories?: CategoryEmbeddingSource[],
-	model: string = EMBEDDING_MODEL
-): Promise<void> {
-	if (rebuildPromise) return rebuildPromise;
-
-	rebuildPromise = (async () => {
-		const source = categories ?? (await getCategories());
-		if (source.length === 0) {
-			await rebuildCategoryEmbeddings([]);
-			return;
 		}
-		const inputs = await embedCategoryRecords(source, model);
-		await rebuildCategoryEmbeddings(inputs);
-	})().finally(() => {
-		rebuildPromise = null;
-	});
+	]);
 
-	return rebuildPromise;
+	return record;
+}
+
+/** Remove a single exemplar from SQLite and its derived vector. */
+export async function removeCategoryExemplar(exemplarId: string): Promise<void> {
+	await deleteCategoryExemplar(exemplarId);
+	await deleteCategoryExemplarEmbedding(exemplarId);
+}
+
+/** Drop every derived exemplar vector for a category (SQLite rows cascade). */
+export async function removeCategoryExemplarEmbeddings(categoryId: string): Promise<void> {
+	await deleteCategoryExemplarEmbeddingsByCategory(categoryId);
+}
+
+/**
+ * Rebuild the derived exemplar index from the SQLite source of truth.
+ *
+ * Re-embeds every stored exemplar text with `model` (one batch call), replaces
+ * the LanceDB table, and stamps the rows with the current model signature so a
+ * later model change can be detected without rescanning the index.
+ */
+export async function rebuildCategoryIndex(model: string = EMBEDDING_MODEL): Promise<void> {
+	const exemplars = await getAllCategoryExemplars();
+	if (exemplars.length === 0) {
+		await rebuildCategoryExemplarEmbeddings([]);
+		return;
+	}
+
+	const embeddings = await embedTexts(
+		exemplars.map((exemplar) => exemplar.text),
+		model
+	);
+	const dimensions = embeddings[0]?.length ?? null;
+
+	await rebuildCategoryExemplarEmbeddings(
+		exemplars.map((exemplar, index) => ({
+			id: exemplar.id,
+			categoryId: exemplar.categoryId,
+			articleUrl: exemplar.articleUrl,
+			embedding: embeddings[index],
+			createdAt: exemplar.createdAt,
+			modelName: model,
+			modelDimensions: dimensions ?? undefined
+		}))
+	);
+
+	await updateCategoryExemplarsModel({ modelName: model, modelDimensions: dimensions });
+}
+
+let validatedIndexModelKey: string | null = null;
+
+/**
+ * Rebuild the index when it was built with a different embedding model than the
+ * one currently configured. The result is cached per model signature so a
+ * classification does not re-check on every run.
+ */
+async function ensureCategoryExemplarIndexFresh(model: string, dimensions: number): Promise<void> {
+	const key = `${model}:${dimensions}`;
+	if (validatedIndexModelKey === key) return;
+
+	const status = await getCategoryExemplarModelStatus({
+		modelName: model,
+		modelDimensions: dimensions
+	});
+	if (status.total > 0 && status.matching < status.total) {
+		await rebuildCategoryIndex(model);
+	}
+
+	validatedIndexModelKey = key;
 }
 
 export interface ClassifyByEmbeddingOptions {
 	topN?: number;
 	minSimilarity?: number;
+	margin?: number;
 	model?: string;
+	/** The article title (the `title` task's data), used in `title + summary`. */
+	title?: string | null;
 }
 
 /**
- * Classify a task result into category ids using nearest-neighbour search
- * against the category description vectors.
+ * Classify a task result into category ids using nearest-neighbour search over
+ * the category exemplars (the fed `title + summary` examples).
  *
- * Returns the closest `topN` category ids whose cosine similarity is at least
- * `minSimilarity`, or `[]` when there is nothing to compare or no match.
+ * Returns the `topN` category ids whose best exemplar similarity is at least
+ * `minSimilarity`, or `[]` when there is nothing to compare, no match, or the
+ * top two categories are within `margin` (ambiguous). A category with no
+ * exemplars never matches.
  */
 export async function classifyByEmbedding(
 	taskData: unknown,
 	options: ClassifyByEmbeddingOptions = {}
 ): Promise<string[]> {
 	const topN = Math.max(1, Math.trunc(options.topN ?? 3));
-	const minSimilarity = options.minSimilarity ?? 0.35;
+	const minSimilarity = options.minSimilarity ?? 0.5;
+	const margin = options.margin ?? 0;
 	const model = options.model ?? EMBEDDING_MODEL;
 
-	const queryText = buildCategoryQueryText(taskData);
+	const queryText = buildCategoryText(taskData, options.title);
 	if (!queryText) return [];
 
-	const categories = await getCategories();
-	if (categories.length === 0) return [];
-
 	const [queryEmbedding] = await embedTexts([queryText], model);
+	if (!queryEmbedding || queryEmbedding.length === 0) return [];
 
-	const search = () => searchSimilarCategories(queryEmbedding, topN);
-	let results: CategorySearchResult[];
+	await ensureCategoryExemplarIndexFresh(model, queryEmbedding.length);
+
+	const search = () => searchSimilarCategoryExemplars(queryEmbedding, EXEMPLAR_SEARCH_LIMIT);
+	let results: CategoryExemplarSearchResult[];
 	try {
 		results = await search();
 	} catch {
-		// Missing or corrupted derived index: rebuild from SQLite and retry once.
-		await rebuildCategoryIndex(categories, model);
+		// Missing or corrupted derived index (or no exemplars fed yet, so the
+		// table does not exist). Rebuild from SQLite and retry once.
+		const exemplars = await getAllCategoryExemplars();
+		if (exemplars.length === 0) return [];
+		await rebuildCategoryIndex(model);
 		results = await search();
 	}
 
-	return results
-		.filter((result) => 1 - result.distance >= minSimilarity)
-		.sort((a, b) => a.distance - b.distance)
-		.slice(0, topN)
-		.map((result) => result.id);
+	// Collapse to the best exemplar per category, then rank the categories.
+	return rankExemplarMatches(results, { topN, minSimilarity, margin });
 }
