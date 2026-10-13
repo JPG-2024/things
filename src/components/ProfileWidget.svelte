@@ -114,7 +114,7 @@
 
 <div class="category-container">
 	<div class="category-widget" class:fill={isGrid}>
-		<Card loading={isProfileRunning}>
+		<Card loading={isProfileRunning} showBorders>
 			{#if showTitle}
 				<div class="title-row">
 					<h2 class="category-title">{profileWithArticles.name}</h2>
