@@ -17,14 +17,13 @@
 
 <style>
 	.pill {
-		
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		color: var(--pill-text-color, rgb(219, 219, 219));
 		background-color: transparent;
 		background-size: 200% 200%;
-		width: max-content;
+		width: fit-content;
 		padding: 0 15px;
 		font-size: var(--pill-font-size, 0.7rem);
 		font-family: var(--font-secondary);
@@ -75,7 +74,6 @@
 			rgba(0, 0, 0)
 		); */
 		padding: 2px 10px;
-		text-transform: uppercase;
 	}
 
 	.pill.done {
