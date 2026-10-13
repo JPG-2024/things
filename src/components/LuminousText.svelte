@@ -97,7 +97,7 @@
 		color: var(--primary-color);
 		position: relative;
 		display: inline-block;
-		font-family: var(--font-secondary);
+		font-family: monospace;
 
 		text-shadow:
 			0 0 5px
