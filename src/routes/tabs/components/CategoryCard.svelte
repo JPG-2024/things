@@ -67,12 +67,13 @@
 	}
 
 	.article-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
 		gap: 0.5rem;
-		align-content: start;
 		width: 100%;
-		min-height: 0;
+		min-width: 0;
 	}
 
 	.category-empty {
