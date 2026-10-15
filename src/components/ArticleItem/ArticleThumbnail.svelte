@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { toThumbnailVTName } from '@/lib/utils/url';
+	import Tooltip from '@/components/Tooltip.svelte';
 	import ArticleTitle from './ArticleTitle.svelte';
 
 	interface Props {
@@ -8,6 +9,8 @@
 		variant?: 'default' | 'fixed';
 		fallbackText?: string | null;
 		fallbackVariant?: 'text' | 'initial';
+		unread?: boolean;
+		tooltip?: string | null;
 	}
 
 	let {
@@ -15,21 +18,34 @@
 		url = undefined,
 		variant = 'default',
 		fallbackText = null,
-		fallbackVariant = 'text'
+		fallbackVariant = 'text',
+		unread = false,
+		tooltip = null
 	}: Props = $props();
 </script>
+
+{#snippet thumbnailImage()}
+	<img
+		{src}
+		alt="Article"
+		class="article-thumbnail"
+		style={`view-transition-name: ${toThumbnailVTName(url ?? '')}`}
+	/>
+{/snippet}
 
 <!-- The container owns the box (aspect-ratio / fixed height) and is a query
 	container, so the placeholder title sizes itself with `cqi` in every
 	ArticleItem layout without any JS measurement. -->
 <div class="article-thumbnail-container" class:fixed-thumb={variant === 'fixed'}>
+	{#if unread}
+		<span class="unread-dot" aria-hidden="true"></span>
+	{/if}
 	{#if src}
-		<img
-			{src}
-			alt="Article"
-			class="article-thumbnail"
-			style={`view-transition-name: ${toThumbnailVTName(url ?? '')}`}
-		/>
+		{#if tooltip}
+			<Tooltip content={tooltip}>{@render thumbnailImage()}</Tooltip>
+		{:else}
+			{@render thumbnailImage()}
+		{/if}
 	{:else}
 		<div class="article-thumbnail-placeholder" class:initial={fallbackVariant === 'initial'}>
 			{#if fallbackText}
@@ -47,7 +63,7 @@
 		width: 100%;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-sm);
 		container-type: inline-size;
 	}
 
@@ -67,6 +83,29 @@
 		height: var(--fixed-thumb-h);
 		aspect-ratio: auto;
 		border-radius: var(--radius-sm);
+	}
+
+	/* The container clips its overflow, so keep the unread marker inside the
+	   rounded corner instead of hanging off the edge. */
+	.unread-dot {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--primary-color);
+		z-index: 10;
+		pointer-events: none;
+	}
+
+	/* Tooltip wraps its children in an unsized flex box; make it fill the
+	   thumbnail so the image keeps its 100% sizing. */
+	.article-thumbnail-container :global(.tooltip-wrapper) {
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		justify-content: center;
 	}
 
 	.article-thumbnail-placeholder {

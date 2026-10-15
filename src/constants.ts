@@ -1,11 +1,21 @@
 export const RAW_PROCESS_LIMIT = 1000;
 
 // 📐 Wheel layout per tab
-export const CATEGORY_ARTICLE_THUMBNAIL_WIDTH = 140;
-export const CATEGORY_ARTICLE_THUMBNAIL_HEIGHT = 70;
+/**
+ * Fixed-width presets for `ArticleItem`'s thumbnail-only mode. `fill` is a
+ * separate, fluid option (100% wide, 16:9) handled by the item itself.
+ */
+export const ARTICLE_THUMBNAIL_SIZES = {
+	xs: { width: 80, height: 64 },
+	sm: { width: 90, height: 50 },
+	md: { width: 170, height: 96 },
+	lg: { width: 210, height: 118 }
+} as const;
+export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
+export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
 export const PROFILE_COLUMN_WIDTH = '17rem';
 /** Width of a single category card (fits two article thumbnails). */
-export const CATEGORY_ARTICLE_COLUMN_WIDTH = '20rem';
+export const CATEGORY_ARTICLE_COLUMN_WIDTH = '40rem';
 /** Space reserved to the left of each card for the category name. */
 export const CATEGORY_LABEL_COLUMN_WIDTH = '8rem';
 /** Gap between the category label and the card. */
@@ -30,7 +40,7 @@ export interface TabPageConfig {
 export const TAB_PAGE_CONFIG = {
 	profiles: { pageSize: 10, articlesPerCard: 6 },
 	domains: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
-	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 1 },
+	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 5 },
 	articles: { pageSize: 10 }
 } satisfies Record<string, TabPageConfig>;
 

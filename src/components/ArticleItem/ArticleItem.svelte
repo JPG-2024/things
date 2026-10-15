@@ -5,13 +5,20 @@
 	import ArticleItemRow from './ArticleItemRow.svelte';
 	import ArticleItemGrid3 from './ArticleItemGrid3.svelte';
 	import ArticleItemGrid from './ArticleItemGrid.svelte';
+	import { ARTICLE_THUMBNAIL_SIZES, type ArticleThumbnailSize } from '@/constants';
 
 	interface Props {
 		article: ArticleWithTasks;
 		contentMode?: ArticleContentMode;
 		thumbnailOnly?: boolean;
+		/** Fixed preset for the thumbnail box; `fill` keeps it fluid (16:9, 100% wide). */
+		thumbnailSize?: ArticleThumbnailSize;
 		thumbnailWidth?: number;
 		thumbnailHeight?: number;
+		/** Shows the unread dot over the thumbnail. */
+		unread?: boolean;
+		/** Tooltip content shown when hovering the thumbnail. */
+		tooltip?: string | null;
 		layoutKey?: LayoutKey;
 		marked?: boolean;
 		matchSnippet?: RawSearchMatch;
@@ -24,8 +31,11 @@
 		article,
 		contentMode = undefined,
 		thumbnailOnly = false,
+		thumbnailSize = undefined,
 		thumbnailWidth = undefined,
 		thumbnailHeight = undefined,
+		unread = false,
+		tooltip = null,
 		layoutKey,
 		marked = false,
 		matchSnippet = undefined,
@@ -35,7 +45,15 @@
 	}: Props = $props();
 
 	const isRowMode = $derived(layoutKey === 'row');
-	const isFixedThumb = $derived(thumbnailWidth !== undefined && thumbnailHeight !== undefined);
+	const presetSize = $derived(
+		thumbnailSize && thumbnailSize !== 'fill' ? ARTICLE_THUMBNAIL_SIZES[thumbnailSize] : undefined
+	);
+
+	const resolvedThumbnailWidth = $derived(thumbnailWidth ?? presetSize?.width);
+	const resolvedThumbnailHeight = $derived(thumbnailHeight ?? presetSize?.height);
+	const isFixedThumb = $derived(
+		resolvedThumbnailWidth !== undefined && resolvedThumbnailHeight !== undefined
+	);
 
 	// Category previews force thumbnail-only; otherwise the grid-wide preference
 	// (cycled from the masonry toolbar) decides what is rendered.
@@ -47,6 +65,13 @@
 	// no image the text renders alone; in row the empty placeholder sits beside it.
 	const showThumbnail = $derived(mode !== 'title');
 	const showText = $derived(mode !== 'thumbnail');
+
+	// El título se ofrece como tooltip cuando la tarjeta oculta el texto (modo
+	// thumbnail), salvo que un caller pase un tooltip explícito. Centralizado aquí
+	// para que todos los layouts y páginas que usan ArticleItem lo hereden.
+	const resolvedTooltip = $derived(
+		tooltip ?? (showThumbnail && !showText ? (article.title ?? null) : null)
+	);
 
 	const categories = $derived(
 		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
@@ -97,7 +122,7 @@
 	class:marked-for-delete={marked}
 	class:fixed-thumb-card={isFixedThumb}
 	style={isFixedThumb
-		? `--fixed-thumb-w: ${thumbnailWidth}px; --fixed-thumb-h: ${thumbnailHeight}px;`
+		? `--fixed-thumb-w: ${resolvedThumbnailWidth}px; --fixed-thumb-h: ${resolvedThumbnailHeight}px;`
 		: undefined}
 	onclick={() => onClick(article)}
 	onmouseenter={() => onHoverEnter(article)}
@@ -111,6 +136,7 @@
 			{showThumbnail}
 			{showText}
 			{matchSnippet}
+			tooltip={resolvedTooltip}
 			topics={randomTopics}
 		/>
 	{:else if layoutKey === 'grid-3'}
@@ -121,6 +147,7 @@
 			{showText}
 			topics={randomTopics}
 			{matchSnippet}
+			tooltip={resolvedTooltip}
 		/>
 	{:else}
 		<ArticleItemGrid
@@ -129,6 +156,8 @@
 			{showThumbnail}
 			{showText}
 			{isFixedThumb}
+			{unread}
+			tooltip={resolvedTooltip}
 			topics={randomTopics}
 			{matchSnippet}
 		/>

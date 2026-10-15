@@ -14,6 +14,7 @@
 		showText: boolean;
 		topics: string[];
 		matchSnippet?: RawSearchMatch;
+		tooltip?: string | null;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		showThumbnail,
 		showText,
 		topics,
-		matchSnippet = undefined
+		matchSnippet = undefined,
+		tooltip = null
 	}: Props = $props();
 </script>
 
@@ -33,6 +35,7 @@
 			url={article.url}
 			fallbackText={article.title?.trim().charAt(0) ?? ''}
 			fallbackVariant="initial"
+			{tooltip}
 		/>
 	{/if}
 	{#if showText}

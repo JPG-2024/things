@@ -13,6 +13,8 @@
 		showThumbnail: boolean;
 		showText: boolean;
 		isFixedThumb: boolean;
+		unread?: boolean;
+		tooltip?: string | null;
 		topics: string[];
 		matchSnippet?: RawSearchMatch;
 	}
@@ -23,6 +25,8 @@
 		showThumbnail,
 		showText,
 		isFixedThumb,
+		unread = false,
+		tooltip = null,
 		topics,
 		matchSnippet = undefined
 	}: Props = $props();
@@ -36,6 +40,8 @@
 				src={article.thumbnailSrc}
 				url={article.url}
 				fallbackText={article.title?.slice(0, 80) ?? ''}
+				{unread}
+				{tooltip}
 			/>
 		{/if}
 		{#if showText && !isFixedThumb}
