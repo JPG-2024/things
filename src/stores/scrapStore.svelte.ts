@@ -139,7 +139,10 @@ class ScrapState {
 		}
 	): Promise<FetchMissingProfileVideosResult> {
 		const parallel = options?.parallel ?? this.parallelFetch;
-		const skipTaskIds = options?.skipTaskIds ?? ['profile'];
+		// The initial pass only indexes cheap metadata (thumbnail + title). Skipping
+		// `timed-captions` also drops its descendant `content`, so no transcript is
+		// fetched here. Both are rebuilt on demand when the article is opened.
+		const skipTaskIds = options?.skipTaskIds ?? ['profile', 'timed-captions'];
 		const maxVideos = Math.min(
 			50,
 			Math.max(1, Math.trunc(options?.maxVideos ?? this.maxVideos ?? 5))
@@ -158,7 +161,7 @@ class ScrapState {
 		this.error = null;
 
 		try {
-			const youtubeProfile = await this.getYoutubeProfile(handle, { scroll: true });
+			const youtubeProfile = await this.getYoutubeProfile(handle, { scroll: false });
 			if (!youtubeProfile) {
 				throw new Error(this.error ?? 'Failed to fetch profile videos');
 			}
