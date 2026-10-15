@@ -29,7 +29,8 @@
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			onlyWithoutProfile: onlyRaw,
 			profileId: profileId ?? undefined,
-			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined
+			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined,
+			includeInitial: true
 		});
 	});
 </script>

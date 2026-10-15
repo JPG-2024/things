@@ -78,7 +78,8 @@
 	$effect(() => {
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			profileId,
-			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined
+			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined,
+			includeInitial: true
 		});
 	});
 
