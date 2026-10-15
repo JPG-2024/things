@@ -21,7 +21,12 @@
 	});
 </script>
 
-<ProfileList items={visibleProfiles} itemTransition={profileItemTransition} key={(p) => p.id}>
+<ProfileList
+	items={visibleProfiles}
+	itemTransition={profileItemTransition}
+	key={(p) => p.id}
+	columns
+>
 	{#snippet row(profile)}
 		<ProfileWidget
 			profileWithArticles={profile}

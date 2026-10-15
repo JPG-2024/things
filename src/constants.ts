@@ -38,7 +38,7 @@ export interface TabPageConfig {
  * a card.
  */
 export const TAB_PAGE_CONFIG = {
-	profiles: { pageSize: 10, articlesPerCard: 6 },
+	profiles: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
 	domains: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
 	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 5 },
 	articles: { pageSize: 10 }
