@@ -10,7 +10,9 @@
 
 	let { value, hideEmoji = false, categoryId }: Props = $props();
 
-	function handleClick() {
+	function handleClick(event: MouseEvent) {
+		// Pills can be nested inside a clickable article card; don't also open the article.
+		event.stopPropagation();
 		if (categoryId) {
 			goto(`/category/${categoryId}?name=${encodeURIComponent(value)}`);
 		}
