@@ -347,6 +347,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		padding-top: 1rem;
 	}
 
 	.level-row {
