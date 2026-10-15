@@ -51,14 +51,14 @@
 {#if columns}
 	<div class="profile-list columns">
 		<WheelStage
-			gap={60}
+			gap={12}
 			{rowGap}
 			rows={rowsPerColumn}
 			{height}
 			scrollSpeed={12}
 			keyboard
 			label="Column cards"
-			edgeSpace="25vw"
+			edgeSpace="10vw"
 		>
 			{#each renderedItems as item (key(item))}
 				<div
@@ -94,7 +94,7 @@
 		flex-direction: column;
 		align-items: center;
 		width: 100%;
-		gap: 2rem;
+		gap: 1rem;
 	}
 
 	.profile-row {

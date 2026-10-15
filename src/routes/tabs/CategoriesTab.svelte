@@ -44,42 +44,48 @@
 	const visibleCategories = $derived(articleCacheStore.categoriesWithArticles);
 </script>
 
-<ProfileList
-	items={visibleCategories}
-	itemTransition={categoryItemTransition}
-	columnWidth={CATEGORY_COLUMN_WIDTH}
-	rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
-	key={(category) => category.categoryId}
->
-	{#snippet row(category)}
-		<CategoryCard
-			{category}
-			onCategoryClick={handleCategoryClick}
-			onArticleClick={handleArticleClick}
-			onArticleHoverEnter={handleArticleHoverEnter}
-			onArticleHoverLeave={handleArticleHoverLeave}
-		/>
-	{/snippet}
-	{#snippet sentinel()}
-		{#if articleCacheStore.hasMoreCategories && visibleCategories.length > 0}
-			<LoadMoreSentinel
-				onLoadMore={() => articleCacheStore.loadMoreCategories()}
-				disabled={articleCacheStore.loadingCategories}
+<div class="categories-tab">
+	<ProfileList
+		items={visibleCategories}
+		itemTransition={categoryItemTransition}
+		columns
+		columnWidth={CATEGORY_COLUMN_WIDTH}
+		rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
+		key={(category) => category.categoryId}
+	>
+		{#snippet row(category)}
+			<CategoryCard
+				{category}
+				onCategoryClick={handleCategoryClick}
+				onArticleClick={handleArticleClick}
+				onArticleHoverEnter={handleArticleHoverEnter}
+				onArticleHoverLeave={handleArticleHoverLeave}
 			/>
+		{/snippet}
+		{#snippet sentinel()}
+			{#if articleCacheStore.hasMoreCategories && visibleCategories.length > 0}
+				<LoadMoreSentinel
+					onLoadMore={() => articleCacheStore.loadMoreCategories()}
+					disabled={articleCacheStore.loadingCategories}
+				/>
+			{/if}
+		{/snippet}
+	</ProfileList>
+	{#if visibleCategories.length === 0}
+		{#if articleCacheStore.loadingCategories}
+			<div class="empty-profiles-container"></div>
+		{:else}
+			<div class="empty-profiles-container">
+				<div class="empty-profiles-pill">No categories</div>
+			</div>
 		{/if}
-	{/snippet}
-</ProfileList>
-{#if visibleCategories.length === 0}
-	{#if articleCacheStore.loadingCategories}
-		<div class="empty-profiles-container"></div>
-	{:else}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">No categories</div>
-		</div>
 	{/if}
-{/if}
+</div>
 
 <style>
+	.categories-tab {
+		padding-bottom: 4rem;
+	}
 	.empty-profiles-container {
 		display: flex;
 		align-items: center;

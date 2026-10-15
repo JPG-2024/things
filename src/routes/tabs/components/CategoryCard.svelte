@@ -4,12 +4,7 @@
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	// Wheel cards show the latest ARTICLE_COUNT_PER_CATEGORY articles only;
 	// catalog paging happens on the wheel (card) level, not inside the card.
-	import {
-		CATEGORY_ARTICLE_THUMBNAIL_HEIGHT,
-		CATEGORY_ARTICLE_THUMBNAIL_WIDTH,
-		CATEGORY_CARD_GAP,
-		CATEGORY_LABEL_COLUMN_WIDTH
-	} from '@/constants';
+	import { CATEGORY_CARD_GAP, CATEGORY_LABEL_COLUMN_WIDTH } from '@/constants';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
 
 	interface Props {
@@ -32,24 +27,24 @@
 </script>
 
 <div class="category-card" style:gap={CATEGORY_CARD_GAP}>
-	<button
-		type="button"
-		class="category-header"
-		style:flex-basis={CATEGORY_LABEL_COLUMN_WIDTH}
-		onclick={() => onCategoryClick(category)}
-	>
-		<CategoryItem value={category.categoryName} />
-	</button>
 	<div class="category-card-body">
 		<Card showBorders>
 			{#if articles.length > 0}
 				<div class="article-grid">
+					<button
+						type="button"
+						class="category-header"
+						style:flex-basis={CATEGORY_LABEL_COLUMN_WIDTH}
+						onclick={() => onCategoryClick(category)}
+					>
+						<CategoryItem value={category.categoryName} />
+					</button>
 					{#each articles as article (article.url)}
 						<ArticleItem
 							{article}
 							thumbnailOnly
-							thumbnailWidth={CATEGORY_ARTICLE_THUMBNAIL_WIDTH}
-							thumbnailHeight={CATEGORY_ARTICLE_THUMBNAIL_HEIGHT}
+							thumbnailSize="sm"
+							tooltip={article.title ?? null}
 							onClick={onArticleClick}
 							onHoverEnter={onArticleHoverEnter}
 							onHoverLeave={onArticleHoverLeave}
@@ -76,7 +71,8 @@
 		all: unset;
 		cursor: pointer;
 		flex: 0 0 auto;
-		display: block;
+		display: flex;
+		justify-content: center;
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
