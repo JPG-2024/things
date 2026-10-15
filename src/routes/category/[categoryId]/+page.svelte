@@ -140,6 +140,7 @@
 		min-height: 100vh;
 		padding: 3rem;
 		padding-right: 5rem;
+		width: 100%;
 	}
 
 	.top-bar {
