@@ -1,16 +1,16 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
 	import WheelStage from '@/components/WheelStage.svelte';
+	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { toVTName } from '@/lib/utils/url';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { goto } from '$app/navigation';
 	import { type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import type { ArticleThumbnailSize } from '@/constants';
 
 	interface Props {
 		profileWithArticles: ArticleProfile;
@@ -27,6 +27,7 @@
 	}: Props = $props();
 	let isCollapsed = $state(false);
 	const isGrid = $derived(articleLayout === 'grid');
+	const articleThumbnailSize: ArticleThumbnailSize = $derived(isGrid ? 'fill' : 'xs');
 
 	$effect(() => {
 		isCollapsed = collapsed;
@@ -74,42 +75,28 @@
 			goto(`/youtube/${encodeURIComponent(article.url)}`);
 		}
 	}
+
+	function handleArticleHoverEnter(article: ArticleWithTasks) {
+		viewState.hoveredArticleUrl = article.url ?? null;
+		viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
+	}
+
+	function handleArticleHoverLeave() {
+		viewState.hoveredArticleUrl = null;
+	}
 </script>
 
 {#snippet articleThumb(article: ArticleWithTasks)}
-	<button
-		type="button"
-		class="img-button"
-		onclick={() => handleNavigateToArticle(article)}
-		onmouseenter={() => {
-			viewState.hoveredArticleUrl = article.url ?? null;
-			viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
-		}}
-		onmouseleave={() => {
-			viewState.hoveredArticleUrl = null;
-		}}
-		aria-label="View article"
-	>
-		<div class="thumbnail-container">
-			{#if !article.viewed}
-				<span class="unread-dot"></span>
-			{/if}
-			<Tooltip content={article.title ?? ''}>
-				{#if article.thumbnailSrc}
-					<img
-						src={article.thumbnailSrc}
-						alt="Article"
-						class="mini-img"
-						style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
-					/>
-				{:else}
-					<div class="mini-img-fallback" title={article.title ?? ''}>
-						{article.title?.slice(0, 45).concat('...') ?? ''}
-					</div>
-				{/if}
-			</Tooltip>
-		</div>
-	</button>
+	<ArticleItem
+		{article}
+		thumbnailOnly
+		thumbnailSize={articleThumbnailSize}
+		unread={!article.viewed}
+		tooltip={article.title ?? null}
+		onClick={handleNavigateToArticle}
+		onHoverEnter={handleArticleHoverEnter}
+		onHoverLeave={handleArticleHoverLeave}
+	/>
 {/snippet}
 
 <div class="category-container">
@@ -191,22 +178,6 @@
 	.category-container {
 	}
 
-	.thumbnail-container {
-		position: relative;
-		display: inline-flex;
-	}
-
-	.unread-dot {
-		position: absolute;
-		top: 0px;
-		right: -5px;
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: var(--primary-color);
-		z-index: 10;
-	}
-
 	.category-widget {
 		display: flex;
 		flex-direction: column;
@@ -278,28 +249,19 @@
 		min-width: 0;
 	}
 
-	/* Grid mode: thumbnails flow in two columns filling the card */
+	/* Grid mode: ArticleItems flow in two columns filling the card */
 	.strip-wrap.article-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		grid-auto-rows: 4rem;
+		grid-auto-rows: auto;
 		align-content: start;
 		gap: 0.75rem;
 		min-height: 0;
 		overflow: hidden;
 	}
 
-	.strip-wrap.article-grid .mini-img,
-	.strip-wrap.article-grid .mini-img-fallback {
-		width: 100%;
-	}
-
-	.strip-wrap.article-grid .img-button {
+	.strip-wrap.article-grid :global(.article-card) {
 		min-width: 0;
-	}
-
-	.strip-wrap.article-grid .thumbnail-container {
-		width: 100%;
 	}
 
 	.avatar-container {
@@ -324,33 +286,6 @@
 	.img-button:hover {
 		transform: scale(1.02);
 		z-index: 20;
-	}
-
-	.mini-img {
-		display: block;
-		border-radius: var(--radius-md);
-		width: 5rem;
-		height: 4rem;
-		object-fit: cover;
-	}
-
-	.mini-img-fallback {
-		display: -webkit-box;
-		justify-content: center;
-		align-items: center;
-		border-radius: var(--radius-lg);
-		width: 5rem;
-		height: 4rem;
-		padding: 0.25rem;
-		background: rgba(255, 255, 255, 0.05);
-		color: rgba(255, 255, 255, 0.75);
-		font-size: 0.65rem;
-		line-height: 1.1;
-		text-align: left;
-		overflow: hidden;
-		-webkit-line-clamp: 4;
-		-webkit-box-orient: vertical;
-		line-clamp: 4;
 	}
 
 	.profile-avatar {
