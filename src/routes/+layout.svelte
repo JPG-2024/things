@@ -385,6 +385,8 @@
 		line-height: 24px;
 		font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
+		--card-border-weigth: 1px;
+
 		--font-secondary: 'BetterVCR', monospace;
 		--font-primary-bold: 'MonaspaceXenonFrozenBold';
 
