@@ -100,6 +100,9 @@
 		font-size: 1.1rem;
 		font-weight: 600;
 		color: var(--primary-color);
+		line-height: 1.2;
+		font-weight: bold;
+		font-family: var(--font-secondary);
 	}
 
 	.video-grid {
