@@ -6,7 +6,10 @@
 	interface Props {
 		src?: string | null;
 		url?: string | null;
-		variant?: 'default' | 'fixed';
+		/** Fixed box width in px; with `height`, opts out of the fluid 16:9 ratio. */
+		width?: number;
+		/** Fixed box height in px; with `width`, opts out of the fluid 16:9 ratio. */
+		height?: number;
 		fallbackText?: string | null;
 		fallbackVariant?: 'text' | 'initial';
 		unread?: boolean;
@@ -16,12 +19,16 @@
 	let {
 		src = undefined,
 		url = undefined,
-		variant = 'default',
+		width = undefined,
+		height = undefined,
 		fallbackText = null,
 		fallbackVariant = 'text',
 		unread = false,
 		tooltip = null
 	}: Props = $props();
+
+	// A fixed box (explicit width + height) opts out of the fluid 16:9 ratio.
+	const sized = $derived(width !== undefined && height !== undefined);
 </script>
 
 {#snippet thumbnailImage()}
@@ -33,10 +40,14 @@
 	/>
 {/snippet}
 
-<!-- The container owns the box (aspect-ratio / fixed height) and is a query
-	container, so the placeholder title sizes itself with `cqi` in every
+<!-- The container owns the box (fluid 16:9 or an explicit width/height) and is a
+	query container, so the placeholder title sizes itself with `cqi` in every
 	ArticleItem layout without any JS measurement. -->
-<div class="article-thumbnail-container" class:fixed-thumb={variant === 'fixed'}>
+<div
+	class="article-thumbnail-container"
+	class:sized
+	style={sized ? `width: ${width}px; height: ${height}px;` : undefined}
+>
 	{#if unread}
 		<span class="unread-dot" aria-hidden="true"></span>
 	{/if}
@@ -61,9 +72,10 @@
 		position: relative;
 		display: inline-flex;
 		width: 100%;
+		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-lg);
 		container-type: inline-size;
 	}
 
@@ -72,17 +84,13 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		opacity: 0.8;
+		opacity: 0.5;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
 	}
 
-	.article-thumbnail-container.fixed-thumb {
-		flex: none;
-		width: 100%;
-		height: var(--fixed-thumb-h);
+	.article-thumbnail-container.sized {
 		aspect-ratio: auto;
-		border-radius: var(--radius-sm);
 	}
 
 	/* The container clips its overflow, so keep the unread marker inside the
@@ -140,7 +148,7 @@
 		line-clamp: none;
 	}
 
-	.fixed-thumb .article-thumbnail-placeholder {
+	.sized .article-thumbnail-placeholder {
 		border-radius: var(--radius-sm);
 	}
 </style>

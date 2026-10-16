@@ -26,6 +26,11 @@
 		matchSnippet = undefined,
 		tooltip = null
 	}: Props = $props();
+
+	// Row thumbnails keep a fixed box regardless of the masonry preset; the box
+	// itself is built by ArticleThumbnail so all sizing lives in one component.
+	const ROW_THUMB_WIDTH = 150;
+	const ROW_THUMB_HEIGHT = 80;
 </script>
 
 <div class="article-content">
@@ -33,6 +38,8 @@
 		<ArticleThumbnail
 			src={article.thumbnailSrc}
 			url={article.url}
+			width={ROW_THUMB_WIDTH}
+			height={ROW_THUMB_HEIGHT}
 			fallbackText={article.title?.trim().charAt(0) ?? ''}
 			fallbackVariant="initial"
 			{tooltip}
@@ -61,9 +68,6 @@
 	}
 
 	.article-content :global(.article-thumbnail-container) {
-		flex: 0 0 150px;
-		width: 150px;
-		height: 80px;
 		opacity: 0.8;
 	}
 

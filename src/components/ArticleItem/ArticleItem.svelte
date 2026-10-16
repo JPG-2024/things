@@ -121,9 +121,7 @@
 	class="article-card {layoutKey ?? ''}"
 	class:marked-for-delete={marked}
 	class:fixed-thumb-card={isFixedThumb}
-	style={isFixedThumb
-		? `--fixed-thumb-w: ${resolvedThumbnailWidth}px; --fixed-thumb-h: ${resolvedThumbnailHeight}px;`
-		: undefined}
+	style={isFixedThumb ? `--fixed-thumb-w: ${resolvedThumbnailWidth}px;` : undefined}
 	onclick={() => onClick(article)}
 	onmouseenter={() => onHoverEnter(article)}
 	onmouseleave={onHoverLeave}
@@ -156,6 +154,8 @@
 			{showThumbnail}
 			{showText}
 			{isFixedThumb}
+			thumbWidth={resolvedThumbnailWidth}
+			thumbHeight={resolvedThumbnailHeight}
 			{unread}
 			tooltip={resolvedTooltip}
 			topics={randomTopics}

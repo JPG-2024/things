@@ -61,8 +61,6 @@
 	.article-content :global(.article-thumbnail-container) {
 		grid-column: 1;
 		grid-row: 2;
-		width: 100%;
-		min-width: 0;
 	}
 
 	/* thumbnail-only mode: fill the card (no empty row above) */

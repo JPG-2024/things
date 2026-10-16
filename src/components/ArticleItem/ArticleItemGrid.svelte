@@ -13,6 +13,8 @@
 		showThumbnail: boolean;
 		showText: boolean;
 		isFixedThumb: boolean;
+		thumbWidth?: number;
+		thumbHeight?: number;
 		unread?: boolean;
 		tooltip?: string | null;
 		topics: string[];
@@ -25,6 +27,8 @@
 		showThumbnail,
 		showText,
 		isFixedThumb,
+		thumbWidth = undefined,
+		thumbHeight = undefined,
 		unread = false,
 		tooltip = null,
 		topics,
@@ -36,7 +40,8 @@
 	<div class="article-item-info">
 		{#if showThumbnail}
 			<ArticleThumbnail
-				variant={isFixedThumb ? 'fixed' : 'default'}
+				width={thumbWidth}
+				height={thumbHeight}
 				src={article.thumbnailSrc}
 				url={article.url}
 				fallbackText={article.title?.slice(0, 80) ?? ''}
