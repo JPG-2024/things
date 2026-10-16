@@ -9,14 +9,13 @@ import {
 } from '@/stores/webStore';
 import { PaginationResource } from '@/stores/paginationResource.svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import { TAB_PAGE_CONFIG } from '@/constants';
+import { TAB_PAGE_CONFIG, type CardLayout } from '@/constants';
+import { articleCapacity } from '@/lib/utils/cardLayout';
+import { viewState } from '@/stores/viewStore.svelte';
 
 const PROFILES_PAGE_SIZE = TAB_PAGE_CONFIG.profiles.pageSize;
 const DOMAINS_PAGE_SIZE = TAB_PAGE_CONFIG.domains.pageSize;
 const ARTICLES_PAGE_SIZE = TAB_PAGE_CONFIG.articles.pageSize;
-const ARTICLES_PER_PROFILE = TAB_PAGE_CONFIG.profiles.articlesPerCard ?? 5;
-const ARTICLES_PER_DOMAIN = TAB_PAGE_CONFIG.domains.articlesPerCard ?? 5;
-const ARTICLE_COUNT_PER_CATEGORY = TAB_PAGE_CONFIG.categories.articlesPerCard ?? 10;
 const CATEGORIES_PAGE_SIZE = TAB_PAGE_CONFIG.categories.pageSize;
 
 function sortedIds(ids?: string[]): string[] | null {
@@ -25,6 +24,11 @@ function sortedIds(ids?: string[]): string[] | null {
 
 type ProfilesParams = {
 	categoryIds?: string[];
+	/**
+	 * Card layout bound to this fetch. Carried in the signature so changing
+	 * the layout settles a refetch through the existing resource machinery.
+	 */
+	card: CardLayout;
 };
 
 type ArticlesParams = {
@@ -48,14 +52,19 @@ type CategoryPageEntry = {
 class ArticleCacheStore {
 	private readonly profiles = new PaginationResource<ArticleProfile, ProfilesParams>(
 		PROFILES_PAGE_SIZE,
-		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'profile' }),
+		(params) =>
+			JSON.stringify({
+				categoryIds: sortedIds(params.categoryIds),
+				card: params.card,
+				kind: 'profile'
+			}),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
 				categoryIds: params.categoryIds,
 				offset,
 				limit,
 				includeArticles: true,
-				articleCount: ARTICLES_PER_PROFILE,
+				articleCount: articleCapacity(params.card.columns, params.card.rows),
 				kind: 'profile'
 			});
 
@@ -65,14 +74,19 @@ class ArticleCacheStore {
 
 	private readonly domains = new PaginationResource<ArticleProfile, ProfilesParams>(
 		DOMAINS_PAGE_SIZE,
-		(params) => JSON.stringify({ categoryIds: sortedIds(params.categoryIds), kind: 'domain' }),
+		(params) =>
+			JSON.stringify({
+				categoryIds: sortedIds(params.categoryIds),
+				card: params.card,
+				kind: 'domain'
+			}),
 		async (params, offset, limit) => {
 			const items = await getProfiles({
 				categoryIds: params.categoryIds,
 				offset,
 				limit,
 				includeArticles: true,
-				articleCount: ARTICLES_PER_DOMAIN,
+				articleCount: articleCapacity(params.card.columns, params.card.rows),
 				kind: 'domain'
 			});
 
@@ -136,6 +150,7 @@ class ArticleCacheStore {
 	private categoryPagesStale = true;
 	private categoryPagesSignature: string | null = null;
 	private categoryPagesCreatedAtFrom: number | undefined = undefined;
+	private categoryPagesCard: CardLayout | undefined = undefined;
 	private categoryPagesFetchId = 0;
 	private categoryOffset = 0;
 	private categoryHasMore = $state(true);
@@ -232,9 +247,10 @@ class ArticleCacheStore {
 		force?: boolean;
 		loadMore?: boolean;
 		categoryIds?: string[];
+		card?: CardLayout;
 	}) {
 		await this.profiles.fetch(
-			{ categoryIds: options?.categoryIds },
+			{ categoryIds: options?.categoryIds, card: options?.card ?? viewState.cardLayout.profiles },
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
 	}
@@ -266,9 +282,10 @@ class ArticleCacheStore {
 		force?: boolean;
 		loadMore?: boolean;
 		categoryIds?: string[];
+		card?: CardLayout;
 	}) {
 		await this.domains.fetch(
-			{ categoryIds: options?.categoryIds },
+			{ categoryIds: options?.categoryIds, card: options?.card ?? viewState.cardLayout.domains },
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
 	}
@@ -303,12 +320,15 @@ class ArticleCacheStore {
 		force?: boolean;
 		categoryIds?: string[];
 		createdAtFrom?: number;
+		card?: CardLayout;
 	}) {
 		const categoryIds = options?.categoryIds ?? [];
+		const card = options?.card ?? viewState.cardLayout.categories;
 		const createdAtFrom = options?.createdAtFrom ?? this.categoryPagesCreatedAtFrom;
 		const signature = JSON.stringify({
 			categoryIds: sortedIds(categoryIds),
-			createdAtFrom: createdAtFrom ?? null
+			createdAtFrom: createdAtFrom ?? null,
+			card
 		});
 
 		if (!options?.force && !this.categoryPagesStale && signature === this.categoryPagesSignature) {
@@ -324,7 +344,7 @@ class ArticleCacheStore {
 					queries: categoryIds.map((categoryId) => ({
 						categoryId,
 						offset: 0,
-						articleCount: ARTICLE_COUNT_PER_CATEGORY
+						articleCount: articleCapacity(card.columns, card.rows)
 					})),
 					createdAtFrom: createdAtFrom ?? null
 				});
@@ -343,7 +363,7 @@ class ArticleCacheStore {
 				const page = await getCategoriesWithArticlesPage({
 					offset: 0,
 					limit: CATEGORIES_PAGE_SIZE,
-					articleCount: ARTICLE_COUNT_PER_CATEGORY,
+					articleCount: articleCapacity(card.columns, card.rows),
 					createdAtFrom: createdAtFrom ?? null
 				});
 				if (fetchId !== this.categoryPagesFetchId) return;
@@ -363,6 +383,7 @@ class ArticleCacheStore {
 			}
 
 			this.categoryPagesCreatedAtFrom = createdAtFrom;
+			this.categoryPagesCard = card;
 			this.categoryPagesSignature = signature;
 			this.categoryPagesStale = false;
 		} catch (error) {
@@ -384,10 +405,13 @@ class ArticleCacheStore {
 		const fetchId = ++this.categoryPagesFetchId;
 		this.categoryPagesLoading = true;
 		try {
+			// Continue with the layout the catalog was fetched with so appended
+			// pages stay consistent until the next full refetch.
+			const card = this.categoryPagesCard ?? viewState.cardLayout.categories;
 			const page = await getCategoriesWithArticlesPage({
 				offset: this.categoryOffset,
 				limit: CATEGORIES_PAGE_SIZE,
-				articleCount: ARTICLE_COUNT_PER_CATEGORY,
+				articleCount: articleCapacity(card.columns, card.rows),
 				// Keep the initial fetch's cutoff so pages stay consistent.
 				createdAtFrom: this.categoryPagesCreatedAtFrom
 			});

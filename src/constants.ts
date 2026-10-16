@@ -14,35 +14,72 @@ export const ARTICLE_THUMBNAIL_SIZES = {
 export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
 export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
 export const PROFILE_COLUMN_WIDTH = '17rem';
-/** Width of a single category card (fits two article thumbnails). */
-export const CATEGORY_ARTICLE_COLUMN_WIDTH = '40rem';
-/** Space reserved to the left of each card for the category name. */
-export const CATEGORY_LABEL_COLUMN_WIDTH = '8rem';
-/** Gap between the category label and the card. */
-export const CATEGORY_CARD_GAP = '0.75rem';
-/** Full wheel cell width: label + gap + card. */
-export const CATEGORY_COLUMN_WIDTH = `calc(${CATEGORY_LABEL_COLUMN_WIDTH} + ${CATEGORY_CARD_GAP} + ${CATEGORY_ARTICLE_COLUMN_WIDTH})`;
+
+/** Blank space before the first card of a wheel (fake-scroll runway). */
+export const WHEEL_START_SPACE = '8vw';
+/**
+ * Blank space after the last card of a wheel. Sized so the end of the last
+ * cards settles near the center of the viewport (or a bit beyond).
+ */
+export const WHEEL_END_SPACE = '45vw';
+
+/** Horizontal padding of `Card` (1rem each side). */
+export const ENTITY_CARD_PADDING_X = 16;
+/** Gap between article grid cells inside an EntityCard (px). */
+export const ENTITY_CARD_GAP_PX = 12;
+
+/** Clamping bounds for card layout settings (see CardLayout). */
+export const CARD_COLUMN_MIN = 1;
+export const CARD_COLUMN_MAX = 8;
+export const CARD_ROW_MIN = 1;
+export const CARD_ROW_MAX = 6;
+export const WHEEL_CARDS_MIN = 1;
+export const WHEEL_CARDS_MAX = 8;
+export const CELL_WIDTH_MIN = 60;
+export const CELL_WIDTH_MAX = 320;
+
+/**
+ * Article grid knobs for the wheel cards. The card width grows with `columns`
+ * (each cell targets `cellWidth` px), and `columns * rows` is the article count
+ * fetched from the backend and shown per card.
+ */
+export interface CardLayout {
+	/** Article grid columns inside a card. */
+	columns: number;
+	/** Article grid rows inside a card. */
+	rows: number;
+	/** Cards stacked vertically inside a single wheel column. */
+	cardsPerColumn: number;
+	/** Target width (px) of a single article cell; drives the card width. */
+	cellWidth: number;
+}
+
+/** Identifies a wheel tab whose rows are EntityCards. */
+export type CardTab = 'profiles' | 'domains' | 'categories';
 
 export interface TabPageConfig {
 	/** Cards fetched per page (initial + each sentinel load). */
 	pageSize: number;
-	/** Articles embedded in each card. */
-	articlesPerCard?: number;
-	/** Cards stacked vertically inside a single wheel column. */
-	rowsPerColumn?: number;
 }
 
 /**
- * Pagination and layout sizes per tab. This is the single place that defines
- * how much each tab fetches; the wheel paginates cards, not the articles inside
- * a card.
+ * Pagination sizes per tab. This is the single place that defines how much each
+ * tab fetches; the wheel paginates cards, not the articles inside a card
+ * (card article counts come from the per-tab CardLayout).
  */
 export const TAB_PAGE_CONFIG = {
-	profiles: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
-	domains: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 2 },
-	categories: { pageSize: 10, articlesPerCard: 6, rowsPerColumn: 5 },
+	profiles: { pageSize: 10 },
+	domains: { pageSize: 10 },
+	categories: { pageSize: 10 },
 	articles: { pageSize: 10 }
 } satisfies Record<string, TabPageConfig>;
+
+/** Default card layout per wheel tab, seeded into viewState on first run. */
+export const CARD_LAYOUT_DEFAULTS: Record<CardTab, CardLayout> = {
+	profiles: { columns: 2, rows: 3, cardsPerColumn: 2, cellWidth: 110 },
+	domains: { columns: 2, rows: 3, cardsPerColumn: 2, cellWidth: 110 },
+	categories: { columns: 3, rows: 2, cardsPerColumn: 5, cellWidth: 130 }
+};
 
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`;
 

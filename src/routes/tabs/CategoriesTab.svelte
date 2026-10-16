@@ -2,7 +2,7 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { CATEGORY_COLUMN_WIDTH, TAB_PAGE_CONFIG } from '@/constants';
+	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
@@ -11,11 +11,14 @@
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const categoryItemTransition = tabAnimationStore.transitionFor('categories');
+	const layout = $derived(viewState.cardLayout.categories);
 
 	$effect(() => {
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
+		const card = viewState.cardLayout.categories;
 		void articleCacheStore.fetchCategoriesWithArticles({
 			categoryIds: [],
+			card,
 			createdAtFrom: new Date(onlyArticlesAfter).getTime()
 		});
 	});
@@ -49,8 +52,8 @@
 		items={visibleCategories}
 		itemTransition={categoryItemTransition}
 		columns
-		columnWidth={CATEGORY_COLUMN_WIDTH}
-		rowsPerColumn={TAB_PAGE_CONFIG.categories.rowsPerColumn}
+		columnWidth={entityColumnWidth(layout)}
+		cardsPerColumn={layout.cardsPerColumn}
 		key={(category) => category.categoryId}
 	>
 		{#snippet row(category)}

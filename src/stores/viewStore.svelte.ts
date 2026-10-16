@@ -1,5 +1,7 @@
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
+import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
+import { clampCardLayout } from '@/lib/utils/cardLayout';
 import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 
@@ -31,7 +33,7 @@ export interface MasonryPreset {
 // responsive target (clamped down on narrow windows), and `contentMode`
 // decides whether images/text are shown.
 export const MASONRY_PRESETS: MasonryPreset[] = [
-	{ key: 'grid', columns: 6, contentMode: 'thumbnail', padding: '1rem 1.5rem' },
+	{ key: 'grid', columns: 6, contentMode: 'thumbnail', padding: '2rem 4rem' },
 	{ key: 'row', columns: 1, contentMode: 'both', padding: '0.6rem', rowHeight: 80 },
 	/* { key: 'grid', columns: 3, contentMode: 'thumbnail', padding: '1.5rem 2rem' }, */
 	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
@@ -103,6 +105,16 @@ class ViewState {
 	collapseProfiles = $state(false);
 	selectedTaskId = $state('title-summary');
 	masonryArticlesPresetIndex = $state(0);
+	cardLayout = $state<Record<CardTab, CardLayout>>({
+		profiles: { ...CARD_LAYOUT_DEFAULTS.profiles },
+		domains: { ...CARD_LAYOUT_DEFAULTS.domains },
+		categories: { ...CARD_LAYOUT_DEFAULTS.categories }
+	});
+
+	/** Updates one tab's card layout, clamped onto its bounds. */
+	setCardLayout(tab: CardTab, patch: Partial<CardLayout>): void {
+		this.cardLayout[tab] = clampCardLayout({ ...this.cardLayout[tab], ...patch });
+	}
 
 	get masonryPreset(): MasonryPreset {
 		return MASONRY_PRESETS[this.masonryArticlesPresetIndex] ?? MASONRY_PRESETS[0];

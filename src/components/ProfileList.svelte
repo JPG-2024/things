@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import WheelStage from '@/components/WheelStage.svelte';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
-	import { PROFILE_COLUMN_WIDTH } from '@/constants';
+	import { PROFILE_COLUMN_WIDTH, WHEEL_END_SPACE, WHEEL_START_SPACE } from '@/constants';
 
 	interface Props {
 		items: T[];
@@ -13,12 +13,16 @@
 		columns?: boolean;
 		/** Column width in columns mode (e.g. '17rem'). */
 		columnWidth?: string;
-		/** Items stacked vertically inside a single wheel column. */
-		rowsPerColumn?: number;
+		/** Cards stacked vertically inside a single wheel column. */
+		cardsPerColumn?: number;
 		/** Vertical gap between stacked rows. */
 		rowGap?: number;
 		/** Wheel track height (any CSS length). */
 		height?: string;
+		/** Blank space before the first card (fake-scroll runway). */
+		startSpace?: string;
+		/** Blank space after the last card, so its end settles near the center. */
+		endSpace?: string;
 		sentinel?: Snippet;
 	}
 
@@ -29,9 +33,11 @@
 		key,
 		columns = false,
 		columnWidth = PROFILE_COLUMN_WIDTH,
-		rowsPerColumn = 1,
+		cardsPerColumn = 1,
 		rowGap = 24,
 		height = 'auto',
+		startSpace = WHEEL_START_SPACE,
+		endSpace = WHEEL_END_SPACE,
 		sentinel = undefined
 	}: Props = $props();
 
@@ -53,12 +59,13 @@
 		<WheelStage
 			gap={12}
 			{rowGap}
-			rows={rowsPerColumn}
+			rows={cardsPerColumn}
 			{height}
 			scrollSpeed={12}
 			keyboard
 			label="Column cards"
-			edgeSpace="10vw"
+			{startSpace}
+			{endSpace}
 		>
 			{#each renderedItems as item (key(item))}
 				<div

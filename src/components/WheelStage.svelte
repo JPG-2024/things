@@ -16,6 +16,17 @@
 		label?: string;
 		/** Blank space added to both ends of the track (any CSS length). */
 		edgeSpace?: string;
+		/**
+		 * Blank space before the first item (any CSS length). Fallback:
+		 * `edgeSpace`. Gives the wheel a fake-scroll runway at the start.
+		 */
+		startSpace?: string;
+		/**
+		 * Blank space after the last item (any CSS length). Fallback:
+		 * `edgeSpace`. Sized so the last cards can be brought near the center
+		 * of the viewport.
+		 */
+		endSpace?: string;
 		children: Snippet;
 	}
 
@@ -30,8 +41,13 @@
 		keyboard = false,
 		label = 'Scrollable content',
 		edgeSpace = '0px',
+		startSpace = undefined,
+		endSpace = undefined,
 		children
 	}: Props = $props();
+
+	const spaceStart = $derived(startSpace ?? edgeSpace);
+	const spaceEnd = $derived(endSpace ?? edgeSpace);
 
 	function handleWheel(e: WheelEvent) {
 		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
@@ -71,7 +87,7 @@
 <div
 	class="wheel-stage"
 	class:fade-edges={fadeEdges}
-	style="width: {width}; height: {height}; --stage-gap: {gap}px; --stage-row-gap: {rowGap}px; --stage-rows: {rows}; --stage-edge-space: {edgeSpace};"
+	style="width: {width}; height: {height}; --stage-gap: {gap}px; --stage-row-gap: {rowGap}px; --stage-rows: {rows}; --stage-space-start: {spaceStart}; --stage-space-end: {spaceEnd};"
 	onwheel={handleWheel}
 	role={keyboard ? 'region' : undefined}
 	aria-label={keyboard ? label : undefined}
@@ -126,7 +142,8 @@
 		min-width: 100%;
 		column-gap: var(--stage-gap);
 		row-gap: var(--stage-row-gap, var(--stage-gap));
-		padding-inline: var(--stage-edge-space);
+		padding-inline-start: var(--stage-space-start, 0px);
+		padding-inline-end: var(--stage-space-end, 0px);
 		box-sizing: border-box;
 	}
 </style>

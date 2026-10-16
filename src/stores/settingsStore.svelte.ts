@@ -4,9 +4,13 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { scrapStore } from '@/stores/scrapStore.svelte';
 import { podcastState, type PodcastConfig } from '@/features/podcast/podcastStore.svelte';
 import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
+import { CARD_LAYOUT_DEFAULTS, type CardTab } from '@/constants';
+import { clampCardLayout } from '@/lib/utils/cardLayout';
 
 const STORE_FILE = 'settings.json';
-const SETTINGS_VERSION = 1;
+const SETTINGS_VERSION = 2;
+
+const CARD_TABS: CardTab[] = ['profiles', 'domains', 'categories'];
 
 const LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'it', 'ja'] as const;
 const CONTEXT_SOURCES = ['content', 'summary', 'none'] as const;
@@ -105,7 +109,8 @@ function serializeView() {
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
 			embeddingsEnabled: viewState.embeddingsEnabled,
 			llamaAutoStart: viewState.llamaAutoStart
-		}
+		},
+		cardLayout: $state.snapshot(viewState.cardLayout)
 	};
 }
 
@@ -192,6 +197,15 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.llamaAutoStart === 'boolean') {
 		viewState.llamaAutoStart = toggles.llamaAutoStart;
+	}
+
+	// Card layout: merge each tab section over the defaults so a partial or
+	// legacy persisted shape still produces a complete CardLayout.
+	const cardLayout = isPlainObject(raw.cardLayout) ? raw.cardLayout : {};
+	for (const tab of CARD_TABS) {
+		const rawLayout = cardLayout[tab];
+		if (!isPlainObject(rawLayout)) continue;
+		viewState.cardLayout[tab] = clampCardLayout(mergeValue(CARD_LAYOUT_DEFAULTS[tab], rawLayout));
 	}
 }
 

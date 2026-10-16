@@ -2,11 +2,13 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
+	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const profileItemTransition = tabAnimationStore.transitionFor('profiles');
+	const layout = $derived(viewState.cardLayout.profiles);
 
 	const visibleProfiles = $derived(
 		viewState.activeArticleProfileId
@@ -17,7 +19,7 @@
 	);
 
 	$effect(() => {
-		void articleCacheStore.fetchProfilesWithArticles();
+		void articleCacheStore.fetchProfilesWithArticles({ card: viewState.cardLayout.profiles });
 	});
 </script>
 
@@ -26,6 +28,8 @@
 	itemTransition={profileItemTransition}
 	key={(p) => p.id}
 	columns
+	columnWidth={entityColumnWidth(layout)}
+	cardsPerColumn={layout.cardsPerColumn}
 >
 	{#snippet row(profile)}
 		<ProfileWidget

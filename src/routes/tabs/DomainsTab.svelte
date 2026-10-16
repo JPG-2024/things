@@ -2,12 +2,13 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { TAB_PAGE_CONFIG } from '@/constants';
+	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const domainItemTransition = tabAnimationStore.transitionFor('domains');
+	const layout = $derived(viewState.cardLayout.domains);
 
 	const visibleDomains = $derived(
 		viewState.activeArticleProfileId
@@ -18,7 +19,7 @@
 	);
 
 	$effect(() => {
-		void articleCacheStore.fetchDomainsWithArticles();
+		void articleCacheStore.fetchDomainsWithArticles({ card: viewState.cardLayout.domains });
 	});
 </script>
 
@@ -26,7 +27,8 @@
 	items={visibleDomains}
 	itemTransition={domainItemTransition}
 	columns
-	rowsPerColumn={TAB_PAGE_CONFIG.domains.rowsPerColumn}
+	columnWidth={entityColumnWidth(layout)}
+	cardsPerColumn={layout.cardsPerColumn}
 	key={(d) => d.id}
 >
 	{#snippet row(domain)}
@@ -34,7 +36,6 @@
 			profileWithArticles={domain}
 			showTitle={false}
 			collapsed={viewState.collapseProfiles}
-			articleLayout="grid"
 		/>
 	{/snippet}
 	{#snippet sentinel()}

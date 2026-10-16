@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
+	import Spacer from '@/components/Spacer.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
 	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
@@ -10,6 +11,17 @@
 	import ToggleField from '@/components/inputs/fields/ToggleField.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import {
+		CARD_COLUMN_MAX,
+		CARD_COLUMN_MIN,
+		CARD_ROW_MAX,
+		CARD_ROW_MIN,
+		CELL_WIDTH_MAX,
+		CELL_WIDTH_MIN,
+		WHEEL_CARDS_MAX,
+		WHEEL_CARDS_MIN,
+		type CardTab
+	} from '@/constants';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/plugin-dialog';
@@ -163,125 +175,129 @@
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
-	<div class="inference-section">
-		<h3>Inference</h3>
-		<DropdownField
-			label="AI Provider"
-			options={providerOptions}
-			tooltip="Where inference requests are sent."
-			bind:value={viewState.aiProvider}
-		/>
-		<TextField
-			label="AI URL"
-			tooltip="Base URL of the OpenAI-compatible endpoint."
-			bind:value={viewState.aiUrl}
-		/>
-		<TextField label="AI Model" bind:value={viewState.aiModel} />
-	</div>
-	<div class="inference-section">
-		<h3>Local models (llama.cpp)</h3>
-		<ToggleField
-			label="Launch servers automatically"
-			tooltip="Start the local llama.cpp servers when the app opens."
-			bind:checked={viewState.llamaAutoStart}
-			onChange={handleAutoStartChange}
-		/>
-		<TextField
-			label="Models directory"
-			placeholder="~/Downloads/models"
-			bind:value={viewState.llamaModelsDir}
-			onBlur={() => void refreshModels()}
-		>
-			{#snippet suffix()}
-				<Button onClick={() => void handlePickModelsDir()} icon="FolderOpen">Browse</Button>
-			{/snippet}
-		</TextField>
-		<DropdownField
-			label="Inference model"
-			bind:value={viewState.llamaInferenceModel}
-			options={inferenceOptions}
-			placeholder={loadingModels ? 'Loading…' : 'Select a model'}
-		/>
-		<FieldsRow columns={2}>
-			<NumberField
-				label="Inference port"
-				min={1024}
-				max={65535}
-				bind:value={viewState.llamaInferencePort}
+	<Spacer title="Openrouter">
+		<div class="inference-section">
+			<DropdownField
+				label="AI Provider"
+				options={providerOptions}
+				tooltip="Where inference requests are sent."
+				bind:value={viewState.aiProvider}
 			/>
-			<NumberField
-				label="Embeddings port"
-				min={1024}
-				max={65535}
-				bind:value={viewState.llamaEmbeddingsPort}
+			<TextField
+				label="AI URL"
+				tooltip="Base URL of the OpenAI-compatible endpoint."
+				bind:value={viewState.aiUrl}
 			/>
-		</FieldsRow>
-		<FieldsRow columns={2}>
-			<NumberField
-				label="Inference context"
-				min={512}
-				max={131072}
-				tooltip="Maximum context in tokens. Smaller values use less KV-cache RAM, but prompts longer than this get truncated. Applies after restarting the servers."
-				bind:value={viewState.llamaInferenceCtxSize}
-			/>
-			<NumberField
-				label="Prompt cache (MB)"
-				min={0}
-				max={65536}
-				tooltip="RAM reserved to reuse already processed prompts (0 disables it). Lower values use less RAM but repeated long prompts get re-processed. Applies after restarting the servers."
-				bind:value={viewState.llamaCacheRamMb}
-			/>
-		</FieldsRow>
-		<DropdownField
-			label="Embeddings model"
-			bind:value={viewState.llamaEmbeddingsModel}
-			options={embeddingsOptions}
-			placeholder={loadingModels ? 'Loading…' : 'Select a model'}
-		/>
-		<CheckboxField label="Show all models" bind:checked={showAllModels} />
-		{#if modelsError}
-			<p class="error-text">{modelsError}</p>
-		{/if}
-		{#if viewState.llamaServersStatus.length > 0}
-			<ul class="server-status">
-				{#each viewState.llamaServersStatus as status (status.name)}
-					<li>
-						<span class="status-name">{status.name}</span>
-						{#if status.error}
-							<span class="error-text">{status.error}</span>
-						{:else}
-							<span class="status-port" class:up={status.healthy}>
-								{status.running ? (status.healthy ? 'online' : 'starting…') : 'stopped'} · :{status.port}
-							</span>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<div class="server-actions">
-			<Button
-				onClick={() => void handleStartServers()}
-				disabled={starting || stopping || restarting}
-				icon="Play"
-			>
-				{starting ? 'Starting…' : 'Start'}
-			</Button>
-			<Button
-				onClick={() => void handleStopServers()}
-				disabled={starting || stopping || restarting}
-				icon="Square"
-			>
-				{stopping ? 'Stopping…' : 'Stop'}
-			</Button>
-			<Button
-				onClick={() => void handleRestartServers()}
-				disabled={starting || stopping || restarting}
-				icon="RefreshCw"
-			>
-				{restarting ? 'Restarting…' : 'Restart servers'}
-			</Button>
+			<TextField label="AI Model" bind:value={viewState.aiModel} />
 		</div>
-	</div>
+	</Spacer>
+	<Spacer title="Llama.cpp" defaultOpen={true}>
+		<div class="inference-section">
+			<ToggleField
+				label="Launch servers automatically"
+				tooltip="Start the local llama.cpp servers when the app opens."
+				bind:checked={viewState.llamaAutoStart}
+				onChange={handleAutoStartChange}
+			/>
+			<TextField
+				label="Models directory"
+				placeholder="~/Downloads/models"
+				bind:value={viewState.llamaModelsDir}
+				onBlur={() => void refreshModels()}
+			>
+				{#snippet suffix()}
+					<Button onClick={() => void handlePickModelsDir()} icon="FolderOpen">Browse</Button>
+				{/snippet}
+			</TextField>
+			<FieldsRow columns={2}>
+				<DropdownField
+					label="Inference model"
+					bind:value={viewState.llamaInferenceModel}
+					options={inferenceOptions}
+					placeholder={loadingModels ? 'Loading…' : 'Select a model'}
+				/>
+				<DropdownField
+					label="Embeddings model"
+					bind:value={viewState.llamaEmbeddingsModel}
+					options={embeddingsOptions}
+					placeholder={loadingModels ? 'Loading…' : 'Select a model'}
+				/>
+			</FieldsRow>
+			<FieldsRow columns={2}>
+				<NumberField
+					label="Inference port"
+					min={1024}
+					max={65535}
+					bind:value={viewState.llamaInferencePort}
+				/>
+				<NumberField
+					label="Embeddings port"
+					min={1024}
+					max={65535}
+					bind:value={viewState.llamaEmbeddingsPort}
+				/>
+			</FieldsRow>
+			<FieldsRow columns={2}>
+				<NumberField
+					label="Inference context"
+					min={512}
+					max={131072}
+					tooltip="Maximum context in tokens. Smaller values use less KV-cache RAM, but prompts longer than this get truncated. Applies after restarting the servers."
+					bind:value={viewState.llamaInferenceCtxSize}
+				/>
+				<NumberField
+					label="Prompt cache (MB)"
+					min={0}
+					max={65536}
+					tooltip="RAM reserved to reuse already processed prompts (0 disables it). Lower values use less RAM but repeated long prompts get re-processed. Applies after restarting the servers."
+					bind:value={viewState.llamaCacheRamMb}
+				/>
+			</FieldsRow>
+			<CheckboxField label="Show all models" bind:checked={showAllModels} />
+			{#if modelsError}
+				<p class="error-text">{modelsError}</p>
+			{/if}
+			{#if viewState.llamaServersStatus.length > 0}
+				<ul class="server-status">
+					{#each viewState.llamaServersStatus as status (status.name)}
+						<li>
+							<span class="status-name">{status.name}</span>
+							{#if status.error}
+								<span class="error-text">{status.error}</span>
+							{:else}
+								<span class="status-port" class:up={status.healthy}>
+									{status.running ? (status.healthy ? 'online' : 'starting…') : 'stopped'} · :{status.port}
+								</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<div class="server-actions">
+				<Button
+					onClick={() => void handleStartServers()}
+					disabled={starting || stopping || restarting}
+					icon="Play"
+				>
+					{starting ? 'Starting…' : 'Start'}
+				</Button>
+				<Button
+					onClick={() => void handleStopServers()}
+					disabled={starting || stopping || restarting}
+					icon="Square"
+				>
+					{stopping ? 'Stopping…' : 'Stop'}
+				</Button>
+				<Button
+					onClick={() => void handleRestartServers()}
+					disabled={starting || stopping || restarting}
+					icon="RefreshCw"
+				>
+					{restarting ? 'Restarting…' : 'Restart servers'}
+				</Button>
+			</div>
+		</div>
+	</Spacer>
 	<div class="inference-section">
 		<h3>Category classification</h3>
 		<FieldsRow columns={3}>
@@ -326,6 +342,53 @@
 			tooltip="Downscale factor applied to generated thumbnails."
 			bind:value={viewState.thumbnailReductionMagnitud}
 		/>
+	</div>
+	<div class="inference-section">
+		<h3>Cards</h3>
+		{#snippet cardLayoutFields(tab: CardTab, title: string)}
+			<div class="card-layout-group">
+				<span class="card-layout-title">{title}</span>
+				<FieldsRow columns={4}>
+					<NumberField
+						label="Columnas"
+						min={CARD_COLUMN_MIN}
+						max={CARD_COLUMN_MAX}
+						value={viewState.cardLayout[tab].columns}
+						onCommit={(value) => viewState.setCardLayout(tab, { columns: value })}
+					/>
+					<NumberField
+						label="Filas"
+						min={CARD_ROW_MIN}
+						max={CARD_ROW_MAX}
+						value={viewState.cardLayout[tab].rows}
+						onCommit={(value) => viewState.setCardLayout(tab, { rows: value })}
+					/>
+					<NumberField
+						label="Wheel filas"
+						min={WHEEL_CARDS_MIN}
+						max={WHEEL_CARDS_MAX}
+						tooltip="Cards apiladas verticalmente por columna del wheel."
+						value={viewState.cardLayout[tab].cardsPerColumn}
+						onCommit={(value) => viewState.setCardLayout(tab, { cardsPerColumn: value })}
+					/>
+					<NumberField
+						label="Cell width (px)"
+						min={CELL_WIDTH_MIN}
+						max={CELL_WIDTH_MAX}
+						tooltip="Ancho objetivo de cada thumbnail; con él se calcula el ancho de la card."
+						value={viewState.cardLayout[tab].cellWidth}
+						onCommit={(value) => viewState.setCardLayout(tab, { cellWidth: value })}
+					/>
+				</FieldsRow>
+				<p class="cards-helper">
+					{viewState.cardLayout[tab].columns} columnas × {viewState.cardLayout[tab].rows} filas = {viewState
+						.cardLayout[tab].columns * viewState.cardLayout[tab].rows} artículos por card
+				</p>
+			</div>
+		{/snippet}
+		{@render cardLayoutFields('profiles', 'Profiles')}
+		{@render cardLayoutFields('domains', 'Domains')}
+		{@render cardLayoutFields('categories', 'Categories')}
 	</div>
 	<div class="inference-section">
 		<h3>Scraping</h3>
@@ -377,6 +440,24 @@
 		margin: 0;
 		font-size: 1rem;
 		color: var(--primary-color, #fae4c0);
+	}
+
+	.card-layout-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.card-layout-title {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.cards-helper {
+		margin: 0;
+		font-size: 0.72rem;
+		color: rgba(255, 255, 255, 0.45);
 	}
 
 	.error-text {
