@@ -1,0 +1,95 @@
+import type { ArticleWithTasks } from '@/stores/webStore';
+
+export const DEFAULT_STACK_PREVIEW_COUNT = 3;
+
+/** One masonry cell: a profile's article stack (compact overlap pile). */
+export type ProfileStackCell = {
+	kind: 'stack';
+	/** Stable across page loads so merges update the cell in place. */
+	key: string;
+	profileId: string;
+	/** Latest articles, newest first, up to previewCount. */
+	preview: ArticleWithTasks[];
+};
+
+/** One masonry cell: a single article rendered as a plain ArticleItem. */
+export type ArticleCell = {
+	kind: 'article';
+	key: string;
+	article: ArticleWithTasks;
+};
+
+export type ArticleGridCell = ProfileStackCell | ArticleCell;
+
+type BuildOptions = {
+	/** Thumbnails shown per stack; defaults to DEFAULT_STACK_PREVIEW_COUNT. */
+	previewCount?: number;
+};
+
+function articleCellKeyOf(article: ArticleWithTasks): string {
+	return article.url ?? `id:${article.id}`;
+}
+
+function articleCreatedAt(article: ArticleWithTasks): number | null {
+	return typeof article.createdAt === 'number' ? article.createdAt : null;
+}
+
+function cellRecency(cell: ArticleGridCell): number | null {
+	if (cell.kind === 'article') return articleCreatedAt(cell.article);
+	return cell.preview.length > 0 ? articleCreatedAt(cell.preview[0]) : null;
+}
+
+/**
+ * Groups a flat article list into masonry cells: profiles with 2+ articles
+ * become one stack cell each, everything else (single-article profiles and
+ * profile-less articles) stays a plain article cell. Cells are ordered by
+ * recency — a stack ranks by its newest article — so fresh articles never
+ * hide inside older stacks.
+ *
+ * Pure derivation over whatever is currently loaded: pages loaded later merge
+ * into the existing stack (stable `profile:<id>` key), and a group that drops
+ * below two articles dissolves back into plain cells automatically.
+ */
+export function buildArticleGridCells(
+	articles: ArticleWithTasks[],
+	options: BuildOptions = {}
+): ArticleGridCell[] {
+	const previewCount = Math.max(1, options.previewCount ?? DEFAULT_STACK_PREVIEW_COUNT);
+
+	const groups = new Map<string, ArticleWithTasks[]>();
+	const cells: ArticleGridCell[] = [];
+
+	for (const article of articles) {
+		const profileId = article.profileId ?? null;
+		if (!profileId) {
+			cells.push({ kind: 'article', key: articleCellKeyOf(article), article });
+			continue;
+		}
+		const bucket = groups.get(profileId);
+		if (bucket) {
+			bucket.push(article);
+		} else {
+			groups.set(profileId, [article]);
+		}
+	}
+
+	for (const [profileId, groupArticles] of groups) {
+		const sorted = [...groupArticles].sort(
+			(a, b) => (articleCreatedAt(b) ?? 0) - (articleCreatedAt(a) ?? 0)
+		);
+		if (sorted.length < 2) {
+			// A lone article cannot stack: render it flat like ungrouped items.
+			cells.push({ kind: 'article', key: articleCellKeyOf(sorted[0]), article: sorted[0] });
+			continue;
+		}
+
+		cells.push({
+			kind: 'stack',
+			key: `profile:${profileId}`,
+			profileId,
+			preview: sorted.slice(0, previewCount)
+		});
+	}
+
+	return cells.sort((a, b) => (cellRecency(b) ?? 0) - (cellRecency(a) ?? 0));
+}

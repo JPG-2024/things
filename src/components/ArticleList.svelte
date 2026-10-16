@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
+	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Tabs from '@/components/Tabs.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import {
 		viewState,
 		MASONRY_PRESETS,
@@ -16,9 +18,21 @@
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
+	import ArticlesStack from '@/components/ArticlesStack.svelte';
+	import {
+		buildArticleGridCells,
+		type ArticleGridCell,
+		type ProfileStackCell
+	} from '@/lib/utils/articleGridCells';
 
 	interface Props {
 		items: ArticleWithTasks[];
+		/**
+		 * Enables grouping articles into per-profile stack cells and exposes the
+		 * `Alt+G` toggle. Off by default so pages that render a single
+		 * profile/category keep the flat list.
+		 */
+		groupable?: boolean;
 		keyOf?: (item: ArticleWithTasks) => string;
 		itemTransition?: ItemTransition;
 		matchOf?: (article: ArticleWithTasks) => RawSearchMatch | null;
@@ -32,6 +46,7 @@
 
 	let {
 		items,
+		groupable = false,
 		keyOf = (item: ArticleWithTasks) => item.url ?? '',
 		itemTransition,
 		matchOf = undefined,
@@ -86,40 +101,87 @@
 	function handleArticleHoverLeave() {
 		viewState.hoveredArticleUrl = null;
 	}
+
+	function handleStackClick(cell: ProfileStackCell) {
+		goto(`/profile/${encodeURIComponent(cell.profileId)}`);
+	}
+
+	// Alt+G flips profile grouping. Only active when the caller opted in
+	// (`groupable`), so the profile/category pages leave it inert.
+	createHotkey(
+		'Alt+G',
+		() => {
+			viewState.groupArticlesByProfile = !viewState.groupArticlesByProfile;
+		},
+		() => ({
+			enabled: groupable && !viewState.overlayOpen,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
+	);
+
+	// Grouping is a pure view derivation over the loaded (paginated) articles:
+	// later pages merge into existing stacks, and toggling the flag swaps the
+	// grid back to the flat article list without refetching. When grouping is
+	// off, every article becomes its own cell, keeping the flat lists on the
+	// exact previous rendering path.
+	const gridItems = $derived(
+		groupable && viewState.groupArticlesByProfile
+			? buildArticleGridCells(items)
+			: items.map((article) => ({
+					kind: 'article' as const,
+					key: keyOf(article),
+					article
+				}))
+	);
 </script>
 
 <div class="article-list">
 	<div class="article-list__body">
 		<div class="article-list__rail">
-			<Tabs
-				tabs={presetTabs}
-				bind:activeTab={activePresetTab}
-				onTabChange={handleTabChange}
-				iconSize={22}
-				iconOnly
-				vertical
-			/>
+			<div class="article-list__rail-tabs">
+				<Tabs
+					tabs={presetTabs}
+					bind:activeTab={activePresetTab}
+					onTabChange={handleTabChange}
+					iconSize={22}
+					iconOnly
+					vertical
+				/>
+			</div>
+			{#if groupable}
+				<ToggleIcon
+					name="Layers"
+					bind:checked={viewState.groupArticlesByProfile}
+					tooltipProps={{ content: 'group articles by profile (Alt+G)' }}
+				/>
+			{/if}
 		</div>
 		<div class="article-list__content">
-			{#if items.length > 0}
-				<MasonryGrid {items} {keyOf} {itemTransition} {headerLeft}>
+			{#if gridItems.length > 0}
+				<MasonryGrid items={gridItems} keyOf={(cell) => cell.key} {itemTransition} {headerLeft}>
 					{#snippet children(
-						article: ArticleWithTasks,
+						cell: ArticleGridCell,
 						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 						_i: number,
 						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 						_layoutIndex: number,
 						layoutKey: LayoutKey
 					)}
-						<ArticleItem
-							{article}
-							{layoutKey}
-							marked={deleteSelectionStore.markedUrls.has(article.url ?? '')}
-							matchSnippet={matchOf?.(article) ?? undefined}
-							onClick={handleArticleClick}
-							onHoverEnter={handleArticleHoverEnter}
-							onHoverLeave={handleArticleHoverLeave}
-						/>
+						{#if cell.kind === 'stack'}
+							<ArticlesStack {cell} {layoutKey} onClick={handleStackClick} />
+						{:else}
+							<ArticleItem
+								article={cell.article}
+								{layoutKey}
+								marked={deleteSelectionStore.markedUrls.has(cell.article.url ?? '')}
+								matchSnippet={matchOf?.(cell.article) ?? undefined}
+								onClick={handleArticleClick}
+								onHoverEnter={handleArticleHoverEnter}
+								onHoverLeave={handleArticleHoverLeave}
+							/>
+						{/if}
 					{/snippet}
 				</MasonryGrid>
 				{#if hasMore}
@@ -150,15 +212,26 @@
 		width: 100%;
 	}
 
-	/* Sticky preset rail: the column spans the scrollport while the grid scrolls
-	 * under it, so switching presets is possible mid-scroll. The vertical Tabs
-	 * centers its pills inside the viewport-height column. */
+	/* Sticky controls rail: the column spans the scrollport while the grid
+	 * scrolls under it, so switching presets is possible mid-scroll. The
+	 * vertical Tabs centers its pills in the space above the grouping toggle. */
 	.article-list__rail {
 		position: sticky;
 		top: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
 		height: 22vh;
 		width: max-content;
 		flex-shrink: 0;
+	}
+
+	.article-list__rail-tabs {
+		display: flex;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.article-list__content {

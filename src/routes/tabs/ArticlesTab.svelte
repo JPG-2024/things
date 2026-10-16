@@ -55,6 +55,7 @@
 	{:else}
 		<ArticleList
 			items={articleCacheStore.articlesWithoutProfile}
+			groupable
 			itemTransition={articleItemTransition}
 			loading={articleCacheStore.loadingArticles}
 			hasMore={articleCacheStore.hasMoreArticles}

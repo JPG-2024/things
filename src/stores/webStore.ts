@@ -22,6 +22,8 @@ export interface ArticleWithTasks {
 	content?: string | null;
 	mediaDirectory?: string | null;
 	profileId?: string | null;
+	/** Rides on the spread WebStoreArticleRecord; list rows always carry it. */
+	createdAt?: number;
 	profilePicture?: string | null;
 	profilePictureSrc?: string | null;
 	primaryColor?: string | null;
