@@ -62,15 +62,13 @@
 
 <style>
 	.dropdown-input {
-		position: relative;
-		color: var(--primary-color);
 		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(154, 154, 154, 0.12);
-		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
-		padding: 0.2rem 0.75rem;
+		border-radius: var(--radius-sm);
+		background: rgba(128, 128, 128, 0.15);
+		border: 1px solid rgb(19, 19, 19);
+		padding: 0.16rem 1rem;
 		width: 100%;
 		color: inherit;
 		font-size: 1rem;
@@ -79,8 +77,9 @@
 	}
 
 	.dropdown-input:focus {
-		box-shadow: inset 0 0 5px 1px var(--primary-color);
 		transition: all 0.3s ease;
+		border-left: 1px solid var(--primary-color);
+		border-right: 1px solid var(--primary-color);
 	}
 
 	.dropdown-input:disabled {
