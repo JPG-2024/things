@@ -61,7 +61,7 @@
 			{rowGap}
 			rows={cardsPerColumn}
 			{height}
-			scrollSpeed={12}
+			scrollSpeed={50}
 			keyboard
 			label="Column cards"
 			{startSpace}
