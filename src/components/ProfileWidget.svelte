@@ -97,25 +97,35 @@
 				</button>
 			</div>
 		{/if}
-		{#if profileWithArticles.profilePictureSrc}
-			<button class="img-button" type="button" onclick={goToprofile} aria-label="View profile">
-				<img
-					src={profileWithArticles.profilePictureSrc}
-					alt={profileWithArticles.name}
-					class="profile-avatar"
-					onmouseenter={() => {
-						if (!isDomain) {
-							viewState.hoveredProfileName = profileWithArticles.name;
-						}
-						viewState.hoveredProfileId = profileWithArticles.id;
-					}}
-					onmouseleave={() => {
-						viewState.hoveredProfileName = null;
-						viewState.hoveredProfileId = null;
-					}}
-				/>
+		<div class="identity-row">
+			{#if profileWithArticles.profilePictureSrc}
+				<button class="img-button" type="button" onclick={goToprofile} aria-label="View profile">
+					<img
+						src={profileWithArticles.profilePictureSrc}
+						alt={profileWithArticles.name}
+						class="profile-avatar"
+						onmouseenter={() => {
+							if (!isDomain) {
+								viewState.hoveredProfileName = profileWithArticles.name;
+							}
+							viewState.hoveredProfileId = profileWithArticles.id;
+						}}
+						onmouseleave={() => {
+							viewState.hoveredProfileName = null;
+							viewState.hoveredProfileId = null;
+						}}
+					/>
+				</button>
+			{/if}
+			<button
+				class="profile-name"
+				type="button"
+				onclick={goToprofile}
+				title={profileWithArticles.name}
+			>
+				{profileWithArticles.name}
 			</button>
-		{/if}
+		</div>
 	{/snippet}
 </EntityCard>
 
@@ -163,6 +173,32 @@
 		border-radius: var(--radius-md);
 		background: none;
 		padding: 0;
+	}
+
+	.identity-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	.profile-name {
+		all: unset;
+		font-family: var(--font-secondary);
+		overflow: hidden;
+		cursor: pointer;
+		color: rgba(255, 255, 255, 0.825);
+		font-size: 0.85rem;
+		line-height: 1.1;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-weight: bold;
+	}
+
+	.profile-name:hover {
+		color: var(--primary-color);
 	}
 
 	.profile-avatar {
