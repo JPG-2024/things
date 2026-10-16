@@ -58,7 +58,7 @@
 	// width) and the column count scales with it, up to MAX_COLUMNS
 	const MIN_COLUMN_WIDTH = 200;
 	const MIN_COLUMNS = 2;
-	const MAX_COLUMNS = 8;
+	const MAX_COLUMNS = 5;
 
 	const baseColumns = $derived(
 		containerWidth > 0

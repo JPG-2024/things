@@ -84,7 +84,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		opacity: 0.5;
+		opacity: 0.8;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
 	}
@@ -123,7 +123,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 0.4rem;
-		border: 1px solid rgba(255, 255, 255, 0.35);
+		border: 2px solid rgba(255, 255, 255, 0.2);
 		border-radius: inherit;
 		color: rgba(255, 255, 255, 0.75);
 		font-size: clamp(0.5rem, 10cqi, 0.7rem);

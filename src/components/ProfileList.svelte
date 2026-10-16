@@ -57,7 +57,7 @@
 {#if columns}
 	<div class="profile-list columns">
 		<WheelStage
-			gap={12}
+			gap={50}
 			{rowGap}
 			rows={cardsPerColumn}
 			{height}
