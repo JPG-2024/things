@@ -16,7 +16,7 @@
 	let {
 		name,
 		checked = $bindable(false),
-		color = 'var(--primary-color)',
+		color = 'var(--bg-color)',
 		size,
 		label = null,
 		tooltipProps = undefined,
@@ -40,7 +40,7 @@
 		<Icon
 			{name}
 			{...props}
-			color={checked ? 'white' : 'var(--primary-color)'}
+			color={checked ? 'var(--primary-color)' : color}
 			{size}
 			{tooltipProps}
 		/>
@@ -82,8 +82,7 @@
 	}
 
 	.icon-glow:hover {
-		transform: scale(1.05);
-		transform: translateY(-1px);
+		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
 	}
 
 	.icon-glow.glow {
