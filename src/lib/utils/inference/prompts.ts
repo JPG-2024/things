@@ -105,7 +105,7 @@ export function buildMultiFieldUserMessage(keywordCount: number, topicCount: num
 
 // ── Analysis topic (single-call extraction) ───────────────────────────
 export const ANALYSIS_TOPIC_SYSTEM_MESSAGE =
-	'You are analyzing video content. Give a very short title and a one-paragraph summary of the whole content, plus the main discussion points with summaries and key terms. Return ONLY valid JSON.';
+	"You are analyzing video content. Give a very short title and a one-paragraph summary of the whole content, plus the main discussion points with summaries and key terms. In the summaries, use bold (**) to emphasize the most relevant keywords, don't abuse. Return ONLY valid JSON.";
 
 export function buildAnalysisTopicUserMessage(
 	topicCount: number,
@@ -114,5 +114,5 @@ export function buildAnalysisTopicUserMessage(
 	langName?: string
 ): string {
 	const langInstruction = langName ? ` Respond in ${langName}.` : '';
-	return `Summarize this section in one paragraph, and give that summary a short title (2-8 words). This paragraph is the one summary block for the whole section. Also extract exactly ${topicCount} self explanatory topics, each with a detailed summary (3-5 sentences) covering key points (**), examples, or conclusions, plus ${keywordCount} key terms.${langInstruction} Respond in JSON: { title: string, summary: string, topics: [{label: string, summary: string}], keywords: string[] }`;
+	return `Summarize this section in one paragraph, and give that summary a short title (2-8 words). This paragraph is the one summary block for the whole section. Use bold (**) to emphasize the most relevant keywords, don't abuse. Also extract exactly ${topicCount} self explanatory topics, each with a detailed summary (3-5 sentences) covering key points (**), examples, or conclusions, plus ${keywordCount} key terms.${langInstruction} Respond in JSON: { title: string, summary: string, topics: [{label: string, summary: string}], keywords: string[] }`;
 }
