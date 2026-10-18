@@ -64,7 +64,7 @@
 	// text, `thumbnail` (grid) shows only the thumbnail slot. In grid-3 `both` with
 	// no image the text renders alone; in row the empty placeholder sits beside it.
 	const showThumbnail = $derived(mode !== 'title');
-	const showText = $derived(mode !== 'thumbnail');
+	const showText = $derived(mode !== 'thumbnail' || matchSnippet !== undefined);
 
 	// El título se ofrece como tooltip cuando la tarjeta oculta el texto (modo
 	// thumbnail), salvo que un caller pase un tooltip explícito. Centralizado aquí
