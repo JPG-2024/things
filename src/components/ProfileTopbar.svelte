@@ -84,7 +84,6 @@
 	.name {
 		font-size: 1.15rem;
 		font-weight: 600;
-		color: var(--primary-color);
 		font-family: var(--font-secondary);
 		white-space: nowrap;
 		overflow: hidden;
