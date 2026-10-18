@@ -188,7 +188,7 @@ class ArticleCacheStore {
 	}
 
 	get articlesWithoutProfile(): ArticleWithTasks[] {
-		return this.articles.items;
+		return this.articles.visibleItems;
 	}
 
 	get totalArticlesWithoutProfile(): number {
@@ -228,7 +228,7 @@ class ArticleCacheStore {
 	}
 
 	get categoryArticles(): ArticleWithTasks[] {
-		return this.categoryArticlesResource.items;
+		return this.categoryArticlesResource.visibleItems;
 	}
 
 	get loadingCategoryArticles(): boolean {
