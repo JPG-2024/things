@@ -1,7 +1,7 @@
 <script lang="ts" generics="T extends object">
 	import type { Snippet } from 'svelte';
 	import { viewState, MASONRY_PRESETS } from '@/stores/viewStore.svelte';
-	import type { LayoutKey, MasonryPreset } from '@/stores/viewStore.svelte';
+	import type { ArticleContentMode, LayoutKey, MasonryPreset } from '@/stores/viewStore.svelte';
 	import { onMount, tick } from 'svelte';
 	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -11,10 +11,12 @@
 	interface Props {
 		items: T[];
 		keyOf?: (item: T) => string;
-		children: Snippet<[T, number, number, LayoutKey]>;
+		children: Snippet<[T, number, number, LayoutKey, ArticleContentMode]>;
 		headerLeft?: Snippet<[]>;
 		spanOf?: (item: T) => 1 | 2;
 		itemTransition?: ItemTransition;
+		/** Pins the layout to a preset key, ignoring (and not mutating) the shared index. */
+		presetOverride?: LayoutKey;
 	}
 
 	let {
@@ -23,7 +25,8 @@
 		children,
 		headerLeft,
 		spanOf,
-		itemTransition = enterLeave
+		itemTransition = enterLeave,
+		presetOverride = undefined
 	}: Props = $props();
 
 	// Mirror of `items` that is filled after mount. Svelte suppresses intro
@@ -48,8 +51,16 @@
 	const SHRINK_TOLERANCE = 1;
 
 	// Active preset lives in the store so every grid on a page stays in sync.
-	const presetIndex = $derived(viewState.masonryArticlesPresetIndex);
-	const currentPreset = $derived(viewState.masonryPreset);
+	// A caller may pin a specific layout (search results force `row`); the
+	// override is non-destructive — it never mutates the shared index, so the
+	// grid falls back to the user's chosen preset as soon as it is dropped.
+	const overridePreset = $derived(
+		presetOverride ? MASONRY_PRESETS.find((preset) => preset.key === presetOverride) : undefined
+	);
+	const presetIndex = $derived(
+		overridePreset ? MASONRY_PRESETS.indexOf(overridePreset) : viewState.masonryArticlesPresetIndex
+	);
+	const currentPreset = $derived(overridePreset ?? viewState.masonryPreset);
 
 	// measured content-box width of the grid container; drives responsive columns
 	let containerWidth = $state(0);
@@ -79,6 +90,7 @@
 	// and the hotkeys are disabled while an overlay is open (blurActive from the
 	// layout, mirrored into viewState.overlayOpen).
 	function movePreset(delta: number) {
+		if (overridePreset) return;
 		const next = Math.max(0, Math.min(presetIndex + delta, MASONRY_PRESETS.length - 1));
 		if (next === presetIndex) return;
 		viewState.masonryArticlesPresetIndex = next;
@@ -88,7 +100,7 @@
 		'Alt+ArrowDown',
 		() => movePreset(1),
 		() => ({
-			enabled: !viewState.overlayOpen,
+			enabled: !viewState.overlayOpen && !overridePreset,
 			ignoreInputs: true,
 			stopPropagation: true
 		})
@@ -97,7 +109,7 @@
 		'Alt+ArrowUp',
 		() => movePreset(-1),
 		() => ({
-			enabled: !viewState.overlayOpen,
+			enabled: !viewState.overlayOpen && !overridePreset,
 			ignoreInputs: true,
 			stopPropagation: true
 		})
@@ -392,7 +404,7 @@
 				out:itemTransition
 			>
 				<div class="content">
-					{@render children(item, i, presetIndex, currentPreset.key)}
+					{@render children(item, i, presetIndex, currentPreset.key, currentPreset.contentMode)}
 				</div>
 			</div>
 		{/each}

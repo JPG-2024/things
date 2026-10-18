@@ -48,6 +48,7 @@
 		</div>
 		<ArticleList
 			items={searchArticles}
+			presetOverride="row"
 			itemTransition={articleItemTransition}
 			matchOf={(article) => searchMatches.get(article) ?? null}
 			emptyMessage="No matches found"

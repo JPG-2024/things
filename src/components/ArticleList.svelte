@@ -7,13 +7,14 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Tabs from '@/components/Tabs.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import {
 		viewState,
 		MASONRY_PRESETS,
 		MASONRY_PRESET_ICONS,
 		MASONRY_PRESET_LABELS
 	} from '@/stores/viewStore.svelte';
-	import type { LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
+	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import type { ArticleWithTasks } from '@/stores/webStore';
 	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
@@ -38,6 +39,12 @@
 		matchOf?: (article: ArticleWithTasks) => RawSearchMatch | null;
 		onArticleClick?: (article: ArticleWithTasks) => void | Promise<void>;
 		headerLeft?: Snippet<[]>;
+		/**
+		 * Pins the grid to a preset layout (e.g. `row` for search results)
+		 * without touching the shared preset index. The rail hides its preset
+		 * tabs while pinned, since the layout cannot be switched.
+		 */
+		presetOverride?: LayoutKey;
 		emptyMessage?: string;
 		loading?: boolean;
 		hasMore?: boolean;
@@ -52,6 +59,7 @@
 		matchOf = undefined,
 		onArticleClick = undefined,
 		headerLeft,
+		presetOverride = undefined,
 		emptyMessage = 'No articles',
 		loading = false,
 		hasMore = false,
@@ -140,16 +148,18 @@
 <div class="article-list">
 	<div class="article-list__body">
 		<div class="article-list__rail">
-			<div class="article-list__rail-tabs">
-				<Tabs
-					tabs={presetTabs}
-					bind:activeTab={activePresetTab}
-					onTabChange={handleTabChange}
-					iconSize={22}
-					iconOnly
-					vertical
-				/>
-			</div>
+			{#if !presetOverride}
+				<div class="article-list__rail-tabs">
+					<Tabs
+						tabs={presetTabs}
+						bind:activeTab={activePresetTab}
+						onTabChange={handleTabChange}
+						iconSize={22}
+						iconOnly
+						vertical
+					/>
+				</div>
+			{/if}
 			{#if groupable}
 				<ToggleIcon
 					name="Layers"
@@ -157,17 +167,25 @@
 					tooltipProps={{ content: 'group articles by profile (Alt+G)' }}
 				/>
 			{/if}
+			<InitialArticlesToggle />
 		</div>
 		<div class="article-list__content">
 			{#if gridItems.length > 0}
-				<MasonryGrid items={gridItems} keyOf={(cell) => cell.key} {itemTransition} {headerLeft}>
+				<MasonryGrid
+					items={gridItems}
+					keyOf={(cell) => cell.key}
+					{itemTransition}
+					{headerLeft}
+					{presetOverride}
+				>
 					{#snippet children(
 						cell: ArticleGridCell,
 						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 						_i: number,
 						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 						_layoutIndex: number,
-						layoutKey: LayoutKey
+						layoutKey: LayoutKey,
+						contentMode: ArticleContentMode
 					)}
 						{#if cell.kind === 'stack'}
 							<ArticlesStack {cell} {layoutKey} onClick={handleStackClick} />
@@ -175,6 +193,7 @@
 							<ArticleItem
 								article={cell.article}
 								{layoutKey}
+								{contentMode}
 								marked={deleteSelectionStore.markedUrls.has(cell.article.url ?? '')}
 								matchSnippet={matchOf?.(cell.article) ?? undefined}
 								onClick={handleArticleClick}
