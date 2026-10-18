@@ -149,16 +149,14 @@
 	<div class="article-list__body">
 		<div class="article-list__rail">
 			{#if !presetOverride}
-				<div class="article-list__rail-tabs">
-					<Tabs
-						tabs={presetTabs}
-						bind:activeTab={activePresetTab}
-						onTabChange={handleTabChange}
-						iconSize={22}
-						iconOnly
-						vertical
-					/>
-				</div>
+				<Tabs
+					tabs={presetTabs}
+					bind:activeTab={activePresetTab}
+					onTabChange={handleTabChange}
+					iconSize={22}
+					iconOnly
+					vertical
+				/>
 			{/if}
 			{#if groupable}
 				<ToggleIcon
@@ -227,31 +225,22 @@
 
 	.article-list__body {
 		display: flex;
-		align-items: stretch;
+		align-items: flex-start;
 		gap: 1rem;
 		width: 100%;
 	}
 
-	/* Sticky controls rail: the column spans the scrollport while the grid
-	 * scrolls under it, so switching presets is possible mid-scroll. The
-	 * vertical Tabs centers its pills in the space above the grouping toggle. */
+	/* Controls rail sized to its content, pinned near the top of the scrollport
+	 * so switching presets stays possible while the grid scrolls under it. */
 	.article-list__rail {
 		position: sticky;
-		top: 0;
+		top: 1rem;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		gap: 0.75rem;
-		height: 22vh;
+		gap: 1rem;
 		width: max-content;
 		flex-shrink: 0;
-	}
-
-	.article-list__rail-tabs {
-		display: flex;
-		flex: 1;
-		min-height: 0;
 	}
 
 	.article-list__content {

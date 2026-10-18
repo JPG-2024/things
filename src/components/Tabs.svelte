@@ -11,9 +11,8 @@
 		tabs: Tab[];
 		activeTab: string;
 		iconOnly?: boolean;
-		// Stacks the tabs in a column and centers them vertically. The container
-		// must get its height from outside; the vertical rail in ArticleList is
-		// sticky and fills the viewport height.
+		// Stacks the tabs in a column. The rail in ArticleList is content-sized
+		// and sticky, so the container height is whatever the tabs need.
 		vertical?: boolean;
 		onTabChange?: (tabId: string) => void;
 		iconSize?: number;
