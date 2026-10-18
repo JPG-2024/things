@@ -71,7 +71,7 @@
 		flex: none;
 		position: relative;
 		display: inline-flex;
-		width: 100%;
+		width: 80%;
 		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;

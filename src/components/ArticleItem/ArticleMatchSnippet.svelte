@@ -21,10 +21,11 @@
 		padding: 0.25rem 0;
 		font-style: italic;
 		line-height: 1.4;
+		padding: 0 1rem;
 	}
 
 	.article-match-snippet mark {
-		background: color-mix(in srgb, var(--bg-color) 40%, transparent);
+		background: color-mix(in srgb, var(--primary-color) 40%, transparent);
 		color: inherit;
 		border-radius: 2px;
 		padding: 5px 0;
