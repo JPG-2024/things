@@ -103,7 +103,7 @@
 	{#if filteredProfiles.length === 0}
 		<p class="mini-picker__empty">No matching voices</p>
 	{:else}
-		<WheelStage gap={12} scrollSpeed={10}>
+		<WheelStage gap={12} scrollSpeed={10} rows={3}>
 			{#each filteredProfiles as profile (profile.id)}
 				{@const isSelected = profile.id === selectedProfileId}
 				<button
@@ -142,7 +142,6 @@
 	.mini-picker {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
 		width: 100%;
 		align-items: center;
 	}
@@ -150,9 +149,10 @@
 	.mini-picker__header {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 1rem;
 		width: 50%;
 		min-width: 340px;
+		padding: 1.5rem;
 	}
 
 	.mini-picker__label {

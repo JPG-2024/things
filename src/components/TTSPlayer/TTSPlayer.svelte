@@ -365,7 +365,7 @@
 		box-shadow: none;
 		padding: 0;
 		border-radius: 0;
-		width: 300px;
+		width: 150px;
 		height: 70px;
 		cursor: pointer;
 		display: flex;
