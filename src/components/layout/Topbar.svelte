@@ -185,9 +185,9 @@
 	}
 
 	.profile-pic {
-		border-radius: var(--radius-sm);
-		width: 25px;
-		height: 25px;
+		border-radius: 50%;
+		width: 40px;
+		height: 40px;
 	}
 
 	.favicon-placeholder {

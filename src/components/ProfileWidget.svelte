@@ -182,6 +182,7 @@
 		gap: 0.6rem;
 		max-width: 100%;
 		min-width: 0;
+		padding: 1rem;
 	}
 
 	.profile-name {
@@ -205,8 +206,8 @@
 		flex-shrink: 0;
 		transition: transform 0.1s;
 		border-radius: 100%;
-		width: 3rem;
-		height: 3rem;
+		width: 2rem;
+		height: 2rem;
 		object-fit: cover;
 	}
 
