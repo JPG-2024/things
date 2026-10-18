@@ -15,6 +15,9 @@
 
 	const isRowMode = $derived(layoutKey === 'row');
 
+	// Newest preview article anchors the pile (index 0) and owns the unread dot.
+	const frontArticle = $derived(cell.preview[0]);
+
 	// Overlap pile: the newest preview article anchors the pile untransformed
 	// (straight, at the pile's top-left), and each older thumb steps down-right
 	// and tilts a bit more behind it. The fan points DOWNWARD (positive y) so no
@@ -38,6 +41,9 @@
 
 {#snippet layer(article: ArticleWithTasks, index: number, total: number)}
 	<div class="articles-stack__layer" style={layerStyle(index, total)}>
+		{#if index === 0 && frontArticle && !frontArticle.viewed}
+			<span class="articles-stack__unread-dot" aria-hidden="true"></span>
+		{/if}
 		{#if article.thumbnailSrc}
 			<img src={article.thumbnailSrc} alt={article.title ?? ''} loading="lazy" draggable="false" />
 		{:else}
@@ -165,6 +171,20 @@
 	.articles-stack__fallback {
 		width: 100%;
 		height: 100%;
+	}
+
+	/* Front-thumbnail unread marker: kept inside the layer's rounded corner
+	 * (the layer clips its overflow) so it tracks the anchor thumb's transform. */
+	.articles-stack__unread-dot {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--primary-color);
+		z-index: 10;
+		pointer-events: none;
 	}
 
 	.articles-stack:hover .articles-stack__layer {
