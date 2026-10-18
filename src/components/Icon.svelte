@@ -11,6 +11,8 @@
 		color?: string;
 		onClick?: (event: MouseEvent) => void;
 		tooltipProps?: Omit<TooltipProps, 'children'>;
+		disabled?: boolean;
+		ariaLabel?: string;
 		[key: string]: unknown;
 	}
 
@@ -20,6 +22,8 @@
 		color = 'var(--primary-color)',
 		onClick = undefined,
 		tooltipProps = undefined,
+		disabled = false,
+		ariaLabel = undefined,
 		...props
 	}: Props = $props();
 
@@ -37,7 +41,7 @@
 {#if tooltipProps}
 	<Tooltip {...tooltipProps}>
 		{#if onClick}
-			<button onclick={handleClick} class="icon-button">
+			<button onclick={handleClick} class="icon-button" {disabled} aria-label={ariaLabel}>
 				<Icon {...props} {color} size={resolvedSize} />
 			</button>
 		{:else}
@@ -45,7 +49,7 @@
 		{/if}
 	</Tooltip>
 {:else if onClick}
-	<button onclick={handleClick} class="icon-button">
+	<button onclick={handleClick} class="icon-button" {disabled} aria-label={ariaLabel}>
 		<Icon {...props} {color} size={resolvedSize} />
 	</button>
 {:else}
@@ -66,5 +70,11 @@
 	.icon-button:hover :global(svg) {
 		color: white !important;
 		transform: scale(1.05);
+	}
+
+	.icon-button:disabled {
+		opacity: 0.5;
+		cursor: default;
+		pointer-events: none;
 	}
 </style>
