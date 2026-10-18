@@ -57,6 +57,7 @@
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		box-sizing: border-box;
+		padding: 1rem;
 	}
 
 	.category-header:hover {

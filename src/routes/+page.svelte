@@ -228,11 +228,12 @@
 	use:autoHide={{ scrollContainerId: 'dashboard-content' }}
 >
 	<div class="toolbar-row page-topbar">
-		<Toolbar layout="grid" iconSize={18}>
+		<Toolbar layout="grid" iconSize={20}>
 			<div class="toolbar-left">
 				<LuminousText
 					mode="random"
-					size="1.6rem"
+					size="1.4rem"
+					glowOpacity={0.5}
 					onclick={handleTitleClick}
 					aria-label="Paste clipboard URL"
 				>

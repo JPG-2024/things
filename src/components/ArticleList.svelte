@@ -203,6 +203,7 @@
 <style>
 	.article-list {
 		width: 100%;
+		padding-right: 1.4rem;
 	}
 
 	.article-list__body {
