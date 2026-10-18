@@ -4,8 +4,8 @@
 	import { onMount } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
-	import InitialArticlesToggle from '@/components/InitialArticlesToggle.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import {
 		deleteProfileById,
@@ -76,6 +76,10 @@
 	});
 
 	$effect(() => {
+		// `page` is a global store: while navigating away, params can flip to
+		// undefined before this page unmounts, which would launch a fetch with
+		// a broken profileId and let it overwrite the store's current list.
+		if (!profileId) return;
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			profileId,
 			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined,
@@ -129,84 +133,68 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="profile-page">
-	<div class="top-bar">
-		<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
-			<Icon name="ArrowLeft" size={16} />
-		</button>
-		<button
-			type="button"
-			class="back-btn delete-btn"
-			onclick={handleDeleteProfile}
-			disabled={isDeleting}
-			aria-label="Delete profile"
-			title="Delete profile"
-		>
-			<Icon name="Trash" size={16} />
-		</button>
-		<div class="sync-group">
-			<button
-				type="button"
-				class="back-btn"
-				onclick={handleFetchMissingVideos}
+	<ProfileTopbar
+		name={profile?.name}
+		thumbSrc={profile?.profilePictureSrc}
+		fallbackIcon="User"
+		onBack={handleBack}
+	>
+		{#snippet actions()}
+			<Icon
+				name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
+				class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
+				onClick={handleFetchMissingVideos}
 				disabled={scrapStore.isFetchingMissingVideos || loading}
-				aria-label="Fetch missing videos"
-				title={scrapStore.parallelFetch
-					? `Fetch missing videos (parallel x${scrapStore.parallelVideosAmount})`
-					: `Fetch missing videos (sequential) – max ${scrapStore.maxVideos}`}
-			>
-				{#if scrapStore.isFetchingMissingVideos}
-					<Icon name="Loader2" size={16} class="spin" />
-				{:else}
-					<Icon name="RefreshCw" size={16} />
+				ariaLabel="Fetch missing videos"
+				tooltipProps={{
+					content: scrapStore.parallelFetch
+						? `Fetch missing videos (parallel x${scrapStore.parallelVideosAmount})`
+						: `Fetch missing videos (sequential) – max ${scrapStore.maxVideos}`
+				}}
+			/>
+			<div bind:this={summaryWrapperEl} class="summary-wrapper">
+				<Icon
+					name="Sparkles"
+					onClick={toggleSummary}
+					ariaLabel="Profile summary"
+					tooltipProps={{ content: 'summary' }}
+				/>
+				{#if summaryOpen}
+					<div class="summary-panel">
+						{#if summaryLoading}
+							<div class="summary-loading">
+								<div class="loading-indicator small"></div>
+								<span>Generating summary...</span>
+							</div>
+						{:else if summaryError}
+							<div class="summary-error">{summaryError}</div>
+							<button type="button" class="summary-action" onclick={generateSummary}>Retry</button>
+						{:else if summaryText}
+							<p class="summary-text">{summaryText}</p>
+							<button type="button" class="summary-action" onclick={generateSummary}
+								>Regenerate</button
+							>
+						{:else}
+							<div class="summary-empty">No summary yet</div>
+						{/if}
+					</div>
 				{/if}
-			</button>
-		</div>
-		<div bind:this={summaryWrapperEl} class="summary-wrapper">
-			<button
-				type="button"
-				class="back-btn"
-				class:active={summaryOpen}
-				onclick={toggleSummary}
-				aria-label="Profile summary"
-				aria-expanded={summaryOpen}
-			>
-				<Icon name="Sparkles" size={16} />
-			</button>
-			{#if summaryOpen}
-				<div class="summary-panel">
-					{#if summaryLoading}
-						<div class="summary-loading">
-							<div class="loading-indicator small"></div>
-							<span>Generating summary...</span>
-						</div>
-					{:else if summaryError}
-						<div class="summary-error">{summaryError}</div>
-						<button type="button" class="summary-action" onclick={generateSummary}>Retry</button>
-					{:else if summaryText}
-						<p class="summary-text">{summaryText}</p>
-						<button type="button" class="summary-action" onclick={generateSummary}
-							>Regenerate</button
-						>
-					{:else}
-						<div class="summary-empty">No summary yet</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	</div>
+			</div>
+			<Icon
+				name="Trash"
+				onClick={handleDeleteProfile}
+				disabled={isDeleting}
+				ariaLabel="Delete profile"
+				tooltipProps={{ content: 'delete profile' }}
+			/>
+		{/snippet}
+	</ProfileTopbar>
 
 	{#if loading}
 		<div class="loading-container">
 			<div class="loading-indicator"></div>
 		</div>
 	{:else if profile}
-		<div class="profile-header">
-			{#if profile.profilePictureSrc}
-				<img src={profile.profilePictureSrc} alt={profile.name} class="profile-avatar" />
-			{/if}
-			<h1 class="profile-name">{profile.name}</h1>
-		</div>
-
 		<div class="articles-container">
 			<ArticleList
 				items={articleCacheStore.articlesWithoutProfile}
@@ -214,11 +202,7 @@
 				hasMore={articleCacheStore.hasMoreArticles}
 				onLoadMore={() => articleCacheStore.loadMoreArticles()}
 				onArticleClick={handleNavigateToArticle}
-			>
-				{#snippet headerLeft()}
-					<InitialArticlesToggle />
-				{/snippet}
-			</ArticleList>
+			/>
 		</div>
 	{:else}
 		<div class="empty-state">
@@ -234,60 +218,10 @@
 		align-items: center;
 		width: 100%;
 		min-height: 100vh;
-		padding: 3rem;
-	}
-
-	.top-bar {
-		width: 100%;
-		margin-bottom: 1rem;
-		padding: 1rem 8rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.back-btn {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		padding: 0.5rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.08);
-		transition: background 0.15s;
-	}
-
-	.back-btn:hover,
-	.back-btn.active {
-		background: rgba(255, 255, 255, 0.12);
-	}
-
-	.delete-btn {
-		margin-left: 0.5rem;
-		margin-right: auto;
-	}
-
-	.delete-btn:hover,
-	.delete-btn:disabled {
-		background: rgba(255, 80, 80, 0.15);
-	}
-
-	.delete-btn:disabled {
-		opacity: 0.5;
-		cursor: default;
-	}
-
-	.sync-group {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-right: 0.75rem;
-	}
-
-	.sync-group .back-btn:disabled {
-		opacity: 0.5;
-		cursor: default;
+		padding-top: 1rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		padding-bottom: 3rem;
 	}
 
 	:global(.spin) {
@@ -390,29 +324,9 @@
 		}
 	}
 
-	.profile-header {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.profile-avatar {
-		width: 80px;
-		height: 80px;
-		border-radius: 50%;
-		object-fit: cover;
-	}
-
-	.profile-name {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--primary-color);
-		margin: 0;
-	}
-
 	.articles-container {
 		width: 100%;
+		padding-top: 2rem;
 	}
 
 	.empty-state {

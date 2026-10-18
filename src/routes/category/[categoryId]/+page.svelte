@@ -3,7 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
-	import CategoryItem from '@/components/CategoryItem.svelte';
+	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
+	import Modal from '@/components/Modal.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -20,6 +21,7 @@
 	let loadingExemplars = $state(false);
 	let deletingId = $state<string | null>(null);
 	let exemplarError = $state<string | null>(null);
+	let showExemplars = $state(false);
 
 	async function loadExemplars() {
 		loadingExemplars = true;
@@ -55,10 +57,11 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([
-			articleCacheStore.fetchArticlesByCategory(categoryId, { force: true }),
-			loadExemplars()
-		]);
+		await articleCacheStore.fetchArticlesByCategory(categoryId, { force: true });
+	});
+
+	$effect(() => {
+		if (showExemplars) void loadExemplars();
 	});
 
 	function handleBack() {
@@ -67,19 +70,32 @@
 </script>
 
 <div class="category-page">
-	<div class="top-bar">
-		<button type="button" class="back-btn" onclick={handleBack} aria-label="Go back">
-			<Icon name="ArrowLeft" size={24} />
-		</button>
-	</div>
+	<ProfileTopbar name={categoryName} onBack={handleBack}>
+		{#snippet actions()}
+			<Icon
+				name="FileDigit"
+				onClick={() => (showExemplars = true)}
+				tooltipProps={{ content: 'embedding examples' }}
+				ariaLabel="Embedding examples"
+			/>
+		{/snippet}
+	</ProfileTopbar>
 
-	<div class="category-header">
-		<h1 class="category-name"><CategoryItem value={categoryName} /></h1>
-		{#if categoryDescription}
-			<p class="category-description">{categoryDescription}</p>
-		{/if}
-	</div>
+	{#if categoryDescription}
+		<p class="category-description">{categoryDescription}</p>
+	{/if}
 
+	<div class="articles-container">
+		<ArticleList
+			items={articleCacheStore.categoryArticles}
+			loading={articleCacheStore.loadingCategoryArticles}
+			hasMore={articleCacheStore.hasMoreCategoryArticles}
+			onLoadMore={() => articleCacheStore.loadMoreCategoryArticles()}
+		/>
+	</div>
+</div>
+
+<Modal show={showExemplars} onClose={() => (showExemplars = false)}>
 	<section class="exemplars">
 		<div class="exemplars-head">
 			<h2 class="exemplars-title">Embedding examples</h2>
@@ -121,16 +137,7 @@
 			</ul>
 		{/if}
 	</section>
-
-	<div class="articles-container">
-		<ArticleList
-			items={articleCacheStore.categoryArticles}
-			loading={articleCacheStore.loadingCategoryArticles}
-			hasMore={articleCacheStore.hasMoreCategoryArticles}
-			onLoadMore={() => articleCacheStore.loadMoreCategoryArticles()}
-		/>
-	</div>
-</div>
+</Modal>
 
 <style>
 	.category-page {
@@ -138,59 +145,24 @@
 		flex-direction: column;
 		align-items: center;
 		min-height: 100vh;
-		padding: 3rem;
-		padding-right: 5rem;
+		padding-top: 1rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		padding-bottom: 3rem;
 		width: 100%;
-	}
-
-	.top-bar {
-		width: 100%;
-		margin-bottom: 1rem;
-	}
-
-	.back-btn {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		padding: 0.5rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.08);
-		transition: background 0.15s;
-	}
-
-	.back-btn:hover {
-		background: rgba(255, 255, 255, 0.12);
-	}
-
-	.category-header {
-		display: flex;
-		flex-direction: row;
-		align-items: baseline;
-		gap: 0.75rem;
-		margin-bottom: 2rem;
-	}
-
-	.category-name {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--primary-color);
-		margin: 0;
-		text-transform: capitalize;
 	}
 
 	.category-description {
 		font-size: 0.9rem;
 		color: var(--primary-color);
 		opacity: 0.6;
-		margin: 0;
+		margin: 1rem 0 2rem;
 	}
 
 	.exemplars {
 		width: 100%;
 		max-width: 720px;
-		margin-bottom: 2rem;
+		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -292,5 +264,6 @@
 
 	.articles-container {
 		width: 100%;
+		padding-top: 2rem;
 	}
 </style>
