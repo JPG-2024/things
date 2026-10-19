@@ -460,7 +460,7 @@
 	}
 
 	.dashboard-content.has-tab-header {
-		padding-top: 16.75rem;
+		padding-top: 16rem;
 	}
 
 	.dashboard-toolbar-container {
