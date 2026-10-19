@@ -280,10 +280,10 @@
 	}
 
 	.article-list__empty-pill {
-		opacity: 0.6;
-		border: 1px dashed var(--primary-color);
-		border-radius: var(--radius-lg);
+		border: 2px dashed var(--bg-color);
+		border-radius: var(--radius-md);
 		padding: 7px 20px;
+		font-family: var(--font-secondary);
 		color: var(--primary-color);
 		font-weight: bold;
 		font-size: 0.88rem;
