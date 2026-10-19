@@ -99,6 +99,50 @@ export function analysisTopicGbnf(
 	return [rootRule, topicRule, stringRule, wsRule].join('\n');
 }
 
+/**
+ * GBNF for the split processor's topics+keywords call:
+ * `{ "topics": [ { "label": string, "summary": string } ], "keywords": [ string ] }`
+ * Same fixed-count style as `analysisTopicGbnf`; the window title/summary live
+ * in a separate call (`analysisSummaryGbnf`) so this pass can focus on topics.
+ */
+export function analysisTopicsGbnf(
+	topicCount: number,
+	keywordCount: number,
+	ruleName = 'root'
+): string {
+	const stringRule = `string ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})`;
+	const wsRule = `ws ::= [ \\t\\n\\r]*`;
+
+	const topicCountSafe = Math.max(1, Math.floor(topicCount));
+	const keywordCountSafe = Math.max(1, Math.floor(keywordCount));
+
+	const topicsItems = Array.from({ length: topicCountSafe }, (_, i) =>
+		i === 0 ? 'ws topic' : 'ws "," ws topic'
+	).join(' ');
+	const keywordsItems = Array.from({ length: keywordCountSafe }, (_, i) =>
+		i === 0 ? 'ws string' : 'ws "," ws string'
+	).join(' ');
+
+	const rootRule = `${ruleName} ::= "{" ws "\\"topics\\"" ws ":" ws "["${topicsItems} ws "]" ws "," ws "\\"keywords\\"" ws ":" ws "["${keywordsItems} ws "]" ws "}"`;
+	const topicRule = `topic ::= "{" ws "\\"label\\"" ws ":" ws string ws "," ws "\\"summary\\"" ws ":" ws string ws "}"`;
+
+	return [rootRule, topicRule, stringRule, wsRule].join('\n');
+}
+
+/**
+ * GBNF for the split processor's window summary call:
+ * `{ "title": string, "summary": string }` — one heading plus one paragraph
+ * for the whole window, with no arrays to fill.
+ */
+export function analysisSummaryGbnf(ruleName = 'root'): string {
+	const stringRule = `string ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})`;
+	const wsRule = `ws ::= [ \\t\\n\\r]*`;
+
+	const rootRule = `${ruleName} ::= "{" ws "\\"title\\"" ws ":" ws string ws "," ws "\\"summary\\"" ws ":" ws string ws "}"`;
+
+	return [rootRule, stringRule, wsRule].join('\n');
+}
+
 export function multiFieldObjectGbnf(fields: MultiFieldSpec[], ruleName = 'root'): string {
 	const stringRule = `string ::= "\\"" char* "\\""\nchar ::= [^"\\\\\\x7F\\x00-\\x1F] | [\\\\] (["\\\\bfnrt] | "u" [0-9a-fA-F]{4})`;
 	const wsRule = `ws ::= [ \\t\\n\\r]*`;

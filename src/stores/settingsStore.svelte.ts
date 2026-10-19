@@ -6,6 +6,7 @@ import { podcastState, type PodcastConfig } from '@/features/podcast/podcastStor
 import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
 import { CARD_LAYOUT_DEFAULTS, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
+import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 
 const STORE_FILE = 'settings.json';
 const SETTINGS_VERSION = 2;
@@ -100,6 +101,7 @@ function serializeView() {
 		categoryTopN: viewState.categoryTopN,
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
 		categoryMargin: viewState.categoryMargin,
+		analysisDepth: viewState.analysisDepth,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
@@ -175,6 +177,13 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.categoryMargin === 'number') {
 		viewState.categoryMargin = clamp(raw.categoryMargin, 0, 1);
+	}
+	if (typeof raw.analysisDepth === 'number') {
+		viewState.analysisDepth = clamp(
+			Math.trunc(raw.analysisDepth),
+			MIN_ANALYSIS_DEPTH,
+			MAX_ANALYSIS_DEPTH
+		);
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);

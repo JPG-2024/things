@@ -4,7 +4,11 @@ import { extractionProcessor } from './extraction';
 import { translateProcessor } from './translate';
 import { customProcessor } from './custom';
 import { multiProcessor } from './multi';
-import { analysisTopicProcessor } from './analysisTopic';
+// Analysis-topic implementation toggle: the split processor (two calls per
+// chunk + label consolidation) and the single-call processor share the same
+// `type` and data shapes, so switching is just swapping this import.
+import { analysisTopicSplitProcessor as analysisTopicProcessor } from './analysisTopicSplit';
+// import { analysisTopicProcessor } from './analysisTopic';
 
 const registry = new Map<ProcessorType, ProcessorDef>();
 

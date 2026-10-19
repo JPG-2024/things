@@ -31,7 +31,7 @@ export const MIN_TOPIC_COUNT = 1;
 export const MAX_TOPIC_COUNT = 10;
 export const MIN_TOPIC_WORD_COUNT = 1;
 export const MAX_TOPIC_WORD_COUNT = 10;
-const TOPIC_SIMILARITY_THRESHOLD = 0.85;
+export const TOPIC_SIMILARITY_THRESHOLD = 0.85;
 
 function cosineSimilarity(a: number[], b: number[]): number {
 	let dot = 0;
@@ -47,13 +47,13 @@ function cosineSimilarity(a: number[], b: number[]): number {
 	return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-type TopicCluster = {
+export type TopicCluster = {
 	label: string;
 	embedding: number[];
 	summaries: string[];
 };
 
-function clusterByEmbedding(
+export function clusterByEmbedding(
 	sections: TopicSection[],
 	embeddings: number[][],
 	threshold: number
@@ -80,7 +80,7 @@ function clusterByEmbedding(
 	return clusters;
 }
 
-function clusterByLabel(sections: TopicSection[]): TopicCluster[] {
+export function clusterByLabel(sections: TopicSection[]): TopicCluster[] {
 	const clusters: TopicCluster[] = [];
 	const byLabel = new Map<string, TopicCluster>();
 	for (const section of sections) {
@@ -105,7 +105,7 @@ function clusterByLabel(sections: TopicSection[]): TopicCluster[] {
  * only the first clause and caps the length; here it just gains the single
  * trailing period the label list renders.
  */
-function normalizeTopicLabel(raw: string, maxWords: number): string {
+export function normalizeTopicLabel(raw: string, maxWords: number): string {
 	const label = sanitizeTitle(raw, {
 		maxWords,
 		// Characters are a language-safe backstop (CJK has no word spaces).

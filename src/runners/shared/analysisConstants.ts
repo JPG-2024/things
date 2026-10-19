@@ -32,7 +32,10 @@ export const ANALYSIS_DEPTH_LEVELS: readonly AnalysisDepthLevel[] = [
 
 export const MIN_ANALYSIS_DEPTH = ANALYSIS_DEPTH_LEVELS[0].depth;
 export const MAX_ANALYSIS_DEPTH = ANALYSIS_DEPTH_LEVELS[ANALYSIS_DEPTH_LEVELS.length - 1].depth;
-export const DEFAULT_ANALYSIS_DEPTH = MIN_ANALYSIS_DEPTH;
+// Born at depth 2: two windows instead of the single-window overview pass.
+// The user-facing default lives in `viewState.analysisDepth` (persisted in the
+// settings store); this constant is only the initial value for it.
+export const DEFAULT_ANALYSIS_DEPTH = 2;
 
 export function analysisDepthLevel(depth: number | undefined): AnalysisDepthLevel | undefined {
 	if (depth === undefined) return undefined;

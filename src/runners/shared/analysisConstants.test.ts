@@ -34,7 +34,7 @@ describe('analysis depth levels', () => {
 	test('bounds match the array ends', () => {
 		expect(MIN_ANALYSIS_DEPTH).toBe(1);
 		expect(MAX_ANALYSIS_DEPTH).toBe(5);
-		expect(DEFAULT_ANALYSIS_DEPTH).toBe(MIN_ANALYSIS_DEPTH);
+		expect(DEFAULT_ANALYSIS_DEPTH).toBe(2);
 	});
 
 	test('unknown depth resolves to undefined', () => {
@@ -45,8 +45,8 @@ describe('analysis depth levels', () => {
 });
 
 describe('nearestAnalysisDepth', () => {
-	test('defaults to depth 1 when nothing is stored', () => {
-		expect(nearestAnalysisDepth(undefined, undefined)).toBe(1);
+	test('defaults to the default depth when nothing is stored', () => {
+		expect(nearestAnalysisDepth(undefined, undefined)).toBe(DEFAULT_ANALYSIS_DEPTH);
 	});
 
 	test('prefers an exact divisor match', () => {

@@ -2,6 +2,7 @@ import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
 import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
+import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 
@@ -170,6 +171,9 @@ class ViewState {
 	inferenceServiceUp = $state(false);
 	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);
+	// Starting depth for new topic-analysis tasks (see ANALYSIS_DEPTH_LEVELS);
+	// tasks already persisted keep their own depth.
+	analysisDepth = $state(DEFAULT_ANALYSIS_DEPTH);
 	// Both sides of the category comparison are now `topics + keywords`
 	// embeddings (query and fed exemplars), so the threshold sits higher than
 	// the old name/description-vs-document value of 0.35.

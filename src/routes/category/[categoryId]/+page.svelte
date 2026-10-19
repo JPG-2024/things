@@ -53,7 +53,7 @@
 
 	function exemplarPreview(text: string): string {
 		const compact = text.replace(/\s+/g, ' ').trim();
-		return compact.length > 140 ? `${compact.slice(0, 140)}…` : compact;
+		return compact.length > 500 ? `${compact.slice(0, 500)}…` : compact;
 	}
 
 	onMount(async () => {

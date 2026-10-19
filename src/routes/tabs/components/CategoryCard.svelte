@@ -49,7 +49,7 @@
 		all: unset;
 		cursor: pointer;
 		display: flex;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: center;
 		width: 100%;
 		min-width: 0;
@@ -57,7 +57,7 @@
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		box-sizing: border-box;
-		padding: 1rem;
+		padding: 0.5rem 0;
 	}
 
 	.category-header:hover {

@@ -33,6 +33,7 @@
 		stopLlamaServers
 	} from '@/lib/utils/llamaHealth';
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
+	import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 
 	let rebuildingCategories = $state(false);
 	let models = $state<LlamaModelEntry[]>([]);
@@ -298,113 +299,128 @@
 			</div>
 		</div>
 	</Spacer>
-	<div class="inference-section">
-		<h3>Category classification</h3>
-		<FieldsRow columns={3}>
+	<Spacer title="Analysis">
+		<div class="inference-section">
 			<NumberField
-				label="Top categories"
+				label="Default depth"
+				min={MIN_ANALYSIS_DEPTH}
+				max={MAX_ANALYSIS_DEPTH}
+				tooltip="Starting depth for new topic-analysis tasks. Each level splits the content into more windows (÷1, ÷2, ÷4, ÷8, ÷16) and asks each window for topics."
+				bind:value={viewState.analysisDepth}
+			/>
+		</div>
+	</Spacer>
+	<Spacer title="Category classification">
+		<div class="inference-section">
+			<FieldsRow columns={3}>
+				<NumberField
+					label="Top categories"
+					min={1}
+					max={10}
+					tooltip="How many categories are considered when classifying an article."
+					bind:value={viewState.categoryTopN}
+				/>
+				<NumberField
+					label="Min similarity"
+					min={0}
+					max={1}
+					step={0.05}
+					integer={false}
+					precision={2}
+					tooltip="Minimum cosine similarity between the article and a category's fed examples required to assign it."
+					bind:value={viewState.categoryMinSimilarity}
+				/>
+				<NumberField
+					label="Min margin"
+					min={0}
+					max={1}
+					step={0.01}
+					integer={false}
+					precision={2}
+					tooltip="Minimum gap between the best and second category. Below it the result is ambiguous and nothing is assigned."
+					bind:value={viewState.categoryMargin}
+				/>
+			</FieldsRow>
+			<Button onClick={handleRebuildCategoryIndex} disabled={rebuildingCategories} icon="RefreshCw">
+				{rebuildingCategories ? 'Rebuilding…' : 'Rebuild category index'}
+			</Button>
+		</div>
+	</Spacer>
+	<Spacer title="Media">
+		<div class="inference-section">
+			<NumberField
+				label="Thumbnail Reduction"
 				min={1}
-				max={10}
-				tooltip="How many categories are considered when classifying an article."
-				bind:value={viewState.categoryTopN}
+				max={8}
+				tooltip="Downscale factor applied to generated thumbnails."
+				bind:value={viewState.thumbnailReductionMagnitud}
 			/>
-			<NumberField
-				label="Min similarity"
-				min={0}
-				max={1}
-				step={0.05}
-				integer={false}
-				precision={2}
-				tooltip="Minimum cosine similarity between the article and a category's fed examples required to assign it."
-				bind:value={viewState.categoryMinSimilarity}
-			/>
-			<NumberField
-				label="Min margin"
-				min={0}
-				max={1}
-				step={0.01}
-				integer={false}
-				precision={2}
-				tooltip="Minimum gap between the best and second category. Below it the result is ambiguous and nothing is assigned."
-				bind:value={viewState.categoryMargin}
-			/>
-		</FieldsRow>
-		<Button onClick={handleRebuildCategoryIndex} disabled={rebuildingCategories} icon="RefreshCw">
-			{rebuildingCategories ? 'Rebuilding…' : 'Rebuild category index'}
-		</Button>
-	</div>
-	<div class="inference-section">
-		<h3>Media</h3>
-		<NumberField
-			label="Thumbnail Reduction"
-			min={1}
-			max={8}
-			tooltip="Downscale factor applied to generated thumbnails."
-			bind:value={viewState.thumbnailReductionMagnitud}
-		/>
-	</div>
-	<div class="inference-section">
-		<h3>Cards</h3>
-		{#snippet cardLayoutFields(tab: CardTab, title: string)}
-			<div class="card-layout-group">
-				<span class="card-layout-title">{title}</span>
-				<FieldsRow columns={4}>
-					<NumberField
-						label="Columnas"
-						min={CARD_COLUMN_MIN}
-						max={CARD_COLUMN_MAX}
-						value={viewState.cardLayout[tab].columns}
-						onCommit={(value) => viewState.setCardLayout(tab, { columns: value })}
-					/>
-					<NumberField
-						label="Filas"
-						min={CARD_ROW_MIN}
-						max={CARD_ROW_MAX}
-						value={viewState.cardLayout[tab].rows}
-						onCommit={(value) => viewState.setCardLayout(tab, { rows: value })}
-					/>
-					<NumberField
-						label="Wheel filas"
-						min={WHEEL_CARDS_MIN}
-						max={WHEEL_CARDS_MAX}
-						tooltip="Cards apiladas verticalmente por columna del wheel."
-						value={viewState.cardLayout[tab].cardsPerColumn}
-						onCommit={(value) => viewState.setCardLayout(tab, { cardsPerColumn: value })}
-					/>
-					<NumberField
-						label="Cell width (px)"
-						min={CELL_WIDTH_MIN}
-						max={CELL_WIDTH_MAX}
-						tooltip="Ancho objetivo de cada thumbnail; con él se calcula el ancho de la card."
-						value={viewState.cardLayout[tab].cellWidth}
-						onCommit={(value) => viewState.setCardLayout(tab, { cellWidth: value })}
-					/>
-				</FieldsRow>
-				<p class="cards-helper">
-					{viewState.cardLayout[tab].columns} columnas × {viewState.cardLayout[tab].rows} filas = {viewState
-						.cardLayout[tab].columns * viewState.cardLayout[tab].rows} artículos por card
-				</p>
-			</div>
-		{/snippet}
-		{@render cardLayoutFields('profiles', 'Profiles')}
-		{@render cardLayoutFields('domains', 'Domains')}
-		{@render cardLayoutFields('categories', 'Categories')}
-	</div>
-	<div class="inference-section">
-		<h3>Scraping</h3>
-		<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />
-		<FieldsRow columns={2}>
-			<NumberField label="Max Videos" min={1} max={50} bind:value={scrapStore.maxVideos} />
-			<NumberField
-				label="Parallel Videos Amount"
-				min={1}
-				max={10}
-				disabled={!scrapStore.parallelFetch}
-				tooltip="Enabled only when Parallel Fetch is on."
-				bind:value={scrapStore.parallelVideosAmount}
-			/>
-		</FieldsRow>
-	</div>
+		</div>
+	</Spacer>
+	<Spacer title="Cards">
+		<div class="inference-section">
+			{#snippet cardLayoutFields(tab: CardTab, title: string)}
+				<div class="card-layout-group">
+					<span class="card-layout-title">{title}</span>
+					<FieldsRow columns={4}>
+						<NumberField
+							label="Columnas"
+							min={CARD_COLUMN_MIN}
+							max={CARD_COLUMN_MAX}
+							value={viewState.cardLayout[tab].columns}
+							onCommit={(value) => viewState.setCardLayout(tab, { columns: value })}
+						/>
+						<NumberField
+							label="Filas"
+							min={CARD_ROW_MIN}
+							max={CARD_ROW_MAX}
+							value={viewState.cardLayout[tab].rows}
+							onCommit={(value) => viewState.setCardLayout(tab, { rows: value })}
+						/>
+						<NumberField
+							label="Wheel filas"
+							min={WHEEL_CARDS_MIN}
+							max={WHEEL_CARDS_MAX}
+							tooltip="Cards apiladas verticalmente por columna del wheel."
+							value={viewState.cardLayout[tab].cardsPerColumn}
+							onCommit={(value) => viewState.setCardLayout(tab, { cardsPerColumn: value })}
+						/>
+						<NumberField
+							label="Cell width (px)"
+							min={CELL_WIDTH_MIN}
+							max={CELL_WIDTH_MAX}
+							tooltip="Ancho objetivo de cada thumbnail; con él se calcula el ancho de la card."
+							value={viewState.cardLayout[tab].cellWidth}
+							onCommit={(value) => viewState.setCardLayout(tab, { cellWidth: value })}
+						/>
+					</FieldsRow>
+					<p class="cards-helper">
+						{viewState.cardLayout[tab].columns} columnas × {viewState.cardLayout[tab].rows} filas = {viewState
+							.cardLayout[tab].columns * viewState.cardLayout[tab].rows} artículos por card
+					</p>
+				</div>
+			{/snippet}
+			{@render cardLayoutFields('profiles', 'Profiles')}
+			{@render cardLayoutFields('domains', 'Domains')}
+			{@render cardLayoutFields('categories', 'Categories')}
+		</div>
+	</Spacer>
+	<Spacer title="Scraping">
+		<div class="inference-section">
+			<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />
+			<FieldsRow columns={2}>
+				<NumberField label="Max Videos" min={1} max={50} bind:value={scrapStore.maxVideos} />
+				<NumberField
+					label="Parallel Videos Amount"
+					min={1}
+					max={10}
+					disabled={!scrapStore.parallelFetch}
+					tooltip="Enabled only when Parallel Fetch is on."
+					bind:value={scrapStore.parallelVideosAmount}
+				/>
+			</FieldsRow>
+		</div>
+	</Spacer>
 </div>
 
 <style>
@@ -433,13 +449,6 @@
 		padding: 1rem;
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: var(--radius-md);
-	}
-
-	.inference-section h3 {
-		font-family: var(--font-secondary);
-		margin: 0;
-		font-size: 1rem;
-		color: var(--primary-color, #fae4c0);
 	}
 
 	.card-layout-group {

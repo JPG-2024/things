@@ -9,7 +9,6 @@ import {
 	DEFAULT_TOPIC_COUNT,
 	DEFAULT_TOPIC_WORD_COUNT
 } from '@/runners/shared/processors/analysisTopic';
-import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 import type { Task } from '@/types/taskRunner.types';
 import {
 	ANALYSIS_COMPLETION_OPTIONS,
@@ -87,9 +86,9 @@ export function createDefaultTasks(
 			? {
 					processorType: 'analysisTopic',
 					component: 'analysisTopic',
-					// Born pinned to the basic pass: one window, four topics.
-					// The depth table overrides the topic count below.
-					analysisDepth: DEFAULT_ANALYSIS_DEPTH,
+					// Born pinned to the depth chosen in Settings (default: the two-
+					// window pass). The depth table overrides the topic count below.
+					analysisDepth: viewState.analysisDepth,
 					topicCount: options.topicCount ?? DEFAULT_TOPIC_COUNT,
 					keywordCount: options.keywordCount ?? DEFAULT_KEYWORD_COUNT,
 					topicWordCount: options.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT
