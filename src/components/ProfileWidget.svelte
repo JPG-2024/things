@@ -182,7 +182,7 @@
 		gap: 0.6rem;
 		max-width: 100%;
 		min-width: 0;
-		padding: 1rem;
+		padding: 1rem 0;
 	}
 
 	.profile-name {
