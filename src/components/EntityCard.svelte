@@ -78,7 +78,7 @@
 	.entity-header {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-start;
 		gap: 0.4rem;
 		margin-bottom: 0.5rem;
 		width: 100%;
