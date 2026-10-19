@@ -5,6 +5,7 @@
 
 	import { afterNavigate, onNavigate } from '$app/navigation';
 	import TTSPlayer from '@/components/TTSPlayer/TTSPlayer.svelte';
+	import FloatingYouTubePlayer from '@/components/youtube/FloatingYouTubePlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
 	import PodcastMode from '@/features/podcast/PodcastMode.svelte';
@@ -305,6 +306,8 @@
 <TaskWorkflowEditor />
 
 <TTSPlayer />
+
+<FloatingYouTubePlayer />
 
 {#if ttsState.lastVoiceChunkIndex !== null}
 	<div class="tts-chunk-log">

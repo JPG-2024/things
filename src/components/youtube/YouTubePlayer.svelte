@@ -2,6 +2,7 @@
 	import type { TaskComponentProps } from '@/types/taskRunner.types';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 	import { fade } from 'svelte/transition';
+	import { playerStore } from '@/stores/playerStore.svelte';
 	import { toThumbnailVTName } from '@/lib/utils/url';
 
 	type Props = {
@@ -11,51 +12,31 @@
 
 	let { data = undefined, componentProps = {} }: Props = $props();
 
-	let showIframe = $state(false);
 	const playerData = $derived<Partial<YouTubePlayerContext>>(data ?? {});
+
+	function openInFloatingPlayer(): void {
+		if (!playerData.videoId) return;
+		playerStore.open(playerData as YouTubePlayerContext);
+	}
 
 	void componentProps;
 </script>
 
 <div class="yt-wrapper" transition:fade={{ duration: 200 }}>
-	{#if showIframe}
-		<iframe
-			class="yt-video"
-			src={`https://www.youtube-nocookie.com/embed/${playerData.videoId || ''}?autoplay=1&rel=0&modestbranding=1`}
-			title="YouTube video player"
-			frameborder="0"
-			allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
-			allowfullscreen
-		></iframe>
-	{:else}
-		<button
-			class="yt-thumbnail-btn"
-			onclick={() => {
-				showIframe = true;
-			}}
-			aria-label="Play video"
-		>
-			<img
-				src={playerData.thumbnailImageSrc}
-				alt="YouTube thumbnail"
-				class="yt-thumbnail"
-				style={playerData.thumbnailImageSrc
-					? `view-transition-name: ${toThumbnailVTName(playerData.url ?? '')}`
-					: undefined}
-			/>
-		</button>
+	<button class="yt-thumbnail-btn" onclick={openInFloatingPlayer} aria-label="Play video">
+		<img
+			src={playerData.thumbnailImageSrc}
+			alt="YouTube thumbnail"
+			class="yt-thumbnail"
+			style={playerData.thumbnailImageSrc
+				? `view-transition-name: ${toThumbnailVTName(playerData.url ?? '')}`
+				: undefined}
+		/>
+	</button>
 
-		<button
-			class="yt-play"
-			onclick={() => {
-				showIframe = true;
-			}}
-			aria-label="Play video"
-			title="Play video"
-		>
-			▶
-		</button>
-	{/if}
+	<button class="yt-play" onclick={openInFloatingPlayer} aria-label="Play video" title="Play video">
+		▶
+	</button>
 </div>
 
 <style>
@@ -86,16 +67,6 @@
 		height: 80%;
 		object-fit: cover;
 		border-radius: var(--radius-lg);
-	}
-
-	/* Make iframe fill the wrapper */
-	.yt-wrapper .yt-video {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		border: 0;
 	}
 
 	.yt-thumbnail-btn {
