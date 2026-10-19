@@ -72,6 +72,7 @@
 	.article-item-info {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		width: 100%;
 		min-width: 0;
 	}
