@@ -297,6 +297,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             viewed INTEGER NOT NULL DEFAULT 0,
             date TEXT,
             template_id TEXT,
+            profile_rank INTEGER,
             FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
@@ -384,6 +385,12 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "web_articles",
         "template_id",
         "ALTER TABLE web_articles ADD COLUMN template_id TEXT",
+    )?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "profile_rank",
+        "ALTER TABLE web_articles ADD COLUMN profile_rank INTEGER",
     )?;
     ensure_column(
         conn,
@@ -1038,6 +1045,17 @@ fn query_articles(
     }
 
     query_articles_sql(conn, columns, &body, &[])
+}
+
+/// Ordering for article lists. Profile-scoped listings follow the channel-page
+/// order captured by the scraper (`profile_rank`); ranked articles come first
+/// and unranked ones fall back to insertion time.
+fn article_order_clause(profile_listing: bool) -> &'static str {
+    if profile_listing {
+        " ORDER BY a.profile_rank IS NULL, a.profile_rank ASC, a.created_at DESC, a.date DESC NULLS LAST"
+    } else {
+        " ORDER BY a.created_at DESC, a.date DESC NULLS LAST"
+    }
 }
 
 fn query_domain_by_id(
@@ -2580,9 +2598,8 @@ fn query_category_exemplars(
     where_clause: &str,
     params: &[&dyn rusqlite::ToSql],
 ) -> Result<Vec<CategoryExemplarRecord>, String> {
-    let sql = format!(
-        "{CATEGORY_EXEMPLAR_SELECT} {where_clause} ORDER BY e.created_at DESC, e.id ASC"
-    );
+    let sql =
+        format!("{CATEGORY_EXEMPLAR_SELECT} {where_clause} ORDER BY e.created_at DESC, e.id ASC");
     let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let rows = stmt
         .query_map(params, map_category_exemplar_row)
@@ -2736,9 +2753,8 @@ fn query_articles_for_bucket(
     article_count: usize,
 ) -> Result<Vec<WebStoreArticleRecord>, String> {
     let body = format!(
-        "WHERE LOWER(a.{column}) = LOWER(?1) AND a.{column} IS NOT NULL
-         ORDER BY a.created_at DESC, a.date DESC NULLS LAST
-         LIMIT ?2"
+        "WHERE LOWER(a.{column}) = LOWER(?1) AND a.{column} IS NOT NULL{} LIMIT ?2",
+        article_order_clause(column == "profile")
     );
 
     query_articles_sql(
@@ -2855,8 +2871,9 @@ pub async fn list_articles_without_profile(
     };
 
     let body = format!(
-        "{} ORDER BY a.created_at DESC, a.date DESC NULLS LAST LIMIT {} OFFSET {}",
+        "{}{} LIMIT {} OFFSET {}",
         where_sql,
+        article_order_clause(profile_id.is_some()),
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
@@ -2864,6 +2881,75 @@ pub async fn list_articles_without_profile(
     let articles = query_articles_sql(&conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
+}
+
+/// Applies the channel-page order captured by the scraper to a profile's
+/// articles: `urls` must be in scrape order (newest first). Rows no longer
+/// present in the scrape window lose their rank so they fall back to
+/// `created_at` instead of keeping a stale position.
+/// A missing profile id or an empty scrape is a no-op: clearing ranks with
+/// nothing to replace them would silently destroy the stored ordering.
+fn apply_profile_article_order(
+    conn: &mut Connection,
+    profile_id: &str,
+    urls: &[String],
+) -> Result<usize, String> {
+    let normalized = profile_id.trim().to_lowercase();
+    if normalized.is_empty() || urls.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.transaction().map_err(|error| {
+        format!(
+            "Failed to start transaction for profile article order id='{}': {}",
+            normalized, error
+        )
+    })?;
+
+    tx.execute(
+        "UPDATE web_articles SET profile_rank = NULL
+         WHERE LOWER(profile) = ?1 OR LOWER(domain) = ?1",
+        [&normalized],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to clear profile ranks for id='{}': {}",
+            normalized, error
+        )
+    })?;
+
+    for (rank, url) in urls.iter().enumerate() {
+        tx.execute(
+            "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
+            params![rank as i64, url],
+        )
+        .map_err(|error| {
+            format!(
+                "Failed to rank profile article url='{}' for id='{}': {}",
+                url, normalized, error
+            )
+        })?;
+    }
+
+    tx.commit().map_err(|error| {
+        format!(
+            "Failed to commit profile article order for id='{}': {}",
+            normalized, error
+        )
+    })?;
+
+    Ok(urls.len())
+}
+
+#[tauri::command]
+pub async fn set_profile_article_order(
+    app: AppHandle,
+    profile_id: String,
+    urls: Vec<String>,
+) -> Result<usize, String> {
+    let mut conn = get_db(&app)?;
+    init_schema(&conn)?;
+    apply_profile_article_order(&mut conn, &profile_id, &urls)
 }
 
 #[tauri::command]
@@ -3660,6 +3746,128 @@ mod tests {
     }
 
     #[test]
+    fn query_articles_for_profile_uses_profile_rank_before_created_at() {
+        let conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        // Insertion time says: newest last. Channel rank says the opposite.
+        insert_article(&conn, "rank-0", profile, 1_000_000_000_000, None);
+        insert_article(&conn, "rank-1", profile, 2_000_000_000_000, None);
+        insert_article(&conn, "rank-2", profile, 3_000_000_000_000, None);
+        // Highest created_at but never ranked: must fall behind ranked rows.
+        insert_article(&conn, "unranked", profile, 9_000_000_000_000, None);
+        insert_article(&conn, "other-profile", "channel-b", 9_000_000_000_000, None);
+
+        for (rank, url) in ["rank-0", "rank-1", "rank-2"].iter().enumerate() {
+            conn.execute(
+                "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
+                params![rank as i64, url],
+            )
+            .expect("set rank");
+        }
+
+        let articles = query_articles_for_profile(&conn, profile, 10).expect("query");
+
+        let urls: Vec<&str> = articles
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(
+            urls,
+            vec!["rank-0", "rank-1", "rank-2", "unranked"],
+            "channel-page rank wins over insertion time; unranked rows come last"
+        );
+    }
+
+    #[test]
+    fn apply_profile_article_order_noop_on_empty_urls() {
+        let mut conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        insert_article(&conn, "keep-rank", profile, 1_000_000_000_000, None);
+        conn.execute(
+            "UPDATE web_articles SET profile_rank = 4 WHERE url = 'keep-rank'",
+            [],
+        )
+        .expect("seed rank");
+
+        // An empty scrape (scraper hiccup) must not wipe the stored ordering.
+        let changed = apply_profile_article_order(&mut conn, profile, &[]).expect("apply");
+
+        assert_eq!(changed, 0);
+        let rank: Option<i64> = conn
+            .query_row(
+                "SELECT profile_rank FROM web_articles WHERE url = 'keep-rank'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("read rank");
+        assert_eq!(rank, Some(4), "empty url list must be a no-op");
+    }
+
+    #[test]
+    fn apply_profile_article_order_ranks_scrape_order_and_clears_stale_ranks() {
+        let mut conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        insert_article(&conn, "a-first", profile, 1_000_000_000_000, None);
+        insert_article(&conn, "b-second", profile, 2_000_000_000_000, None);
+        // Out of the scrape window now: stale rank must be cleared.
+        insert_article(&conn, "c-stale", profile, 3_000_000_000_000, None);
+        conn.execute(
+            "UPDATE web_articles SET profile_rank = 7 WHERE url = 'c-stale'",
+            [],
+        )
+        .expect("seed stale rank");
+
+        let changed = apply_profile_article_order(
+            &mut conn,
+            profile,
+            &["b-second".to_string(), "a-first".to_string()],
+        )
+        .expect("apply");
+
+        assert_eq!(changed, 2);
+        let rank_of = |url: &str| -> Option<i64> {
+            conn.query_row(
+                "SELECT profile_rank FROM web_articles WHERE url = ?1",
+                [url],
+                |row| row.get(0),
+            )
+            .expect("read rank")
+        };
+        assert_eq!(rank_of("b-second"), Some(0));
+        assert_eq!(rank_of("a-first"), Some(1));
+        assert_eq!(rank_of("c-stale"), None, "stale rank is cleared");
+    }
+
+    #[test]
+    fn list_order_clause_follows_profile_rank_for_profile_listings() {
+        let conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        insert_article(&conn, "rank-0", profile, 1_000_000_000_000, None);
+        insert_article(&conn, "unranked", profile, 3_000_000_000_000, None);
+        conn.execute(
+            "UPDATE web_articles SET profile_rank = 0 WHERE url = 'rank-0'",
+            [],
+        )
+        .expect("set rank");
+
+        let body = format!(
+            "WHERE LOWER(a.profile) = 'channel-a'{}",
+            article_order_clause(true)
+        );
+        let listed = query_articles_sql(&conn, ARTICLE_LIST_COLUMNS, &body, &[]).expect("query");
+
+        let urls: Vec<&str> = listed
+            .iter()
+            .map(|a| a.url.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(urls, vec!["rank-0", "unranked"]);
+    }
+
+    #[test]
     fn article_id_for_url_extracts_youtube_v_param() {
         assert_eq!(
             article_id_for_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
@@ -4250,7 +4458,14 @@ mod tests {
         insert_category(&conn, "cat-a", "Alpha");
         insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
         link_article_to_category(&conn, "https://example.com/a", "cat-a");
-        insert_exemplar(&conn, "e1", "cat-a", "https://example.com/a", "text", "bge-m3");
+        insert_exemplar(
+            &conn,
+            "e1",
+            "cat-a",
+            "https://example.com/a",
+            "text",
+            "bge-m3",
+        );
 
         delete_category_rows(&mut conn, "cat-a").expect("delete category");
 

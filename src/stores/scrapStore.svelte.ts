@@ -198,6 +198,13 @@ class ScrapState {
 			const toFetch = missing.slice(0, maxVideos);
 
 			if (toFetch.length === 0) {
+				// Nothing to fetch, but the scrape still carries the channel-page
+				// order: refresh ranks so the list mirrors YouTube even when the
+				// videos were all saved on an earlier pass.
+				await invoke<number>('set_profile_article_order', {
+					profileId: normalizedProfileId,
+					urls: normalized.map((video) => video.url)
+				});
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 				await articleCacheStore.fetchArticlesWithoutProfile({
 					profileId,
@@ -244,6 +251,13 @@ class ScrapState {
 					await runOne(video);
 				}
 			}
+
+			// Mirror the channel-page order onto the saved articles so the
+			// profile list matches what YouTube shows, then refetch.
+			await invoke<number>('set_profile_article_order', {
+				profileId: normalizedProfileId,
+				urls: normalized.map((video) => video.url)
+			});
 
 			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 			await articleCacheStore.fetchArticlesWithoutProfile({
