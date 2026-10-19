@@ -238,7 +238,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 1rem;
+		gap: 2rem;
 		width: max-content;
 		flex-shrink: 0;
 	}

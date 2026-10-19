@@ -219,9 +219,9 @@
 		width: 100%;
 		min-height: 100vh;
 		padding-top: 1rem;
-		padding-left: 1rem;
-		padding-right: 1rem;
-		padding-bottom: 3rem;
+		padding-left: 1.5rem;
+		padding-right: 2rem;
+		padding-bottom: 7rem;
 	}
 
 	:global(.spin) {
@@ -326,7 +326,7 @@
 
 	.articles-container {
 		width: 100%;
-		padding-top: 2rem;
+		padding-top: 4.5rem;
 	}
 
 	.empty-state {

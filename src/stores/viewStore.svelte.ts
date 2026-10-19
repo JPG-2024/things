@@ -73,9 +73,9 @@ function envPort(url: string, fallback: number): number {
 
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'LayoutGrid' },
-	{ id: 'categories', label: 'Categories', icon: 'Tags' },
+	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
 	{ id: 'domains', label: 'Domains', icon: 'Globe' },
-	{ id: 'profiles', label: 'Profiles', icon: 'Users' }
+	{ id: 'categories', label: 'Categories', icon: 'Tags' }
 ];
 
 export function rgbToHue(rgb: string): number {

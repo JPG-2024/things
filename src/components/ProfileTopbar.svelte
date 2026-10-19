@@ -55,7 +55,7 @@
 <style>
 	.top-bar {
 		width: 100%;
-		padding: 0 1rem;
+		padding: 0.5 1rem;
 		padding-right: 2rem;
 	}
 
