@@ -410,6 +410,8 @@
 		--gray-200: rgb(196, 194, 194);
 		--gray-300: rgb(118, 118, 118);
 
+		--article-border: rgba(120, 119, 119, 0.3);
+
 		color: var(--gray-100);
 
 		font-synthesis: none;

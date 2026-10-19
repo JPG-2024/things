@@ -159,6 +159,7 @@
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
 		border-radius: var(--radius-sm, 8px);
+		border: 1px solid var(--article-border);
 	}
 
 	.articles-stack__layer img {
