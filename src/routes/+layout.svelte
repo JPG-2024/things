@@ -29,7 +29,7 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { GLOBAL_CLIPBOARD_TRIGGER_EVENT, readClipboardAndHandle } from '@/lib/utils/clipboard';
-	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
+	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { page } from '$app/state';
 
 	let { children } = $props();
@@ -101,7 +101,7 @@
 			ttsState.clearPlaylist();
 		}
 
-		deleteSelectionStore.clear();
+		selectedArticlesStore.clear();
 	});
 
 	const ttsPlayerVisible = $derived(
@@ -215,7 +215,7 @@
 		'D',
 		() => {
 			const url = viewState.hoveredArticleUrl;
-			if (url) deleteSelectionStore.toggle(url);
+			if (url) selectedArticlesStore.toggle(url);
 		},
 		() => ({
 			enabled:
@@ -236,11 +236,11 @@
 	createHotkey(
 		'Shift+D',
 		async () => {
-			await deleteSelectionStore.deleteSelected();
+			await selectedArticlesStore.deleteSelected();
 		},
 		() => ({
 			enabled:
-				deleteSelectionStore.markedUrls.size > 0 &&
+				selectedArticlesStore.selectedUrls.size > 0 &&
 				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
@@ -257,10 +257,10 @@
 	createHotkey(
 		'Escape',
 		() => {
-			deleteSelectionStore.clear();
+			selectedArticlesStore.clear();
 		},
 		() => ({
-			enabled: deleteSelectionStore.markedUrls.size > 0 && !chatOpen,
+			enabled: selectedArticlesStore.selectedUrls.size > 0 && !chatOpen,
 			ignoreInputs: true,
 			preventDefault: true,
 			stopPropagation: true

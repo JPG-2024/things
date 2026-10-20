@@ -20,7 +20,7 @@
 		/** Tooltip content shown when hovering the thumbnail. */
 		tooltip?: string | null;
 		layoutKey?: LayoutKey;
-		marked?: boolean;
+		selected?: boolean;
 		matchSnippet?: RawSearchMatch;
 		onClick: (article: ArticleWithTasks) => void;
 		onHoverEnter: (article: ArticleWithTasks) => void;
@@ -37,7 +37,7 @@
 		unread = false,
 		tooltip = null,
 		layoutKey,
-		marked = false,
+		selected = false,
 		matchSnippet = undefined,
 		onClick,
 		onHoverEnter,
@@ -119,7 +119,7 @@
 <button
 	type="button"
 	class="article-card {layoutKey ?? ''}"
-	class:marked-for-delete={marked}
+	class:selected
 	class:fixed-thumb-card={isFixedThumb}
 	style={isFixedThumb ? `--fixed-thumb-w: ${resolvedThumbnailWidth}px;` : undefined}
 	onclick={() => onClick(article)}
@@ -207,24 +207,21 @@
 		opacity: 1;
 	}
 
-	.article-card.marked-for-delete {
-		--bg-color: red;
-		border-top-color: red;
-		background: rgba(255, 0, 0, 0.18);
+	/* Selection feedback: a primary-color tone over the thumbnail (image or
+	   placeholder) instead of tinting the whole card. */
+	.article-card.selected :global(.article-thumbnail-container)::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--primary-color) 35%, transparent);
+		pointer-events: none;
+		z-index: 5;
 	}
 
-	.article-card.marked-for-delete.grid-3 {
-		background-image: linear-gradient(
-			180deg,
-			color-mix(in srgb, red 20%, transparent),
-			rgba(0, 0, 0),
-			rgba(0, 0, 0)
-		);
-		background-color: rgba(255, 0, 0, 0.18);
-	}
-
-	.article-card.marked-for-delete.row {
-		background: rgba(255, 0, 0, 0.25);
+	.article-card.selected :global(.article-thumbnail) {
+		filter: saturate(1.2) contrast(1.05);
+		opacity: 1;
 	}
 
 	.article-card.fixed-thumb-card {

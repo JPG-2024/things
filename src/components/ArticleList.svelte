@@ -16,7 +16,7 @@
 	} from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import type { ArticleWithTasks } from '@/stores/webStore';
-	import { deleteSelectionStore } from '@/stores/deleteSelectionStore.svelte';
+	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
 	import ArticlesStack from '@/components/ArticlesStack.svelte';
@@ -192,7 +192,7 @@
 								article={cell.article}
 								{layoutKey}
 								{contentMode}
-								marked={deleteSelectionStore.markedUrls.has(cell.article.url ?? '')}
+								selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
 								matchSnippet={matchOf?.(cell.article) ?? undefined}
 								onClick={handleArticleClick}
 								onHoverEnter={handleArticleHoverEnter}

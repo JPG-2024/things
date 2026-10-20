@@ -2,42 +2,42 @@ import { SvelteSet } from 'svelte/reactivity';
 import { deleteArticleByUrl } from '@/stores/webStore';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 
-class DeleteSelectionStore {
-	markedUrls = new SvelteSet<string>();
+class SelectedArticlesStore {
+	selectedUrls = new SvelteSet<string>();
 	isDeleting = $state(false);
 
-	isMarked(url: string | null | undefined): boolean {
+	isSelected(url: string | null | undefined): boolean {
 		if (!url) return false;
-		return this.markedUrls.has(url);
+		return this.selectedUrls.has(url);
 	}
 
 	toggle(url: string | null | undefined): void {
 		if (!url) return;
-		if (this.markedUrls.has(url)) {
-			this.markedUrls.delete(url);
+		if (this.selectedUrls.has(url)) {
+			this.selectedUrls.delete(url);
 		} else {
-			this.markedUrls.add(url);
+			this.selectedUrls.add(url);
 		}
 	}
 
 	add(url: string | null | undefined): void {
 		if (!url) return;
-		this.markedUrls.add(url);
+		this.selectedUrls.add(url);
 	}
 
 	remove(url: string | null | undefined): void {
 		if (!url) return;
-		this.markedUrls.delete(url);
+		this.selectedUrls.delete(url);
 	}
 
 	clear(): void {
-		this.markedUrls.clear();
+		this.selectedUrls.clear();
 	}
 
 	async deleteSelected(): Promise<void> {
-		if (this.markedUrls.size === 0 || this.isDeleting) return;
+		if (this.selectedUrls.size === 0 || this.isDeleting) return;
 		this.isDeleting = true;
-		const urlsToDelete = [...this.markedUrls];
+		const urlsToDelete = [...this.selectedUrls];
 		try {
 			for (const url of urlsToDelete) {
 				try {
@@ -55,4 +55,4 @@ class DeleteSelectionStore {
 	}
 }
 
-export const deleteSelectionStore = new DeleteSelectionStore();
+export const selectedArticlesStore = new SelectedArticlesStore();
