@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Icon from '@/components/Icon.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
+	import { navigateBack } from '@/stores/navigationHistory.svelte';
 
 	interface Props {
 		/** Plain label rendered next to the optional thumb. */
@@ -23,7 +23,7 @@
 		if (onBack) {
 			onBack();
 		} else {
-			goto('/');
+			void navigateBack();
 		}
 	}
 </script>

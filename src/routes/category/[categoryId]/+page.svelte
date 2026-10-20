@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
@@ -10,6 +9,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { getCategoryExemplars, type WebStoreCategoryExemplarRecord } from '@/stores/webStore';
 	import { removeCategoryExemplar } from '@/lib/utils/categoryEmbeddings';
+	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
 
 	let categoryId = $derived(page.params.categoryId);
 	let categoryName = $derived(page.url.searchParams.get('name') ?? categoryId);
@@ -65,8 +65,11 @@
 	});
 
 	function handleBack() {
-		goto('/');
+		void navigateBack();
 	}
+
+	// ArrowLeft returns to the route this category was opened from.
+	createBackHotkey();
 </script>
 
 <div class="category-page">

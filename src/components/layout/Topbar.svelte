@@ -7,6 +7,7 @@
 	import { autoHide } from '@/lib/actions/autoHide';
 	import Icon from '@/components/Icon.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import { navigateBack } from '@/stores/navigationHistory.svelte';
 	import { getMediaSrc } from '@/lib/utils/files';
 	interface Props {
 		children?: Snippet;
@@ -56,7 +57,7 @@
 	});
 
 	function handleBackNavigation() {
-		goto(`/`);
+		void navigateBack();
 	}
 
 	function handleProfileNavigation() {

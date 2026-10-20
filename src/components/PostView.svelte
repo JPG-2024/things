@@ -8,7 +8,7 @@
 	import StringReveal from './StringReveal.svelte';
 	import ToggleIcon from './ToggleIcon.svelte';
 	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
-	import { goto } from '$app/navigation';
+	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
@@ -29,11 +29,14 @@
 	let isDeleting = $state(false);
 	let showTemplateManager = $state(false);
 
+	// ArrowLeft returns to the route this post was opened from.
+	createBackHotkey();
+
 	$effect.pre(() => {
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
 				window.removeEventListener('scroll', handleScroll);
-				void goto('/');
+				void navigateBack();
 			}
 		}
 		window.addEventListener('scroll', handleScroll);
@@ -72,7 +75,7 @@
 			const res = await deleteArticleByUrl(viewState.url);
 			if (res?.success) {
 				articleCacheStore.invalidate();
-				goto(`/`);
+				void navigateBack();
 			} else {
 				console.error('Failed to delete article');
 			}

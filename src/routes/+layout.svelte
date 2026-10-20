@@ -30,6 +30,7 @@
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { GLOBAL_CLIPBOARD_TRIGGER_EVENT, readClipboardAndHandle } from '@/lib/utils/clipboard';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
+	import { recordNavigation } from '@/stores/navigationHistory.svelte';
 	import { page } from '$app/state';
 
 	let { children } = $props();
@@ -89,7 +90,9 @@
 		});
 	});
 
-	afterNavigate(() => {
+	afterNavigate((navigation) => {
+		recordNavigation(navigation.from?.url ?? null, navigation.to?.url ?? null);
+
 		const ttsActive =
 			ttsState.isPlaying ||
 			ttsState.isPaused ||
