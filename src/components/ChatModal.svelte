@@ -316,14 +316,22 @@
 
 <style>
 	.chat-modal {
+		--chat-gap: 0.75rem;
 		display: flex;
 		flex-direction: column;
 		position: fixed;
-		inset: 0;
+		top: var(--chat-gap);
+		bottom: var(--chat-gap);
+		left: var(--chat-gap);
+		right: auto;
+		width: calc(50vw - var(--chat-gap) * 2);
 		overflow: hidden;
+		font-family: var(--font-secondary);
 		background: rgba(14, 14, 14, 0.95);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: var(--radius-lg);
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 		z-index: 1100;
-		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	}
 
 	.chat-modal__header {
@@ -395,20 +403,16 @@
 	.chat-modal__message {
 		max-width: 85%;
 		padding: 0.75rem 1rem;
-		border-radius: var(--radius-lg);
+		font-size: 0.8rem;
 		line-height: 1.6;
 	}
 
 	.chat-modal__message--user {
 		align-self: flex-end;
-		background: rgba(var(--primary-color-rgb, 120, 100, 255), 0.2);
-		border: 1px solid rgba(var(--primary-color-rgb, 120, 100, 255), 0.3);
 	}
 
 	.chat-modal__message--assistant {
 		align-self: flex-start;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.08);
 	}
 
 	.chat-modal__user-text {
