@@ -131,6 +131,7 @@ export class TtsPlaybackEngine {
 			this.currentChunkDuration = buf.duration;
 			this.nextChunkPrefetchRequested = false;
 			this.pruneDecodedBehind();
+			this.prefetchNextChunk();
 
 			this.recomputeOffsets();
 			this.totalPlaybackDuration = this.computeTotal();
@@ -354,6 +355,29 @@ export class TtsPlaybackEngine {
 		this.decodedChunks = [];
 		this.decodedDurations = [];
 		this.chunkOffsets = [];
+	}
+
+	/**
+	 * Requests the next chunk as soon as the current one starts playing, so a
+	 * slow backend gets the whole chunk duration to synthesize it instead of
+	 * only the last `prebufferSeconds`. Safe to race with the countdown
+	 * fallback: the store's `generateNextChunk()` is single-flight.
+	 */
+	private prefetchNextChunk(): void {
+		const nextIdx = this.currentChunkIndex + 1;
+		if (nextIdx >= ttsState.totalChunks) return;
+		if (nextIdx < ttsState.blobs.length) return;
+		if (this.nextChunkPrefetchRequested) return;
+
+		this.nextChunkPrefetchRequested = true;
+		void ttsState.generateNextChunk().then((generated) => {
+			// A `false` result can mean "initial generation owns the abort
+			// controller" or a failure: release the flag so the countdown
+			// fallback can retry instead of stalling the pipeline.
+			if (!generated) {
+				this.nextChunkPrefetchRequested = false;
+			}
+		});
 	}
 
 	private startCountdown(): void {

@@ -238,7 +238,15 @@ $effect(() => {
 
 ### Prefetching
 
-**`startCountdown()`** (line 246-267) runs a 500ms interval. When the current chunk is within `PREBUFFER_SECONDS` (2.3s) of finishing and the next blob hasn't been generated yet, it calls `ttsState.generateNextChunk()` proactively.
+**Eager prefetch** — as soon as a chunk starts playing, `playChunkAt()` calls `prefetchNextChunk()`: if the next chunk's blob does not exist yet, it requests it immediately. Slow backends therefore get the full chunk duration to synthesize the next chunk instead of only the tail end.
+
+**`startCountdown()`** (line 359-388) runs a 500ms interval as a fallback trigger (e.g. when the initial generation still owned the abort controller). When the next blob is still missing, it calls `ttsState.generateNextChunk()` once the current chunk is within `prebufferSeconds` of finishing:
+
+```ts
+prebufferSeconds = max(MIN_PREBUFFER, currentChunkDuration * 0.3, averageGenerationTime * 1.2);
+```
+
+`averageGenerationTime` is seeded conservatively (8s) before any chunk has been measured and is kept across playlists, so the fallback keeps a real margin on slower backends. Each generation logs its time next to the produced audio duration (`[TTS] chunk generated in Xs for Ys of audio (ratio Z)`), which reveals a structural deficit when `genTime > audioDuration`.
 
 ### Seeking and Pause/Resume
 

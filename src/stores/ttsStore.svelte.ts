@@ -56,6 +56,12 @@ class TTSState {
 	private _generationTimes: number[] = [];
 	private _chunkVoiceIndices: number[] = [];
 	private readonly _MAX_TRACKED_TIMES = 5;
+	/**
+	 * Conservative fallback used before any chunk has been measured, so the
+	 * first prefetch already gets a real margin on slow backends instead of
+	 * only `MIN_PREBUFFER`.
+	 */
+	private readonly _DEFAULT_GENERATION_TIME = 8;
 
 	language = $derived(viewState.language);
 	config = $state<TTSConfig>({
@@ -103,8 +109,32 @@ class TTSState {
 	private _chunkEndsParagraph: boolean[] = [];
 
 	get averageGenerationTime(): number {
-		if (this._generationTimes.length === 0) return 0;
+		if (this._generationTimes.length === 0) return this._DEFAULT_GENERATION_TIME;
 		return this._generationTimes.reduce((a, b) => a + b, 0) / this._generationTimes.length;
+	}
+
+	/**
+	 * Tracks how long a chunk took to synthesize and logs it next to the audio
+	 * duration it produced. When generation is consistently slower than the
+	 * audio it yields, the pipeline has a structural deficit: no prefetch lead
+	 * can hide the gap, and the fix belongs in chunking/`numStep` instead.
+	 */
+	private _recordGenerationTime(genSeconds: number, audioSeconds: number | null): void {
+		this._generationTimes.push(genSeconds);
+		if (this._generationTimes.length > this._MAX_TRACKED_TIMES) {
+			this._generationTimes.shift();
+		}
+
+		const audio =
+			audioSeconds === null || Number.isNaN(audioSeconds) || audioSeconds <= 0
+				? null
+				: audioSeconds;
+		const ratio = audio === null ? null : genSeconds / audio;
+		console.debug(
+			`[TTS] chunk generated in ${genSeconds.toFixed(2)}s` +
+				(audio === null ? '' : ` for ${audio.toFixed(2)}s of audio`) +
+				(ratio === null ? '' : ` (ratio ${ratio.toFixed(2)})`)
+		);
 	}
 
 	get chunkEndsParagraph(): readonly boolean[] {
@@ -193,7 +223,6 @@ class TTSState {
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		this._chunkRefs = [];
-		this._generationTimes = [];
 	}
 
 	releaseBlobs(): void {
@@ -234,7 +263,6 @@ class TTSState {
 		this.generatedId = '';
 		this.generatedConfigSig = '';
 		this._chunkRefs = [];
-		this._generationTimes = [];
 		if (clearTextContents) {
 			this.textContents = [];
 		}
@@ -361,6 +389,7 @@ class TTSState {
 		this._generationAbort = abort;
 
 		try {
+			const genStart = performance.now();
 			const res = await generateSpeech(
 				buildSpeechParams(
 					this.config,
@@ -370,6 +399,7 @@ class TTSState {
 				),
 				abort.signal
 			);
+			const genElapsed = (performance.now() - genStart) / 1000;
 
 			if (this._generationSession !== session) {
 				return;
@@ -379,6 +409,7 @@ class TTSState {
 				throw new Error('Generated audio is empty (0 bytes)');
 			}
 
+			this._recordGenerationTime(genElapsed, res.durationSeconds);
 			this.blobs.push(res.blob);
 			this.chunksGenerated = 1;
 			this.lastVoiceChunkIndex = this._chunkVoiceIndices[0];
@@ -458,10 +489,6 @@ class TTSState {
 				abort.signal
 			);
 			const genElapsed = (performance.now() - genStart) / 1000;
-			this._generationTimes.push(genElapsed);
-			if (this._generationTimes.length > this._MAX_TRACKED_TIMES) {
-				this._generationTimes.shift();
-			}
 
 			if (this._generationSession !== session) {
 				return false;
@@ -471,6 +498,7 @@ class TTSState {
 				throw new Error('Generated audio is empty (0 bytes)');
 			}
 
+			this._recordGenerationTime(genElapsed, res.durationSeconds);
 			this.blobs.push(res.blob);
 			this.chunksGenerated = i + 1;
 			this.lastVoiceChunkIndex = this._chunkVoiceIndices[i];
@@ -499,6 +527,7 @@ class TTSState {
 
 	cleanup(): void {
 		this.fullReset();
+		this._generationTimes = [];
 		if (this.abortController) {
 			this.abortController.abort();
 			this.abortController = null;
