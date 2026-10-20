@@ -17,9 +17,11 @@
 		search?: boolean;
 		autofocus?: boolean;
 		onChange?: (value: string) => void;
+		onFocus?: (value: string) => void;
 		onBlur?: (value: string) => void;
 		onEnter?: (value: string) => void;
-		onShiftEnter?: (value: string) => void;
+		/** Keep the typed value after Enter (commit-style search instead of send-and-clear). */
+		keepValueOnEnter?: boolean;
 	}
 
 	let {
@@ -36,12 +38,18 @@
 		search = false,
 		autofocus = false,
 		onChange,
+		onFocus,
 		onBlur,
 		onEnter,
-		onShiftEnter
+		keepValueOnEnter = false
 	}: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);
+
+	/** Programmatic focus (e.g. hotkey opens the search popover). */
+	export function focus() {
+		inputEl?.focus();
+	}
 
 	$effect(() => {
 		if (autofocus && inputEl && !disabled) {
@@ -64,6 +72,10 @@
 		onBlur?.(value);
 	}
 
+	function handleFocus() {
+		onFocus?.(value);
+	}
+
 	function extractUrlFromHtml(html: string): string {
 		const hrefMatch = html.match(/href="([^"]+)"/);
 		if (hrefMatch) return hrefMatch[1];
@@ -74,11 +86,9 @@
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
 			event.preventDefault();
-			if (event.shiftKey && onShiftEnter) {
-				onShiftEnter(value);
-			} else if (!event.shiftKey && onEnter) {
+			if (onEnter) {
 				onEnter(value);
-				value = '';
+				if (!keepValueOnEnter) value = '';
 			}
 		}
 	}
@@ -137,6 +147,7 @@
 					{placeholder}
 					{disabled}
 					oninput={handleInput}
+					onfocus={handleFocus}
 					onblur={handleBlur}
 					onkeydown={handleKeydown}
 					ondrop={handleDrop}
@@ -156,6 +167,7 @@
 				{placeholder}
 				{disabled}
 				oninput={handleInput}
+				onfocus={handleFocus}
 				onblur={handleBlur}
 				onkeydown={handleKeydown}
 				ondrop={handleDrop}
@@ -178,6 +190,7 @@
 			{placeholder}
 			{disabled}
 			oninput={handleInput}
+			onfocus={handleFocus}
 			onblur={handleBlur}
 			onkeydown={handleKeydown}
 			ondrop={handleDrop}
@@ -198,6 +211,7 @@
 		{placeholder}
 		{disabled}
 		oninput={handleInput}
+		onfocus={handleFocus}
 		onblur={handleBlur}
 		onkeydown={handleKeydown}
 		ondrop={handleDrop}

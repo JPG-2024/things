@@ -4,19 +4,19 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const profileItemTransition = tabAnimationStore.transitionFor('profiles');
 	const layout = $derived(viewState.cardLayout.profiles);
 
-	const visibleProfiles = $derived(
-		viewState.activeArticleProfileId
-			? articleCacheStore.profilesWithArticles.filter(
-					(profile) => profile.id === viewState.activeArticleProfileId
-				)
-			: articleCacheStore.profilesWithArticles
-	);
+	const visibleProfiles = $derived.by(() => {
+		const ids = articleFilters.ids('profiles');
+		if (ids.length === 0) return articleCacheStore.profilesWithArticles;
+		// Narrowing is client-side over the loaded pages; entities beyond the
+		// loaded pages appear once their page loads.
+		return articleCacheStore.profilesWithArticles.filter((profile) => ids.includes(profile.id));
+	});
 
 	$effect(() => {
 		void articleCacheStore.fetchProfilesWithArticles({ card: viewState.cardLayout.profiles });
@@ -48,7 +48,7 @@
 		</div>
 	{/if}
 {/if}
-{#if articleCacheStore.hasMoreProfiles && !viewState.activeArticleProfileId}
+{#if articleCacheStore.hasMoreProfiles && articleFilters.ids('profiles').length === 0}
 	<LoadMoreSentinel
 		onLoadMore={() => articleCacheStore.loadMoreProfiles()}
 		disabled={articleCacheStore.loadingProfiles}

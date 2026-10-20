@@ -4,19 +4,19 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const domainItemTransition = tabAnimationStore.transitionFor('domains');
 	const layout = $derived(viewState.cardLayout.domains);
 
-	const visibleDomains = $derived(
-		viewState.activeArticleProfileId
-			? articleCacheStore.domainsWithArticles.filter(
-					(domain) => domain.id === viewState.activeArticleProfileId
-				)
-			: articleCacheStore.domainsWithArticles
-	);
+	const visibleDomains = $derived.by(() => {
+		const ids = articleFilters.ids('domains');
+		if (ids.length === 0) return articleCacheStore.domainsWithArticles;
+		// Narrowing is client-side over the loaded pages; entities beyond the
+		// loaded pages appear once their page loads.
+		return articleCacheStore.domainsWithArticles.filter((domain) => ids.includes(domain.id));
+	});
 
 	$effect(() => {
 		void articleCacheStore.fetchDomainsWithArticles({ card: viewState.cardLayout.domains });
@@ -39,7 +39,7 @@
 		/>
 	{/snippet}
 	{#snippet sentinel()}
-		{#if articleCacheStore.hasMoreDomains && !viewState.activeArticleProfileId}
+		{#if articleCacheStore.hasMoreDomains && articleFilters.ids('domains').length === 0}
 			<LoadMoreSentinel
 				onLoadMore={() => articleCacheStore.loadMoreDomains()}
 				disabled={articleCacheStore.loadingDomains}

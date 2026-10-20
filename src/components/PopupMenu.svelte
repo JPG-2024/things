@@ -6,9 +6,15 @@
 		type PopupPosition,
 		type PopupPositionInput
 	} from '@/lib/position';
+	import Card from './Card.svelte';
 
 	interface Props {
 		position?: PopupPositionInput;
+		/** Space in px between the trigger and the panel. */
+		gap?: number;
+		/** Wrapper without click-toggle: open is driven entirely by `bind:open`. */
+		manual?: boolean;
+		closeOnLeave?: boolean;
 		trigger: Snippet;
 		content: Snippet;
 		open?: boolean;
@@ -17,6 +23,9 @@
 
 	let {
 		position = 'bottom',
+		gap = 4,
+		manual = false,
+		closeOnLeave = true,
 		trigger,
 		content,
 		open = $bindable(false),
@@ -34,6 +43,9 @@
 	let panelX = $state(0);
 	let panelY = $state(0);
 	let effectivePosition = $state<PopupPosition>('bottom');
+	// Holds the panel invisible until its coordinates are measured, so the
+	// first frame never flashes at the viewport origin.
+	let positioned = $state(false);
 
 	function portal(node: HTMLElement) {
 		document.body.appendChild(node);
@@ -47,10 +59,6 @@
 	async function toggle(event: MouseEvent) {
 		event.stopPropagation();
 		open = !open;
-		if (open) {
-			await tick();
-			updatePosition();
-		}
 	}
 
 	function close() {
@@ -59,16 +67,34 @@
 
 	function updatePosition() {
 		if (!triggerEl || !panelEl) return;
+		const anchorRect = triggerEl.getBoundingClientRect();
 		const coords = calculatePopupPosition(
-			triggerEl.getBoundingClientRect(),
+			anchorRect,
 			panelEl.offsetWidth,
 			panelEl.offsetHeight,
-			4,
+			gap,
 			position
 		);
 		panelX = coords.x;
 		panelY = coords.y;
 		effectivePosition = coords.effectivePosition;
+	}
+
+	// Positioning reacts to `open` from every path (manual bind, hotkey, typing),
+	// not only the wrapper's own toggle — otherwise the panel renders at 0,0.
+	$effect(() => {
+		if (!open) {
+			positioned = false;
+			return;
+		}
+		void tick().then(() => {
+			updatePosition();
+			positioned = true;
+		});
+	});
+
+	function handleResize() {
+		if (open) updatePosition();
 	}
 
 	function handleClickOutside(event: MouseEvent) {
@@ -84,9 +110,16 @@
 	}
 </script>
 
-<svelte:window onclick={handleClickOutside} onkeydown={handleEscape} />
+<svelte:window onclick={handleClickOutside} onkeydown={handleEscape} onresize={handleResize} />
 
-<div bind:this={triggerEl} class="popup-menu-wrapper" onclick={toggle} role="button" tabindex="0">
+<div
+	bind:this={triggerEl}
+	class="popup-menu-wrapper"
+	class:manual
+	onclick={manual ? undefined : toggle}
+	role={manual ? undefined : 'button'}
+	tabindex={manual ? undefined : 0}
+>
 	{@render trigger()}
 </div>
 
@@ -96,11 +129,13 @@
 		use:portal
 		class="popup-menu panel-{effectivePosition}"
 		class:compact
-		style="left: {panelX}px; top: {panelY}px;"
-		onmouseleave={close}
+		style="left: {panelX}px; top: {panelY}px; visibility: {positioned ? 'visible' : 'hidden'};"
+		onmouseleave={closeOnLeave ? close : undefined}
 		role="menu"
 	>
-		{@render content()}
+		<Card showBorders={false} solid>
+			{@render content()}
+		</Card>
 	</div>
 {/if}
 
@@ -110,27 +145,41 @@
 		cursor: pointer;
 	}
 
+	.popup-menu-wrapper.manual {
+		display: flex;
+		width: 100%;
+		gap: 0.3rem;
+		cursor: default;
+	}
+
 	.popup-menu {
 		position: fixed;
-		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: var(--radius-lg);
-		background: rgba(21, 21, 21);
+		border-radius: var(--radius-md);
 		color: var(--primary-color);
-		padding: 1rem;
 		font-size: 0.8rem;
 		z-index: 9999;
 		max-width: 600px;
-		min-width: 120px;
+		min-width: 70vw;
 		max-height: 500px;
+		box-shadow:
+			0 18px 40px rgba(0, 0, 0, 0.75),
+			0 50px 120px rgba(0, 0, 0, 0.7),
+			0 0 160px rgba(0, 0, 0, 0.55);
+	}
+
+	.popup-menu > :global(.widget) {
 		overflow: auto;
+		max-height: inherit;
 	}
 
 	.popup-menu.compact {
-		padding: 0.25rem;
 		min-width: unset;
+	}
+
+	.popup-menu.compact > :global(.widget) {
+		padding: 0.25rem;
 	}
 
 	.panel-top {

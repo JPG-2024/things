@@ -13,7 +13,7 @@
 		type ArticleProfile,
 		type ArticleWithTasks
 	} from '@/stores/webStore';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
@@ -97,9 +97,7 @@
 		try {
 			const result = await deleteProfileById(profileId);
 			if (result.success) {
-				if (viewState.activeArticleProfileId === profileId) {
-					viewState.activeArticleProfileId = null;
-				}
+				articleFilters.removeById(profileId);
 				articleCacheStore.invalidateProfiles();
 				goto('/');
 			}

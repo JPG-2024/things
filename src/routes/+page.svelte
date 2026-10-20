@@ -5,7 +5,12 @@
 	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
-	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
+	import {
+		viewState,
+		drawersState,
+		voiceSettingsState,
+		articleFilters
+	} from '@/stores/viewStore.svelte';
 	import type { RawSearchResult } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
@@ -24,7 +29,10 @@
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import { startLlamaHealthPolling } from '@/lib/utils/llamaHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
-	import TabHeader from '@/components/TabHeader.svelte';
+	import ActiveFilterChips from '@/components/ActiveFilterChips.svelte';
+	import ArticleFiltersPanel from '@/components/ArticleFiltersPanel.svelte';
+	import PopupMenu from '@/components/PopupMenu.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 
 	import { autoHide } from '@/lib/actions/autoHide';
@@ -69,6 +77,26 @@
 	}
 
 	let toolbarEl = $state<HTMLDivElement>();
+	let searchInput = $state<{ focus: () => void } | null>(null);
+
+	// Focus the page search whenever the filters popover opens (F, icon, typing).
+	$effect(() => {
+		if (articleFilters.panelOpen) searchInput?.focus();
+	});
+
+	/** "Search in articles content" button: commits the typed term, runs the
+	 * raw search and closes the filters popup. */
+	function handleSearchInContent() {
+		viewState.commitUnifiedFilter();
+		void handleRawSearch(viewState.unifiedFilterDraft);
+		articleFilters.panelOpen = false;
+	}
+
+	/** Filter icon: clears the facet filters and the search term/input text. */
+	function handleClearFilters() {
+		articleFilters.clear();
+		viewState.clearUnifiedFilter();
+	}
 
 	async function handleRawSearch(pattern: string) {
 		const trimmed = pattern.trim();
@@ -125,9 +153,7 @@
 	async function handleDeleteProfile(profileId: string) {
 		const result = await deleteProfileById(profileId);
 		if (result.success) {
-			if (viewState.activeArticleProfileId === profileId) {
-				viewState.activeArticleProfileId = null;
-			}
+			articleFilters.removeById(profileId);
 			articleCacheStore.invalidateProfiles();
 			await articleCacheStore.fetchProfilesWithArticles({ force: true });
 		}
@@ -241,12 +267,53 @@
 				</LuminousText>
 			</div>
 			<div class="toolbar-center">
-				<Input
-					type="text"
-					bind:value={viewState.unifiedFilter}
-					search
-					onShiftEnter={handleRawSearch}
-				/>
+				<PopupMenu
+					position="bottom"
+					gap={10}
+					manual
+					closeOnLeave={false}
+					bind:open={articleFilters.panelOpen}
+				>
+					{#snippet trigger()}
+						<Input
+							type="text"
+							bind:this={searchInput}
+							bind:value={viewState.unifiedFilterDraft}
+							search
+							keepValueOnEnter
+							onEnter={() => viewState.commitUnifiedFilter()}
+							onFocus={() => (articleFilters.panelOpen = true)}
+						/>
+						<button
+							type="button"
+							class="filters-trigger"
+							class:active={articleFilters.hasActive}
+							onclick={handleClearFilters}
+							aria-label="Clear article filters"
+						>
+							<Icon name="Filter" />
+						</button>
+					{/snippet}
+					{#snippet content()}
+						{#if articleFilters.hasActive}
+							<div class="popup-filter-chips">
+								<ActiveFilterChips />
+							</div>
+						{/if}
+						<ArticleFiltersPanel />
+						{#if viewState.unifiedFilterDraft.trim()}
+							<div class="popup-raw-search">
+								<Button
+									icon="Search"
+									disabled={viewState.unifiedFilterDraft.trim().length < 4}
+									onClick={handleSearchInContent}
+								>
+									Search in articles content
+								</Button>
+							</div>
+						{/if}
+					{/snippet}
+				</PopupMenu>
 			</div>
 			<div class="toolbar-actions">
 				<!-- 	<button
@@ -374,19 +441,10 @@
 	<div class="toolbar-row tabs-row">
 		<ProfileArticleTabs />
 	</div>
-	{#if viewState.activeProfileArticleTab !== 'articles'}
-		<div class="toolbar-row tab-header-row">
-			<TabHeader />
-		</div>
-	{/if}
 </div>
 
 <div class="dashboard-container">
-	<div
-		id="dashboard-content"
-		class="dashboard-content"
-		class:has-tab-header={viewState.activeProfileArticleTab !== 'articles'}
-	>
+	<div id="dashboard-content" class="dashboard-content">
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'domains'}
@@ -456,11 +514,7 @@
 
 	.dashboard-content {
 		overflow-y: auto;
-		padding-top: 7rem;
-	}
-
-	.dashboard-content.has-tab-header {
-		padding-top: 16rem;
+		padding-top: 10rem;
 	}
 
 	.dashboard-toolbar-container {
@@ -505,6 +559,49 @@
 		justify-self: center;
 		width: 340px;
 		padding: 0 1rem;
+		gap: 0.3rem;
+	}
+
+	/* The manual PopupMenu wrapper wraps search input + filter icon. */
+	.toolbar-center :global(.search-wrapper) {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.popup-raw-search {
+		display: flex;
+		justify-content: center;
+		margin-top: 0.75rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.filters-trigger {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		padding: 0.35rem;
+		flex-shrink: 0;
+		opacity: 0.6;
+		transition:
+			opacity 0.15s,
+			filter 0.15s;
+	}
+
+	.filters-trigger:hover,
+	.filters-trigger.active {
+		opacity: 1;
+	}
+
+	/* Lit while facet filters are active so the state is visible modal-closed. */
+	.filters-trigger.active {
+		filter: drop-shadow(0 0 6px var(--primary-color));
+	}
+
+	.popup-filter-chips {
+		margin-bottom: 0.5rem;
 	}
 
 	.filters-row {

@@ -2781,25 +2781,54 @@ fn query_articles_for_domain(
     query_articles_for_bucket(conn, "domain", domain_id, article_count)
 }
 
-#[tauri::command]
-pub async fn list_articles_without_profile(
-    app: AppHandle,
+/// Filters accepted by the article-list query. The single `profile_id` keeps
+/// the legacy "this entity, either kind" match (profile OR domain) used by the
+/// profile page; the `profile_ids` / `domain_ids` lists are facet filters that
+/// match their own column only, OR within a kind and AND across kinds.
+#[derive(Default)]
+struct ArticlesWithoutProfileFilter {
     category_ids: Option<Vec<String>>,
-    offset: Option<usize>,
-    limit: Option<usize>,
-    only_without_profile: Option<bool>,
     profile_id: Option<String>,
+    profile_ids: Option<Vec<String>>,
+    domain_ids: Option<Vec<String>>,
     date_from: Option<String>,
     template_id: Option<String>,
     include_initial: Option<bool>,
-) -> Result<ArticlesWithoutProfileResponse, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
+    only_without_profile: Option<bool>,
+}
 
+/// Normalizes facet ids for comparison against `LOWER(a.profile/a.domain)`:
+/// trims whitespace, lowercases and drops empties so an empty list means
+/// "facet not applied" instead of an impossible `IN ()` clause.
+fn normalize_filter_ids(ids: &[String]) -> Vec<String> {
+    ids.iter()
+        .map(|id| id.trim().to_lowercase())
+        .filter(|id| !id.is_empty())
+        .collect()
+}
+
+fn query_articles_without_profile(
+    conn: &Connection,
+    filter: &ArticlesWithoutProfileFilter,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<ArticlesWithoutProfileResponse, String> {
     let mut where_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-    if let Some(ref pid) = profile_id {
+    let profile_ids = filter
+        .profile_ids
+        .as_deref()
+        .map(|ids| normalize_filter_ids(ids))
+        .unwrap_or_default();
+    let domain_ids = filter
+        .domain_ids
+        .as_deref()
+        .map(|ids| normalize_filter_ids(ids))
+        .unwrap_or_default();
+    let has_facet_ids = !profile_ids.is_empty() || !domain_ids.is_empty();
+
+    if let Some(ref pid) = filter.profile_id {
         let normalized = pid.trim().to_lowercase();
         if !normalized.is_empty() {
             where_clauses.push("(LOWER(a.profile) = ? OR LOWER(a.domain) = ?)".to_string());
@@ -2807,16 +2836,40 @@ pub async fn list_articles_without_profile(
             params.push(Box::new(normalized));
             where_clauses.push("(a.profile IS NOT NULL OR a.domain IS NOT NULL)".to_string());
         }
-    } else if only_without_profile.unwrap_or(true) {
+    } else if !has_facet_ids && filter.only_without_profile.unwrap_or(true) {
         where_clauses.push("a.profile IS NULL".to_string());
     }
 
-    if let Some(ref from) = date_from {
+    if !profile_ids.is_empty() {
+        let placeholders = profile_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(", ");
+        where_clauses.push(format!("LOWER(a.profile) IN ({placeholders})"));
+        for id in &profile_ids {
+            params.push(Box::new(id.clone()));
+        }
+    }
+
+    if !domain_ids.is_empty() {
+        let placeholders = domain_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(", ");
+        where_clauses.push(format!("LOWER(a.domain) IN ({placeholders})"));
+        for id in &domain_ids {
+            params.push(Box::new(id.clone()));
+        }
+    }
+
+    if let Some(ref from) = filter.date_from {
         where_clauses.push("a.date >= ?".to_string());
         params.push(Box::new(from.clone()));
     }
 
-    if let Some(ref cats) = category_ids {
+    if let Some(ref cats) = filter.category_ids {
         if !cats.is_empty() {
             let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             where_clauses.push(format!(
@@ -2833,7 +2886,8 @@ pub async fn list_articles_without_profile(
         }
     }
 
-    match template_id
+    match filter
+        .template_id
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -2843,7 +2897,7 @@ pub async fn list_articles_without_profile(
             params.push(Box::new(template.to_string()));
         }
         None => {
-            if !include_initial.unwrap_or(false) {
+            if !filter.include_initial.unwrap_or(false) {
                 where_clauses
                     .push("(a.template_id IS NULL OR a.template_id <> 'initial')".to_string());
             }
@@ -2873,14 +2927,48 @@ pub async fn list_articles_without_profile(
     let body = format!(
         "{}{} LIMIT {} OFFSET {}",
         where_sql,
-        article_order_clause(profile_id.is_some()),
+        article_order_clause(filter.profile_id.is_some()),
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
 
-    let articles = query_articles_sql(&conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
+    let articles = query_articles_sql(conn, ARTICLE_LIST_COLUMNS, &body, &params)?;
 
     Ok(ArticlesWithoutProfileResponse { articles, total })
+}
+
+#[tauri::command]
+pub async fn list_articles_without_profile(
+    app: AppHandle,
+    category_ids: Option<Vec<String>>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+    only_without_profile: Option<bool>,
+    profile_id: Option<String>,
+    profile_ids: Option<Vec<String>>,
+    domain_ids: Option<Vec<String>>,
+    date_from: Option<String>,
+    template_id: Option<String>,
+    include_initial: Option<bool>,
+) -> Result<ArticlesWithoutProfileResponse, String> {
+    let conn = get_db(&app)?;
+    init_schema(&conn)?;
+
+    query_articles_without_profile(
+        &conn,
+        &ArticlesWithoutProfileFilter {
+            category_ids,
+            profile_id,
+            profile_ids,
+            domain_ids,
+            date_from,
+            template_id,
+            include_initial,
+            only_without_profile,
+        },
+        offset,
+        limit,
+    )
 }
 
 /// Applies the channel-page order captured by the scraper to a profile's
@@ -4523,5 +4611,191 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM category_exemplars", [], |r| r.get(0))
             .expect("count");
         assert_eq!(count_after, 1, "new exemplars must survive later inits");
+    }
+
+    fn insert_domain_row(conn: &Connection, id: &str) {
+        conn.execute(
+            "INSERT OR IGNORE INTO web_domains (id, name, count, profile_picture, url, updated_at)
+             VALUES (?1, ?1, 0, NULL, NULL, 0)",
+            params![id],
+        )
+        .expect("insert domain");
+    }
+
+    fn insert_article_with_domain(
+        conn: &Connection,
+        id: &str,
+        profile: Option<&str>,
+        domain: Option<&str>,
+        created_at: i64,
+    ) {
+        if let Some(domain_id) = domain {
+            insert_domain_row(conn, domain_id);
+        }
+        conn.execute(
+            "INSERT INTO web_articles
+                (id, url, created_at, title, thumbnail, content, media_directory,
+                 main_color, profile, domain, embedding_source_text, updated_at, viewed, date)
+             VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, ?5, ?6, NULL, ?3, 0, NULL)",
+            params![
+                id,
+                id,
+                created_at,
+                format!("title-{}", id),
+                profile,
+                domain
+            ],
+        )
+        .expect("insert article with domain");
+    }
+
+    fn list_urls(
+        conn: &Connection,
+        filter: &ArticlesWithoutProfileFilter,
+    ) -> Vec<String> {
+        let result = query_articles_without_profile(conn, filter, Some(0), Some(50))
+            .expect("query articles without profile");
+        result
+            .articles
+            .iter()
+            .map(|a| a.url.clone().unwrap_or_default())
+            .collect()
+    }
+
+    #[test]
+    fn query_articles_without_profile_facets_match_their_own_column() {
+        let conn = build_in_memory_db();
+        insert_article_with_domain(&conn, "a-p", Some("alpha"), None, 1);
+        insert_article_with_domain(&conn, "a-d", None, Some("gamma.com"), 2);
+        insert_article_with_domain(&conn, "a-both", Some("alpha"), Some("gamma.com"), 3);
+        insert_article_with_domain(&conn, "a-other", Some("beta"), None, 4);
+
+        // Profile facet only matches a.profile, ignoring domains.
+        // Results are ordered by created_at DESC.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(vec!["alpha".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-both", "a-p"]);
+
+        // Domain facet only matches a.domain, ignoring profiles.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                domain_ids: Some(vec!["gamma.com".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-both", "a-d"]);
+
+        // Ids are matched case-insensitively after trimming.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(vec!["  ALPHA ".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-both", "a-p"]);
+    }
+
+    #[test]
+    fn query_articles_without_profile_facets_or_within_and_across_kinds() {
+        let conn = build_in_memory_db();
+        insert_article_with_domain(&conn, "a-p", Some("alpha"), None, 1);
+        insert_article_with_domain(&conn, "a-p2", Some("beta"), None, 2);
+        insert_article_with_domain(&conn, "a-both", Some("beta"), Some("gamma.com"), 3);
+        insert_article_with_domain(&conn, "a-d", None, Some("gamma.com"), 4);
+
+        // Two profile ids: OR within the kind.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(vec!["alpha".into(), "beta".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-both", "a-p2", "a-p"]);
+
+        // Profile AND domain lists: intersection across kinds.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(vec!["beta".into()]),
+                domain_ids: Some(vec!["gamma.com".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-both"]);
+    }
+
+    #[test]
+    fn query_articles_without_profile_facets_combine_with_categories() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_article_with_domain(&conn, "a-1", Some("alpha"), None, 1);
+        insert_article_with_domain(&conn, "a-2", Some("alpha"), None, 2);
+        insert_article_with_domain(&conn, "a-3", Some("beta"), None, 3);
+        link_article_to_category(&conn, "a-1", "cat-a");
+        link_article_to_category(&conn, "a-3", "cat-a");
+
+        // Category facet alone: every linked article.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                category_ids: Some(vec!["cat-a".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-3", "a-1"]);
+
+        // Profile AND category: only the intersection survives.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(vec!["alpha".into()]),
+                category_ids: Some(vec!["cat-a".into()]),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-1"]);
+    }
+
+    #[test]
+    fn query_articles_without_profile_empty_facets_keep_default_filters() {
+        let conn = build_in_memory_db();
+        insert_article_with_domain(&conn, "a-profiled", Some("alpha"), None, 1);
+        insert_article_with_domain(&conn, "a-bare", None, None, 2);
+
+        // Empty facet lists mean "not applied": the profile-less default holds.
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_ids: Some(Vec::new()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-bare"]);
+
+        // The legacy single profile_id keeps its either-kind match.
+        insert_article_with_domain(&conn, "a-dom", None, Some("alpha"), 3);
+        let urls = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                profile_id: Some("alpha".into()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(urls, vec!["a-dom", "a-profiled"]);
     }
 }

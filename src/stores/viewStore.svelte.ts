@@ -127,7 +127,6 @@ class ViewState {
 
 	url = $state<string | null>(null);
 	currentProfileId = $state<string | null>(null);
-	activeArticleProfileId = $state<string | null>(null);
 	hoveredProfileName = $state<string | null>(null);
 	hoveredProfileId = $state<string | null>(null);
 	hoveredPictureSrc = $state<string | null>(null);
@@ -222,6 +221,11 @@ class ViewState {
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	unifiedFilter = $state('');
+	/**
+	 * Term typed in the page search input. Copied into `unifiedFilter` (the
+	 * value that drives filtering) only when the user presses Enter.
+	 */
+	unifiedFilterDraft = $state('');
 	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
@@ -241,6 +245,17 @@ class ViewState {
 		if (!match || match.length < 3) return `rgba(255, 255, 255, ${alpha})`;
 		return `rgba(${match[0]}, ${match[1]}, ${match[2]}, ${alpha})`;
 	}
+
+	/** Enter commits the typed search term into the filter that drives the UI. */
+	commitUnifiedFilter(): void {
+		this.unifiedFilter = this.unifiedFilterDraft;
+	}
+
+	/** Clears both the applied search filter and the typed draft. */
+	clearUnifiedFilter(): void {
+		this.unifiedFilter = '';
+		this.unifiedFilterDraft = '';
+	}
 }
 
 export interface Message {
@@ -252,6 +267,72 @@ export interface Message {
 }
 
 export const viewState = new ViewState();
+
+/** Kinds of facet the article filters can hold. Keys double as state fields. */
+export type ArticleFilterKind = 'profiles' | 'domains' | 'categories';
+
+export interface ArticleFilterEntry {
+	id: string;
+	name: string;
+}
+
+/**
+ * Global facet filters for the dashboard (ArticleFilters modal + EntityBar).
+ * Semantics: OR within a kind, AND across kinds — mirrored by
+ * `list_articles_without_profile` in Rust. Session-only: never persisted.
+ */
+class ArticleFiltersState {
+	profiles = $state<ArticleFilterEntry[]>([]);
+	domains = $state<ArticleFilterEntry[]>([]);
+	categories = $state<ArticleFilterEntry[]>([]);
+	/** Open state of the filters panel anchored under the page search input. */
+	panelOpen = $state(false);
+
+	get hasActive(): boolean {
+		return this.profiles.length > 0 || this.domains.length > 0 || this.categories.length > 0;
+	}
+
+	/** Click semantics: selecting an active facet entry deselects it. */
+
+	entries(kind: ArticleFilterKind): ArticleFilterEntry[] {
+		return this[kind];
+	}
+
+	ids(kind: ArticleFilterKind): string[] {
+		return this[kind].map((entry) => entry.id);
+	}
+
+	has(kind: ArticleFilterKind, id: string): boolean {
+		return this[kind].some((entry) => entry.id === id);
+	}
+
+	/** Click semantics: selecting an active facet entry deselects it. */
+	toggle(kind: ArticleFilterKind, id: string, name: string): void {
+		const list = this[kind];
+		const index = list.findIndex((entry) => entry.id === id);
+		if (index >= 0) {
+			list.splice(index, 1);
+		} else {
+			list.push({ id, name });
+		}
+	}
+
+	/** Drops an id from every kind — used when the entity is deleted. */
+	removeById(id: string): void {
+		for (const kind of ['profiles', 'domains', 'categories'] as const) {
+			const index = this[kind].findIndex((entry) => entry.id === id);
+			if (index >= 0) this[kind].splice(index, 1);
+		}
+	}
+
+	clear(): void {
+		this.profiles = [];
+		this.domains = [];
+		this.categories = [];
+	}
+}
+
+export const articleFilters = new ArticleFiltersState();
 
 class DrawersState {
 	drawers = $state<Record<string, boolean>>({});

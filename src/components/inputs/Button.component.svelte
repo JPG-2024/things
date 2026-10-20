@@ -34,9 +34,9 @@
 		color: var(--primary-color);
 		display: inline-flex;
 		align-items: center;
+		font-family: var(--font-secondary);
 		gap: 0.5rem;
 		padding: 0.25rem 0.5rem;
-		font: inherit;
 		transition:
 			text-shadow 0.2s ease,
 			filter 0.2s ease;

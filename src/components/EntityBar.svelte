@@ -1,7 +1,6 @@
 <script lang="ts">
 	import EmojiString from '@/components/EmojiString.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
-	import { toVTName } from '@/lib/utils/url';
 	import { viewState } from '@/stores/viewStore.svelte';
 
 	export interface EntityBarItem {
@@ -12,7 +11,10 @@
 
 	interface Props {
 		items: EntityBarItem[];
-		activeId?: string | null;
+		/** Ids of the currently selected items (facet filters). */
+		activeIds?: string[];
+		/** Draws a vertical divider between items (e.g. text-only categories). */
+		separators?: boolean;
 		onSelect?: (item: EntityBarItem) => void;
 		onHoverEnter?: (item: EntityBarItem) => void;
 		onHoverLeave?: () => void;
@@ -20,26 +22,34 @@
 
 	let {
 		items,
-		activeId = null,
+		activeIds = [],
+		separators = false,
 		onSelect = undefined,
 		onHoverEnter = undefined,
 		onHoverLeave = undefined
 	}: Props = $props();
 
-	const filterTerm = $derived(viewState.unifiedFilter.trim().toLowerCase());
+	const filterTerm = $derived(viewState.unifiedFilterDraft.trim().toLowerCase());
 	const filteredItems = $derived(
 		filterTerm ? items.filter((item) => item.name.toLowerCase().includes(filterTerm)) : items
 	);
+
+	function isActive(item: EntityBarItem): boolean {
+		return activeIds.includes(item.id);
+	}
 </script>
 
 <div class="entity-bar">
-	{#each filteredItems as item (item.id)}
+	{#each filteredItems as item, index (item.id)}
+		{#if separators && index > 0}
+			<span class="entity-divider" aria-hidden="true"></span>
+		{/if}
 		<button
 			type="button"
 			class="entity"
 			class:entity--picture={!!item.profilePictureSrc}
-			class:active={activeId === item.id}
-			class:inactive={activeId !== null && activeId !== item.id}
+			class:active={isActive(item)}
+			class:inactive={activeIds.length > 0 && !isActive(item)}
 			onclick={() => onSelect?.(item)}
 			onmouseenter={() => onHoverEnter?.(item)}
 			onmouseleave={() => onHoverLeave?.()}
@@ -47,14 +57,9 @@
 		>
 			<Tooltip content={item.name}>
 				{#if item.profilePictureSrc}
-					<img
-						src={item.profilePictureSrc}
-						alt={item.name}
-						class="entity-picture"
-						style={`view-transition-name: vt-profile-${toVTName(item.id)}`}
-					/>
+					<img src={item.profilePictureSrc} alt={item.name} class="entity-picture" />
 				{:else}
-					<EmojiString value={item.name} active={activeId === item.id} />
+					<EmojiString value={item.name} active={isActive(item)} />
 				{/if}
 			</Tooltip>
 		</button>
@@ -71,19 +76,26 @@
 		width: 100%;
 	}
 
+	.entity-divider {
+		width: 1px;
+		height: 1.2rem;
+		align-self: center;
+		background: rgba(255, 255, 255, 0.15);
+	}
+
 	.entity {
 		all: unset;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		opacity: 0.8;
+		opacity: 0.5;
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
 	}
 
-	.entity-bar:hover .entity {
+	.entity-bar:hover .entity:not(.active) {
 		opacity: 0.4;
 	}
 
@@ -105,9 +117,9 @@
 
 	.entity-picture {
 		display: block;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 50%;
+		width: 2.4rem;
+		height: 2.4rem;
+		border-radius: var(--radius-sm);
 		object-fit: cover;
 	}
 </style>

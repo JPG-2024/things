@@ -22,6 +22,9 @@ export interface ArticleWithTasks {
 	content?: string | null;
 	mediaDirectory?: string | null;
 	profileId?: string | null;
+	/** Ride on the spread WebStoreArticleRecord; used by facet post-filtering. */
+	profile?: string | null;
+	domain?: string | null;
 	/** Rides on the spread WebStoreArticleRecord; list rows always carry it. */
 	createdAt?: number;
 	profilePicture?: string | null;
@@ -1196,6 +1199,9 @@ export async function getArticlesWithoutProfile(options?: {
 	limit?: number;
 	onlyWithoutProfile?: boolean;
 	profileId?: string;
+	/** Facet filters: match a.profile / a.domain only (not either-kind). */
+	profileIds?: string[];
+	domainIds?: string[];
 	dateFrom?: string;
 	templateId?: string;
 	includeInitial?: boolean;
@@ -1210,6 +1216,8 @@ export async function getArticlesWithoutProfile(options?: {
 			limit: options?.limit ?? null,
 			onlyWithoutProfile: options?.onlyWithoutProfile ?? null,
 			profileId: options?.profileId ?? null,
+			profileIds: options?.profileIds ?? null,
+			domainIds: options?.domainIds ?? null,
 			dateFrom: options?.dateFrom ?? null,
 			templateId: options?.templateId ?? null,
 			includeInitial: options?.includeInitial ?? null

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
@@ -10,25 +10,47 @@
 	// Created once so the transition function identity stays stable across renders.
 	const articleItemTransition = tabAnimationStore.transitionFor('articles');
 
-	const searchArticles = $derived((searchResults ?? []).map((result) => result.article));
+	// Raw search results are post-filtered client-side by the profile/domain
+	// facets (category membership is not present on search rows).
+	const filteredSearchResults = $derived.by(() => {
+		const results = searchResults ?? [];
+		if (!articleFilters.hasActive) return results;
+		const profileIds = articleFilters.ids('profiles');
+		const domainIds = articleFilters.ids('domains');
+		return results.filter(({ article }) => {
+			const profile = (article.profile ?? '').toLowerCase();
+			const domain = (article.domain ?? '').toLowerCase();
+			const profileOk = profileIds.length === 0 || profileIds.includes(profile);
+			const domainOk = domainIds.length === 0 || domainIds.includes(domain);
+			return profileOk && domainOk;
+		});
+	});
+
+	const searchArticles = $derived(filteredSearchResults.map((result) => result.article));
 
 	// ArticleList works on ArticleWithTasks[]; the match lookup is by article
 	// identity so results are displayed even when `url` is missing.
 	const searchMatches = $derived(
-		new Map((searchResults ?? []).map((result) => [result.article, result.match]))
+		new Map(filteredSearchResults.map((result) => [result.article, result.match]))
 	);
 
 	function handleClearSearch() {
+		// Clears results, the committed filter and the typed draft, so coming
+		// back from another route cannot re-trigger the auto raw search.
+		viewState.clearUnifiedFilter();
 		viewState.rawSearchResults = null;
 	}
 
+	const filtersActive = $derived(articleFilters.hasActive);
+
 	$effect(() => {
 		const onlyRaw = viewState.showOnlyRawArticles;
-		const profileId = viewState.activeArticleProfileId;
 		const showOnlyInitial = viewState.showOnlyInitialArticles;
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			onlyWithoutProfile: onlyRaw,
-			profileId: profileId ?? undefined,
+			profileIds: articleFilters.ids('profiles'),
+			domainIds: articleFilters.ids('domains'),
+			categoryIds: articleFilters.ids('categories'),
 			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined,
 			includeInitial: true
 		});
@@ -43,7 +65,7 @@
 	{:else if searchResults !== null}
 		<div class="search-results-header">
 			<button type="button" class="search-results-clear" onclick={handleClearSearch}>
-				{searchResults.length} result{searchResults.length !== 1 ? 's' : ''} — clear
+				{filteredSearchResults.length} result{filteredSearchResults.length !== 1 ? 's' : ''} — clear
 			</button>
 		</div>
 		<ArticleList
@@ -53,6 +75,12 @@
 			matchOf={(article) => searchMatches.get(article) ?? null}
 			emptyMessage="No matches found"
 		/>
+	{:else if filtersActive && articleCacheStore.articlesWithoutProfile.length === 0 && !articleCacheStore.loadingArticles}
+		<div class="empty-profiles-container">
+			<button type="button" class="empty-profiles-pill" onclick={() => articleFilters.clear()}>
+				0 results for active filters — clear
+			</button>
+		</div>
 	{:else}
 		<ArticleList
 			items={articleCacheStore.articlesWithoutProfile}

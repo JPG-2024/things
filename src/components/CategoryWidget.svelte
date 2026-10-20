@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
 	import {
@@ -73,9 +73,7 @@
 		try {
 			const result = await deleteProfileById(categoryId);
 			if (result.success) {
-				if (viewState.activeArticleProfileId === categoryId) {
-					viewState.activeArticleProfileId = null;
-				}
+				articleFilters.removeById(categoryId);
 				articleCacheStore.invalidate();
 				await onDeleted?.(categoryId);
 			}

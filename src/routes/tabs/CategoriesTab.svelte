@@ -4,7 +4,7 @@
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
@@ -16,8 +16,11 @@
 	$effect(() => {
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
 		const card = viewState.cardLayout.categories;
+		const categoryIds = articleFilters.ids('categories');
 		void articleCacheStore.fetchCategoriesWithArticles({
-			categoryIds: [],
+			// Explicit ids: the store fetches one page per chosen category and
+			// stops catalog paging. Empty list = full catalog as before.
+			categoryIds,
 			card,
 			createdAtFrom: new Date(onlyArticlesAfter).getTime()
 		});

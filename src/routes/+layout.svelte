@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { viewState, drawersState, voiceSettingsState } from '@/stores/viewStore.svelte';
+	import {
+		viewState,
+		drawersState,
+		voiceSettingsState,
+		articleFilters
+	} from '@/stores/viewStore.svelte';
 	import { onMount } from 'svelte';
 	import { listen } from '@tauri-apps/api/event';
 
@@ -140,6 +145,25 @@
 		},
 		{
 			ignoreInputs: true
+		}
+	);
+
+	// F toggles the ArticleFilters panel anchored under the page search input.
+	// Closing always wins over the overlay guard so F also dismisses the panel.
+	createHotkey(
+		'F',
+		() => {
+			if (articleFilters.panelOpen) {
+				articleFilters.panelOpen = false;
+				return;
+			}
+			if (viewState.overlayOpen) return;
+			articleFilters.panelOpen = true;
+		},
+		{
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
 		}
 	);
 

@@ -35,6 +35,8 @@ type ArticlesParams = {
 	categoryIds?: string[];
 	onlyWithoutProfile?: boolean;
 	profileId?: string;
+	profileIds?: string[];
+	domainIds?: string[];
 	dateFrom?: string;
 	templateId?: string;
 	includeInitial?: boolean;
@@ -101,6 +103,8 @@ class ArticleCacheStore {
 				categoryIds: sortedIds(params.categoryIds),
 				onlyWithoutProfile: params.onlyWithoutProfile ?? null,
 				profileId: params.profileId ?? null,
+				profileIds: sortedIds(params.profileIds),
+				domainIds: sortedIds(params.domainIds),
 				dateFrom: params.dateFrom ?? null,
 				templateId: params.templateId ?? null,
 				includeInitial: params.includeInitial ?? null
@@ -112,6 +116,8 @@ class ArticleCacheStore {
 				limit,
 				onlyWithoutProfile: params.onlyWithoutProfile,
 				profileId: params.profileId,
+				profileIds: params.profileIds,
+				domainIds: params.domainIds,
 				dateFrom: params.dateFrom,
 				templateId: params.templateId,
 				includeInitial: params.includeInitial
@@ -261,6 +267,8 @@ class ArticleCacheStore {
 		categoryIds?: string[];
 		onlyWithoutProfile?: boolean;
 		profileId?: string;
+		profileIds?: string[];
+		domainIds?: string[];
 		dateFrom?: string;
 		templateId?: string;
 		includeInitial?: boolean;
@@ -270,6 +278,8 @@ class ArticleCacheStore {
 				categoryIds: options?.categoryIds,
 				onlyWithoutProfile: options?.onlyWithoutProfile,
 				profileId: options?.profileId,
+				profileIds: options?.profileIds,
+				domainIds: options?.domainIds,
 				dateFrom: options?.dateFrom,
 				templateId: options?.templateId,
 				includeInitial: options?.includeInitial
