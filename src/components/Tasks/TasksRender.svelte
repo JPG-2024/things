@@ -7,6 +7,7 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { fade } from 'svelte/transition';
+	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 	import Image from '@/components/Image.svelte';
@@ -109,6 +110,15 @@
 		})
 	);
 
+	// Svelte skips intro transitions for elements present during a component's
+	// initial render. Cached tasks can already be done by the time this page
+	// mounts (the urlRouter/goto race), which swallows the thumbnail's fly-in.
+	// Mount it one tick later so the insertion always animates.
+	let thumbnailIntroReady = $state(false);
+	onMount(() => {
+		thumbnailIntroReady = true;
+	});
+
 	let previousDoneKeys = new SvelteSet<string>();
 	let initialized = false;
 
@@ -180,7 +190,7 @@
 <div class="tasks-container">
 	{#if thumbnailData || categoryData || titleText || viewState.url}
 		<div class="tasks-header-row">
-			{#if thumbnailEntry && thumbnailData}
+			{#if thumbnailEntry && thumbnailData && thumbnailIntroReady}
 				<div class="header-col thumbnail-col">
 					{#if thumbnailComponent === 'player'}
 						<YouTubePlayer data={thumbnailData} />
