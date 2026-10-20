@@ -190,17 +190,29 @@
 		ignoreInputs: true
 	});
 
-	createHotkey('ArrowRight', () => engine.seekForward(), {
-		stopPropagation: true,
-		preventDefault: true,
-		ignoreInputs: true
-	});
+	// Arrows seek only while playback is active; idle, they stay free for the
+	// dashboard tab switcher (the hotkey manager fires every matching handler).
+	createHotkey(
+		'ArrowRight',
+		() => engine.seekForward(),
+		() => ({
+			stopPropagation: true,
+			preventDefault: true,
+			ignoreInputs: true,
+			enabled: ttsState.isPlaying || ttsState.isPaused
+		})
+	);
 
-	createHotkey('ArrowLeft', () => engine.seekBackward(), {
-		stopPropagation: true,
-		preventDefault: true,
-		ignoreInputs: true
-	});
+	createHotkey(
+		'ArrowLeft',
+		() => engine.seekBackward(),
+		() => ({
+			stopPropagation: true,
+			preventDefault: true,
+			ignoreInputs: true,
+			enabled: ttsState.isPlaying || ttsState.isPaused
+		})
+	);
 
 	onMount(() => {
 		void voice.initProfiles();

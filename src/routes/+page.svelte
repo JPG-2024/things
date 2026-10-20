@@ -13,6 +13,8 @@
 	} from '@/stores/viewStore.svelte';
 	import type { RawSearchResult } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
+	import type { ProfileArticleTabId } from '@/stores/tabAnimationStore.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
@@ -234,32 +236,40 @@
 		})
 	);
 
-	const TAB_ORDER = ['profiles', 'domains', 'categories', 'articles'] as const;
+	// Visual tab order, matching the tabs row (PROFILE_ARTICLE_TABS): ArrowRight
+	// moves to the tab on its right, ArrowLeft to the one on its left. TTS owns
+	// the plain arrows while playback is active (seek), and overlays own them
+	// otherwise, so the switch stays disabled then.
+	const TAB_ORDER: ProfileArticleTabId[] = ['articles', 'profiles', 'domains', 'categories'];
+
+	function switchTab(delta: 1 | -1) {
+		const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
+		const next = TAB_ORDER[currentIndex + delta];
+		if (!next) return;
+		tabAnimationStore.recordTabChange(next);
+		viewState.activeProfileArticleTab = next;
+	}
 
 	const leftHotkey = createHotkey(
-		'Alt+ArrowLeft',
-		() => {
-			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
-			if (currentIndex < TAB_ORDER.length - 1) {
-				const next = TAB_ORDER[currentIndex + 1];
-				tabAnimationStore.recordTabChange(next);
-				viewState.activeProfileArticleTab = next;
-			}
-		},
-		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+		'ArrowLeft',
+		() => switchTab(-1),
+		() => ({
+			enabled: !viewState.overlayOpen && !ttsState.isPlaying && !ttsState.isPaused,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
 	);
 
 	const rightHotkey = createHotkey(
-		'Alt+ArrowRight',
-		() => {
-			const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
-			if (currentIndex > 0) {
-				const next = TAB_ORDER[currentIndex - 1];
-				tabAnimationStore.recordTabChange(next);
-				viewState.activeProfileArticleTab = next;
-			}
-		},
-		{ ignoreInputs: true, stopPropagation: true, preventDefault: true }
+		'ArrowRight',
+		() => switchTab(1),
+		() => ({
+			enabled: !viewState.overlayOpen && !ttsState.isPlaying && !ttsState.isPaused,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
 	);
 
 	$effect(() => {
