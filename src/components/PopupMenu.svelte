@@ -39,7 +39,7 @@
 	setContext('popup-menu-open', popupCtx);
 
 	let triggerEl: HTMLDivElement;
-	let panelEl: HTMLDivElement | undefined;
+	let panelEl = $state<HTMLDivElement | undefined>();
 	let panelX = $state(0);
 	let panelY = $state(0);
 	let effectivePosition = $state<PopupPosition>('bottom');
@@ -91,6 +91,17 @@
 			updatePosition();
 			positioned = true;
 		});
+	});
+
+	// Content can grow after the panel is measured (async lists arriving, chips,
+	// buttons appearing) — re-anchor while open so it never sits misaligned.
+	$effect(() => {
+		if (!open || !panelEl) {
+			return;
+		}
+		const observer = new ResizeObserver(updatePosition);
+		observer.observe(panelEl);
+		return () => observer.disconnect();
 	});
 
 	function handleResize() {

@@ -3,6 +3,7 @@ import { isoDateDaysAgo } from '@/lib/utils/date';
 import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
 import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
+import { getProfiles } from '@/stores/webStore';
 import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 
@@ -290,6 +291,29 @@ class ArticleFiltersState {
 	categories = $state<ArticleFilterEntry[]>([]);
 	/** Open state of the filters panel anchored under the page search input. */
 	panelOpen = $state(false);
+	/** In-flight opening, shared so concurrent triggers (F hotkey + search
+	 * focus) re-warm the facet lists only once. */
+	private openingPanel: Promise<void> | null = null;
+
+	/**
+	 * Opens the filters popup only after its facet lists are available, so it
+	 * never shows a half-populated view. `getProfiles({ kind })` (full lists)
+	 * is cached in webStore until the profiles cache is invalidated by a
+	 * profile create/update/delete, so reopens resolve instantly.
+	 */
+	async openPanel(): Promise<void> {
+		if (this.openingPanel) return this.openingPanel;
+		if (this.panelOpen) return;
+		this.openingPanel = (async () => {
+			try {
+				await Promise.all([getProfiles({ kind: 'profile' }), getProfiles({ kind: 'domain' })]);
+				this.panelOpen = true;
+			} finally {
+				this.openingPanel = null;
+			}
+		})();
+		return this.openingPanel;
+	}
 
 	get hasActive(): boolean {
 		return this.profiles.length > 0 || this.domains.length > 0 || this.categories.length > 0;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import EntityBar from '@/components/EntityBar.svelte';
 	import type { EntityBarItem } from '@/components/EntityBar.svelte';
 	import { viewState, articleFilters, type ArticleFilterKind } from '@/stores/viewStore.svelte';
@@ -15,17 +16,25 @@
 
 	let profiles = $state<ArticleProfile[]>([]);
 	let domains = $state<ArticleProfile[]>([]);
+	/** Sections render (and fly in) only once both lists arrive. The open flow
+	 * pre-warms the kind-only getProfiles cache, so this flip is instant on
+	 * reopens and only waits on the very first one. */
+	let loading = $state(true);
 
 	// Full lists (no paging): getProfiles without offset/limit returns every
 	// entity of the requested kind; categories come from the page-level state.
 	// Runs on each open: the panel only mounts while visible.
 	onMount(async () => {
-		const [profileItems, domainItems] = await Promise.all([
-			getProfiles({ kind: 'profile' }),
-			getProfiles({ kind: 'domain' })
-		]);
-		profiles = profileItems;
-		domains = domainItems;
+		try {
+			const [profileItems, domainItems] = await Promise.all([
+				getProfiles({ kind: 'profile' }),
+				getProfiles({ kind: 'domain' })
+			]);
+			profiles = profileItems;
+			domains = domainItems;
+		} finally {
+			loading = false;
+		}
 	});
 
 	// Narrowed by the search draft — the same term EntityBar applies — so
@@ -74,19 +83,23 @@
 	});
 </script>
 
-{#each sections as section (section.kind)}
-	{#if section.items.length > 0}
-		<div class="section-title">{section.label}</div>
-		<div class="entity-bar-container">
-			<EntityBar
-				items={section.items}
-				activeIds={articleFilters.ids(section.kind)}
-				separators={section.separators ?? false}
-				onSelect={(item) => articleFilters.toggle(section.kind, item.id, item.name)}
-			/>
-		</div>
-	{/if}
-{/each}
+{#if !loading}
+	<div in:fly={{ y: 8, duration: 200 }}>
+		{#each sections as section (section.kind)}
+			{#if section.items.length > 0}
+				<div class="section-title">{section.label}</div>
+				<div class="entity-bar-container">
+					<EntityBar
+						items={section.items}
+						activeIds={articleFilters.ids(section.kind)}
+						separators={section.separators ?? false}
+						onSelect={(item) => articleFilters.toggle(section.kind, item.id, item.name)}
+					/>
+				</div>
+			{/if}
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.entity-bar-container {

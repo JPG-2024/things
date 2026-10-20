@@ -158,7 +158,7 @@
 				return;
 			}
 			if (viewState.overlayOpen) return;
-			articleFilters.panelOpen = true;
+			void articleFilters.openPanel();
 		},
 		{
 			ignoreInputs: true,

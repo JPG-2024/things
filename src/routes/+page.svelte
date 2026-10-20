@@ -312,7 +312,7 @@
 							search
 							keepValueOnEnter
 							onEnter={() => viewState.commitUnifiedFilter()}
-							onFocus={() => (articleFilters.panelOpen = true)}
+							onFocus={() => void articleFilters.openPanel()}
 						/>
 						<button
 							type="button"

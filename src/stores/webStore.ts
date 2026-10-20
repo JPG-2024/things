@@ -186,6 +186,10 @@ const TASKS_CACHE_TTL = 30_000;
 
 let _cachedProfiles: ArticleProfile[] | null = null;
 let _pendingProfilesPromise: Promise<ArticleProfile[]> | null = null;
+/** Full-list cache for the `kind`-only `getProfiles` variant (filters popup:
+ * every profile, or every domain). Any other option bypasses it. */
+const _cachedProfilesByKind = new Map<'profile' | 'domain', ArticleProfile[]>();
+const _pendingProfilesByKind = new Map<'profile' | 'domain', Promise<ArticleProfile[]>>();
 
 async function getTasksByUrlMap(): Promise<Map<string, string>> {
 	if (_cachedTasksByUrl && Date.now() - _cachedTasksTimestamp < TASKS_CACHE_TTL) {
@@ -671,7 +675,7 @@ function profileRecordToArticleProfile(record: WebStoreProfileRecord): ArticlePr
 	};
 }
 
-export async function getProfiles(options?: {
+interface ProfilesOptions {
 	categoryIds?: string[];
 	createdAtFrom?: number;
 	includeArticles?: boolean;
@@ -679,7 +683,23 @@ export async function getProfiles(options?: {
 	offset?: number;
 	limit?: number;
 	kind?: 'domain' | 'profile';
-}): Promise<ArticleProfile[]> {
+}
+
+/** True when `kind` is the only option — the full-list variant served from the
+ * per-kind cache. Combination calls (paging, filters, articles) never cache. */
+function isKindOnly(options: ProfilesOptions): options is { kind: 'profile' | 'domain' } {
+	return (
+		options.kind !== undefined &&
+		options.categoryIds === undefined &&
+		options.createdAtFrom === undefined &&
+		options.includeArticles === undefined &&
+		options.articleCount === undefined &&
+		options.offset === undefined &&
+		options.limit === undefined
+	);
+}
+
+export async function getProfiles(options?: ProfilesOptions): Promise<ArticleProfile[]> {
 	if (!options && _cachedProfiles) return _cachedProfiles;
 	if (!options && _pendingProfilesPromise) return _pendingProfilesPromise;
 
@@ -754,12 +774,30 @@ export async function getProfiles(options?: {
 		}
 	}
 
+	if (isKindOnly(options)) {
+		const kind = options.kind;
+		const cached = _cachedProfilesByKind.get(kind);
+		if (cached) return cached;
+		const pending = _pendingProfilesByKind.get(kind);
+		if (pending) return pending;
+		const promise = fetchProfiles().then((items) => {
+			_cachedProfilesByKind.set(kind, items);
+			return items;
+		});
+		_pendingProfilesByKind.set(kind, promise);
+		return promise.finally(() => {
+			_pendingProfilesByKind.delete(kind);
+		});
+	}
+
 	return fetchProfiles();
 }
 
 export function invalidateProfilesCache(): void {
 	_cachedProfiles = null;
 	_pendingProfilesPromise = null;
+	_cachedProfilesByKind.clear();
+	_pendingProfilesByKind.clear();
 }
 
 export async function getProfile(profileId: string): Promise<ArticleProfile | null> {
