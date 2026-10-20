@@ -206,8 +206,7 @@ class ScrapState {
 					urls: normalized.map((video) => video.url)
 				});
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-				await articleCacheStore.fetchArticlesWithoutProfile({
-					profileId,
+				await articleCacheStore.fetchProfileArticles(profileId, {
 					force: true,
 					includeInitial: true
 				});
@@ -260,8 +259,7 @@ class ScrapState {
 			});
 
 			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-			await articleCacheStore.fetchArticlesWithoutProfile({
-				profileId,
+			await articleCacheStore.fetchProfileArticles(profileId, {
 				force: true,
 				includeInitial: true
 			});

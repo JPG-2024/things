@@ -51,6 +51,40 @@ type CategoryPageEntry = {
 	articles: ArticleWithTasks[];
 };
 
+function buildArticlesSignature(params: ArticlesParams): string {
+	return JSON.stringify({
+		categoryIds: sortedIds(params.categoryIds),
+		onlyWithoutProfile: params.onlyWithoutProfile ?? null,
+		profileId: params.profileId ?? null,
+		profileIds: sortedIds(params.profileIds),
+		domainIds: sortedIds(params.domainIds),
+		dateFrom: params.dateFrom ?? null,
+		templateId: params.templateId ?? null,
+		includeInitial: params.includeInitial ?? null
+	});
+}
+
+async function fetchArticlesPage(
+	params: ArticlesParams,
+	offset: number,
+	limit: number
+): Promise<{ items: ArticleWithTasks[]; total: number }> {
+	const result = await getArticlesWithoutProfile({
+		categoryIds: params.categoryIds,
+		offset,
+		limit,
+		onlyWithoutProfile: params.onlyWithoutProfile,
+		profileId: params.profileId,
+		profileIds: params.profileIds,
+		domainIds: params.domainIds,
+		dateFrom: params.dateFrom,
+		templateId: params.templateId,
+		includeInitial: params.includeInitial
+	});
+
+	return { items: result.articles, total: result.total };
+}
+
 class ArticleCacheStore {
 	private readonly profiles = new PaginationResource<ArticleProfile, ProfilesParams>(
 		PROFILES_PAGE_SIZE,
@@ -98,33 +132,8 @@ class ArticleCacheStore {
 
 	private readonly articles = new PaginationResource<ArticleWithTasks, ArticlesParams>(
 		ARTICLES_PAGE_SIZE,
-		(params) =>
-			JSON.stringify({
-				categoryIds: sortedIds(params.categoryIds),
-				onlyWithoutProfile: params.onlyWithoutProfile ?? null,
-				profileId: params.profileId ?? null,
-				profileIds: sortedIds(params.profileIds),
-				domainIds: sortedIds(params.domainIds),
-				dateFrom: params.dateFrom ?? null,
-				templateId: params.templateId ?? null,
-				includeInitial: params.includeInitial ?? null
-			}),
-		async (params, offset, limit) => {
-			const result = await getArticlesWithoutProfile({
-				categoryIds: params.categoryIds,
-				offset,
-				limit,
-				onlyWithoutProfile: params.onlyWithoutProfile,
-				profileId: params.profileId,
-				profileIds: params.profileIds,
-				domainIds: params.domainIds,
-				dateFrom: params.dateFrom,
-				templateId: params.templateId,
-				includeInitial: params.includeInitial
-			});
-
-			return { items: result.articles, total: result.total };
-		}
+		buildArticlesSignature,
+		fetchArticlesPage
 	);
 
 	private readonly categoryArticlesResource = new PaginationResource<
@@ -144,6 +153,43 @@ class ArticleCacheStore {
 			return { items: result.articles, total: result.total };
 		}
 	);
+
+	// Per-profile article lists, cached independently of the shared `articles`
+	// resource so a profile visit never evicts/overwrites the ArticlesTab page
+	// (visiting a profile used to change the shared signature, forcing the tab
+	// to hard-refetch on return: the grid emptied and the masonry remeasured
+	// everything). Keyed by normalized profile id so page.params and the
+	// scrapStore's normalized handle land on the same entry.
+	private readonly profileArticlesResources = new SvelteMap<
+		string,
+		PaginationResource<ArticleWithTasks, ArticlesParams>
+	>();
+
+	private profileResourceKey(profileId: string): string {
+		return profileId.trim().toLowerCase();
+	}
+
+	private getOrCreateProfileResource(
+		profileId: string
+	): PaginationResource<ArticleWithTasks, ArticlesParams> {
+		const key = this.profileResourceKey(profileId);
+		let resource = this.profileArticlesResources.get(key);
+		if (!resource) {
+			resource = new PaginationResource<ArticleWithTasks, ArticlesParams>(
+				ARTICLES_PAGE_SIZE,
+				buildArticlesSignature,
+				fetchArticlesPage
+			);
+			this.profileArticlesResources.set(key, resource);
+		}
+		return resource;
+	}
+
+	private profileResource(
+		profileId: string
+	): PaginationResource<ArticleWithTasks, ArticlesParams> | undefined {
+		return this.profileArticlesResources.get(this.profileResourceKey(profileId));
+	}
 
 	// Category catalog paging (CategoriesTab wheel). The wheel paginates cards,
 	// not the articles inside a card: each page carries a bounded number of
@@ -286,6 +332,38 @@ class ArticleCacheStore {
 			},
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
+	}
+
+	/** Fetches the paginated article list of one profile into its own cache. */
+	async fetchProfileArticles(
+		profileId: string,
+		options?: { force?: boolean; templateId?: string; includeInitial?: boolean }
+	) {
+		await this.getOrCreateProfileResource(profileId).fetch(
+			{
+				profileId,
+				templateId: options?.templateId,
+				includeInitial: options?.includeInitial
+			},
+			{ force: options?.force }
+		);
+	}
+
+	/** Articles of one profile from its per-profile cache (empty until fetched). */
+	profileArticles(profileId: string): ArticleWithTasks[] {
+		return this.profileResource(profileId)?.visibleItems ?? [];
+	}
+
+	loadingProfileArticles(profileId: string): boolean {
+		return this.profileResource(profileId)?.loading ?? false;
+	}
+
+	hasMoreProfileArticles(profileId: string): boolean {
+		return this.profileResource(profileId)?.hasMore ?? false;
+	}
+
+	async loadMoreProfileArticles(profileId: string): Promise<void> {
+		await this.profileResource(profileId)?.loadMore();
 	}
 
 	async fetchDomainsWithArticles(options?: {
@@ -452,6 +530,9 @@ class ArticleCacheStore {
 		this.profiles.invalidate();
 		this.domains.invalidate();
 		this.articles.invalidate();
+		for (const resource of this.profileArticlesResources.values()) {
+			resource.invalidate();
+		}
 		this.categoryPagesStale = true;
 		this.categoryArticlesResource.invalidate();
 	}
@@ -486,6 +567,15 @@ class ArticleCacheStore {
 		this.articles.total = Math.max(0, this.articles.total - removedArticles);
 		this.articles.offset = this.articles.items.length;
 		this.articles.hasMore = this.articles.offset < this.articles.total;
+
+		// Prune every cached per-profile list too, keeping each resource's
+		// pagination counters consistent so its next loadMore stays aligned.
+		for (const resource of this.profileArticlesResources.values()) {
+			const removedFromProfile = resource.remove(hasUrl);
+			resource.total = Math.max(0, resource.total - removedFromProfile);
+			resource.offset = resource.items.length;
+			resource.hasMore = resource.offset < resource.total;
+		}
 
 		this.categoryArticlesResource.remove(hasUrl);
 		this.categoryArticlesResource.offset = this.categoryArticlesResource.items.length;
