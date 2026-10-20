@@ -168,6 +168,9 @@ class ViewState {
 	embeddingsLoading = $state(false);
 	embeddingsServiceUp = $state(false);
 	inferenceServiceUp = $state(false);
+	scrapServiceUp = $state(false);
+	ttsServiceUp = $state(false);
+	whisperServiceUp = $state(false);
 	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);
 	// Starting depth for new topic-analysis tasks (see ANALYSIS_DEPTH_LEVELS);

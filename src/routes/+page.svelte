@@ -28,6 +28,10 @@
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import { startLlamaHealthPolling } from '@/lib/utils/llamaHealth';
+	import {
+		startExternalServicesHealthPolling,
+		type ExternalServiceName
+	} from '@/lib/utils/externalServicesHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import ActiveFilterChips from '@/components/ActiveFilterChips.svelte';
 	import ArticleFiltersPanel from '@/components/ArticleFiltersPanel.svelte';
@@ -74,6 +78,27 @@
 		const status = viewState.llamaServersStatus.find((entry) => entry.name === name);
 		if (status?.error) return `${label}: ${status.error}`;
 		return `${label} ${up ? 'online' : 'offline'}`;
+	}
+
+	function externalServiceTooltip(label: string, up: boolean): string {
+		return `${label} ${up ? 'online' : 'offline'}`;
+	}
+
+	const EXTERNAL_SERVICE_DOTS = [
+		{ name: 'scrap', label: 'Scrap service' },
+		{ name: 'tts', label: 'TTS service' },
+		{ name: 'whisper', label: 'Whisper service' }
+	] as const satisfies ReadonlyArray<{ name: ExternalServiceName; label: string }>;
+
+	function externalServiceUp(name: ExternalServiceName): boolean {
+		switch (name) {
+			case 'scrap':
+				return viewState.scrapServiceUp;
+			case 'tts':
+				return viewState.ttsServiceUp;
+			case 'whisper':
+				return viewState.whisperServiceUp;
+		}
 	}
 
 	let toolbarEl = $state<HTMLDivElement>();
@@ -238,7 +263,12 @@
 	);
 
 	$effect(() => {
-		return startLlamaHealthPolling();
+		const stopLlama = startLlamaHealthPolling();
+		const stopExternal = startExternalServicesHealthPolling();
+		return () => {
+			stopLlama();
+			stopExternal();
+		};
 	});
 
 	$effect(() => {
@@ -415,6 +445,16 @@
 						aria-label="Embeddings service status"
 					></span>
 				</Tooltip>
+				{#each EXTERNAL_SERVICE_DOTS as service (service.name)}
+					<Tooltip content={externalServiceTooltip(service.label, externalServiceUp(service.name))}>
+						<span
+							class="embeddings-health"
+							class:up={externalServiceUp(service.name)}
+							role="status"
+							aria-label={`${service.label} status`}
+						></span>
+					</Tooltip>
+				{/each}
 				<Tooltip content="Change primary color">
 					<label class="color-dot-trigger" aria-label="Change primary color">
 						<span class="color-dot" style:background-color={viewState.primaryColor}></span>
