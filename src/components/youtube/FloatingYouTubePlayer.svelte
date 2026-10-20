@@ -26,14 +26,24 @@
 		<!-- The iframe stays mounted while minimized so audio keeps playing;
 			it is only hidden via the `.frame-hidden` class. -->
 		<div class="player-frame" class:frame-hidden={minimized}>
-			<button
-				class="player-close"
-				onclick={() => playerStore.close()}
-				aria-label="Close video player"
-				title="Close video player"
-			>
-				×
-			</button>
+			<div class="player-actions">
+				<button
+					class="player-action"
+					onclick={() => playerStore.minimize()}
+					aria-label="Minimize video player"
+					title="Minimize video player"
+				>
+					−
+				</button>
+				<button
+					class="player-action"
+					onclick={() => playerStore.close()}
+					aria-label="Close video player"
+					title="Close video player"
+				>
+					×
+				</button>
+			</div>
 			{#key active.videoId}
 				<iframe
 					class="player-video"
@@ -97,11 +107,16 @@
 		border: 0;
 	}
 
-	.player-close {
+	.player-actions {
 		position: absolute;
 		top: 0.4rem;
 		right: 0.4rem;
 		z-index: 2;
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.player-action {
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -121,7 +136,7 @@
 			opacity 0.12s ease;
 	}
 
-	.player-close:hover {
+	.player-action:hover {
 		background: var(--bg-color);
 		opacity: 1;
 	}
