@@ -18,6 +18,7 @@
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { generateProfileSummary } from '@/lib/utils/inference/profileSummary';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
+	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
 
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
@@ -35,7 +36,7 @@
 		summaryLoading = true;
 		summaryError = null;
 		try {
-			summaryText = await generateProfileSummary(articleCacheStore.articlesWithoutProfile);
+			summaryText = await generateProfileSummary(articleCacheStore.profileArticles(profileId));
 		} catch (error) {
 			summaryError = error instanceof Error ? error.message : 'Failed to generate summary';
 		} finally {
@@ -66,6 +67,9 @@
 		ignoreInputs: true
 	}));
 
+	// ArrowLeft returns to the route this profile was opened from.
+	createBackHotkey();
+
 	onMount(async () => {
 		loading = true;
 		try {
@@ -78,17 +82,17 @@
 	$effect(() => {
 		// `page` is a global store: while navigating away, params can flip to
 		// undefined before this page unmounts, which would launch a fetch with
-		// a broken profileId and let it overwrite the store's current list.
+		// a broken profileId. Feeds the per-profile cache so the ArticlesTab's
+		// shared list is untouched and its return navigation stays instant.
 		if (!profileId) return;
-		void articleCacheStore.fetchArticlesWithoutProfile({
-			profileId,
+		void articleCacheStore.fetchProfileArticles(profileId, {
 			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined,
 			includeInitial: true
 		});
 	});
 
 	function handleBack() {
-		goto('/');
+		void navigateBack();
 	}
 
 	async function handleDeleteProfile() {
@@ -99,7 +103,7 @@
 			if (result.success) {
 				articleFilters.removeById(profileId);
 				articleCacheStore.invalidateProfiles();
-				goto('/');
+				void navigateBack();
 			}
 		} finally {
 			isDeleting = false;
@@ -195,10 +199,10 @@
 	{:else if profile}
 		<div class="articles-container">
 			<ArticleList
-				items={articleCacheStore.articlesWithoutProfile}
-				loading={articleCacheStore.loadingArticles}
-				hasMore={articleCacheStore.hasMoreArticles}
-				onLoadMore={() => articleCacheStore.loadMoreArticles()}
+				items={articleCacheStore.profileArticles(profileId)}
+				loading={articleCacheStore.loadingProfileArticles(profileId)}
+				hasMore={articleCacheStore.hasMoreProfileArticles(profileId)}
+				onLoadMore={() => articleCacheStore.loadMoreProfileArticles(profileId)}
 				onArticleClick={handleNavigateToArticle}
 			/>
 		</div>
