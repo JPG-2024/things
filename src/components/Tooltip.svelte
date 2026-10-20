@@ -11,19 +11,29 @@
 		content?: string;
 		contentSnippet?: Snippet;
 		position?: PopupPositionInput;
+		/** Render even while an ancestor PopupMenu is open (for popups whose own content wants tooltips). */
+		ignoreMenuCtx?: boolean;
 		children: Snippet;
 	}
 
 	export type TooltipProps = Props;
 
-	let { content, contentSnippet, position = 'bottom', children }: Props = $props();
+	let {
+		content,
+		contentSnippet,
+		position = 'bottom',
+		ignoreMenuCtx = false,
+		children
+	}: Props = $props();
 
 	const menuCtx = getContext<{ open: boolean }>('popup-menu-open');
 
 	let wrapperEl: HTMLDivElement;
 	let tooltipEl: HTMLSpanElement;
 	let isHovered = $state(false);
-	let visible = $derived(isHovered && (!!content || !!contentSnippet) && !(menuCtx?.open ?? false));
+	let visible = $derived(
+		isHovered && (!!content || !!contentSnippet) && (ignoreMenuCtx || !(menuCtx?.open ?? false))
+	);
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
 	let effectivePosition = $state<PopupPosition>('bottom');
@@ -55,7 +65,7 @@
 
 	function handleMouseEnter() {
 		if (!content && !contentSnippet) return;
-		if (menuCtx?.open) return;
+		if (!ignoreMenuCtx && menuCtx?.open) return;
 		updatePosition();
 		isHovered = true;
 	}

@@ -55,7 +55,10 @@
 			onmouseleave={() => onHoverLeave?.()}
 			aria-label={item.name}
 		>
-			<Tooltip content={item.name}>
+			<!-- ignoreMenuCtx: the only EntityBar consumer lives inside the filters
+				popup, where the popup context is always open; without this flag the
+				suppression rule would keep these tooltips permanently hidden. -->
+			<Tooltip content={item.name} ignoreMenuCtx>
 				{#if item.profilePictureSrc}
 					<img src={item.profilePictureSrc} alt={item.name} class="entity-picture" />
 				{:else}
