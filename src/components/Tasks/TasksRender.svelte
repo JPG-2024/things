@@ -8,11 +8,14 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { extractDependencyText } from '@/lib/utils/helpers/tasks';
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import CategoryEditor from '@/components/CategoryEditor.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import type { Task } from '@/types/taskRunner.types';
 	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
 
@@ -185,6 +188,13 @@
 	void taskRenderRegistry;
 	void workflowStore;
 	void stackedTasks;
+
+	function goToProfile() {
+		const profile = scrapStore.currentYoutubeProfile;
+		if (!profile?.id) return;
+		viewState.currentProfileId = profile.id;
+		goto(`/profile/${profile.id}`);
+	}
 </script>
 
 <div class="tasks-container">
@@ -206,9 +216,18 @@
 
 			{#if categoryData || titleText || viewState.url}
 				<div class="header-col category-col">
-					{#if titleText}
-						<div class="tasks-title">{titleText}</div>
-					{/if}
+					<div class="title-row">
+						{#if scrapStore.currentYoutubeProfile?.profileImage}
+							<ProfileThumb
+								src={scrapStore.currentYoutubeProfile.profileImage}
+								size={32}
+								onclick={goToProfile}
+							/>
+						{/if}
+						{#if titleText}
+							<div class="tasks-title">{titleText}</div>
+						{/if}
+					</div>
 					{#if viewState.url && !workflowStore.isAnyRunning}
 						<CategoryEditor
 							articleUrl={viewState.url}
@@ -379,13 +398,19 @@
 		padding: 3rem;
 	}
 
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		width: 100%;
+	}
+
 	.tasks-title {
 		font-family: var(--font-secondary);
 		font-size: 1.2rem;
 		margin-right: auto;
 		width: 100%;
 		padding: 1rem 0;
-		padding-bottom: 2rem;
 		font-variant: all-small-caps;
 	}
 
