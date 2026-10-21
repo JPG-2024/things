@@ -255,6 +255,11 @@
 					bind:value={viewState.llamaCacheRamMb}
 				/>
 			</FieldsRow>
+			<ToggleField
+				label="Reasoning"
+				tooltip="Pass --reasoning on/off to the inference server. Turning it off disables model thinking; applies after restarting the servers."
+				bind:checked={viewState.llamaReasoning}
+			/>
 			<CheckboxField label="Show all models" bind:checked={showAllModels} />
 			{#if modelsError}
 				<p class="error-text">{modelsError}</p>

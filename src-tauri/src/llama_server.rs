@@ -79,6 +79,10 @@ pub struct LlamaServersConfig {
     /// Prompt-cache budget for the inference server in MiB (0 disables it).
     #[serde(default)]
     pub cache_ram_mb: Option<u32>,
+    /// Whether the inference server should allow/emit thinking. `None` omits
+    /// the flag (llama default: auto).
+    #[serde(default)]
+    pub reasoning: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -213,6 +217,7 @@ fn build_args(
     extra: &[String],
     inference_ctx: u32,
     cache_ram_mb: u32,
+    reasoning: Option<bool>,
 ) -> Vec<String> {
     let mut args: Vec<String> = match name {
         "embeddings" => vec![
@@ -226,24 +231,31 @@ fn build_args(
             "--ctx-size".into(),
             "8192".into(),
         ],
-        _ => vec![
-            "-m".into(),
-            model.into(),
-            "-c".into(),
-            inference_ctx.to_string(),
-            "-b".into(),
-            "512".into(),
-            "--n-gpu-layers".into(),
-            "99".into(),
-            "--cache-ram".into(),
-            cache_ram_mb.to_string(),
-            "--ctx-checkpoints".into(),
-            "0".into(),
-            "--cache-type-k".into(),
-            "q8_0".into(),
-            "--cache-type-v".into(),
-            "q8_0".into(),
-        ],
+        _ => {
+            let mut inference_args = vec![
+                "-m".into(),
+                model.into(),
+                "-c".into(),
+                inference_ctx.to_string(),
+                "-b".into(),
+                "512".into(),
+                "--n-gpu-layers".into(),
+                "99".into(),
+                "--cache-ram".into(),
+                cache_ram_mb.to_string(),
+                "--ctx-checkpoints".into(),
+                "0".into(),
+                "--cache-type-k".into(),
+                "q8_0".into(),
+                "--cache-type-v".into(),
+                "q8_0".into(),
+            ];
+            if let Some(reasoning) = reasoning {
+                inference_args.push("--reasoning".into());
+                inference_args.push(if reasoning { "on" } else { "off" }.into());
+            }
+            inference_args
+        }
     };
     args.push("--host".into());
     args.push(host.into());
@@ -406,6 +418,7 @@ async fn ensure_named(
     default_model_env: &str,
     inference_ctx: u32,
     cache_ram_mb: u32,
+    reasoning: Option<bool>,
 ) -> LlamaServerStatus {
     let port = target.port;
     if let Err(error) = validate_port(port, name) {
@@ -436,6 +449,7 @@ async fn ensure_named(
         &extra,
         inference_ctx,
         cache_ram_mb,
+        reasoning,
     );
 
     ensure_slot(app, slot, name, port, &args).await
@@ -475,6 +489,7 @@ pub async fn ensure_llama_servers(
         "LLAMA_INFERENCE_MODEL",
         inference_ctx,
         cache_ram_mb,
+        config.reasoning,
     )
     .await;
 
@@ -490,6 +505,7 @@ pub async fn ensure_llama_servers(
         "LLAMA_EMBEDDINGS_MODEL",
         inference_ctx,
         cache_ram_mb,
+        config.reasoning,
     )
     .await;
 
@@ -665,6 +681,7 @@ mod tests {
             &extra,
             16384,
             512,
+            None,
         );
         let port_index = args.iter().position(|arg| arg == "--port").unwrap();
         assert_eq!(args[port_index + 1], "8080");
@@ -682,11 +699,14 @@ mod tests {
             &[],
             16384,
             512,
+            Some(false),
         );
         assert!(args.iter().any(|arg| arg == "--embedding"));
         assert!(args.iter().any(|arg| arg == "--pooling"));
         // Embeddings keep their fixed context; memory tuning is inference-only.
         assert!(args.iter().any(|arg| arg == "--ctx-size"));
+        // The reasoning flag only applies to the inference server.
+        assert!(!args.iter().any(|arg| arg == "--reasoning"));
     }
 
     #[test]
@@ -699,11 +719,56 @@ mod tests {
             &[],
             8192,
             256,
+            None,
         );
         let ctx_index = args.iter().position(|arg| arg == "-c").unwrap();
         assert_eq!(args[ctx_index + 1], "8192");
         let cache_index = args.iter().position(|arg| arg == "--cache-ram").unwrap();
         assert_eq!(args[cache_index + 1], "256");
+    }
+
+    #[test]
+    fn build_args_emits_reasoning_on_and_off_for_inference() {
+        let off = build_args(
+            "inference",
+            "/models/a.gguf",
+            "127.0.0.1",
+            8080,
+            &[],
+            16384,
+            512,
+            Some(false),
+        );
+        let off_index = off.iter().position(|arg| arg == "--reasoning").unwrap();
+        assert_eq!(off[off_index + 1], "off");
+
+        let on = build_args(
+            "inference",
+            "/models/a.gguf",
+            "127.0.0.1",
+            8080,
+            &[],
+            16384,
+            512,
+            Some(true),
+        );
+        let on_index = on.iter().position(|arg| arg == "--reasoning").unwrap();
+        assert_eq!(on[on_index + 1], "on");
+    }
+
+    #[test]
+    fn build_args_omits_reasoning_when_none() {
+        let args = build_args(
+            "inference",
+            "/models/a.gguf",
+            "127.0.0.1",
+            8080,
+            &[],
+            16384,
+            512,
+            None,
+        );
+        assert!(!args.iter().any(|arg| arg == "--reasoning"));
     }
 
     #[test]

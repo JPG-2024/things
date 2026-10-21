@@ -208,6 +208,7 @@ export async function ensureLlamaServers(restart = false): Promise<LlamaServerSt
 				},
 				inferenceCtxSize: viewState.llamaInferenceCtxSize,
 				cacheRamMb: viewState.llamaCacheRamMb,
+				reasoning: viewState.llamaReasoning,
 				embeddings: {
 					model: viewState.llamaEmbeddingsModel,
 					port: viewState.llamaEmbeddingsPort

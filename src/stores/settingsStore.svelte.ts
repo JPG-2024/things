@@ -110,7 +110,8 @@ function serializeView() {
 			forceLanguageEnabled: viewState.forceLanguageEnabled,
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
 			embeddingsEnabled: viewState.embeddingsEnabled,
-			llamaAutoStart: viewState.llamaAutoStart
+			llamaAutoStart: viewState.llamaAutoStart,
+			llamaReasoning: viewState.llamaReasoning
 		},
 		cardLayout: $state.snapshot(viewState.cardLayout)
 	};
@@ -206,6 +207,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.llamaAutoStart === 'boolean') {
 		viewState.llamaAutoStart = toggles.llamaAutoStart;
+	}
+	if (typeof toggles.llamaReasoning === 'boolean') {
+		viewState.llamaReasoning = toggles.llamaReasoning;
 	}
 
 	// Card layout: merge each tab section over the defaults so a partial or

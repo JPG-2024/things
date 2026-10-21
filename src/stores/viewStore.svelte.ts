@@ -150,6 +150,9 @@ class ViewState {
 	// budget in MiB. Both only take effect when a server (re)starts.
 	llamaInferenceCtxSize = $state(32768);
 	llamaCacheRamMb = $state(1024);
+	// Whether the inference server allows/emits thinking (`--reasoning on|off`).
+	// Only takes effect when the server (re)starts.
+	llamaReasoning = $state(false);
 	llamaEmbeddingsModel = $state<string>('');
 	llamaEmbeddingsPort = $state(envPort(ENV_EMBEDDINGS_URL, 8083));
 	llamaAutoStart = $state(true);

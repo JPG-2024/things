@@ -312,8 +312,15 @@ struct LlamaServersConfig {
     inference:  LlamaServerTarget { model: String, port: u16 },
     embeddings: LlamaServerTarget { model: String, port: u16 },
     restart: bool, // default false
+    inference_ctx_size: Option<u32>, // default None -> DEFAULT_INFERENCE_CTX
+    cache_ram_mb: Option<u32>,       // default None -> DEFAULT_CACHE_RAM_MB
+    reasoning: Option<bool>,         // None omits the flag; Some(bool) -> --reasoning on|off
 }
 ```
+
+The `reasoning` flag applies to the **inference** server only and takes effect
+after a restart. When set, the app passes `--reasoning on` or `--reasoning off`;
+when omitted, llama.cpp keeps its default (`auto`).
 
 and returns one `LlamaServerStatus` per server:
 
