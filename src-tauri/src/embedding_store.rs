@@ -1,4 +1,3 @@
-use std::fs;
 use std::sync::Arc;
 
 use arrow::array::{
@@ -13,11 +12,9 @@ use lancedb::query::{ExecutableQuery, QueryBase};
 use lancedb::DistanceType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::web_store::read_raw_content_by_url;
-
-const EMBEDDINGS_DIR: &str = "embeddings";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,13 +54,7 @@ fn now_millis() -> i64 {
 }
 
 fn embeddings_path(app: &AppHandle) -> Result<String, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e: tauri::Error| e.to_string())?;
-    fs::create_dir_all(&app_data_dir).map_err(|e: std::io::Error| e.to_string())?;
-    Ok(app_data_dir
-        .join(EMBEDDINGS_DIR)
+    Ok(crate::db_manager::embeddings_dir(app)?
         .to_string_lossy()
         .to_string())
 }

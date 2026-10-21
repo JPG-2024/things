@@ -1,16 +1,30 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { appDataDir, join } from '@tauri-apps/api/path';
+import { join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
-import { BaseDirectory, remove } from '@tauri-apps/plugin-fs';
+import { remove } from '@tauri-apps/plugin-fs';
+import { getMediaDirectory } from '@/lib/utils/dbManager';
 
 export const MEDIA_FOLDER = 'thumbnails';
+
+/**
+ * Media lives inside the active database workspace, and the Rust side is the
+ * only place that knows that path, so cache the resolved folder once per app
+ * load (a database switch reloads the whole app).
+ */
+let mediaDirectoryPromise: Promise<string> | null = null;
+
+export function getMediaRoot(): Promise<string> {
+	mediaDirectoryPromise ??= getMediaDirectory();
+	return mediaDirectoryPromise;
+}
 
 export const getMediaSrc = (filename: string): Promise<string> =>
 	getImageSrc(MEDIA_FOLDER, filename);
 
 export const deleteMediaFile = async (filename: string): Promise<void> => {
 	try {
-		await remove(`media/${MEDIA_FOLDER}/${filename}`, { baseDir: BaseDirectory.AppData });
+		const mediaDir = await getMediaRoot();
+		await remove(await join(mediaDir, MEDIA_FOLDER, filename));
 	} catch (error) {
 		console.error(`[Media] Error deleting media file: ${error}`);
 	}
@@ -28,15 +42,10 @@ export async function resolveMediaDirectory(url: string, profile?: string | null
 	});
 }
 
-export const getImageDir = async (): Promise<string> => {
-	const appData = await appDataDir();
-	const mediaDir = await join(appData, 'media');
-
-	return mediaDir;
-};
+export const getImageDir = (): Promise<string> => getMediaRoot();
 
 export const getImageSrc = async (mediaDirectory: string, imgName: string): Promise<string> => {
-	const mediaDir = await getImageDir();
+	const mediaDir = await getMediaRoot();
 	const filePath = await join(mediaDir, mediaDirectory, imgName);
 	return convertFileSrc(filePath);
 };

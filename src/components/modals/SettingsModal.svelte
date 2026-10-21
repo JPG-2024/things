@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
+	import DatabaseManager from '@/components/DatabaseManager.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
 	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
@@ -355,6 +356,11 @@
 				tooltip="Downscale factor applied to generated thumbnails."
 				bind:value={viewState.thumbnailReductionMagnitud}
 			/>
+		</div>
+	</Spacer>
+	<Spacer title="Databases" icon="Database">
+		<div class="inference-section">
+			<DatabaseManager />
 		</div>
 	</Spacer>
 	<Spacer title="Cards">

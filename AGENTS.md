@@ -72,6 +72,14 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
   - `migrate_clear_category_exemplars_drops_old_text_once`
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
+## Database Workspaces
+
+- Runtime data lives under `app_data_dir()/workspaces/<name>/`: `things.db`, `raw_content/`, `embeddings/` (LanceDB) and `media/`. `app_data_dir()/active.json` points at the active workspace.
+- `src-tauri/src/db_manager.rs` owns path resolution, the one-time legacy migration (root-level `things.db` + friends move into `workspaces/default`), the `db_*` Tauri commands and ZIP export/import.
+- New code that needs a database, media, raw-content or embeddings path must call the `db_manager` helpers instead of joining `app_data_dir()` directly.
+- Switching databases (`dbState.switchTo`) reloads the webview on purpose so every in-memory store/cache is dropped.
+- `db_manager::tests` covers name validation, archive root detection and export/import round-trips (including exporting inside the workspace).
+
 # Always consider use hotkey as UX principle
 
 ## Hotkeys

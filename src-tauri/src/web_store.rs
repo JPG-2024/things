@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-const DB_FILE: &str = "things.db";
 pub const WEB_STORE_UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const WEB_STORE_UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
 
@@ -206,22 +205,13 @@ fn normalize_optional_string(value: Option<String>) -> Option<String> {
 }
 
 fn database_path(app: &AppHandle) -> Result<String, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
-    fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
-    Ok(app_data_dir.join(DB_FILE).to_string_lossy().to_string())
+    Ok(crate::db_manager::database_path(app)?
+        .to_string_lossy()
+        .to_string())
 }
 
 fn raw_content_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("raw_content");
-    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    Ok(dir)
+    crate::db_manager::raw_content_dir(app)
 }
 
 fn raw_content_key(url: &str) -> String {
@@ -242,9 +232,8 @@ fn delete_raw_content_file(app: &AppHandle, url: &str) {
     }
 }
 
-fn get_db(app: &AppHandle) -> Result<Connection, String> {
-    let path = database_path(app)?;
-    let conn = Connection::open(&path).map_err(|error| error.to_string())?;
+fn open_connection(path: &Path) -> Result<Connection, String> {
+    let conn = Connection::open(path).map_err(|error| error.to_string())?;
 
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
@@ -254,6 +243,19 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
     .map_err(|error| error.to_string())?;
 
     Ok(conn)
+}
+
+/// Opens (and initializes if needed) a database file without going through the
+/// active workspace, so the database manager can prepare a workspace before it
+/// becomes active.
+pub(crate) fn init_database_at(path: &Path) -> Result<(), String> {
+    let conn = open_connection(path)?;
+    init_schema(&conn)
+}
+
+fn get_db(app: &AppHandle) -> Result<Connection, String> {
+    let path = database_path(app)?;
+    open_connection(Path::new(&path))
 }
 
 fn init_schema(conn: &Connection) -> Result<(), String> {

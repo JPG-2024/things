@@ -7,6 +7,12 @@ pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
+mod db_manager;
+pub use crate::db_manager::{
+    db_active_name, db_create, db_delete, db_export, db_import, db_list, db_media_dir, db_rename,
+    db_switch,
+};
+
 mod url;
 pub use crate::url::url_to_folder_name;
 
@@ -84,6 +90,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            db_manager::migrate_legacy_layout(app.handle())?;
             global_shortcut::spawn(app.handle().clone());
             Ok(())
         })
@@ -158,6 +165,15 @@ pub fn run() {
             download_track,
             start_system_audio_recording,
             stop_system_audio_recording,
+            db_list,
+            db_active_name,
+            db_media_dir,
+            db_create,
+            db_switch,
+            db_rename,
+            db_delete,
+            db_export,
+            db_import,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

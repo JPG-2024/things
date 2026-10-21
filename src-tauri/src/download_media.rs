@@ -1,7 +1,6 @@
 use image::imageops::FilterType;
 use sha2::{Digest, Sha256};
 use tauri::AppHandle;
-use tauri::Manager;
 use tauri_plugin_http::reqwest;
 use webp::Encoder;
 
@@ -37,13 +36,11 @@ pub async fn download_and_save_image(
         return Ok(String::new());
     }
 
-    // Get the app's local data directory
-    let app_local_data = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+    // Media lives inside the active workspace so switching databases also
+    // switches thumbnails/profile pictures.
+    let media_root = crate::db_manager::media_dir(&app)?;
 
-    let media_dir = app_local_data.join("media").join(&folder_name);
+    let media_dir = media_root.join(&folder_name);
 
     // Generate a deterministic filename from the URL hash
     let mut hasher = Sha256::new();
@@ -62,8 +59,8 @@ pub async fn download_and_save_image(
     }
 
     println!(
-        "[Image] Saving image to folder: media/{}",
-        app_local_data.join("media").join(&folder_name).display()
+        "[Image] Saving image to folder: {}",
+        media_dir.display()
     );
 
     // Create the thumbs directory if it doesn't exist
