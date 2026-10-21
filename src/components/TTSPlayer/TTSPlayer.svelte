@@ -42,7 +42,7 @@
 	});
 
 	const waveDrawConfig: WaveformDrawConfig = {
-		splineSampleStep: 0.4,
+		splineSampleStep: 0.2,
 		amplitudeScale: 1.7,
 		maxWaveAmplitudePx: 120,
 		wavelengthScale: 300,
