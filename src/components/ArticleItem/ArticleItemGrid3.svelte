@@ -15,6 +15,7 @@
 		topics: string[];
 		matchSnippet?: RawSearchMatch;
 		tooltip?: string | null;
+		unread?: boolean;
 	}
 
 	let {
@@ -24,13 +25,14 @@
 		showText,
 		topics,
 		matchSnippet = undefined,
-		tooltip = null
+		tooltip = null,
+		unread = false
 	}: Props = $props();
 </script>
 
 <div class="article-content" class:no-thumb={!(showThumbnail && article.thumbnailSrc)}>
 	{#if showThumbnail && article.thumbnailSrc}
-		<ArticleThumbnail src={article.thumbnailSrc} url={article.url} {tooltip} />
+		<ArticleThumbnail src={article.thumbnailSrc} url={article.url} {unread} {tooltip} />
 	{/if}
 	{#if showText}
 		{#if matchSnippet}

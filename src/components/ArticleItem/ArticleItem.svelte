@@ -136,6 +136,7 @@
 			{matchSnippet}
 			tooltip={resolvedTooltip}
 			topics={randomTopics}
+			{unread}
 		/>
 	{:else if layoutKey === 'grid-3'}
 		<ArticleItemGrid3
@@ -146,6 +147,7 @@
 			topics={randomTopics}
 			{matchSnippet}
 			tooltip={resolvedTooltip}
+			{unread}
 		/>
 	{:else}
 		<ArticleItemGrid

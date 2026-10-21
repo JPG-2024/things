@@ -15,6 +15,7 @@
 		topics: string[];
 		matchSnippet?: RawSearchMatch;
 		tooltip?: string | null;
+		unread?: boolean;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		showText,
 		topics,
 		matchSnippet = undefined,
-		tooltip = null
+		tooltip = null,
+		unread = false
 	}: Props = $props();
 
 	// Row thumbnails keep a fixed box regardless of the masonry preset; the box
@@ -43,6 +45,7 @@
 			fallbackText={article.title?.trim().charAt(0) ?? ''}
 			fallbackVariant="initial"
 			{tooltip}
+			{unread}
 		/>
 	{/if}
 	{#if showText}

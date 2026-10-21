@@ -192,6 +192,7 @@
 								article={cell.article}
 								{layoutKey}
 								{contentMode}
+								unread={!cell.article.viewed}
 								selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
 								matchSnippet={matchOf?.(cell.article) ?? undefined}
 								onClick={handleArticleClick}
