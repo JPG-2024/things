@@ -336,13 +336,13 @@
 
 <FloatingYouTubePlayer />
 
-{#if ttsState.lastVoiceChunkIndex !== null}
+<!-- {#if ttsState.lastVoiceChunkIndex !== null}
 	<div class="tts-chunk-log">
 		{ttsState.lastVoiceChunkIndex >= 0
 			? `Voice: #${ttsState.lastVoiceChunkIndex}`
 			: 'Voice: default'}
 	</div>
-{/if}
+{/if} -->
 
 {#if conversationMode}
 	<ConversationMode onExit={() => (conversationMode = false)} />
