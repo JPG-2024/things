@@ -27,7 +27,9 @@
 		padding: 0 15px;
 		font-size: var(--pill-font-size, 0.7rem);
 		font-family: var(--font-secondary);
-		border-left: 2px solid var(--bg-color);
+		border: 2px solid rgba(128, 128, 128, 0.311);
+		border-style: dashed;
+
 		/* 		border-right: 1px solid color-mix(in srgb, var(--bg-color) 30%, transparent);
 		border-top: 3px solid color-mix(in srgb, var(--bg-color) 40%, transparent); */
 	}

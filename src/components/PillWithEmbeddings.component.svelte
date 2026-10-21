@@ -128,8 +128,7 @@
 		align-items: center;
 		gap: 0.4rem;
 		cursor: pointer;
-		font-family: 'CaskaydiaCove NFM Light';
-		font-size: var(--pill-font-size, 0.7rem);
+		font-size: var(--pill-font-size, 0.8rem);
 		color: var(--pill-text-color, rgb(219, 219, 219));
 		background: rgba(255, 255, 255, 0.05);
 		border-radius: var(--radius-md);
