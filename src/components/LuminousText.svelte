@@ -98,7 +98,7 @@
 		position: relative;
 		display: inline-block;
 		font-family: var(--font-secondary);
-
+		padding-top: 3px;
 		text-shadow:
 			0 0 5px
 				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),

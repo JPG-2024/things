@@ -59,7 +59,7 @@
 		);
 		animation: pill-loading-gradient 2.4s ease-in-out infinite;
 		border: none;
-		padding: 0px 15px;
+		padding: 3px 15px;
 		font-weight: bold;
 	}
 
