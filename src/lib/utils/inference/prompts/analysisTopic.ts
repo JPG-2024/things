@@ -32,7 +32,7 @@ export function buildAnalysisTopicsUserMessage(
 
 export function buildAnalysisSummaryUserMessage(langName?: string): string {
 	const langInstruction = langName ? ` Respond in ${langName}.` : '';
-	return `Summarize this section in one paragraph, and give that summary a short title (2-8 words). This paragraph is the one summary block for the whole section. Use bold (**) to emphasize the most relevant keywords, don't abuse.${langInstruction} Respond in JSON: { title: string, summary: string }`;
+	return `Summarize this section in one paragraph divided by max 8 sentences, and give that summary a short title (2-8 words). This paragraph is the one summary block for the whole section. Use bold (**) to emphasize the most relevant keywords, don't abuse.${langInstruction} Respond in JSON: { title: string, summary: string }`;
 }
 
 /** Snippet budget for a cluster summary inside the consolidation prompt. */
