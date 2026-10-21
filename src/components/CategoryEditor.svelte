@@ -171,12 +171,15 @@
 					onclick={() => feedCategory(id)}
 					disabled={feedingId !== null}
 					aria-label="Add this article to {categoryLabel(id)} embeddings"
-					title="add this category for auto category as example"
 				>
 					{#if feedingId === id}
 						<Icon name="LoaderCircle" size={12} />
 					{:else}
-						<Icon name="FileDigit" size={15} />
+						<Icon
+							name="FileDigit"
+							size={15}
+							tooltipProps={{ content: 'Add this category as example for auto category' }}
+						/>
 					{/if}
 				</button>
 				<button
@@ -200,10 +203,9 @@
 				createLabel={(query) => `Create "${query}"`}
 				onSelect={handleSelect}
 				onCreate={handleCreate}
-				triggerTooltip="add category"
 			>
 				{#snippet trigger()}
-					<Icon name="CirclePlus" size={18} />
+					<Icon name="CirclePlus" size={18} tooltipProps={{ content: 'Add category' }} />
 				{/snippet}
 			</SearchDropdown>
 		</div>
