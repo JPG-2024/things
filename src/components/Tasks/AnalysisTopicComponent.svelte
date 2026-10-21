@@ -19,10 +19,10 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
 	import {
+		effectiveAnalysisDepth,
 		analysisDepthLevel,
 		MAX_ANALYSIS_DEPTH,
-		MIN_ANALYSIS_DEPTH,
-		nearestAnalysisDepth
+		MIN_ANALYSIS_DEPTH
 	} from '@/runners/shared/analysisConstants';
 	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
 
@@ -104,18 +104,18 @@
 	});
 
 	/**
-	 * Depth is authoritative once persisted. Tasks saved before the field
-	 * existed fall back to snapping their last-run divisor/topic count to the
-	 * closest slider row: the runtime divisor reflects what actually ran,
-	 * while the stored config divisor can be a stale default (unlocked runs
-	 * start at 1 regardless of it).
+	 * Depth is authoritative once persisted, but the context-overflow ladder
+	 * can clamp the last run deeper than the pinned divisor; when that
+	 * happened the selector shows the row the run actually landed on.
+	 * Legacy tasks (saved before the depth field existed) snap to the
+	 * closest slider row from their stored divisor/topic count.
 	 */
 	const activeDepth = $derived(
-		recursiveConfig?.analysisDepth ??
-			nearestAnalysisDepth(
-				runtimeDivisor ?? recursiveConfig?.windowDivisor,
-				recursiveConfig?.topicCount
-			)
+		effectiveAnalysisDepth(
+			recursiveConfig?.analysisDepth,
+			runtimeDivisor ?? recursiveConfig?.windowDivisor,
+			recursiveConfig?.topicCount
+		)
 	);
 
 	let depthValue = $derived(activeDepth);
@@ -129,11 +129,7 @@
 		// (`divisor * topicCount`), which is what the merge will aim for.
 		const totalTopics = level.divisor * level.topicCount;
 		const topics = `${totalTopics} topic${totalTopics === 1 ? '' : 's'}`;
-		const runtime =
-			runtimeDivisor !== undefined && runtimeDivisor !== level.divisor
-				? ` · runtime ÷${runtimeDivisor}`
-				: '';
-		return `÷${level.divisor} · ${topics}${runtime}`;
+		return `÷${level.divisor} · ${topics}`;
 	}
 
 	/**
@@ -184,7 +180,7 @@
 				<div class="level-cell">
 					<RangeSelector
 						id="analysis-depth"
-						label="Analysis depth"
+						label="Depth"
 						value={depthValue}
 						min={MIN_ANALYSIS_DEPTH}
 						max={MAX_ANALYSIS_DEPTH}

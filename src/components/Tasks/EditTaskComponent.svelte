@@ -134,7 +134,7 @@
 	let recMultiKeywordsCount = $state('4');
 	let recMultiTopicsCount = $state('3');
 	let recTopicCount = $state('3');
-	let recKeywordCount = $state('4');
+	let recKeywordCount = $state('8');
 	let recOriginalProcessorType = $state<ProcessorType>('summarize');
 	let recOriginalCombineMode = $state<CombineMode>('llm');
 	let recOriginalExtCount = $state('');

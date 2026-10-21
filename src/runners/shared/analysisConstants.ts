@@ -23,7 +23,7 @@ export const ANALYSIS_DEPTH_LEVELS: readonly AnalysisDepthLevel[] = [
 	// Rung 1 is the basic overview: one window over the whole content with
 	// four topics. From there each rung doubles the windows; the deep rungs
 	// also ask the smaller windows for richer topic lists.
-	{ depth: 1, divisor: 1, topicCount: 4 },
+	{ depth: 1, divisor: 1, topicCount: 8 },
 	{ depth: 2, divisor: 2, topicCount: 4 },
 	{ depth: 3, divisor: 4, topicCount: 4 },
 	{ depth: 4, divisor: 8, topicCount: 8 },
@@ -74,4 +74,29 @@ export function nearestAnalysisDepth(
 		}
 	}
 	return best.depth;
+}
+
+/**
+ * Slider position an analysis task should display given the depth pinned in
+ * its config and the divisor its last run actually used. The context-overflow
+ * ladder can clamp the run deeper than the pinned divisor; when that happened
+ * (runtime strictly deeper), show the row the run landed on so the selector
+ * matches reality. The strict comparison matters: `task.data.windowDivisor`
+ * is only written on run completion, so a runtime value shallower than the
+ * pinned divisor is stale data from an older config and must not move the
+ * thumb. The clamp branch matches by divisor alone: a clamped run keeps the
+ * pinned per-window topic count, so the landed divisor is the only honest
+ * signal. Legacy tasks (no `analysisDepth`) snap to the closest row from
+ * their divisor and topic count, as before.
+ */
+export function effectiveAnalysisDepth(
+	configDepth: number | undefined,
+	runtimeDivisor: number | undefined,
+	topicCount: number | undefined
+): number {
+	const pinned = analysisDepthLevel(configDepth);
+	if (pinned && runtimeDivisor !== undefined && runtimeDivisor > pinned.divisor) {
+		return nearestAnalysisDepth(runtimeDivisor, undefined);
+	}
+	return configDepth ?? nearestAnalysisDepth(runtimeDivisor, topicCount);
 }

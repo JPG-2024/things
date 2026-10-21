@@ -3,6 +3,7 @@ import {
 	ANALYSIS_DEPTH_LEVELS,
 	analysisDepthLevel,
 	DEFAULT_ANALYSIS_DEPTH,
+	effectiveAnalysisDepth,
 	MAX_ANALYSIS_DEPTH,
 	MIN_ANALYSIS_DEPTH,
 	nearestAnalysisDepth
@@ -59,5 +60,37 @@ describe('nearestAnalysisDepth', () => {
 
 	test('snaps by combined distance when nothing matches', () => {
 		expect(nearestAnalysisDepth(3, 3)).toBe(2);
+	});
+});
+
+describe('effectiveAnalysisDepth', () => {
+	test('shows the row the run landed on after a context clamp', () => {
+		// Pinned depth 3 (÷4) clamped by the ladder to ÷16: the selector
+		// moves to depth 5 even though the stored config still says 3.
+		expect(effectiveAnalysisDepth(3, 16, undefined)).toBe(5);
+		expect(effectiveAnalysisDepth(2, 4, undefined)).toBe(3);
+	});
+
+	test('clamping matches by divisor alone, not the pinned topic count', () => {
+		// A clamped run keeps the pinned per-window count, so the landed
+		// divisor is the only honest signal.
+		expect(effectiveAnalysisDepth(3, 16, 4)).toBe(5);
+	});
+
+	test('stays on the pinned depth when the run did not clamp', () => {
+		expect(effectiveAnalysisDepth(3, 4, 4)).toBe(3);
+		expect(effectiveAnalysisDepth(3, undefined, undefined)).toBe(3);
+	});
+
+	test('ignores a stale runtime divisor shallower than the pinned depth', () => {
+		// Runtime data only lands on run completion; a shallower divisor is
+		// left over from an older config (e.g. a failed re-run).
+		expect(effectiveAnalysisDepth(4, 2, 8)).toBe(4);
+	});
+
+	test('legacy tasks without a pinned depth snap to divisor/topic count', () => {
+		expect(effectiveAnalysisDepth(undefined, 8, undefined)).toBe(4);
+		expect(effectiveAnalysisDepth(undefined, undefined, 10)).toBe(5);
+		expect(effectiveAnalysisDepth(undefined, undefined, undefined)).toBe(DEFAULT_ANALYSIS_DEPTH);
 	});
 });
