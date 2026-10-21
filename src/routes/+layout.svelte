@@ -486,10 +486,10 @@
 		animation: sweep-overlay 1.6s;
 		inset: 0;
 		background: linear-gradient(
-			-20deg,
+			0deg,
 			rgba(255, 255, 255, 0) 0%,
 			rgba(255, 255, 255, 0) 40%,
-			rgba(255, 255, 255, 0.5) 12%,
+			rgba(255, 255, 255, 0.5) 20%,
 			rgba(255, 255, 255, 0) 50%,
 			rgba(255, 255, 255, 0) 100%
 		);
