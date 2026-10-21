@@ -94,12 +94,12 @@
 	.label-text {
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
-		color: var(--gray-200);
+		color: var(--bg-color);
 	}
 
 	.label-value {
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
-		color: var(--primary-color);
+		color: var(--bg-color);
 	}
 </style>

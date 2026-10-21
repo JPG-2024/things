@@ -483,14 +483,14 @@
 		transform: translateY(-120%);
 		z-index: 9999;
 		mix-blend-mode: screen;
-		animation: sweep-overlay 1s ease-in-out forwards;
+		animation: sweep-overlay 1.6s;
 		inset: 0;
 		background: linear-gradient(
-			0deg,
+			-20deg,
 			rgba(255, 255, 255, 0) 0%,
-			rgba(255, 255, 255, 0) 20%,
-			var(--bg-color) 20%,
-			rgba(255, 255, 255, 0) 70%,
+			rgba(255, 255, 255, 0) 40%,
+			rgba(255, 255, 255, 0.5) 12%,
+			rgba(255, 255, 255, 0) 50%,
 			rgba(255, 255, 255, 0) 100%
 		);
 		pointer-events: none;

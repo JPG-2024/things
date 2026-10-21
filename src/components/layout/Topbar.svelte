@@ -186,7 +186,7 @@
 	}
 
 	.profile-pic {
-		border-radius: var(--radius-sm);
+		border-radius: 50%;
 		width: 40px;
 		height: 40px;
 	}

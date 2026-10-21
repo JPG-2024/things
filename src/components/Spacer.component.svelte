@@ -171,7 +171,7 @@
 
 	.spacer-title {
 		font-family: var(--font-secondary);
-		color: rgba(255, 255, 255, 0.9);
+		color: var(--primary-color);
 		font-weight: bold;
 		font-size: 0.8rem;
 		text-transform: capitalize;
