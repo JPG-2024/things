@@ -1,43 +1,7 @@
-import type { HostPersona, SpeakerDynamics } from './types';
+import type { HostPersona, SpeakerDynamics } from '../types';
+import { capContext } from './shared';
 
-// ─── Shared constants ────────────────────────────────────────────────
-
-export const CONTEXT_CAP = 6000;
 const PREVIOUS_SCRIPT_CAP = 2000;
-
-// ─── Shared helpers ──────────────────────────────────────────────────
-
-/**
- * Truncates a context string to a maximum length, appending an ellipsis if truncated.
- *
- * @param context - The context string to cap.
- * @returns The original string if within limit, or a truncated version with ellipsis.
- */
-export function capContext(context: string): string {
-	if (context.length <= CONTEXT_CAP) return context;
-	return context.slice(0, CONTEXT_CAP) + '…';
-}
-
-/**
- * Returns a persona block describing the host's character traits.
- *
- * Renders only non-empty fields. Returns empty string if all fields are empty.
- *
- * @param persona - The host persona with optional personality, humor, catchphrases, and quirks.
- * @returns Formatted block string, or empty if all fields are empty.
- */
-export function hostPersonaBlock(persona: HostPersona | undefined): string {
-	if (!persona) return '';
-	const lines: string[] = [];
-	if (persona.personality.trim()) lines.push(`Host personality: ${persona.personality.trim()}`);
-	if (persona.humorStyle.trim()) lines.push(`Host humor style: ${persona.humorStyle.trim()}`);
-	if (persona.catchphrases.trim()) lines.push(`Host catchphrases: ${persona.catchphrases.trim()}`);
-	if (persona.speechQuirks.trim()) lines.push(`Host speech quirks: ${persona.speechQuirks.trim()}`);
-	if (lines.length === 0) return '';
-	return `\n\n${lines.join('\n')}`;
-}
-
-// ─── Script generator prompts ────────────────────────────────────────
 
 export interface ScriptPromptInput {
 	topic: string;
@@ -178,71 +142,4 @@ export function scriptUserPrompt(topic: string, turnCount: number): string {
  */
 export function scriptRetryUserPrompt(turnCount: number): string {
 	return `That was not a valid script. Respond with ONLY the dialogue lines, one turn per line, each line starting with "A: " or "B: ". Exactly ${turnCount} turns. No other text.`;
-}
-
-// ─── Hook prompts ────────────────────────────────────────────────────
-
-/**
- * Returns the default system prompt template for episode hooks.
- *
- * @param kind - The hook type: 'initial' for opening or 'final' for closing.
- * @param personaBlock - Optional persona block to inject.
- * @returns Prompt template string with __NAME__ and __SPEAKER__ placeholders.
- */
-export function hookSystemPrompt(kind: 'initial' | 'final', personaBlock?: string): string {
-	if (kind === 'final') {
-		return `You are closing a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Warmly wrap up the episode, thank the audience, and hint at what comes next. Do not introduce new topics.
-- Do not ask any questions. Deliver a statement, never a question.`;
-	}
-	return `You are opening a podcast episode.
-You are ${'__NAME__'} (Host ${'__SPEAKER__'}).${personaBlock ?? ''}
-Rules:
-- Respond with ONLY the spoken line for ${'__NAME__'}. No name labels, no quotes, no JSON, no stage directions.
-- Keep it to 2-3 sentences maximum.
-- Welcome the audience and set expectations for the episode. Do not ask a question yet.`;
-}
-
-/**
- * Returns the user message for an initial hook.
- *
- * @returns The user message string.
- */
-export function initialHookUserMessage(): string {
-	return 'Deliver your opening intro for the podcast episode.';
-}
-
-/**
- * Returns the user message for a final hook.
- *
- * @returns The user message string.
- */
-export function finalHookUserMessage(): string {
-	return 'Deliver your closing remarks to wrap up the episode.';
-}
-
-// ─── Summary prompts ─────────────────────────────────────────────────
-
-/**
- * Returns the system prompt for generating a topic summary.
- *
- * @returns The system prompt string.
- */
-export function topicSummarySystemPrompt(): string {
-	return `You are a research assistant preparing briefing notes for a podcast. Given the source content and a specific topic, write a concise factual summary of the source material that is relevant to the topic. Include key facts, figures, context, and viewpoints the hosts can reference. Keep it focused and under 400 words. Respond with plain text only, no headings or markdown.`;
-}
-
-/**
- * Returns the user prompt for generating a topic summary.
- *
- * @param topic - The topic to summarize.
- * @param content - The source content to summarize from.
- * @returns The user prompt string.
- */
-export function topicSummaryUserPrompt(topic: string, content: string): string {
-	return `Topic: ${topic}\n\nSource content:\n${content}`;
 }

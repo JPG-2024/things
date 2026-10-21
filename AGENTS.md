@@ -28,6 +28,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Shared TS utilities live under `src/lib/`, `src/stores/`, `src/runners/`, and `src/types/`.
 - Tauri Rust code lives under `src-tauri/src/`.
 - Database, Tauri capabilities, and app config live in `src-tauri/`.
+- LLM prompts are grouped per feature in `src/lib/utils/inference/prompts/` (generic inference) and `src/features/podcast/prompts/` (podcast). Each folder exposes an `index.ts` barrel that re-exports every file, so consumers import from the folder root (`@/lib/utils/inference/prompts`).
 
 ## Build, Lint, and Dev Commands
 
@@ -59,7 +60,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Test files live next to the module under test as `*.test.ts` and import from `bun:test`.
 - Run the whole suite: `bun run test`
 - Run a single file: `bun test src/lib/utils/splitText.test.ts`
-- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`
+- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/inference/prompts/multi.test.ts`
 - Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
 - Known Rust tests at time of writing (all in `src-tauri/src/web_store.rs`, `web_store::tests`):
   - `query_articles_for_profile_orders_by_created_at_desc`
@@ -130,6 +131,7 @@ Use a static options object. Common for media-player-style controls.
 - Group imports by source: framework/external first, then `@/` aliases, then relative imports.
 - Keep type-only imports separate using `import type`.
 - Prefer `@/` aliases for code under `src/` instead of long relative paths.
+- Prompt folders use a barrel: import from the folder root rather than a single prompt file, so the call site stays stable when prompts move between files.
 - Keep imports minimal; remove dead imports when touching a file.
 - Do not reorder imports gratuitously in files you are not otherwise changing.
 
