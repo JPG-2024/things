@@ -64,4 +64,12 @@ describe('parseMultiFieldResponse', () => {
 		const result = parseMultiFieldResponse('{"summary":42,"keywords":[],"topics":[]}', FIELDS);
 		expect(result.summary).toEqual(['']);
 	});
+
+	test('strips a section meta preamble from the summary', () => {
+		const result = parseMultiFieldResponse(
+			'{"summary":"Esta sección describe cómo Node.js ha mejorado su velocidad.","keywords":[],"topics":[]}',
+			FIELDS
+		);
+		expect(result.summary).toEqual(['Node.js ha mejorado su velocidad.']);
+	});
 });

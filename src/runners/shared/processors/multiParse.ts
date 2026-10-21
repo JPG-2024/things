@@ -1,4 +1,5 @@
 import type { MultiFieldSpec } from '@/lib/utils/gbnf';
+import { stripLeadingMetaPhrase } from '@/lib/utils/inference/sectionText';
 import type { MultiChunkData } from './types';
 
 const EMPTY_MULTI_DATA: MultiChunkData = { summary: [''], keywords: [], topics: [] };
@@ -48,7 +49,9 @@ export function parseMultiFieldResponse(content: string, fields: MultiFieldSpec[
 	for (const field of fields) {
 		const value = parsed[field.key];
 		if (field.kind === 'string') {
-			result[field.key as 'summary'] = [typeof value === 'string' ? value : ''];
+			result[field.key as 'summary'] = [
+				stripLeadingMetaPhrase(typeof value === 'string' ? value : '')
+			];
 		} else {
 			const arr = Array.isArray(value)
 				? [...new Set(value.map((v: unknown) => String(v).trim()))].filter(Boolean)

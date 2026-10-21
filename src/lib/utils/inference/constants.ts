@@ -107,7 +107,7 @@ export const MULTI_FIELD_COMPLETION_OPTIONS = {
 	min_p: 0.1,
 	presence_penalty: 0,
 	n_predict: 2048,
-	reasoning_effort: 'high',
-	reason: true,
+	reasoning_effort: 'low',
+	reason: false,
 	stream: false
 } as const;

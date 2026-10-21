@@ -2,11 +2,12 @@ import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { MULTI_FIELD_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import {
-	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
+	MULTI_FINAL_USER_MESSAGE,
 	buildMultiFieldSystemMessage,
 	buildMultiFieldUserMessage,
 	buildRecursiveSummarySystemMessage
 } from '@/lib/utils/inference/prompts';
+import { stripLeadingMetaPhrase } from '@/lib/utils/inference/sectionText';
 import { multiFieldObjectGbnf, type MultiFieldSpec } from '@/lib/utils/gbnf';
 import { viewState } from '@/stores/viewStore.svelte';
 import { LANG_NAMES } from '@/constants';
@@ -23,7 +24,7 @@ export const multiProcessor: ProcessorDef = {
 	type: 'multi',
 	defaults: {
 		userMessage: buildMultiFieldUserMessage(4, 3),
-		finalUserMessage: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE
+		finalUserMessage: MULTI_FINAL_USER_MESSAGE
 	},
 	build: (config) => {
 		const fields = config.multiFields ?? DEFAULT_MULTI_FIELDS;
@@ -68,7 +69,7 @@ export const multiProcessor: ProcessorDef = {
 								{ role: 'system', content: buildRecursiveSummarySystemMessage(langName) },
 								{
 									role: 'user',
-									content: `${config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
+									content: `${config.finalUserMessage ?? MULTI_FINAL_USER_MESSAGE}\n\n${combinedSummaries}`
 								}
 							]
 						});
@@ -78,7 +79,11 @@ export const multiProcessor: ProcessorDef = {
 					}
 				}
 
-				return { summary, keywords: allKeywords, topics: allTopics };
+				return {
+					summary: stripLeadingMetaPhrase(summary),
+					keywords: allKeywords,
+					topics: allTopics
+				};
 			}
 		};
 	}
