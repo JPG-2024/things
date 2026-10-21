@@ -165,29 +165,10 @@ import {
 } from './constants';
 import { analysisDepthLevel } from './analysisConstants';
 
+import { isContextSizeError } from './contextSizeError';
+
 function nextWindowDivisor(divisor: number): number {
 	return WINDOW_DIVISOR_LADDER.find((l) => l > divisor) ?? MAX_WINDOW_DIVISOR;
-}
-
-function isContextSizeError(error: unknown): boolean {
-	const message = error instanceof Error ? error.message : String(error);
-	if (/exceed_context_size_error|exceeds the available context size/iu.test(message)) {
-		return true;
-	}
-	const payload = (error as { payload?: unknown } | undefined)?.payload;
-	if (payload && typeof payload === 'object') {
-		const p = payload as Record<string, unknown>;
-		const inner = (p.error ?? p) as Record<string, unknown> | undefined;
-		if (
-			inner &&
-			(inner.type === 'exceed_context_size_error' ||
-				(typeof inner.message === 'string' &&
-					/exceeds the available context size/iu.test(inner.message)))
-		) {
-			return true;
-		}
-	}
-	return false;
 }
 
 function resolveModel(options: RecursiveTaskOptions): string {
