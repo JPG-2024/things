@@ -3,9 +3,138 @@
 	import { fade } from 'svelte/transition';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
+
+	let frameEl: HTMLIFrameElement | null = $state(null);
+
+	const FADE_STEPS = 10;
+	/** Last volume we told the player. YouTube starts each (re)load at 100. */
+	let currentVolume = 100;
+	let fadeTimer: ReturnType<typeof setInterval> | null = null;
+
+	function setPlayerVolume(volume: number): void {
+		frameEl?.contentWindow?.postMessage(
+			JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }),
+			'*'
+		);
+	}
+
+	function clearFade(): void {
+		if (fadeTimer !== null) {
+			clearInterval(fadeTimer);
+			fadeTimer = null;
+		}
+	}
+
+	/** Ramp the player from its current volume to `target` over the configured
+	 * fade duration. Cancels any in-flight fade, so rapid changes stay smooth. */
+	function fadePlayerVolume(target: number): void {
+		clearFade();
+		const start = currentVolume;
+		if (start === target) return;
+
+		const durationMs = ttsState.volumeFadeMs;
+		if (durationMs <= 0) {
+			currentVolume = target;
+			setPlayerVolume(target);
+			return;
+		}
+
+		const intervalMs = durationMs / FADE_STEPS;
+		let step = 0;
+		fadeTimer = setInterval(() => {
+			step += 1;
+			const value = Math.round(start + (target - start) * (step / FADE_STEPS));
+			currentVolume = value;
+			setPlayerVolume(value);
+			if (step >= FADE_STEPS) {
+				clearFade();
+			}
+		}, intervalMs);
+	}
+
+	/** Reset our tracked volume to YouTube's default after an iframe (re)load,
+	 * so a freshly-mounted player fades from 100 instead of a stale value. */
+	function resetVolumeTracking(): void {
+		clearFade();
+		currentVolume = 100;
+	}
+
+	function applyCurrentVolume(): void {
+		fadePlayerVolume(ttsState.isPlaying ? ttsState.volumeWhileTTS : 100);
+	}
+
+	// Duck the video to a low volume while TTS is actively playing, and restore
+	// it to full volume otherwise. Tracks `active`, `ttsState.isPlaying`, and the
+	// iframe reference so it re-applies whenever any of them change.
+	$effect(() => {
+		if (!active) {
+			clearFade();
+			return;
+		}
+		applyCurrentVolume();
+	});
+
+	// Clear any in-flight fade if the component is torn down.
+	$effect(() => {
+		return () => clearFade();
+	});
+
+	// The `{#key active.videoId}` block remounts the iframe on video change and
+	// `setVolume` is only honored once the player is ready, so re-apply on the
+	// embed's `onReady` message as well.
+	$effect(() => {
+		if (!active) return;
+
+		const onMessage = (event: MessageEvent) => {
+			if (typeof event.data !== 'string') return;
+			let data: unknown;
+			try {
+				data = JSON.parse(event.data);
+			} catch {
+				return;
+			}
+			if (
+				typeof data === 'object' &&
+				data !== null &&
+				(data as { event?: unknown }).event === 'onReady'
+			) {
+				resetVolumeTracking();
+				applyCurrentVolume();
+			}
+		};
+
+		window.addEventListener('message', onMessage);
+		return () => window.removeEventListener('message', onMessage);
+	});
+
+	// Auto-minimize the player to the mini thumbnail while TTS is playing and
+	// restore the previous mode once it stops. Only acts on transitions so it
+	// never fights the user manually toggling the player mid-playback.
+	let wasPlaying = false;
+	let prevMinimized = false;
+
+	$effect(() => {
+		if (!active) {
+			wasPlaying = false;
+			return;
+		}
+
+		const playing = ttsState.isPlaying && ttsState.autoMinimizeWhileTTS;
+
+		if (playing && !wasPlaying) {
+			prevMinimized = playerStore.minimized;
+			if (!playerStore.minimized) playerStore.minimize();
+		} else if (!playing && wasPlaying) {
+			if (prevMinimized) playerStore.minimize();
+			else playerStore.restore();
+		}
+
+		wasPlaying = playing;
+	});
 
 	createHotkey(
 		'Escape',
@@ -46,11 +175,16 @@
 			</div>
 			{#key active.videoId}
 				<iframe
+					bind:this={frameEl}
 					class="player-video"
-					src={`https://www.youtube-nocookie.com/embed/${active.videoId}?autoplay=1&rel=0&modestbranding=1`}
+					src={`https://www.youtube-nocookie.com/embed/${active.videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
 					title="YouTube video player"
 					allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
 					allowfullscreen
+					onload={() => {
+						resetVolumeTracking();
+						applyCurrentVolume();
+					}}
 				></iframe>
 			{/key}
 		</div>

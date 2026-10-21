@@ -780,6 +780,36 @@
 						/>
 					</Spacer>
 				{/if}
+
+				{#if management}
+					<Spacer title="Playback" icon="Volume2" defaultOpen={false}>
+						<RangeSelector
+							id="settings-duckVolume"
+							label="YouTube volume while TTS (%)"
+							bind:value={ttsState.volumeWhileTTS}
+							min={0}
+							max={30}
+							step={1}
+							format={(v) => v.toString()}
+						/>
+						<RangeSelector
+							id="settings-volumeFade"
+							label="Volume fade (ms)"
+							bind:value={ttsState.volumeFadeMs}
+							min={0}
+							max={2000}
+							step={50}
+							format={(v) => v.toString()}
+						/>
+						<div class="row">
+							<ToggleIcon
+								name="Minimize2"
+								bind:checked={ttsState.autoMinimizeWhileTTS}
+								label="Auto-minimize while TTS"
+							/>
+						</div>
+					</Spacer>
+				{/if}
 			</div>
 		</div>
 	</div>
