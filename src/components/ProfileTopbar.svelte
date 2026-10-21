@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import { navigateBack } from '@/stores/navigationHistory.svelte';
 
@@ -40,7 +41,7 @@
 			{#if name}
 				<div class="identity">
 					{#if thumbSrc}
-						<img class="thumb" src={thumbSrc} alt={name} />
+						<ProfileThumb src={thumbSrc} tooltip={name} size={40} />
 					{:else if fallbackIcon}
 						<Icon name={fallbackIcon} ariaLabel={name} />
 					{/if}
@@ -71,14 +72,6 @@
 		gap: 0.6rem;
 		min-width: 0;
 		max-width: 40ch;
-	}
-
-	.thumb {
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		object-fit: cover;
-		flex-shrink: 0;
 	}
 
 	.name {

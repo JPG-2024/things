@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
 	import EntityCard from '@/components/EntityCard.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { goto } from '$app/navigation';
@@ -99,21 +100,26 @@
 		{/if}
 		<div class="identity-row">
 			{#if profileWithArticles.profilePictureSrc}
-				<button class="img-button" type="button" onclick={goToprofile} aria-label="View profile">
-					<img
+				<button
+					class="img-button"
+					type="button"
+					onclick={goToprofile}
+					aria-label="View profile"
+					onmouseenter={() => {
+						if (!isDomain) {
+							viewState.hoveredProfileName = profileWithArticles.name;
+						}
+						viewState.hoveredProfileId = profileWithArticles.id;
+					}}
+					onmouseleave={() => {
+						viewState.hoveredProfileName = null;
+						viewState.hoveredProfileId = null;
+					}}
+				>
+					<ProfileThumb
 						src={profileWithArticles.profilePictureSrc}
 						alt={profileWithArticles.name}
-						class="profile-avatar"
-						onmouseenter={() => {
-							if (!isDomain) {
-								viewState.hoveredProfileName = profileWithArticles.name;
-							}
-							viewState.hoveredProfileId = profileWithArticles.id;
-						}}
-						onmouseleave={() => {
-							viewState.hoveredProfileName = null;
-							viewState.hoveredProfileId = null;
-						}}
+						size={32}
 					/>
 				</button>
 			{/if}
@@ -202,16 +208,7 @@
 		color: var(--primary-color);
 	}
 
-	.profile-avatar {
-		flex-shrink: 0;
-		transition: transform 0.1s;
-		border-radius: 100%;
-		width: 2rem;
-		height: 2rem;
-		object-fit: cover;
-	}
-
-	.profile-avatar:hover {
+	.img-button:hover :global(img.profile-thumb) {
 		transform: scale(1.1);
 		z-index: 20;
 	}

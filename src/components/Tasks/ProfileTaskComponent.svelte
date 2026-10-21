@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { goto } from '$app/navigation';
 
@@ -47,7 +48,12 @@
 	<div class="profile-task">
 		{#if profileData.profilePicture}
 			<div class="profile-header">
-				<img src={profileData.profilePicture} alt={profileData.name} class="profile-avatar" />
+				<ProfileThumb
+					src={profileData.profilePicture}
+					alt={profileData.name}
+					tooltip={profileData.name}
+					size={80}
+				/>
 				{#if profileData.name}
 					<span class="profile-name">{profileData.name}</span>
 				{/if}
@@ -87,13 +93,6 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.5rem;
-	}
-
-	.profile-avatar {
-		width: 80px;
-		height: 80px;
-		border-radius: 50%;
-		object-fit: cover;
 	}
 
 	.profile-name {

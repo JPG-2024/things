@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
@@ -121,12 +122,7 @@
 						onclick={handleNavigateToProfile}
 						aria-label={`View all articles from ${name}`}
 					>
-						<img
-							src={profile.profilePictureSrc}
-							alt={name}
-							class="profile-avatar"
-							style={`view-transition-name: vt-profile-${toVTName(categoryId)}`}
-						/>
+						<ProfileThumb src={profile.profilePictureSrc} alt={name} tooltip={name} size={50} />
 					</button>
 				{/if}
 				{#each articles as article (article.url)}
@@ -246,15 +242,6 @@
 		display: block;
 	}
 
-	.profile-avatar {
-		width: 50px;
-		height: 50px;
-		border-radius: 100%;
-		object-fit: cover;
-		flex-shrink: 0;
-		margin-right: 0.5rem;
-	}
-
 	.avatar-button {
 		all: unset;
 		cursor: pointer;
@@ -264,6 +251,7 @@
 		border-radius: 50%;
 		transition: transform 0.2s;
 		min-width: 100px;
+		margin-right: 0.5rem;
 	}
 
 	.avatar-button:hover {
