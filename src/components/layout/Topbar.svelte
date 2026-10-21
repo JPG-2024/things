@@ -1,43 +1,18 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
-	import { autoHide } from '@/lib/actions/autoHide';
 	import Icon from '@/components/Icon.svelte';
-	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { navigateBack } from '@/stores/navigationHistory.svelte';
-	import { getMediaSrc } from '@/lib/utils/files';
 	interface Props {
 		children?: Snippet;
-		autoHide?: boolean;
 		loading?: boolean;
 	}
 
-	let { children, autoHide: autoHideEnabled = true, loading = false }: Props = $props();
+	let { children, loading = false }: Props = $props();
 
 	let faviconSrc = $state<string | null>(null);
-	let profileSrc = $state<string | null>(null);
-
-	$effect(() => {
-		const pic = scrapStore.currentYoutubeProfile?.profileImage;
-		if (!pic) {
-			profileSrc = null;
-			return;
-		}
-		let active = true;
-		getMediaSrc(pic)
-			.then((src) => {
-				if (active) profileSrc = src;
-			})
-			.catch(() => {
-				if (active) profileSrc = null;
-			});
-		return () => {
-			active = false;
-		};
-	});
 
 	$effect(() => {
 		if (!viewState.domainUrl || viewState.isRawMode) {
@@ -60,13 +35,6 @@
 		void navigateBack();
 	}
 
-	function handleProfileNavigation() {
-		const profile = scrapStore.currentYoutubeProfile;
-		if (!profile?.id) return;
-		viewState.currentProfileId = profile.id;
-		goto(`/profile/${profile.id}`);
-	}
-
 	/* 	createHotkey('Escape', handleBackNavigation, {
 		stopPropagation: true,
 		preventDefault: true,
@@ -74,7 +42,7 @@
 	}); */
 </script>
 
-<div class="top-bar" use:autoHide={{ enabled: autoHideEnabled }}>
+<div class="top-bar">
 	<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button>
 
 	<button type="button" class="favicon-btn" aria-label="Navigate back">
@@ -84,17 +52,6 @@
 			<Icon name="ClipboardType" />
 		{/if}
 	</button>
-
-	{#if profileSrc}
-		<button
-			type="button"
-			class="profile-btn"
-			aria-label="Open profile"
-			onclick={handleProfileNavigation}
-		>
-			<img class="profile-pic" src={profileSrc} alt="" />
-		</button>
-	{/if}
 
 	{@render children?.()}
 
@@ -122,17 +79,6 @@
 		box-sizing: border-box;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
-		transform: translateY(0);
-		opacity: 1;
-		transition:
-			transform 250ms ease-out,
-			opacity 250ms ease-out;
-	}
-
-	.top-bar:global(.hidden) {
-		transform: translateY(-100%);
-		opacity: 0;
-		pointer-events: none;
 	}
 
 	.top-bar::after {
@@ -175,20 +121,6 @@
 		border-radius: var(--radius-sm);
 		width: 30px;
 		height: 30px;
-	}
-
-	.profile-btn {
-		all: unset;
-		cursor: pointer;
-		padding: 0;
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.profile-pic {
-		border-radius: 50%;
-		width: 40px;
-		height: 40px;
 	}
 
 	.favicon-placeholder {
