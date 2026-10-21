@@ -209,13 +209,7 @@
 		width: 26%;
 		aspect-ratio: 1;
 		border-radius: 50%;
-		background: color-mix(
-			in srgb,
-			var(--primary-color) calc(50% + var(--pct) * 50%),
-			transparent
-		);
-		box-shadow: 0 0 calc(var(--pct) * 10px) calc(var(--pct) * 3px)
-			color-mix(in srgb, var(--primary-color) calc(50% + var(--pct) * 50%), transparent);
+		background: color-mix(in srgb, var(--primary-color) calc(50% + var(--pct) * 50%), transparent);
 	}
 
 	.range-wrapper.disabled .range-fill {
