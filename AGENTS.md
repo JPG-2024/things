@@ -170,6 +170,10 @@ Use a static options object. Common for media-player-style controls.
 - When mutating task/store structures, follow existing defensive-copy patterns where used.
 - Maintain consistency between Tauri command names and frontend callers.
 - If changing persisted shapes or database-facing data, check for downstream readers first.
+- When introducing a user-facing constant (a magic number that affects behavior/UX), make it
+  configurable instead of hardcoding it: expose it in `SettingsModal` or `VoiceSettingsModal`,
+  placing it in an existing `Spacer` section when one fits, or adding a new `Spacer` section
+  when none does.
 
 ### Conditional hotkeys (reactive enable/disable)
 
