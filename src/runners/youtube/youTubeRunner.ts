@@ -181,8 +181,6 @@ export async function youTubeRunner(
 		? config.profileId.trim().toLowerCase().replace(/\s+/g, '-').replace(/\./g, '')
 		: undefined;
 
-	console.log(normalizedRunnerProfileId);
-
 	let profileFetchPromise: Promise<void> | null = null;
 	if (config?.profile) {
 		scrapStore.currentYoutubeProfile = config.profile;
