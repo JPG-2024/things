@@ -482,17 +482,37 @@ export async function chatCompletions(
 	request: LlamaChatCompletionsRequest,
 	options?: LlamaChatCompletionOptions
 ): Promise<LlamaChatCompletionsResponse> {
-	const langName = LANGUAGE_MAP[viewState.language];
-	if (langName) {
-		const messages = request.messages;
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const msg = messages[i];
-			if (msg.role === 'user' && typeof msg.content === 'string') {
+	const context = typeof request.context === 'string' ? request.context.trim() : '';
+
+	// Locate the last user message so we can build the final user message from
+	// the decoupled `context` + `userMessage`, logging only the user message.
+	const messages = request.messages;
+	let lastUserIndex = -1;
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const msg = messages[i];
+		if (msg.role === 'user' && typeof msg.content === 'string') {
+			lastUserIndex = i;
+			break;
+		}
+	}
+
+	if (lastUserIndex >= 0) {
+		const msg = messages[lastUserIndex];
+		if (typeof msg.content === 'string') {
+			if (context) {
+				console.log('[userMessage]', msg.content);
+				msg.content = `context: ${context} ${msg.content}`;
+			}
+
+			const langName = LANGUAGE_MAP[viewState.language];
+			if (langName) {
 				msg.content += `\n\nRespond in ${langName}.`;
-				break;
 			}
 		}
 	}
+
+	// `context` is a local-only field; never send it upstream.
+	delete request.context;
 
 	if (viewState.aiProvider === 'openrouter') {
 		return openrouterChatCompletions(applyOpenRouterThinking(request), options);

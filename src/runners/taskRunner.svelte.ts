@@ -442,7 +442,6 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 				? task.completionOptions(resolveCtx)
 				: task.completionOptions;
 
-		const userContent = `context: ${runResult} ${resolvedUser}`;
 		const useStream =
 			options?.stream !== undefined ? options.stream === true : resolvedCompletion.stream === true;
 		const request: LlamaChatCompletionsRequest = {
@@ -451,9 +450,10 @@ export class TaskRunnerStore<TMap extends TaskMapBase = TaskMapBase> {
 			think: false,
 			enable_thinking: false,
 			cache_prompt: false,
+			context: runResult,
 			messages: [
 				{ role: 'system', content: resolvedSystem },
-				{ role: 'user', content: userContent }
+				{ role: 'user', content: resolvedUser }
 			]
 		};
 

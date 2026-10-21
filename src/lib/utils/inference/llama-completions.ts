@@ -103,6 +103,8 @@ export interface LlamaChatCompletionsRequest {
 	model?: string; // Model identifier to run the completion with.
 	messages: LlamaChatMessage[]; // Conversation history sent to the model.
 
+	context?: string; // Local-only: prepended to the last user message and stripped before sending upstream.
+
 	tools?: LlamaTool[]; // Tool definitions the model may call.
 	tool_choice?: LlamaToolChoice; // Strategy for whether the model should call tools.
 	parallel_tool_calls?: boolean; // Allows multiple tool calls in the same turn.
