@@ -101,5 +101,6 @@
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
 		color: var(--bg-color);
+		text-wrap: nowrap;
 	}
 </style>
