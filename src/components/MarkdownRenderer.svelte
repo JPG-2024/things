@@ -148,14 +148,17 @@
 	.markdown-container :global(ol) {
 		margin: 1rem 0 1rem 2rem;
 		padding: 0;
+		color: var(--gray-200);
 	}
 
 	.markdown-container :global(ul) {
 		margin-left: 1.714rem;
+		color: var(--gray-200);
 	}
 
 	.markdown-container :global(li) {
 		margin: 0.5rem 0;
+		color: var(--gray-200);
 	}
 
 	.markdown-container :global(blockquote) {
@@ -166,7 +169,7 @@
 	}
 
 	.markdown-container :global(strong) {
-		color: var(--bg-color);
+		color: white;
 		font-weight: bold;
 	}
 
