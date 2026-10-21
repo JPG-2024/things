@@ -32,7 +32,7 @@
 	// ArrowLeft returns to the route this post was opened from.
 	createBackHotkey();
 
-	$effect.pre(() => {
+	/* 	$effect.pre(() => {
 		function handleScroll() {
 			if (window.scrollX === -2 || window.scrollY === -2) {
 				window.removeEventListener('scroll', handleScroll);
@@ -44,7 +44,7 @@
 			window.removeEventListener('scroll', handleScroll);
 			workflowManager.clearStack();
 		};
-	});
+	}); */
 
 	$effect(() => {
 		return () => {
