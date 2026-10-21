@@ -94,7 +94,7 @@
 				<Icon name={icon} size={16} />
 			{/if}
 			<LuminousText mode={effectiveOpen ? 'on' : 'off'}>
-				<span class="spacer-title">{title}</span>
+				{title}
 			</LuminousText>
 			<span class="collapse-icon">
 				<Icon
@@ -179,9 +179,6 @@
 
 	.collapse-icon {
 		opacity: 0.5;
-	}
-
-	.spacer-header:hover .spacer-title {
 	}
 
 	.spacer-content {

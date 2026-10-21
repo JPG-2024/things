@@ -177,7 +177,7 @@
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
-	<Spacer title="Openrouter">
+	<Spacer title="Openrouter" icon="Cloud">
 		<div class="inference-section">
 			<DropdownField
 				label="AI Provider"
@@ -193,7 +193,7 @@
 			<TextField label="AI Model" bind:value={viewState.aiModel} />
 		</div>
 	</Spacer>
-	<Spacer title="Llama.cpp" defaultOpen={true}>
+	<Spacer title="Llama.cpp" icon="Cpu" defaultOpen={false}>
 		<div class="inference-section">
 			<ToggleField
 				label="Launch servers automatically"
@@ -300,7 +300,7 @@
 			</div>
 		</div>
 	</Spacer>
-	<Spacer title="Analysis">
+	<Spacer title="Analysis" icon="ScanSearch">
 		<div class="inference-section">
 			<NumberField
 				label="Default depth"
@@ -311,7 +311,7 @@
 			/>
 		</div>
 	</Spacer>
-	<Spacer title="Category classification">
+	<Spacer title="Category classification" icon="Tags">
 		<div class="inference-section">
 			<FieldsRow columns={3}>
 				<NumberField
@@ -347,7 +347,7 @@
 			</Button>
 		</div>
 	</Spacer>
-	<Spacer title="Media">
+	<Spacer title="Media" icon="Image">
 		<div class="inference-section">
 			<NumberField
 				label="Thumbnail Reduction"
@@ -363,7 +363,7 @@
 			<DatabaseManager />
 		</div>
 	</Spacer>
-	<Spacer title="Cards">
+	<Spacer title="Cards" icon="LayoutGrid">
 		<div class="inference-section">
 			{#snippet cardLayoutFields(tab: CardTab, title: string)}
 				<div class="card-layout-group">
@@ -411,7 +411,7 @@
 			{@render cardLayoutFields('categories', 'Categories')}
 		</div>
 	</Spacer>
-	<Spacer title="Scraping">
+	<Spacer title="Scraping" icon="Globe">
 		<div class="inference-section">
 			<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />
 			<FieldsRow columns={2}>

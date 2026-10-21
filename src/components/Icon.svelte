@@ -19,7 +19,7 @@
 	let {
 		name,
 		size,
-		color = 'var(--primary-color)',
+		color = 'var(--bg-color)',
 		onClick = undefined,
 		tooltipProps = undefined,
 		disabled = false,
