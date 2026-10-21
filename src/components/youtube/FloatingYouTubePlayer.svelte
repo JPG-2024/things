@@ -208,8 +208,8 @@
 	/* Zero-size anchor: children are absolutely positioned from this corner. */
 	.floating-player {
 		position: fixed;
-		right: 1rem;
-		bottom: 1rem;
+		right: 1.5rem;
+		bottom: 1.3rem;
 		width: 0;
 		height: 0;
 		z-index: 600; /* above content, below modals (9999/10000) */
@@ -224,7 +224,7 @@
 		overflow: hidden;
 		border-radius: var(--radius-md);
 		background: #000;
-		box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition: opacity 150ms ease;
 	}
 
@@ -282,9 +282,9 @@
 		width: 80px;
 		height: 80px;
 		overflow: hidden;
-		border-radius: 50%;
+		border-radius: var(--radius-lg);
 		background: #000;
-		box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		cursor: pointer;
 	}
 
