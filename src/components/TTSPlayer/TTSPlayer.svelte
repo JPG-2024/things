@@ -377,7 +377,7 @@
 		box-shadow: none;
 		padding: 0;
 		border-radius: 0;
-		width: 150px;
+		width: 260px;
 		height: 70px;
 		cursor: pointer;
 		display: flex;

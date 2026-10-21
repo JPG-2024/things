@@ -97,7 +97,7 @@
 	.tts-player-mini__content {
 		display: flex;
 		align-items: center;
-		width: 100vw;
+		width: 100%;
 		height: 100%;
 		gap: 0;
 		background: transparent;
@@ -106,11 +106,11 @@
 	.tts-player-mini__canvas-clip {
 		flex: 1;
 		height: 100%;
-		width: 100vw;
+		width: 100%;
 		position: relative;
 		border-radius: 0;
 		overflow: visible;
-		background: black;
+		background: transparent;
 	}
 
 	.tts-player-mini__controls {
@@ -124,7 +124,6 @@
 		gap: 0.35rem;
 		padding: 0.2rem 0.45rem;
 		border-radius: 999px;
-		background: rgb(9, 9, 9);
 		backdrop-filter: blur(4px);
 		-webkit-backdrop-filter: blur(4px);
 	}
@@ -139,8 +138,7 @@
 		width: 30px;
 		height: 30px;
 		border-radius: 50%;
-		color: var(--primary-color);
-		transition: background 0.15s ease;
+		transition: background 0.1s ease;
 	}
 
 	.tts-player-mini__btn:hover {
