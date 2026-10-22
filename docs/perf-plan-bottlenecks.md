@@ -6,9 +6,9 @@ Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Complement
 > **4. Bottlenecks** del análisis. Los items se identifican como `IPC-*`,
 > `REN-*` y `BOOT-*` para poder referenciarlos en commits y PRs.
 >
-> **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7), BOOT-1 y los
-> quick wins de rendering (REN-3, REN-5) hechos, ver la sección
-> "Estado de implementación". Quedan REN-1, REN-2, REN-4 y BOOT-2/BOOT-3.
+> **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7), BOOT-1, BOOT-2a y
+> los quick wins de rendering (REN-3, REN-5) hechos, ver la sección
+> "Estado de implementación". Quedan REN-1, REN-2, REN-4, BOOT-2b y BOOT-3.
 
 Convenciones del repo que aplican a casi todo lo de abajo:
 
@@ -36,6 +36,7 @@ Convenciones del repo que aplican a casi todo lo de abajo:
 | BOOT-1 | ✅ Hecho | `f6d0d54` | `loadSettings` con `Promise.all` (orden de aplicación preservado); `set('version')` fire-and-forget |
 | REN-3 | ✅ Hecho | `5168516` | `loading="lazy"` + `decoding="async"` en la thumb de `ArticleThumbnail` |
 | REN-5 | ✅ Hecho | `4a04c88` | Guard single-flight en `handleRawSearch(pattern, force)` + `rawSearchLastPattern`; el botón fuerza re-búsqueda |
+| BOOT-2a | ✅ Hecho | `752e284` | Promesa compartida de `/voices` (fallo no sticky, copia defensiva); `force` en re-fetch post-mutación; BOOT-2b pendiente |
 
 Desvío aceptado en IPC-2 (opción B elegida sobre la proyección de tasks): las
 listas ya no reciben `persistedTasks` — la tabla `web_tasks` completa deja de
@@ -521,6 +522,13 @@ settings aplicados al montar.
 `applyTts` para confirmar que llega después de `applyView`.
 
 ### BOOT-2 · Doble `fetchVoiceProfiles` al boot + estado de voz duplicado
+
+**Estado: ✅ 2a implementado (`752e284`).** Cache de la
+promesa en `ttsService.ts` con firma `fetchVoiceProfiles({ silent, force })`;
+fallo no sticky, copia defensiva por caller (`[...profiles]`) y `force: true`
+en los 3 re-fetch post-mutación de `mainVoice` + `onProfilesChanged`. Los 2
+`onMount` de `TTSPlayer` y `podcastStore.loadProfiles` comparten la promesa.
+2b sigue pendiente.
 
 **Problema (verificado).** `useVoiceProfiles.initProfiles`
 (`src/components/TTSPlayer/useVoiceProfiles.svelte.ts:83-96`, usado por
