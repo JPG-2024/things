@@ -293,11 +293,21 @@ export async function loadSettings(): Promise<void> {
 	loaded = true;
 
 	try {
-		applyView(await store.get<unknown>('view'));
-		applyScrap(await store.get<unknown>('scrap'));
-		applyPodcast(await store.get<unknown>('podcast'));
-		applyTts(await store.get<unknown>('tts'));
-		await store.set('version', SETTINGS_VERSION);
+		// Fetch all sections in parallel (one round-trip instead of four) and
+		// apply them in the original order to keep hydration semantics.
+		const [view, scrap, podcast, tts] = await Promise.all([
+			store.get<unknown>('view'),
+			store.get<unknown>('scrap'),
+			store.get<unknown>('podcast'),
+			store.get<unknown>('tts')
+		]);
+		applyView(view);
+		applyScrap(scrap);
+		applyPodcast(podcast);
+		applyTts(tts);
+		store.set('version', SETTINGS_VERSION).catch((err) => {
+			console.warn('[settings] failed to save version', err);
+		});
 	} catch (err) {
 		console.warn('[settings] failed to load settings', err);
 	}
