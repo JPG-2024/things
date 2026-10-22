@@ -962,24 +962,9 @@ export async function updateTaskDataById(
 	data: unknown
 ): Promise<void> {
 	try {
-		const taskRecord = await invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', {
-			url
-		});
-
-		if (!taskRecord) return;
-
-		const tasks = JSON.parse(taskRecord.tasksJson) as PersistedTaskState[];
-		const task = tasks.find((t) => t.id === taskId);
-
-		if (!task) return;
-
-		task.data = data;
-		await wrapRawContentRef(url, task);
-
-		await invoke('upsert_web_store_tasks', {
-			url,
-			tasksJson: JSON.stringify(tasks)
-		});
+		// Atomic server-side read-modify-write (IPC-7): only the new data
+		// travels; the content ref wrap happens in Rust.
+		await invoke('update_web_store_task_data', { url, taskId, data });
 	} catch (error) {
 		console.error('Error updating task data:', error);
 	}

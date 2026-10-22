@@ -2271,6 +2271,93 @@ pub async fn upsert_web_store_tasks(
     Ok(())
 }
 
+/// Task id carrying the article raw text: its non-empty string data is
+/// persisted to `raw_content/` and replaced by a ref inside `web_tasks`
+/// (mirrors the client-side `wrapRawContentRef`).
+const CONTENT_TASK_ID: &str = "content";
+const RAW_CONTENT_REF: &str = "__rawContentRef__";
+
+/// Parses a stored tasks array, replaces the `data` of the first task matching
+/// `task_id` and re-serializes. `None` means no-op: invalid JSON, a non-array
+/// payload or an absent task id — the client treated all of those as no-ops.
+fn replace_task_data(tasks_json: &str, task_id: &str, new_data: Value) -> Option<String> {
+    let mut tasks = serde_json::from_str::<Value>(tasks_json).ok()?;
+    let array = tasks.as_array_mut()?;
+
+    for task in array.iter_mut() {
+        if task.get("id").and_then(Value::as_str) == Some(task_id) {
+            let obj = task.as_object_mut()?;
+            obj.insert("data".to_string(), new_data);
+            return serde_json::to_string(&tasks).ok();
+        }
+    }
+
+    None
+}
+
+/// Atomic read-modify-write of one task's data (IPC-7): previously the client
+/// fetched the full tasks JSON, mutated one task in JS and wrote the whole
+/// array back — full payload traveling twice plus a read/write race window.
+/// Now only the new `data` travels and the swap happens server-side in one
+/// transaction. Returns false when the url has no task row or the task id is
+/// absent (the client no-ops silently on both).
+#[tauri::command]
+pub async fn update_web_store_task_data(
+    app: AppHandle,
+    url: String,
+    task_id: String,
+    data: Value,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+
+    // Server-side replication of wrapRawContentRef: a content task with
+    // non-empty string data is written to raw_content/ and stored as a ref, so
+    // heavyweight text never lands inside web_tasks.
+    let stored_data = if task_id == CONTENT_TASK_ID {
+        match data.as_str() {
+            Some(text) if !text.is_empty() => {
+                let key = write_raw_content(app.clone(), url.clone(), text.to_string()).await?;
+                let mut ref_object = serde_json::Map::new();
+                ref_object.insert(RAW_CONTENT_REF.to_string(), Value::String(key));
+                Value::Object(ref_object)
+            }
+            _ => data,
+        }
+    } else {
+        data
+    };
+
+    // Same-connection transaction so the read and the write can't interleave
+    // with another writer on this database.
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+
+    let tasks_json = match tx.query_row(
+        "SELECT tasks_json FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
+        params![url],
+        |row| row.get::<_, String>(0),
+    ) {
+        Ok(value) => value,
+        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(false),
+        Err(error) => return Err(error.to_string()),
+    };
+
+    let Some(updated_json) = replace_task_data(&tasks_json, &task_id, stored_data) else {
+        return Ok(false);
+    };
+
+    tx.execute(
+        "UPDATE web_tasks SET tasks_json = ?2, updated_at = ?3 WHERE url = ?1 COLLATE NOCASE",
+        params![url, updated_json, chrono_like_now()],
+    )
+    .map_err(|error| error.to_string())?;
+
+    tx.commit().map_err(|error| error.to_string())?;
+
+    Ok(true)
+}
+
 #[tauri::command]
 pub async fn write_raw_content(
     app: AppHandle,
@@ -4399,6 +4486,35 @@ mod tests {
         let articles = query_articles_for_domain(&conn, "example.com", 10).expect("query");
         assert_eq!(articles.len(), 1);
         assert_eq!(articles[0].domain.as_deref(), Some("example.com"));
+    }
+
+    #[test]
+    fn replace_task_data_updates_matching_task_and_no_ops_otherwise() {
+        let tasks_json = r#"[
+            {"id": "title", "name": "Title", "data": "Hello", "status": "done"},
+            {"id": "analysis", "data": {"topics": ["a"]}, "status": "done"}
+        ]"#;
+
+        let updated = replace_task_data(
+            tasks_json,
+            "analysis",
+            serde_json::json!(["x", "y"]),
+        )
+        .expect("task found");
+
+        let parsed: Value = serde_json::from_str(&updated).expect("valid json");
+        let tasks = parsed.as_array().expect("array");
+        assert_eq!(tasks[1].get("data").unwrap(), &serde_json::json!(["x", "y"]));
+        assert_eq!(
+            tasks[0].get("data").unwrap(),
+            "Hello",
+            "other tasks must stay untouched"
+        );
+
+        // Missing id, invalid JSON and non-array payloads are no-ops.
+        assert!(replace_task_data(tasks_json, "missing", serde_json::json!(1)).is_none());
+        assert!(replace_task_data("not-json", "title", serde_json::json!(1)).is_none());
+        assert!(replace_task_data(r#"{"id": "title"}"#, "title", serde_json::json!(1)).is_none());
     }
 
     #[test]
