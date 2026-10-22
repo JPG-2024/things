@@ -7,8 +7,9 @@ Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Complement
 > `REN-*` y `BOOT-*` para poder referenciarlos en commits y PRs.
 >
 > **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7), arranque completo
-> (BOOT-1, BOOT-2a+b) y los quick wins de rendering (REN-3, REN-5) hechos, ver
-> la sección "Estado de implementación". Quedan REN-1, REN-2, REN-4 y BOOT-3.
+> (BOOT-1, BOOT-2a+b, BOOT-3) y los quick wins de rendering (REN-3, REN-5)
+> hechos, ver la sección "Estado de implementación". Quedan REN-1, REN-2 y
+> REN-4.
 
 Convenciones del repo que aplican a casi todo lo de abajo:
 
@@ -38,6 +39,7 @@ Convenciones del repo que aplican a casi todo lo de abajo:
 | REN-5 | ✅ Hecho | `4a04c88` | Guard single-flight en `handleRawSearch(pattern, force)` + `rawSearchLastPattern`; el botón fuerza re-búsqueda |
 | BOOT-2a | ✅ Hecho | `752e284` | Promesa compartida de `/voices` (fallo no sticky, copia defensiva); `force` en re-fetch post-mutación |
 | BOOT-2b | ✅ Hecho | `acbdfb4` | `useVoiceProfiles` eliminado; estado y métodos en `ttsState`; `mainVoiceState` sin estado propio (−184 líneas netas) |
+| BOOT-3 | ✅ Hecho | `0c6a500` | Autostart de llama diferido 3 s; `createAdaptivePoller` (skip oculto + refresh al foreground + backoff 15→30→60 s) |
 
 Desvío aceptado en IPC-2 (opción B elegida sobre la proyección de tasks): las
 listas ya no reciben `persistedTasks` — la tabla `web_tasks` completa deja de
@@ -563,6 +565,14 @@ handlers de mainVoice tras operaciones de perfil ya son casos force).
 sigue refrescando chunks; smoke de TTS end-to-end.
 
 ### BOOT-3 · `ensureLlamaServers` + health polls al primer mount
+
+**Estado: ✅ implementado (`0c6a500`, backoff simple elegido).** Autostart
+diferido 3 s (`LLAMA_AUTOSTART_DELAY_MS` en `@/constants`) en `+layout.svelte`;
+pollers (llama + externos) movidos a `createAdaptivePoller`
+(`src/lib/utils/adaptivePoller.ts`): skip de ciclos con `document.hidden`,
+refresh inmediato al volver al foreground y backoff 15 → 30 → 60 s mientras
+algo está caído (reset al ver todo up). El punto 3 (default `llamaAutoStart =
+false`) sigue sin hacerse por decisión de UX.
 
 **Problema (verificado).** `+layout.svelte:293-296`: onMount corre
 `ensureLlamaServers()` si `llamaAutoStart` (default true) — que además hace
