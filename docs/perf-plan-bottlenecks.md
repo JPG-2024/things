@@ -3,9 +3,11 @@
 Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Complementa `docs/perf-analysis.md`
 
 > Este documento es el plan de implementación para cada item de la sección
-> **4. Bottlenecks** del análisis. Nada de esto está implementado todavía.
-> Los items se identifican como `IPC-*`, `REN-*` y `BOOT-*` para poder
-> referenciarlos en commits y PRs.
+> **4. Bottlenecks** del análisis. Los items se identifican como `IPC-*`,
+> `REN-*` y `BOOT-*` para poder referenciarlos en commits y PRs.
+>
+> **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7, ver la sección
+> "Estado de implementación"). Rendering y arranque siguen pendientes.
 
 Convenciones del repo que aplican a casi todo lo de abajo:
 
@@ -15,6 +17,34 @@ Convenciones del repo que aplican a casi todo lo de abajo:
   helpers de `db_manager`, nunca joinear `app_data_dir()` a mano.
 - Constantes con efecto visible en UX van como settings en `SettingsModal` /
   `VoiceSettingsModal` cuando aplique (se marca en cada item).
+
+---
+
+## Estado de implementación (2026-10-22)
+
+| Item | Estado | Commit | Notas |
+|------|--------|--------|-------|
+| IPC-1 | ✅ Hecho | `53b6555` | Hidratación solo en paths de detalle; `getArticleThumbnailByUrl` liviano (fila + thumb, sin hidratar) |
+| IPC-2 | ✅ Hecho (opción B) | `53b6555` | Descarga de `web_tasks` completa eliminada; desvío documentado abajo |
+| IPC-3 | ✅ Hecho (cache) | `ce1dcd1` | Memo por `(directory, filename)` a nivel promesa + `isResolvedMediaSrc`; el comando batch (punto 2 del fix) queda opcional |
+| IPC-4a | ✅ Hecho | `6ead6a8` | `ensure_schema` memoizado por ruta (`Lazy<Mutex<HashSet<PathBuf>>>`); 41 `init_schema` por comando eliminados |
+| IPC-4b | ⏸ Opcional | — | Solo si la medición lo justifica |
+| IPC-5 | ✅ Hecho | `6ead6a8` | Transacción única + rebuild 1 vez + media/raw content en Rust; test nuevo |
+| IPC-6 | ✅ Hecho | `9b15466` | `delete_web_store_articles_by_urls(urls) -> usize`; embeddings batch server-side; comandos single huérfanos borrados |
+| IPC-7 | ✅ Hecho | `88b068c` | `update_web_store_task_data(url, taskId, data) -> bool` atómico; wrap de raw content replicado en Rust |
+
+Desvío aceptado en IPC-2 (opción B elegida sobre la proyección de tasks): las
+listas ya no reciben `persistedTasks` — la tabla `web_tasks` completa deja de
+transferirse, pero los chips de categoría y las pills de topics de
+`ArticleItem` desaparecen de Articles/Profiles/Domains, y el resumen de perfil
+sobre artículos de lista se queda sin títulos/summaries (falla soft).
+Follow-up posible si la UI lo extraña: chips/topics lazy por card vía
+`getTasksByUrl` cacheado.
+
+Verificación de la fase: `cargo test` 60 passed; `svelte-check` + ESLint
+limpios en archivos tocados; `bun run build` OK. Pendiente manual (requiere la
+app): smoke de listas, detalle, TTS, borrados y el baseline post-fase para
+anotar el delta de invokes.
 
 ---
 
@@ -51,6 +81,11 @@ página con ~100 artículos, timeline de boot, tamaño de chunks con
 ## 1. IPC (el más grave)
 
 ### IPC-1 · N+1 de `read_raw_content` en listas
+
+**Estado: ✅ implementado (`53b6555`).** Default sin hidratación; solo los
+paths de detalle (`getArticleWithTasksByUrl`, `getTasksByUrl`) pasan
+`{ hydrateRawContent: true }`. Los consumidores de lista (`ArticleItem`,
+`profileSummary`) quedan sin tasks — ver el desvío de IPC-2.
 
 **Problema (verificado).** `mapStoredArticle` (`src/stores/webStore.ts:533-545`)
 llama a `parsePersistedTaskStates`, que por cada task con id `content` cuyo
@@ -96,6 +131,12 @@ artículo, hotkey S (TTS) y búsqueda.
 
 ### IPC-2 · `list_web_store_tasks` transfiere la tabla `web_tasks` completa
 
+**Estado: ✅ implementado con la opción B (`53b6555`).** En vez de proyectar
+tasks por id, se eliminó la descarga completa (`getTasksByUrlMap`, su cache
+TTL y el comando `list_web_store_tasks` + `strip_recursive_chunks` y sus 2
+tests, que quedaron sin callers). Las listas no reciben `persistedTasks`;
+regresión aceptada según el desvío de arriba.
+
 **Problema (verificado).** Único caller frontend: `getTasksByUrlMap()`
 (`webStore.ts:194-214`, TTL 30 s), usado para hidratar listas en
 `mapAndResolveArticles`. En Rust (`web_store.rs:2090-2110`) hace
@@ -117,6 +158,11 @@ de que es prescindible: `getArticlesByCategories` ya mapea con `new Map()`
 de listas, filtros, pestañas profiles/domains/categorías.
 
 ### IPC-3 · `resolveMediaSrc`: 2 IPC de path-join por item
+
+**Estado: ✅ cache implementada (`ce1dcd1`).** Memo de promesas por
+`(mediaDirectory, imgName)` con expulsión de rechazos; incluye el fix dev
+`/@fs` y `isResolvedMediaSrc`. El comando batch (punto 2 del fix) queda
+opcional, sin hacer.
 
 **Problema (verificado).** `resolveMediaSrcBatch` (`webStore.ts:569-594`)
 resuelve thumbnail + profilePicture por artículo → `getMediaSrc`
@@ -143,6 +189,10 @@ todo (~200 IPC por 100 artículos).
 de 200 → 0-1; thumbs y avatares se siguen viendo (smoke visual).
 
 ### IPC-4 · `get_db()` reabre conexión + `init_schema` en cada invocación
+
+**Estado: ✅ etapa A implementada (`6ead6a8`).** `ensure_schema` memoizado por
+ruta de DB dentro de `get_db` (también en `init_database_at`); los 41
+`init_schema(&conn)?;` de comandos eliminados. Etapa B pendiente de medición.
 
 **Problema (verificado).** `get_db` (`web_store.rs:256-259`) abre una
 `Connection` nueva (con PRAGMAs en `open_connection`) por comando, y cada
@@ -173,6 +223,14 @@ tests de `web_store::tests` deben seguir pasando); micro-bench manual de un
 fetch de lista antes/después.
 
 ### IPC-5 · `deleteProfileById` trae todos los artículos al cliente
+
+**Estado: ✅ implementado (`6ead6a8`).** `delete_bucket_rows` (transacción +
+rebuild 1 vez) y `delete_bucket_media` en Rust; el cliente queda en
+`getProfile` (rama) + 1 invoke + `invalidateProfilesCache()`. Mejora
+comportamiento: los thumbnails de dominios ahora sí se borran (antes el filtro
+cliente no matcheaba en el caso dominio y quedaban huérfanas). Los embeddings
+siguen sin borrarse en este path (pre-existente). Test:
+`delete_bucket_rows_clears_rows_tolerates_missing_urls_and_rebuilds_once`.
 
 **Problema (verificado).** `deleteProfileById` (`webStore.ts:1017-1045`) hace
 `list_web_store_articles` (tabla completa, solo para filtrar por profile en
@@ -205,6 +263,12 @@ filas, thumbs y dots del toolbar desaparecen; export/import posterior intacto.
 
 ### IPC-6 · `deleteSelected`: bucle serial de ~5 IPC por artículo
 
+**Estado: ✅ implementado (`9b15466`).** `delete_web_store_articles_by_urls`
+reutiliza `delete_bucket_rows`; embeddings vía `delete_article_embeddings_batch`
+(1 conexión LanceDB, 1 predicated `IN` por tabla). `deleteSelected` quedó en
+1 IPC; `deleteArticleByUrl` delega (mismo contrato). Borrados por huérfanos:
+`delete_web_store_article_by_url` y `delete_web_store_tasks_by_url`.
+
 **Problema (verificado).** `deleteSelected`
 (`src/stores/selectedArticlesStore.svelte.ts:37-55`) llama `deleteArticleByUrl`
 en serie; cada una (`webStore.ts:987-1003`) = get article + get tasks (2 IPC)
@@ -229,6 +293,12 @@ hoy hace `deleteArticleEmbeddings` en TS debe moverse/llamarse desde Rust).
 artículos) + verificación de residuos (thumbs y embeddings huérfanos).
 
 ### IPC-7 · `updateTaskDataById` read-modify-write del JSON completo
+
+**Estado: ✅ implementado (`88b068c`).** Helper puro
+`replace_task_data` (test: `replace_task_data_updates_matching_task_and_no_ops_otherwise`)
++ comando `update_web_store_task_data` con SELECT+UPDATE en una transacción y
+wrap de raw content replicado server-side. El cliente quedó en 1 invoke con el
+mismo contrato.
 
 **Problema (verificado).** `updateTaskDataById` (`webStore.ts:958-985`):
 `get_web_store_tasks_by_url` (JSON completo de ida) → parse en JS → muta 1
