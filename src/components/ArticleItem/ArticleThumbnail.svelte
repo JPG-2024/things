@@ -36,6 +36,8 @@
 		{src}
 		alt="Article"
 		class="article-thumbnail"
+		loading="lazy"
+		decoding="async"
 		style={`view-transition-name: ${toThumbnailVTName(url ?? '')}`}
 	/>
 {/snippet}
