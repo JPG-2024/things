@@ -6,8 +6,9 @@ Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Complement
 > **4. Bottlenecks** del análisis. Los items se identifican como `IPC-*`,
 > `REN-*` y `BOOT-*` para poder referenciarlos en commits y PRs.
 >
-> **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7, ver la sección
-> "Estado de implementación"). Rendering y arranque siguen pendientes.
+> **Estado (2026-10-22):** fase IPC completa (IPC-1 … IPC-7) y BOOT-1 hechos,
+> ver la sección "Estado de implementación". Rendering y el resto de arranque
+> siguen pendientes.
 
 Convenciones del repo que aplican a casi todo lo de abajo:
 
@@ -32,6 +33,7 @@ Convenciones del repo que aplican a casi todo lo de abajo:
 | IPC-5 | ✅ Hecho | `6ead6a8` | Transacción única + rebuild 1 vez + media/raw content en Rust; test nuevo |
 | IPC-6 | ✅ Hecho | `9b15466` | `delete_web_store_articles_by_urls(urls) -> usize`; embeddings batch server-side; comandos single huérfanos borrados |
 | IPC-7 | ✅ Hecho | `88b068c` | `update_web_store_task_data(url, taskId, data) -> bool` atómico; wrap de raw content replicado en Rust |
+| BOOT-1 | ✅ Hecho | `f6d0d54` | `loadSettings` con `Promise.all` (orden de aplicación preservado); `set('version')` fire-and-forget |
 
 Desvío aceptado en IPC-2 (opción B elegida sobre la proyección de tasks): las
 listas ya no reciben `persistedTasks` — la tabla `web_tasks` completa deja de
@@ -485,6 +487,10 @@ existentes no re-hidratan).
 ## 3. Arranque
 
 ### BOOT-1 · `loadSettings` en serie bloquea el primer render
+
+**Estado: ✅ implementado (`f6d0d54`).** Los 4 `store.get` en `Promise.all`
+con aplicación en el orden original; `set('version')` fire-and-forget con
+`.catch()`. El `await` del load se mantiene.
 
 **Problema (verificado).** `+layout.ts:10-13` hace `await loadSettings()` antes
 del primer render; `loadSettings` (`settingsStore.svelte.ts:290-304`) hace 4
