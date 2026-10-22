@@ -193,6 +193,7 @@ export const analysisTopicSplitProcessor: ProcessorDef = {
 		userMessage:
 			'Extract the main topics and keywords, summarize the window, and consolidate the topic labels.'
 	},
+	emptyFinal: () => ({ summary: '', keywords: [], topics: [], sections: [] }),
 	build: (config) => {
 		// The depth table can express any per-window topic count; clamp it so
 		// both the prompt and the fixed-count grammar stay inside the cap.

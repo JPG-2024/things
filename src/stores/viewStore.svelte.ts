@@ -3,6 +3,7 @@ import { isoDateDaysAgo } from '@/lib/utils/date';
 import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
 import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
+import type { DefaultAnalysisKind } from '@/runners/shared/sharedTasks';
 import { getProfiles } from '@/stores/webStore';
 import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
@@ -180,6 +181,9 @@ class ViewState {
 	// Starting depth for new topic-analysis tasks (see ANALYSIS_DEPTH_LEVELS);
 	// tasks already persisted keep their own depth.
 	analysisDepth = $state(DEFAULT_ANALYSIS_DEPTH);
+	// Default processor for newly created analysis tasks; tasks already
+	// persisted keep their own processor type.
+	analysisKind = $state<DefaultAnalysisKind>('windowSummary');
 	// Both sides of the category comparison are now `topics + keywords`
 	// embeddings (query and fed exemplars), so the threshold sits higher than
 	// the old name/description-vs-document value of 0.35.

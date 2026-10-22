@@ -102,6 +102,7 @@ function serializeView() {
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
 		categoryMargin: viewState.categoryMargin,
 		analysisDepth: viewState.analysisDepth,
+		analysisKind: viewState.analysisKind,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
@@ -185,6 +186,13 @@ function applyView(raw: unknown): void {
 			MIN_ANALYSIS_DEPTH,
 			MAX_ANALYSIS_DEPTH
 		);
+	}
+	if (
+		raw.analysisKind === 'multi' ||
+		raw.analysisKind === 'analysisTopic' ||
+		raw.analysisKind === 'windowSummary'
+	) {
+		viewState.analysisKind = raw.analysisKind;
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);

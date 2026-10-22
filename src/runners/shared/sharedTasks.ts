@@ -52,7 +52,7 @@ export async function generateEmojiForText(text: string): Promise<string> {
 
 export const DEFAULT_TASK_IDS = ['analysis', 'category', 'title'] as const;
 
-export type DefaultAnalysisKind = 'multi' | 'analysisTopic';
+export type DefaultAnalysisKind = 'multi' | 'analysisTopic' | 'windowSummary';
 
 export function createDefaultTasks(
 	contentDependency: string = 'content',
@@ -65,7 +65,9 @@ export function createDefaultTasks(
 		embedField?: string;
 	} = {}
 ): Task[] {
-	const analysisKind: DefaultAnalysisKind = options.analysis ?? 'multi';
+	// The persisted Settings choice decides the default kind; explicit
+	// `options.analysis` overrides it (e.g. templates).
+	const analysisKind: DefaultAnalysisKind = options.analysis ?? viewState.analysisKind;
 
 	const shared: RecursiveTaskOptions = {
 		dependencies: [contentDependency],
@@ -93,13 +95,23 @@ export function createDefaultTasks(
 					keywordCount: options.keywordCount ?? DEFAULT_KEYWORD_COUNT,
 					topicWordCount: options.topicWordCount ?? DEFAULT_TOPIC_WORD_COUNT
 				}
-			: {
-					processorType: 'multi',
-					component: 'multiAnalysis',
-					combineMode: 'llm',
-					multiFields: DEFAULT_MULTI_FIELDS,
-					localFinal: true
-				};
+			: analysisKind === 'windowSummary'
+				? {
+						processorType: 'windowSummary',
+						component: 'windowSummary',
+						combineMode: 'llm',
+						// Embeddings index the window summaries (the only field this
+						// processor produces); the default `'topics'` field would
+						// find nothing and silently skip indexing.
+						embedField: 'summary'
+					}
+				: {
+						processorType: 'multi',
+						component: 'multiAnalysis',
+						combineMode: 'llm',
+						multiFields: DEFAULT_MULTI_FIELDS,
+						localFinal: true
+					};
 
 	const analysisDef = buildRecursiveTask('analysis', { ...shared, ...kindOptions });
 

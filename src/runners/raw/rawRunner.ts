@@ -46,7 +46,7 @@ export async function rawRunner(
 		cachedTasks: options.cachedTasks,
 		templateId: options.templateId,
 		articleOverrides: options.articleOverrides,
-		defaultTasksFactory: () => createDefaultTasks('content', { analysis: 'analysisTopic' }),
+		defaultTasksFactory: () => createDefaultTasks('content'),
 		onRunResult: async (runResult, { templateId, articleOverrides }) => {
 			await Promise.all([
 				saveArticle(rawId, runResult.tasks, { ...articleOverrides, templateId }),

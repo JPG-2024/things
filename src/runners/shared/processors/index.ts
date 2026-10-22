@@ -4,6 +4,7 @@ import { extractionProcessor } from './extraction';
 import { translateProcessor } from './translate';
 import { customProcessor } from './custom';
 import { multiProcessor } from './multi';
+import { windowSummaryProcessor } from './windowSummary';
 // Analysis-topic implementation toggle: the split processor (two calls per
 // chunk + label consolidation) and the single-call processor share the same
 // `type` and data shapes, so switching is just swapping this import.
@@ -22,6 +23,7 @@ register(translateProcessor);
 register(customProcessor);
 register(multiProcessor);
 register(analysisTopicProcessor);
+register(windowSummaryProcessor);
 
 export function getProcessor(type: ProcessorType): ProcessorDef {
 	const def = registry.get(type);
@@ -56,5 +58,8 @@ export type {
 	TopicSection,
 	AnalysisTopicChunkData,
 	AnalysisTopicFinal,
-	AnalysisTopicChunkProcessor
+	WindowSummaryChunkData,
+	WindowSummaryFinal,
+	AnalysisTopicChunkProcessor,
+	WindowSummaryChunkProcessor
 } from './types';

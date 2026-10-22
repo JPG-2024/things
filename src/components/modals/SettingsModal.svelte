@@ -35,6 +35,7 @@
 	} from '@/lib/utils/llamaHealth';
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
 	import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
+	import type { DefaultAnalysisKind } from '@/runners/shared/sharedTasks';
 
 	let rebuildingCategories = $state(false);
 	let models = $state<LlamaModelEntry[]>([]);
@@ -152,6 +153,12 @@
 	const providerOptions = [
 		{ label: 'Llama', value: 'llama' },
 		{ label: 'OpenRouter', value: 'openrouter' }
+	];
+
+	const analysisKindOptions: { label: string; value: DefaultAnalysisKind }[] = [
+		{ label: 'Window summary', value: 'windowSummary' },
+		{ label: 'Topic analysis', value: 'analysisTopic' },
+		{ label: 'Multi analysis', value: 'multi' }
 	];
 
 	const languageOptions = [
@@ -307,13 +314,22 @@
 	</Spacer>
 	<Spacer title="Analysis" icon="ScanSearch">
 		<div class="inference-section">
-			<NumberField
-				label="Default depth"
-				min={MIN_ANALYSIS_DEPTH}
-				max={MAX_ANALYSIS_DEPTH}
-				tooltip="Starting depth for new topic-analysis tasks. Each level splits the content into more windows (÷1, ÷2, ÷4, ÷8, ÷16) and asks each window for topics."
-				bind:value={viewState.analysisDepth}
+			<DropdownField
+				label="Default analysis"
+				options={analysisKindOptions}
+				tooltip="Processor used for newly created analysis tasks. Tasks already saved keep their original processor."
+				value={viewState.analysisKind}
+				onChange={(v) => (viewState.analysisKind = v as DefaultAnalysisKind)}
 			/>
+			{#if viewState.analysisKind === 'analysisTopic'}
+				<NumberField
+					label="Default depth"
+					min={MIN_ANALYSIS_DEPTH}
+					max={MAX_ANALYSIS_DEPTH}
+					tooltip="Starting depth for new topic-analysis tasks. Each level splits the content into more windows (÷1, ÷2, ÷4, ÷8, ÷16) and asks each window for topics."
+					bind:value={viewState.analysisDepth}
+				/>
+			{/if}
 		</div>
 	</Spacer>
 	<Spacer title="Category classification" icon="Tags">

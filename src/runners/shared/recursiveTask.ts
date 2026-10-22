@@ -15,7 +15,8 @@ import type {
 	MultiChunkProcessor,
 	AnalysisTopicChunkData,
 	AnalysisTopicFinal,
-	AnalysisTopicChunkProcessor,
+	WindowSummaryChunkData,
+	WindowSummaryFinal,
 	ChunkProcessorConfig,
 	AnyChunkProcessor
 } from '@/runners/shared/processors';
@@ -35,7 +36,7 @@ export type ChunkOffset = {
 
 export type RecursiveChunk = {
 	key: ChunkOffset;
-	data: string[] | MultiChunkData | AnalysisTopicChunkData;
+	data: string[] | MultiChunkData | AnalysisTopicChunkData | WindowSummaryChunkData;
 	/**
 	 * Section heading this chunk was split under, when heading-aware splitting
 	 * produced it. Carries through to sub-chunks of an oversized section.
@@ -45,7 +46,7 @@ export type RecursiveChunk = {
 
 export type RecursiveContentResult = {
 	chunks: RecursiveChunk[];
-	finalResponse: string | string[] | MultiFinal | AnalysisTopicFinal;
+	finalResponse: string | string[] | MultiFinal | AnalysisTopicFinal | WindowSummaryFinal;
 	windowDivisor?: number;
 };
 
@@ -244,6 +245,7 @@ export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions)
 	const chunking = resolveChunking(options);
 	const isMulti = options.processorType === 'multi' || options.multiFields !== undefined;
 	const isAnalysisTopic = options.processorType === 'analysisTopic';
+	const isWindowSummary = options.processorType === 'windowSummary';
 	const processorType: ProcessorType = isMulti
 		? 'multi'
 		: (options.processorType ?? (options.extractorConfig ? 'extraction' : 'summarize'));
@@ -285,7 +287,13 @@ export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions)
 			dependencies: options.dependencies ?? ['content'],
 			component:
 				options.component ??
-				(isMulti ? 'multiAnalysis' : isAnalysisTopic ? 'analysisTopic' : 'recursive'),
+				(isMulti
+					? 'multiAnalysis'
+					: isAnalysisTopic
+						? 'analysisTopic'
+						: isWindowSummary
+							? 'windowSummary'
+							: 'recursive'),
 			componentProps: mergeComponentProps(options.componentProps, recursiveConfig),
 			gridSpan: options.gridSpan,
 			renderOrder: options.renderOrder,
@@ -329,32 +337,35 @@ export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions)
 							chunks.push({
 								key: chunkOffsets[i],
 								heading: chunksResult[i].heading,
-								data: result as string[] | MultiChunkData | AnalysisTopicChunkData
+								data: result as
+									| string[]
+									| MultiChunkData
+									| AnalysisTopicChunkData
+									| WindowSummaryChunkData
 							});
 							update({
+								// The processor's `emptyFinal` is the placeholder shape
+								// written while chunks stream in; plain-text processors
+								// default to `''`.
 								data: {
 									chunks: [...chunks],
-									finalResponse: isMulti
-										? { summary: '', keywords: [], topics: [] }
-										: isAnalysisTopic
-											? { summary: '', keywords: [], topics: [], sections: [] }
-											: ''
+									finalResponse: processorDef.emptyFinal?.() ?? ''
 								}
 							});
 						}
 
-						let finalResponse: string | string[] | MultiFinal | AnalysisTopicFinal;
-						if (isMulti) {
-							const multiProcessor = processor as import('./processors').MultiChunkProcessor;
-							const multiData = chunks.map((c) => c.data as MultiChunkData);
-							finalResponse = await multiProcessor.combineChunks(multiData, sections);
-						} else if (isAnalysisTopic) {
-							const analysisTopicProcessor = processor as AnalysisTopicChunkProcessor;
-							const analysisTopicData = chunks.map((c) => c.data as AnalysisTopicChunkData);
-							finalResponse = await analysisTopicProcessor.combineChunks(
-								analysisTopicData,
+						let finalResponse: RecursiveContentResult['finalResponse'];
+						if (isMulti || isAnalysisTopic || isWindowSummary) {
+							// Every windowed processor shares the same call signature;
+							// each one owns its chunk/final data contract, so a single
+							// signature-level cast dispatches all of them.
+							const windowed = processor as {
+								combineChunks: (results: unknown[], rawChunks: string[]) => Promise<unknown>;
+							};
+							finalResponse = (await windowed.combineChunks(
+								chunks.map((c) => c.data),
 								sections
-							);
+							)) as RecursiveContentResult['finalResponse'];
 						} else {
 							const flatData = chunks.flatMap((c) => c.data as string[]);
 							const singleProcessor = processor as import('./processors').ChunkProcessor;

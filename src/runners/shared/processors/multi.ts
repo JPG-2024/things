@@ -26,6 +26,7 @@ export const multiProcessor: ProcessorDef = {
 		userMessage: buildMultiFieldUserMessage(4, 3),
 		finalUserMessage: MULTI_FINAL_USER_MESSAGE
 	},
+	emptyFinal: () => ({ summary: '', keywords: [], topics: [] }),
 	build: (config) => {
 		const fields = config.multiFields ?? DEFAULT_MULTI_FIELDS;
 		const grammar = multiFieldObjectGbnf(fields);

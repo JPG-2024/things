@@ -7,7 +7,8 @@ export type ProcessorType =
 	| 'translate'
 	| 'custom'
 	| 'multi'
-	| 'analysisTopic';
+	| 'analysisTopic'
+	| 'windowSummary';
 
 export type CombineMode = 'llm' | 'join' | 'dedupe';
 
@@ -38,6 +39,16 @@ export type AnalysisTopicFinal = {
 	keywords: string[];
 	topics: string[];
 	sections: TopicSection[];
+};
+
+/** Minimal windowed chunk result: plain markdown summary of one window. */
+export type WindowSummaryChunkData = {
+	summary: string;
+};
+
+/** Minimal windowed final result: one summary merged from all windows. */
+export type WindowSummaryFinal = {
+	summary: string;
 };
 
 export interface ChunkProcessorConfig {
@@ -74,10 +85,29 @@ export interface AnalysisTopicChunkProcessor {
 	) => Promise<AnalysisTopicFinal>;
 }
 
-export type AnyChunkProcessor = ChunkProcessor | MultiChunkProcessor | AnalysisTopicChunkProcessor;
+export interface WindowSummaryChunkProcessor {
+	processChunk: (chunk: string, index: number) => Promise<WindowSummaryChunkData>;
+	combineChunks: (
+		results: WindowSummaryChunkData[],
+		rawChunks: string[]
+	) => Promise<WindowSummaryFinal>;
+}
+
+export type AnyChunkProcessor =
+	| ChunkProcessor
+	| MultiChunkProcessor
+	| AnalysisTopicChunkProcessor
+	| WindowSummaryChunkProcessor;
 
 export interface ProcessorDef {
 	type: ProcessorType;
 	defaults: Partial<ChunkProcessorConfig>;
+	/**
+	 * Empty final-result placeholder the run loop writes into task data while
+	 * chunks are still streaming. Windowed processors with object finals
+	 * supply it; plain-text processors fall back to `''`. Its presence also
+	 * marks the processor's combined shape as object-windowed for dispatch.
+	 */
+	emptyFinal?: () => unknown;
 	build: (config: ChunkProcessorConfig) => AnyChunkProcessor;
 }
