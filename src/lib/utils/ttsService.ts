@@ -36,7 +36,10 @@ function isAbort(err: unknown): boolean {
 	return err instanceof DOMException && err.name === 'AbortError';
 }
 
-export async function fetchVoiceProfiles(silent = false): Promise<VoiceProfile[]> {
+/** Shared promise for the voice profile list; see {@link fetchVoiceProfiles}. */
+let voiceProfilesPromise: Promise<VoiceProfile[]> | null = null;
+
+async function requestVoiceProfiles(silent: boolean): Promise<VoiceProfile[]> {
 	try {
 		const res = await fetch(`${TTS_API_URL}/voices`);
 		if (!res.ok) {
@@ -53,6 +56,27 @@ export async function fetchVoiceProfiles(silent = false): Promise<VoiceProfile[]
 		if (!silent) await setErrorFrom(err, 'Failed to fetch voice profiles');
 		throw err;
 	}
+}
+
+/**
+ * Shared fetch of the voice profile list. Callers without `force` reuse the
+ * in-flight (or last resolved) fetch, so the boot's concurrent loaders and the
+ * podcast tab share one request. Mutation sites (create/edit profile) pass
+ * `force` so the next caller sees fresh data. A rejected fetch is not sticky:
+ * the next call retries. Returns a defensive copy so no holder can mutate the
+ * shared list (e.g. the in-place `reverse`).
+ */
+export async function fetchVoiceProfiles(
+	opts: { silent?: boolean; force?: boolean } = {}
+): Promise<VoiceProfile[]> {
+	const { silent = false, force = false } = opts;
+	if (force) voiceProfilesPromise = null;
+	voiceProfilesPromise ??= requestVoiceProfiles(silent);
+	const promise = voiceProfilesPromise;
+	void promise.catch(() => {
+		if (voiceProfilesPromise === promise) voiceProfilesPromise = null;
+	});
+	return promise.then((profiles) => [...profiles]);
 }
 
 export function getImage(filename: string): string {

@@ -80,9 +80,9 @@ export function useVoiceProfiles() {
 		ttsState.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
 	}
 
-	async function initProfiles(): Promise<void> {
+	async function initProfiles(force = false): Promise<void> {
 		try {
-			profiles = await fetchVoiceProfiles(true);
+			profiles = await fetchVoiceProfiles({ silent: true, force });
 			const resolvedId = ttsState.resolveProfileId(profiles);
 			const match = profiles.find((p) => p.id === resolvedId);
 			if (match) {

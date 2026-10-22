@@ -80,7 +80,7 @@ class MainVoiceState {
 		await this.ensureProfiles();
 		try {
 			const result = await uploadVoiceFromAudio(blob, opts);
-			this.profiles = await fetchVoiceProfiles();
+			this.profiles = await fetchVoiceProfiles({ force: true });
 			await this.selectProfile(result.profile_id);
 
 			const chunk = result.chunks[0];
@@ -98,7 +98,7 @@ class MainVoiceState {
 
 	private async refreshAndMatch(): Promise<void> {
 		try {
-			this.profiles = await fetchVoiceProfiles();
+			this.profiles = await fetchVoiceProfiles({ force: true });
 			const match = this.profiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
 				await this.selectProfile(match.id);
@@ -125,7 +125,7 @@ class MainVoiceState {
 			if (patch.name_prefix) {
 				ttsState.namePrefix = patch.name_prefix;
 			}
-			this.profiles = await fetchVoiceProfiles();
+			this.profiles = await fetchVoiceProfiles({ force: true });
 			return true;
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to update voice profile';

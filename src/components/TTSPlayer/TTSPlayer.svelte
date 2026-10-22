@@ -346,7 +346,7 @@
 	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
 	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
 	onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
-	onProfilesChanged={() => voice.initProfiles()}
+	onProfilesChanged={() => voice.initProfiles(true)}
 	onChange={applySynthSettings}
 	onClose={() => voiceSettingsState.closeTts()}
 	onChunksChanged={() => void voice.loadChunksForProfile(voice.selectedProfileId)}
