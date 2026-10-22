@@ -236,6 +236,8 @@ class ViewState {
 	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
+	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
+	rawSearchLastPattern = $state('');
 
 	isYouTube = $derived(
 		this.url && /^https?:\/\//.test(this.url)

@@ -115,7 +115,7 @@
 	 * raw search and closes the filters popup. */
 	function handleSearchInContent() {
 		viewState.commitUnifiedFilter();
-		void handleRawSearch(viewState.unifiedFilterDraft);
+		void handleRawSearch(viewState.unifiedFilterDraft, true);
 		articleFilters.panelOpen = false;
 	}
 
@@ -125,9 +125,22 @@
 		viewState.clearUnifiedFilter();
 	}
 
-	async function handleRawSearch(pattern: string) {
+	async function handleRawSearch(pattern: string, force = false) {
 		const trimmed = pattern.trim();
 		if (trimmed.length < 4) return;
+		// Single-flight: the committed filter change re-runs this via the
+		// debounced effect ~1 s after the direct call. Skip the re-run when the
+		// same pattern already has results on screen; the button passes
+		// `force` to refresh. Checking `rawSearchResults` (not just the
+		// pattern) lets a cleared search (results = null) run again.
+		if (
+			!force &&
+			trimmed === viewState.rawSearchLastPattern &&
+			viewState.rawSearchResults !== null
+		) {
+			return;
+		}
+		viewState.rawSearchLastPattern = trimmed;
 		viewState.rawSearchLoading = true;
 		try {
 			const results = await invoke<
