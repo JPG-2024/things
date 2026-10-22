@@ -5,11 +5,14 @@ import {
 	buildSpeechParams,
 	sanitizeForTTS,
 	parseSSE,
+	fetchVoiceProfiles,
+	fetchVoiceChunks,
 	type Voice,
 	type VoiceProfile
 } from '@/lib/utils/ttsService';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
+import type { WheelSelection } from '@/types/tts.types';
 
 export interface TTSRefConfig {
 	refAudioFilename: string;
@@ -202,6 +205,96 @@ class TTSState {
 			this.config.refAudioFilename = chunks[0].audio_file;
 			this.config.refText = chunks[0].text_reference;
 		}
+	}
+
+	/** Authoritative voice-profile list (BOOT-2b: consolidated voice state). */
+	voiceProfiles = $state<VoiceProfile[]>([]);
+
+	/** Fetches the chunk list of a profile into `voiceChunks`/`config` refs. */
+	async loadVoiceChunksForProfile(profileId: string, silent = false): Promise<void> {
+		try {
+			this.setVoiceChunks(await fetchVoiceChunks(profileId, silent));
+		} catch (err) {
+			if (silent) {
+				console.warn('[TTS] Failed to load voice chunks', err);
+				return;
+			}
+			this.errorMessage = err instanceof Error ? err.message : 'Failed to load voice chunks';
+		}
+	}
+
+	/** Boot loader: silent fetch + activate the persisted/first profile. */
+	async initVoiceProfiles(force = false): Promise<void> {
+		try {
+			this.voiceProfiles = await fetchVoiceProfiles({ silent: true, force });
+			const resolvedId = this.resolveProfileId(this.voiceProfiles);
+			const match = this.voiceProfiles.find((p) => p.id === resolvedId);
+			if (match) {
+				this.selectedProfileId = match.id;
+				this.namePrefix = match.name_prefix;
+				await this.loadVoiceChunksForProfile(match.id, true);
+			}
+		} catch (err) {
+			console.warn('[TTS] Failed to load voices', err);
+		}
+	}
+
+	/** Applies a wheel selection to the synthesis config and pending chunks. */
+	async handleVoiceWheelChange(sel: WheelSelection): Promise<void> {
+		const profile = this.voiceProfiles.find((p) => p.id === sel.profileId);
+		if (profile) {
+			this.selectedProfileId = profile.id;
+			this.namePrefix = profile.name_prefix;
+			await this.loadVoiceChunksForProfile(profile.id);
+			const firstChunk = this.voiceChunks[0];
+			if (firstChunk) {
+				this.config.refAudioFilename = firstChunk.audio_file;
+				this.config.refText = firstChunk.text_reference;
+			}
+		}
+
+		this.config.randomChunk = sel.randomChunk;
+		this.config.numStep = sel.synthParams.numStep;
+		this.config.guidanceScale = sel.synthParams.guidanceScale;
+		this.config.speed = sel.synthParams.speed;
+		this.config.splitLevel = sel.synthParams.splitLevel;
+
+		this.pauseSettings.minGapMs = sel.pauseSettings.minGapMs;
+		this.pauseSettings.maxGapMs = sel.pauseSettings.maxGapMs;
+		this.pauseSettings.betweenParagraphs = sel.pauseSettings.betweenParagraphs;
+
+		if (sel.audioFile && sel.audioFile !== this.voiceChunks[0]?.audio_file) {
+			const picked = this.voiceChunks.find((c) => c.audio_file === sel.audioFile);
+			if (picked) {
+				this.config.refAudioFilename = picked.audio_file;
+				this.config.refText = picked.text_reference;
+			}
+		}
+
+		// Apply the new voice only to chunks that haven't been generated yet,
+		// so a profile switch while paused doesn't force a full rebuild.
+		this.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
+	}
+
+	/** Wheel selection while generating/playing: swap refs on pending chunks only. */
+	handleLiveVoiceWheelChange(sel: WheelSelection): void {
+		const isActive = this.isGenerating || this.isPlaying;
+		if (!isActive) {
+			void this.handleVoiceWheelChange(sel);
+			return;
+		}
+
+		const profile = this.voiceProfiles.find((p) => p.id === sel.profileId);
+		if (profile && profile.id !== this.selectedProfileId) {
+			this.selectedProfileId = profile.id;
+			this.namePrefix = profile.name_prefix;
+			void this.loadVoiceChunksForProfile(profile.id).then(() => {
+				this.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
+			});
+			return;
+		}
+
+		this.applyVoiceSelectionToPending(sel.randomChunk, sel.audioFile);
 	}
 
 	/**

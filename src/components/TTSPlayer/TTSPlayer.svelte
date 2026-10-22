@@ -10,7 +10,6 @@
 	import type { VoiceProfile } from '@/lib/utils/ttsService';
 	import type { SynthParams, PauseSettings } from '@/types/tts.types';
 	import { TtsPlaybackEngine } from './playbackEngine.svelte';
-	import { useVoiceProfiles } from './useVoiceProfiles.svelte';
 	import { formatTime } from './playbackMath';
 	import TTSPlayerMini from './TTSPlayerMini.svelte';
 	import MiniProfilePicker from './MiniProfilePicker.svelte';
@@ -19,7 +18,6 @@
 	const config = getCurrentStyle();
 
 	const engine = new TtsPlaybackEngine();
-	const voice = useVoiceProfiles();
 
 	let showProfilePicker = $state(false);
 	let pickerFilter = $state('');
@@ -34,7 +32,7 @@
 	});
 
 	const wheelInitial = $derived({
-		profileId: voice.selectedProfileId,
+		profileId: ttsState.selectedProfileId,
 		audioFile: ttsState.config.refAudioFilename,
 		randomChunk: ttsState.config.randomChunk,
 		synthParams: ttsSynthParams,
@@ -122,7 +120,7 @@
 	}
 
 	function handlePickProfile(profile: VoiceProfile) {
-		void voice.handleLiveVoiceChange({ ...wheelInitial, profileId: profile.id });
+		void ttsState.handleLiveVoiceWheelChange({ ...wheelInitial, profileId: profile.id });
 		showProfilePicker = false;
 	}
 
@@ -156,7 +154,7 @@
 		ttsState.pauseSettings.betweenParagraphs = value.pauseSettings.betweenParagraphs;
 
 		if (value.audioFile && value.audioFile !== ttsState.config.refAudioFilename) {
-			const picked = voice.chunks.find((c) => c.audio_file === value.audioFile);
+			const picked = ttsState.voiceChunks.find((c) => c.audio_file === value.audioFile);
 			if (picked) {
 				ttsState.config.refAudioFilename = picked.audio_file;
 				ttsState.config.refText = picked.text_reference;
@@ -215,7 +213,7 @@
 	);
 
 	onMount(() => {
-		void voice.initProfiles();
+		void ttsState.initVoiceProfiles();
 		void mainVoiceState.ensureProfiles();
 	});
 
@@ -291,8 +289,8 @@
 {#snippet profilePicker()}
 	<MiniProfilePicker
 		bind:filter={pickerFilter}
-		profiles={voice.profiles}
-		selectedProfileId={voice.selectedProfileId}
+		profiles={ttsState.voiceProfiles}
+		selectedProfileId={ttsState.selectedProfileId}
 		onPick={handlePickProfile}
 		onSettings={() => {
 			showProfilePicker = false;
@@ -334,22 +332,22 @@
 <VoiceSettingsModal
 	show={voiceSettingsState.ttsOpen}
 	title="TTS synthesis settings"
-	chunks={voice.chunks}
+	chunks={ttsState.voiceChunks}
 	audioFile={ttsState.config.refAudioFilename}
 	randomChunk={ttsState.config.randomChunk}
 	synthParams={ttsSynthParams}
 	pauseSettings={ttsState.pauseSettings}
 	management={true}
-	profiles={voice.profiles}
-	selectedProfileId={voice.selectedProfileId}
+	profiles={ttsState.voiceProfiles}
+	selectedProfileId={ttsState.selectedProfileId}
 	onAddVoice={() => mainVoiceState.runAddVoice()}
 	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
 	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}
 	onSaveRecording={(blob, opts) => mainVoiceState.saveRecording(blob, opts)}
-	onProfilesChanged={() => voice.initProfiles(true)}
+	onProfilesChanged={() => void ttsState.initVoiceProfiles(true)}
 	onChange={applySynthSettings}
 	onClose={() => voiceSettingsState.closeTts()}
-	onChunksChanged={() => void voice.loadChunksForProfile(voice.selectedProfileId)}
+	onChunksChanged={() => void ttsState.loadVoiceChunksForProfile(ttsState.selectedProfileId)}
 />
 
 <style>

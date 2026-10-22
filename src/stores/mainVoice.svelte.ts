@@ -1,64 +1,39 @@
 import {
 	fetchVoiceProfiles,
-	fetchVoiceChunks,
 	deleteVoiceProfile,
 	updateVoiceProfile,
-	uploadVoiceFromAudio,
-	type Voice,
-	type VoiceProfile
+	uploadVoiceFromAudio
 } from '@/lib/utils/ttsService';
 import { ttsState } from '@/stores/ttsStore.svelte';
 import { viewState } from '@/stores/viewStore.svelte';
 import { settingsPersistence } from '@/stores/settingsStore.svelte';
 
+/**
+ * Voice-profile management operations (add/edit/delete voice). Holds no state
+ * of its own: the profile list and the chunks live in `ttsState`
+ * (BOOT-2b consolidated voice state).
+ */
 class MainVoiceState {
-	profiles = $state<VoiceProfile[]>([]);
-	chunks = $state<Voice[]>([]);
-	loading = $state(false);
-
-	get selectedProfileId(): string {
-		return ttsState.selectedProfileId;
-	}
-
-	set selectedProfileId(value: string) {
-		ttsState.selectedProfileId = value;
-	}
-
-	/**
-	 * Loads the profile list once, so voice management (edit/delete) has data
-	 * even when the synthesis settings modal never opened.
-	 */
+	/** Non-silent boot loader: surfaces failures in the TTS error message. */
 	async ensureProfiles(): Promise<void> {
-		if (this.profiles.length > 0) return;
-		this.loading = true;
+		if (ttsState.voiceProfiles.length > 0) return;
 		try {
-			this.profiles = await fetchVoiceProfiles();
+			ttsState.voiceProfiles = await fetchVoiceProfiles();
 		} catch (err) {
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
-		} finally {
-			this.loading = false;
-		}
-	}
-
-	private async loadChunksForProfile(profileId: string): Promise<void> {
-		try {
-			this.chunks = await fetchVoiceChunks(profileId);
-			ttsState.setVoiceChunks(this.chunks);
-		} catch (err) {
-			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voice chunks';
 		}
 	}
 
 	private async selectProfile(id: string): Promise<void> {
-		this.selectedProfileId = id;
-		const profile = this.profiles.find((p) => p.id === id);
+		ttsState.selectedProfileId = id;
+		const profile = ttsState.voiceProfiles.find((p) => p.id === id);
 		if (!profile) return;
 		ttsState.namePrefix = profile.name_prefix;
 		if (profile.language && !settingsPersistence.languagePersisted) {
 			viewState.language = profile.language as 'en' | 'es';
 		}
-		await this.loadChunksForProfile(profile.id);
-		const firstChunk = this.chunks[0];
+		await ttsState.loadVoiceChunksForProfile(profile.id);
+		const firstChunk = ttsState.voiceChunks[0];
 		if (firstChunk) {
 			ttsState.config.refAudioFilename = firstChunk.audio_file;
 			ttsState.config.refText = firstChunk.text_reference;
@@ -80,7 +55,7 @@ class MainVoiceState {
 		await this.ensureProfiles();
 		try {
 			const result = await uploadVoiceFromAudio(blob, opts);
-			this.profiles = await fetchVoiceProfiles({ force: true });
+			ttsState.voiceProfiles = await fetchVoiceProfiles({ force: true });
 			await this.selectProfile(result.profile_id);
 
 			const chunk = result.chunks[0];
@@ -91,15 +66,16 @@ class MainVoiceState {
 			ttsState.namePrefix = result.name_prefix;
 			return result.profile_id;
 		} catch (err) {
-			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to save recorded voice';
+			ttsState.errorMessage =
+				err instanceof Error ? err.message : 'Failed to save recorded voice';
 			return null;
 		}
 	}
 
 	private async refreshAndMatch(): Promise<void> {
 		try {
-			this.profiles = await fetchVoiceProfiles({ force: true });
-			const match = this.profiles.find((p) => p.name_prefix === ttsState.namePrefix);
+			ttsState.voiceProfiles = await fetchVoiceProfiles({ force: true });
+			const match = ttsState.voiceProfiles.find((p) => p.name_prefix === ttsState.namePrefix);
 			if (match) {
 				await this.selectProfile(match.id);
 			}
@@ -110,7 +86,7 @@ class MainVoiceState {
 
 	async saveProfile(profileId: string, name: string, image: string): Promise<boolean> {
 		await this.ensureProfiles();
-		const profile = this.profiles.find((p) => p.id === profileId);
+		const profile = ttsState.voiceProfiles.find((p) => p.id === profileId);
 		if (!profile) return false;
 
 		const patch: { name_prefix?: string; image_src?: string } = {};
@@ -125,10 +101,11 @@ class MainVoiceState {
 			if (patch.name_prefix) {
 				ttsState.namePrefix = patch.name_prefix;
 			}
-			this.profiles = await fetchVoiceProfiles({ force: true });
+			ttsState.voiceProfiles = await fetchVoiceProfiles({ force: true });
 			return true;
 		} catch (err) {
-			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to update voice profile';
+			ttsState.errorMessage =
+				err instanceof Error ? err.message : 'Failed to update voice profile';
 			return false;
 		}
 	}
@@ -138,12 +115,12 @@ class MainVoiceState {
 		await this.ensureProfiles();
 		try {
 			await deleteVoiceProfile(profileId);
-			this.profiles = this.profiles.filter((p) => p.id !== profileId);
-			if (this.selectedProfileId === profileId) {
-				this.chunks = [];
-				this.selectedProfileId = '';
-				if (this.profiles.length > 0) {
-					await this.selectProfile(this.profiles[0].id);
+			ttsState.voiceProfiles = ttsState.voiceProfiles.filter((p) => p.id !== profileId);
+			if (ttsState.selectedProfileId === profileId) {
+				ttsState.setVoiceChunks([]);
+				ttsState.selectedProfileId = '';
+				if (ttsState.voiceProfiles.length > 0) {
+					await this.selectProfile(ttsState.voiceProfiles[0].id);
 				} else {
 					ttsState.namePrefix = '';
 					ttsState.setVoiceChunks([]);
@@ -151,7 +128,8 @@ class MainVoiceState {
 			}
 			return true;
 		} catch (err) {
-			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to delete voice profile';
+			ttsState.errorMessage =
+				err instanceof Error ? err.message : 'Failed to delete voice profile';
 			return false;
 		}
 	}
