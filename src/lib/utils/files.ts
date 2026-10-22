@@ -21,6 +21,15 @@ export function getMediaRoot(): Promise<string> {
 export const getMediaSrc = (filename: string): Promise<string> =>
 	getImageSrc(MEDIA_FOLDER, filename);
 
+/**
+ * Recognizes an already-resolved media src: a real URL (`asset://localhost/...`,
+ * remote favicon, data/blob URI) or the dev-mode media src Vite serves
+ * (`/@fs/...`, which has no URL scheme). Callers must treat these as opaque and
+ * never re-run them through `getMediaSrc`.
+ */
+export const isResolvedMediaSrc = (src: string): boolean =>
+	src.startsWith('/@fs/') || /^[a-z][a-z0-9+.-]*:/i.test(src);
+
 export const deleteMediaFile = async (filename: string): Promise<void> => {
 	try {
 		const mediaDir = await getMediaRoot();
@@ -44,10 +53,35 @@ export async function resolveMediaDirectory(url: string, profile?: string | null
 
 export const getImageDir = (): Promise<string> => getMediaRoot();
 
-export const getImageSrc = async (mediaDirectory: string, imgName: string): Promise<string> => {
-	const mediaDir = await getMediaRoot();
-	const filePath = await join(mediaDir, mediaDirectory, imgName);
-	return convertFileSrc(filePath);
+/**
+ * Resolved asset-src memo: `(mediaDirectory, imgName)` → asset src.
+ * The media root and the join are stable per app load (a workspace switch
+ * reloads the whole webview), so the cache never needs invalidation. Storing
+ * the promise dedupes concurrent callers for the same image.
+ */
+const mediaSrcPromises = new Map<string, Promise<string>>();
+
+export const getImageSrc = (mediaDirectory: string, imgName: string): Promise<string> => {
+	const cacheKey = `${mediaDirectory}\u0000${imgName}`;
+	let promise = mediaSrcPromises.get(cacheKey);
+	if (!promise) {
+		promise = (async () => {
+			const mediaDir = await getMediaRoot();
+			const filePath = await join(mediaDir, mediaDirectory, imgName);
+			// WebKitGTK 2.54 refuses `asset://` subresources on pages served over
+			// plain http (i.e. `tauri dev`; see tauri-apps/tauri#16201), so dev
+			// loads media through Vite's `/@fs` route (allowed in vite.config.js).
+			// Production pages come from the `tauri://` scheme, where it still works.
+			if (import.meta.env.DEV) {
+				return `/@fs${filePath}`;
+			}
+			return convertFileSrc(filePath);
+		})();
+		// A failed resolution is not sticky: drop it so the next caller retries.
+		void promise.catch(() => mediaSrcPromises.delete(cacheKey));
+		mediaSrcPromises.set(cacheKey, promise);
+	}
+	return promise;
 };
 
 export const DEFAULT_IMAGE_REDUCTION_MAGNITUD = 2;

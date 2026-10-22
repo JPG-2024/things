@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getMediaSrc } from '@/lib/utils/files';
+	import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import type { TooltipProps } from '@/components/Tooltip.svelte';
 
 	interface Props {
-		/** Raw media filename or an already-resolved URL (asset src, remote favicon, data URI). */
+		/** Raw media filename or an already-resolved src (asset src, dev `/@fs` path, remote favicon, data URI). */
 		src?: string | null;
 		alt?: string;
 		/** When set, the thumb is wrapped in a Tooltip showing this text. */
@@ -36,8 +36,9 @@
 			resolvedSrc = null;
 			return;
 		}
-		// Already a URL (converted asset src, remote favicon, data/blob URI): use as-is.
-		if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+		// Already a resolved src (converted asset src, dev `/@fs` media path,
+		// remote favicon, data/blob URI): use as-is.
+		if (isResolvedMediaSrc(raw)) {
 			resolvedSrc = raw;
 			return;
 		}
