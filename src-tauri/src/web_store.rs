@@ -1837,25 +1837,55 @@ pub async fn upsert_web_store_article(
     Ok(())
 }
 
+/// Batch article deletion (IPC-6): one transaction for every url — task rows,
+/// article rows, one `rebuild_domains_from_articles` — then embeddings, raw
+/// content files and thumbnails cleaned up server-side. Missing urls are
+/// tolerated and simply contribute zero to the returned count.
 #[tauri::command]
-pub async fn delete_web_store_article_by_url(app: AppHandle, url: String) -> Result<bool, String> {
+pub async fn delete_web_store_articles_by_urls(
+    app: AppHandle,
+    urls: Vec<String>,
+) -> Result<usize, String> {
+    if urls.is_empty() {
+        return Ok(0);
+    }
     let conn = get_db(&app)?;
 
-    let article = get_web_store_article_by_url(app.clone(), url.clone()).await?;
+    // Thumbnails must be collected before the rows are gone.
+    let mut thumbnails: Vec<String> = Vec::new();
+    for chunk in urls.chunks(900) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT thumbnail FROM web_articles WHERE url COLLATE NOCASE IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(chunk.iter()), |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .map_err(|error| error.to_string())?;
+        for row in rows {
+            let thumbnail = row.map_err(|error| error.to_string())?;
+            if let Some(thumbnail) = thumbnail.filter(|value| !value.is_empty()) {
+                if !thumbnails.contains(&thumbnail) {
+                    thumbnails.push(thumbnail);
+                }
+            }
+        }
+    }
 
-    let Some(_article) = article else {
-        return Ok(false);
-    };
+    let deleted_count = delete_bucket_rows(&conn, &urls, &urls)?;
 
-    conn.execute(
-        "DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE",
-        params![url],
-    )
-    .map_err(|error| error.to_string())?;
+    // Best-effort: rows are already gone; embeddings cleanup must not fail the
+    // operation (the client-side flow swallowed these errors too).
+    let _ = crate::embedding_store::delete_article_embeddings_batch(&app, &urls).await;
 
-    rebuild_domains_from_articles(&conn, None)?;
+    for url in &urls {
+        delete_raw_content_file(&app, url);
+    }
+    delete_bucket_media(&app, None, &thumbnails)?;
 
-    Ok(true)
+    Ok(deleted_count)
 }
 
 #[tauri::command]
@@ -2239,22 +2269,6 @@ pub async fn upsert_web_store_tasks(
     .map_err(|error| error.to_string())?;
 
     Ok(())
-}
-
-#[tauri::command]
-pub async fn delete_web_store_tasks_by_url(app: AppHandle, url: String) -> Result<bool, String> {
-    let conn = get_db(&app)?;
-
-    let changes = conn
-        .execute(
-            "DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
-            params![url],
-        )
-        .map_err(|error| error.to_string())?;
-
-    delete_raw_content_file(&app, &url);
-
-    Ok(changes > 0)
 }
 
 #[tauri::command]

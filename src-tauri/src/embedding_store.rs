@@ -461,6 +461,39 @@ pub async fn delete_article_embeddings(
     Ok(true)
 }
 
+/// Deletes every embedding row of the given article urls across all tables in
+/// one LanceDB session (one connection, one predicate per table). Table-level
+/// failures are swallowed, mirroring `delete_article_embeddings`.
+pub async fn delete_article_embeddings_batch(
+    app: &AppHandle,
+    urls: &[String],
+) -> Result<bool, String> {
+    if urls.is_empty() {
+        return Ok(true);
+    }
+
+    let path = embeddings_path(app)?;
+    let db = connect(&path)
+        .execute()
+        .await
+        .map_err(|e: lancedb::Error| e.to_string())?;
+
+    let tables: Vec<String> = db
+        .table_names()
+        .execute()
+        .await
+        .map_err(|e: lancedb::Error| e.to_string())?;
+
+    let escaped_urls: Vec<String> = urls.iter().map(|url| escape_sql_ident(url)).collect();
+    let predicate = format!("article_url IN ({})", escaped_urls.join(", "));
+    for table in tables {
+        if let Ok(tbl) = db.open_table(&table).execute().await {
+            let _ = tbl.delete(&predicate).await;
+        }
+    }
+    Ok(true)
+}
+
 #[tauri::command]
 pub async fn delete_chunk(app: AppHandle, table: String, id: String) -> Result<bool, String> {
     let path = embeddings_path(&app)?;

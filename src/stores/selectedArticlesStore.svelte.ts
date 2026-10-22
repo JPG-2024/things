@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import { deleteArticleByUrl } from '@/stores/webStore';
+import { deleteArticlesByUrls } from '@/stores/webStore';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 
 class SelectedArticlesStore {
@@ -39,12 +39,12 @@ class SelectedArticlesStore {
 		this.isDeleting = true;
 		const urlsToDelete = [...this.selectedUrls];
 		try {
-			for (const url of urlsToDelete) {
-				try {
-					await deleteArticleByUrl(url);
-				} catch (error) {
-					console.error('Failed to delete article', url, error);
-				}
+			try {
+				// Single batched IPC: rows, embeddings, raw content and thumbnails
+				// are all cleaned up server-side (IPC-6).
+				await deleteArticlesByUrls(urlsToDelete);
+			} catch (error) {
+				console.error('Failed to delete selected articles', error);
 			}
 			articleCacheStore.removeArticlesByUrls(new Set(urlsToDelete));
 			articleCacheStore.invalidateProfiles();

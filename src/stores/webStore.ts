@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { deleteMediaFile, getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
-import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
+import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
 import type { RecursiveChunk } from '@/runners/shared/recursiveTask';
 import { isRealTemplateId } from '@/runners/templateConstants';
 import type { Task, TaskMapBase } from '@/types/taskRunner.types';
@@ -307,15 +306,6 @@ async function wrapRawContentRef(url: string, task: PersistedTaskState): Promise
 export function getArticleStringField(article: ArticleWithTasks | null, fieldName: string): string {
 	const fieldValue = article?.[fieldName];
 	return typeof fieldValue === 'string' ? fieldValue : '';
-}
-
-export async function deleteArticleMedia(
-	article: { thumbnail?: string | null } | null
-): Promise<void> {
-	const thumbnail = article?.thumbnail;
-	if (typeof thumbnail === 'string' && thumbnail.trim()) {
-		await deleteMediaFile(thumbnail);
-	}
 }
 
 export function normalizeNullableString(value: string | null | undefined): string | null {
@@ -995,17 +985,19 @@ export async function updateTaskDataById(
 	}
 }
 
+/**
+ * Batch article deletion (IPC-6): one IPC that deletes article rows, task rows,
+ * embeddings, raw content files and thumbnails server-side, and rebuilds the
+ * domains table once. Returns the number of articles actually deleted; missing
+ * urls are tolerated. Errors propagate to the caller.
+ */
+export async function deleteArticlesByUrls(urls: string[]): Promise<number> {
+	return await invoke<number>('delete_web_store_articles_by_urls', { urls });
+}
+
 export async function deleteArticleByUrl(url: string): Promise<{ success: boolean }> {
 	try {
-		const existingArticle = await getArticleWithTasksByUrl(url);
-		await deleteArticleMedia(existingArticle);
-
-		await Promise.all([
-			invoke('delete_web_store_article_by_url', { url }),
-			invoke('delete_web_store_tasks_by_url', { url }),
-			deleteArticleEmbeddings(url).catch(() => false)
-		]);
-
+		await deleteArticlesByUrls([url]);
 		return { success: true };
 	} catch (error) {
 		console.error('Error deleting article from database:', error);
