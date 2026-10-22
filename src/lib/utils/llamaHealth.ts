@@ -6,10 +6,12 @@ import type {
 	LlamaServerStatus
 } from '@/lib/utils/llamaModels';
 import { SERVER_NAMES, type ServerName } from '@/lib/utils/llamaModels';
+import { createAdaptivePoller } from '@/lib/utils/adaptivePoller';
 
 export type { LlamaServerStatus, LlamaServerRuntime };
 
 const POLL_INTERVAL_MS = 15000;
+const POLL_MAX_INTERVAL_MS = 60000;
 const REQUEST_TIMEOUT_MS = 4000;
 
 function trimTrailingSlash(url: string): string {
@@ -116,12 +118,17 @@ async function pollUntilHealthy(attempts = BURST_ATTEMPTS): Promise<void> {
 
 /**
  * Poll both services and mirror their health into `viewState`.
- * Returns a stop function for cleanup.
+ * Adaptive: skips cycles while the window is hidden and backs off (15 → 30 →
+ * 60 s) while either server is down. Returns a stop function for cleanup.
  */
 export function startLlamaHealthPolling(): () => void {
-	void refreshLlamaHealth();
-	const interval = setInterval(() => void refreshLlamaHealth(), POLL_INTERVAL_MS);
-	return () => clearInterval(interval);
+	return createAdaptivePoller({
+		intervalMs: POLL_INTERVAL_MS,
+		maxIntervalMs: POLL_MAX_INTERVAL_MS,
+		refresh: refreshLlamaHealth,
+		isAllUp: () => viewState.inferenceServiceUp && viewState.embeddingsServiceUp,
+		label: 'llama'
+	});
 }
 
 export interface LlamaModelsListing {

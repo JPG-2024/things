@@ -39,6 +39,13 @@ export const CELL_WIDTH_MIN = 60;
 export const CELL_WIDTH_MAX = 320;
 
 /**
+ * BOOT-3: delay before the deferred llama autostart (see `+layout.svelte`),
+ * so the model reconciliation and server spawn do not compete with the first
+ * render and the initial page fetches.
+ */
+export const LLAMA_AUTOSTART_DELAY_MS = 3000;
+
+/**
  * Article grid knobs for the wheel cards. The card width grows with `columns`
  * (each cell targets `cellWidth` px), and `columns * rows` is the article count
  * fetched from the backend and shown per card.

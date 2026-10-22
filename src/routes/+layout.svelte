@@ -19,6 +19,7 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
 	import { ensureLlamaServers } from '@/lib/utils/llamaHealth';
+	import { LLAMA_AUTOSTART_DELAY_MS } from '@/constants';
 
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
@@ -292,7 +293,13 @@
 
 	onMount(() => {
 		startSettingsPersistence();
-		if (viewState.llamaAutoStart) void ensureLlamaServers();
+		// BOOT-3: defer the llama autostart (model reconciliation + server spawn)
+		// so it does not compete with the first render and the initial page
+		// fetches.
+		if (viewState.llamaAutoStart) {
+			const timer = setTimeout(() => void ensureLlamaServers(), LLAMA_AUTOSTART_DELAY_MS);
+			return () => clearTimeout(timer);
+		}
 	});
 
 	onMount(() => {

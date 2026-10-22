@@ -1,4 +1,5 @@
 import { viewState } from '@/stores/viewStore.svelte';
+import { createAdaptivePoller } from '@/lib/utils/adaptivePoller';
 
 const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
@@ -7,6 +8,7 @@ const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
 export type ExternalServiceName = 'scrap' | 'tts' | 'whisper';
 
 const POLL_INTERVAL_MS = 15000;
+const POLL_MAX_INTERVAL_MS = 60000;
 const REQUEST_TIMEOUT_MS = 4000;
 
 function trimTrailingSlash(url: string): string {
@@ -67,10 +69,16 @@ export async function refreshExternalServicesHealth(): Promise<void> {
 
 /**
  * Poll the three external services and mirror their health into `viewState`.
- * Returns a stop function for cleanup.
+ * Adaptive: skips cycles while the window is hidden and backs off (15 → 30 →
+ * 60 s) while any service is down. Returns a stop function for cleanup.
  */
 export function startExternalServicesHealthPolling(): () => void {
-	void refreshExternalServicesHealth();
-	const interval = setInterval(() => void refreshExternalServicesHealth(), POLL_INTERVAL_MS);
-	return () => clearInterval(interval);
+	return createAdaptivePoller({
+		intervalMs: POLL_INTERVAL_MS,
+		maxIntervalMs: POLL_MAX_INTERVAL_MS,
+		refresh: refreshExternalServicesHealth,
+		isAllUp: () =>
+			viewState.scrapServiceUp && viewState.ttsServiceUp && viewState.whisperServiceUp,
+		label: 'external-services'
+	});
 }
