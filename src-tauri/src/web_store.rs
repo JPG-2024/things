@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
+use once_cell::sync::Lazy;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -11,6 +13,38 @@ use tauri::AppHandle;
 
 pub const WEB_STORE_UNKNOWN_PROFILE_ID: &str = "__unknown_profile__";
 pub const WEB_STORE_UNKNOWN_PROFILE_LABEL: &str = "Unknown profile";
+
+/// DB file paths whose schema was already ensured this session. Every command
+/// used to run `init_schema` (full DDL + rename migration) on a fresh
+/// connection; memoizing by resolved path keeps that to once per database,
+/// covering `init_database_at` (workspace prep) and export/import locations.
+static INITIALIZED_DB_PATHS: Lazy<Mutex<HashSet<PathBuf>>> =
+    Lazy::new(|| Mutex::new(HashSet::new()));
+
+fn schema_ensured(path: &Path) -> bool {
+    INITIALIZED_DB_PATHS
+        .lock()
+        .expect("initialized db paths lock poisoned")
+        .contains(path)
+}
+
+fn mark_schema_ensured(path: &Path) {
+    INITIALIZED_DB_PATHS
+        .lock()
+        .expect("initialized db paths lock poisoned")
+        .insert(path.to_path_buf());
+}
+
+/// Ensures the schema exists on `conn` for the database at `path`, at most once
+/// per path per session. Idempotence is already guaranteed by `IF NOT EXISTS`,
+/// so the memo is purely a work-avoidance guard.
+fn ensure_schema(conn: &Connection, path: &Path) -> Result<(), String> {
+    if !schema_ensured(path) {
+        init_schema(conn)?;
+        mark_schema_ensured(path);
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -250,12 +284,14 @@ fn open_connection(path: &Path) -> Result<Connection, String> {
 /// becomes active.
 pub(crate) fn init_database_at(path: &Path) -> Result<(), String> {
     let conn = open_connection(path)?;
-    init_schema(&conn)
+    ensure_schema(&conn, path)
 }
 
 fn get_db(app: &AppHandle) -> Result<Connection, String> {
     let path = database_path(app)?;
-    open_connection(Path::new(&path))
+    let conn = open_connection(Path::new(&path))?;
+    ensure_schema(&conn, Path::new(&path))?;
+    Ok(conn)
 }
 
 fn init_schema(conn: &Connection) -> Result<(), String> {
@@ -1287,7 +1323,6 @@ pub async fn list_web_store_articles(
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     let records = query_articles(&conn, ARTICLE_LIST_COLUMNS, None, None, None)?;
     Ok(records
         .iter()
@@ -1400,7 +1435,6 @@ pub async fn list_web_store_domains(
     limit: Option<usize>,
 ) -> Result<Vec<WebStoreDomainRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let include = include_articles.unwrap_or(false);
     let mut domains = query_domains_filtered(
@@ -1448,7 +1482,6 @@ pub async fn get_web_store_domain(
     domain_id: String,
 ) -> Result<Option<WebStoreDomainRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     query_domain_by_id(&conn, &domain_id)
 }
 
@@ -1537,7 +1570,6 @@ pub async fn list_web_store_profiles(
     limit: Option<usize>,
 ) -> Result<Vec<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let include = include_articles.unwrap_or(false);
     let mut profiles =
@@ -1563,7 +1595,6 @@ pub async fn get_web_store_profile(
     profile_id: String,
 ) -> Result<Option<WebStoreProfileRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     query_profile_by_id(&conn, &profile_id)
 }
 
@@ -1576,7 +1607,6 @@ async fn list_web_store_articles_by_column(
     fields: Option<Vec<String>>,
 ) -> Result<Vec<Value>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let normalized_bucket_id = bucket_id.trim().to_lowercase();
 
@@ -1666,7 +1696,6 @@ pub async fn get_web_store_article_by_url(
     url: String,
 ) -> Result<Option<WebStoreArticleRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
     let mut records = query_articles(&conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None)?;
     Ok(records.pop())
@@ -1681,7 +1710,6 @@ pub async fn filter_existing_article_urls(
         return Ok(vec![]);
     }
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut existing = Vec::new();
     for chunk in urls.chunks(900) {
@@ -1719,7 +1747,6 @@ pub async fn upsert_web_store_article(
     input.template_id = normalize_optional_string(input.template_id);
 
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
     let article_id = article_id_for_url(&input.url);
@@ -1813,7 +1840,6 @@ pub async fn upsert_web_store_article(
 #[tauri::command]
 pub async fn delete_web_store_article_by_url(app: AppHandle, url: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let article = get_web_store_article_by_url(app.clone(), url.clone()).await?;
 
@@ -1839,7 +1865,6 @@ pub async fn update_web_store_article_viewed(
     viewed: bool,
 ) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let changes = conn
         .execute(
@@ -1876,7 +1901,6 @@ pub async fn upsert_web_store_domain(
     input: UpsertWebStoreDomainInput,
 ) -> Result<(), String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let domain = WebStoreDomainRecord {
         id: input.id,
@@ -1898,7 +1922,6 @@ pub async fn upsert_web_store_profile(
     input: UpsertWebStoreProfileInput,
 ) -> Result<(), String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let profile = WebStoreProfileRecord {
         id: input.id,
@@ -1958,25 +1981,107 @@ pub async fn fetch_remote_profile(
         .map_err(|error| format!("Failed to parse remote profile: {}", error))
 }
 
-async fn delete_articles_for_bucket(
+const THUMBNAILS_DIR: &str = "thumbnails";
+
+/// Removes the bucket media files: one thumbnail per article (filenames are
+/// derived from the article URL, so sharing across articles is not expected)
+/// plus the bucket's own picture. fs failures are ignored to preserve the
+/// client-side behavior this replaces (deleteMediaFile logged and continued).
+fn delete_bucket_media(
     app: &AppHandle,
-    entity_url: Option<String>,
-    article_values: Vec<Value>,
+    entity_picture: Option<String>,
+    thumbnails: &[String],
+) -> Result<(), String> {
+    let thumbnails_dir = crate::db_manager::media_dir(app)?.join(THUMBNAILS_DIR);
+
+    for filename in thumbnails.iter().chain(entity_picture.iter()) {
+        let path = thumbnails_dir.join(filename);
+        if path.exists() {
+            let _ = fs::remove_file(path);
+        }
+    }
+
+    Ok(())
+}
+
+/// Deletes task rows and article rows for a whole bucket in one transaction and
+/// rebuilds the domains table exactly once. Returns the number of articles
+/// actually deleted (missing urls contribute zero, without failing).
+fn delete_bucket_rows(
+    conn: &Connection,
+    task_urls: &[String],
+    article_urls: &[String],
 ) -> Result<usize, String> {
-    if let Some(url) = entity_url {
-        delete_web_store_tasks_by_url(app.clone(), url).await?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+
+    for url in task_urls {
+        tx.execute(
+            "DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
+            params![url],
+        )
+        .map_err(|error| error.to_string())?;
     }
 
     let mut deleted_count = 0;
+    for url in article_urls {
+        deleted_count += tx
+            .execute(
+                "DELETE FROM web_articles WHERE url = ?1 COLLATE NOCASE",
+                params![url],
+            )
+            .map_err(|error| error.to_string())?;
+    }
 
-    for article_value in article_values {
+    rebuild_domains_from_articles(&tx, None)?;
+    tx.commit().map_err(|error| error.to_string())?;
+
+    Ok(deleted_count)
+}
+
+async fn delete_articles_for_bucket(
+    app: &AppHandle,
+    entity_url: Option<String>,
+    entity_picture: Option<String>,
+    article_values: Vec<Value>,
+) -> Result<usize, String> {
+    let conn = get_db(app)?;
+
+    let mut article_urls: Vec<String> = Vec::new();
+    let mut thumbnails: Vec<String> = Vec::new();
+    for article_value in &article_values {
         if let Some(url) = article_value.get("url").and_then(|value| value.as_str()) {
-            delete_web_store_tasks_by_url(app.clone(), url.to_string()).await?;
-            if delete_web_store_article_by_url(app.clone(), url.to_string()).await? {
-                deleted_count += 1;
+            if !article_urls.iter().any(|existing| existing == url) {
+                article_urls.push(url.to_string());
+            }
+        }
+        if let Some(thumbnail) = article_value.get("thumbnail").and_then(|value| value.as_str()) {
+            if !thumbnails.iter().any(|existing| existing == thumbnail) {
+                thumbnails.push(thumbnail.to_string());
             }
         }
     }
+
+    // Task rows for every article plus the bucket's own url (e.g. the channel
+    // url), mirroring what the per-article client loop deleted before.
+    let mut task_urls = article_urls.clone();
+    if let Some(url) = &entity_url {
+        if !task_urls.iter().any(|existing| existing == url) {
+            task_urls.push(url.clone());
+        }
+    }
+
+    // Previously every article went through delete_web_store_tasks_by_url +
+    // delete_web_store_article_by_url, each reopening a connection and running
+    // rebuild_domains_from_articles (O(N) over all articles) per item.
+    let deleted_count = delete_bucket_rows(&conn, &task_urls, &article_urls)?;
+
+    // File cleanup after the commit: raw content per deleted url, then media.
+    for url in &task_urls {
+        delete_raw_content_file(app, url);
+    }
+    delete_bucket_media(app, entity_picture, &thumbnails)?;
 
     Ok(deleted_count)
 }
@@ -1987,12 +2092,16 @@ pub async fn delete_web_store_domain(
     domain_id: String,
 ) -> Result<WebStoreProfileDeletion, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
-    let entity_url = query_domain_by_id(&conn, &domain_id)?.and_then(|domain| domain.url);
+    let entity = query_domain_by_id(&conn, &domain_id)?;
+    let entity_url = entity.as_ref().and_then(|domain| domain.url.clone());
+    let entity_picture = entity
+        .as_ref()
+        .and_then(|domain| domain.profile_picture.clone());
     let articles =
         list_web_store_articles_by_domain(app.clone(), domain_id.clone(), None, None, None).await?;
-    let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
+    let deleted_count =
+        delete_articles_for_bucket(&app, entity_url, entity_picture, articles).await?;
 
     delete_domain(&conn, &domain_id)?;
 
@@ -2008,13 +2117,17 @@ pub async fn delete_web_store_profile(
     profile_id: String,
 ) -> Result<WebStoreProfileDeletion, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
-    let entity_url = query_profile_by_id(&conn, &profile_id)?.and_then(|profile| profile.url);
+    let entity = query_profile_by_id(&conn, &profile_id)?;
+    let entity_url = entity.as_ref().and_then(|profile| profile.url.clone());
+    let entity_picture = entity
+        .as_ref()
+        .and_then(|profile| profile.profile_picture.clone());
     let articles =
         list_web_store_articles_by_profile(app.clone(), profile_id.clone(), None, None, None)
             .await?;
-    let deleted_count = delete_articles_for_bucket(&app, entity_url, articles).await?;
+    let deleted_count =
+        delete_articles_for_bucket(&app, entity_url, entity_picture, articles).await?;
 
     delete_profile(&conn, &profile_id)?;
 
@@ -2044,29 +2157,6 @@ fn row_to_web_store_task(row: &rusqlite::Row<'_>) -> Result<WebStoreTaskRecord, 
     })
 }
 
-fn strip_recursive_chunks(tasks_json: &str) -> String {
-    let Ok(Value::Array(tasks)) = serde_json::from_str::<Value>(tasks_json) else {
-        return tasks_json.to_string();
-    };
-
-    let filtered: Vec<Value> = tasks
-        .into_iter()
-        .map(|mut task| {
-            if let Some(data) = task.get_mut("data") {
-                let has_chunks = data.get("chunks").map_or(false, |chunks| chunks.is_array());
-                if has_chunks {
-                    if let Some(final_response) = data.get("finalResponse").cloned() {
-                        *data = final_response;
-                    }
-                }
-            }
-            task
-        })
-        .collect();
-
-    serde_json::to_string(&filtered).unwrap_or_else(|_| tasks_json.to_string())
-}
-
 fn task_chunks_from_json(tasks_json: &str, task_id: &str) -> Option<Value> {
     let parsed: Value = serde_json::from_str(tasks_json).ok()?;
     let tasks = parsed.as_array()?;
@@ -2087,36 +2177,12 @@ fn task_chunks_from_json(tasks_json: &str, task_id: &str) -> Option<Value> {
 }
 
 #[tauri::command]
-pub async fn list_web_store_tasks(app: AppHandle) -> Result<Vec<WebStoreTaskRecord>, String> {
-    let conn = get_db(&app)?;
-    init_schema(&conn)?;
-
-    let mut stmt = conn
-        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks ORDER BY updated_at DESC")
-        .map_err(|error| error.to_string())?;
-
-    let task_iter = stmt
-        .query_map([], row_to_web_store_task)
-        .map_err(|error| error.to_string())?;
-
-    let mut records = Vec::new();
-    for task_result in task_iter {
-        let mut record = task_result.map_err(|error| error.to_string())?;
-        record.tasks_json = strip_recursive_chunks(&record.tasks_json);
-        records.push(record);
-    }
-
-    Ok(records)
-}
-
-#[tauri::command]
 pub async fn get_web_store_task_chunks(
     app: AppHandle,
     url: String,
     task_id: String,
 ) -> Result<Option<Value>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let tasks_json = match conn.query_row(
         "SELECT tasks_json FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
@@ -2141,7 +2207,6 @@ pub async fn get_web_store_tasks_by_url(
     url: String,
 ) -> Result<Option<WebStoreTaskRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT url, tasks_json, updated_at FROM web_tasks WHERE url = ?1 COLLATE NOCASE")
@@ -2164,7 +2229,6 @@ pub async fn upsert_web_store_tasks(
     tasks_json: String,
 ) -> Result<(), String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
 
@@ -2180,7 +2244,6 @@ pub async fn upsert_web_store_tasks(
 #[tauri::command]
 pub async fn delete_web_store_tasks_by_url(app: AppHandle, url: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let changes = conn
         .execute(
@@ -2325,7 +2388,6 @@ pub async fn search_raw_content(
     }
 
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     let url_index = load_raw_content_url_index(&conn)?;
     if url_index.is_empty() {
         return Ok(Vec::new());
@@ -2399,7 +2461,6 @@ pub async fn list_web_store_categories(
     app: AppHandle,
 ) -> Result<Vec<WebStoreCategoryRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT id, name, description, last_modified, deleted_at FROM web_categories WHERE deleted_at IS NULL ORDER BY name ASC")
@@ -2433,7 +2494,6 @@ pub async fn upsert_web_store_category(
     input.description = normalize_optional_string(input.description);
 
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
 
@@ -2500,7 +2560,6 @@ pub async fn delete_web_store_category(
     category_id: String,
 ) -> Result<bool, String> {
     let mut conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     delete_category_rows(&mut conn, &category_id)?;
 
@@ -2513,7 +2572,6 @@ pub async fn assign_categories_to_article(
     input: AssignCategoriesToArticleInput,
 ) -> Result<(), String> {
     let mut conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let tx = conn.transaction().map_err(|error| {
         format!(
@@ -2621,7 +2679,6 @@ pub async fn list_category_exemplars(
     category_id: String,
 ) -> Result<Vec<CategoryExemplarRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&category_id])
 }
 
@@ -2632,7 +2689,6 @@ pub async fn list_all_category_exemplars(
     app: AppHandle,
 ) -> Result<Vec<CategoryExemplarRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
     query_category_exemplars(&conn, "", &[])
 }
 
@@ -2645,7 +2701,6 @@ pub async fn upsert_category_exemplar(
     input: UpsertCategoryExemplarInput,
 ) -> Result<CategoryExemplarRecord, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
     let id = uuid::Uuid::new_v4().to_string();
@@ -2684,7 +2739,6 @@ pub async fn upsert_category_exemplar(
 #[tauri::command]
 pub async fn delete_category_exemplar(app: AppHandle, id: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let changes = conn
         .execute("DELETE FROM category_exemplars WHERE id = ?1", params![id])
@@ -2723,7 +2777,6 @@ pub async fn get_category_exemplar_model_status(
     model_dimensions: Option<i32>,
 ) -> Result<CategoryExemplarModelStatus, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     category_exemplar_model_status(&conn, &model_name, model_dimensions)
 }
@@ -2736,7 +2789,6 @@ pub async fn update_category_exemplars_model(
     model_dimensions: Option<i32>,
 ) -> Result<usize, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let changes = conn
         .execute(
@@ -2954,7 +3006,6 @@ pub async fn list_articles_without_profile(
     include_initial: Option<bool>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     query_articles_without_profile(
         &conn,
@@ -3038,7 +3089,6 @@ pub async fn set_profile_article_order(
     urls: Vec<String>,
 ) -> Result<usize, String> {
     let mut conn = get_db(&app)?;
-    init_schema(&conn)?;
     apply_profile_article_order(&mut conn, &profile_id, &urls)
 }
 
@@ -3049,7 +3099,6 @@ pub async fn list_articles_by_categories(
     created_at_from: Option<i64>,
 ) -> Result<Vec<CategoryWithArticles>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     query_articles_by_categories(&conn, &queries, created_at_from)
 }
@@ -3163,7 +3212,6 @@ pub async fn list_categories_with_articles(
     created_at_from: Option<i64>,
 ) -> Result<CategoriesWithArticlesPage, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     query_categories_with_articles(
         &conn,
@@ -3279,7 +3327,6 @@ pub async fn list_web_store_templates(
     app: AppHandle,
 ) -> Result<Vec<WebStoreTemplateRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates ORDER BY updated_at DESC")
@@ -3303,7 +3350,6 @@ pub async fn get_web_store_template(
     id: String,
 ) -> Result<Option<WebStoreTemplateRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates WHERE id = ?1")
@@ -3325,7 +3371,6 @@ pub async fn upsert_web_store_template(
     input: UpsertWebStoreTemplateInput,
 ) -> Result<WebStoreTemplateRecord, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
 
@@ -3352,7 +3397,6 @@ pub async fn upsert_web_store_template(
 #[tauri::command]
 pub async fn delete_web_store_template(app: AppHandle, id: String) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     conn.execute(
         "UPDATE web_articles SET template_id = 'default' WHERE template_id = ?1",
@@ -3397,7 +3441,6 @@ pub async fn get_web_profile_template(
     profile_id: String,
 ) -> Result<Option<WebProfileTemplateRecord>, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT profile_id, template_id, updated_at FROM web_profile_templates WHERE profile_id = ?1")
@@ -3420,7 +3463,6 @@ pub async fn upsert_web_profile_template(
     template_id: String,
 ) -> Result<WebProfileTemplateRecord, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let now = chrono_like_now();
 
@@ -3447,7 +3489,6 @@ pub async fn delete_web_profile_template(
     profile_id: String,
 ) -> Result<bool, String> {
     let conn = get_db(&app)?;
-    init_schema(&conn)?;
 
     let changes = conn
         .execute(
@@ -4347,44 +4388,46 @@ mod tests {
     }
 
     #[test]
-    fn strip_recursive_chunks_keeps_final_response_only() {
-        let tasks_json = r#"[
-            {"id": "title", "name": "Title", "data": "Hello", "status": "done"},
-            {"id": "summary", "name": "Summary", "data": {
-                "chunks": [{"key": {"startOffset": 0, "endOffset": 10}, "data": ["chunk-a"]}],
-                "finalResponse": "Final summary"
-            }, "status": "done"}
-        ]"#;
+    fn delete_bucket_rows_clears_rows_tolerates_missing_urls_and_rebuilds_once() {
+        let conn = build_in_memory_db();
 
-        let stripped = strip_recursive_chunks(tasks_json);
-        let parsed: Value = serde_json::from_str(&stripped).expect("valid json");
+        insert_article(&conn, "a1", "chan", 100, None);
+        insert_article(&conn, "a2", "chan", 200, None);
+        insert_article(&conn, "a3", "other", 300, None);
 
-        let tasks = parsed.as_array().expect("array");
-        let title = tasks[0].get("data").expect("title data");
-        assert_eq!(title, "Hello");
+        for url in ["a1", "a2", "a3", "chan"] {
+            conn.execute(
+                "INSERT INTO web_tasks (url, tasks_json, updated_at) VALUES (?1, '[]', 0)",
+                params![url],
+            )
+            .expect("insert task");
+        }
 
-        let summary_data = tasks[1].get("data").expect("summary data");
-        assert_eq!(
-            summary_data, "Final summary",
-            "chunks must be replaced by finalResponse"
-        );
-        assert!(summary_data.get("chunks").is_none());
-    }
+        // "ghost" does not exist: must contribute zero, not fail.
+        let deleted_count = delete_bucket_rows(
+            &conn,
+            &["a1".to_string(), "a2".to_string(), "chan".to_string()],
+            &["a1".to_string(), "a2".to_string(), "ghost".to_string()],
+        )
+        .expect("delete bucket rows");
 
-    #[test]
-    fn strip_recursive_chunks_keeps_chunks_when_no_final_response() {
-        let tasks_json = r#"[
-            {"id": "summary", "data": {"chunks": [{"key": {}, "data": ["a"]}]}, "status": "running"}
-        ]"#;
+        assert_eq!(deleted_count, 2);
 
-        let stripped = strip_recursive_chunks(tasks_json);
-        let parsed: Value = serde_json::from_str(&stripped).expect("valid json");
+        let article_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_articles", [], |row| row.get(0))
+            .expect("count articles");
+        assert_eq!(article_count, 1, "only a3 must survive");
 
-        let tasks = parsed.as_array().expect("array");
-        assert!(
-            tasks[0].get("data").expect("data").get("chunks").is_some(),
-            "partial state without finalResponse must keep chunks"
-        );
+        let task_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_tasks", [], |row| row.get(0))
+            .expect("count tasks");
+        assert_eq!(task_count, 1, "only a3 tasks must survive");
+
+        // Domains were rebuilt from the surviving articles exactly once.
+        let domain_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_domains", [], |row| row.get(0))
+            .expect("count domains");
+        assert_eq!(domain_count, 0, "no articles carry a domain");
     }
 
     #[test]
