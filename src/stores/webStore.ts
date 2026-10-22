@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { deleteMediaFile, getMediaSrc } from '@/lib/utils/files';
+import { deleteMediaFile, getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
 import { deleteArticleEmbeddings } from '@/lib/utils/embeddingStore';
 import type { RecursiveChunk } from '@/runners/shared/recursiveTask';
 import { isRealTemplateId } from '@/runners/templateConstants';
@@ -179,39 +179,12 @@ type LegacyPageElementItem = {
 	textContent?: unknown;
 };
 
-let _cachedTasksByUrl: Map<string, string> | null = null;
-let _cachedTasksTimestamp = 0;
-let _pendingTasksPromise: Promise<Map<string, string>> | null = null;
-const TASKS_CACHE_TTL = 30_000;
-
 let _cachedProfiles: ArticleProfile[] | null = null;
 let _pendingProfilesPromise: Promise<ArticleProfile[]> | null = null;
 /** Full-list cache for the `kind`-only `getProfiles` variant (filters popup:
  * every profile, or every domain). Any other option bypasses it. */
 const _cachedProfilesByKind = new Map<'profile' | 'domain', ArticleProfile[]>();
 const _pendingProfilesByKind = new Map<'profile' | 'domain', Promise<ArticleProfile[]>>();
-
-async function getTasksByUrlMap(): Promise<Map<string, string>> {
-	if (_cachedTasksByUrl && Date.now() - _cachedTasksTimestamp < TASKS_CACHE_TTL) {
-		return _cachedTasksByUrl;
-	}
-
-	if (!_pendingTasksPromise) {
-		_pendingTasksPromise = (async () => {
-			const tasks = await invoke<WebStoreTaskRecord[]>('list_web_store_tasks');
-			const map = new Map<string, string>();
-			for (const task of tasks) {
-				map.set(task.url, task.tasksJson);
-			}
-			_cachedTasksByUrl = map;
-			_cachedTasksTimestamp = Date.now();
-			_pendingTasksPromise = null;
-			return map;
-		})();
-	}
-
-	return _pendingTasksPromise;
-}
 
 export const RAW_CONTENT_REF = '__rawContentRef__';
 
@@ -225,7 +198,20 @@ function isRawContentRef(value: unknown): value is RawContentRef {
 	);
 }
 
-export async function parsePersistedTaskStates(raw: string | null): Promise<PersistedTaskState[]> {
+/**
+ * Parses a persisted tasks JSON into task states.
+ *
+ * Default does **not** hydrate `__rawContentRef__` refs (pure JSON.parse, zero
+ * IPC): list mapping only needs the small tasks (`category`, `analysis`, ...),
+ * and hydrating full article text on every mapped row reintroduces the N+1
+ * `read_raw_content` round-trip plus megabytes of content in webview memory.
+ * Detail paths (`getArticleWithTasksByUrl`, `getTasksByUrl`) pass
+ * `{ hydrateRawContent: true }` to resolve the raw text explicitly.
+ */
+export async function parsePersistedTaskStates(
+	raw: string | null,
+	opts?: { hydrateRawContent?: boolean }
+): Promise<PersistedTaskState[]> {
 	if (!raw) {
 		return [];
 	}
@@ -241,12 +227,14 @@ export async function parsePersistedTaskStates(raw: string | null): Promise<Pers
 				renderOrder: task?.renderOrder
 			}));
 
-			for (const task of tasks) {
-				if (task.id === 'content' && isRawContentRef(task.data)) {
-					const text = await invoke<string | null>('read_raw_content', {
-						key: task.data[RAW_CONTENT_REF]
-					});
-					task.data = typeof text === 'string' ? text : '';
+			if (opts?.hydrateRawContent) {
+				for (const task of tasks) {
+					if (task.id === 'content' && isRawContentRef(task.data)) {
+						const text = await invoke<string | null>('read_raw_content', {
+							key: task.data[RAW_CONTENT_REF]
+						});
+						task.data = typeof text === 'string' ? text : '';
+					}
 				}
 			}
 
@@ -532,15 +520,14 @@ export async function buildUpsertInput(params: {
 
 export async function mapStoredArticle(
 	row: WebStoreArticleRecord,
-	tasksJson?: string | null
+	tasksJson?: string | null,
+	opts?: { hydrateRawContent?: boolean }
 ): Promise<ArticleWithTasks> {
-	const resolvedTasksJson = tasksJson ?? '[]';
-
 	return {
 		...row,
 		profilePicture: row.profilePicture,
 		profileId: row.profile,
-		persistedTasks: await parsePersistedTaskStates(resolvedTasksJson)
+		persistedTasks: await parsePersistedTaskStates(tasksJson ?? null, opts)
 	};
 }
 
@@ -552,7 +539,13 @@ async function resolveMediaSrc<T extends object, K extends string>(
 ): Promise<T & { [P in K]?: string | null }> {
 	const raw = (item as Record<string, unknown>)[field];
 
-	if (typeof raw === 'string' && raw.length > 0 && !raw.includes('://')) {
+	// Any already-resolved src (URL, dev `/@fs/...` path) is used as-is.
+	if (
+		typeof raw === 'string' &&
+		raw.length > 0 &&
+		!raw.includes('://') &&
+		!isResolvedMediaSrc(raw)
+	) {
 		const resolved = await getMediaSrc(raw);
 		return { ...item, [srcField]: resolved } as T & { [P in K]?: string | null };
 	}
@@ -605,13 +598,15 @@ async function resolveProfilePictureBatch<T extends { profilePicture?: string | 
 	return Promise.all(profiles.map(resolveProfilePictureField));
 }
 
-async function mapAndResolveArticles(
-	rows: WebStoreArticleRecord[],
-	tasksByUrl: Map<string, string>
-): Promise<ArticleWithTasks[]> {
-	const mappedArticles = await Promise.all(
-		rows.map((row) => mapStoredArticle(row, tasksByUrl.get(row.url ?? '') ?? null))
-	);
+/**
+ * Maps article rows for list contexts. Rows carry no tasks JSON here: list
+ * items only need the row fields (title, thumbnail, colors...), so
+ * `persistedTasks` stays empty and no per-article IPC happens (see IPC-1/2 in
+ * docs/perf-plan-bottlenecks.md). Detail paths use `mapStoredArticle` with the
+ * row's own tasks JSON + `{ hydrateRawContent: true }` instead.
+ */
+async function mapAndResolveArticles(rows: WebStoreArticleRecord[]): Promise<ArticleWithTasks[]> {
+	const mappedArticles = await Promise.all(rows.map((row) => mapStoredArticle(row)));
 
 	return resolveArticleProfilePictureBatch(await resolveArticleThumbnailBatch(mappedArticles));
 }
@@ -623,18 +618,14 @@ export async function mapArticlesFromRecords(
 		return [];
 	}
 
-	const tasksByUrl = await getTasksByUrlMap();
-	return mapAndResolveArticles(rows, tasksByUrl);
+	return mapAndResolveArticles(rows);
 }
 
 export async function getArticles(): Promise<ArticleWithTasks[]> {
 	try {
-		const [articles, tasksByUrl] = await Promise.all([
-			invoke<WebStoreArticleRecord[]>('list_web_store_articles'),
-			getTasksByUrlMap()
-		]);
+		const articles = await invoke<WebStoreArticleRecord[]>('list_web_store_articles');
 
-		return mapAndResolveArticles(articles, tasksByUrl);
+		return mapAndResolveArticles(articles);
 	} catch (error) {
 		console.error('Error querying DB articles', error);
 		return [];
@@ -746,12 +737,11 @@ export async function getProfiles(options?: ProfilesOptions): Promise<ArticlePro
 				return resolvedCards.map(cardToArticleProfile);
 			}
 
-			const tasksByUrl = await getTasksByUrlMap();
 			const profilesWithArticles: ArticleProfile[] = [];
 			for (const card of resolvedCards) {
 				let articles: ArticleWithTasks[] | undefined;
 				if (card.articles) {
-					articles = await mapAndResolveArticles(card.articles, tasksByUrl);
+					articles = await mapAndResolveArticles(card.articles);
 				}
 				profilesWithArticles.push({ ...cardToArticleProfile(card), articles });
 			}
@@ -833,7 +823,8 @@ export async function getTasksByUrl(url: string): Promise<PersistedTaskState[] |
 			return null;
 		}
 
-		return parsePersistedTaskStates(taskRecord.tasksJson);
+		// Detail path: hydrate the `content` ref into real text (one IPC per URL).
+		return parsePersistedTaskStates(taskRecord.tasksJson, { hydrateRawContent: true });
 	} catch (error) {
 		console.error('Error querying tasks', error);
 		return null;
@@ -864,7 +855,10 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
 			return null;
 		}
 
-		const article = await mapStoredArticle(row, taskRecord?.tasksJson ?? null);
+		// Detail path: hydrate the `content` ref into real text (one IPC per URL).
+		const article = await mapStoredArticle(row, taskRecord?.tasksJson ?? null, {
+			hydrateRawContent: true
+		});
 		return resolveArticleThumbnail(article);
 	} catch (error) {
 		console.error('Error querying article', error);
@@ -879,13 +873,30 @@ export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWith
  * PillWithEmbeddings instance per topic in the same render) share a single
  * article fetch per URL. Failures resolve to `null` rather than rejecting.
  * The cache does not expire; thumbnails are assumed stable within a session.
+ *
+ * Deliberately skips tasks entirely: hydrating the content task here would
+ * read the full raw content file for every pill URL.
  */
 const thumbnailByUrl = new Map<string, Promise<string | null>>();
 
 export function getArticleThumbnailByUrl(url: string): Promise<string | null> {
 	let promise = thumbnailByUrl.get(url);
 	if (!promise) {
-		promise = getArticleWithTasksByUrl(url).then((article) => article?.thumbnailSrc ?? null);
+		promise = (async () => {
+			try {
+				const row = await invoke<WebStoreArticleRecord | null>('get_web_store_article_by_url', {
+					url
+				});
+				if (!row) {
+					return null;
+				}
+				const resolved = await resolveMediaSrc(row, 'thumbnail', 'thumbnailSrc', false);
+				return resolved.thumbnailSrc ?? null;
+			} catch (error) {
+				console.error('Error querying article thumbnail', error);
+				return null;
+			}
+		})();
 		thumbnailByUrl.set(url, promise);
 	}
 	return promise;
@@ -1016,24 +1027,16 @@ export async function markArticleAsViewed(url: string): Promise<boolean> {
 
 export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
 	try {
-		const [profile, articles] = await Promise.all([
-			getProfile(profileId),
-			invoke<WebStoreArticleRecord[]>('list_web_store_articles', {
-				fields: ['thumbnail', 'url', 'profile']
-			})
-		]);
-
+		// Only the branch decision needs the entity record: article rows, their
+		// thumbnails and the bucket picture are all cleaned up server-side now
+		// (see IPC-5 in docs/perf-plan-bottlenecks.md).
+		const profile = await getProfile(profileId);
 		const isDomain = profile ? profile.domainId === profile.id : isDomainId(profileId);
 		const result = isDomain
 			? await invoke<WebStoreProfileDeletion>('delete_web_store_domain', { domainId: profileId })
 			: await invoke<WebStoreProfileDeletion>('delete_web_store_profile', { profileId });
 
 		if (result.success) {
-			const profileArticles = articles.filter((article) => article.profile === profileId);
-			await Promise.all(profileArticles.map(deleteArticleMedia));
-			if (profile?.profilePicture) {
-				await deleteMediaFile(profile.profilePicture);
-			}
 			invalidateProfilesCache();
 		}
 
@@ -1261,8 +1264,7 @@ export async function getArticlesWithoutProfile(options?: {
 			includeInitial: options?.includeInitial ?? null
 		});
 
-		const tasksByUrl = await getTasksByUrlMap();
-		const resolvedArticles = await mapAndResolveArticles(result.articles, tasksByUrl);
+		const resolvedArticles = await mapAndResolveArticles(result.articles);
 
 		return { articles: resolvedArticles, total: result.total };
 	} catch (error) {
@@ -1304,7 +1306,7 @@ export async function getArticlesByCategories(options: {
 
 		const pages: CategoryArticlesPage[] = [];
 		for (const page of result) {
-			const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
+			const resolvedArticles = await mapAndResolveArticles(page.articles);
 
 			pages.push({
 				categoryId: page.categoryId,
@@ -1357,7 +1359,7 @@ export async function getCategoriesWithArticlesPage(options?: {
 
 	const categories: CategoryWithArticles[] = [];
 	for (const page of result.categories) {
-		const resolvedArticles = await mapAndResolveArticles(page.articles, new Map());
+		const resolvedArticles = await mapAndResolveArticles(page.articles);
 		categories.push({
 			categoryId: page.categoryId,
 			categoryName: page.categoryName,
