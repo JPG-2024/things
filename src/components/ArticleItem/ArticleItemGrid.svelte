@@ -19,6 +19,8 @@
 		tooltip?: string | null;
 		topics: string[];
 		matchSnippet?: RawSearchMatch;
+		/** Renders the article title below the thumbnail (thumbnail-only mode). */
+		showTitle?: boolean;
 	}
 
 	let {
@@ -32,7 +34,8 @@
 		unread = false,
 		tooltip = null,
 		topics,
-		matchSnippet = undefined
+		matchSnippet = undefined,
+		showTitle = false
 	}: Props = $props();
 </script>
 
@@ -48,6 +51,11 @@
 				{unread}
 				{tooltip}
 			/>
+		{/if}
+		{#if showTitle}
+			<div class="article-thumbnail-title">
+				<ArticleTitle title={article.title} />
+			</div>
 		{/if}
 		{#if showText && !isFixedThumb}
 			{#if matchSnippet}
@@ -75,5 +83,21 @@
 		align-items: center;
 		width: 100%;
 		min-width: 0;
+	}
+
+	/* Title below the thumbnail. It stays in normal flow inside `.content`, so
+	   MasonryGrid's height measurement includes this block and grows the item's
+	   row span instead of clipping it. The full title wraps; nothing is
+	   line-clamped. Width mirrors the 80% thumbnail. */
+	.article-thumbnail-title {
+		width: 80%;
+		min-width: 0;
+		padding-top: 1rem;
+		overflow-wrap: break-word;
+	}
+
+	.article-thumbnail-title :global(.article-title) {
+		font-size: 0.65rem;
+		line-height: 1.2;
 	}
 </style>

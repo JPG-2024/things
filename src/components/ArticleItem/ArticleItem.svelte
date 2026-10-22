@@ -66,11 +66,20 @@
 	const showThumbnail = $derived(mode !== 'title');
 	const showText = $derived(mode !== 'thumbnail' || matchSnippet !== undefined);
 
+	// Title rendered below the thumbnail. Only the ArticleList thumbnail-only
+	// mode opts in: EntityCard passes `thumbnailOnly` for its small preview
+	// grids and stays caption-less. Without an image the placeholder already
+	// shows the title, so the label is skipped there. The tooltip is dropped
+	// here so hovering does not show the same title twice.
+	const showThumbnailTitle = $derived(
+		!thumbnailOnly && mode === 'thumbnail' && showThumbnail && !showText && !!article.thumbnailSrc
+	);
+
 	// El título se ofrece como tooltip cuando la tarjeta oculta el texto (modo
 	// thumbnail), salvo que un caller pase un tooltip explícito. Centralizado aquí
 	// para que todos los layouts y páginas que usan ArticleItem lo hereden.
 	const resolvedTooltip = $derived(
-		tooltip ?? (showThumbnail && !showText ? (article.title ?? null) : null)
+		tooltip ?? (showThumbnail && !showText && !showThumbnailTitle ? (article.title ?? null) : null)
 	);
 
 	const categories = $derived(
@@ -162,6 +171,7 @@
 			tooltip={resolvedTooltip}
 			topics={randomTopics}
 			{matchSnippet}
+			showTitle={showThumbnailTitle}
 		/>
 	{/if}
 </button>
