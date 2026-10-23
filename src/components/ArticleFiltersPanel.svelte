@@ -111,9 +111,7 @@
 		font-weight: 600;
 		font-family: var(--font-secondary);
 		letter-spacing: 0.05em;
-		opacity: 0.2;
-		color: white;
-		padding-top: 1rem;
+		color: var(--bg-color);
 	}
 
 	.section-title:first-child {
