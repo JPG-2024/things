@@ -27,7 +27,7 @@
 <div class="filters-sidebar">
 	{#if articleFilters.hasActive}
 		<div class="sidebar-header" in:fly={{ y: 8, duration: 200 }}>
-			<Button icon="X" onClick={handleClearAndClose}>Clear filter</Button>
+			<Button icon="X" onClick={handleClearAndClose}>Clear filters</Button>
 		</div>
 	{:else}
 		<div class="sidebar-header centered" in:fly={{ y: 8, duration: 200 }}>
@@ -94,7 +94,7 @@
 	}
 
 	.sidebar-chips {
-		margin-bottom: 0.5rem;
+		padding: 0.5rem 0;
 	}
 
 	.sidebar-raw-search {

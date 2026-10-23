@@ -30,14 +30,6 @@
 			</button>
 		{/each}
 	{/each}
-	<button
-		type="button"
-		class="clear-chip"
-		onclick={() => articleFilters.clear()}
-		aria-label="Clear all filters"
-	>
-		clear all
-	</button>
 </div>
 
 <style>
@@ -48,7 +40,6 @@
 		justify-content: center;
 		gap: 0.5rem;
 		width: 100%;
-		padding: 0.1rem 2rem;
 	}
 
 	.filter-chip {
@@ -57,10 +48,10 @@
 		align-items: center;
 		gap: 0.4rem;
 		cursor: pointer;
-		border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+		font-family: var(--font-secondary);
 		border-radius: 999px;
 		padding: 3px 12px;
-		color: var(--primary-color);
+		color: white;
 		font-size: 0.75rem;
 		transition:
 			opacity 0.15s,

@@ -556,7 +556,7 @@
 	.dashboard-container {
 		display: grid;
 		grid-template-columns: 0px minmax(0, 1fr);
-		transition: grid-template-columns 250ms ease-out;
+		transition: grid-template-columns 15ms ease-out;
 
 		width: 100%;
 		height: 100vh;
@@ -565,7 +565,7 @@
 
 	/* Filters left panel column: 0 collapsed, the configured width when open. */
 	.dashboard-container.filters-open {
-		grid-template-columns: var(--filters-panel-width, 400px) minmax(0, 1fr);
+		grid-template-columns: var(--filters-panel-width, 250px) minmax(0, 1fr);
 	}
 
 	.filters-column {
@@ -577,7 +577,7 @@
 	.filters-column-scroll {
 		height: 100%;
 		overflow-y: auto;
-		padding: 10rem 1rem 2rem 2rem;
+		padding: 10rem 0.5rem 2rem 1rem;
 	}
 
 	.dashboard-content {
