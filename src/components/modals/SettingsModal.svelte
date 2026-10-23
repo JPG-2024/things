@@ -432,6 +432,18 @@
 			{@render cardLayoutFields('categories', 'Categories')}
 		</div>
 	</Spacer>
+	<Spacer title="Filters" icon="Filter">
+		<div class="inference-section">
+			<NumberField
+				label="Panel width"
+				min={240}
+				max={720}
+				step={20}
+				tooltip="Width in pixels of the filters left panel column."
+				bind:value={viewState.filtersPanelWidth}
+			/>
+		</div>
+	</Spacer>
 	<Spacer title="Scraping" icon="Globe">
 		<div class="inference-section">
 			<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />

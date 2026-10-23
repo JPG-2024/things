@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
+	import { fly } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
@@ -35,13 +36,13 @@
 		type ExternalServiceName
 	} from '@/lib/utils/externalServicesHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
-	import ActiveFilterChips from '@/components/ActiveFilterChips.svelte';
-	import ArticleFiltersPanel from '@/components/ArticleFiltersPanel.svelte';
-	import PopupMenu from '@/components/PopupMenu.svelte';
-	import Button from '@/components/inputs/Button.component.svelte';
+	import ArticleFiltersSidebar from '@/components/ArticleFiltersSidebar.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 
-	import { autoHide } from '@/lib/actions/autoHide';
+	// Toolbar auto-hide while scrolling the dashboard: re-enable by restoring
+	// the import and adding `use:autoHide={{ scrollContainerId: 'dashboard-content' }}`
+	// to the dashboard-toolbar-container div below.
+	// import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
@@ -106,23 +107,17 @@
 	let toolbarEl = $state<HTMLDivElement>();
 	let searchInput = $state<{ focus: () => void } | null>(null);
 
-	// Focus the page search whenever the filters popover opens (F, icon, typing).
+	// Focus the page search whenever the filters panel opens (F, icon, typing).
 	$effect(() => {
-		if (articleFilters.panelOpen) searchInput?.focus();
+		if (articleFilters.filtersPanelVisible) searchInput?.focus();
 	});
 
 	/** "Search in articles content" button: commits the typed term, runs the
-	 * raw search and closes the filters popup. */
+	 * raw search and closes the filters panel. */
 	function handleSearchInContent() {
 		viewState.commitUnifiedFilter();
 		void handleRawSearch(viewState.unifiedFilterDraft, true);
-		articleFilters.panelOpen = false;
-	}
-
-	/** Filter icon: clears the facet filters and the search term/input text. */
-	function handleClearFilters() {
-		articleFilters.clear();
-		viewState.clearUnifiedFilter();
+		articleFilters.filtersPanelVisible = false;
 	}
 
 	async function handleRawSearch(pattern: string, force = false) {
@@ -304,7 +299,9 @@
 <div
 	bind:this={toolbarEl}
 	class="dashboard-toolbar-container"
-	use:autoHide={{ scrollContainerId: 'dashboard-content' }}
+	/* Auto-hide on scroll intentionally disabled for the filters panel layout.
+	   To re-enable, restore the action import and add:
+	   use:autoHide={{ scrollContainerId: 'dashboard-content' }} */
 >
 	<div class="toolbar-row page-topbar">
 		<Toolbar layout="grid" iconSize={20}>
@@ -320,53 +317,24 @@
 				</LuminousText>
 			</div>
 			<div class="toolbar-center">
-				<PopupMenu
-					position="bottom"
-					gap={10}
-					manual
-					closeOnLeave={false}
-					bind:open={articleFilters.panelOpen}
+				<Input
+					type="text"
+					bind:this={searchInput}
+					bind:value={viewState.unifiedFilterDraft}
+					search
+					keepValueOnEnter
+					onEnter={() => viewState.commitUnifiedFilter()}
+					onFocus={() => void articleFilters.openFiltersPanel()}
+				/>
+				<button
+					type="button"
+					class="filters-trigger"
+					class:active={articleFilters.hasActive || articleFilters.filtersPanelVisible}
+					onclick={() => void articleFilters.toggleFiltersPanel()}
+					aria-label="Toggle article filters"
 				>
-					{#snippet trigger()}
-						<Input
-							type="text"
-							bind:this={searchInput}
-							bind:value={viewState.unifiedFilterDraft}
-							search
-							keepValueOnEnter
-							onEnter={() => viewState.commitUnifiedFilter()}
-							onFocus={() => void articleFilters.openPanel()}
-						/>
-						<button
-							type="button"
-							class="filters-trigger"
-							class:active={articleFilters.hasActive}
-							onclick={handleClearFilters}
-							aria-label="Clear article filters"
-						>
-							<Icon name="Filter" />
-						</button>
-					{/snippet}
-					{#snippet content()}
-						{#if articleFilters.hasActive}
-							<div class="popup-filter-chips">
-								<ActiveFilterChips />
-							</div>
-						{/if}
-						<ArticleFiltersPanel />
-						{#if viewState.unifiedFilterDraft.trim()}
-							<div class="popup-raw-search">
-								<Button
-									icon="Search"
-									disabled={viewState.unifiedFilterDraft.trim().length < 4}
-									onClick={handleSearchInContent}
-								>
-									Search in articles content
-								</Button>
-							</div>
-						{/if}
-					{/snippet}
-				</PopupMenu>
+					<Icon name="Filter" />
+				</button>
 			</div>
 			<div class="toolbar-actions">
 				<!-- 	<button
@@ -506,7 +474,26 @@
 	</div>
 </div>
 
-<div class="dashboard-container">
+<div
+	class="dashboard-container"
+	class:filters-open={articleFilters.filtersPanelVisible}
+	style:--filters-panel-width="{viewState.filtersPanelWidth}px"
+>
+	<!-- Always-rendered left track: the grid template animates 0 ↔ panel width
+	     so the lists push right smoothly; content mounts with a fly transition. -->
+	<div class="filters-column">
+		<div class="filters-column-scroll">
+			{#if articleFilters.filtersPanelVisible}
+				<div
+					class="filters-sidebar-slot"
+					in:fly={{ x: -viewState.filtersPanelWidth, duration: 250, opacity: 0.6 }}
+					out:fly={{ x: -viewState.filtersPanelWidth, duration: 250, opacity: 0.6 }}
+				>
+					<ArticleFiltersSidebar onSearchInContent={handleSearchInContent} />
+				</div>
+			{/if}
+		</div>
+	</div>
 	<div id="dashboard-content" class="dashboard-content">
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
@@ -568,11 +555,29 @@
 
 	.dashboard-container {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr);
+		grid-template-columns: 0px minmax(0, 1fr);
+		transition: grid-template-columns 250ms ease-out;
 
 		width: 100%;
 		height: 100vh;
 		overflow: hidden;
+	}
+
+	/* Filters left panel column: 0 collapsed, the configured width when open. */
+	.dashboard-container.filters-open {
+		grid-template-columns: var(--filters-panel-width, 400px) minmax(0, 1fr);
+	}
+
+	.filters-column {
+		grid-column: 1;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.filters-column-scroll {
+		height: 100%;
+		overflow-y: auto;
+		padding: 10rem 1rem 2rem 2rem;
 	}
 
 	.dashboard-content {
@@ -625,18 +630,10 @@
 		gap: 0.3rem;
 	}
 
-	/* The manual PopupMenu wrapper wraps search input + filter icon. */
+	/* Search input stretches to fill the center slot next to the filter icon. */
 	.toolbar-center :global(.search-wrapper) {
 		flex: 1;
 		min-width: 0;
-	}
-
-	.popup-raw-search {
-		display: flex;
-		justify-content: center;
-		margin-top: 0.75rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
 	}
 
 	.filters-trigger {
@@ -661,15 +658,6 @@
 	/* Lit while facet filters are active so the state is visible modal-closed. */
 	.filters-trigger.active {
 		filter: drop-shadow(0 0 6px var(--primary-color));
-	}
-
-	.popup-filter-chips {
-		margin-bottom: 0.5rem;
-	}
-
-	.filters-row {
-		justify-content: center;
-		gap: 1.5rem;
 	}
 
 	.dashboard-toolbar-container:global(.hidden) {

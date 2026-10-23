@@ -240,6 +240,8 @@ class ViewState {
 	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
+	/** Width (px) of the filters left panel column. Tuned in SettingsModal. */
+	filtersPanelWidth = $state(250);
 	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
 	rawSearchLastPattern = $state('');
 
@@ -290,7 +292,7 @@ export interface ArticleFilterEntry {
 }
 
 /**
- * Global facet filters for the dashboard (ArticleFilters modal + EntityBar).
+ * Global facet filters for the dashboard (ArticleFiltersPanel + EntityBar).
  * Semantics: OR within a kind, AND across kinds — mirrored by
  * `list_articles_without_profile` in Rust. Session-only: never persisted.
  */
@@ -298,30 +300,39 @@ class ArticleFiltersState {
 	profiles = $state<ArticleFilterEntry[]>([]);
 	domains = $state<ArticleFilterEntry[]>([]);
 	categories = $state<ArticleFilterEntry[]>([]);
-	/** Open state of the filters panel anchored under the page search input. */
-	panelOpen = $state(false);
+	/** Visibility of the filters left panel column. */
+	filtersPanelVisible = $state(false);
 	/** In-flight opening, shared so concurrent triggers (F hotkey + search
-	 * focus) re-warm the facet lists only once. */
+	 * focus + filters icon) re-warm the facet lists only once. */
 	private openingPanel: Promise<void> | null = null;
 
 	/**
-	 * Opens the filters popup only after its facet lists are available, so it
+	 * Shows the filters panel only after its facet lists are available, so it
 	 * never shows a half-populated view. `getProfiles({ kind })` (full lists)
 	 * is cached in webStore until the profiles cache is invalidated by a
 	 * profile create/update/delete, so reopens resolve instantly.
 	 */
-	async openPanel(): Promise<void> {
+	async openFiltersPanel(): Promise<void> {
 		if (this.openingPanel) return this.openingPanel;
-		if (this.panelOpen) return;
+		if (this.filtersPanelVisible) return;
 		this.openingPanel = (async () => {
 			try {
 				await Promise.all([getProfiles({ kind: 'profile' }), getProfiles({ kind: 'domain' })]);
-				this.panelOpen = true;
+				this.filtersPanelVisible = true;
 			} finally {
 				this.openingPanel = null;
 			}
 		})();
 		return this.openingPanel;
+	}
+
+	/** Filters icon / F hotkey: open (after list warm-up) or close the panel. */
+	async toggleFiltersPanel(): Promise<void> {
+		if (this.filtersPanelVisible) {
+			this.filtersPanelVisible = false;
+			return;
+		}
+		await this.openFiltersPanel();
 	}
 
 	get hasActive(): boolean {

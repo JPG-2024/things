@@ -152,17 +152,17 @@
 		}
 	);
 
-	// F toggles the ArticleFilters panel anchored under the page search input.
-	// Closing always wins over the overlay guard so F also dismisses the panel.
+	// F toggles the ArticleFilters left panel column. Closing always wins
+	// over the overlay guard so F also dismisses the panel.
 	createHotkey(
 		'F',
 		() => {
-			if (articleFilters.panelOpen) {
-				articleFilters.panelOpen = false;
+			if (articleFilters.filtersPanelVisible) {
+				articleFilters.filtersPanelVisible = false;
 				return;
 			}
 			if (viewState.overlayOpen) return;
-			void articleFilters.openPanel();
+			void articleFilters.openFiltersPanel();
 		},
 		{
 			ignoreInputs: true,
@@ -261,10 +261,16 @@
 	createHotkey(
 		'Escape',
 		() => {
+			if (articleFilters.filtersPanelVisible) {
+				articleFilters.filtersPanelVisible = false;
+				return;
+			}
 			selectedArticlesStore.clear();
 		},
 		() => ({
-			enabled: selectedArticlesStore.selectedUrls.size > 0 && !chatOpen,
+			enabled:
+				articleFilters.filtersPanelVisible ||
+				(selectedArticlesStore.selectedUrls.size > 0 && !chatOpen),
 			ignoreInputs: true,
 			preventDefault: true,
 			stopPropagation: true
