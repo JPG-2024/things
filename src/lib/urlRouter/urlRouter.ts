@@ -176,9 +176,12 @@ export async function urlRouter(
 
 			viewState.url = url;
 			viewState.isCachedArticle = Boolean(cachedTasks);
+			// Reset on every attempt, not just fresh ones: cached articles never
+			// reach the `loaded = true` branch below, so a stale `true` would
+			// replay the topbar sweep when PostView remounts for a cached article.
+			viewState.loaded = false;
 			if (!cachedTasks) {
 				viewState.loading = true;
-				viewState.loaded = false;
 			}
 
 			const tasks = await matchingRoute.handler(url, {

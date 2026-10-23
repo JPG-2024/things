@@ -42,7 +42,7 @@
 	}); */
 </script>
 
-<div class="top-bar">
+<div class="top-bar" class:loaded={viewState.loaded}>
 	<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button>
 
 	<button type="button" class="favicon-btn" aria-label="Navigate back">
@@ -96,6 +96,37 @@
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;
+	}
+
+	/* One-shot sweep when an article finishes loading. Runs horizontally inside
+	   the topbar (left → right) instead of the old full-screen overlay. */
+	.top-bar.loaded::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		border-radius: inherit;
+		mix-blend-mode: screen;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			transparent 35%,
+			color-mix(in srgb, var(--primary-color) 60%, white) 10%,
+			transparent 65%,
+			transparent 100%
+		);
+		background-size: 45% 100%;
+		background-repeat: no-repeat;
+		animation: topbar-loaded-sweep 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	}
+
+	@keyframes topbar-loaded-sweep {
+		from {
+			background-position: -100% 0;
+		}
+		to {
+			background-position: 200% 0;
+		}
 	}
 
 	.back-navigation {
