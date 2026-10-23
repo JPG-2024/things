@@ -112,6 +112,7 @@
 		font-family: var(--font-secondary);
 		letter-spacing: 0.05em;
 		color: var(--bg-color);
+		padding: 1rem 0;
 	}
 
 	.section-title:first-child {
