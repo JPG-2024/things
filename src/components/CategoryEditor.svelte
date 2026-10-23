@@ -206,6 +206,7 @@
 			>
 				{#snippet trigger()}
 					<Icon name="CirclePlus" size={18} tooltipProps={{ content: 'Add category' }} />
+					<span class="add-label">category</span>
 				{/snippet}
 			</SearchDropdown>
 		</div>
@@ -289,5 +290,15 @@
 
 	.category-search {
 		width: auto;
+	}
+
+	.add-label {
+		color: var(--bg-color);
+		font-size: 0.85rem;
+		line-height: 1;
+	}
+
+	.category-search :global(.trigger:hover .add-label) {
+		color: white;
 	}
 </style>

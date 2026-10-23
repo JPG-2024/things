@@ -220,7 +220,7 @@
 						{#if scrapStore.currentYoutubeProfile?.profileImage}
 							<ProfileThumb
 								src={scrapStore.currentYoutubeProfile.profileImage}
-								size={32}
+								size={50}
 								onclick={goToProfile}
 							/>
 						{/if}
@@ -228,13 +228,15 @@
 							<div class="tasks-title">{titleText}</div>
 						{/if}
 					</div>
-					{#if viewState.url && !workflowStore.isAnyRunning}
-						<CategoryEditor
-							articleUrl={viewState.url}
-							runId={categoryRunId}
-							value={categoryData ?? []}
-						/>
-					{/if}
+					<div class="category-editor_container">
+						{#if viewState.url && !workflowStore.isAnyRunning}
+							<CategoryEditor
+								articleUrl={viewState.url}
+								runId={categoryRunId}
+								value={categoryData ?? []}
+							/>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -396,6 +398,10 @@
 	.tasks-container {
 		width: 100%;
 		padding: 3rem;
+	}
+
+	.category-editor_container {
+		padding: 1rem 0;
 	}
 
 	.title-row {
