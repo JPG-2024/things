@@ -293,6 +293,7 @@
 	}
 
 	.add-label {
+		font-family: var(--font-secondary);
 		color: var(--bg-color);
 		font-size: 0.85rem;
 		line-height: 1;
