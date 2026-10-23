@@ -30,8 +30,8 @@
 		items: ArticleWithTasks[];
 		/**
 		 * Enables grouping articles into per-profile stack cells and exposes the
-		 * `Alt+G` toggle. Off by default so pages that render a single
-		 * profile/category keep the flat list.
+		 * `Alt+G` toggle. Off by default; pages that opt in (articles tab,
+		 * category page) share the global `viewState.groupArticlesByProfile`.
 		 */
 		groupable?: boolean;
 		keyOf?: (item: ArticleWithTasks) => string;

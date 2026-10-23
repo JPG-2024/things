@@ -90,6 +90,7 @@
 
 	<div class="articles-container">
 		<ArticleList
+			groupable
 			items={articleCacheStore.categoryArticles}
 			loading={articleCacheStore.loadingCategoryArticles}
 			hasMore={articleCacheStore.hasMoreCategoryArticles}
