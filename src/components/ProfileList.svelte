@@ -34,7 +34,7 @@
 		columns = false,
 		columnWidth = PROFILE_COLUMN_WIDTH,
 		cardsPerColumn = 1,
-		rowGap = 24,
+		rowGap = 10,
 		height = 'auto',
 		startSpace = WHEEL_START_SPACE,
 		endSpace = WHEEL_END_SPACE,
@@ -61,7 +61,7 @@
 			{rowGap}
 			rows={cardsPerColumn}
 			{height}
-			scrollSpeed={50}
+			scrollSpeed={5}
 			keyboard
 			label="Column cards"
 			{startSpace}

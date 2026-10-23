@@ -64,7 +64,7 @@
 					src={item.profilePictureSrc}
 					tooltip={item.name}
 					tooltipProps={{ ignoreMenuCtx: true }}
-					size={38}
+					size={50}
 					shape="rounded"
 				/>
 			{:else}
