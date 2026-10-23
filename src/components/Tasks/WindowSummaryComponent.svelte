@@ -8,13 +8,13 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
-	import Tabs from '@/components/Tabs.svelte';
+	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import { reconstructChunks } from '@/lib/utils/splitText';
 	import { workflowManager } from '@/runners/workflowManager.svelte';
 	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { updateTaskDataById } from '@/stores/webStore';
-	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
+	import { WINDOW_DIVISOR_LADDER } from '@/runners/shared/constants';
 
 	type Props = {
 		runId?: string;
@@ -80,49 +80,55 @@
 	const isRunning = $derived(task.status === 'running');
 	const chunksCollapsed = $derived(!isRunning && !!summaryData?.finalResponse);
 
-	const levelTabs = [
-		{ id: 'auto', label: 'auto' },
-		...WINDOW_LEVEL_LABELS.map((l) => ({ id: l, label: l }))
-	];
 	const recursiveConfig = $derived(recursiveConfigFromTask(task));
-	const showLevelTabs = $derived(
+	const showLevelControl = $derived(
 		!!recursiveConfig && !recursiveConfig.splitByString && !recursiveConfig.splitByHeaders
 	);
 	const runtimeDivisor = $derived.by((): number | undefined => {
 		const data = task.data as Record<string, unknown> | undefined;
 		return typeof data?.windowDivisor === 'number' ? (data.windowDivisor as number) : undefined;
 	});
-	const levelLocked = $derived(recursiveConfig?.windowDivisorLocked === true);
-	const activeLevel = $derived(
-		levelLocked && recursiveConfig?.windowDivisor !== undefined
-			? String(recursiveConfig.windowDivisor)
-			: 'auto'
-	);
+	const effectiveDivisor = $derived.by((): number => {
+		if (typeof runtimeDivisor === 'number') return runtimeDivisor;
+		const cfg = recursiveConfig;
+		// A fresh (unlocked) task starts the ladder at the first level, so the
+		// config divisor only reflects the start when it was pinned by the slider.
+		if (cfg?.windowDivisorLocked === true && typeof cfg.windowDivisor === 'number') {
+			return cfg.windowDivisor;
+		}
+		return WINDOW_DIVISOR_LADDER[0];
+	});
+
+	/** Closest ladder index for the effective divisor, so the slider never shows off-ladder values. */
+	const ladderIndex = $derived.by((): number => {
+		let index = 0;
+		for (let i = 0; i < WINDOW_DIVISOR_LADDER.length; i++) {
+			if (WINDOW_DIVISOR_LADDER[i] <= effectiveDivisor) index = i;
+		}
+		return index;
+	});
+
+	// Writable derived: dragging the slider assigns to it, and after every
+	// rerun (task data changes) it recomputes from the runtime divisor.
+	let sliderIndex = $derived(ladderIndex);
+
+	const previewDivisor = $derived(WINDOW_DIVISOR_LADDER[sliderIndex] ?? effectiveDivisor);
 
 	let rawModalIndex = $state<number | null>(null);
 
-	function handleLevelChange(levelId: string) {
-		void applyLevel(levelId);
-	}
-
 	/**
-	 * Commits the selected window level: rebuilds the task pinned to that
-	 * divisor (or unlocked for auto) and reruns it. The context-overflow
-	 * ladder in the runner still climbs past a pinned level on context errors.
+	 * Commits the selected start level: rebuilds the task pinned to that
+	 * divisor and reruns it. The context-overflow ladder in the runner still
+	 * climbs past the pinned level on context errors.
 	 */
 	async function applyLevel(levelId: string) {
 		if (!targetRunId || !recursiveConfig) return;
 		if (task.status === 'running') return;
 
-		const isAuto = levelId === 'auto';
-		const level = isAuto ? (recursiveConfig.windowDivisor ?? 2) : Number(levelId);
-		if (isAuto) {
-			if (recursiveConfig.windowDivisorLocked !== true) return;
-		} else {
-			if (!Number.isFinite(level) || level < 1) return;
-			if (recursiveConfig.windowDivisorLocked === true && recursiveConfig.windowDivisor === level) {
-				return;
-			}
+		const level = Number(levelId);
+		if (!Number.isFinite(level) || level < 1) return;
+		if (recursiveConfig.windowDivisorLocked === true && recursiveConfig.windowDivisor === level) {
+			return;
 		}
 
 		try {
@@ -131,7 +137,7 @@
 				name: task.name,
 				dependencies: task.dependencies,
 				windowDivisor: level,
-				windowDivisorLocked: !isAuto,
+				windowDivisorLocked: true,
 				renderOrder: task.renderOrder,
 				persist: true,
 				model: viewState.aiModel,
@@ -156,13 +162,21 @@
 
 {#if summaryData}
 	<div class="window-summary-shell">
-		{#if showLevelTabs}
+		{#if showLevelControl}
 			<div class="level-row">
 				<span class="level-label">window ÷</span>
-				<Tabs tabs={levelTabs} activeTab={activeLevel} onTabChange={handleLevelChange} />
-				{#if activeLevel === 'auto' && runtimeDivisor !== undefined}
-					<span class="level-label">÷{runtimeDivisor}</span>
-				{/if}
+				<div class="level-slider">
+					<RangeSelector
+						id={`window-level-${task.id}`}
+						min={0}
+						max={WINDOW_DIVISOR_LADDER.length - 1}
+						step={1}
+						bind:value={sliderIndex}
+						disabled={isRunning}
+						onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
+					/>
+				</div>
+				<span class="level-label">÷{previewDivisor}</span>
 			</div>
 		{/if}
 
@@ -206,7 +220,6 @@
 
 <style>
 	.window-summary-shell {
-		--tabs-pill-font-size: 0.7rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
@@ -217,6 +230,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.level-slider {
+		flex: 1;
+		max-width: 16rem;
 	}
 
 	.level-label {
