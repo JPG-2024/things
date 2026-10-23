@@ -741,6 +741,9 @@ class PodcastState {
 			try {
 				const speechConfig = {
 					...ttsState.config,
+					// Podcast hosts always synthesize from their cloned refs;
+					// a global voice-design instruct must not leak in here.
+					instruct: undefined,
 					numStep: synth.numStep,
 					guidanceScale: synth.guidanceScale,
 					speed: synth.speed

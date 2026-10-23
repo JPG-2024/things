@@ -142,12 +142,19 @@
 		randomChunk: boolean;
 		synthParams: SynthParams;
 		pauseSettings: PauseSettings;
+		instruct?: string;
 	}) {
 		ttsState.config.randomChunk = value.randomChunk;
 		ttsState.config.numStep = value.synthParams.numStep;
 		ttsState.config.guidanceScale = value.synthParams.guidanceScale;
 		ttsState.config.speed = value.synthParams.speed;
 		ttsState.config.splitLevel = value.synthParams.splitLevel;
+
+		if (value.instruct !== undefined) {
+			// Voice design vs cloning is part of configSig, so a change here
+			// triggers the full regeneration through the configSig effect.
+			ttsState.config.instruct = value.instruct;
+		}
 
 		ttsState.pauseSettings.minGapMs = value.pauseSettings.minGapMs;
 		ttsState.pauseSettings.maxGapMs = value.pauseSettings.maxGapMs;
@@ -340,6 +347,8 @@
 	management={true}
 	profiles={ttsState.voiceProfiles}
 	selectedProfileId={ttsState.selectedProfileId}
+	instruct={ttsState.config.instruct ?? ''}
+	showVoiceDesign={true}
 	onAddVoice={() => mainVoiceState.runAddVoice()}
 	onSaveProfile={(id, name, image) => mainVoiceState.saveProfile(id, name, image)}
 	onDeleteProfile={(id) => mainVoiceState.deleteProfile(id)}

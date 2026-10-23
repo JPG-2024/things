@@ -4,6 +4,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import {
 		deleteVoiceChunk,
+		generateSpeech,
 		getImage,
 		type Voice,
 		type VoiceProfile
@@ -26,6 +27,8 @@
 		randomChunk: boolean;
 		synthParams: SynthParams;
 		pauseSettings: PauseSettings;
+		/** Committed instruct string; undefined when the section is hidden. */
+		instruct?: string;
 	}
 
 	interface Props {
@@ -37,6 +40,13 @@
 		synthParams: SynthParams;
 		pauseSettings: PauseSettings;
 		showPauses?: boolean;
+		/**
+		 * Committed voice-design instruct string ('' = cloned voice). Only
+		 * read when `showVoiceDesign` is true.
+		 */
+		instruct?: string;
+		/** Enables the Voice design section (cloned voice vs instruct synthesis). */
+		showVoiceDesign?: boolean;
 		onChange: (value: SettingsValue) => void;
 		onClose: () => void;
 		onChunksChanged?: () => void;
@@ -63,6 +73,8 @@
 		synthParams,
 		pauseSettings,
 		showPauses = true,
+		instruct = '',
+		showVoiceDesign = false,
 		onChange,
 		onClose,
 		onChunksChanged,
@@ -84,6 +96,26 @@
 	];
 
 	const NEW_PROFILE_VALUE = '__new__';
+
+	// Restricted instruct vocabulary accepted by the TTS container; anything
+	// else is rejected, so the string is composed from these tokens only.
+	const DESIGN_GENDERS = ['male', 'female'] as const;
+	const DESIGN_AGES = ['child', 'teenager', 'young adult', 'middle-aged', 'elderly'] as const;
+	const DESIGN_PITCHES = [
+		'very low pitch',
+		'low pitch',
+		'moderate pitch',
+		'high pitch',
+		'very high pitch'
+	] as const;
+
+	const CLONE_MODE_VALUE = 'cloned';
+	const DESIGN_MODE_VALUE = 'design';
+	const VOICE_MODE_OPTIONS = [
+		{ label: 'Cloned (reference audio)', value: CLONE_MODE_VALUE },
+		{ label: 'Designed (instruct)', value: DESIGN_MODE_VALUE }
+	];
+	const DESIGN_NONE_VALUE = '';
 
 	// Decorative bat art, kept out of the template so whitespace/indentation
 	// are preserved exactly. Trailing spaces are trimmed per line to avoid
@@ -130,6 +162,17 @@
 	let hoveredChunkName = $state<string | null>(null);
 	let wasOpen = $state(false);
 
+	// Voice design state (draft; committed through snapshot()/onChange).
+	let draftInstructEnabled = $state(false);
+	let draftGender = $state('');
+	let draftAge = $state('');
+	let draftPitch = $state('');
+	let draftWhisper = $state(false);
+	let testLoading = $state(false);
+	let testUrl = $state('');
+	let testError = $state('');
+	let testAbort: AbortController | null = null;
+
 	// Voice management state (moved from MiniProfilePicker).
 	let manageView = $state<'buttons' | 'add' | 'edit' | 'record'>('buttons');
 	let editTargetId = $state('');
@@ -152,7 +195,8 @@
 			audioFile: draftAudioFile,
 			randomChunk: draftRandomChunk,
 			synthParams: { ...draftSynthParams },
-			pauseSettings: { ...draftPauseSettings }
+			pauseSettings: { ...draftPauseSettings },
+			instruct: showVoiceDesign ? (draftInstructEnabled ? composeInstruct() : '') : undefined
 		};
 	}
 
@@ -164,7 +208,79 @@
 	async function handleClose() {
 		if (isRecording) await stopRecording(true);
 		revokeRecordedUrl();
+		cleanupTestAudio();
 		applyAndClose();
+	}
+
+	function composeInstruct(): string {
+		return [draftGender, draftAge, draftPitch, draftWhisper ? 'whisper' : '']
+			.filter(Boolean)
+			.join(', ');
+	}
+
+	function handleVoiceModeChange(value: string) {
+		const enabled = value === DESIGN_MODE_VALUE;
+		if (enabled && !composeInstruct()) {
+			// Sensible defaults so the design mode is immediately valid; the
+			// user adjusts from here.
+			draftGender = 'female';
+			draftAge = 'young adult';
+			draftPitch = 'moderate pitch';
+		}
+		draftInstructEnabled = enabled;
+	}
+
+	function designSampleText(): string {
+		return viewState.language.toLowerCase().startsWith('es')
+			? 'Hola, así suena esta voz diseñada.'
+			: 'Hello, this is how the designed voice sounds.';
+	}
+
+	function revokeTestUrl() {
+		if (testUrl) {
+			URL.revokeObjectURL(testUrl);
+			testUrl = '';
+		}
+		testError = '';
+	}
+
+	function cleanupTestAudio() {
+		testAbort?.abort();
+		testAbort = null;
+		revokeTestUrl();
+		testLoading = false;
+	}
+
+	async function testDesignVoice() {
+		if (testLoading) return;
+		const instructValue = composeInstruct();
+		if (!instructValue) return;
+
+		testAbort?.abort();
+		const abort = new AbortController();
+		testAbort = abort;
+		testLoading = true;
+		testError = '';
+		revokeTestUrl();
+		try {
+			const res = await generateSpeech(
+				{ text: designSampleText(), instruct: instructValue, speed: draftSynthParams.speed },
+				abort.signal
+			);
+			if (res.blob.size === 0) {
+				throw new Error('Generated audio is empty (0 bytes)');
+			}
+			testUrl = URL.createObjectURL(res.blob);
+			await new Audio(testUrl).play().catch(() => {});
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			testError = err instanceof Error ? err.message : 'Failed to generate speech';
+		} finally {
+			if (testAbort === abort) {
+				testAbort = null;
+			}
+			testLoading = false;
+		}
 	}
 
 	$effect(() => {
@@ -176,6 +292,12 @@
 			hoveredChunkName = null;
 			manageView = 'buttons';
 			recordingSaved = false;
+			const tokens = instruct ? instruct.split(',').map((t) => t.trim()) : [];
+			draftInstructEnabled = tokens.length > 0;
+			draftGender = tokens.find((t) => (DESIGN_GENDERS as readonly string[]).includes(t)) ?? '';
+			draftAge = tokens.find((t) => (DESIGN_AGES as readonly string[]).includes(t)) ?? '';
+			draftPitch = tokens.find((t) => (DESIGN_PITCHES as readonly string[]).includes(t)) ?? '';
+			draftWhisper = tokens.includes('whisper');
 		}
 		wasOpen = show;
 	});
@@ -183,9 +305,10 @@
 	// Ensure an in-progress recording is discarded if the modal is closed from
 	// the outside (the component stays mounted, so onDestroy alone is not enough).
 	$effect(() => {
-		if (!show && isRecording) {
-			void stopRecording(true);
+		if (!show) {
+			if (isRecording) void stopRecording(true);
 			revokeRecordedUrl();
+			cleanupTestAudio();
 		}
 	});
 
@@ -217,6 +340,7 @@
 		hoveredChunkName = null;
 		if (isRecording) void stopRecording(true);
 		revokeRecordedUrl();
+		cleanupTestAudio();
 	});
 
 	function pickChunk(index: number) {
@@ -680,54 +804,117 @@
 					</Spacer>
 				{/if}
 
-				<Spacer title="Chunk" icon="Podcast" defaultOpen={false}>
-					<div class="row">
-						<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
-					</div>
-					{#if !draftRandomChunk && chunks.length > 0}
-						<div class="chunk-buttons">
-							{#each chunks as voice, i (voice.name)}
-								<button
-									type="button"
-									class="chunk-btn"
-									class:selected={voice.audio_file === draftAudioFile}
-									class:hovered={voice.name === hoveredChunkName}
-									onclick={() => pickChunk(i)}
-									onmouseenter={() => (hoveredChunkName = voice.name)}
-									onmouseleave={() => (hoveredChunkName = null)}
-									aria-label="Chunk {i + 1}"
-								>
-									{i + 1}
-								</button>
-							{/each}
-						</div>
-						{#if hoveredChunkName}
-							<p class="hint">Press <kbd>D</kbd> to delete the hovered chunk</p>
+				{#if showVoiceDesign}
+					<Spacer title="Voice design" icon="AudioWaveform" defaultOpen={false}>
+						<Dropdown
+							label="Voice mode"
+							options={VOICE_MODE_OPTIONS}
+							value={draftInstructEnabled ? DESIGN_MODE_VALUE : CLONE_MODE_VALUE}
+							onChange={handleVoiceModeChange}
+						/>
+						{#if draftInstructEnabled}
+							<div class="voice-grid-2">
+								<Dropdown
+									label="Gender"
+									options={[
+										{ label: '—', value: DESIGN_NONE_VALUE },
+										...DESIGN_GENDERS.map((g) => ({ label: g, value: g }))
+									]}
+									value={draftGender}
+									onChange={(v) => (draftGender = v)}
+								/>
+								<Dropdown
+									label="Age"
+									options={[
+										{ label: '—', value: DESIGN_NONE_VALUE },
+										...DESIGN_AGES.map((a) => ({ label: a, value: a }))
+									]}
+									value={draftAge}
+									onChange={(v) => (draftAge = v)}
+								/>
+							</div>
+							<Dropdown
+								label="Pitch"
+								options={[
+									{ label: '—', value: DESIGN_NONE_VALUE },
+									...DESIGN_PITCHES.map((p) => ({ label: p, value: p }))
+								]}
+								value={draftPitch}
+								onChange={(v) => (draftPitch = v)}
+							/>
+							<div class="row">
+								<ToggleIcon name="Ear" bind:checked={draftWhisper} label="Whisper" />
+							</div>
+							<p class="hint">
+								Instruct: {composeInstruct() || 'select at least one trait'}
+							</p>
+							<div class="voice-form-actions">
+								<Button disabled={testLoading || !composeInstruct()} onClick={testDesignVoice}>
+									{testLoading ? 'Generating…' : 'Test voice'}
+								</Button>
+							</div>
+							{#if testError}
+								<p class="voice-status error">{testError}</p>
+							{/if}
+							{#if testUrl}
+								<audio class="voice-record-preview" controls src={testUrl}></audio>
+							{/if}
 						{/if}
-					{/if}
-				</Spacer>
+					</Spacer>
+				{/if}
+
+				{#if !draftInstructEnabled}
+					<Spacer title="Chunk" icon="Podcast" defaultOpen={false}>
+						<div class="row">
+							<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
+						</div>
+						{#if !draftRandomChunk && chunks.length > 0}
+							<div class="chunk-buttons">
+								{#each chunks as voice, i (voice.name)}
+									<button
+										type="button"
+										class="chunk-btn"
+										class:selected={voice.audio_file === draftAudioFile}
+										class:hovered={voice.name === hoveredChunkName}
+										onclick={() => pickChunk(i)}
+										onmouseenter={() => (hoveredChunkName = voice.name)}
+										onmouseleave={() => (hoveredChunkName = null)}
+										aria-label="Chunk {i + 1}"
+									>
+										{i + 1}
+									</button>
+								{/each}
+							</div>
+							{#if hoveredChunkName}
+								<p class="hint">Press <kbd>D</kbd> to delete the hovered chunk</p>
+							{/if}
+						{/if}
+					</Spacer>
+				{/if}
 
 				<Spacer title="Synthesis" icon="SlidersHorizontal" defaultOpen={false}>
-					<RangeSelector
-						id="settings-numStep"
-						label="Num Steps"
-						value={draftSynthParams.numStep}
-						min={1}
-						max={64}
-						step={1}
-						format={(v) => v.toString()}
-						onChange={(v) => (draftSynthParams.numStep = v)}
-					/>
-					<RangeSelector
-						id="settings-guidanceScale"
-						label="Guidance Scale"
-						value={draftSynthParams.guidanceScale}
-						min={0}
-						max={5}
-						step={0.5}
-						format={(v) => v.toFixed(1)}
-						onChange={(v) => (draftSynthParams.guidanceScale = v)}
-					/>
+					{#if !draftInstructEnabled}
+						<RangeSelector
+							id="settings-numStep"
+							label="Num Steps"
+							value={draftSynthParams.numStep}
+							min={1}
+							max={64}
+							step={1}
+							format={(v) => v.toString()}
+							onChange={(v) => (draftSynthParams.numStep = v)}
+						/>
+						<RangeSelector
+							id="settings-guidanceScale"
+							label="Guidance Scale"
+							value={draftSynthParams.guidanceScale}
+							min={0}
+							max={5}
+							step={0.5}
+							format={(v) => v.toFixed(1)}
+							onChange={(v) => (draftSynthParams.guidanceScale = v)}
+						/>
+					{/if}
 					<RangeSelector
 						id="settings-speed"
 						label="Speed"

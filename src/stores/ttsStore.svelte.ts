@@ -20,6 +20,12 @@ export interface TTSRefConfig {
 }
 
 export interface TTSConfig extends TTSRefConfig {
+	/**
+	 * Voice-design instruct (restricted backend vocabulary). '' = voice
+	 * cloning through reference audio. Changing it is part of `configSig`,
+	 * so it rebuilds the whole playlist.
+	 */
+	instruct?: string;
 	numStep: number;
 	denoise: boolean;
 	guidanceScale: number;
@@ -71,6 +77,7 @@ class TTSState {
 		refAudioFilename: '042dee8a-d68d-4419-941b-eff42003d10e_0.mp3',
 		refText:
 			' Tenemos una novedad de un laboratorio de inteligencia artificial japonés llamado Sakana,  que acaba de lanzar algo conocido como Sakan…',
+		instruct: '',
 		numStep: 16,
 		denoise: true,
 		guidanceScale: 2.0,
@@ -89,6 +96,7 @@ class TTSState {
 	 */
 	configSig = $derived(
 		JSON.stringify({
+			instruct: this.config.instruct,
 			numStep: this.config.numStep,
 			denoise: this.config.denoise,
 			guidanceScale: this.config.guidanceScale,

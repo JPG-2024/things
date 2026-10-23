@@ -266,6 +266,12 @@ export async function uploadVoiceFromAudio(
 }
 
 export interface SpeechConfigInput {
+	/**
+	 * Voice-design instruct string (restricted backend vocabulary, e.g.
+	 * "female, middle-aged, low pitch"). Non-empty switches synthesis from
+	 * voice cloning to instruct generation, which uses no reference audio.
+	 */
+	instruct?: string;
 	numStep: number;
 	denoise: boolean;
 	guidanceScale: number;
@@ -307,6 +313,16 @@ export function buildSpeechParams(
 	refAudio: string,
 	refText: string
 ): Parameters<typeof generateSpeech>[0] {
+	// Voice-design path: the instruct route (/v1/audio/speech with
+	// instructions) is not the cloning diffusion sampler, so cloning-only
+	// synthesis parameters are meaningless there and are omitted.
+	if (config.instruct) {
+		return {
+			text,
+			instruct: config.instruct,
+			speed: config.speed
+		};
+	}
 	return {
 		text,
 		ref_audio: refAudio,
@@ -331,19 +347,21 @@ export async function generateSpeech(
 	params: {
 		text: string;
 		instruct?: string;
-		ref_audio: string;
-		ref_text: string;
-		num_step: number;
-		denoise: boolean;
-		guidance_scale: number;
+		/** Reference audio for voice cloning; omit when `instruct` is provided. */
+		ref_audio?: string;
+		ref_text?: string;
+		/** Diffusion-sampler settings; only meaningful for the cloning path. */
+		num_step?: number;
+		denoise?: boolean;
+		guidance_scale?: number;
 		t_shift?: number;
 		position_temperature?: number;
 		class_temperature?: number;
 		layer_penalty_factor?: number;
 		duration?: number;
 		speed: number;
-		preprocess_prompt: boolean;
-		postprocess_output: boolean;
+		preprocess_prompt?: boolean;
+		postprocess_output?: boolean;
 		audio_chunk_duration?: number;
 		audio_chunk_threshold?: number;
 	},
