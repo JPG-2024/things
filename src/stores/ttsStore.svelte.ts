@@ -118,7 +118,7 @@ class TTSState {
 
 	pauseSettings = $state({ minGapMs: 0.4, maxGapMs: 1, betweenParagraphs: 1.5 });
 	/** Ducking volume for the floating YouTube player while TTS is playing (0–30). */
-	volumeWhileTTS = $state(5);
+	volumeWhileTTS = $state(2);
 	/** Auto-minimize the floating YouTube player while TTS is playing. */
 	autoMinimizeWhileTTS = $state(true);
 	/** Duration (ms) of the YouTube-player volume fade when ducking/restoring. 0 = instant. */
