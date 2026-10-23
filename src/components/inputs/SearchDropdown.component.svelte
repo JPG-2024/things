@@ -248,6 +248,7 @@
 	.search-dropdown {
 		position: relative;
 		width: 100%;
+		font-family: var(--secondary-font);
 	}
 
 	.search-dropdown.icon-trigger {
@@ -286,9 +287,8 @@
 		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(154, 154, 154, 0.12);
-		box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5);
+		/* border: 1px solid rgba(255, 255, 255, 0.1); */
+		/* box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5); */
 		border-radius: var(--radius-sm);
 		padding: 0.2rem 0.75rem;
 		width: 100%;
@@ -334,10 +334,9 @@
 		left: 0;
 		right: 0;
 		z-index: 80;
-		background: #1a1a1a;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		font-family: var(--font-secondary);
+		background: #111111;
 		border-radius: var(--radius-sm);
-		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 		overflow: hidden;
 	}
 
@@ -350,10 +349,11 @@
 		background: transparent;
 		padding: 0.5rem 0.75rem;
 		color: white;
-		font-size: 0.95rem;
+		font-size: 0.8rem;
 	}
 
 	.options {
+		background: black;
 		max-height: 260px;
 		overflow-y: auto;
 		text-transform: capitalize;
@@ -369,7 +369,7 @@
 		border: none;
 		background: transparent;
 		color: white;
-		font-size: 1rem;
+		font-size: 0.8rem;
 		cursor: pointer;
 		text-align: left;
 		box-sizing: border-box;
@@ -377,7 +377,7 @@
 
 	.option:hover,
 	.option.highlighted {
-		background: color-mix(in srgb, var(--bg-color) 10%, transparent);
+		background: color-mix(in srgb, var(--bg-color) 50%, transparent);
 	}
 
 	.option.selected {
