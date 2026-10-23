@@ -569,4 +569,24 @@
 		opacity: 0.8;
 		z-index: 99999;
 	}
+
+	/* Thin, unobtrusive scrollbars app-wide. */
+	:global(::-webkit-scrollbar) {
+		width: 4px;
+		height: 4px;
+	}
+
+	:global(::-webkit-scrollbar-thumb) {
+		background: rgba(255, 255, 255, 0.25);
+		border-radius: 999px;
+	}
+
+	:global(::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+
+	:global(*) {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+	}
 </style>
