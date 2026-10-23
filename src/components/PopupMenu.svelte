@@ -144,7 +144,7 @@
 		onmouseleave={closeOnLeave ? close : undefined}
 		role="menu"
 	>
-		<Card showBorders={false} solid>
+		<Card showBorders={true} solid>
 			{@render content()}
 		</Card>
 	</div>

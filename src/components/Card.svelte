@@ -43,13 +43,13 @@
 		max-height: 100%;
 		box-sizing: border-box;
 		border-radius: var(--radius-md);
-		background-image: linear-gradient(
+		/* 		background-image: linear-gradient(
 			145deg,
 			color-mix(in srgb, var(--primary-color) 8%, transparent),
 			color-mix(in srgb, var(--bg-color) 12%, transparent),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
-		);
+		); */
 		background-size: 200% 200%;
 		padding: 1rem;
 		overflow: hidden;
@@ -68,12 +68,11 @@
 	.widget.solid {
 		background-image: linear-gradient(
 			145deg,
-			color-mix(in srgb, var(--primary-color) 8%, black),
-			color-mix(in srgb, var(--bg-color) 12%, black),
+			rgba(0, 0, 0),
+			color-mix(in srgb, var(--bg-color) 15%, black),
 			rgba(0, 0, 0),
 			rgba(0, 0, 0)
 		);
-		backdrop-filter: none;
 	}
 
 	.widget-title {
@@ -114,7 +113,7 @@
 		background-image: linear-gradient(
 			145deg,
 			rgba(0, 0, 0) 1%,
-			color-mix(in srgb, var(--primary-color) 20%, transparent),
+			color-mix(in srgb, var(--primary-color) 50%, transparent),
 			color-mix(in srgb, var(--bg-color) 20%, transparent),
 			rgba(0, 0, 0) 100%
 		);
@@ -128,33 +127,16 @@
 		display: none;
 	}
 
-	.widget::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 0px; /* <-- TOGGLE with 1px */
-		height: 100%; /* Cubre 40% de la altura izquierda */
-		background-image: linear-gradient(
-			145deg,
-			color-mix(in srgb, var(--primary-color) 50%, transparent),
-			color-mix(in srgb, var(--bg-color) 40%, transparent),
-			rgba(0, 0, 0) 50%
-		);
-		border-radius: 30px 0 0 0;
-	}
-
-	/* Esquina inferior derecha + lado inferior (usando span o elemento extra) */
-	.widget-corner {
+	/* 	.widget-corner {
 		position: absolute;
 		bottom: 0;
 		right: 0;
 		width: 80%;
 		height: 60%;
 		pointer-events: none;
-	}
+	} */
 
-	.widget-corner::before {
+	/* 	.widget-corner::before {
 		content: '';
 		position: absolute;
 		bottom: 0;
@@ -168,9 +150,9 @@
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;
-	}
+	} */
 
-	.widget-corner::after {
+	/* 	.widget-corner::after {
 		content: '';
 		position: absolute;
 		bottom: 0;
@@ -184,25 +166,7 @@
 			transparent 100%
 		);
 		border-radius: 0 0 30px 0;
-	}
-
-	.widget-curve-tl {
-		position: absolute;
-		top: 1px;
-		left: 1px;
-		width: 60px;
-		height: 60px;
-		pointer-events: none;
-	}
-
-	.widget-curve-br {
-		position: absolute;
-		bottom: 1px;
-		right: 1px;
-		width: 60px;
-		height: 60px;
-		pointer-events: none;
-	}
+	} */
 
 	@keyframes card-loading-gradient {
 		0% {
