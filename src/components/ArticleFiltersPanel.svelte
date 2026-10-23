@@ -103,7 +103,7 @@
 
 <style>
 	.entity-bar-container {
-		padding: 2rem 0;
+		padding: 1rem 0;
 	}
 
 	.section-title {
