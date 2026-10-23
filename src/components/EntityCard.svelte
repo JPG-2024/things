@@ -60,7 +60,7 @@
 				<ArticleItem
 					{article}
 					thumbnailOnly
-					thumbnailSize="fill"
+					thumbnailSize="sm"
 					unread={unread && !article.viewed}
 					tooltip={article.title ?? null}
 					onClick={onArticleClick}

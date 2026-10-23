@@ -13,9 +13,11 @@
 <style>
 	.article-title {
 		font-family: var(--font-secondary);
+		color: var(--gray-200);
 		text-align: left;
-		font-size: 0.6rem;
+		font-size: 0.7rem;
 		flex: 1;
 		min-width: 0;
+		font-weight: bold;
 	}
 </style>

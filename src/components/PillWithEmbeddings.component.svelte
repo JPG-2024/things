@@ -143,8 +143,8 @@
 	}
 
 	.article-thumb {
-		width: 2rem;
-		height: 2rem;
+		width: 10rem;
+		height: 10rem;
 		object-fit: cover;
 		border-radius: var(--radius-sm);
 	}
