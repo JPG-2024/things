@@ -226,6 +226,7 @@
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition: opacity 150ms ease;
+		/* border: 2px solid var(--bg-color); */
 	}
 
 	.player-frame.frame-hidden {
@@ -259,7 +260,7 @@
 		padding: 0;
 		border: none;
 		border-radius: var(--radius-sm);
-		background: black;
+		background: rgb(50, 50, 50);
 		color: white;
 		font-size: 1rem;
 		font-weight: bold;
