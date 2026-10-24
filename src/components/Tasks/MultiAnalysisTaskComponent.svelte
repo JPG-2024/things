@@ -21,6 +21,7 @@
 	import { updateTaskDataById } from '@/stores/webStore';
 	import { WINDOW_LEVEL_LABELS } from '@/runners/shared/constants';
 	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
+	import { taskEmbeddingTable } from '@/lib/utils/embeddingTasks';
 
 	type Props = {
 		runId?: string;
@@ -316,7 +317,7 @@
 							<span class="result-label">Topics</span>
 							<SimilarByTexts
 								texts={multiData.finalResponse.topics}
-								table={task.id}
+								table={taskEmbeddingTable(task)}
 								disabled={isRunning}
 							/>
 						</div>

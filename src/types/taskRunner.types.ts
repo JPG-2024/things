@@ -111,6 +111,8 @@ export interface TaskBase<TMap extends TaskMapBase, TId extends keyof TMap & str
 	embeddings?: boolean;
 	storeChunkText?: boolean;
 	embedField?: string;
+	/** LanceDB table this task's chunks are indexed into. Defaults to the task id. */
+	embedTable?: string;
 }
 
 export interface ScriptTask<

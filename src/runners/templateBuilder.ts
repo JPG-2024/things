@@ -30,6 +30,7 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 			embeddings: def.embeddings,
 			storeChunkText: def.storeChunkText,
 			embedField: def.embedField,
+			embedTable: def.embedTable,
 			enableTTS: def.enableTTS
 		});
 		task.visible = def.visible ?? true;
@@ -63,7 +64,8 @@ export function buildTaskFromTemplateDef(def: TemplateTaskDef): Task {
 		componentProps: def.componentProps,
 		embeddings: def.embeddings,
 		storeChunkText: def.storeChunkText,
-		embedField: def.embedField
+		embedField: def.embedField,
+		embedTable: def.embedTable
 	};
 
 	if (def.subtype === 'category' && def.extractorConfig) {
@@ -94,7 +96,8 @@ function buildCategoryTaskDef(def: TemplateTaskDef) {
 		componentProps: def.componentProps,
 		embeddings: def.embeddings,
 		storeChunkText: def.storeChunkText,
-		embedField: def.embedField
+		embedField: def.embedField,
+		embedTable: def.embedTable
 	});
 }
 

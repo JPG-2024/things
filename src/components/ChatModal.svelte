@@ -5,6 +5,8 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
@@ -12,6 +14,8 @@
 		chatCompletions,
 		type LlamaChatCompletionsRequest
 	} from '@/lib/utils/inference/chat-completions-provider';
+	import { retrieveContextChunks } from '@/lib/utils/embeddingTasks';
+	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
 	let { onExit }: { onExit: () => void } = $props();
@@ -21,20 +25,42 @@
 		role: 'user' | 'assistant';
 		content: string;
 		done: boolean;
+		sources?: SearchChunkResult[];
 	}
 
 	let messages = $state<ChatMessage[]>([]);
 	let streamedText = $state('');
 	let streaming = $state(false);
+	let searching = $state(false);
 	let error = $state<string | null>(null);
 	let activeAssistantId = $state<string | null>(null);
 	let messagesContainer = $state<HTMLDivElement | null>(null);
 	let abortController = $state<AbortController | null>(null);
 	let modalEl = $state<HTMLDivElement | null>(null);
 
+	// Session toggle for embedding retrieval; seeded from the persisted
+	// settings choice and written back so the choice sticks across sessions.
+	let searchEnabled = $state(viewState.chatSearchEnabled);
+
+	const searchTables = $derived(
+		viewState.chatSearchTables
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean)
+	);
+
+	function toggleSearch() {
+		searchEnabled = !searchEnabled;
+		viewState.chatSearchEnabled = searchEnabled;
+	}
+
 	function generateId(): string {
 		return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 	}
+
+	// Bumped by clear/exit so a retrieval that lands after a reset is
+	// discarded instead of pushing orphaned messages.
+	let requestEpoch = 0;
 
 	async function scrollToBottom() {
 		await tick();
@@ -44,23 +70,53 @@
 	}
 
 	/**
-	 * Hook placeholder for future embedding search.
-	 * Allows augmentation of the prompt with retrieved context.
-	 * Currently just logs; future impl can call findSimilarChunks etc.
+	 * Retrieval hook: searches the configured embedding tables with the user's
+	 * message and returns the closest chunks. Best-effort — a failed retrieval
+	 * degrades to answering without context, never blocks the chat.
 	 */
-	async function getEmbeddingContext(userInput: string): Promise<string | null> {
-		// Example future:
-		// const results = await findSimilarChunks({ table: 'topics', queryChunks: [userInput], limit: 5 });
-		// return results.map(r=>r.chunkText).join('\n\n');
-		return null;
+	async function retrieveSources(query: string): Promise<SearchChunkResult[]> {
+		if (!searchEnabled || !viewState.embeddingsServiceUp) return [];
+		searching = true;
+		try {
+			return await retrieveContextChunks({
+				tables: searchTables,
+				query,
+				maxResults: viewState.chatSearchMaxResults,
+				maxDistance: viewState.chatSearchMaxDistance,
+				excludeArticleUrl: viewState.url ?? undefined
+			});
+		} catch (err) {
+			console.warn('[chat] embedding retrieval failed', err);
+			return [];
+		} finally {
+			searching = false;
+		}
+	}
+
+	/**
+	 * Builds the numbered context block injected ahead of the question so the
+	 * model can cite its sources as `[1]`, `[2]`… Only chunks with stored text
+	 * are usable as context; the rest still show up in the sources strip.
+	 */
+	function buildContextBlock(sources: SearchChunkResult[]): string {
+		const withText = sources.filter(
+			(s) => typeof s.chunkText === 'string' && s.chunkText.trim().length > 0
+		);
+		if (withText.length === 0) return '';
+		return withText
+			.map((s, i) => `[${i + 1}] ${s.articleUrl}\n${(s.chunkText as string).trim()}`)
+			.join('\n\n');
 	}
 
 	async function streamResponse(userPrompt: string) {
 		const trimmed = userPrompt.trim();
-		if (!trimmed || streaming) return;
+		if (!trimmed || streaming || searching) return;
 
-		// Hook: allow future embedding/context injection
-		const embeddingContext = await getEmbeddingContext(trimmed);
+		// Retrieval runs before the messages are pushed so the sources are
+		// attached to the reply from the start and render while it streams.
+		const epoch = requestEpoch;
+		const sources = await retrieveSources(trimmed);
+		if (epoch !== requestEpoch) return; // cleared or exited while retrieving
 
 		const userMsg: ChatMessage = {
 			id: generateId(),
@@ -75,7 +131,8 @@
 			id: assistantId,
 			role: 'assistant',
 			content: '',
-			done: false
+			done: false,
+			sources
 		};
 		messages.push(assistantMsg);
 
@@ -97,12 +154,14 @@
 			}
 		}
 
-		// If embedding hook returned context, augment last user message
-		if (embeddingContext) {
+		// Numbered retrieved context is prepended to the last user message so
+		// the model can cite `[n]` sources; the question itself stays last.
+		const contextBlock = buildContextBlock(sources);
+		if (contextBlock) {
 			const lastIdx = historyForApi.length - 1;
 			if (lastIdx >= 0 && historyForApi[lastIdx].role === 'user') {
 				historyForApi[lastIdx].content =
-					`Relevant context:\n${embeddingContext}\n\nQuestion:\n${historyForApi[lastIdx].content}`;
+					`Relevant context retrieved from the user's library (use it when relevant, cite as [1], [2]…; ignore it if it does not help):\n${contextBlock}\n\nQuestion:\n${historyForApi[lastIdx].content}`;
 			}
 		}
 
@@ -170,9 +229,11 @@
 			abortController.abort();
 			abortController = null;
 		}
+		requestEpoch++;
 		messages = [];
 		streamedText = '';
 		streaming = false;
+		searching = false;
 		activeAssistantId = null;
 		error = null;
 	}
@@ -182,10 +243,12 @@
 			abortController.abort();
 			abortController = null;
 		}
+		requestEpoch++;
 		// clear on exit per spec
 		messages = [];
 		streamedText = '';
 		streaming = false;
+		searching = false;
 		activeAssistantId = null;
 		error = null;
 		onExit();
@@ -237,6 +300,13 @@
 	<div class="chat-modal__header">
 		<span class="chat-modal__title">Chat</span>
 		<div class="chat-modal__actions">
+			<ToggleIcon
+				name="FileDigit"
+				checked={searchEnabled}
+				size={20}
+				tooltipProps={{ content: 'search context in embeddings' }}
+				onClick={toggleSearch}
+			/>
 			{#if messages.length > 0}
 				<button
 					type="button"
@@ -286,6 +356,16 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if msg.role === 'assistant' && msg.sources && msg.sources.length > 0}
+				<SimilarEmbeddingsComponent
+					id="analysis"
+					results={msg.sources}
+					label="Sources"
+					enabled={false}
+					articleUrl={null}
+				/>
+			{/if}
 		{/each}
 
 		{#if error}
@@ -297,8 +377,16 @@
 	</div>
 
 	<div class="chat-modal__input-bar">
+		{#if searching}
+			<span class="chat-modal__searching">Searching sources…</span>
+		{/if}
 		<div class="chat-modal__input-wrap">
-			<Input autofocus placeholder="Send a message..." disabled={streaming} onEnter={handleEnter} />
+			<Input
+				autofocus
+				placeholder="Send a message..."
+				disabled={streaming || searching}
+				onEnter={handleEnter}
+			/>
 		</div>
 		{#if streaming}
 			<button
@@ -467,6 +555,20 @@
 
 	.chat-modal__input-wrap {
 		flex: 1;
+	}
+
+	.chat-modal__searching {
+		font-size: 0.75rem;
+		font-style: italic;
+		color: rgba(255, 255, 255, 0.4);
+		white-space: nowrap;
+	}
+
+	/* Sources strip reuses SimilarEmbeddingsComponent: align it like the
+	 * assistant bubbles and let the thumbnails size the row. */
+	.chat-modal__messages :global(.similar-embeddings) {
+		align-self: flex-start;
+		max-width: 85%;
 	}
 
 	.chat-modal__stop-btn {

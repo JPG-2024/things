@@ -38,6 +38,10 @@ export interface SearchChunksParams {
 }
 
 export async function indexChunks(table: string, chunks: ChunkInput[]): Promise<number> {
+	console.log('[embeddings] indexChunks', {
+		table,
+		chunks
+	});
 	return invoke('index_chunks', { table, chunks });
 }
 

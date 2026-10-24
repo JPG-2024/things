@@ -12,6 +12,7 @@
 	import { getArticleThumbnailByUrl } from '@/stores/webStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { untrack } from 'svelte';
 
 	type Props = {
 		id: string;
@@ -24,6 +25,14 @@
 		maxResults?: number;
 		maxDistance?: number;
 		embedField?: string;
+		/**
+		 * Externally supplied results (e.g. a chat retrieval across several
+		 * tables). When set, they are rendered instead of running the internal
+		 * search against table `id`.
+		 */
+		results?: SearchChunkResult[];
+		/** Header label. Defaults to "Similar embeddings". */
+		label?: string;
 	};
 
 	let {
@@ -36,7 +45,9 @@
 		limit = 5,
 		maxResults = 15,
 		maxDistance,
-		embedField = 'topics'
+		embedField = 'topics',
+		results: externalResults = undefined,
+		label = 'Similar embeddings'
 	}: Props = $props();
 
 	const queryChunks = $derived(extractQueryChunks(data, embedField));
@@ -48,14 +59,16 @@
 		chunks: SearchChunkResult[];
 	};
 
-	let results = $state<SearchChunkResult[]>([]);
+	let searchResults = $state<SearchChunkResult[]>([]);
 	let error = $state<string | null>(null);
 	let hasSearched = $state(false);
 	let thumbnails = $state<Record<string, string | null>>({});
 
+	const effectiveResults = $derived(externalResults ?? searchResults);
+
 	const groupedResults = $derived.by((): GroupedResult[] => {
 		const map = new SvelteMap<string, GroupedResult>();
-		for (const r of results) {
+		for (const r of effectiveResults) {
 			let group = map.get(r.articleUrl);
 			if (!group) {
 				group = { articleUrl: r.articleUrl, chunks: [] };
@@ -67,12 +80,20 @@
 	});
 
 	async function loadThumbnails(groups: GroupedResult[]) {
-		const urls = groups.map((g) => g.articleUrl);
 		const entries = await Promise.all(
-			urls.map(async (url) => [url, await getArticleThumbnailByUrl(url)] as const)
+			groups.map(async (g) => [g.articleUrl, await getArticleThumbnailByUrl(g.articleUrl)] as const)
 		);
-		thumbnails = Object.fromEntries(entries);
+		thumbnails = { ...thumbnails, ...Object.fromEntries(entries) };
 	}
+
+	// Resolve thumbnails for the current groups. The cache check reads
+	// `thumbnails` untracked so updating it never re-triggers this effect.
+	$effect(() => {
+		const groups = groupedResults;
+		untrack(() => {
+			void loadThumbnails(groups.filter((g) => !(g.articleUrl in thumbnails)));
+		});
+	});
 
 	async function navigateToArticle(url: string, profileId?: string) {
 		if (profileId) viewState.currentProfileId = profileId;
@@ -97,13 +118,12 @@
 				excludeArticleUrl: articleUrl ?? undefined
 			});
 
-			results = found;
-			void loadThumbnails(groupedResults);
+			searchResults = found;
 			hasSearched = true;
 			return found;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to search similar chunks';
-			results = [];
+			searchResults = [];
 			hasSearched = true;
 			return [];
 		}
@@ -135,10 +155,10 @@
 
 		{#if error}
 			<p class="similar-error">{error}</p>
-		{:else if hasSearched && results.length === 0}
+		{:else if hasSearched && searchResults.length === 0}
 			<!-- <p class="similar-empty">No similar chunks found{hasQuery ? '' : ' for this task'}.</p> -->
-		{:else if results.length > 0}
-			<p class="similar-header">Similar embeddings ({results.length})</p>
+		{:else if effectiveResults.length > 0}
+			<p class="similar-header">{label} ({effectiveResults.length})</p>
 			<div class="similar-thumbs">
 				{#each groupedResults as group (group.articleUrl)}
 					<Tooltip content={formatSearchChunkTooltip(group.chunks)} position="bottom">

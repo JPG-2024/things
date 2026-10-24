@@ -156,6 +156,7 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 					embeddings: task.embeddings ?? false,
 					storeChunkText: task.storeChunkText ?? false,
 					embedField: task.embedField,
+					embedTable: task.embedTable,
 					visible: task.visible ?? true
 				};
 			}
@@ -183,6 +184,7 @@ export function tasksToTemplateDefs(tasks: Task[]): TemplateTaskDef[] {
 					embeddings: task.embeddings ?? false,
 					storeChunkText: task.storeChunkText ?? false,
 					embedField: task.embedField,
+					embedTable: task.embedTable,
 					visible: task.visible ?? true
 				};
 			}

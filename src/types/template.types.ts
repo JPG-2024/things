@@ -22,6 +22,8 @@ export type TemplateTaskDef = {
 	embeddings?: boolean;
 	storeChunkText?: boolean;
 	embedField?: string;
+	/** LanceDB table this task's chunks are indexed into. Defaults to the task id. */
+	embedTable?: string;
 	enableTTS: boolean;
 	scriptFactory?: string;
 	scriptConfig?: Record<string, unknown>;

@@ -8,6 +8,14 @@ import {
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import type { Task } from '@/types/taskRunner.types';
 import { viewState } from '@/stores/viewStore.svelte';
+import { mergeSearchResults, taskEmbeddingTable } from './embeddingSearch';
+
+export {
+	mergeSearchResults,
+	taskEmbeddingTable,
+	type MergeSearchResultsOptions,
+	type TaskEmbeddingTableRef
+} from './embeddingSearch';
 
 export interface FindSimilarChunksOptions {
 	table: string;
@@ -113,7 +121,8 @@ function collectEmbeddableItems(task: Task): EmbeddableItem[] {
  * Index task outputs into LanceDB embedding tables.
  *
  * Iterates over the provided tasks and, for each task with `embeddings: true`,
- * collects embeddable text items and writes them to a table named after the task id.
+ * collects embeddable text items and writes them to the task's embedding table
+ * (`task.embedTable ?? task.id` — see `taskEmbeddingTable`).
  *
  * Supports recursive-shaped results (flat `string[]` chunks), multi-shaped results
  * (object chunks with a selected field via `task.embedField`, default `'topics'`),
@@ -137,7 +146,7 @@ export async function generateEmbeddingsFromTasks(
 	try {
 		for (const task of tasks) {
 			if (!task.embeddings) continue;
-			const table = task.id;
+			const table = taskEmbeddingTable(task);
 
 			const items = collectEmbeddableItems(task);
 			if (items.length === 0) continue;
@@ -416,4 +425,64 @@ export async function findSimilarChunks(
 	const filtered = maxDistance != null ? merged.filter((r) => r.distance <= maxDistance) : merged;
 
 	return filtered.slice(0, maxResults);
+}
+
+export interface RetrieveContextChunksOptions {
+	/** Embedding tables to search (task ids, e.g. `['analysis', 'summary']`). */
+	tables: string[];
+	/** Natural-language query; embedded once and searched against every table. */
+	query: string;
+	model?: string;
+	/** Per-table fetch limit before merging. */
+	limit?: number;
+	maxDistance?: number;
+	maxResults?: number;
+	excludeArticleUrl?: string;
+}
+
+/**
+ * Retrieve chunks similar to a free-form query across multiple tables.
+ *
+ * One `createEmbeddings` call produces the query vector; each table is then
+ * searched in parallel with that same vector. Tables that don't exist (task
+ * never indexed) resolve to empty results, so a missing table is harmless.
+ * Failures to embed (service down, request error) return `[]` — callers should
+ * treat retrieval as best-effort context, never a hard dependency.
+ */
+export async function retrieveContextChunks(
+	options: RetrieveContextChunksOptions
+): Promise<SearchChunkResult[]> {
+	const {
+		tables,
+		query,
+		model = EMBEDDING_MODEL,
+		limit = 10,
+		maxDistance,
+		maxResults,
+		excludeArticleUrl
+	} = options;
+
+	const trimmedTables = tables.map((t) => t.trim()).filter(Boolean);
+	const trimmedQuery = query.trim();
+	if (trimmedTables.length === 0 || !trimmedQuery) return [];
+
+	console.log('[embeddings] retrieve', { tables: trimmedTables, query: trimmedQuery });
+
+	let response;
+	try {
+		response = await createEmbeddings({ model, input: [trimmedQuery] });
+	} catch (error) {
+		console.error('[embeddings] failed to embed chat query for context retrieval', error);
+		return [];
+	}
+
+	const embedding = [...response.data].sort((a, b) => a.index - b.index)[0]?.embedding;
+	if (!embedding) return [];
+
+	const searches = trimmedTables.map((table) =>
+		searchChunks({ table, embedding, limit }).catch(() => [] as SearchChunkResult[])
+	);
+	const groups = await Promise.all(searches);
+
+	return mergeSearchResults(groups, { excludeArticleUrl, maxDistance, maxResults });
 }

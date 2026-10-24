@@ -63,6 +63,7 @@ export function createDefaultTasks(
 		keywordCount?: number;
 		topicWordCount?: number;
 		embedField?: string;
+		embedTable?: string;
 	} = {}
 ): Task[] {
 	// The persisted Settings choice decides the default kind; explicit
@@ -78,8 +79,12 @@ export function createDefaultTasks(
 		splitByHeaders: options.splitByHeaders,
 		enableTTS: true,
 		embeddings: true,
-		storeChunkText: true,
-		embedField: options.embedField ?? 'topics',
+		// Indexing config comes from the Settings → Embeddings defaults so the
+		// destination table can be changed from the app; tasks already
+		// persisted keep their own values.
+		storeChunkText: viewState.embeddingStoreChunkText,
+		embedField: options.embedField ?? viewState.embeddingField,
+		embedTable: options.embedTable ?? viewState.embeddingTable,
 		completionOptions: ANALYSIS_COMPLETION_OPTIONS
 	};
 

@@ -84,6 +84,8 @@ export type RecursiveTaskOptions = Partial<RecursiveConfig> & {
 	embeddings?: boolean;
 	storeChunkText?: boolean;
 	embedField?: string;
+	/** LanceDB table this task's chunks are indexed into. Defaults to the task id. */
+	embedTable?: string;
 	model?: string;
 	completionOptions?: Record<string, unknown>;
 	multiFields?: MultiFieldSpec[];
@@ -302,6 +304,7 @@ export function buildRecursiveTask(id: string, rawOptions: RecursiveTaskOptions)
 			embeddings: options.embeddings,
 			storeChunkText: options.storeChunkText,
 			embedField: options.embedField,
+			embedTable: options.embedTable,
 			concurrencyGroup: 'recursive',
 			run: async ({ state, update }) => {
 				const content = requireStringState(state, sourceDependency);

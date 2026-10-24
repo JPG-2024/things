@@ -101,6 +101,13 @@ function serializeView() {
 		categoryTopN: viewState.categoryTopN,
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
 		categoryMargin: viewState.categoryMargin,
+		embeddingTable: viewState.embeddingTable,
+		embeddingField: viewState.embeddingField,
+		embeddingStoreChunkText: viewState.embeddingStoreChunkText,
+		chatSearchEnabled: viewState.chatSearchEnabled,
+		chatSearchTables: viewState.chatSearchTables,
+		chatSearchMaxResults: viewState.chatSearchMaxResults,
+		chatSearchMaxDistance: viewState.chatSearchMaxDistance,
 		analysisDepth: viewState.analysisDepth,
 		analysisKind: viewState.analysisKind,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
@@ -179,6 +186,27 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.categoryMargin === 'number') {
 		viewState.categoryMargin = clamp(raw.categoryMargin, 0, 1);
+	}
+	if (typeof raw.chatSearchEnabled === 'boolean') {
+		viewState.chatSearchEnabled = raw.chatSearchEnabled;
+	}
+	if (typeof raw.embeddingTable === 'string' && raw.embeddingTable.trim()) {
+		viewState.embeddingTable = raw.embeddingTable.trim();
+	}
+	if (typeof raw.embeddingField === 'string' && raw.embeddingField.trim()) {
+		viewState.embeddingField = raw.embeddingField.trim();
+	}
+	if (typeof raw.embeddingStoreChunkText === 'boolean') {
+		viewState.embeddingStoreChunkText = raw.embeddingStoreChunkText;
+	}
+	if (typeof raw.chatSearchTables === 'string') {
+		viewState.chatSearchTables = raw.chatSearchTables;
+	}
+	if (typeof raw.chatSearchMaxResults === 'number') {
+		viewState.chatSearchMaxResults = clamp(Math.trunc(raw.chatSearchMaxResults), 1, 20);
+	}
+	if (typeof raw.chatSearchMaxDistance === 'number') {
+		viewState.chatSearchMaxDistance = clamp(raw.chatSearchMaxDistance, 0, 2);
 	}
 	if (typeof raw.analysisDepth === 'number') {
 		viewState.analysisDepth = clamp(

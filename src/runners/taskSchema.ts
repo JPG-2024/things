@@ -29,6 +29,8 @@ type TaskDefBase<TContext = unknown> = {
 	embeddings?: boolean;
 	storeChunkText?: boolean;
 	embedField?: string;
+	/** LanceDB table this task's chunks are indexed into. Defaults to the task id. */
+	embedTable?: string;
 };
 
 export type TaskDefCompleteParams<TContext = unknown> = {
@@ -110,6 +112,7 @@ function buildScriptTask<TMap extends TaskMapBase, TId extends keyof TMap & stri
 			embeddings: def.embeddings,
 			storeChunkText: def.storeChunkText,
 			embedField: def.embedField,
+			embedTable: def.embedTable,
 			run: async (runtime: TaskRuntime<TMap, TId>) => {
 				const result = await def.run({
 					runId: runtime.runId,
@@ -184,6 +187,7 @@ export function buildIaTask<
 			embeddings: def.embeddings,
 			storeChunkText: def.storeChunkText,
 			embedField: def.embedField,
+			embedTable: def.embedTable,
 			run: def.run
 				? async (runtime: TaskRuntime<TMap, TId>) => {
 						return def.run!({

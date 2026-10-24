@@ -171,6 +171,13 @@ class ViewState {
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
 	embeddingsLoading = $state(false);
+	// Indexing defaults for tasks created from now on (Settings → Embeddings).
+	// Tasks already persisted keep their own values, like analysisDepth.
+	// Every analysis processor produces a `summary` per chunk, so `summary` is
+	// a safe embed field regardless of the configured analysis kind.
+	embeddingTable = $state('summary');
+	embeddingField = $state('summary');
+	embeddingStoreChunkText = $state(true);
 	embeddingsServiceUp = $state(false);
 	inferenceServiceUp = $state(false);
 	scrapServiceUp = $state(false);
@@ -196,6 +203,17 @@ class ViewState {
 	isCachedArticle = $state(false);
 	urlQueue = $state<string[]>([]);
 	maxUrlQueueSize = $state(100);
+	// Chat (ChatModal) retrieval over the LanceDB embedding tables. `tables` is
+	// a comma-separated list of task ids; a table that was never indexed is
+	// simply skipped by the search.
+	chatSearchEnabled = $state(true);
+	chatSearchTables = $state('summary');
+	// How many chunks (and therefore source articles) a retrieval may return.
+	chatSearchMaxResults = $state(5);
+	// L2 distance cutoff for retrieved chunks (same metric the similar-
+	// embeddings components filter on; 0 = identical, larger = less similar).
+	chatSearchMaxDistance = $state(0.6);
+
 	conversationSystemPrompt = $state(
 		`You are a concise conversational assistant.
 		

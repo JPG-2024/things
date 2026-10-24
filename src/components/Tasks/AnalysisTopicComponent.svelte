@@ -25,6 +25,7 @@
 		MIN_ANALYSIS_DEPTH
 	} from '@/runners/shared/analysisConstants';
 	import SimilarByTexts from '@/components/SimilarByTexts.component.svelte';
+	import { taskEmbeddingTable } from '@/lib/utils/embeddingTasks';
 
 	type Props = {
 		runId?: string;
@@ -247,7 +248,11 @@
 					<div class="meta-row">
 						<div class="result-section">
 							<span class="result-label">Topics</span>
-							<SimilarByTexts texts={finalTopics} table={task.id} disabled={isRunning} />
+							<SimilarByTexts
+								texts={finalTopics}
+								table={taskEmbeddingTable(task)}
+								disabled={isRunning}
+							/>
 						</div>
 						<div class="result-section">
 							<span class="result-label">Keywords</span>

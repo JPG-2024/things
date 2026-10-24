@@ -12,6 +12,7 @@
 	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { taskEmbeddingTable } from '@/lib/utils/embeddingTasks';
 
 	type AskComponentProps = TaskComponentProps & {
 		model?: string;
@@ -58,10 +59,12 @@
 	let tableInstances: SimilarEmbeddingsHandle[] = [];
 
 	const tables = $derived.by(() => {
+		// Default to the task's own embedding table (task.embedTable ?? task.id);
+		// a configured `embeddingTable` prop overrides it (comma-separated).
 		const raw =
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()
-				: 'topics';
+				: taskEmbeddingTable(task);
 		return raw
 			.split(',')
 			.map((t) => t.trim())

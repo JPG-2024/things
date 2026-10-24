@@ -359,6 +359,62 @@
 			{/if}
 		</div>
 	</Spacer>
+	<Spacer title="Embeddings" icon="FileDigit">
+		<div class="inference-section">
+			<FieldsRow columns={2}>
+				<TextField
+					label="Embedding table"
+					tooltip="LanceDB table where new analysis tasks index their chunks (Settings default; tasks already saved keep their own)."
+					bind:value={viewState.embeddingTable}
+				/>
+				<TextField
+					label="Embed field"
+					tooltip="Chunk field that gets embedded. Every analysis processor produces a summary per chunk, so 'summary' works for any analysis kind."
+					bind:value={viewState.embeddingField}
+				/>
+			</FieldsRow>
+			<CheckboxField
+				label="Store chunk text"
+				tooltip="Store the embedded text next to each vector so search results can show it without reading the raw content."
+				bind:checked={viewState.embeddingStoreChunkText}
+			/>
+		</div>
+	</Spacer>
+	<Spacer title="Chat context" icon="FileDigit">
+		<div class="inference-section">
+			<FieldsRow columns={2}>
+				<CheckboxField
+					label="Search embeddings"
+					tooltip="Retrieve chunks from the embedding tables and use them as context for chat answers."
+					bind:checked={viewState.chatSearchEnabled}
+				/>
+				<TextField
+					label="Embedding tables"
+					tooltip="Comma-separated LanceDB tables (task ids) the chat searches. A table that was never indexed is skipped."
+					bind:value={viewState.chatSearchTables}
+				/>
+			</FieldsRow>
+			<FieldsRow columns={2}>
+				<NumberField
+					label="Max sources"
+					min={1}
+					max={20}
+					tooltip="How many retrieved chunks (grouped into source articles) a chat answer may show."
+					bind:value={viewState.chatSearchMaxResults}
+				/>
+				<NumberField
+					label="Max distance"
+					min={0}
+					max={2}
+					step={0.05}
+					integer={false}
+					precision={2}
+					tooltip="L2 distance cutoff for retrieved chunks. Lower = stricter (only very similar chunks)."
+					bind:value={viewState.chatSearchMaxDistance}
+				/>
+			</FieldsRow>
+		</div>
+	</Spacer>
 	<Spacer title="Category classification" icon="Tags">
 		<div class="inference-section">
 			<FieldsRow columns={3}>

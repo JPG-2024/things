@@ -25,6 +25,7 @@
 	import KeyValuePanel from '@/components/KeyValuePanel.svelte';
 	import DetailsPanel from '@/components/DetailsPanel.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
+	import { taskEmbeddingTable } from '@/lib/utils/embeddingTasks';
 	import { formatDuration, dataPreview, formatData } from '@/lib/utils/tasks/taskStats';
 
 	type Props = {
@@ -733,7 +734,7 @@
 
 			{#if _task.embeddings}
 				<SimilarEmbeddingsComponent
-					id={_task.id}
+					id={taskEmbeddingTable(_task)}
 					data={_task.data}
 					enabled={_task.embeddings === true}
 					embedField={_task.embedField}

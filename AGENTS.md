@@ -60,7 +60,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Test files live next to the module under test as `*.test.ts` and import from `bun:test`.
 - Run the whole suite: `bun run test`
 - Run a single file: `bun test src/lib/utils/splitText.test.ts`
-- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/inference/prompts/multi.test.ts`
+- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/embeddingSearch.test.ts` (pure merge/table logic; see `src/lib/utils/embeddingSearch.ts`), `src/lib/utils/inference/prompts/multi.test.ts`
 - Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
 - Known Rust tests at time of writing (all in `src-tauri/src/web_store.rs`, `web_store::tests`):
   - `query_articles_for_profile_orders_by_created_at_desc`
