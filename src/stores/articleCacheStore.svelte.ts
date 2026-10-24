@@ -530,6 +530,78 @@ class ArticleCacheStore {
 		this.categoryArticlesResource.invalidate();
 	}
 
+	/**
+	 * Repaints every list that already holds data once the run queue drains.
+	 *
+	 * Runs only mark the lists stale, so nothing on screen would otherwise
+	 * refetch the rows (and thumbnails) the runs just wrote. Each loaded
+	 * window is re-queried as-is instead of through `fetch({ force })`, which
+	 * always starts at page one and would collapse a scrolled list back to a
+	 * single page. Lists with nothing loaded stay stale and fetch on demand.
+	 */
+	async refreshAfterRuns(): Promise<void> {
+		await Promise.all([
+			this.profiles.refreshLoaded(),
+			this.domains.refreshLoaded(),
+			this.articles.refreshLoaded(),
+			this.categoryArticlesResource.refreshLoaded(),
+			...[...this.profileArticlesResources.values()].map((resource) => resource.refreshLoaded()),
+			this.refreshLoadedCategoryPages()
+		]);
+	}
+
+	/**
+	 * Same window refresh for the categories wheel: its cards embed article
+	 * thumbnails, so it repaints with the rest. Categories are the pagination
+	 * unit here, so the loaded count is the window.
+	 */
+	private async refreshLoadedCategoryPages(): Promise<void> {
+		const loadedCategories = this.categoryOffset;
+		if (loadedCategories === 0) {
+			this.categoryPagesStale = true;
+			return;
+		}
+
+		const card = this.categoryPagesCard ?? viewState.cardLayout.categories;
+		// Not claiming the resource (no `fetchId` bump): a background repaint
+		// must never strand an in-flight fetch's `categoryPagesLoading` flag.
+		const startedFetchId = this.categoryPagesFetchId;
+		try {
+			const page = await getCategoriesWithArticlesPage({
+				offset: 0,
+				limit: loadedCategories,
+				articleCount: articleCapacity(card.columns, card.rows),
+				// Keep the cutoff the loaded window was fetched with.
+				createdAtFrom: this.categoryPagesCreatedAtFrom
+			});
+			if (startedFetchId !== this.categoryPagesFetchId) {
+				return;
+			}
+			// Same safety as the list resources: an empty answer for a non-empty
+			// window is a failed query, so the cards on screen are kept.
+			if (page.categories.length === 0) {
+				return;
+			}
+
+			// Mutate the map in place: SvelteMap reactivity is per-instance, so
+			// reassigning the field never invalidates readers of the old one.
+			this.categoryPages.clear();
+			for (const category of page.categories) {
+				this.categoryPages.set(category.categoryId, {
+					categoryName: category.categoryName,
+					articles: category.articles
+				});
+			}
+			this.categoryOffset = page.categories.length;
+			this.categoryHasMore = page.hasMore;
+			this.categoryPagesStale = false;
+		} catch (error) {
+			// Keep the last-known-good cards and retry on the next repaint.
+			console.error('Failed to refresh category cards:', error);
+			this.categoryPagesStale = true;
+		}
+	}
+
 	invalidateCategories() {
 		this.categoryPagesStale = true;
 	}

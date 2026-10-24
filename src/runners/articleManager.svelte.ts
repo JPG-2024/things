@@ -95,9 +95,9 @@ class ArticleManager {
 			// The article is already analysed: nothing to do (D15).
 			this.paintAnalysis(analysis.windows, analysis.summary ?? '', analysis.divisor);
 			articleState.setStatus('done');
-			// The view is ready right away: no run will end later, so the
-			// loaded signal is raised here instead of at run end.
-			viewState.loaded = true;
+			// No run will end later, so the view must not wait for one.
+			// `loaded` is deliberately NOT raised here: the topbar sweep only
+			// fires when a full process ends, never on plain opens.
 			viewState.loading = false;
 			return;
 		}
@@ -203,10 +203,12 @@ class ArticleManager {
 		if (this.draining) return;
 		this.draining = true;
 
+		let processed = false;
 		try {
 			while (this.queue.length > 0) {
 				const entry = this.queue.shift();
 				if (!entry) break;
+				processed = true;
 
 				this.active = { url: entry.url, step: null, done: 0, total: 0 };
 
@@ -221,10 +223,11 @@ class ArticleManager {
 					await this.runEntry(entry);
 					// End of a full process: `loading` is cleared even when the
 					// user navigated away mid-run, so a finished queue can never
-					// leave the view stuck behind the paste guard; `loaded` only
-					// rises for the article on screen (the topbar sweep).
+					// leave the view stuck behind the paste guard. The topbar
+					// sweep only fires when a `full`-mode process ends for the
+					// article on screen (metadata captures never sweep).
 					viewState.loading = false;
-					if (articleState.isCurrent(entry.url)) {
+					if (articleState.isCurrent(entry.url) && entry.options.mode === 'full') {
 						articleState.setStatus('done');
 						articleState.setStep(null);
 						viewState.loaded = true;
@@ -241,6 +244,19 @@ class ArticleManager {
 			}
 		} finally {
 			this.draining = false;
+		}
+
+		// The batch is over. Runs only mark the lists stale, they never refetch
+		// them, so without this the cards on screen would keep the rows (and the
+		// thumbnails) they had when the batch started. Skipped when a queue
+		// started meanwhile: that drain repaints at its own end.
+		if (processed && this.queue.length === 0 && this.active === null) {
+			try {
+				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
+				await articleCacheStore.refreshAfterRuns();
+			} catch (error) {
+				console.error('[articleManager] failed to repaint the lists after a run', error);
+			}
 		}
 	}
 

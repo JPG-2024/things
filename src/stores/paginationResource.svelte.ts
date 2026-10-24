@@ -99,6 +99,43 @@ export class PaginationResource<TItem, TParams> {
 		this.stale = true;
 	}
 
+	/**
+	 * Re-queries the window already on screen (the first `items.length` rows)
+	 * so readers pick up rows written after the list was fetched, without
+	 * collapsing a scrolled list back to page one the way `fetch({ force })`
+	 * does. No-op until something is loaded: an empty list still fetches on
+	 * demand through `fetch()`, which stays stale until then.
+	 */
+	async refreshLoaded(): Promise<void> {
+		if (this.params === undefined || this.items.length === 0) {
+			return;
+		}
+
+		const windowSize = this.items.length;
+		// The list is not claimed (no `fetchId` bump): a refresh is a background
+		// repaint and must never invalidate an in-flight `loadMore` — its
+		// `finally` would then leave `loading` stuck true and freeze the
+		// sentinel. It only gives up its own result when such a fetch wins.
+		const startedFetchId = this.fetchId;
+		const result = await this.fetchPage(this.params, 0, windowSize);
+		if (startedFetchId !== this.fetchId) {
+			return;
+		}
+
+		// A window query that comes back empty while rows are on screen means
+		// the fetch failed (the article queries swallow their errors and answer
+		// `{ articles: [], total: 0 }`), not that the list emptied: local
+		// deletes are already applied by `remove`. Keep the rows, keep `stale`
+		// as it is, and let the next explicit fetch retry.
+		if (result.items.length === 0) {
+			return;
+		}
+
+		this.items = result.items;
+		this.applyPage(result.items.length, result);
+		this.stale = false;
+	}
+
 	remove(predicate: (item: TItem) => boolean): number {
 		const before = this.items.length;
 		this.items = this.items.filter((item) => !predicate(item));

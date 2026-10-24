@@ -91,7 +91,8 @@ export async function handlePasteUrl(
 		articleCacheStore.invalidate();
 	} finally {
 		playCoinLostSound();
-		viewState.loaded = true;
+		// `loaded` is raised by the manager when the raw analysis ends; the
+		// topbar sweep must not fire at paste time.
 		viewState.loading = false;
 		viewState.processingUrl = false;
 	}

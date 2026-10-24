@@ -164,10 +164,11 @@ The manager owns the `viewState.loaded` / `viewState.loading` signals:
   `loaded = false` (the topbar sweep re-arms).
 - When a run **ends**: `loading = false` always (a finished queue must never
   leave the view stuck behind the paste guard in `clipboard.ts`), and
-  `loaded = true` only when the run belongs to the article on screen (the
-  sweep fires once per completed process).
-- `open()` on an already-analysed article raises `loaded` right away: no run
-  will end later.
+  `loaded = true` only when a `full`-mode run belongs to the article on
+  screen (the sweep fires once per completed process; metadata captures and
+  plain opens never sweep).
+- `open()` on an already-analysed article clears `loading` right away and
+  does **not** raise `loaded`: the sweep is reserved for process ends.
 
 Pipeline step/status writes (`setStep`, `setStatus`) in the runner and the
 manager are guarded by `isCurrent(url)`: a background run never mutates the
