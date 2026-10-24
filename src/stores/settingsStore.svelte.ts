@@ -122,9 +122,7 @@ function serializeView() {
 
 function serializeScrap() {
 	return {
-		parallelFetch: scrapStore.parallelFetch,
-		maxVideos: scrapStore.maxVideos,
-		parallelVideosAmount: scrapStore.parallelVideosAmount
+		maxVideos: scrapStore.maxVideos
 	};
 }
 
@@ -251,12 +249,8 @@ function applyView(raw: unknown): void {
 function applyScrap(raw: unknown): void {
 	if (!isPlainObject(raw)) return;
 
-	if (typeof raw.parallelFetch === 'boolean') scrapStore.parallelFetch = raw.parallelFetch;
 	if (typeof raw.maxVideos === 'number') {
 		scrapStore.maxVideos = clamp(Math.trunc(raw.maxVideos), 1, 50);
-	}
-	if (typeof raw.parallelVideosAmount === 'number') {
-		scrapStore.parallelVideosAmount = clamp(Math.trunc(raw.parallelVideosAmount), 1, 10);
 	}
 }
 

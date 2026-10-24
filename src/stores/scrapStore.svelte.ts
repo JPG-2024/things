@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
+import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
+import { saveProfile } from '@/stores/webStore';
+import type { KnownProfile } from '@/runners/articleRunner';
 
 const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
 
@@ -37,9 +40,7 @@ class ScrapState {
 	profile = $state<YoutubeProfile | null>(null);
 	videoInfo = $state<YoutubeVideoInfo | null>(null);
 	isFetchingMissingVideos = $state(false);
-	parallelFetch = $state(false);
 	maxVideos = $state(5);
-	parallelVideosAmount = $state(2);
 
 	async getYoutubeProfile(
 		handleOrUrl: string,
@@ -126,22 +127,46 @@ class ScrapState {
 		return this.getYoutubeProfile(profileUrl);
 	}
 
+	/**
+	 * Turns the channel the scrape just returned into the `KnownProfile` the
+	 * runs are queued with: one picture download (Rust skips a file it already
+	 * has) and one row upsert for the whole batch, instead of one
+	 * `/api/video` + `/api/scrape` round trip per video.
+	 */
+	private async resolveKnownProfile(profile: YoutubeProfile): Promise<KnownProfile> {
+		// Same normalization `resolveYouTubeProfile` applies to a scraped id.
+		const id = profile.id.replace(/\./g, '');
+		const profilePath = profile.profilePath || id;
+
+		let profilePicture: string | null = null;
+		if (profile.profileImage) {
+			try {
+				const downloaded = await downloadImageUrl(profile.profileImage);
+				profilePicture = downloaded.fileName;
+			} catch (error) {
+				console.warn('[scrapStore] profile picture download failed', error);
+			}
+		}
+
+		await saveProfile(id, profilePicture, buildYouTubeProfileUrl(profilePath), 'youtube.com');
+
+		return {
+			id,
+			profilePath,
+			profilePicture,
+			profilePictureSrc: profilePicture ? await getMediaSrc(profilePicture) : null
+		};
+	}
+
 	async fetchMissingProfileVideos(
 		profileId: string,
 		options?: {
-			parallel?: boolean;
 			maxVideos?: number;
-			parallelVideosAmount?: number;
 		}
 	): Promise<FetchMissingProfileVideosResult> {
-		const parallel = options?.parallel ?? this.parallelFetch;
 		const maxVideos = Math.min(
 			50,
 			Math.max(1, Math.trunc(options?.maxVideos ?? this.maxVideos ?? 5))
-		);
-		const parallelAmount = Math.min(
-			10,
-			Math.max(1, Math.trunc(options?.parallelVideosAmount ?? this.parallelVideosAmount ?? 2))
 		);
 		const handle = profileId.trim();
 		if (!handle) {
@@ -206,16 +231,22 @@ class ScrapState {
 				return { total, missing: 0, fetched: 0, failed: 0, skippedExisting };
 			}
 
+			// The channel is already in hand: its picture and its row are
+			// resolved once here and handed to every queued run, so none of
+			// them asks the scraper about the channel again.
+			const knownProfile = await this.resolveKnownProfile(youtubeProfile);
+
 			let fetched = 0;
 			let failed = 0;
 			const errors: Array<{ url: string; error: string }> = [];
 
 			// The videos are captured in `metadata` mode: the card (title,
 			// thumbnail, channel) is stored and the article is analysed when it
-			// is opened.
-			const runOne = async (video: YouTubeVideo) => {
+			// is opened. Enqueueing is synchronous and the manager runs one
+			// article at a time, so there is nothing to fan out here.
+			for (const video of toFetch) {
 				try {
-					articleManager.enqueue(video.url, { mode: 'metadata' });
+					articleManager.enqueue(video.url, { mode: 'metadata', profile: knownProfile });
 					fetched++;
 				} catch (err) {
 					failed++;
@@ -224,30 +255,25 @@ class ScrapState {
 						error: err instanceof Error ? err.message : String(err)
 					});
 				}
-			};
-
-			if (parallel) {
-				for (let i = 0; i < toFetch.length; i += parallelAmount) {
-					const batch = toFetch.slice(i, i + parallelAmount);
-					await Promise.allSettled(batch.map((video) => runOne(video)));
-				}
-			} else {
-				for (const video of toFetch) {
-					await runOne(video);
-				}
 			}
 
 			// Mirror the channel-page order onto the saved articles so the
-			// profile list matches what YouTube shows, then refetch.
+			// profile list matches what YouTube shows.
 			await invoke<number>('set_profile_article_order', {
 				profileId: normalizedProfileId,
 				urls: normalized.map((video) => video.url)
 			});
 
-			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-			await articleCacheStore.fetchProfileArticles(profileId, {
-				force: true
-			});
+			if (fetched === 0) {
+				// Nothing was queued, so no run will repaint the list and the rank
+				// reorder still has to land. When there are runs, the repaint
+				// belongs to the queue: refetching here would only show whatever
+				// finished first and hide the rest until the next navigation.
+				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
+				await articleCacheStore.fetchProfileArticles(profileId, {
+					force: true
+				});
+			}
 
 			return {
 				total,

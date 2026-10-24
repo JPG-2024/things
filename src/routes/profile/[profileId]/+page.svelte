@@ -147,9 +147,7 @@
 				disabled={scrapStore.isFetchingMissingVideos || loading}
 				ariaLabel="Fetch missing videos"
 				tooltipProps={{
-					content: scrapStore.parallelFetch
-						? `Fetch missing videos (parallel x${scrapStore.parallelVideosAmount})`
-						: `Fetch missing videos (sequential) – max ${scrapStore.maxVideos}`
+					content: `Fetch missing videos – max ${scrapStore.maxVideos}`
 				}}
 			/>
 			<div bind:this={summaryWrapperEl} class="summary-wrapper">

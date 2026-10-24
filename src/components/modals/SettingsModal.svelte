@@ -524,18 +524,13 @@
 	</Spacer>
 	<Spacer title="Scraping" icon="Globe">
 		<div class="inference-section">
-			<CheckboxField label="Parallel Fetch" bind:checked={scrapStore.parallelFetch} />
-			<FieldsRow columns={2}>
-				<NumberField label="Max Videos" min={1} max={50} bind:value={scrapStore.maxVideos} />
-				<NumberField
-					label="Parallel Videos Amount"
-					min={1}
-					max={10}
-					disabled={!scrapStore.parallelFetch}
-					tooltip="Enabled only when Parallel Fetch is on."
-					bind:value={scrapStore.parallelVideosAmount}
-				/>
-			</FieldsRow>
+			<NumberField
+				label="Max Videos"
+				min={1}
+				max={50}
+				tooltip="Most missing videos captured per profile refresh."
+				bind:value={scrapStore.maxVideos}
+			/>
 		</div>
 	</Spacer>
 	<Spacer title="TTS Authentication" icon="Key" defaultOpen={false}>
