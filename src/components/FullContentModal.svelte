@@ -5,11 +5,12 @@
 	interface Props {
 		show?: boolean;
 		content?: string | null;
+		loading?: boolean;
 		title?: string | null;
 		onClose: () => void;
 	}
 
-	let { show = false, content = null, title = null, onClose }: Props = $props();
+	let { show = false, content = null, loading = false, title = null, onClose }: Props = $props();
 </script>
 
 <Modal {show} {onClose}>
@@ -19,7 +20,11 @@
 		{/if}
 		{#if content}
 			<div class="full-content-body">
-				<MarkdownRenderer content={content} />
+				<MarkdownRenderer {content} />
+			</div>
+		{:else if loading}
+			<div class="full-content-empty">
+				<p>Loading content...</p>
 			</div>
 		{:else}
 			<div class="full-content-empty">

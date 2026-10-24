@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { YouTubePlayerContext } from '@/types/youtube.types';
-	import { fly } from 'svelte/transition';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { toThumbnailVTName } from '@/lib/utils/url';
 
@@ -18,7 +17,7 @@
 	}
 </script>
 
-<div class="yt-wrapper" transition:fly={{ duration: 300, y: 24 }}>
+<div class="yt-wrapper">
 	<button class="yt-thumbnail-btn" onclick={openInFloatingPlayer} aria-label="Play video">
 		<img
 			src={playerData.thumbnailImageSrc}
