@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import ArticleItemRow from './ArticleItemRow.svelte';
@@ -8,7 +8,7 @@
 	import { ARTICLE_THUMBNAIL_SIZES, type ArticleThumbnailSize } from '@/constants';
 
 	interface Props {
-		article: ArticleWithTasks;
+		article: ArticleRecord;
 		contentMode?: ArticleContentMode;
 		thumbnailOnly?: boolean;
 		/** Fixed preset for the thumbnail box; `fill` keeps it fluid (16:9, 100% wide). */
@@ -22,8 +22,8 @@
 		layoutKey?: LayoutKey;
 		selected?: boolean;
 		matchSnippet?: RawSearchMatch;
-		onClick: (article: ArticleWithTasks) => void;
-		onHoverEnter: (article: ArticleWithTasks) => void;
+		onClick: (article: ArticleRecord) => void;
+		onHoverEnter: (article: ArticleRecord) => void;
 		onHoverLeave: () => void;
 	}
 
@@ -81,48 +81,6 @@
 	const resolvedTooltip = $derived(
 		tooltip ?? (showThumbnail && !showText && !showThumbnailTitle ? (article.title ?? null) : null)
 	);
-
-	const categories = $derived(
-		(article.persistedTasks?.find((t) => t.id === 'category')?.data as string[] | undefined) ?? []
-	);
-
-	function shuffle<T>(list: T[]): T[] {
-		const copy = [...list];
-		for (let i = copy.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[copy[i], copy[j]] = [copy[j], copy[i]];
-		}
-		return copy;
-	}
-
-	const someTopics = $derived.by(() => {
-		const task = article.persistedTasks?.find((t) => t.id === 'analysis');
-		const data = task?.data as unknown;
-		if (Array.isArray(data)) {
-			return data.filter((q): q is string => typeof q === 'string');
-		}
-		if (!data || typeof data !== 'object') return [];
-		const topics = (data as Record<string, unknown>).topics;
-		if (Array.isArray(topics)) {
-			return topics.filter((q): q is string => typeof q === 'string');
-		}
-		return [];
-	});
-
-	// shuffled picks are memoized per article+question-count so unrelated article
-	// object updates (store refreshes) don't re-shuffle and re-wrap the pills. It
-	// lives in the shell (not ArticleTopics) so switching layout/content mode —
-	// which remounts the layout subtree — does not pick a new pair.
-	let randomTopicsKey = '';
-	let randomTopicsMemo: string[] = [];
-	const randomTopics = $derived.by(() => {
-		const key = `${article.url ?? ''}:${someTopics.length}`;
-		if (key !== randomTopicsKey) {
-			randomTopicsKey = key;
-			randomTopicsMemo = shuffle(someTopics).slice(0, 2);
-		}
-		return randomTopicsMemo;
-	});
 </script>
 
 <button
@@ -139,21 +97,17 @@
 	{#if isRowMode}
 		<ArticleItemRow
 			{article}
-			{categories}
 			{showThumbnail}
 			{showText}
 			{matchSnippet}
 			tooltip={resolvedTooltip}
-			topics={randomTopics}
 			{unread}
 		/>
 	{:else if layoutKey === 'grid-3'}
 		<ArticleItemGrid3
 			{article}
-			{categories}
 			{showThumbnail}
 			{showText}
-			topics={randomTopics}
 			{matchSnippet}
 			tooltip={resolvedTooltip}
 			{unread}
@@ -161,7 +115,6 @@
 	{:else}
 		<ArticleItemGrid
 			{article}
-			{categories}
 			{showThumbnail}
 			{showText}
 			{isFixedThumb}
@@ -169,7 +122,6 @@
 			thumbHeight={resolvedThumbnailHeight}
 			{unread}
 			tooltip={resolvedTooltip}
-			topics={randomTopics}
 			{matchSnippet}
 			showTitle={showThumbnailTitle}
 		/>

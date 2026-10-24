@@ -1,155 +1,36 @@
+/**
+ * URL routing.
+ *
+ * The router no longer owns any pipeline: it detects what kind of url it is
+ * and delegates to the article manager, which owns the queue and the runs.
+ */
 import { viewState } from '@/stores/viewStore.svelte';
-import type { Task } from '@/types/taskRunner.types';
-import {
-	deleteArticleByUrl,
-	getTasksByUrl,
-	type PersistedTaskState,
-	type ArticleFieldOverrides
-} from '@/stores/webStore';
-import { youTubeRunner } from '@/runners/youtube/youTubeRunner';
-import { profileRunner } from '@/runners/youtube/profileVideosRunner';
-import {
-	socialMediaRunner,
-	type SocialMediaRunnerOptions
-} from '@/runners/socialMedia/socialMediaRunner';
-import { webRunner } from '@/runners/web/webRunner';
-import { rawRunner } from '@/runners/raw/rawRunner';
-import { workflowManager } from '@/runners/workflowManager.svelte';
+import { articleManager } from '@/runners/articleManager.svelte';
+import { deleteArticleByUrl } from '@/stores/webStore';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
-import { scrapStore, type YoutubeProfile } from '@/stores/scrapStore.svelte';
+import { detectSource } from '@/runners/articleSources';
+import type { ArticleMode } from '@/types/articleAnalysis.types';
 
-type RouterResult = { data: { url: string | null; tasks?: Task[] }; cached: boolean };
+type RouterResult = { data: { url: string | null }; cached: boolean };
 
 const inProgressRequests = new Map<string, Promise<RouterResult>>();
 
 const YOUTUBE_URL_REGEX = /(youtube\.com\/watch\?v=|youtu\.be\/)/;
 const YOUTUBE_PROFILE_VIDEOS_REGEX = /youtube\.com\/@[\w-]+\/videos/;
-const TIKTOK_URL_REGEX = /tiktok\.com\/.*\/video\//;
-const INSTAGRAM_REEL_REGEX = /instagram\.com\/reel\//;
-
-type UrlRouteCondition = RegExp | ((url: string) => boolean);
-
-type UrlRouteHandlerContext = {
-	cachedTasks?: PersistedTaskState[] | null;
-	runnerOptions?: Record<string, unknown>;
-	routine?: string;
-	articleOverrides?: ArticleFieldOverrides;
-};
-
-type UrlRoute = {
-	name: string;
-	condition: UrlRouteCondition;
-	handler: (url: string, context?: UrlRouteHandlerContext) => Promise<Task[]>;
-};
-
-function matchesRoute(url: string, condition: UrlRouteCondition): boolean {
-	if (condition instanceof RegExp) {
-		return condition.test(url);
-	}
-
-	return condition(url);
-}
-
-const routeDefinitions: UrlRoute[] = [
-	{
-		name: 'youtubeVideo',
-		condition: YOUTUBE_URL_REGEX,
-		handler: (url, context) =>
-			youTubeRunner(url, {
-				cachedTasks: context?.cachedTasks,
-				skipTaskIds: (
-					context?.runnerOptions as { skipTaskIds?: string[]; profileId?: string } | undefined
-				)?.skipTaskIds,
-				profileId: (context?.runnerOptions as { profileId?: string } | undefined)?.profileId,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				profile: (context?.runnerOptions as { profile?: YoutubeProfile } | undefined)?.profile,
-				articleOverrides: context?.articleOverrides
-			})
-	},
-	{
-		name: 'youtubeProfileVideos',
-		condition: YOUTUBE_PROFILE_VIDEOS_REGEX,
-		handler: (url, context) =>
-			profileRunner(url, {
-				cachedTasks: context?.cachedTasks,
-				makeActive: true,
-				options: { videosAmount: 10, ...context?.runnerOptions }
-			})
-	},
-	{
-		name: 'rawArticle',
-		condition: (url) => url.startsWith('raw-'),
-		handler: async (url, context) => {
-			const cachedTasks = context?.cachedTasks ?? [];
-			const rawText = cachedTasks.find((t) => t.id === 'content')?.data as string | undefined;
-			if (!rawText || typeof rawText !== 'string') {
-				throw new Error('Raw article content not found');
-			}
-			return rawRunner(url, rawText, {
-				makeActive: true,
-				Rebuild: false,
-				cachedTasks,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				articleOverrides: context?.articleOverrides
-			});
-		}
-	},
-	{
-		name: 'tiktokVideo',
-		condition: TIKTOK_URL_REGEX,
-		handler: (url, context) =>
-			socialMediaRunner(url, 'tiktok', {
-				cachedTasks: context?.cachedTasks,
-				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				articleOverrides: context?.articleOverrides
-			})
-	},
-	{
-		name: 'instagramReel',
-		condition: INSTAGRAM_REEL_REGEX,
-		handler: (url, context) =>
-			socialMediaRunner(url, 'instagram', {
-				cachedTasks: context?.cachedTasks,
-				options: context?.runnerOptions as SocialMediaRunnerOptions | undefined,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				articleOverrides: context?.articleOverrides
-			})
-	},
-	{
-		name: 'defaultBlog',
-		condition: () => true,
-		handler: (url, context) =>
-			webRunner(url, {
-				cachedTasks: context?.cachedTasks,
-				templateId: (context?.runnerOptions as { templateId?: string } | undefined)?.templateId,
-				articleOverrides: context?.articleOverrides
-			})
-	}
-];
-
-function findRoute(url: string): UrlRoute | undefined {
-	return routeDefinitions.find((route) => matchesRoute(url, route.condition));
-}
-
-export function addUrlRoute(route: UrlRoute) {
-	routeDefinitions.push(route);
-}
 
 type UrlRouterOptions = {
+	/** Destructive refresh: the article is deleted and processed again. */
 	forceRunTasks?: boolean;
-	runnerOptions?: Record<string, unknown>;
-	routine?: string;
-	articleOverrides?: ArticleFieldOverrides;
+	/** Mode of the run. `metadata` captures the article without analysing it. */
+	mode?: ArticleMode;
+	/** Body of a raw article. */
+	rawText?: string;
 };
 
 export async function urlRouter(
 	url: string,
-	{ forceRunTasks = false, runnerOptions, routine, articleOverrides }: UrlRouterOptions = {}
+	{ forceRunTasks = false, mode = 'full', rawText }: UrlRouterOptions = {}
 ): Promise<RouterResult> {
-	workflowManager.clearStack();
-	scrapStore.currentYoutubeProfile = null;
-
 	if (YOUTUBE_URL_REGEX.test(url)) {
 		url = normalizeYouTubeUrl(url);
 	}
@@ -159,44 +40,52 @@ export async function urlRouter(
 	}
 
 	const inFlight: Promise<RouterResult> = (async () => {
-		let cachedTasks: PersistedTaskState[] | null = null;
 		try {
-			const matchingRoute = findRoute(url);
-
-			if (!matchingRoute) {
-				const supportedRoutes = routeDefinitions.map((route) => route.name).join(', ');
-				throw new Error(`Unsupported URL. Supported routes: ${supportedRoutes}.`);
+			// A channel page is not an article: it scrapes the channel and
+			// enqueues its videos in `metadata` mode.
+			if (YOUTUBE_PROFILE_VIDEOS_REGEX.test(url)) {
+				const { scrapStore } = await import('@/stores/scrapStore.svelte');
+				const handle = extractChannelHandle(url);
+				await scrapStore.fetchMissingProfileVideos(handle);
+				return { data: { url }, cached: false };
 			}
 
 			if (forceRunTasks) {
 				await deleteArticleByUrl(url);
-			} else {
-				cachedTasks = await getTasksByUrl(url);
+			}
+
+			const source = detectSource(url);
+
+			if (mode === 'metadata' && source !== 'raw') {
+				// A capture-only run: the card is stored and the article is
+				// analysed when it is opened. The user stays where they are,
+				// so the view loading flags are not touched (the manager
+				// reports the queue activity on the topbar instead).
+				articleManager.enqueue(url, { mode: 'metadata' });
+				return { data: { url }, cached: false };
 			}
 
 			viewState.url = url;
-			viewState.isCachedArticle = Boolean(cachedTasks);
-			// Reset on every attempt, not just fresh ones: cached articles never
-			// reach the `loaded = true` branch below, so a stale `true` would
-			// replay the topbar sweep when PostView remounts for a cached article.
 			viewState.loaded = false;
-			if (!cachedTasks) {
-				viewState.loading = true;
+			viewState.loading = true;
+
+			if (source === 'raw') {
+				// A raw article carries its text with it: there is nothing to
+				// fetch, only to analyse. `open` initializes the store and
+				// forwards the body to the queued run.
+				await articleManager.open(url, { mode, rawText });
+			} else {
+				await articleManager.open(url);
 			}
 
-			const tasks = await matchingRoute.handler(url, {
-				cachedTasks,
-				runnerOptions,
-				routine,
-				articleOverrides
-			});
+			// `loading` must always fall here: `open` resolves at enqueue
+			// time (the run continues in the manager's queue), and leaving
+			// it up would route every later paste into the silent enqueue
+			// branch. `loaded` is raised either by `open` (already analysed)
+			// or when the queued run ends.
+			viewState.loading = false;
 
-			if (!cachedTasks) {
-				viewState.loaded = true;
-				viewState.loading = false;
-			}
-
-			return { data: { url, tasks }, cached: Boolean(cachedTasks) };
+			return { data: { url }, cached: false };
 		} catch (err) {
 			console.error('Error while routing URL:', err);
 			viewState.loading = false;
@@ -208,7 +97,17 @@ export async function urlRouter(
 	})();
 
 	inProgressRequests.set(url, inFlight);
-	const result = await inFlight;
+	return inFlight;
+}
 
-	return result;
+/** Extracts the `@handle` of a YouTube channel url. */
+function extractChannelHandle(url: string): string {
+	try {
+		const parsed = new URL(url);
+		const segments = parsed.pathname.split('/').filter(Boolean);
+		const handle = segments.find((segment) => segment.startsWith('@'));
+		return handle ?? segments[0] ?? '';
+	} catch {
+		return url;
+	}
 }

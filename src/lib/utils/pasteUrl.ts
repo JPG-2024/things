@@ -1,10 +1,16 @@
+/**
+ * Pasting a url.
+ *
+ * The queue lives in the article manager: there is a single notion of "urls
+ * waiting to be processed".
+ */
 import { viewState } from '@/stores/viewStore.svelte';
-import { navigate, extractUrlList } from '@/lib/utils/url';
-import { urlRouter } from '@/lib/urlRouter/urlRouter';
-import { rawRunner } from '@/runners/raw/rawRunner';
+import { articleManager } from '@/runners/articleManager.svelte';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-import { RAW_PROCESS_LIMIT } from '@/constants';
+import { urlRouter } from '@/lib/urlRouter/urlRouter';
+import { extractUrlList, navigate } from '@/lib/utils/url';
 import { playCoinSound, playCoinLostSound } from '@/lib/utils/coinSound';
+import { RAW_PROCESS_LIMIT } from '@/constants';
 
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
@@ -38,15 +44,9 @@ export async function handlePasteUrl(
 	const urlList = extractUrlList(content);
 
 	if (urlList.length > 1) {
-		const capacity = Math.max(0, viewState.maxUrlQueueSize - viewState.urlQueue.length);
-
-		if (viewState.processingUrl || viewState.loading) {
-			viewState.urlQueue.push(...urlList.slice(0, capacity));
-			return;
-		}
-
+		// Several urls: the first one is processed, the rest are queued.
 		const [firstUrl, ...restUrls] = urlList;
-		viewState.urlQueue.push(...restUrls.slice(0, capacity));
+		restUrls.forEach((url) => articleManager.enqueue(url));
 		await handlePasteUrl(firstUrl, { replaceState });
 		return;
 	}
@@ -59,12 +59,19 @@ export async function handlePasteUrl(
 		playCoinSound();
 		viewState.processingUrl = true;
 		try {
+			// The capture-only mode keeps the user on the dashboard: the article
+			// is captured in the background and analysed when it is opened. The
+			// manager invalidates the article cache when the run finishes.
+			if (viewState.captureOnlyOnPaste && isDashboardRoute()) {
+				articleManager.enqueue(validUrl, { mode: 'metadata' });
+				return;
+			}
+
 			navigate(`/youtube/${encodeURIComponent(validUrl)}`, { replaceState });
 			await urlRouter(validUrl);
 			articleCacheStore.invalidate();
 		} finally {
 			viewState.processingUrl = false;
-			await processQueue({ replaceState });
 		}
 		return;
 	}
@@ -80,21 +87,18 @@ export async function handlePasteUrl(
 		viewState.loading = true;
 		viewState.loaded = false;
 		navigate(`/raw/${rawId}`, { replaceState });
-		await rawRunner(rawId, trimmed);
+		await urlRouter(rawId, { rawText: trimmed });
 		articleCacheStore.invalidate();
 	} finally {
 		playCoinLostSound();
 		viewState.loaded = true;
 		viewState.loading = false;
 		viewState.processingUrl = false;
-		await processQueue({ replaceState });
 	}
 }
 
-export async function processQueue(options?: { replaceState?: boolean }): Promise<void> {
-	while (viewState.urlQueue.length > 0) {
-		const nextUrl = viewState.urlQueue.shift();
-		if (!nextUrl) break;
-		await handlePasteUrl(nextUrl, { ...options, replaceState: true });
-	}
+/** True when the user is on the dashboard route. */
+function isDashboardRoute(): boolean {
+	if (typeof window === 'undefined') return false;
+	return window.location.pathname === '/';
 }

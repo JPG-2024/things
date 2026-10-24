@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -66,7 +66,13 @@ pub struct WebStoreArticleRecord {
     pub viewed: bool,
     pub date: Option<String>,
     pub profile_picture: Option<String>,
-    pub template_id: Option<String>,
+    /// Combined summary of the window analysis (the only analytic in the MVP).
+    pub summary: Option<String>,
+    /// Window divisor that was actually executed. `NULL` means the article was
+    /// split by markdown headings instead of by level.
+    pub analysis_divisor: Option<i64>,
+    /// `full` = analysed, `metadata` = captured but pending analysis.
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -229,7 +235,8 @@ pub struct UpsertWebStoreArticleInput {
     pub profile: Option<String>,
     pub embedding_source_text: Option<String>,
     pub date: Option<String>,
-    pub template_id: Option<String>,
+    /// `full` | `metadata`. `metadata` marks a captured-but-not-analysed article.
+    pub mode: Option<String>,
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -339,19 +346,15 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             updated_at INTEGER NOT NULL,
             viewed INTEGER NOT NULL DEFAULT 0,
             date TEXT,
-            template_id TEXT,
+            summary TEXT,
+            analysis_divisor INTEGER,
+            mode TEXT,
             profile_rank INTEGER,
             FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
         CREATE INDEX IF NOT EXISTS idx_web_articles_profile ON web_articles(profile);
-        CREATE INDEX IF NOT EXISTS idx_web_articles_template_id ON web_articles(template_id);
-
-        CREATE TABLE IF NOT EXISTS web_tasks (
-            url TEXT PRIMARY KEY,
-            tasks_json TEXT NOT NULL DEFAULT '[]',
-            updated_at INTEGER NOT NULL
-        );
+        CREATE INDEX IF NOT EXISTS idx_web_articles_mode ON web_articles(mode);
 
         CREATE TABLE IF NOT EXISTS web_categories (
             id TEXT PRIMARY KEY,
@@ -387,22 +390,20 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         CREATE INDEX IF NOT EXISTS idx_category_exemplars_category_id
             ON category_exemplars(category_id);
 
-        CREATE TABLE IF NOT EXISTS web_templates (
+        CREATE TABLE IF NOT EXISTS article_windows (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT,
-            tasks_json TEXT NOT NULL DEFAULT '[]',
+            article_url TEXT NOT NULL,
+            window_index INTEGER NOT NULL,
+            start_offset INTEGER NOT NULL,
+            end_offset INTEGER NOT NULL,
+            payload TEXT NOT NULL,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            UNIQUE (article_url, window_index)
         );
 
-        CREATE TABLE IF NOT EXISTS web_profile_templates (
-            profile_id TEXT PRIMARY KEY,
-            template_id TEXT NOT NULL,
-            updated_at INTEGER NOT NULL,
-            FOREIGN KEY (profile_id) REFERENCES web_domains(id),
-            FOREIGN KEY (template_id) REFERENCES web_templates(id)
-        );"
+        CREATE INDEX IF NOT EXISTS idx_article_windows_article_url
+            ON article_windows(article_url);"
     ).map_err(|error| error.to_string())?;
 
     migrate_legacy_tables(conn)?;
@@ -427,8 +428,20 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     ensure_column(
         conn,
         "web_articles",
-        "template_id",
-        "ALTER TABLE web_articles ADD COLUMN template_id TEXT",
+        "summary",
+        "ALTER TABLE web_articles ADD COLUMN summary TEXT",
+    )?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "analysis_divisor",
+        "ALTER TABLE web_articles ADD COLUMN analysis_divisor INTEGER",
+    )?;
+    ensure_column(
+        conn,
+        "web_articles",
+        "mode",
+        "ALTER TABLE web_articles ADD COLUMN mode TEXT",
     )?;
     ensure_column(
         conn,
@@ -442,6 +455,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "description",
         "ALTER TABLE web_categories ADD COLUMN description TEXT",
     )?;
+    migrate_drop_template_tables(conn)?;
     migrate_drop_last_video_date_column(conn)?;
     migrate_article_domain_column(conn)?;
     migrate_article_ids_to_youtube_v(conn)?;
@@ -450,6 +464,32 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_remove_unknown_profile_domain(conn)?;
     migrate_clear_category_exemplars(conn)?;
     migrate_category_exemplars_window_index(conn)?;
+
+    Ok(())
+}
+
+/// Drops the legacy task/template bookkeeping.
+///
+/// The MVP article runner replaces the whole task model with one linear
+/// pipeline: the `web_tasks` blob becomes `article_windows` (one row per
+/// analysed window), templates disappear and `web_articles.template_id`
+/// becomes the explicit `web_articles.mode` column.
+///
+/// No data migration is performed on purpose: the old task blob cannot be
+/// replayed into the new pipeline, and the plan accepts losing the already
+/// computed analysis while keeping title, thumbnail and body.
+fn migrate_drop_template_tables(conn: &Connection) -> Result<(), String> {
+    for table in ["web_profile_templates", "web_templates", "web_tasks"] {
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS {table}"))
+            .map_err(|error| error.to_string())?;
+    }
+
+    if table_has_column(conn, "web_articles", "template_id") {
+        conn.execute_batch("DROP INDEX IF EXISTS idx_web_articles_template_id;")
+            .map_err(|error| error.to_string())?;
+        conn.execute_batch("ALTER TABLE web_articles DROP COLUMN template_id;")
+            .map_err(|error| error.to_string())?;
+    }
 
     Ok(())
 }
@@ -745,19 +785,6 @@ fn migrate_strip_www_domains(conn: &Connection) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
 
         conn.execute(
-            "INSERT OR IGNORE INTO web_profile_templates (profile_id, template_id, updated_at)
-             SELECT ?1, template_id, updated_at
-             FROM web_profile_templates WHERE profile_id = ?2 COLLATE NOCASE",
-            params![target, www_id],
-        )
-        .map_err(|error| error.to_string())?;
-        conn.execute(
-            "DELETE FROM web_profile_templates WHERE profile_id = ?1 COLLATE NOCASE",
-            params![www_id],
-        )
-        .map_err(|error| error.to_string())?;
-
-        conn.execute(
             "DELETE FROM web_domains WHERE id = ?1 COLLATE NOCASE",
             params![www_id],
         )
@@ -776,10 +803,7 @@ fn migrate_remove_unknown_profile_domain(conn: &Connection) -> Result<(), String
         "DELETE FROM web_domains
          WHERE id = ?1
            AND NOT EXISTS (SELECT 1 FROM web_articles WHERE LOWER(domain) = LOWER(?1))
-           AND NOT EXISTS (SELECT 1 FROM web_profiles WHERE LOWER(domain_id) = LOWER(?1))
-           AND NOT EXISTS (
-               SELECT 1 FROM web_profile_templates WHERE LOWER(profile_id) = LOWER(?1)
-           )",
+           AND NOT EXISTS (SELECT 1 FROM web_profiles WHERE LOWER(domain_id) = LOWER(?1))",
         params![WEB_STORE_UNKNOWN_PROFILE_ID],
     )
     .map_err(|error| error.to_string())?;
@@ -818,14 +842,6 @@ fn migrate_legacy_tables(conn: &Connection) -> Result<(), String> {
         "INSERT OR IGNORE INTO web_domains (id, name, count, profile_picture, updated_at)
          SELECT id, name, count, profile_picture, updated_at
          FROM old_profiles;",
-    )
-    .map_err(|error| error.to_string())?;
-
-    conn.execute_batch(
-        "INSERT OR IGNORE INTO web_tasks (url, tasks_json, updated_at)
-         SELECT url, tasks_json, updated_at
-         FROM old_articles
-         WHERE tasks_json IS NOT NULL AND tasks_json != '[]';",
     )
     .map_err(|error| error.to_string())?;
 
@@ -1029,7 +1045,11 @@ fn row_to_stored_article(
     let date: Option<String> = row.get("date")?;
     let domain: Option<String> = row.get("domain")?;
     let profile_picture: Option<String> = row.get("profile_picture")?;
-    let template_id: Option<String> = row.get("template_id")?;
+    let mode: Option<String> = row.get("mode").ok().flatten();
+    let summary: Option<String> = body_column_or_none(row, "summary");
+    let analysis_divisor: Option<i64> = row
+        .get::<_, Option<i64>>("analysis_divisor")
+        .unwrap_or(None);
     let content: Option<String> = body_column_or_none(row, "content");
     let embedding_source_text: Option<String> = body_column_or_none(row, "embedding_source_text");
 
@@ -1051,7 +1071,9 @@ fn row_to_stored_article(
         viewed: viewed_int != 0,
         date,
         profile_picture,
-        template_id,
+        summary,
+        analysis_divisor,
+        mode,
     })
 }
 
@@ -1067,19 +1089,20 @@ const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, 
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-        )) AS profile_picture, a.template_id";
+        )) AS profile_picture, a.summary, a.analysis_divisor, a.mode";
 
 /// Columns for list/card queries: cards only render title + thumbnail, and the
-/// body shown inside an article comes from its task data (`raw_content`
-/// files), not from the `content` column. The full set above stays reserved
-/// for the article-detail path.
+/// body shown inside an article comes from its raw content file, not from the
+/// `content` column. The full set above stays reserved for the article-detail
+/// path. `mode` is kept here because the "imported articles" filter runs on
+/// the list query.
 const ARTICLE_LIST_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail,
         a.media_directory, a.main_color, a.profile, a.updated_at,
         a.viewed, a.date, a.domain,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
-        )) AS profile_picture, a.template_id";
+        )) AS profile_picture, a.mode";
 
 fn query_articles_sql(
     conn: &Connection,
@@ -1290,12 +1313,6 @@ fn upsert_profile(conn: &Connection, profile: &WebStoreProfileRecord) -> Result<
 }
 
 fn delete_domain(conn: &Connection, domain_id: &str) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM web_profile_templates WHERE profile_id = ?1",
-        params![domain_id],
-    )
-    .map_err(|error| error.to_string())?;
-
     conn.execute(
         "DELETE FROM web_profiles WHERE domain_id = ?1",
         params![domain_id],
@@ -1779,6 +1796,19 @@ pub async fn filter_existing_article_urls(
 #[tauri::command]
 pub async fn upsert_web_store_article(
     app: AppHandle,
+    input: UpsertWebStoreArticleInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    upsert_web_store_article_row(&conn, input)
+}
+
+/// Upserts one article row.
+///
+/// The identity of the row is the article id, not the url text: a YouTube
+/// video captured under another form of the same url (tracking params,
+/// `youtu.be`, ...) must be updated, never re-inserted.
+fn upsert_web_store_article_row(
+    conn: &Connection,
     mut input: UpsertWebStoreArticleInput,
 ) -> Result<(), String> {
     input.title = normalize_optional_string(input.title);
@@ -1789,15 +1819,13 @@ pub async fn upsert_web_store_article(
     input.profile = normalize_optional_string(input.profile).map(|p| p.to_lowercase());
     input.embedding_source_text = normalize_optional_string(input.embedding_source_text);
     input.date = normalize_optional_string(input.date);
-    input.template_id = normalize_optional_string(input.template_id);
-
-    let conn = get_db(&app)?;
+    input.mode = normalize_optional_string(input.mode);
 
     let now = chrono_like_now();
     let article_id = article_id_for_url(&input.url);
     let domain = domain_from_url(&input.url);
     if let Some(ref d) = domain {
-        ensure_web_domain(&conn, d).map_err(|error| {
+        ensure_web_domain(conn, d).map_err(|error| {
             format!(
                 "Failed to ensure domain '{}' for article url='{}': {}",
                 d, input.url, error
@@ -1805,21 +1833,23 @@ pub async fn upsert_web_store_article(
         })?;
     }
 
-    let previous_article = get_web_store_article_by_url(app.clone(), input.url.clone())
-        .await
-        .map_err(|error| {
+    let filter = format!("url = '{}' COLLATE NOCASE", input.url.replace('\'', "''"));
+    let mut records = query_articles(conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None).map_err(
+        |error| {
             format!(
                 "Failed to query existing article for url='{}': {}",
                 input.url, error
             )
-        })?;
+        },
+    )?;
+    let previous_article = records.pop();
 
     if previous_article.is_some() {
         conn.execute(
-            "UPDATE web_articles SET 
-                title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4, 
+            "UPDATE web_articles SET
+                title = ?1, thumbnail = ?2, content = ?3, media_directory = ?4,
                 main_color = ?5, profile = ?6, domain = ?7,
-                embedding_source_text = ?8, date = ?9, template_id = ?10, updated_at = ?11 
+                embedding_source_text = ?8, date = ?9, mode = COALESCE(?10, mode), updated_at = ?11
              WHERE url = ?12 COLLATE NOCASE",
             params![
                 input.title,
@@ -1831,7 +1861,7 @@ pub async fn upsert_web_store_article(
                 domain,
                 input.embedding_source_text,
                 input.date,
-                input.template_id,
+                input.mode,
                 now,
                 input.url
             ],
@@ -1845,39 +1875,92 @@ pub async fn upsert_web_store_article(
                 error
             )
         })?;
-    } else {
+        return Ok(());
+    }
+
+    // The url is stored under another form of the same article: the id is the
+    // stable identity, so that row is updated in place and its url is
+    // rewritten to the canonical form every later lookup uses.
+    let stored_url: Option<String> = conn
+        .query_row(
+            "SELECT url FROM web_articles WHERE id = ?1",
+            params![article_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| {
+            format!(
+                "Failed to query article by id='{}' url='{}': {}",
+                article_id, input.url, error
+            )
+        })?;
+
+    if let Some(stored_url) = stored_url {
         conn.execute(
-            "INSERT INTO web_articles (id, url, domain, created_at, title, thumbnail, content,
-                                   media_directory, main_color, profile,
-                                   embedding_source_text, date, template_id, updated_at, viewed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 0)",
+            "UPDATE web_articles SET
+                url = ?1, title = ?2, thumbnail = ?3, content = ?4, media_directory = ?5,
+                main_color = ?6, profile = ?7, domain = ?8,
+                embedding_source_text = ?9, date = ?10, mode = COALESCE(?11, mode), updated_at = ?12
+             WHERE id = ?13",
             params![
-                article_id,
                 input.url,
-                domain,
-                now,
                 input.title,
                 input.thumbnail,
                 input.content,
                 input.directory,
                 input.main_color,
                 input.profile,
+                domain,
                 input.embedding_source_text,
                 input.date,
-                input.template_id,
-                now
+                input.mode,
+                now,
+                article_id
             ],
         )
         .map_err(|error| {
             format!(
-                "Failed to INSERT article url='{}' domain='{}' profile='{}': {}",
+                "Failed to UPDATE article by id='{}' stored-url='{}' url='{}': {}",
+                article_id,
+                stored_url,
                 input.url,
-                domain.as_deref().unwrap_or("NULL"),
-                input.profile.as_deref().unwrap_or("NULL"),
                 error
             )
         })?;
+        return Ok(());
     }
+
+    conn.execute(
+        "INSERT INTO web_articles (id, url, domain, created_at, title, thumbnail, content,
+                               media_directory, main_color, profile,
+                               embedding_source_text, date, mode, updated_at, viewed)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 0)",
+        params![
+            article_id,
+            input.url,
+            domain,
+            now,
+            input.title,
+            input.thumbnail,
+            input.content,
+            input.directory,
+            input.main_color,
+            input.profile,
+            input.embedding_source_text,
+            input.date,
+            input.mode,
+            now
+        ],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to INSERT article url='{}' domain='{}' profile='{}': {}",
+            input.url,
+            domain.as_deref().unwrap_or("NULL"),
+            input.profile.as_deref().unwrap_or("NULL"),
+            error
+        )
+    })?;
 
     Ok(())
 }
@@ -2079,21 +2162,21 @@ fn delete_bucket_media(
     Ok(())
 }
 
-/// Deletes task rows and article rows for a whole bucket in one transaction and
-/// rebuilds the domains table exactly once. Returns the number of articles
+/// Deletes window rows and article rows for a whole bucket in one transaction
+/// and rebuilds the domains table exactly once. Returns the number of articles
 /// actually deleted (missing urls contribute zero, without failing).
 fn delete_bucket_rows(
     conn: &Connection,
-    task_urls: &[String],
+    window_urls: &[String],
     article_urls: &[String],
 ) -> Result<usize, String> {
     let tx = conn
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;
 
-    for url in task_urls {
+    for url in window_urls {
         tx.execute(
-            "DELETE FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
+            "DELETE FROM article_windows WHERE article_url = ?1 COLLATE NOCASE",
             params![url],
         )
         .map_err(|error| error.to_string())?;
@@ -2212,195 +2295,222 @@ pub async fn delete_web_store_profile(
     })
 }
 
+/// One analysed window of an article.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WebStoreTaskRecord {
-    pub url: String,
-    pub tasks_json: String,
+pub struct ArticleWindowRecord {
+    pub id: String,
+    pub article_url: String,
+    pub window_index: i64,
+    pub start_offset: i64,
+    pub end_offset: i64,
+    /// JSON object payload, e.g. `{"summary": "..."}`. The shape is open on
+    /// purpose: adding a new analytic key does not need a schema change.
+    pub payload: String,
+    pub created_at: i64,
     pub updated_at: i64,
 }
 
-fn row_to_web_store_task(row: &rusqlite::Row<'_>) -> Result<WebStoreTaskRecord, rusqlite::Error> {
-    let url: String = row.get(0)?;
-    let tasks_json: String = row.get(1)?;
-    let updated_at: i64 = row.get(2)?;
+/// The whole analysis of an article: the combined summary plus every window.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleAnalysisRecord {
+    pub url: String,
+    pub summary: Option<String>,
+    /// The window divisor that was actually executed. `None` means the
+    /// article was split by markdown headings.
+    pub divisor: Option<i64>,
+    pub mode: Option<String>,
+    pub windows: Vec<ArticleWindowRecord>,
+}
 
-    Ok(WebStoreTaskRecord {
-        url,
-        tasks_json,
-        updated_at,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleWindowInput {
+    pub window_index: i64,
+    pub start_offset: i64,
+    pub end_offset: i64,
+    pub payload: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveArticleAnalysisInput {
+    pub url: String,
+    pub summary: Option<String>,
+    pub divisor: Option<i64>,
+    pub windows: Vec<ArticleWindowInput>,
+}
+
+/// Deterministic window id: the same article + window index always maps to
+/// the same row id, so re-saving an analysis replaces rows instead of
+/// duplicating them.
+fn article_window_id(url: &str, window_index: i64) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(url.trim().as_bytes());
+    hasher.update(format!("#{window_index}").as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn row_to_article_window(row: &rusqlite::Row<'_>) -> Result<ArticleWindowRecord, rusqlite::Error> {
+    Ok(ArticleWindowRecord {
+        id: row.get("id")?,
+        article_url: row.get("article_url")?,
+        window_index: row.get("window_index")?,
+        start_offset: row.get("start_offset")?,
+        end_offset: row.get("end_offset")?,
+        payload: row.get("payload")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
     })
 }
 
-fn task_chunks_from_json(tasks_json: &str, task_id: &str) -> Option<Value> {
-    let parsed: Value = serde_json::from_str(tasks_json).ok()?;
-    let tasks = parsed.as_array()?;
-
-    for task in tasks {
-        if task.get("id").and_then(|id| id.as_str()) != Some(task_id) {
-            continue;
-        }
-        let chunks = task.get("data").and_then(|data| data.get("chunks"))?;
-        return if chunks.is_array() {
-            Some(chunks.clone())
-        } else {
-            None
-        };
-    }
-
-    None
-}
-
-#[tauri::command]
-pub async fn get_web_store_task_chunks(
-    app: AppHandle,
-    url: String,
-    task_id: String,
-) -> Result<Option<Value>, String> {
-    let conn = get_db(&app)?;
-
-    let tasks_json = match conn.query_row(
-        "SELECT tasks_json FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
-        params![url],
-        |row| row.get::<_, Option<String>>(0),
-    ) {
+/// Reads the persisted analysis of an article: summary, executed divisor and
+/// every window, in one round trip (the article view needs all three).
+fn read_article_analysis(
+    conn: &Connection,
+    url: &str,
+) -> Result<Option<ArticleAnalysisRecord>, String> {
+    let (summary, divisor, mode): (Option<String>, Option<i64>, Option<String>) = match conn
+        .query_row(
+            "SELECT summary, analysis_divisor, mode FROM web_articles WHERE url = ?1 COLLATE NOCASE",
+            params![url],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ) {
         Ok(value) => value,
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
+        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
         Err(error) => return Err(error.to_string()),
     };
 
-    let Some(tasks_json) = tasks_json else {
-        return Ok(None);
-    };
-
-    Ok(task_chunks_from_json(&tasks_json, &task_id))
-}
-
-#[tauri::command]
-pub async fn get_web_store_tasks_by_url(
-    app: AppHandle,
-    url: String,
-) -> Result<Option<WebStoreTaskRecord>, String> {
-    let conn = get_db(&app)?;
-
     let mut stmt = conn
-        .prepare("SELECT url, tasks_json, updated_at FROM web_tasks WHERE url = ?1 COLLATE NOCASE")
+        .prepare(
+            "SELECT id, article_url, window_index, start_offset, end_offset, payload,
+                    created_at, updated_at
+             FROM article_windows
+             WHERE article_url = ?1 COLLATE NOCASE
+             ORDER BY window_index ASC",
+        )
         .map_err(|error| error.to_string())?;
 
-    let mut rows = stmt
-        .query_map([&url], row_to_web_store_task)
+    let rows = stmt
+        .query_map(params![url], row_to_article_window)
         .map_err(|error| error.to_string())?;
 
-    match rows.next() {
-        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
-        None => Ok(None),
+    let mut windows = Vec::new();
+    for row in rows {
+        windows.push(row.map_err(|error| error.to_string())?);
     }
+
+    Ok(Some(ArticleAnalysisRecord {
+        url: url.to_string(),
+        summary,
+        divisor,
+        mode,
+        windows,
+    }))
 }
 
-#[tauri::command]
-pub async fn upsert_web_store_tasks(
-    app: AppHandle,
-    url: String,
-    tasks_json: String,
+/// Writes the analysis of an article in a single transaction: the previous
+/// windows are replaced (never merged), the summary and the executed divisor
+/// are stored on the article row and the article is flagged as `full`.
+fn write_article_analysis(
+    conn: &Connection,
+    input: &SaveArticleAnalysisInput,
 ) -> Result<(), String> {
-    let conn = get_db(&app)?;
-
     let now = chrono_like_now();
-
-    conn.execute(
-        "INSERT OR REPLACE INTO web_tasks (url, tasks_json, updated_at) VALUES (?1, ?2, ?3)",
-        params![url, tasks_json, now],
-    )
-    .map_err(|error| error.to_string())?;
-
-    Ok(())
-}
-
-/// Task id carrying the article raw text: its non-empty string data is
-/// persisted to `raw_content/` and replaced by a ref inside `web_tasks`
-/// (mirrors the client-side `wrapRawContentRef`).
-const CONTENT_TASK_ID: &str = "content";
-const RAW_CONTENT_REF: &str = "__rawContentRef__";
-
-/// Parses a stored tasks array, replaces the `data` of the first task matching
-/// `task_id` and re-serializes. `None` means no-op: invalid JSON, a non-array
-/// payload or an absent task id — the client treated all of those as no-ops.
-fn replace_task_data(tasks_json: &str, task_id: &str, new_data: Value) -> Option<String> {
-    let mut tasks = serde_json::from_str::<Value>(tasks_json).ok()?;
-    let array = tasks.as_array_mut()?;
-
-    for task in array.iter_mut() {
-        if task.get("id").and_then(Value::as_str) == Some(task_id) {
-            let obj = task.as_object_mut()?;
-            obj.insert("data".to_string(), new_data);
-            return serde_json::to_string(&tasks).ok();
-        }
-    }
-
-    None
-}
-
-/// Atomic read-modify-write of one task's data (IPC-7): previously the client
-/// fetched the full tasks JSON, mutated one task in JS and wrote the whole
-/// array back — full payload traveling twice plus a read/write race window.
-/// Now only the new `data` travels and the swap happens server-side in one
-/// transaction. Returns false when the url has no task row or the task id is
-/// absent (the client no-ops silently on both).
-#[tauri::command]
-pub async fn update_web_store_task_data(
-    app: AppHandle,
-    url: String,
-    task_id: String,
-    data: Value,
-) -> Result<bool, String> {
-    let conn = get_db(&app)?;
-
-    // Server-side replication of wrapRawContentRef: a content task with
-    // non-empty string data is written to raw_content/ and stored as a ref, so
-    // heavyweight text never lands inside web_tasks.
-    let stored_data = if task_id == CONTENT_TASK_ID {
-        match data.as_str() {
-            Some(text) if !text.is_empty() => {
-                let key = write_raw_content(app.clone(), url.clone(), text.to_string()).await?;
-                let mut ref_object = serde_json::Map::new();
-                ref_object.insert(RAW_CONTENT_REF.to_string(), Value::String(key));
-                Value::Object(ref_object)
-            }
-            _ => data,
-        }
-    } else {
-        data
-    };
-
-    // Same-connection transaction so the read and the write can't interleave
-    // with another writer on this database.
     let tx = conn
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;
 
-    let tasks_json = match tx.query_row(
-        "SELECT tasks_json FROM web_tasks WHERE url = ?1 COLLATE NOCASE",
-        params![url],
-        |row| row.get::<_, String>(0),
-    ) {
-        Ok(value) => value,
-        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(false),
-        Err(error) => return Err(error.to_string()),
-    };
+    tx.execute(
+        "DELETE FROM article_windows WHERE article_url = ?1 COLLATE NOCASE",
+        params![input.url],
+    )
+    .map_err(|error| error.to_string())?;
 
-    let Some(updated_json) = replace_task_data(&tasks_json, &task_id, stored_data) else {
-        return Ok(false);
-    };
+    for window in &input.windows {
+        tx.execute(
+            "INSERT OR REPLACE INTO article_windows
+                 (id, article_url, window_index, start_offset, end_offset, payload,
+                  created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                article_window_id(&input.url, window.window_index),
+                input.url,
+                window.window_index,
+                window.start_offset,
+                window.end_offset,
+                window.payload,
+                now,
+                now
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    }
 
     tx.execute(
-        "UPDATE web_tasks SET tasks_json = ?2, updated_at = ?3 WHERE url = ?1 COLLATE NOCASE",
-        params![url, updated_json, chrono_like_now()],
+        "UPDATE web_articles
+         SET summary = ?1, analysis_divisor = ?2, mode = 'full', updated_at = ?3
+         WHERE url = ?4 COLLATE NOCASE",
+        params![input.summary, input.divisor, now, input.url],
     )
     .map_err(|error| error.to_string())?;
 
     tx.commit().map_err(|error| error.to_string())?;
 
-    Ok(true)
+    Ok(())
+}
+
+/// Reads the persisted analysis of an article: summary, executed divisor and
+/// every window, in one round trip (the article view needs all three).
+#[tauri::command]
+pub async fn get_article_analysis(
+    app: AppHandle,
+    url: String,
+) -> Result<Option<ArticleAnalysisRecord>, String> {
+    let conn = get_db(&app)?;
+    read_article_analysis(&conn, &url)
+}
+
+/// Persists the analysis of an article in a single transaction: the previous
+/// windows are replaced (never merged), the summary and the executed divisor
+/// are stored on the article row and the article is flagged as `full`.
+#[tauri::command]
+pub async fn save_article_analysis(
+    app: AppHandle,
+    input: SaveArticleAnalysisInput,
+) -> Result<(), String> {
+    let conn = get_db(&app)?;
+    write_article_analysis(&conn, &input)
+}
+
+/// Reads the category ids linked to an article.
+///
+/// The category editor and the pipeline both need to know whether an article
+/// already has categories: the pipeline only auto-classifies when it has
+/// none.
+#[tauri::command]
+pub async fn get_article_categories(app: AppHandle, article_url: String) -> Result<Vec<String>, String> {
+    let conn = get_db(&app)?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT category_id FROM article_category
+             WHERE article_url = ?1 COLLATE NOCASE
+             ORDER BY category_id ASC",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let rows = stmt
+        .query_map(params![article_url], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+
+    let mut categories = Vec::new();
+    for row in rows {
+        categories.push(row.map_err(|error| error.to_string())?);
+    }
+
+    Ok(categories)
 }
 
 #[tauri::command]
@@ -3036,8 +3146,9 @@ struct ArticlesWithoutProfileFilter {
     profile_ids: Option<Vec<String>>,
     domain_ids: Option<Vec<String>>,
     date_from: Option<String>,
-    template_id: Option<String>,
-    include_initial: Option<bool>,
+    /// `metadata` restricts the list to captured-but-not-analysed articles.
+    /// `full` restricts it to analysed ones. `None` means "any mode".
+    mode: Option<String>,
     only_without_profile: Option<bool>,
 }
 
@@ -3130,22 +3241,14 @@ fn query_articles_without_profile(
         }
     }
 
-    match filter
-        .template_id
+    if let Some(ref mode) = filter
+        .mode
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        Some(template) => {
-            where_clauses.push("a.template_id = ?".to_string());
-            params.push(Box::new(template.to_string()));
-        }
-        None => {
-            if !filter.include_initial.unwrap_or(false) {
-                where_clauses
-                    .push("(a.template_id IS NULL OR a.template_id <> 'initial')".to_string());
-            }
-        }
+        where_clauses.push("a.mode = ?".to_string());
+        params.push(Box::new(mode.to_string()));
     }
 
     let where_sql = if where_clauses.is_empty() {
@@ -3192,8 +3295,7 @@ pub async fn list_articles_without_profile(
     profile_ids: Option<Vec<String>>,
     domain_ids: Option<Vec<String>>,
     date_from: Option<String>,
-    template_id: Option<String>,
-    include_initial: Option<bool>,
+    mode: Option<String>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
 
@@ -3205,8 +3307,7 @@ pub async fn list_articles_without_profile(
             profile_ids,
             domain_ids,
             date_from,
-            template_id,
-            include_initial,
+            mode,
             only_without_profile,
         },
         offset,
@@ -3479,216 +3580,6 @@ fn query_categories_with_articles(
     })
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebStoreTemplateRecord {
-    pub id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub tasks_json: String,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpsertWebStoreTemplateInput {
-    pub id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub tasks_json: String,
-}
-
-fn row_to_web_store_template(
-    row: &rusqlite::Row<'_>,
-) -> Result<WebStoreTemplateRecord, rusqlite::Error> {
-    Ok(WebStoreTemplateRecord {
-        id: row.get(0)?,
-        name: row.get(1)?,
-        description: row.get(2)?,
-        tasks_json: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
-    })
-}
-
-#[tauri::command]
-pub async fn list_web_store_templates(
-    app: AppHandle,
-) -> Result<Vec<WebStoreTemplateRecord>, String> {
-    let conn = get_db(&app)?;
-
-    let mut stmt = conn
-        .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates ORDER BY updated_at DESC")
-        .map_err(|error| error.to_string())?;
-
-    let template_iter = stmt
-        .query_map([], row_to_web_store_template)
-        .map_err(|error| error.to_string())?;
-
-    let mut records = Vec::new();
-    for template_result in template_iter {
-        records.push(template_result.map_err(|error| error.to_string())?);
-    }
-
-    Ok(records)
-}
-
-#[tauri::command]
-pub async fn get_web_store_template(
-    app: AppHandle,
-    id: String,
-) -> Result<Option<WebStoreTemplateRecord>, String> {
-    let conn = get_db(&app)?;
-
-    let mut stmt = conn
-        .prepare("SELECT id, name, description, tasks_json, created_at, updated_at FROM web_templates WHERE id = ?1")
-        .map_err(|error| error.to_string())?;
-
-    let mut rows = stmt
-        .query_map([&id], row_to_web_store_template)
-        .map_err(|error| error.to_string())?;
-
-    match rows.next() {
-        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub async fn upsert_web_store_template(
-    app: AppHandle,
-    input: UpsertWebStoreTemplateInput,
-) -> Result<WebStoreTemplateRecord, String> {
-    let conn = get_db(&app)?;
-
-    let now = chrono_like_now();
-
-    let existing = get_web_store_template(app.clone(), input.id.clone()).await?;
-
-    if existing.is_some() {
-        conn.execute(
-            "UPDATE web_templates SET name = ?1, description = ?2, tasks_json = ?3, updated_at = ?4 WHERE id = ?5",
-            params![input.name, input.description, input.tasks_json, now, input.id],
-        )
-        .map_err(|error| error.to_string())?;
-    } else {
-        conn.execute(
-            "INSERT INTO web_templates (id, name, description, tasks_json, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![input.id, input.name, input.description, input.tasks_json, now, now],
-        )
-        .map_err(|error| error.to_string())?;
-    }
-
-    let result = get_web_store_template(app.clone(), input.id).await?;
-    result.ok_or_else(|| "Failed to retrieve template after upsert".to_string())
-}
-
-#[tauri::command]
-pub async fn delete_web_store_template(app: AppHandle, id: String) -> Result<bool, String> {
-    let conn = get_db(&app)?;
-
-    conn.execute(
-        "UPDATE web_articles SET template_id = 'default' WHERE template_id = ?1",
-        params![id],
-    )
-    .map_err(|error| error.to_string())?;
-
-    conn.execute(
-        "DELETE FROM web_profile_templates WHERE template_id = ?1",
-        params![id],
-    )
-    .map_err(|error| error.to_string())?;
-
-    let changes = conn
-        .execute("DELETE FROM web_templates WHERE id = ?1", params![id])
-        .map_err(|error| error.to_string())?;
-
-    Ok(changes > 0)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebProfileTemplateRecord {
-    pub profile_id: String,
-    pub template_id: String,
-    pub updated_at: i64,
-}
-
-fn row_to_web_profile_template(
-    row: &rusqlite::Row<'_>,
-) -> Result<WebProfileTemplateRecord, rusqlite::Error> {
-    Ok(WebProfileTemplateRecord {
-        profile_id: row.get(0)?,
-        template_id: row.get(1)?,
-        updated_at: row.get(2)?,
-    })
-}
-
-#[tauri::command]
-pub async fn get_web_profile_template(
-    app: AppHandle,
-    profile_id: String,
-) -> Result<Option<WebProfileTemplateRecord>, String> {
-    let conn = get_db(&app)?;
-
-    let mut stmt = conn
-        .prepare("SELECT profile_id, template_id, updated_at FROM web_profile_templates WHERE profile_id = ?1")
-        .map_err(|error| error.to_string())?;
-
-    let mut rows = stmt
-        .query_map([&profile_id], row_to_web_profile_template)
-        .map_err(|error| error.to_string())?;
-
-    match rows.next() {
-        Some(result) => Ok(Some(result.map_err(|error| error.to_string())?)),
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub async fn upsert_web_profile_template(
-    app: AppHandle,
-    profile_id: String,
-    template_id: String,
-) -> Result<WebProfileTemplateRecord, String> {
-    let conn = get_db(&app)?;
-
-    let now = chrono_like_now();
-
-    conn.execute(
-        "INSERT OR IGNORE INTO web_domains (id, name, count, updated_at) VALUES (?1, ?1, 0, ?2)",
-        params![profile_id, now],
-    )
-    .map_err(|error| error.to_string())?;
-
-    conn.execute(
-        "INSERT INTO web_profile_templates (profile_id, template_id, updated_at) VALUES (?1, ?2, ?3)
-         ON CONFLICT(profile_id) DO UPDATE SET template_id = excluded.template_id, updated_at = excluded.updated_at",
-        params![profile_id, template_id, now],
-    )
-    .map_err(|error| error.to_string())?;
-
-    let result = get_web_profile_template(app.clone(), profile_id).await?;
-    result.ok_or_else(|| "Failed to retrieve profile template after upsert".to_string())
-}
-
-#[tauri::command]
-pub async fn delete_web_profile_template(
-    app: AppHandle,
-    profile_id: String,
-) -> Result<bool, String> {
-    let conn = get_db(&app)?;
-
-    let changes = conn
-        .execute(
-            "DELETE FROM web_profile_templates WHERE profile_id = ?1",
-            params![profile_id],
-        )
-        .map_err(|error| error.to_string())?;
-
-    Ok(changes > 0)
-}
 
 #[cfg(test)]
 mod tests {
@@ -4210,6 +4101,99 @@ mod tests {
     }
 
     #[test]
+    fn upsert_article_row_updates_by_id_when_the_url_form_differs() {
+        let conn = build_in_memory_db();
+
+        // A legacy row captured before url normalization existed: same video,
+        // dirty url (tracking param).
+        conn.execute(
+            "INSERT INTO web_articles
+                (id, url, created_at, title, thumbnail, content, media_directory,
+                 main_color, profile, embedding_source_text, updated_at, viewed, date)
+             VALUES ('Vaksg4xJqm0',
+                     'https://www.youtube.com/watch?v=Vaksg4xJqm0&pp=ugUHEgVlcy1NWA%3D%3D',
+                     100, 'legacy title', NULL, NULL, NULL, NULL, 'chan', NULL, 100, 0, NULL)",
+            [],
+        )
+        .expect("insert legacy row");
+
+        let canonical = "https://www.youtube.com/watch?v=Vaksg4xJqm0".to_string();
+        upsert_web_store_article_row(
+            &conn,
+            UpsertWebStoreArticleInput {
+                url: canonical.clone(),
+                title: Some("New title".to_string()),
+                thumbnail: None,
+                content: None,
+                directory: None,
+                main_color: None,
+                profile: Some("AndreaTrega".to_string()),
+                embedding_source_text: None,
+                date: None,
+                mode: Some("metadata".to_string()),
+            },
+        )
+        .expect("upsert by canonical url");
+
+        // The legacy row was updated in place: no second row was created.
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_articles", [], |row| row.get(0))
+            .expect("count articles");
+        assert_eq!(count, 1);
+
+        let (url, title, profile, mode): (String, String, String, String) = conn
+            .query_row(
+                "SELECT url, title, profile, mode FROM web_articles WHERE id = 'Vaksg4xJqm0'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                    ))
+                },
+            )
+            .expect("read updated row");
+        assert_eq!(url, canonical, "the stored url is rewritten to canonical");
+        assert_eq!(title, "New title");
+        assert_eq!(profile, "andreatrega", "profile is lowercased");
+        assert_eq!(mode, "metadata");
+    }
+
+    #[test]
+    fn upsert_article_row_inserts_when_no_row_matches_url_or_id() {
+        let conn = build_in_memory_db();
+
+        upsert_web_store_article_row(
+            &conn,
+            UpsertWebStoreArticleInput {
+                url: "https://www.youtube.com/watch?v=abc123".to_string(),
+                title: Some("Fresh".to_string()),
+                thumbnail: None,
+                content: None,
+                directory: None,
+                main_color: None,
+                profile: None,
+                embedding_source_text: None,
+                date: None,
+                mode: Some("metadata".to_string()),
+            },
+        )
+        .expect("upsert new article");
+
+        let (count, mode): (i64, String) = conn
+            .query_row(
+                "SELECT COUNT(*), COALESCE(mode, '') FROM web_articles",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("count articles");
+        assert_eq!(count, 1);
+        assert_eq!(mode, "metadata");
+    }
+
+    #[test]
     fn find_first_match_snippet_is_case_insensitive_literal() {
         let content = "Intro line\nsay Hello World from the article\noutro";
 
@@ -4578,32 +4562,75 @@ mod tests {
     }
 
     #[test]
-    fn replace_task_data_updates_matching_task_and_no_ops_otherwise() {
-        let tasks_json = r#"[
-            {"id": "title", "name": "Title", "data": "Hello", "status": "done"},
-            {"id": "analysis", "data": {"topics": ["a"]}, "status": "done"}
-        ]"#;
+    fn save_article_analysis_round_trips_and_replaces_windows() {
+        let conn = build_in_memory_db();
+        insert_article(&conn, "a1", "chan", 100, None);
 
-        let updated = replace_task_data(
-            tasks_json,
-            "analysis",
-            serde_json::json!(["x", "y"]),
-        )
-        .expect("task found");
+        let first = SaveArticleAnalysisInput {
+            url: "a1".to_string(),
+            summary: Some("first summary".to_string()),
+            divisor: Some(4),
+            windows: vec![
+                ArticleWindowInput {
+                    window_index: 0,
+                    start_offset: 0,
+                    end_offset: 10,
+                    payload: r#"{"summary":"w0"}"#.to_string(),
+                },
+                ArticleWindowInput {
+                    window_index: 1,
+                    start_offset: 10,
+                    end_offset: 20,
+                    payload: r#"{"summary":"w1"}"#.to_string(),
+                },
+            ],
+        };
 
-        let parsed: Value = serde_json::from_str(&updated).expect("valid json");
-        let tasks = parsed.as_array().expect("array");
-        assert_eq!(tasks[1].get("data").unwrap(), &serde_json::json!(["x", "y"]));
-        assert_eq!(
-            tasks[0].get("data").unwrap(),
-            "Hello",
-            "other tasks must stay untouched"
-        );
+        write_article_analysis(&conn, &first).expect("save analysis");
 
-        // Missing id, invalid JSON and non-array payloads are no-ops.
-        assert!(replace_task_data(tasks_json, "missing", serde_json::json!(1)).is_none());
-        assert!(replace_task_data("not-json", "title", serde_json::json!(1)).is_none());
-        assert!(replace_task_data(r#"{"id": "title"}"#, "title", serde_json::json!(1)).is_none());
+        let stored = read_article_analysis(&conn, "a1")
+            .expect("read analysis")
+            .expect("analysis exists");
+        assert_eq!(stored.summary.as_deref(), Some("first summary"));
+        assert_eq!(stored.divisor, Some(4));
+        assert_eq!(stored.mode.as_deref(), Some("full"));
+        assert_eq!(stored.windows.len(), 2);
+        assert_eq!(stored.windows[0].window_index, 0);
+        assert_eq!(stored.windows[1].start_offset, 10);
+        assert_eq!(stored.windows[1].payload, r#"{"summary":"w1"}"#);
+
+        // Saving again replaces the previous windows instead of merging them.
+        let second = SaveArticleAnalysisInput {
+            url: "a1".to_string(),
+            summary: Some("second summary".to_string()),
+            divisor: Some(8),
+            windows: vec![ArticleWindowInput {
+                window_index: 0,
+                start_offset: 0,
+                end_offset: 42,
+                payload: r#"{"summary":"only"}"#.to_string(),
+            }],
+        };
+
+        write_article_analysis(&conn, &second).expect("save analysis again");
+
+        let stored = read_article_analysis(&conn, "a1")
+            .expect("read analysis")
+            .expect("analysis exists");
+        assert_eq!(stored.windows.len(), 1, "windows are replaced, not merged");
+        assert_eq!(stored.summary.as_deref(), Some("second summary"));
+        assert_eq!(stored.divisor, Some(8));
+
+        let window_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM article_windows", [], |row| row.get(0))
+            .expect("count windows");
+        assert_eq!(window_count, 1);
+    }
+
+    #[test]
+    fn read_article_analysis_returns_none_for_unknown_article() {
+        let conn = build_in_memory_db();
+        assert!(read_article_analysis(&conn, "missing").expect("read").is_none());
     }
 
     #[test]
@@ -4616,10 +4643,13 @@ mod tests {
 
         for url in ["a1", "a2", "a3", "chan"] {
             conn.execute(
-                "INSERT INTO web_tasks (url, tasks_json, updated_at) VALUES (?1, '[]', 0)",
-                params![url],
+                "INSERT INTO article_windows
+                     (id, article_url, window_index, start_offset, end_offset, payload,
+                      created_at, updated_at)
+                 VALUES (?1, ?2, 0, 0, 1, '{}', 0, 0)",
+                params![format!("window-{url}"), url],
             )
-            .expect("insert task");
+            .expect("insert window");
         }
 
         // "ghost" does not exist: must contribute zero, not fail.
@@ -4637,10 +4667,10 @@ mod tests {
             .expect("count articles");
         assert_eq!(article_count, 1, "only a3 must survive");
 
-        let task_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM web_tasks", [], |row| row.get(0))
-            .expect("count tasks");
-        assert_eq!(task_count, 1, "only a3 tasks must survive");
+        let window_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM article_windows", [], |row| row.get(0))
+            .expect("count windows");
+        assert_eq!(window_count, 1, "only a3 windows must survive");
 
         // Domains were rebuilt from the surviving articles exactly once.
         let domain_count: i64 = conn
@@ -4650,29 +4680,72 @@ mod tests {
     }
 
     #[test]
-    fn task_chunks_from_json_returns_chunks_for_task() {
-        let tasks_json = r#"[
-            {"id": "title", "data": "Hello"},
-            {"id": "summary", "data": {
-                "chunks": [{"key": {"startOffset": 0, "endOffset": 5}, "data": ["a", "b"]}],
-                "finalResponse": "Final"
-            }}
-        ]"#;
+    fn list_articles_without_profile_filters_by_mode() {
+        let conn = build_in_memory_db();
 
-        let chunks = task_chunks_from_json(tasks_json, "summary").expect("chunks found");
-        assert!(chunks.is_array());
-        assert_eq!(chunks.as_array().expect("array").len(), 1);
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed, mode)
+             VALUES ('pending', 'https://example.com/pending', 1, 'p', 1, 0, 'metadata')",
+            [],
+        )
+        .expect("insert pending");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed, mode)
+             VALUES ('done', 'https://example.com/done', 2, 'd', 2, 0, 'full')",
+            [],
+        )
+        .expect("insert done");
+        conn.execute(
+            "INSERT INTO web_articles (id, url, created_at, title, updated_at, viewed)
+             VALUES ('none', 'https://example.com/none', 3, 'n', 3, 0)",
+            [],
+        )
+        .expect("insert without mode");
 
-        let missing = task_chunks_from_json(tasks_json, "title");
-        assert!(missing.is_none(), "non-recursive task has no chunks");
+        let metadata = query_articles_without_profile(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                mode: Some("metadata".to_string()),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+            None,
+            None,
+        )
+        .expect("query metadata");
 
-        let unknown = task_chunks_from_json(tasks_json, "nope");
-        assert!(unknown.is_none());
-    }
+        assert_eq!(metadata.articles.len(), 1);
+        assert_eq!(metadata.articles[0].url.as_deref(), Some("https://example.com/pending"));
 
-    #[test]
-    fn task_chunks_from_json_returns_none_for_invalid_json() {
-        assert!(task_chunks_from_json("not-json", "summary").is_none());
+        let full = query_articles_without_profile(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                mode: Some("full".to_string()),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+            None,
+            None,
+        )
+        .expect("query full");
+
+        assert_eq!(full.articles.len(), 1);
+        assert_eq!(full.articles[0].url.as_deref(), Some("https://example.com/done"));
+
+        // Without a mode filter every article is returned, including the ones
+        // that were never analysed.
+        let all = query_articles_without_profile(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+            None,
+            None,
+        )
+        .expect("query all");
+
+        assert_eq!(all.articles.len(), 3);
     }
 
     #[test]

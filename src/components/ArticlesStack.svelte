@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ProfileStackCell } from '@/lib/utils/articleGridCells';
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
 
 	interface Props {
@@ -39,7 +39,7 @@
 	}
 </script>
 
-{#snippet layer(article: ArticleWithTasks, index: number, total: number)}
+{#snippet layer(article: ArticleRecord, index: number, total: number)}
 	<div class="articles-stack__layer" style={layerStyle(index, total)}>
 		{#if index === 0 && frontArticle && !frontArticle.viewed}
 			<span class="articles-stack__unread-dot" aria-hidden="true"></span>

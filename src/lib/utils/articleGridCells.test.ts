@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import type { ArticleWithTasks } from '@/stores/webStore';
+import type { ArticleRecord } from '@/stores/webStore';
 import { DEFAULT_STACK_PREVIEW_COUNT, buildArticleGridCells } from './articleGridCells';
 
 let idCounter = 0;
 
-function article(overrides: Partial<ArticleWithTasks> = {}): ArticleWithTasks {
+function article(overrides: Partial<ArticleRecord> = {}): ArticleRecord {
 	idCounter += 1;
 	return {
 		id: `a${idCounter}`,

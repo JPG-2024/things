@@ -11,6 +11,15 @@ Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Complement
 > hechos, ver la sección "Estado de implementación". Quedan REN-1, REN-2 y
 > REN-4.
 
+> **Nota de cierre (2026-10-24):** el sistema de tareas fue **reemplazado** por
+> el MVP article runner (`docs/mvp-article-runner-plan.md`). Los items `IPC-*`
+> quedan obsoletos en su parte de tasks: el blob `web_tasks`, los comandos
+> `upsert_web_store_tasks` / `get_web_store_tasks_by_url` /
+> `get_web_store_task_chunks` / `update_web_store_task_data` y la cola
+> `viewState.urlQueue` ya no existen. El trabajo de rendimiento vive ahora en
+> `DOCS/ArticleRunner.md` (abrir un artículo cacheado son 2 lecturas locales,
+> 0 red y 0 LLM).
+
 Convenciones del repo que aplican a casi todo lo de abajo:
 
 - Todo comando Tauri nuevo debe registrarse en el invoke handler de
@@ -24,22 +33,22 @@ Convenciones del repo que aplican a casi todo lo de abajo:
 
 ## Estado de implementación (2026-10-22)
 
-| Item | Estado | Commit | Notas |
-|------|--------|--------|-------|
-| IPC-1 | ✅ Hecho | `53b6555` | Hidratación solo en paths de detalle; `getArticleThumbnailByUrl` liviano (fila + thumb, sin hidratar) |
-| IPC-2 | ✅ Hecho (opción B) | `53b6555` | Descarga de `web_tasks` completa eliminada; desvío documentado abajo |
-| IPC-3 | ✅ Hecho (cache) | `ce1dcd1` | Memo por `(directory, filename)` a nivel promesa + `isResolvedMediaSrc`; el comando batch (punto 2 del fix) queda opcional |
-| IPC-4a | ✅ Hecho | `6ead6a8` | `ensure_schema` memoizado por ruta (`Lazy<Mutex<HashSet<PathBuf>>>`); 41 `init_schema` por comando eliminados |
-| IPC-4b | ⏸ Opcional | — | Solo si la medición lo justifica |
-| IPC-5 | ✅ Hecho | `6ead6a8` | Transacción única + rebuild 1 vez + media/raw content en Rust; test nuevo |
-| IPC-6 | ✅ Hecho | `9b15466` | `delete_web_store_articles_by_urls(urls) -> usize`; embeddings batch server-side; comandos single huérfanos borrados |
-| IPC-7 | ✅ Hecho | `88b068c` | `update_web_store_task_data(url, taskId, data) -> bool` atómico; wrap de raw content replicado en Rust |
-| BOOT-1 | ✅ Hecho | `f6d0d54` | `loadSettings` con `Promise.all` (orden de aplicación preservado); `set('version')` fire-and-forget |
-| REN-3 | ✅ Hecho | `5168516` | `loading="lazy"` + `decoding="async"` en la thumb de `ArticleThumbnail` |
-| REN-5 | ✅ Hecho | `4a04c88` | Guard single-flight en `handleRawSearch(pattern, force)` + `rawSearchLastPattern`; el botón fuerza re-búsqueda |
-| BOOT-2a | ✅ Hecho | `752e284` | Promesa compartida de `/voices` (fallo no sticky, copia defensiva); `force` en re-fetch post-mutación |
-| BOOT-2b | ✅ Hecho | `acbdfb4` | `useVoiceProfiles` eliminado; estado y métodos en `ttsState`; `mainVoiceState` sin estado propio (−184 líneas netas) |
-| BOOT-3 | ✅ Hecho | `0c6a500` | Autostart de llama diferido 3 s; `createAdaptivePoller` (skip oculto + refresh al foreground + backoff 15→30→60 s) |
+| Item    | Estado              | Commit    | Notas                                                                                                                      |
+| ------- | ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| IPC-1   | ✅ Hecho            | `53b6555` | Hidratación solo en paths de detalle; `getArticleThumbnailByUrl` liviano (fila + thumb, sin hidratar)                      |
+| IPC-2   | ✅ Hecho (opción B) | `53b6555` | Descarga de `web_tasks` completa eliminada; desvío documentado abajo                                                       |
+| IPC-3   | ✅ Hecho (cache)    | `ce1dcd1` | Memo por `(directory, filename)` a nivel promesa + `isResolvedMediaSrc`; el comando batch (punto 2 del fix) queda opcional |
+| IPC-4a  | ✅ Hecho            | `6ead6a8` | `ensure_schema` memoizado por ruta (`Lazy<Mutex<HashSet<PathBuf>>>`); 41 `init_schema` por comando eliminados              |
+| IPC-4b  | ⏸ Opcional          | —         | Solo si la medición lo justifica                                                                                           |
+| IPC-5   | ✅ Hecho            | `6ead6a8` | Transacción única + rebuild 1 vez + media/raw content en Rust; test nuevo                                                  |
+| IPC-6   | ✅ Hecho            | `9b15466` | `delete_web_store_articles_by_urls(urls) -> usize`; embeddings batch server-side; comandos single huérfanos borrados       |
+| IPC-7   | ✅ Hecho            | `88b068c` | `update_web_store_task_data(url, taskId, data) -> bool` atómico; wrap de raw content replicado en Rust                     |
+| BOOT-1  | ✅ Hecho            | `f6d0d54` | `loadSettings` con `Promise.all` (orden de aplicación preservado); `set('version')` fire-and-forget                        |
+| REN-3   | ✅ Hecho            | `5168516` | `loading="lazy"` + `decoding="async"` en la thumb de `ArticleThumbnail`                                                    |
+| REN-5   | ✅ Hecho            | `4a04c88` | Guard single-flight en `handleRawSearch(pattern, force)` + `rawSearchLastPattern`; el botón fuerza re-búsqueda             |
+| BOOT-2a | ✅ Hecho            | `752e284` | Promesa compartida de `/voices` (fallo no sticky, copia defensiva); `force` en re-fetch post-mutación                      |
+| BOOT-2b | ✅ Hecho            | `acbdfb4` | `useVoiceProfiles` eliminado; estado y métodos en `ttsState`; `mainVoiceState` sin estado propio (−184 líneas netas)       |
+| BOOT-3  | ✅ Hecho            | `0c6a500` | Autostart de llama diferido 3 s; `createAdaptivePoller` (skip oculto + refresh al foreground + backoff 15→30→60 s)         |
 
 Desvío aceptado en IPC-2 (opción B elegida sobre la proyección de tasks): las
 listas ya no reciben `persistedTasks` — la tabla `web_tasks` completa deja de
@@ -61,20 +70,20 @@ anotar el delta de invokes.
 Quick wins primero (no tocan Rust), luego el paquete IPC de listas, el resto
 de IPC en Rust, rendering pesado y arranque.
 
-| # | Item | Resumen | Esfuerzo | Depende de |
-|---|------|---------|----------|------------|
-| 1 | REN-3 | `loading="lazy"` en thumbnails | S | — |
-| 2 | BOOT-1 | `loadSettings` con `Promise.all` | S | — |
-| 3 | REN-5 | eliminar la doble búsqueda en contenido | S | — |
-| 4 | IPC-3 | cache/batch de media src | S/M | — |
-| 5 | BOOT-2a | dedup de `fetchVoiceProfiles` | S | — |
-| 6 | IPC-1 + IPC-2 | eliminar N+1 y la descarga de `web_tasks` completa | M | — (van juntos) |
-| 7 | IPC-4a | `init_schema` una vez por DB | S/M | — |
-| 8 | REN-2 | throttle del render durante streaming | M | — |
-| 9 | IPC-5 / IPC-6 / IPC-7 | deletes en batch + task-patch en Rust | M c/u | IPC-4a (recomendado) |
-| 10 | REN-1a → 1c → 1b | MasonryGrid: observe incremental → resize gating → ventana de render | M/L | — |
-| 11 | REN-4 | límites en `search_raw_content` | S/M | IPC-1 (para el mapeo cliente) |
-| 12 | BOOT-3 | deferral de llama + polls adaptativos | S/M | — |
+| #   | Item                  | Resumen                                                              | Esfuerzo | Depende de                    |
+| --- | --------------------- | -------------------------------------------------------------------- | -------- | ----------------------------- |
+| 1   | REN-3                 | `loading="lazy"` en thumbnails                                       | S        | —                             |
+| 2   | BOOT-1                | `loadSettings` con `Promise.all`                                     | S        | —                             |
+| 3   | REN-5                 | eliminar la doble búsqueda en contenido                              | S        | —                             |
+| 4   | IPC-3                 | cache/batch de media src                                             | S/M      | —                             |
+| 5   | BOOT-2a               | dedup de `fetchVoiceProfiles`                                        | S        | —                             |
+| 6   | IPC-1 + IPC-2         | eliminar N+1 y la descarga de `web_tasks` completa                   | M        | — (van juntos)                |
+| 7   | IPC-4a                | `init_schema` una vez por DB                                         | S/M      | —                             |
+| 8   | REN-2                 | throttle del render durante streaming                                | M        | —                             |
+| 9   | IPC-5 / IPC-6 / IPC-7 | deletes en batch + task-patch en Rust                                | M c/u    | IPC-4a (recomendado)          |
+| 10  | REN-1a → 1c → 1b      | MasonryGrid: observe incremental → resize gating → ventana de render | M/L      | —                             |
+| 11  | REN-4                 | límites en `search_raw_content`                                      | S/M      | IPC-1 (para el mapeo cliente) |
+| 12  | BOOT-3                | deferral de llama + polls adaptativos                                | S/M      | —                             |
 
 Opcionales (solo si medición lo justifica): IPC-4b (pool de conexiones, L),
 BOOT-2b (consolidación de estado de voz, L), REN-1d (`content-visibility`, M,
@@ -205,8 +214,9 @@ ruta de DB dentro de `get_db` (también en `init_database_at`); los 41
 **Problema (verificado).** `get_db` (`web_store.rs:256-259`) abre una
 `Connection` nueva (con PRAGMAs en `open_connection`) por comando, y cada
 comando además llama `init_schema(&conn)` (migración `rename_profiles_to_domains`
-+ DDL completo de todas las tablas, `web_store.rs:261+`). Se multiplica en
-decenas de comandos.
+
+- DDL completo de todas las tablas, `web_store.rs:261+`). Se multiplica en
+  decenas de comandos.
 
 **Fix por etapas (la B difiere hasta medir).**
 
@@ -280,9 +290,10 @@ reutiliza `delete_bucket_rows`; embeddings vía `delete_article_embeddings_batch
 **Problema (verificado).** `deleteSelected`
 (`src/stores/selectedArticlesStore.svelte.ts:37-55`) llama `deleteArticleByUrl`
 en serie; cada una (`webStore.ts:987-1003`) = get article + get tasks (2 IPC)
-+ delete media + delete article + delete tasks + delete embeddings. En Rust,
-cada `delete_web_store_article_by_url` además corre
-`rebuild_domains_from_articles` completo (`web_store.rs:1814-1833`).
+
+- delete media + delete article + delete tasks + delete embeddings. En Rust,
+  cada `delete_web_store_article_by_url` además corre
+  `rebuild_domains_from_articles` completo (`web_store.rs:1814-1833`).
 
 **Fix.** Comando Rust `delete_web_store_articles_by_urls(urls: Vec<String>) -> usize`:
 
@@ -304,9 +315,10 @@ artículos) + verificación de residuos (thumbs y embeddings huérfanos).
 
 **Estado: ✅ implementado (`88b068c`).** Helper puro
 `replace_task_data` (test: `replace_task_data_updates_matching_task_and_no_ops_otherwise`)
-+ comando `update_web_store_task_data` con SELECT+UPDATE en una transacción y
-wrap de raw content replicado server-side. El cliente quedó en 1 invoke con el
-mismo contrato.
+
+- comando `update_web_store_task_data` con SELECT+UPDATE en una transacción y
+  wrap de raw content replicado server-side. El cliente quedó en 1 invoke con el
+  mismo contrato.
 
 **Problema (verificado).** `updateTaskDataById` (`webStore.ts:958-985`):
 `get_web_store_tasks_by_url` (JSON completo de ida) → parse en JS → muta 1
@@ -453,7 +465,7 @@ recarga por búsqueda. El cliente además mapea todos los resultados vía
 1. Parámetro `limit` (máx. resultados) con early-exit del loop de `read_dir`.
    El orden por `created_at` se mantiene entre los N encontrados — mejor aún:
    mover el sort al SQL en `fetch_articles_by_urls` (`ORDER BY a.created_at
-   DESC LIMIT ?`) en vez de ordenar en memoria.
+DESC LIMIT ?`) en vez de ordenar en memoria.
 2. Cap de lectura por archivo: `File::take(MAX_FILE_BYTES)` (p. ej. 1 MB) o
    early-exit al primer match leyendo en stream.
 3. Exponer el `limit` en el caller (`+page.svelte:141`) y darlo de alta como
@@ -610,7 +622,7 @@ los dots del toolbar reflejan el estado real al volver a la app.
 ## 4. Verificación global (por cada fase aterrizada)
 
 1. **Tipos:** `bunx svelte-check --tsconfig ./tsconfig.json <archivos
-   modificados>` (repo rule: por archivo, no repo entero) + `bun run lint`.
+modificados>` (repo rule: por archivo, no repo entero) + `bun run lint`.
 2. **Tests:** `bun run test`; si hubo Rust,
    `cargo test --manifest-path src-tauri/Cargo.toml`.
 3. **Build:** `bun run build` y comparar pesos de chunks contra el baseline.

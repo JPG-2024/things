@@ -1,35 +1,22 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { viewState } from '@/stores/viewStore.svelte';
-import type { ArticleWithTasks } from '@/stores/webStore';
+import type { ArticleRecord } from '@/stores/webStore';
 
 const MAX_ITEMS = 25;
 const MAX_CHARS_PER_ITEM = 300;
 const MAX_TOTAL_CHARS = 15000;
 
-function extractTitle(article: ArticleWithTasks): string | null {
-	const title = article.persistedTasks?.find((t) => t.name?.toLowerCase() === 'title')?.data;
+function extractTitle(article: ArticleRecord): string | null {
+	const title = article.title;
 	return typeof title === 'string' && title.trim() ? title.trim() : null;
 }
 
-function extractSummary(article: ArticleWithTasks): string | null {
-	const task = article.persistedTasks?.find(
-		(t) => t.id === 'title-summary' || t.id === 'summary' || t.id === 'analysis'
-	);
-	const data = task?.data;
-	if (typeof data === 'string' && data.trim()) return data.trim();
-	if (data && typeof data === 'object') {
-		const obj = data as Record<string, unknown>;
-		if (typeof obj.finalResponse === 'string' && obj.finalResponse.trim())
-			return obj.finalResponse.trim();
-		if (obj.finalResponse && typeof obj.finalResponse === 'object') {
-			const fr = obj.finalResponse as Record<string, unknown>;
-			if (typeof fr.summary === 'string' && fr.summary.trim()) return fr.summary.trim();
-		}
-	}
-	return null;
+function extractSummary(article: ArticleRecord): string | null {
+	const summary = article.summary;
+	return typeof summary === 'string' && summary.trim() ? summary.trim() : null;
 }
 
-export function collectArticleTexts(articles: ArticleWithTasks[]): string[] {
+export function collectArticleTexts(articles: ArticleRecord[]): string[] {
 	const items: string[] = [];
 	for (const article of articles) {
 		if (items.length >= MAX_ITEMS) break;
@@ -43,7 +30,7 @@ export function collectArticleTexts(articles: ArticleWithTasks[]): string[] {
 	return items;
 }
 
-export async function generateProfileSummary(articles: ArticleWithTasks[]): Promise<string> {
+export async function generateProfileSummary(articles: ArticleRecord[]): Promise<string> {
 	const items = collectArticleTexts(articles);
 	if (items.length === 0) {
 		throw new Error('No titles or summaries available for the fetched articles');

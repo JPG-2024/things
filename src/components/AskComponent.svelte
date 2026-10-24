@@ -9,12 +9,12 @@
 		type LlamaChatCompletionsRequest
 	} from '@/lib/utils/inference/chat-completions-provider';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
-	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { taskEmbeddingTable } from '@/lib/utils/embeddingTasks';
+	import { readRawContent } from '@/lib/utils/rawContent';
+	import { articleState } from '@/stores/articleStore.svelte';
 
-	type AskComponentProps = TaskComponentProps & {
+	type AskComponentProps = {
 		model?: string;
 		maxTokens?: number;
 		temperature?: number;
@@ -27,20 +27,13 @@
 	};
 
 	type Props = {
-		runId?: string;
-		task: Task;
+		/** Url of the article whose body is used as context. */
+		url?: string | null;
 		componentProps?: AskComponentProps;
 		inputValue?: string;
 	};
 
-	let {
-		runId = undefined,
-		task,
-		componentProps = {},
-		inputValue = $bindable('')
-	}: Props = $props();
-
-	void runId;
+	let { url = null, componentProps = {}, inputValue = $bindable('') }: Props = $props();
 
 	const DEFAULT_SYSTEM_PROMPT = 'Response using the context';
 	const DEFAULT_MODEL = 'llama-server';
@@ -58,13 +51,16 @@
 	let searchEnabled = $state(false);
 	let tableInstances: SimilarEmbeddingsHandle[] = [];
 
+	const articleUrl = $derived(url ?? articleState.currentArticle.url);
+	const windows = $derived(articleState.currentArticle.analysis?.windows ?? []);
+
 	const tables = $derived.by(() => {
-		// Default to the task's own embedding table (task.embedTable ?? task.id);
+		// The default table is the one the analysis indexes into (`summary`);
 		// a configured `embeddingTable` prop overrides it (comma-separated).
 		const raw =
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()
-				: taskEmbeddingTable(task);
+				: viewState.chatSearchTables;
 		return raw
 			.split(',')
 			.map((t) => t.trim())
@@ -83,25 +79,15 @@
 			: 0.32
 	);
 
-	function collectContext(content: Task['data']): string {
-		if (typeof content === 'string') return content.trim();
-		if (!Array.isArray(content)) return '';
-
-		let text = '';
-		for (const part of content) {
-			if (
-				part &&
-				typeof part === 'object' &&
-				'type' in part &&
-				part.type === 'text' &&
-				'text' in part
-			) {
-				const chunk = part.text;
-				if (typeof chunk === 'string') text += chunk;
-			}
-		}
-
-		return text.trim();
+	/**
+	 * The body of the article is read from its raw file on demand: it is never
+	 * kept in the store, so asking a question is the only thing that pulls it
+	 * into memory.
+	 */
+	async function collectContext(): Promise<string> {
+		if (!articleUrl) return '';
+		const content = await readRawContent(articleUrl);
+		return content?.trim() ?? '';
 	}
 
 	async function handleSubmit(prompt: string) {
@@ -126,7 +112,7 @@
 				.join('\n\n');
 		}
 
-		const context = collectContext(task.data);
+		const context = await collectContext();
 		const systemPrompt =
 			typeof componentProps.systemPrompt === 'string' && componentProps.systemPrompt.trim()
 				? componentProps.systemPrompt.trim()
@@ -134,11 +120,7 @@
 		const model =
 			typeof componentProps.model === 'string' && componentProps.model.trim()
 				? componentProps.model.trim()
-				: 'completionOptions' in task &&
-					  typeof task.completionOptions !== 'function' &&
-					  task.completionOptions?.model
-					? task.completionOptions.model
-					: DEFAULT_MODEL;
+				: viewState.aiModel || DEFAULT_MODEL;
 		const maxTokens =
 			typeof componentProps.maxTokens === 'number' && componentProps.maxTokens > 0
 				? componentProps.maxTokens
@@ -175,8 +157,6 @@
 				},
 				onReasoningToken: (text) => console.log(text)
 			});
-
-			console.log(response);
 
 			const finalText = response.choices?.[0]?.message?.content;
 			if (typeof finalText === 'string' && finalText.trim()) {
@@ -227,7 +207,8 @@
 		{#each tables as table, i (table)}
 			<SimilarEmbeddingsComponent
 				id={table}
-				data={task.data}
+				{windows}
+				field="summary"
 				enabled={false}
 				articleUrl={null}
 				limit={searchLimit}

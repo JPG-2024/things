@@ -13,9 +13,6 @@
 	import FloatingYouTubePlayer from '@/components/youtube/FloatingYouTubePlayer.svelte';
 	import ConversationMode from '@/components/ConversationMode.svelte';
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
-	import PodcastMode from '@/features/podcast/PodcastMode.svelte';
-	import PodcastSettings from '@/features/podcast/PodcastSettings.svelte';
-	import TaskWorkflowEditor from '@/components/Tasks/TaskWorkflowEditor.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
 	import { ensureLlamaServers } from '@/lib/utils/llamaHealth';
@@ -27,8 +24,6 @@
 	import Modal from '@/components/Modal.svelte';
 	import ChatModal from '@/components/ChatModal.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { ensureAudioContext } from '@/lib/audioContextManager';
-	import { workflowStore } from '@/stores/workflowStore.svelte';
 	import { GLOBAL_CLIPBOARD_TRIGGER_EVENT, readClipboardAndHandle } from '@/lib/utils/clipboard';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { recordNavigation } from '@/stores/navigationHistory.svelte';
@@ -39,7 +34,6 @@
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
 	let conversationMode = $state(false);
-	let podcastMode = $state(false);
 	let chatOpen = $state(false);
 
 	$effect(() => {
@@ -122,7 +116,6 @@
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
 			conversationMode ||
-			podcastMode ||
 			chatOpen
 	);
 
@@ -172,25 +165,6 @@
 	);
 
 	createHotkey(
-		'Shift+S',
-		async () => {
-			if (!viewState.url) return;
-			const entry = workflowStore.stackedTasks.find(
-				({ task }) => task.id === viewState.selectedTaskId && task.status === 'done'
-			);
-			if (!entry?.task.data || typeof entry.task.data !== 'string') return;
-			void ensureAudioContext();
-			ttsState.setTextContents([entry.task.data]);
-			await ttsState.forceRegenerate(viewState.url);
-		},
-		{
-			ignoreInputs: true,
-			stopPropagation: true,
-			preventDefault: true
-		}
-	);
-
-	createHotkey(
 		'M',
 		() => {
 			conversationMode = !conversationMode;
@@ -200,19 +174,6 @@
 			stopPropagation: true,
 			preventDefault: true
 		}
-	);
-
-	createHotkey(
-		'P',
-		() => {
-			podcastMode = !podcastMode;
-		},
-		() => ({
-			ignoreInputs: true,
-			stopPropagation: true,
-			preventDefault: true,
-			enabled: !podcastMode
-		})
 	);
 
 	createHotkey(
@@ -228,9 +189,7 @@
 				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
-				!drawersState.isOpen('podcast-settings') &&
-				!conversationMode &&
-				!podcastMode,
+				!conversationMode,
 			ignoreInputs: true,
 			preventDefault: true,
 			stopPropagation: true
@@ -248,9 +207,7 @@
 				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
-				!drawersState.isOpen('podcast-settings') &&
 				!conversationMode &&
-				!podcastMode &&
 				!(page.url.pathname === '/' && viewState.activeProfileArticleTab === 'categories'),
 			ignoreInputs: true,
 			preventDefault: true,
@@ -287,10 +244,8 @@
 				!voiceSettingsState.ttsOpen &&
 				!drawersState.isOpen('settings') &&
 				!drawersState.isOpen('downloads') &&
-				!drawersState.isOpen('podcast-settings') &&
 				!drawersState.isOpen('conversation-settings') &&
-				!conversationMode &&
-				!podcastMode,
+				!conversationMode,
 			ignoreInputs: true,
 			preventDefault: true,
 			stopPropagation: true
@@ -342,8 +297,6 @@
 
 <!-- <TasksStatusBar /> -->
 
-<TaskWorkflowEditor />
-
 <TTSPlayer />
 
 <FloatingYouTubePlayer />
@@ -360,10 +313,6 @@
 	<ConversationMode onExit={() => (conversationMode = false)} />
 {/if}
 
-{#if podcastMode}
-	<PodcastMode onExit={() => (podcastMode = false)} />
-{/if}
-
 <Modal show={drawersState.isOpen('settings')} onClose={() => drawersState.close('settings')}>
 	<SettingsModal />
 </Modal>
@@ -371,13 +320,6 @@
 <Drawer name="conversation-settings">
 	<ConversationSettings />
 </Drawer>
-
-<Modal
-	show={drawersState.isOpen('podcast-settings')}
-	onClose={() => drawersState.close('podcast-settings')}
->
-	<PodcastSettings />
-</Modal>
 
 {#if drawersState.isOpen('downloads')}
 	<DownloadModal />

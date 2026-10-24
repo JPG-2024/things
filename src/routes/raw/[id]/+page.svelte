@@ -1,20 +1,16 @@
 <script lang="ts">
 	import PostView from '@/components/PostView.svelte';
-	import TasksRender from '@/components/Tasks/TasksRender.svelte';
-
-	import { page } from '$app/state';
-
-	const rawId = page.params.id;
+	import ArticleLayout from '@/components/ArticleLayout.svelte';
 </script>
 
 <PostView headerContent={null} {contentSnippet} />
 
 {#snippet contentSnippet()}
-	<TasksRender />
+	<ArticleLayout />
 {/snippet}
 
 <style>
-	@media (prefers-col-scheme: dark) {
+	@media (prefers-colorscheme: dark) {
 		:root {
 			background-color: #2f2f2f;
 			color: #f6f6f6;

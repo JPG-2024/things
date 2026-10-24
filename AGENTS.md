@@ -22,13 +22,51 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - `.github/copilot-instructions.md`: not present.
 - If any of the above are added later, treat them as additional repository instructions.
 
+## DEV MODE
+
+- This project runs in DEV MODE: local data (`workspaces/`, `things.db`,
+  `raw_content/`, `media/`, `embeddings/`) is throwaway test data. It can be
+  wiped or recaptured at any time.
+- Never write data migrations or repair code for existing rows. Fix the write
+  path instead, so new data is born correct.
+- Do not preserve legacy persisted shapes "just in case": if a stored row no
+  longer matches what the current code writes, deleting and recapturing is an
+  acceptable fix.
+
 ## Working Areas
 
 - Frontend routes and UI live in `src/routes/` and `src/components/`.
 - Shared TS utilities live under `src/lib/`, `src/stores/`, `src/runners/`, and `src/types/`.
 - Tauri Rust code lives under `src-tauri/src/`.
 - Database, Tauri capabilities, and app config live in `src-tauri/`.
-- LLM prompts are grouped per feature in `src/lib/utils/inference/prompts/` (generic inference) and `src/features/podcast/prompts/` (podcast). Each folder exposes an `index.ts` barrel that re-exports every file, so consumers import from the folder root (`@/lib/utils/inference/prompts`).
+- LLM prompts are grouped in `src/lib/utils/inference/prompts/` (generic inference). The folder exposes an `index.ts` barrel that re-exports every file, so consumers import from the folder root (`@/lib/utils/inference/prompts`).
+
+## Article Runner (the only orchestrator)
+
+The app runs **one linear pipeline per article**:
+`source → raw → article → analysis → title → category → embeddings`.
+
+- There is **no** task model, workflow stack or template system. Do not
+  reintroduce one: the whole point of the MVP runner is that an article is
+  either analysed or it is not.
+- `src/runners/articleRunner.ts` is the pipeline. `src/runners/articleSources.ts`
+  holds the three extractors (`web`, `youtube`, `raw`).
+- `src/runners/articleManager.svelte.ts` owns the **sequential** queue (one
+  article at a time: the local `llama-server` is single threaded).
+- `src/stores/articleStore.svelte.ts` holds the state of the open article
+  (status, step, progress, title, categories, analysis). Preferences live in
+  `viewState`.
+- The body of an article is **never** in a store: it lives in
+  `raw_content/<sha256(url)>.txt` and is read on demand through
+  `src/lib/utils/rawContent.ts`.
+- The analysis is persisted in `web_articles.summary` +
+  `web_articles.analysis_divisor` and in one `article_windows` row per
+  window. The executed window level is stored explicitly, never deduced from
+  the number of windows.
+- `viewState.windowLevel` is the index into `WINDOW_DIVISOR_LADDER`
+  (`[1, 2, 4, 8, 16]`). It applies to raw text and YouTube; web articles
+  split by markdown headings and have no knob.
+- `DOCS/ArticleRunner.md` documents the pipeline in detail.
 
 ## Build, Lint, and Dev Commands
 
@@ -60,7 +98,7 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
 - Test files live next to the module under test as `*.test.ts` and import from `bun:test`.
 - Run the whole suite: `bun run test`
 - Run a single file: `bun test src/lib/utils/splitText.test.ts`
-- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/embeddingSearch.test.ts` (pure merge/table logic; see `src/lib/utils/embeddingSearch.ts`), `src/lib/utils/inference/prompts/multi.test.ts`
+- Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/embeddingSearch.test.ts` (pure merge logic; see `src/lib/utils/embeddingSearch.ts`), `src/lib/utils/windowAnalysis.test.ts` (window ladder + split; the processor is imported dynamically so the module stays testable without the inference stack), `src/runners/shared/contextSizeError.test.ts`
 - Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
 - Known Rust tests at time of writing (all in `src-tauri/src/web_store.rs`, `web_store::tests`):
   - `query_articles_for_profile_orders_by_created_at_desc`
@@ -71,6 +109,11 @@ ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 |
   - `delete_category_rows_cascades_to_exemplars_and_links`
   - `category_exemplar_model_status_flags_stale_rows`
   - `migrate_clear_category_exemplars_drops_old_text_once`
+  - `save_article_analysis_round_trips_and_replaces_windows`
+  - `read_article_analysis_returns_none_for_unknown_article`
+  - `list_articles_without_profile_filters_by_mode`
+  - `upsert_article_row_updates_by_id_when_the_url_form_differs`
+  - `upsert_article_row_inserts_when_no_row_matches_url_or_id`
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
 ## Database Workspaces

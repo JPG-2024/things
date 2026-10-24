@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { articleManager } from '@/runners/articleManager.svelte';
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 	import Icon from '@/components/Icon.svelte';
 	import { navigateBack } from '@/stores/navigationHistory.svelte';
@@ -13,6 +14,11 @@
 	let { children, loading = false }: Props = $props();
 
 	let faviconSrc = $state<string | null>(null);
+
+	// The article manager's queue: true from the moment a run starts (or a
+	// url waits in the queue) until the drain finishes, regardless of which
+	// article is on screen.
+	const processing = $derived(articleManager.processing);
 
 	$effect(() => {
 		if (!viewState.domainUrl || viewState.isRawMode) {
@@ -55,7 +61,7 @@
 
 	{@render children?.()}
 
-	<div class="topbar-progress" class:is-loading={loading}></div>
+	<div class="topbar-progress" class:is-loading={loading || processing}></div>
 </div>
 
 <style>

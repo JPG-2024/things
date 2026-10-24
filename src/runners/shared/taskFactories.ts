@@ -1,189 +1,76 @@
-import { buildIaTask, iaTask, requireFinalResponseString } from '@/runners/taskSchema';
-import { classifyByEmbedding } from '@/lib/utils/categoryEmbeddings';
-import type { IaTaskDef } from '@/runners/taskSchema';
-import { parseStructuredArrayResponses } from '@/lib/utils/helpers/tasks';
-import { arrayToGbnf } from '@/lib/utils/gbnf';
-import {
-	DEFAULT_DYNAMIC_MODEL,
-	DEFAULT_IA_COMPLETION_OPTIONS,
-	DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-	DEFAULT_TITLE_COMPLETION_OPTIONS
-} from '@/lib/utils/inference/constants';
-import { buildExtractionCompletionOptions } from '@/lib/utils/inference/extraction-helper';
+/**
+ * The last two steps of the pipeline: the title and the category.
+ *
+ * They used to be tasks; now they are plain functions called by the runner.
+ */
+import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
+import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { parseTitleText } from '@/lib/utils/inference/finalResponse';
-import {
-	buildCategorySystemMessage,
-	buildCategoryUserMessage,
-	buildExtractionSystemMessage,
-	buildExtractionUserMessage,
-	buildTitleUserMessage,
-	DEFAULT_IA_SYSTEM_MESSAGE,
-	TITLE_SYSTEM_MESSAGE
-} from '@/lib/utils/inference/prompts';
+import { TITLE_SYSTEM_MESSAGE, buildTitleUserMessage } from '@/lib/utils/inference/prompts';
+import { DEFAULT_TITLE_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
+import { classifyByEmbedding } from '@/lib/utils/categoryEmbeddings';
 import { viewState } from '@/stores/viewStore.svelte';
-import type { ExtractorConfig, Task } from '@/types/taskRunner.types';
+import type { ArticleWindow } from '@/types/articleAnalysis.types';
 
-export type IaTaskFactoryOptions<TParsed = string> = Partial<
-	Omit<IaTaskDef<TParsed>, 'type' | 'extractorConfig'>
-> & {
-	model?: string;
-};
+/**
+ * Generates the title of an article from its summary.
+ *
+ * Returns `null` when the model produces nothing usable, so the caller can
+ * keep the title it already had.
+ */
+export async function buildArticleTitle(
+	summary: string,
+	options: { model?: string } = {}
+): Promise<string | null> {
+	const trimmed = summary.trim();
+	if (!trimmed) return null;
 
-export function createIaTask<TParsed = string>(
-	options: IaTaskFactoryOptions<TParsed> = {}
-): IaTaskDef<TParsed> {
-	const { model, component, systemMessage, userMessage, completionOptions, ...rest } = options;
+	try {
+		const response = await chatCompletions({
+			...DEFAULT_TITLE_COMPLETION_OPTIONS,
+			model: options.model ?? viewState.aiModel,
+			stream: false,
+			// The summary travels out of the prompt: `chatCompletions` prepends
+			// it to the user message and strips it before reaching the server.
+			context: trimmed,
+			messages: [
+				{ role: 'system', content: TITLE_SYSTEM_MESSAGE },
+				{ role: 'user', content: buildTitleUserMessage() }
+			]
+		});
 
-	return iaTask<TParsed>({
-		...rest,
-		component: component ?? 'taskBase',
-		systemMessage: systemMessage ?? DEFAULT_IA_SYSTEM_MESSAGE,
-		userMessage: userMessage ?? '',
-		completionOptions: completionOptions ?? {
-			...DEFAULT_IA_COMPLETION_OPTIONS,
-			model: model ?? DEFAULT_DYNAMIC_MODEL
-		}
-	});
-}
-
-export type ExtractionTaskOptions = Omit<IaTaskFactoryOptions<string[]>, 'run' | 'resultParser'> & {
-	extractor: ExtractorConfig;
-};
-
-export function createExtractionTask(options: ExtractionTaskOptions): IaTaskDef<string[]> {
-	const {
-		extractor,
-		dependencies = ['content'],
-		component,
-		subtype,
-		systemMessage,
-		userMessage,
-		completionOptions,
-		model,
-		...rest
-	} = options;
-
-	return createIaTask<string[]>({
-		...rest,
-		dependencies,
-		component: component ?? 'keywords',
-		subtype: subtype ?? 'extraction',
-		systemMessage:
-			systemMessage ?? buildExtractionSystemMessage(extractor.count, extractor.description),
-		userMessage: userMessage ?? buildExtractionUserMessage(extractor.count, extractor.description),
-		resultParser: (text) => parseStructuredArrayResponses(text),
-		completionOptions:
-			completionOptions ??
-			buildExtractionCompletionOptions(extractor.count, model ?? DEFAULT_DYNAMIC_MODEL)
-	});
-}
-
-export type CreateTitleTaskOptions = Omit<IaTaskFactoryOptions, 'run' | 'subtype'>;
-
-export function createTitleTask(options: CreateTitleTaskOptions = {}): IaTaskDef<string> {
-	const {
-		name,
-		dependencies = ['title-summary'],
-		renderOrder,
-		systemMessage,
-		userMessage,
-		completionOptions,
-		resultParser,
-		...rest
-	} = options;
-	const sourceDependency = dependencies[0];
-
-	return createIaTask<string>({
-		...rest,
-		name: name ?? 'Title',
-		dependencies,
-		subtype: 'title',
-		renderOrder: renderOrder ?? 1,
-		systemMessage: systemMessage ?? TITLE_SYSTEM_MESSAGE,
-		userMessage:
-			userMessage ??
-			(({ context }) => {
-				const lang = (context as { language?: string })?.language;
-				return buildTitleUserMessage(lang);
-			}),
-		run: ({ state }) => requireFinalResponseString(state, sourceDependency),
 		// Reasoner models answer with their thinking trace before the title;
 		// keep only the final response so the header never shows the trace.
-		resultParser: resultParser ?? ((text) => parseTitleText(text)),
-		completionOptions: completionOptions ?? DEFAULT_TITLE_COMPLETION_OPTIONS
-	});
+		const title = parseTitleText(assistantAnswerText(response));
+		return title.trim() || null;
+	} catch (error) {
+		console.warn('[taskFactories] title generation failed', error);
+		return null;
+	}
 }
 
-export type CreateCategoryTaskOptions = Omit<
-	IaTaskFactoryOptions<string[]>,
-	'run' | 'resultParser' | 'subtype' | 'extractorConfig'
-> & {
-	keywordsDependency?: string;
-	maxItems?: number;
-};
-
-export function createCategoryTask(options: CreateCategoryTaskOptions = {}): IaTaskDef<string[]> {
-	const {
-		keywordsDependency,
-		categoryNames,
-		maxItems = 1,
-		dependencies,
-		component,
-		componentProps,
-		systemMessage,
-		userMessage,
-		completionOptions,
-		model,
-		...rest
-	} = options;
-
-	const deps = dependencies ?? [keywordsDependency ?? 'keywords'];
-
-	const resolveNames = () => categoryNames ?? viewState.categories.map((c) => c.name);
-	const resolveListedNames = () =>
-		categoryNames ??
-		viewState.categories.map((c) => (c.description ? `${c.name}: (${c.description})` : c.name));
-
-	const def = createIaTask<string[]>({
-		...rest,
-		categoryNames,
-		dependencies: deps,
-		component: component ?? 'keywords',
-		componentProps: componentProps ?? { showPoint: false },
-		subtype: 'category',
-		systemMessage: systemMessage ?? buildCategorySystemMessage(maxItems),
-		userMessage: userMessage ?? (() => buildCategoryUserMessage(maxItems, resolveListedNames())),
-		resultParser: (text) => parseStructuredArrayResponses(text),
-		completionOptions:
-			completionOptions ??
-			(() => ({
-				...DEFAULT_STRUCTURED_OUTPUT_OPTIONS,
-				...(model ? { model } : {}),
-				grammar: arrayToGbnf(resolveNames(), { minItems: maxItems, maxItems })
-			}))
-	});
-
-	return {
-		...def,
-		directResult: (ctx) => {
-			// Explicit lists (templates / custom tasks) keep the LLM + grammar path.
-			if (categoryNames && categoryNames.length > 0) {
-				return null;
-			}
-			// The health indicator is informational only: always attempt the
-			// classification and let the embeddings call surface failures.
-			const analysisData = ctx.state[deps[0]];
-			const title = ctx.state['title'];
-			return classifyByEmbedding(analysisData, {
-				topN: viewState.categoryTopN,
-				minSimilarity: viewState.categoryMinSimilarity,
-				margin: viewState.categoryMargin,
-				title: typeof title === 'string' ? title : null
-			});
-		}
-	};
-}
-
-export function buildTask(id: string, def: IaTaskDef): Task {
-	return buildIaTask(id, def)(undefined);
+/**
+ * Classifies an article into category ids by comparing it with the category
+ * exemplars.
+ *
+ * The comparison text is `title + summary`, the same representation the
+ * exemplars were fed with.
+ */
+export async function classifyArticleCategory(params: {
+	title: string | null;
+	summary: string;
+	windows: ArticleWindow[];
+}): Promise<string[]> {
+	try {
+		return await classifyByEmbedding(params.windows, {
+			title: params.title,
+			summary: params.summary,
+			topN: viewState.categoryTopN,
+			minSimilarity: viewState.categoryMinSimilarity,
+			margin: viewState.categoryMargin
+		});
+	} catch (error) {
+		console.warn('[taskFactories] category classification failed', error);
+		return [];
+	}
 }

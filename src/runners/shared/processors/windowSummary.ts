@@ -1,3 +1,11 @@
+/**
+ * The window-summary processor: one plain-text summary call per window plus
+ * one final merge call over the joined window summaries.
+ *
+ * No topics, keywords, titles or grammar constraints: the window summary is
+ * the only analytic of the MVP runner. The context-overflow ladder lives in
+ * `windowAnalysis` and re-runs this processor with smaller windows.
+ */
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import {
@@ -5,20 +13,16 @@ import {
 	RECURSIVE_SUMMARY_USER_MESSAGE,
 	buildRecursiveSummarySystemMessage
 } from '@/lib/utils/inference/prompts';
-import { viewState } from '@/stores/viewStore.svelte';
-import { LANG_NAMES } from '@/constants';
-import type { ProcessorDef, WindowSummaryChunkData, WindowSummaryFinal } from './types';
-
-/**
- * Simplest windowed analysis: one plain-text summary call per window plus one
- * final combine call over the joined window summaries. No topics, keywords,
- * titles or grammar constraints; the context-overflow ladder in the recursive
- * run loop handles re-chunking transparently.
- */
-
-function langName(): string | undefined {
-	return LANG_NAMES[viewState.language];
-}
+import {
+	ANALYSIS_COMPLETION_OPTIONS,
+	DEFAULT_DYNAMIC_MODEL
+} from '@/lib/utils/inference/constants';
+import type {
+	ProcessorDef,
+	WindowSummaryChunkData,
+	WindowSummaryFinal,
+	WindowSummaryProcessorConfig
+} from './types';
 
 function stitchSummaries(results: WindowSummaryChunkData[]): string {
 	return results
@@ -29,25 +33,28 @@ function stitchSummaries(results: WindowSummaryChunkData[]): string {
 
 export const windowSummaryProcessor: ProcessorDef = {
 	type: 'windowSummary',
-	defaults: {
-		userMessage: RECURSIVE_SUMMARY_USER_MESSAGE,
-		finalUserMessage: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE
-	},
-	emptyFinal: () => ({ summary: '' }),
-	build: (config) => {
-		const userMessage = config.userMessage ?? RECURSIVE_SUMMARY_USER_MESSAGE;
-		const finalUserMessage = config.finalUserMessage ?? RECURSIVE_SUMMARY_FINAL_USER_MESSAGE;
+	build: (config: WindowSummaryProcessorConfig) => {
+		const model = config.model ?? DEFAULT_DYNAMIC_MODEL;
+		const completionOptions = {
+			...ANALYSIS_COMPLETION_OPTIONS,
+			...config.completionOptions,
+			model
+		};
 
 		const summarizeText = async (text: string, final: boolean): Promise<string> => {
 			const response = await chatCompletions({
-				...config.completionOptions,
-				model: config.model,
+				...completionOptions,
 				stream: false,
 				messages: [
-					{ role: 'system', content: buildRecursiveSummarySystemMessage(langName()) },
+					{
+						role: 'system',
+						content: buildRecursiveSummarySystemMessage(config.languageName)
+					},
 					{
 						role: 'user',
-						content: final ? `${finalUserMessage}\n\n${text}` : `${userMessage}:\n\n${text}`
+						content: final
+							? `${RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${text}`
+							: `${RECURSIVE_SUMMARY_USER_MESSAGE}:\n\n${text}`
 					}
 				]
 			});

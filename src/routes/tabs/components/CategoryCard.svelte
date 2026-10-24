@@ -2,13 +2,13 @@
 	import EntityCard from '@/components/EntityCard.svelte';
 	import CategoryItem from '@/components/CategoryItem.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
+	import type { ArticleRecord, CategoryWithArticles } from '@/stores/webStore';
 
 	interface Props {
 		category: CategoryWithArticles;
 		onCategoryClick: (category: CategoryWithArticles) => void;
-		onArticleClick: (article: ArticleWithTasks) => void;
-		onArticleHoverEnter: (article: ArticleWithTasks) => void;
+		onArticleClick: (article: ArticleRecord) => void;
+		onArticleHoverEnter: (article: ArticleRecord) => void;
 		onArticleHoverLeave: () => void;
 	}
 

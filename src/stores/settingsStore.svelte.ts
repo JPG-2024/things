@@ -2,11 +2,10 @@ import { isTauri } from '@tauri-apps/api/core';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { viewState } from '@/stores/viewStore.svelte';
 import { scrapStore } from '@/stores/scrapStore.svelte';
-import { podcastState, type PodcastConfig } from '@/features/podcast/podcastStore.svelte';
 import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
 import { CARD_LAYOUT_DEFAULTS, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
-import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
+import { clampWindowLevel } from '@/lib/utils/windowAnalysis';
 
 const STORE_FILE = 'settings.json';
 const SETTINGS_VERSION = 2;
@@ -14,8 +13,6 @@ const SETTINGS_VERSION = 2;
 const CARD_TABS: CardTab[] = ['profiles', 'domains', 'categories'];
 
 const LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'it', 'ja'] as const;
-const CONTEXT_SOURCES = ['content', 'summary', 'none'] as const;
-const SPEAKER_DYNAMICS = ['alternate', 'free'] as const;
 
 type PauseSettings = typeof ttsState.pauseSettings;
 
@@ -34,7 +31,6 @@ let persistenceStarted = false;
 
 // Snapshot the built-in defaults before any component can mutate them, so a
 // partial persisted section can be deep-merged back onto a full shape.
-const PODCAST_DEFAULTS: PodcastConfig = clonePlain(podcastState.config);
 const TTS_CONFIG_DEFAULTS: TTSConfig = clonePlain(ttsState.config);
 const TTS_PAUSE_DEFAULTS: PauseSettings = clonePlain(ttsState.pauseSettings);
 
@@ -101,15 +97,13 @@ function serializeView() {
 		categoryTopN: viewState.categoryTopN,
 		categoryMinSimilarity: viewState.categoryMinSimilarity,
 		categoryMargin: viewState.categoryMargin,
-		embeddingTable: viewState.embeddingTable,
-		embeddingField: viewState.embeddingField,
+		embeddingFields: $state.snapshot(viewState.embeddingFields),
 		embeddingStoreChunkText: viewState.embeddingStoreChunkText,
 		chatSearchEnabled: viewState.chatSearchEnabled,
 		chatSearchTables: viewState.chatSearchTables,
 		chatSearchMaxResults: viewState.chatSearchMaxResults,
 		chatSearchMaxDistance: viewState.chatSearchMaxDistance,
-		analysisDepth: viewState.analysisDepth,
-		analysisKind: viewState.analysisKind,
+		windowLevel: viewState.windowLevel,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
@@ -119,7 +113,8 @@ function serializeView() {
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
 			embeddingsEnabled: viewState.embeddingsEnabled,
 			llamaAutoStart: viewState.llamaAutoStart,
-			llamaReasoning: viewState.llamaReasoning
+			llamaReasoning: viewState.llamaReasoning,
+			captureOnlyOnPaste: viewState.captureOnlyOnPaste
 		},
 		cardLayout: $state.snapshot(viewState.cardLayout)
 	};
@@ -190,11 +185,14 @@ function applyView(raw: unknown): void {
 	if (typeof raw.chatSearchEnabled === 'boolean') {
 		viewState.chatSearchEnabled = raw.chatSearchEnabled;
 	}
-	if (typeof raw.embeddingTable === 'string' && raw.embeddingTable.trim()) {
-		viewState.embeddingTable = raw.embeddingTable.trim();
-	}
-	if (typeof raw.embeddingField === 'string' && raw.embeddingField.trim()) {
-		viewState.embeddingField = raw.embeddingField.trim();
+	if (Array.isArray(raw.embeddingFields)) {
+		const fields = raw.embeddingFields
+			.filter((field): field is string => typeof field === 'string')
+			.map((field) => field.trim())
+			.filter(Boolean);
+		if (fields.length > 0) {
+			viewState.embeddingFields = fields;
+		}
 	}
 	if (typeof raw.embeddingStoreChunkText === 'boolean') {
 		viewState.embeddingStoreChunkText = raw.embeddingStoreChunkText;
@@ -208,19 +206,8 @@ function applyView(raw: unknown): void {
 	if (typeof raw.chatSearchMaxDistance === 'number') {
 		viewState.chatSearchMaxDistance = clamp(raw.chatSearchMaxDistance, 0, 2);
 	}
-	if (typeof raw.analysisDepth === 'number') {
-		viewState.analysisDepth = clamp(
-			Math.trunc(raw.analysisDepth),
-			MIN_ANALYSIS_DEPTH,
-			MAX_ANALYSIS_DEPTH
-		);
-	}
-	if (
-		raw.analysisKind === 'multi' ||
-		raw.analysisKind === 'analysisTopic' ||
-		raw.analysisKind === 'windowSummary'
-	) {
-		viewState.analysisKind = raw.analysisKind;
+	if (typeof raw.windowLevel === 'number') {
+		viewState.windowLevel = clampWindowLevel(raw.windowLevel);
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);
@@ -247,6 +234,9 @@ function applyView(raw: unknown): void {
 	if (typeof toggles.llamaReasoning === 'boolean') {
 		viewState.llamaReasoning = toggles.llamaReasoning;
 	}
+	if (typeof toggles.captureOnlyOnPaste === 'boolean') {
+		viewState.captureOnlyOnPaste = toggles.captureOnlyOnPaste;
+	}
 
 	// Card layout: merge each tab section over the defaults so a partial or
 	// legacy persisted shape still produces a complete CardLayout.
@@ -268,34 +258,6 @@ function applyScrap(raw: unknown): void {
 	if (typeof raw.parallelVideosAmount === 'number') {
 		scrapStore.parallelVideosAmount = clamp(Math.trunc(raw.parallelVideosAmount), 1, 10);
 	}
-}
-
-function applyPodcast(raw: unknown): void {
-	if (!isPlainObject(raw)) return;
-
-	const merged = mergeValue(PODCAST_DEFAULTS, raw);
-	if (!(SPEAKER_DYNAMICS as readonly string[]).includes(merged.speakerDynamics)) {
-		merged.speakerDynamics = PODCAST_DEFAULTS.speakerDynamics;
-	}
-	if (!(CONTEXT_SOURCES as readonly string[]).includes(merged.contextSource)) {
-		merged.contextSource = PODCAST_DEFAULTS.contextSource;
-	}
-	merged.topicCount = clamp(Math.trunc(merged.topicCount), 1, 10);
-	merged.interactionsPerTopic = clamp(Math.trunc(merged.interactionsPerTopic), 2, 15);
-	merged.turnLengthSentences = clamp(Math.trunc(merged.turnLengthSentences), 1, 8);
-	merged.scriptTemperature = clamp(merged.scriptTemperature, 0, 1.5);
-	merged.topicGapMs = clamp(merged.topicGapMs, 0, 5000);
-	merged.exchangeGapMs = clamp(merged.exchangeGapMs, 0, 3000);
-	for (const synth of [merged.hostASynthParams, merged.hostBSynthParams]) {
-		synth.numStep = clamp(Math.trunc(synth.numStep), 1, 64);
-		synth.guidanceScale = clamp(synth.guidanceScale, 0, 5);
-		synth.speed = clamp(synth.speed, 0.25, 2);
-		synth.splitLevel = clamp(Math.trunc(synth.splitLevel), 0, 3) as 0 | 1 | 2 | 3;
-	}
-
-	podcastState.config = merged;
-	// A persisted podcast section exists: do not auto-randomize hosts anymore.
-	podcastState.hostsHydrated = true;
 }
 
 function applyTts(raw: unknown): void {
@@ -329,17 +291,15 @@ export async function loadSettings(): Promise<void> {
 	loaded = true;
 
 	try {
-		// Fetch all sections in parallel (one round-trip instead of four) and
+		// Fetch all sections in parallel (one round-trip instead of three) and
 		// apply them in the original order to keep hydration semantics.
-		const [view, scrap, podcast, tts] = await Promise.all([
+		const [view, scrap, tts] = await Promise.all([
 			store.get<unknown>('view'),
 			store.get<unknown>('scrap'),
-			store.get<unknown>('podcast'),
 			store.get<unknown>('tts')
 		]);
 		applyView(view);
 		applyScrap(scrap);
-		applyPodcast(podcast);
 		applyTts(tts);
 		store.set('version', SETTINGS_VERSION).catch((err) => {
 			console.warn('[settings] failed to save version', err);
@@ -364,9 +324,6 @@ export function startSettingsPersistence(): void {
 		});
 		$effect(() => {
 			void activeStore.set('scrap', serializeScrap()).catch(warnWriteFailure);
-		});
-		$effect(() => {
-			void activeStore.set('podcast', $state.snapshot(podcastState.config)).catch(warnWriteFailure);
 		});
 		$effect(() => {
 			void activeStore.set('tts', serializeTts()).catch(warnWriteFailure);

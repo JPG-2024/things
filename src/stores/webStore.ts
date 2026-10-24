@@ -1,18 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
-import type { RecursiveChunk } from '@/runners/shared/recursiveTask';
-import { isRealTemplateId } from '@/runners/templateConstants';
-import type { Task, TaskMapBase } from '@/types/taskRunner.types';
+import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
-export type PersistedTaskState = {
-	id: string;
-	name?: string;
-	data?: unknown;
-	status?: Task['status'];
-	renderOrder?: number;
-};
-
-export interface ArticleWithTasks {
+export interface ArticleRecord {
 	id: string;
 	url: string | null;
 	title: string | null;
@@ -20,6 +10,8 @@ export interface ArticleWithTasks {
 	thumbnailSrc?: string | null;
 	content?: string | null;
 	mediaDirectory?: string | null;
+	/** Alias of `mediaDirectory`, kept for the callers that use the short name. */
+	directory?: string | null;
 	profileId?: string | null;
 	/** Ride on the spread WebStoreArticleRecord; used by facet post-filtering. */
 	profile?: string | null;
@@ -31,21 +23,25 @@ export interface ArticleWithTasks {
 	primaryColor?: string | null;
 	mainColor?: string | null;
 	date?: string | null;
-	persistedTasks?: PersistedTaskState[];
+	/** Combined summary of the window analysis. */
+	summary?: string | null;
+	/** Window divisor that was actually executed; `null` = split by headings. */
+	analysisDivisor?: number | null;
+	/** `full` = analysed, `metadata` = captured but pending analysis. */
+	mode?: ArticleMode | null;
 	viewed?: boolean | null;
-	templateId?: string | null;
 	[key: string]: unknown;
 }
 
 export interface ArticlesWithoutProfileResponse {
-	articles: ArticleWithTasks[];
+	articles: ArticleRecord[];
 	total: number;
 }
 
 export interface CategoryWithArticles {
 	categoryId: string;
 	categoryName: string;
-	articles: ArticleWithTasks[];
+	articles: ArticleRecord[];
 }
 export const WEB_STORE_UNKNOWN_PROFILE_ID = '__unknown_profile__';
 export const WEB_STORE_UNKNOWN_PROFILE_LABEL = 'Unknown profile';
@@ -59,7 +55,7 @@ export interface ArticleProfile {
 	profilePictureSrc?: string | null;
 	url?: string | null;
 	mostRecentCreatedAt?: number | null;
-	articles?: ArticleWithTasks[];
+	articles?: ArticleRecord[];
 }
 
 export interface WebStoreDomainRecord {
@@ -103,13 +99,12 @@ export type WebStoreArticleRecord = {
 	profilePicture: string | null;
 	viewed: boolean;
 	date: string | null;
-	templateId: string | null;
-};
-
-export type WebStoreTaskRecord = {
-	url: string;
-	tasksJson: string;
-	updatedAt: number;
+	/** Combined summary of the window analysis. */
+	summary: string | null;
+	/** Window divisor that was actually executed; `null` = split by headings. */
+	analysisDivisor: number | null;
+	/** `full` = analysed, `metadata` = captured but pending analysis. */
+	mode: ArticleMode | null;
 };
 
 export type WebStoreProfileDeletion = {
@@ -170,12 +165,8 @@ type UpsertWebStoreArticleInput = {
 	profile: string | null;
 	embeddingSourceText: string | null;
 	date: string | null;
-	templateId: string | null;
-};
-
-type LegacyPageElementItem = {
-	name?: unknown;
-	textContent?: unknown;
+	/** `full` | `metadata`. */
+	mode: ArticleMode | null;
 };
 
 let _cachedProfiles: ArticleProfile[] | null = null;
@@ -185,128 +176,16 @@ let _pendingProfilesPromise: Promise<ArticleProfile[]> | null = null;
 const _cachedProfilesByKind = new Map<'profile' | 'domain', ArticleProfile[]>();
 const _pendingProfilesByKind = new Map<'profile' | 'domain', Promise<ArticleProfile[]>>();
 
-export const RAW_CONTENT_REF = '__rawContentRef__';
-
-type RawContentRef = { [RAW_CONTENT_REF]: string };
-
-function isRawContentRef(value: unknown): value is RawContentRef {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		typeof (value as RawContentRef)[RAW_CONTENT_REF] === 'string'
-	);
-}
-
-/**
- * Parses a persisted tasks JSON into task states.
- *
- * Default does **not** hydrate `__rawContentRef__` refs (pure JSON.parse, zero
- * IPC): list mapping only needs the small tasks (`category`, `analysis`, ...),
- * and hydrating full article text on every mapped row reintroduces the N+1
- * `read_raw_content` round-trip plus megabytes of content in webview memory.
- * Detail paths (`getArticleWithTasksByUrl`, `getTasksByUrl`) pass
- * `{ hydrateRawContent: true }` to resolve the raw text explicitly.
- */
-export async function parsePersistedTaskStates(
-	raw: string | null,
-	opts?: { hydrateRawContent?: boolean }
-): Promise<PersistedTaskState[]> {
-	if (!raw) {
-		return [];
-	}
-
-	try {
-		const parsed = JSON.parse(raw) as PersistedTaskState[];
-		if (Array.isArray(parsed)) {
-			const tasks = parsed.map((task, index) => ({
-				id: typeof task?.id === 'string' && task.id.trim() ? task.id : `cached-${index}`,
-				name: task?.name,
-				data: task?.data,
-				status: task?.status ?? 'done',
-				renderOrder: task?.renderOrder
-			}));
-
-			if (opts?.hydrateRawContent) {
-				for (const task of tasks) {
-					if (task.id === 'content' && isRawContentRef(task.data)) {
-						const text = await invoke<string | null>('read_raw_content', {
-							key: task.data[RAW_CONTENT_REF]
-						});
-						task.data = typeof text === 'string' ? text : '';
-					}
-				}
-			}
-
-			return tasks;
-		}
-	} catch (error) {
-		console.warn('Unable to parse stored tasks JSON', error);
-	}
-
-	return [];
-}
-
-export function shouldPersistTask<TMap extends TaskMapBase>(task: Task<TMap>): boolean {
-	return task.persist === true;
-}
-
-export function toStoredTask<TMap extends TaskMapBase>(task: Task<TMap>): PersistedTaskState {
-	return {
-		id: task.id,
-		name: task.name,
-		data: task.data,
-		status: task.status,
-		renderOrder: task.renderOrder
-	};
-}
-
-export function mergeStoredTasks<TMap extends TaskMapBase>(
-	existingTasks: PersistedTaskState[] | undefined,
-	nextTasks: Task<TMap>[]
-): PersistedTaskState[] {
-	const mergedTasks = new Map<string, PersistedTaskState>();
-
-	for (const task of existingTasks ?? []) {
-		mergedTasks.set(task.id, {
-			id: task.id,
-			name: task.name,
-			data: task.data,
-			status: task.status,
-			renderOrder: task.renderOrder
-		});
-	}
-
-	for (const task of nextTasks) {
-		if (!shouldPersistTask(task)) {
-			continue;
-		}
-
-		mergedTasks.set(task.id, toStoredTask(task));
-	}
-
-	return Array.from(mergedTasks.values());
-}
-
-export function getStoredTaskData<T>(
-	tasks: Array<{ id?: string; data?: unknown }>,
-	taskId: string
-): T | undefined {
-	return tasks.find((task) => task.id === taskId)?.data as T | undefined;
-}
-
-async function wrapRawContentRef(url: string, task: PersistedTaskState): Promise<void> {
-	if (task.id !== 'content' || typeof task.data !== 'string' || task.data.length === 0) {
-		return;
-	}
-
-	const key = await invoke<string>('write_raw_content', { url, text: task.data });
-	task.data = { [RAW_CONTENT_REF]: key };
-}
-
-export function getArticleStringField(article: ArticleWithTasks | null, fieldName: string): string {
-	const fieldValue = article?.[fieldName];
-	return typeof fieldValue === 'string' ? fieldValue : '';
-}
+export type ArticleFieldOverrides = {
+	title?: string | null;
+	thumbnail?: string | null;
+	directory?: string | null;
+	mainColor?: string | null;
+	profile?: string | null;
+	date?: string | null;
+	/** `full` | `metadata`. */
+	mode?: ArticleMode;
+};
 
 export function normalizeNullableString(value: string | null | undefined): string | null {
 	if (typeof value !== 'string') {
@@ -317,6 +196,7 @@ export function normalizeNullableString(value: string | null | undefined): strin
 	return normalized.length > 0 ? normalized : null;
 }
 
+/** First non-empty string of the list, trimmed. */
 export function firstNormalizedString(...values: Array<string | null | undefined>): string | null {
 	for (const value of values) {
 		const normalized = normalizeNullableString(value);
@@ -328,172 +208,42 @@ export function firstNormalizedString(...values: Array<string | null | undefined
 	return null;
 }
 
-export function parseKeywords(data: unknown): string[] {
-	if (typeof data === 'string') {
-		try {
-			return parseKeywords(JSON.parse(data) as unknown);
-		} catch {
-			return [];
-		}
-	}
-
-	if (Array.isArray(data)) {
-		return data.map((keyword) => String(keyword).trim()).filter(Boolean);
-	}
-
-	if (typeof data === 'object' && data !== null) {
-		const record = data as Record<string, unknown>;
-
-		if (Array.isArray(record.keywords)) {
-			return record.keywords.map((keyword) => String(keyword).trim()).filter(Boolean);
-		}
-
-		if (Array.isArray(record.finalResponse)) {
-			return record.finalResponse.map((keyword) => String(keyword).trim()).filter(Boolean);
-		}
-
-		return Object.values(record)
-			.filter((value): value is string => typeof value === 'string')
-			.map((value) => value.trim())
-			.filter(Boolean);
-	}
-
-	return [];
-}
-
-export function getFirstStringValue(value: unknown): string | null {
-	if (typeof value === 'string') {
-		return value;
-	}
-
-	if (Array.isArray(value)) {
-		for (const item of value) {
-			if (typeof item === 'string') {
-				return item;
-			}
-		}
-	}
-
-	return null;
-}
-
-export function getPageElementField(
-	tasks: Array<{ id?: string; data?: unknown }>,
-	taskId: string,
-	fieldName: string
-): string | null {
-	const data = getStoredTaskData<unknown>(tasks, taskId);
-
-	if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-		const value = (data as Record<string, unknown>)[fieldName];
-		return getFirstStringValue(value);
-	}
-
-	if (Array.isArray(data)) {
-		const item = data.find((entry) => {
-			if (typeof entry !== 'object' || entry === null) {
-				return false;
-			}
-
-			const candidate = entry as LegacyPageElementItem;
-			return candidate.name === fieldName;
-		});
-
-		if (typeof item === 'object' && item !== null) {
-			return getFirstStringValue((item as LegacyPageElementItem).textContent);
-		}
-	}
-
-	return null;
-}
-
-export function buildEmbeddingSourceText(input: {
-	title: string | null;
-	keywords: string[];
-}): string | null {
-	const parts = [
-		normalizeNullableString(input.title),
-		input.keywords.length > 0 ? `Keywords:\n${input.keywords.join('\n')}` : null
-	].filter((value): value is string => Boolean(value));
-
-	return parts.length > 0 ? parts.join('\n\n') : null;
-}
-
-export type ArticleFieldOverrides = {
-	title?: string;
-	thumbnail?: string;
-	directory?: string;
-	mainColor?: string;
-	profile?: string;
-	date?: string;
-	templateId?: string;
-};
-
-export async function buildUpsertInput(params: {
+/**
+ * Builds the upsert payload of an article from flat fields.
+ *
+ * The pipeline no longer goes through tasks: every value is either produced
+ * by the runner or already stored on the article row.
+ */
+function buildUpsertInput(params: {
 	url: string;
-	tasksToSave: Array<{ id?: string; data?: unknown }>;
-	existingArticle: ArticleWithTasks | null;
-	valuesToOverride?: ArticleFieldOverrides | undefined;
-}): Promise<UpsertWebStoreArticleInput> {
-	const title = firstNormalizedString(
-		params.valuesToOverride?.title,
-		getStoredTaskData<string>(params.tasksToSave, 'title'),
-		params.existingArticle?.title
-	);
+	values?: ArticleFieldOverrides | undefined;
+	existingArticle?: ArticleRecord | null;
+}): UpsertWebStoreArticleInput {
+	const existing = params.existingArticle ?? null;
 
-	const thumbnailTaskData =
-		getStoredTaskData<{
-			thumbnailImage?: string;
-			mediaDirectory?: string;
-		}>(params.tasksToSave, 'thumbnail') ?? {};
-
-	const thumbnail = firstNormalizedString(
-		params.valuesToOverride?.thumbnail,
-		thumbnailTaskData.thumbnailImage,
-		params.existingArticle?.thumbnail
-	);
+	const title = firstNormalizedString(params.values?.title, existing?.title);
+	const thumbnail = firstNormalizedString(params.values?.thumbnail, existing?.thumbnail);
 	const directory = firstNormalizedString(
-		params.valuesToOverride?.directory,
-		thumbnailTaskData.mediaDirectory,
-		getArticleStringField(params.existingArticle, 'mediaDirectory'),
-		getArticleStringField(params.existingArticle, 'directory')
+		params.values?.directory,
+		existing?.mediaDirectory,
+		existing?.directory
 	);
 	const mainColor = firstNormalizedString(
-		params.valuesToOverride?.mainColor,
-		getStoredTaskData<string>(params.tasksToSave, 'main-color'),
-		params.existingArticle?.mainColor ?? null,
-		params.existingArticle?.primaryColor ?? null
+		params.values?.mainColor,
+		existing?.mainColor,
+		existing?.primaryColor
 	);
-	const keywords = parseKeywords(getStoredTaskData<unknown>(params.tasksToSave, 'analysis'));
-	const profile = firstNormalizedString(
-		params.valuesToOverride?.profile,
-		getArticleStringField(params.existingArticle, 'profile')
-	);
+	const profile = firstNormalizedString(params.values?.profile, existing?.profile);
+	const date = firstNormalizedString(params.values?.date, existing?.date);
 
-	const videoInfoData = getStoredTaskData<{ uploadDate?: string }>(
-		params.tasksToSave,
-		'video-info'
-	);
-	const date = firstNormalizedString(
-		params.valuesToOverride?.date,
-		videoInfoData?.uploadDate,
-		params.existingArticle?.date as string | undefined
-	);
+	// The mode is sticky: an upsert without an explicit mode never clears the
+	// `full` flag written by `save_article_analysis`.
+	const mode = params.values?.mode ?? existing?.mode ?? null;
 
-	const requestedTemplateId = normalizeNullableString(params.valuesToOverride?.templateId);
-	const existingTemplateId = normalizeNullableString(
-		getArticleStringField(params.existingArticle, 'templateId')
-	);
-	const templateId = isRealTemplateId(requestedTemplateId)
-		? requestedTemplateId
-		: isRealTemplateId(existingTemplateId)
-			? existingTemplateId
-			: (requestedTemplateId ?? existingTemplateId);
-
-	const embeddingSourceText = buildEmbeddingSourceText({
-		title,
-		keywords
-	});
+	// The embedding source text is the text the category classifier compares
+	// against, so it is kept in sync with the title and the summary.
+	const existingSummary = typeof existing?.summary === 'string' ? existing.summary : null;
+	const embeddingSourceText = firstNormalizedString(title, existingSummary);
 
 	return {
 		url: params.url,
@@ -504,20 +254,15 @@ export async function buildUpsertInput(params: {
 		profile,
 		embeddingSourceText,
 		date,
-		templateId
+		mode
 	};
 }
 
-export async function mapStoredArticle(
-	row: WebStoreArticleRecord,
-	tasksJson?: string | null,
-	opts?: { hydrateRawContent?: boolean }
-): Promise<ArticleWithTasks> {
+function mapStoredArticle(row: WebStoreArticleRecord): ArticleRecord {
 	return {
 		...row,
 		profilePicture: row.profilePicture,
-		profileId: row.profile,
-		persistedTasks: await parsePersistedTaskStates(tasksJson ?? null, opts)
+		profileId: row.profile
 	};
 }
 
@@ -560,19 +305,17 @@ async function resolveMediaSrcBatch<T extends object, K extends string>(
 	);
 }
 
-async function resolveArticleThumbnail(article: ArticleWithTasks): Promise<ArticleWithTasks> {
+async function resolveArticleThumbnail(article: ArticleRecord): Promise<ArticleRecord> {
 	return resolveMediaSrc(article, 'thumbnail', 'thumbnailSrc', false);
 }
 
-async function resolveArticleThumbnailBatch(
-	articles: ArticleWithTasks[]
-): Promise<ArticleWithTasks[]> {
+async function resolveArticleThumbnailBatch(articles: ArticleRecord[]): Promise<ArticleRecord[]> {
 	return resolveMediaSrcBatch(articles, 'thumbnail', 'thumbnailSrc', false);
 }
 
 async function resolveArticleProfilePictureBatch(
-	articles: ArticleWithTasks[]
-): Promise<ArticleWithTasks[]> {
+	articles: ArticleRecord[]
+): Promise<ArticleRecord[]> {
 	return resolveMediaSrcBatch(articles, 'profilePicture', 'profilePictureSrc', true);
 }
 
@@ -595,7 +338,7 @@ async function resolveProfilePictureBatch<T extends { profilePicture?: string | 
  * docs/perf-plan-bottlenecks.md). Detail paths use `mapStoredArticle` with the
  * row's own tasks JSON + `{ hydrateRawContent: true }` instead.
  */
-async function mapAndResolveArticles(rows: WebStoreArticleRecord[]): Promise<ArticleWithTasks[]> {
+async function mapAndResolveArticles(rows: WebStoreArticleRecord[]): Promise<ArticleRecord[]> {
 	const mappedArticles = await Promise.all(rows.map((row) => mapStoredArticle(row)));
 
 	return resolveArticleProfilePictureBatch(await resolveArticleThumbnailBatch(mappedArticles));
@@ -603,7 +346,7 @@ async function mapAndResolveArticles(rows: WebStoreArticleRecord[]): Promise<Art
 
 export async function mapArticlesFromRecords(
 	rows: WebStoreArticleRecord[]
-): Promise<ArticleWithTasks[]> {
+): Promise<ArticleRecord[]> {
 	if (rows.length === 0) {
 		return [];
 	}
@@ -611,7 +354,7 @@ export async function mapArticlesFromRecords(
 	return mapAndResolveArticles(rows);
 }
 
-export async function getArticles(): Promise<ArticleWithTasks[]> {
+export async function getArticles(): Promise<ArticleRecord[]> {
 	try {
 		const articles = await invoke<WebStoreArticleRecord[]>('list_web_store_articles');
 
@@ -729,7 +472,7 @@ export async function getProfiles(options?: ProfilesOptions): Promise<ArticlePro
 
 			const profilesWithArticles: ArticleProfile[] = [];
 			for (const card of resolvedCards) {
-				let articles: ArticleWithTasks[] | undefined;
+				let articles: ArticleRecord[] | undefined;
 				if (card.articles) {
 					articles = await mapAndResolveArticles(card.articles);
 				}
@@ -803,56 +546,125 @@ export async function getProfile(profileId: string): Promise<ArticleProfile | nu
 	}
 }
 
-export async function getTasksByUrl(url: string): Promise<PersistedTaskState[] | null> {
+/** Reads the article row of an url, with the thumbnail src resolved. */
+export async function getArticleByUrl(url: string): Promise<ArticleRecord | null> {
 	try {
-		const taskRecord = await invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', {
-			url
-		});
-
-		if (!taskRecord) {
-			return null;
-		}
-
-		// Detail path: hydrate the `content` ref into real text (one IPC per URL).
-		return parsePersistedTaskStates(taskRecord.tasksJson, { hydrateRawContent: true });
-	} catch (error) {
-		console.error('Error querying tasks', error);
-		return null;
-	}
-}
-
-export async function getTaskChunks(url: string, taskId: string): Promise<RecursiveChunk[] | null> {
-	try {
-		const chunks = await invoke<unknown>('get_web_store_task_chunks', { url, taskId });
-		if (!Array.isArray(chunks)) {
-			return null;
-		}
-		return chunks as RecursiveChunk[];
-	} catch (error) {
-		console.error('Error fetching task chunks', error);
-		return null;
-	}
-}
-
-export async function getArticleWithTasksByUrl(url: string): Promise<ArticleWithTasks | null> {
-	try {
-		const [row, taskRecord] = await Promise.all([
-			invoke<WebStoreArticleRecord | null>('get_web_store_article_by_url', { url }),
-			invoke<WebStoreTaskRecord | null>('get_web_store_tasks_by_url', { url })
-		]);
-
+		const row = await invoke<WebStoreArticleRecord | null>('get_web_store_article_by_url', { url });
 		if (!row) {
 			return null;
 		}
 
-		// Detail path: hydrate the `content` ref into real text (one IPC per URL).
-		const article = await mapStoredArticle(row, taskRecord?.tasksJson ?? null, {
-			hydrateRawContent: true
-		});
-		return resolveArticleThumbnail(article);
+		return resolveArticleThumbnail(mapStoredArticle(row));
 	} catch (error) {
 		console.error('Error querying article', error);
 		return null;
+	}
+}
+
+/** Reads the category ids linked to an article. */
+export async function getArticleCategories(url: string): Promise<string[]> {
+	try {
+		return await invoke<string[]>('get_article_categories', { articleUrl: url });
+	} catch (error) {
+		console.error(`Error querying categories of article "${url}"`, error);
+		return [];
+	}
+}
+
+/** The analysis of an article as it is stored. */
+export interface StoredArticleAnalysis {
+	url: string;
+	summary: string | null;
+	/** The divisor that was actually executed; `null` = split by headings. */
+	divisor: number | null;
+	mode: ArticleMode | null;
+	windows: ArticleWindow[];
+}
+
+type RawArticleAnalysisRecord = {
+	url: string;
+	summary: string | null;
+	divisor: number | null;
+	mode: string | null;
+	windows: Array<{
+		id: string;
+		articleUrl: string;
+		windowIndex: number;
+		startOffset: number;
+		endOffset: number;
+		payload: string;
+	}>;
+};
+
+function parseWindowPayload(payload: string): Record<string, unknown> {
+	try {
+		const parsed = JSON.parse(payload) as unknown;
+		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+			return parsed as Record<string, unknown>;
+		}
+	} catch (error) {
+		console.warn('[webStore] unable to parse window payload', error);
+	}
+	return { summary: '' };
+}
+
+/**
+ * Reads the analysis of an article: the combined summary and every window.
+ *
+ * One round trip, one JSON.parse per window (at most a handful of small
+ * objects).
+ */
+export async function getArticleAnalysis(url: string): Promise<StoredArticleAnalysis | null> {
+	try {
+		const record = await invoke<RawArticleAnalysisRecord | null>('get_article_analysis', { url });
+		if (!record) return null;
+
+		const windows: ArticleWindow[] = record.windows.map((window) => ({
+			index: window.windowIndex,
+			start: window.startOffset,
+			end: window.endOffset,
+			data: parseWindowPayload(window.payload) as ArticleWindow['data']
+		}));
+
+		return {
+			url: record.url,
+			summary: record.summary,
+			divisor: record.divisor,
+			mode: (record.mode as ArticleMode | null) ?? null,
+			windows
+		};
+	} catch (error) {
+		console.error('Error querying article analysis', error);
+		return null;
+	}
+}
+
+/**
+ * Persists the analysis of an article: the windows are replaced, the summary
+ * and the executed divisor are stored, and the article is flagged as `full`.
+ */
+export async function saveArticleAnalysis(params: {
+	url: string;
+	summary: string | null;
+	divisor: number | null;
+	windows: ArticleWindow[];
+}): Promise<void> {
+	try {
+		await invoke('save_article_analysis', {
+			input: {
+				url: params.url,
+				summary: params.summary,
+				divisor: params.divisor,
+				windows: params.windows.map((window) => ({
+					windowIndex: window.index,
+					startOffset: window.start,
+					endOffset: window.end,
+					payload: JSON.stringify(window.data ?? { summary: '' })
+				}))
+			}
+		});
+	} catch (error) {
+		console.error(`Error saving article analysis (url='${params.url}'):`, error);
 	}
 }
 
@@ -892,81 +704,29 @@ export function getArticleThumbnailByUrl(url: string): Promise<string | null> {
 	return promise;
 }
 
+/**
+ * Upserts the row of an article from flat fields.
+ *
+ * The analysis itself is persisted by `saveArticleAnalysis`; this function
+ * only owns the metadata (title, thumbnail, profile, date, mode).
+ */
 export async function saveArticle(
 	url: string,
-	tasksToSave: Array<{ id?: string; data?: unknown }>,
-	valuesToOverride?: ArticleFieldOverrides | undefined,
-	existingArticle?: ArticleWithTasks | null
+	values?: ArticleFieldOverrides | undefined,
+	existingArticle?: ArticleRecord | null
 ): Promise<void> {
-	let input: Awaited<ReturnType<typeof buildUpsertInput>> | undefined;
+	let input: UpsertWebStoreArticleInput | undefined;
 	try {
 		const resolvedExisting =
-			existingArticle !== undefined ? existingArticle : await getArticleWithTasksByUrl(url);
-		input = await buildUpsertInput({
-			url,
-			tasksToSave,
-			existingArticle: resolvedExisting,
-			valuesToOverride
-		});
+			existingArticle !== undefined ? existingArticle : await getArticleByUrl(url);
+		input = buildUpsertInput({ url, values, existingArticle: resolvedExisting });
 
 		await invoke('upsert_web_store_article', { input });
 	} catch (error) {
 		console.error(
-			`Error upserting article (url='${url}', domain from url, profile='${input?.profile ?? 'none'}'):`,
+			`Error upserting article (url='${url}', profile='${input?.profile ?? 'none'}'):`,
 			error
 		);
-		return;
-	}
-
-	try {
-		const categoryNames = getStoredTaskData<string[]>(tasksToSave, 'category');
-		if (categoryNames && Array.isArray(categoryNames) && categoryNames.length > 0) {
-			const categoryIds = categoryNames
-				.map((name) => name.trim().toLowerCase().replace(/\s+/g, '-'))
-				.filter(Boolean);
-			if (categoryIds.length > 0) {
-				await assignCategoriesToArticle({ articleUrl: url, categoryIds });
-			}
-		}
-	} catch (error) {
-		console.error(`Error assigning categories to article (url='${url}'):`, error);
-	}
-}
-
-export async function saveTasks<TMap extends TaskMapBase>(
-	url: string,
-	tasks: Task<TMap>[],
-	existingArticle?: ArticleWithTasks | null
-): Promise<void> {
-	try {
-		const resolvedExisting =
-			existingArticle !== undefined ? existingArticle : await getArticleWithTasksByUrl(url);
-		const tasksToSave = mergeStoredTasks(resolvedExisting?.persistedTasks, tasks);
-
-		for (const task of tasksToSave) {
-			await wrapRawContentRef(url, task);
-		}
-
-		await invoke('upsert_web_store_tasks', {
-			url,
-			tasksJson: JSON.stringify(tasksToSave)
-		});
-	} catch (error) {
-		console.error('Error saving tasks:', error);
-	}
-}
-
-export async function updateTaskDataById(
-	url: string,
-	taskId: string,
-	data: unknown
-): Promise<void> {
-	try {
-		// Atomic server-side read-modify-write (IPC-7): only the new data
-		// travels; the content ref wrap happens in Rust.
-		await invoke('update_web_store_task_data', { url, taskId, data });
-	} catch (error) {
-		console.error('Error updating task data:', error);
 	}
 }
 
@@ -1221,8 +981,8 @@ export async function getArticlesWithoutProfile(options?: {
 	profileIds?: string[];
 	domainIds?: string[];
 	dateFrom?: string;
-	templateId?: string;
-	includeInitial?: boolean;
+	/** `metadata` restricts the list to captured-but-not-analysed articles. */
+	mode?: ArticleMode;
 }): Promise<ArticlesWithoutProfileResponse> {
 	try {
 		const result = await invoke<{
@@ -1237,8 +997,7 @@ export async function getArticlesWithoutProfile(options?: {
 			profileIds: options?.profileIds ?? null,
 			domainIds: options?.domainIds ?? null,
 			dateFrom: options?.dateFrom ?? null,
-			templateId: options?.templateId ?? null,
-			includeInitial: options?.includeInitial ?? null
+			mode: options?.mode ?? null
 		});
 
 		const resolvedArticles = await mapAndResolveArticles(result.articles);
@@ -1260,7 +1019,7 @@ export interface CategoryArticlesQuery {
 export interface CategoryArticlesPage {
 	categoryId: string;
 	categoryName: string;
-	articles: ArticleWithTasks[];
+	articles: ArticleRecord[];
 	hasMore: boolean;
 }
 

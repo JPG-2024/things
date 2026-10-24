@@ -4,19 +4,22 @@
 	import Tooltip from '@/components/Tooltip.svelte';
 	import {
 		findSimilarChunks,
-		extractQueryChunks,
-		formatSearchChunkTooltip
-	} from '@/lib/utils/embeddingTasks';
+		formatSearchChunkTooltip,
+		type SearchChunkResult
+	} from '@/lib/utils/embeddingStore';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { getArticleThumbnailByUrl } from '@/stores/webStore';
-	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
+	import type { ArticleWindow } from '@/types/articleAnalysis.types';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { untrack } from 'svelte';
 
 	type Props = {
 		id: string;
-		data?: unknown;
+		/** Windows whose field values are used as the query. */
+		windows?: ArticleWindow[];
+		/** Field of the window payload to search on. */
+		field?: string;
 		enabled?: boolean;
 		manual?: boolean;
 		articleUrl?: string | null;
@@ -24,7 +27,6 @@
 		limit?: number;
 		maxResults?: number;
 		maxDistance?: number;
-		embedField?: string;
 		/**
 		 * Externally supplied results (e.g. a chat retrieval across several
 		 * tables). When set, they are rendered instead of running the internal
@@ -37,7 +39,8 @@
 
 	let {
 		id,
-		data,
+		windows = [],
+		field = 'summary',
 		enabled = false,
 		manual = false,
 		articleUrl = viewState.url,
@@ -45,12 +48,26 @@
 		limit = 5,
 		maxResults = 15,
 		maxDistance,
-		embedField = 'topics',
 		results: externalResults = undefined,
 		label = 'Similar embeddings'
 	}: Props = $props();
 
-	const queryChunks = $derived(extractQueryChunks(data, embedField));
+	const queryChunks = $derived.by(() => {
+		const chunks: string[] = [];
+		for (const window of windows) {
+			const value = window.data?.[field];
+			if (typeof value === 'string' && value.trim()) {
+				chunks.push(value);
+				continue;
+			}
+			if (Array.isArray(value)) {
+				for (const entry of value) {
+					if (typeof entry === 'string' && entry.trim()) chunks.push(entry);
+				}
+			}
+		}
+		return chunks;
+	});
 	const hasQuery = $derived(queryChunks.length > 0);
 	const serviceUp = $derived(viewState.embeddingsServiceUp);
 

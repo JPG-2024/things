@@ -3,11 +3,11 @@
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import { ENTITY_CARD_GAP_PX } from '@/constants';
 	import { articleCapacity } from '@/lib/utils/cardLayout';
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		articles: ArticleWithTasks[];
+		articles: ArticleRecord[];
 		/** Article grid columns inside the card. */
 		columns: number;
 		/**
@@ -22,8 +22,8 @@
 		header?: Snippet;
 		/** Renders an empty-state body when the category/profile has no articles. */
 		empty?: Snippet;
-		onArticleClick: (article: ArticleWithTasks) => void;
-		onArticleHoverEnter: (article: ArticleWithTasks) => void;
+		onArticleClick: (article: ArticleRecord) => void;
+		onArticleHoverEnter: (article: ArticleRecord) => void;
 		onArticleHoverLeave: () => void;
 	}
 

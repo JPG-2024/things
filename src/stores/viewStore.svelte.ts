@@ -2,10 +2,9 @@ import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
 import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
-import { DEFAULT_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
-import type { DefaultAnalysisKind } from '@/runners/shared/sharedTasks';
+import { DEFAULT_WINDOW_LEVEL } from '@/lib/utils/windowAnalysis';
 import { getProfiles } from '@/stores/webStore';
-import type { ArticleWithTasks, WebStoreCategoryRecord } from '@/stores/webStore';
+import type { ArticleRecord, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 
 export interface RawSearchMatch {
@@ -15,7 +14,7 @@ export interface RawSearchMatch {
 }
 
 export interface RawSearchResult {
-	article: ArticleWithTasks;
+	article: ArticleRecord;
 	match: RawSearchMatch;
 }
 
@@ -104,9 +103,7 @@ class ViewState {
 	loaded = $state(false);
 	processingUrl = $state(false);
 	subStatus = $state<string | null>(null);
-	showAllTasks = $state(false);
 	collapseProfiles = $state(false);
-	selectedTaskId = $state('title-summary');
 	masonryArticlesPresetIndex = $state(0);
 	cardLayout = $state<Record<CardTab, CardLayout>>({
 		profiles: { ...CARD_LAYOUT_DEFAULTS.profiles },
@@ -171,12 +168,10 @@ class ViewState {
 	embeddingsEnabled = $state(false);
 	embeddingsProcessed = $state(false);
 	embeddingsLoading = $state(false);
-	// Indexing defaults for tasks created from now on (Settings → Embeddings).
-	// Tasks already persisted keep their own values, like analysisDepth.
-	// Every analysis processor produces a `summary` per chunk, so `summary` is
-	// a safe embed field regardless of the configured analysis kind.
-	embeddingTable = $state('summary');
-	embeddingField = $state('summary');
+	// Indexing defaults (Settings → Embeddings). Every field of the analysis
+	// payload is indexed in a table with the same name, so `summary` is the
+	// default and the vectors that already exist stay addressable.
+	embeddingFields = $state<string[]>(['summary']);
 	embeddingStoreChunkText = $state(true);
 	embeddingsServiceUp = $state(false);
 	inferenceServiceUp = $state(false);
@@ -186,23 +181,21 @@ class ViewState {
 	whisperServiceUp = $state(false);
 	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);
-	// Starting depth for new topic-analysis tasks (see ANALYSIS_DEPTH_LEVELS);
-	// tasks already persisted keep their own depth.
-	analysisDepth = $state(DEFAULT_ANALYSIS_DEPTH);
-	// Default processor for newly created analysis tasks; tasks already
-	// persisted keep their own processor type.
-	analysisKind = $state<DefaultAnalysisKind>('windowSummary');
-	// Both sides of the category comparison are now `topics + keywords`
-	// embeddings (query and fed exemplars), so the threshold sits higher than
-	// the old name/description-vs-document value of 0.35.
+	// Window level of the analysis: an index into `WINDOW_DIVISOR_LADDER`. It
+	// applies to raw text and YouTube videos; web articles split by markdown
+	// headings and have no knob.
+	windowLevel = $state(DEFAULT_WINDOW_LEVEL);
+	// Both sides of the category comparison are `title + summary` embeddings
+	// (query and fed exemplars), so the threshold sits higher than the old
+	// name/description-vs-document value of 0.35.
 	categoryMinSimilarity = $state(0.5);
 	// Minimum top1-top2 similarity gap required to assign a category. Below it
 	// the result is ambiguous and nothing is assigned.
 	categoryMargin = $state(0.05);
 	autoSpeechEnabled = $state(false);
-	isCachedArticle = $state(false);
-	urlQueue = $state<string[]>([]);
-	maxUrlQueueSize = $state(100);
+	// When active, pasting a URL on the dashboard captures the article in the
+	// background instead of navigating to it.
+	captureOnlyOnPaste = $state(false);
 	// Chat (ChatModal) retrieval over the LanceDB embedding tables. `tables` is
 	// a comma-separated list of task ids; a table that was never indexed is
 	// simply skipped by the search.
@@ -245,7 +238,8 @@ class ViewState {
 
 	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories' | 'domains'>('articles');
 	showOnlyRawArticles = $state(false);
-	showOnlyInitialArticles = $state(false);
+	/** Shows only the articles that were captured but not analysed yet. */
+	showOnlyImportedArticles = $state(false);
 	/** Groups the articles grid into per-profile stack cells (Alt+G). */
 	groupArticlesByProfile = $state(true);
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));

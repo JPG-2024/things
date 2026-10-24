@@ -1,43 +1,21 @@
 <script lang="ts">
 	import { toVTName } from '@/lib/utils/url';
-	import type { Task, TaskComponentProps } from '@/types/taskRunner.types';
 
 	type Props = {
-		runId?: string;
-		task: Task;
-		componentProps?: TaskComponentProps;
-	};
-
-	type ImageTaskData = {
-		thumbnailImageSrc?: string;
-		thumbnailImage?: string;
-		imageSrc?: string;
+		src: string;
 		alt?: string;
-		videoId?: string;
-		mediaDirectory?: string;
+		/** Key used for the view-transition name; the article url by default. */
+		transitionKey?: string;
 	};
 
-	let { runId = undefined, task, componentProps = {} }: Props = $props();
-
-	const imageData = $derived((task.data ?? {}) as Partial<ImageTaskData>);
-	const imageSrc = $derived(imageData.thumbnailImageSrc ?? imageData.imageSrc ?? '');
-	const altText = $derived(
-		typeof componentProps.alt === 'string'
-			? componentProps.alt
-			: imageData.alt || task.name || 'Image'
-	);
-	const transitionKey = $derived(
-		imageData.videoId ?? imageData.thumbnailImage ?? imageData.mediaDirectory ?? task.id
-	);
-
-	void runId;
+	let { src, alt = 'Image', transitionKey = 'image' }: Props = $props();
 </script>
 
-{#if imageSrc}
+{#if src}
 	<div class="image-wrapper">
 		<img
-			src={imageSrc}
-			alt={altText}
+			{src}
+			{alt}
 			class="image"
 			style={`view-transition-name: vt-main-image-${toVTName(transitionKey)}`}
 		/>

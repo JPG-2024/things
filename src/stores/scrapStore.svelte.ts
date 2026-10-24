@@ -36,7 +36,6 @@ class ScrapState {
 	error = $state<string | null>(null);
 	profile = $state<YoutubeProfile | null>(null);
 	videoInfo = $state<YoutubeVideoInfo | null>(null);
-	currentYoutubeProfile = $state<YoutubeProfile | null>(null);
 	isFetchingMissingVideos = $state(false);
 	parallelFetch = $state(false);
 	maxVideos = $state(5);
@@ -124,25 +123,18 @@ class ScrapState {
 			return null;
 		}
 		const profileUrl = buildYouTubeProfileUrl(videoInfo.profile);
-		const profile = await this.getYoutubeProfile(profileUrl);
-		this.currentYoutubeProfile = profile;
-		return profile;
+		return this.getYoutubeProfile(profileUrl);
 	}
 
 	async fetchMissingProfileVideos(
 		profileId: string,
 		options?: {
 			parallel?: boolean;
-			skipTaskIds?: string[];
 			maxVideos?: number;
 			parallelVideosAmount?: number;
 		}
 	): Promise<FetchMissingProfileVideosResult> {
 		const parallel = options?.parallel ?? this.parallelFetch;
-		// The initial pass only indexes cheap metadata (thumbnail + title). Skipping
-		// `timed-captions` also drops its descendant `content`, so no transcript is
-		// fetched here. Both are rebuilt on demand when the article is opened.
-		const skipTaskIds = options?.skipTaskIds ?? ['profile', 'timed-captions'];
 		const maxVideos = Math.min(
 			50,
 			Math.max(1, Math.trunc(options?.maxVideos ?? this.maxVideos ?? 5))
@@ -197,6 +189,8 @@ class ScrapState {
 
 			const toFetch = missing.slice(0, maxVideos);
 
+			const { articleManager } = await import('@/runners/articleManager.svelte');
+
 			if (toFetch.length === 0) {
 				// Nothing to fetch, but the scrape still carries the channel-page
 				// order: refresh ranks so the list mirrors YouTube even when the
@@ -207,29 +201,21 @@ class ScrapState {
 				});
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 				await articleCacheStore.fetchProfileArticles(profileId, {
-					force: true,
-					includeInitial: true
+					force: true
 				});
 				return { total, missing: 0, fetched: 0, failed: 0, skippedExisting };
 			}
-
-			const { urlRouter } = await import('@/lib/urlRouter/urlRouter');
 
 			let fetched = 0;
 			let failed = 0;
 			const errors: Array<{ url: string; error: string }> = [];
 
+			// The videos are captured in `metadata` mode: the card (title,
+			// thumbnail, channel) is stored and the article is analysed when it
+			// is opened.
 			const runOne = async (video: YouTubeVideo) => {
 				try {
-					await urlRouter(video.url, {
-						runnerOptions: {
-							skipTaskIds,
-							profileId: normalizedProfileId,
-							templateId: 'initial',
-							profile: youtubeProfile
-						},
-						articleOverrides: { title: video.title }
-					});
+					articleManager.enqueue(video.url, { mode: 'metadata' });
 					fetched++;
 				} catch (err) {
 					failed++;
@@ -260,8 +246,7 @@ class ScrapState {
 
 			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 			await articleCacheStore.fetchProfileArticles(profileId, {
-				force: true,
-				includeInitial: true
+				force: true
 			});
 
 			return {

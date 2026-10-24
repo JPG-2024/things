@@ -2,7 +2,6 @@
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
-	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const searchResults = $derived(viewState.rawSearchResults);
@@ -28,7 +27,7 @@
 
 	const searchArticles = $derived(filteredSearchResults.map((result) => result.article));
 
-	// ArticleList works on ArticleWithTasks[]; the match lookup is by article
+	// ArticleList works on ArticleRecord[]; the match lookup is by article
 	// identity so results are displayed even when `url` is missing.
 	const searchMatches = $derived(
 		new Map(filteredSearchResults.map((result) => [result.article, result.match]))
@@ -45,14 +44,13 @@
 
 	$effect(() => {
 		const onlyRaw = viewState.showOnlyRawArticles;
-		const showOnlyInitial = viewState.showOnlyInitialArticles;
+		const showOnlyImported = viewState.showOnlyImportedArticles;
 		void articleCacheStore.fetchArticlesWithoutProfile({
 			onlyWithoutProfile: onlyRaw,
 			profileIds: articleFilters.ids('profiles'),
 			domainIds: articleFilters.ids('domains'),
 			categoryIds: articleFilters.ids('categories'),
-			templateId: showOnlyInitial ? INITIAL_TEMPLATE_ID : undefined,
-			includeInitial: true
+			mode: showOnlyImported ? 'metadata' : undefined
 		});
 	});
 </script>

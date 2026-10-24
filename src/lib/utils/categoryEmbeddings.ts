@@ -16,7 +16,11 @@ import {
 	updateCategoryExemplarsModel,
 	type WebStoreCategoryExemplarRecord
 } from '@/stores/webStore';
-import { buildCategoryText, rankExemplarMatches } from '@/lib/utils/categoryText';
+import {
+	buildCategoryText,
+	extractWindowSummaries,
+	rankExemplarMatches
+} from '@/lib/utils/categoryText';
 
 export { buildCategoryText, rankExemplarMatches } from '@/lib/utils/categoryText';
 
@@ -149,12 +153,12 @@ export interface ClassifyByEmbeddingOptions {
 	minSimilarity?: number;
 	margin?: number;
 	model?: string;
-	/** The article title (the `title` task's data), used in `title + summary`. */
+	/** The article title, used in the `title + summary` comparison text. */
 	title?: string | null;
 }
 
 /**
- * Classify a task result into category ids using nearest-neighbour search over
+ * Classify an article into category ids using nearest-neighbour search over
  * the category exemplars (the fed `title + summary` examples).
  *
  * Returns the `topN` category ids whose best exemplar similarity is at least
@@ -163,15 +167,16 @@ export interface ClassifyByEmbeddingOptions {
  * exemplars never matches.
  */
 export async function classifyByEmbedding(
-	taskData: unknown,
-	options: ClassifyByEmbeddingOptions = {}
+	windows: Array<{ data?: { summary?: unknown } }> | null | undefined,
+	options: ClassifyByEmbeddingOptions & { summary?: string | null } = {}
 ): Promise<string[]> {
 	const topN = Math.max(1, Math.trunc(options.topN ?? 3));
 	const minSimilarity = options.minSimilarity ?? 0.5;
 	const margin = options.margin ?? 0;
 	const model = options.model ?? EMBEDDING_MODEL;
 
-	const queryText = buildCategoryText(taskData, options.title);
+	const summary = options.summary ?? extractWindowSummaries(windows).join('\n\n');
+	const queryText = buildCategoryText(summary, options.title);
 	if (!queryText) return [];
 
 	const [queryEmbedding] = await embedTexts([queryText], model);

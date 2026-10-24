@@ -1,15 +1,12 @@
 <script lang="ts">
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
 	import ArticleThumbnail from './ArticleThumbnail.svelte';
 	import ArticleTitle from './ArticleTitle.svelte';
 	import ArticleMatchSnippet from './ArticleMatchSnippet.svelte';
-	import ArticleCategoryPills from './ArticleCategoryPills.svelte';
-	import ArticleTopics from './ArticleTopics.svelte';
 
 	interface Props {
-		article: ArticleWithTasks;
-		categories: string[];
+		article: ArticleRecord;
 		showThumbnail: boolean;
 		showText: boolean;
 		isFixedThumb: boolean;
@@ -17,7 +14,6 @@
 		thumbHeight?: number;
 		unread?: boolean;
 		tooltip?: string | null;
-		topics: string[];
 		matchSnippet?: RawSearchMatch;
 		/** Renders the article title below the thumbnail (thumbnail-only mode). */
 		showTitle?: boolean;
@@ -25,7 +21,6 @@
 
 	let {
 		article,
-		categories,
 		showThumbnail,
 		showText,
 		isFixedThumb,
@@ -33,7 +28,6 @@
 		thumbHeight = undefined,
 		unread = false,
 		tooltip = null,
-		topics,
 		matchSnippet = undefined,
 		showTitle = false
 	}: Props = $props();
@@ -62,8 +56,6 @@
 				<ArticleMatchSnippet match={matchSnippet} />
 			{:else}
 				<ArticleTitle title={article.title} />
-				<!-- 				<ArticleCategoryPills {categories} />
-				<ArticleTopics {topics} /> -->
 			{/if}
 		{/if}
 	</div>

@@ -4,8 +4,6 @@
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
-	import { getProfileUrl } from '@/lib/utils/youtube';
-	import { profileRunner } from '@/runners/youtube/profileVideosRunner';
 	import {
 		viewState,
 		drawersState,
@@ -17,6 +15,7 @@
 	import type { ProfileArticleTabId } from '@/stores/tabAnimationStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		deleteProfileById,
@@ -223,10 +222,11 @@
 				(p) => p.name === viewState.hoveredProfileName
 			);
 			if (!profile) return;
-			const profileUrl = getProfileUrl(viewState.hoveredProfileName);
-			await profileRunner(profileUrl, {
-				options: { videosAmount: 1, scrollTimes: 1 }
-			});
+			try {
+				await scrapStore.fetchMissingProfileVideos(profile.id, { maxVideos: 1 });
+			} catch (error) {
+				console.error('Failed to fetch profile videos', error);
+			}
 			articleCacheStore.invalidateProfiles();
 			await articleCacheStore.fetchProfilesWithArticles({ force: true });
 		},
@@ -369,6 +369,13 @@
 						name="MessageSquareText"
 						bind:checked={viewState.clipboardTtsEnabled}
 						tooltipProps={{ content: 'read copied text' }}
+					/>
+				</button>
+				<button type="button" class="settings-trigger" aria-label="Toggle capture only on paste">
+					<ToggleIcon
+						name="File"
+						bind:checked={viewState.captureOnlyOnPaste}
+						tooltipProps={{ content: 'capture only (no analysis)' }}
 					/>
 				</button>
 				<!-- 	<button type="button" class="settings-trigger" aria-label="Toggle show all articles">

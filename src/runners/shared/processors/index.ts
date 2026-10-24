@@ -1,65 +1,12 @@
-import type { ProcessorDef, ProcessorType } from './types';
-import { summarizeProcessor } from './summarize';
-import { extractionProcessor } from './extraction';
-import { translateProcessor } from './translate';
-import { customProcessor } from './custom';
-import { multiProcessor } from './multi';
-import { windowSummaryProcessor } from './windowSummary';
-// Analysis-topic implementation toggle: the split processor (two calls per
-// chunk + label consolidation) and the single-call processor share the same
-// `type` and data shapes, so switching is just swapping this import.
-import { analysisTopicSplitProcessor as analysisTopicProcessor } from './analysisTopicSplit';
-// import { analysisTopicProcessor } from './analysisTopic';
-
-const registry = new Map<ProcessorType, ProcessorDef>();
-
-function register(def: ProcessorDef): void {
-	registry.set(def.type, def);
-}
-
-register(summarizeProcessor);
-register(extractionProcessor);
-register(translateProcessor);
-register(customProcessor);
-register(multiProcessor);
-register(analysisTopicProcessor);
-register(windowSummaryProcessor);
-
-export function getProcessor(type: ProcessorType): ProcessorDef {
-	const def = registry.get(type);
-	if (!def) throw new Error(`Unknown processor type: ${type}`);
-	return def;
-}
-
-export function getProcessorTypes(): ProcessorType[] {
-	return [...registry.keys()];
-}
-
-export {
-	DEFAULT_KEYWORD_COUNT,
-	DEFAULT_TOPIC_COUNT,
-	DEFAULT_TOPIC_WORD_COUNT,
-	MAX_TOPIC_COUNT,
-	MAX_TOPIC_WORD_COUNT,
-	MIN_TOPIC_COUNT,
-	MIN_TOPIC_WORD_COUNT
-} from './analysisTopic';
-
+/**
+ * Processor registry. The MVP article runner has exactly one analytic, so the
+ * registry holds one entry.
+ */
+export { windowSummaryProcessor } from './windowSummary';
 export type {
 	ProcessorDef,
-	ProcessorType,
-	CombineMode,
-	ChunkProcessorConfig,
-	ChunkProcessor,
-	MultiChunkProcessor,
-	AnyChunkProcessor,
-	MultiChunkData,
-	MultiFinal,
-	TopicSection,
-	AnalysisTopicChunkData,
-	AnalysisTopicFinal,
 	WindowSummaryChunkData,
 	WindowSummaryFinal,
-	AnalysisTopicChunkProcessor,
-	WindowSummaryChunkProcessor
+	WindowSummaryProcessor,
+	WindowSummaryProcessorConfig
 } from './types';

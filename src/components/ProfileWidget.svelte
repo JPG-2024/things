@@ -3,12 +3,11 @@
 	import EntityCard from '@/components/EntityCard.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import { getProfileUrl } from '@/lib/utils/youtube';
 	import { goto } from '$app/navigation';
-	import { type ArticleProfile, type ArticleWithTasks } from '@/stores/webStore';
-	import { workflowStore } from '@/stores/workflowStore.svelte';
+	import { type ArticleProfile, type ArticleRecord } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { scrapStore } from '@/stores/scrapStore.svelte';
 
 	interface Props {
 		profileWithArticles: ArticleProfile;
@@ -19,11 +18,7 @@
 
 	let { profileWithArticles, showTitle = false, collapsed = false }: Props = $props();
 
-	const profileRunId = getProfileUrl(profileWithArticles.name);
-	const profileRunStatus = $derived(workflowStore.runs.get(profileRunId)?.status);
-	const isProfileRunning = $derived(
-		profileRunStatus === 'running' || profileRunStatus === 'pending'
-	);
+	const isProfileRunning = $derived(scrapStore.isFetchingMissingVideos);
 	const articles = $derived(profileWithArticles.articles ?? []);
 	const isDomain = $derived(profileWithArticles.domainId === profileWithArticles.id);
 	const layout = $derived(viewState.cardLayout[isDomain ? 'domains' : 'profiles']);
@@ -34,19 +29,22 @@
 		goto(`/profile/${profileWithArticles.id}`);
 	}
 
+	/**
+	 * Refreshes the channel: the scraper lists its videos and the missing
+	 * ones are captured in `metadata` mode (analysed when they are opened).
+	 */
 	async function handleRefresh() {
 		if (isProfileRunning) return;
-		const profileUrl = getProfileUrl(profileWithArticles.name);
-		await urlRouter(profileUrl, {
-			forceRunTasks: true,
-			routine: 'fromUrl',
-			runnerOptions: { videosAmount: 3, profileId: profileWithArticles.id }
-		});
+		try {
+			await scrapStore.fetchMissingProfileVideos(profileWithArticles.id);
+		} catch (error) {
+			console.error('Failed to refresh profile', error);
+		}
 		articleCacheStore.invalidateProfiles();
 		await articleCacheStore.fetchProfilesWithArticles({ force: true });
 	}
 
-	async function handleNavigateToArticle(article: ArticleWithTasks) {
+	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileWithArticles.id;
 		if (article.url.startsWith('raw-')) {
@@ -58,7 +56,7 @@
 		}
 	}
 
-	function handleArticleHoverEnter(article: ArticleWithTasks) {
+	function handleArticleHoverEnter(article: ArticleRecord) {
 		viewState.hoveredArticleUrl = article.url ?? null;
 		viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
 	}

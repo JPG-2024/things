@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mergeSearchResults, taskEmbeddingTable } from './embeddingSearch';
+import { mergeSearchResults } from './embeddingSearch';
 import type { SearchChunkResult } from './embeddingStore';
 
 function chunk(overrides: Partial<SearchChunkResult> & { id: string }): SearchChunkResult {
@@ -66,15 +66,5 @@ describe('mergeSearchResults', () => {
 
 	test('returns empty for empty input', () => {
 		expect(mergeSearchResults([])).toEqual([]);
-	});
-});
-
-describe('taskEmbeddingTable', () => {
-	test('defaults to the task id', () => {
-		expect(taskEmbeddingTable({ id: 'analysis' })).toBe('analysis');
-	});
-
-	test('uses the embedTable override when set', () => {
-		expect(taskEmbeddingTable({ id: 'analysis', embedTable: 'summary' })).toBe('summary');
 	});
 });

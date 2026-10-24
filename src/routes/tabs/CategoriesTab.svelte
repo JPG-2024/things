@@ -7,7 +7,7 @@
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { ArticleWithTasks, CategoryWithArticles } from '@/stores/webStore';
+	import type { ArticleRecord, CategoryWithArticles } from '@/stores/webStore';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const categoryItemTransition = tabAnimationStore.transitionFor('categories');
@@ -26,13 +26,13 @@
 		});
 	});
 
-	function handleArticleClick(article: ArticleWithTasks) {
+	function handleArticleClick(article: ArticleRecord) {
 		if (!article.url) return;
 		urlRouter(article.url);
 		goto(`/youtube/${encodeURIComponent(article.url)}`);
 	}
 
-	function handleArticleHoverEnter(article: ArticleWithTasks) {
+	function handleArticleHoverEnter(article: ArticleRecord) {
 		viewState.hoveredArticleUrl = article.url ?? null;
 		viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
 	}

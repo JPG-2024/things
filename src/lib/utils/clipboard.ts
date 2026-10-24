@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
+import { articleManager } from '@/runners/articleManager.svelte';
 import { handlePasteUrl } from '@/lib/utils/pasteUrl';
 
 /** Must match `GLOBAL_CLIPBOARD_TRIGGER_EVENT` in the Rust backend. */
@@ -8,18 +9,16 @@ export const GLOBAL_CLIPBOARD_TRIGGER_EVENT = 'global-clipboard-trigger';
 /**
  * Routes clipboard content through the URL/raw pipeline.
  *
- * If something is already being processed, the content is queued and drained by
- * `processQueue` once the current run finishes (same queue the URL pipeline
- * uses). Shared by the global shortcut and the title click.
+ * `handlePasteUrl` is the only entry point: it owns the "capture in the
+ * background" branch, so the clipboard path inherits it for free.
  */
 export async function handleClipboardContent(text: string): Promise<void> {
 	const trimmed = text.trim();
 	if (!trimmed) return;
 
 	if (viewState.processingUrl || viewState.loading) {
-		if (viewState.forceLanguageEnabled || viewState.urlQueue.length < viewState.maxUrlQueueSize) {
-			viewState.urlQueue.push(trimmed);
-		}
+		// Something is running: the url is queued by the manager instead.
+		articleManager.enqueue(trimmed);
 		return;
 	}
 

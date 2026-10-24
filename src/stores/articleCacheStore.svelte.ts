@@ -3,7 +3,7 @@ import {
 	getArticlesWithoutProfile,
 	getCategoriesWithArticlesPage,
 	getProfiles,
-	type ArticleWithTasks,
+	type ArticleRecord,
 	type ArticleProfile,
 	type CategoryWithArticles
 } from '@/stores/webStore';
@@ -12,6 +12,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import { TAB_PAGE_CONFIG, type CardLayout } from '@/constants';
 import { articleCapacity } from '@/lib/utils/cardLayout';
 import { viewState } from '@/stores/viewStore.svelte';
+import type { ArticleMode } from '@/types/articleAnalysis.types';
 
 const PROFILES_PAGE_SIZE = TAB_PAGE_CONFIG.profiles.pageSize;
 const DOMAINS_PAGE_SIZE = TAB_PAGE_CONFIG.domains.pageSize;
@@ -38,8 +39,8 @@ type ArticlesParams = {
 	profileIds?: string[];
 	domainIds?: string[];
 	dateFrom?: string;
-	templateId?: string;
-	includeInitial?: boolean;
+	/** `metadata` restricts the list to captured-but-not-analysed articles. */
+	mode?: ArticleMode;
 };
 
 type CategoryArticlesParams = {
@@ -48,7 +49,7 @@ type CategoryArticlesParams = {
 
 type CategoryPageEntry = {
 	categoryName: string;
-	articles: ArticleWithTasks[];
+	articles: ArticleRecord[];
 };
 
 function buildArticlesSignature(params: ArticlesParams): string {
@@ -59,8 +60,7 @@ function buildArticlesSignature(params: ArticlesParams): string {
 		profileIds: sortedIds(params.profileIds),
 		domainIds: sortedIds(params.domainIds),
 		dateFrom: params.dateFrom ?? null,
-		templateId: params.templateId ?? null,
-		includeInitial: params.includeInitial ?? null
+		mode: params.mode ?? null
 	});
 }
 
@@ -68,7 +68,7 @@ async function fetchArticlesPage(
 	params: ArticlesParams,
 	offset: number,
 	limit: number
-): Promise<{ items: ArticleWithTasks[]; total: number }> {
+): Promise<{ items: ArticleRecord[]; total: number }> {
 	const result = await getArticlesWithoutProfile({
 		categoryIds: params.categoryIds,
 		offset,
@@ -78,8 +78,7 @@ async function fetchArticlesPage(
 		profileIds: params.profileIds,
 		domainIds: params.domainIds,
 		dateFrom: params.dateFrom,
-		templateId: params.templateId,
-		includeInitial: params.includeInitial
+		mode: params.mode
 	});
 
 	return { items: result.articles, total: result.total };
@@ -130,14 +129,14 @@ class ArticleCacheStore {
 		}
 	);
 
-	private readonly articles = new PaginationResource<ArticleWithTasks, ArticlesParams>(
+	private readonly articles = new PaginationResource<ArticleRecord, ArticlesParams>(
 		ARTICLES_PAGE_SIZE,
 		buildArticlesSignature,
 		fetchArticlesPage
 	);
 
 	private readonly categoryArticlesResource = new PaginationResource<
-		ArticleWithTasks,
+		ArticleRecord,
 		CategoryArticlesParams
 	>(
 		ARTICLES_PAGE_SIZE,
@@ -162,7 +161,7 @@ class ArticleCacheStore {
 	// scrapStore's normalized handle land on the same entry.
 	private readonly profileArticlesResources = new SvelteMap<
 		string,
-		PaginationResource<ArticleWithTasks, ArticlesParams>
+		PaginationResource<ArticleRecord, ArticlesParams>
 	>();
 
 	private profileResourceKey(profileId: string): string {
@@ -171,11 +170,11 @@ class ArticleCacheStore {
 
 	private getOrCreateProfileResource(
 		profileId: string
-	): PaginationResource<ArticleWithTasks, ArticlesParams> {
+	): PaginationResource<ArticleRecord, ArticlesParams> {
 		const key = this.profileResourceKey(profileId);
 		let resource = this.profileArticlesResources.get(key);
 		if (!resource) {
-			resource = new PaginationResource<ArticleWithTasks, ArticlesParams>(
+			resource = new PaginationResource<ArticleRecord, ArticlesParams>(
 				ARTICLES_PAGE_SIZE,
 				buildArticlesSignature,
 				fetchArticlesPage
@@ -187,7 +186,7 @@ class ArticleCacheStore {
 
 	private profileResource(
 		profileId: string
-	): PaginationResource<ArticleWithTasks, ArticlesParams> | undefined {
+	): PaginationResource<ArticleRecord, ArticlesParams> | undefined {
 		return this.profileArticlesResources.get(this.profileResourceKey(profileId));
 	}
 
@@ -239,7 +238,7 @@ class ArticleCacheStore {
 		return this.domains.offset;
 	}
 
-	get articlesWithoutProfile(): ArticleWithTasks[] {
+	get articlesWithoutProfile(): ArticleRecord[] {
 		return this.articles.visibleItems;
 	}
 
@@ -279,7 +278,7 @@ class ArticleCacheStore {
 		return this.categoryHasMore;
 	}
 
-	get categoryArticles(): ArticleWithTasks[] {
+	get categoryArticles(): ArticleRecord[] {
 		return this.categoryArticlesResource.visibleItems;
 	}
 
@@ -316,8 +315,7 @@ class ArticleCacheStore {
 		profileIds?: string[];
 		domainIds?: string[];
 		dateFrom?: string;
-		templateId?: string;
-		includeInitial?: boolean;
+		mode?: ArticleMode;
 	}) {
 		await this.articles.fetch(
 			{
@@ -327,30 +325,25 @@ class ArticleCacheStore {
 				profileIds: options?.profileIds,
 				domainIds: options?.domainIds,
 				dateFrom: options?.dateFrom,
-				templateId: options?.templateId,
-				includeInitial: options?.includeInitial
+				mode: options?.mode
 			},
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
 	}
 
 	/** Fetches the paginated article list of one profile into its own cache. */
-	async fetchProfileArticles(
-		profileId: string,
-		options?: { force?: boolean; templateId?: string; includeInitial?: boolean }
-	) {
+	async fetchProfileArticles(profileId: string, options?: { force?: boolean; mode?: ArticleMode }) {
 		await this.getOrCreateProfileResource(profileId).fetch(
 			{
 				profileId,
-				templateId: options?.templateId,
-				includeInitial: options?.includeInitial
+				mode: options?.mode
 			},
 			{ force: options?.force }
 		);
 	}
 
 	/** Articles of one profile from its per-profile cache (empty until fetched). */
-	profileArticles(profileId: string): ArticleWithTasks[] {
+	profileArticles(profileId: string): ArticleRecord[] {
 		return this.profileResource(profileId)?.visibleItems ?? [];
 	}
 
@@ -561,7 +554,7 @@ class ArticleCacheStore {
 	removeArticlesByUrls(urls: Set<string>) {
 		if (urls.size === 0) return;
 
-		const hasUrl = (article: ArticleWithTasks) => urls.has(article.url ?? '');
+		const hasUrl = (article: ArticleRecord) => urls.has(article.url ?? '');
 
 		const removedArticles = this.articles.remove(hasUrl);
 		this.articles.total = Math.max(0, this.articles.total - removedArticles);

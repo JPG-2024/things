@@ -34,8 +34,7 @@
 		stopLlamaServers
 	} from '@/lib/utils/llamaHealth';
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
-	import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
-	import type { DefaultAnalysisKind } from '@/runners/shared/sharedTasks';
+	import { WINDOW_DIVISOR_LADDER } from '@/lib/utils/windowAnalysis';
 	import {
 		getTTSApiKey,
 		setTTSApiKey,
@@ -182,11 +181,22 @@
 		{ label: 'OpenRouter', value: 'openrouter' }
 	];
 
-	const analysisKindOptions: { label: string; value: DefaultAnalysisKind }[] = [
-		{ label: 'Window summary', value: 'windowSummary' },
-		{ label: 'Topic analysis', value: 'analysisTopic' },
-		{ label: 'Multi analysis', value: 'multi' }
-	];
+	const windowLevelOptions = WINDOW_DIVISOR_LADDER.map((divisor, index) => ({
+		label: `÷${divisor}`,
+		value: String(index)
+	}));
+
+	// The raw text of the field: the store keeps the parsed list, but the
+	// input needs the text the user is typing (a trailing comma included).
+	let embeddingFieldsText = $state(viewState.embeddingFields.join(', '));
+
+	function handleEmbeddingFields(value: string): void {
+		embeddingFieldsText = value;
+		viewState.embeddingFields = value
+			.split(',')
+			.map((field) => field.trim())
+			.filter(Boolean);
+	}
 
 	const languageOptions = [
 		{ label: 'Spanish', value: 'es', emoji: '🇪🇸' },
@@ -342,37 +352,22 @@
 	<Spacer title="Analysis" icon="ScanSearch">
 		<div class="inference-section">
 			<DropdownField
-				label="Default analysis"
-				options={analysisKindOptions}
-				tooltip="Processor used for newly created analysis tasks. Tasks already saved keep their original processor."
-				value={viewState.analysisKind}
-				onChange={(v) => (viewState.analysisKind = v as DefaultAnalysisKind)}
+				label="Window level"
+				options={windowLevelOptions}
+				tooltip="How many windows the article is split into (÷1, ÷2, ÷4, ÷8, ÷16). One LLM call per window. Applies to raw text and YouTube videos; web articles split by markdown headings."
+				value={String(viewState.windowLevel)}
+				onChange={(v) => (viewState.windowLevel = Number(v))}
 			/>
-			{#if viewState.analysisKind === 'analysisTopic'}
-				<NumberField
-					label="Default depth"
-					min={MIN_ANALYSIS_DEPTH}
-					max={MAX_ANALYSIS_DEPTH}
-					tooltip="Starting depth for new topic-analysis tasks. Each level splits the content into more windows (÷1, ÷2, ÷4, ÷8, ÷16) and asks each window for topics."
-					bind:value={viewState.analysisDepth}
-				/>
-			{/if}
 		</div>
 	</Spacer>
 	<Spacer title="Embeddings" icon="FileDigit">
 		<div class="inference-section">
-			<FieldsRow columns={2}>
-				<TextField
-					label="Embedding table"
-					tooltip="LanceDB table where new analysis tasks index their chunks (Settings default; tasks already saved keep their own)."
-					bind:value={viewState.embeddingTable}
-				/>
-				<TextField
-					label="Embed field"
-					tooltip="Chunk field that gets embedded. Every analysis processor produces a summary per chunk, so 'summary' works for any analysis kind."
-					bind:value={viewState.embeddingField}
-				/>
-			</FieldsRow>
+			<TextField
+				label="Embedding fields"
+				tooltip="Comma-separated list of analysis fields to index. Each field is embedded in its own LanceDB table, named after the field."
+				value={embeddingFieldsText}
+				onChange={handleEmbeddingFields}
+			/>
 			<CheckboxField
 				label="Store chunk text"
 				tooltip="Store the embedded text next to each vector so search results can show it without reading the raw content."

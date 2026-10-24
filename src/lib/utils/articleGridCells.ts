@@ -1,4 +1,4 @@
-import type { ArticleWithTasks } from '@/stores/webStore';
+import type { ArticleRecord } from '@/stores/webStore';
 
 export const DEFAULT_STACK_PREVIEW_COUNT = 3;
 
@@ -9,14 +9,14 @@ export type ProfileStackCell = {
 	key: string;
 	profileId: string;
 	/** Latest articles, newest first, up to previewCount. */
-	preview: ArticleWithTasks[];
+	preview: ArticleRecord[];
 };
 
 /** One masonry cell: a single article rendered as a plain ArticleItem. */
 export type ArticleCell = {
 	kind: 'article';
 	key: string;
-	article: ArticleWithTasks;
+	article: ArticleRecord;
 };
 
 export type ArticleGridCell = ProfileStackCell | ArticleCell;
@@ -26,11 +26,11 @@ type BuildOptions = {
 	previewCount?: number;
 };
 
-function articleCellKeyOf(article: ArticleWithTasks): string {
+function articleCellKeyOf(article: ArticleRecord): string {
 	return article.url ?? `id:${article.id}`;
 }
 
-function articleCreatedAt(article: ArticleWithTasks): number | null {
+function articleCreatedAt(article: ArticleRecord): number | null {
 	return typeof article.createdAt === 'number' ? article.createdAt : null;
 }
 
@@ -51,12 +51,12 @@ function cellRecency(cell: ArticleGridCell): number | null {
  * below two articles dissolves back into plain cells automatically.
  */
 export function buildArticleGridCells(
-	articles: ArticleWithTasks[],
+	articles: ArticleRecord[],
 	options: BuildOptions = {}
 ): ArticleGridCell[] {
 	const previewCount = Math.max(1, options.previewCount ?? DEFAULT_STACK_PREVIEW_COUNT);
 
-	const groups = new Map<string, ArticleWithTasks[]>();
+	const groups = new Map<string, ArticleRecord[]>();
 	const cells: ArticleGridCell[] = [];
 
 	for (const article of articles) {

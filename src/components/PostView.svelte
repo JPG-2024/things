@@ -1,23 +1,15 @@
 <script lang="ts">
-	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
+	import { articleState } from '@/stores/articleStore.svelte';
 	import Icon from './Icon.svelte';
 	import LinkIcon from './LinkIcon.svelte';
 	import Topbar from './layout/Topbar.svelte';
 	import Toolbar from './Toolbar.svelte';
-	import StringReveal from './StringReveal.svelte';
-	import ToggleIcon from './ToggleIcon.svelte';
 	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
 	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { workflowManager } from '@/runners/workflowManager.svelte';
-	import { workflowStore } from '@/stores/workflowStore.svelte';
-	import {
-		generateEmbeddingsFromTasks,
-		extractCategoryFromTasks
-	} from '@/lib/utils/embeddingTasks';
-	import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
-	import TemplateManager from './TemplateManager.svelte';
+	import { articleManager } from '@/runners/articleManager.svelte';
+	import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
 	import ToolbarDivider from './ToolbarDivider.svelte';
 
 	interface Props {
@@ -27,24 +19,9 @@
 
 	const { headerContent, contentSnippet } = $props();
 	let isDeleting = $state(false);
-	let showTemplateManager = $state(false);
 
 	// ArrowLeft returns to the route this post was opened from.
 	createBackHotkey();
-
-	/* 	$effect.pre(() => {
-		function handleScroll() {
-			if (window.scrollX === -2 || window.scrollY === -2) {
-				window.removeEventListener('scroll', handleScroll);
-				void navigateBack();
-			}
-		}
-		window.addEventListener('scroll', handleScroll);
-		return () => {
-			window.removeEventListener('scroll', handleScroll);
-			workflowManager.clearStack();
-		};
-	}); */
 
 	$effect(() => {
 		return () => {
@@ -54,14 +31,26 @@
 		};
 	});
 
+	/**
+	 * The refresh of the top bar redoes the whole article: the body, the
+	 * thumbnail and the analysis. The analysis panel has its own, narrower
+	 * rerun.
+	 */
+	function handleRefresh() {
+		if (!viewState.url) return;
+		articleManager.refresh(viewState.url);
+	}
+
 	async function handleGenerateEmbeddings() {
-		const tasks = workflowStore.focusedRunTasks;
-		if (!viewState.url || !tasks.length) return;
-		await generateEmbeddingsFromTasks(tasks, viewState.url, {
-			model: EMBEDDING_MODEL,
-			profileId: viewState.currentProfileId ?? undefined,
-			category: extractCategoryFromTasks(tasks)
+		const article = articleState.currentArticle;
+		if (!article.url || !article.analysis?.windows.length) return;
+
+		await embedAnalysis({
+			url: article.url,
+			windows: article.analysis.windows,
+			categories: article.categories
 		});
+
 		viewState.embeddingsProcessed = true;
 		setTimeout(() => {
 			viewState.embeddingsProcessed = false;
@@ -90,21 +79,10 @@
 <article>
 	<Topbar loading={viewState.embeddingsLoading}>
 		<Toolbar justify="end" iconSize={20}>
-			<ToggleIcon
-				name="ListChecks"
-				bind:checked={viewState.showAllTasks}
-				tooltipProps={{ content: 'show all tasks' }}
-			/>
 			<Icon
 				name="RefreshCcw"
-				onClick={() => urlRouter(viewState.url!, { forceRunTasks: true })}
+				onClick={handleRefresh}
 				tooltipProps={{ content: 'refresh article' }}
-			/>
-
-			<Icon
-				name="Save"
-				tooltipProps={{ content: 'template manager' }}
-				onClick={() => (showTemplateManager = true)}
 			/>
 
 			<Icon
@@ -144,8 +122,6 @@
 
 	{@render contentSnippet()}
 </article>
-
-<TemplateManager show={showTemplateManager} onClose={() => (showTemplateManager = false)} />
 
 <style>
 	article {

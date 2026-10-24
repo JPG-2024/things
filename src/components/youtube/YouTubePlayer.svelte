@@ -1,16 +1,14 @@
 <script lang="ts">
-	import type { TaskComponentProps } from '@/types/taskRunner.types';
-	import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
+	import type { YouTubePlayerContext } from '@/types/youtube.types';
 	import { fly } from 'svelte/transition';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { toThumbnailVTName } from '@/lib/utils/url';
 
 	type Props = {
-		data?: YouTubePlayerContext;
-		componentProps?: TaskComponentProps;
+		data?: Partial<YouTubePlayerContext>;
 	};
 
-	let { data = undefined, componentProps = {} }: Props = $props();
+	let { data = undefined }: Props = $props();
 
 	const playerData = $derived<Partial<YouTubePlayerContext>>(data ?? {});
 
@@ -18,8 +16,6 @@
 		if (!playerData.videoId) return;
 		playerStore.open(playerData as YouTubePlayerContext);
 	}
-
-	void componentProps;
 </script>
 
 <div class="yt-wrapper" transition:fly={{ duration: 300, y: 24 }}>

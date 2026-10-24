@@ -14,7 +14,7 @@
 		chatCompletions,
 		type LlamaChatCompletionsRequest
 	} from '@/lib/utils/inference/chat-completions-provider';
-	import { retrieveContextChunks } from '@/lib/utils/embeddingTasks';
+	import { retrieveContextChunks } from '@/lib/utils/embeddingStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 

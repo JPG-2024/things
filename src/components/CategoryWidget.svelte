@@ -9,7 +9,7 @@
 		deleteProfileById,
 		getArticlesWithoutProfile,
 		getProfiles,
-		type ArticleWithTasks,
+		type ArticleRecord,
 		type ArticleProfile
 	} from '@/stores/webStore';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
@@ -25,7 +25,7 @@
 
 	let { categoryId, name = '', showTitle = false, onDeleted }: Props = $props();
 
-	let articles = $state<ArticleWithTasks[]>([]);
+	let articles = $state<ArticleRecord[]>([]);
 	let profile = $state<ArticleProfile | null>(null);
 	let isLoading = $state(false);
 	let isDeleting = $state(false);
@@ -57,7 +57,7 @@
 		loadData();
 	}
 
-	async function handleNavigateToArticle(article: ArticleWithTasks) {
+	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = categoryId;
 		await urlRouter(article.url);

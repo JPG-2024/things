@@ -1,18 +1,14 @@
 <script lang="ts">
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import type { RawSearchMatch } from '@/stores/viewStore.svelte';
 	import ArticleThumbnail from './ArticleThumbnail.svelte';
 	import ArticleTitle from './ArticleTitle.svelte';
 	import ArticleMatchSnippet from './ArticleMatchSnippet.svelte';
-	import ArticleCategoryPills from './ArticleCategoryPills.svelte';
-	import ArticleTopics from './ArticleTopics.svelte';
 
 	interface Props {
-		article: ArticleWithTasks;
-		categories: string[];
+		article: ArticleRecord;
 		showThumbnail: boolean;
 		showText: boolean;
-		topics: string[];
 		matchSnippet?: RawSearchMatch;
 		tooltip?: string | null;
 		unread?: boolean;
@@ -20,10 +16,8 @@
 
 	let {
 		article,
-		categories,
 		showThumbnail,
 		showText,
-		topics,
 		matchSnippet = undefined,
 		tooltip = null,
 		unread = false
@@ -39,8 +33,6 @@
 			<ArticleMatchSnippet match={matchSnippet} />
 		{:else}
 			<ArticleTitle title={article.title} />
-			<ArticleTopics {topics} wrapped />
-			<ArticleCategoryPills {categories} />
 		{/if}
 	{/if}
 </div>

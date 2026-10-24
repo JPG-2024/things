@@ -6,12 +6,11 @@
 	import Icon from '@/components/Icon.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
-	import { INITIAL_TEMPLATE_ID } from '@/runners/templateConstants';
 	import {
 		deleteProfileById,
 		getProfile,
 		type ArticleProfile,
-		type ArticleWithTasks
+		type ArticleRecord
 	} from '@/stores/webStore';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
@@ -86,8 +85,7 @@
 		// shared list is untouched and its return navigation stays instant.
 		if (!profileId) return;
 		void articleCacheStore.fetchProfileArticles(profileId, {
-			templateId: viewState.showOnlyInitialArticles ? INITIAL_TEMPLATE_ID : undefined,
-			includeInitial: true
+			mode: viewState.showOnlyImportedArticles ? 'metadata' : undefined
 		});
 	});
 
@@ -110,7 +108,7 @@
 		}
 	}
 
-	async function handleNavigateToArticle(article: ArticleWithTasks) {
+	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileId;
 		if (article.url.startsWith('raw-')) {

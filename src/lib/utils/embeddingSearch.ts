@@ -1,20 +1,11 @@
-import type { SearchChunkResult } from './embeddingStore';
-
-export interface TaskEmbeddingTableRef {
-	id: string;
-	embedTable?: string;
-}
-
 /**
- * LanceDB table an indexing task writes to / consumers search.
+ * Merging of nearest-neighbour results.
  *
- * Defaults to the task's own id (the historical behaviour: table name == task
- * id); a task may override it with `embedTable` (e.g. the default analysis
- * task indexes into `summary`).
+ * This module is pure on purpose (no runtime imports) so the merge rules can
+ * be unit tested without the embeddings backend. The queries themselves live
+ * in `embeddingStore.ts`.
  */
-export function taskEmbeddingTable(task: TaskEmbeddingTableRef): string {
-	return task.embedTable ?? task.id;
-}
+import type { SearchChunkResult } from './embeddingStore';
 
 export interface MergeSearchResultsOptions {
 	excludeArticleUrl?: string;
@@ -31,8 +22,8 @@ export interface MergeSearchResultsOptions {
  * distance ascending, filters by `maxDistance` when given, and caps the list
  * at `maxResults`.
  *
- * Pure by design: `embeddingTasks.ts` re-exports it and this module stays
- * free of store/runtime imports so it can be unit tested directly.
+ * Pure by design: this module stays free of store/runtime imports so it can be
+ * unit tested directly.
  */
 export function mergeSearchResults(
 	groups: SearchChunkResult[][],

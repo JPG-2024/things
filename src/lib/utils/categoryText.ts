@@ -8,27 +8,12 @@ export type RankableExemplarMatch = {
 	distance: number;
 };
 
-const QUERY_KEYWORD_LIMIT = 15;
-const QUERY_TOPIC_LIMIT = 30;
-// The summary is the primary signal now, but `analysisTopic` produces one block
-// per window (an entire merged document); cap it so the embeddings context
-// cannot overflow.
+// The summary is the primary signal, but it can be an entire merged document;
+// cap it so the embeddings context cannot overflow.
 const CATEGORY_SUMMARY_LIMIT = 4000;
 // Upper bound on the per-window exemplars fed for one article. Long documents
 // can produce many windows; the index only needs a representative sample.
 const CATEGORY_WINDOW_LIMIT = 24;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function uniqueStrings(values: unknown, limit?: number): string[] {
-	if (!Array.isArray(values)) return [];
-	const deduped = [
-		...new Set(values.filter((v): v is string => typeof v === 'string').map((v) => v.trim()))
-	].filter(Boolean);
-	return limit != null ? deduped.slice(0, limit) : deduped;
-}
 
 /**
  * Derive the text used to compare an article against a category's exemplars.
@@ -39,59 +24,32 @@ function uniqueStrings(values: unknown, limit?: number): string[] {
  * single source of truth for both sides of the comparison — the query built
  * from the current article and the exemplar stored when the user feeds a
  * category.
- *
- * `summary` comes from the recursive `{ chunks, finalResponse }` shape, a bare
- * string, or a flat string array. When there is no summary, it falls back to
- * `topics + keywords`. The `title` argument (the `title` task's data) wins over
- * a `finalResponse.title` when present. Returns an empty string when there is
- * nothing usable to compare.
  */
-export function buildCategoryText(taskData: unknown, title?: string | null): string {
-	const providedTitle = typeof title === 'string' ? title.trim() : '';
+export function buildCategoryText(
+	summary: string | null | undefined,
+	title?: string | null
+): string {
+	const resolvedTitle = typeof title === 'string' ? title.trim() : '';
+	const resolvedSummary =
+		typeof summary === 'string' ? summary.slice(0, CATEGORY_SUMMARY_LIMIT).trim() : '';
 
-	const record = isRecord(taskData) ? taskData : null;
-	const source = record && 'finalResponse' in record ? record.finalResponse : taskData;
-
-	let summary = '';
-	let analysisTitle = '';
-	if (typeof source === 'string') {
-		summary = source.trim();
-	} else if (Array.isArray(source)) {
-		summary = uniqueStrings(source).join(', ');
-	} else if (isRecord(source)) {
-		if (typeof source.title === 'string') analysisTitle = source.title.trim();
-		if (typeof source.summary === 'string') summary = source.summary.trim();
-		if (!summary) {
-			const topics = uniqueStrings(source.topics, QUERY_TOPIC_LIMIT);
-			const keywords = uniqueStrings(source.keywords, QUERY_KEYWORD_LIMIT);
-			summary = [topics.join(', '), keywords.join(', ')].filter(Boolean).join('\n');
-		}
-	}
-
-	summary = summary.slice(0, CATEGORY_SUMMARY_LIMIT).trim();
-	const resolvedTitle = providedTitle || analysisTitle;
-
-	return [resolvedTitle, summary].filter(Boolean).join('\n\n').trim();
+	return [resolvedTitle, resolvedSummary].filter(Boolean).join('\n\n').trim();
 }
 
 /**
- * Per-window summaries from a `windowSummary` analysis result.
+ * Per-window summaries of an analysis.
  *
- * The recursive `{ chunks, finalResponse }` shape stores one `{ summary }` per
- * window; empty and duplicate summaries are dropped so they never become
- * duplicate exemplars. Returns `[]` for any other result shape.
+ * Empty and duplicate summaries are dropped so they never become duplicate
+ * exemplars.
  */
-export function extractWindowSummaries(taskData: unknown): string[] {
-	if (!isRecord(taskData)) return [];
-	const chunks = taskData.chunks;
-	if (!Array.isArray(chunks)) return [];
+export function extractWindowSummaries(
+	windows: Array<{ data?: { summary?: unknown } }> | null | undefined
+): string[] {
+	if (!Array.isArray(windows)) return [];
 
 	const summaries: string[] = [];
-	for (const entry of chunks) {
-		if (!isRecord(entry)) continue;
-		const chunkData = entry.data;
-		if (!isRecord(chunkData)) continue;
-		const summary = typeof chunkData.summary === 'string' ? chunkData.summary.trim() : '';
+	for (const window of windows) {
+		const summary = typeof window?.data?.summary === 'string' ? window.data.summary.trim() : '';
 		if (summary) summaries.push(summary);
 	}
 
@@ -101,14 +59,15 @@ export function extractWindowSummaries(taskData: unknown): string[] {
 /**
  * Build one exemplar text per window summary, each as `title + window summary`.
  *
- * `windowSummary` keeps every window small enough for the embedding window, so
- * (unlike `buildCategoryText`'s 4000-char cap on the combined final summary)
- * nothing is truncated. Capped at `CATEGORY_WINDOW_LIMIT` windows; returns `[]`
- * when the task data holds no window summaries.
+ * Capped at `CATEGORY_WINDOW_LIMIT` windows; returns `[]` when the analysis
+ * holds no window summaries.
  */
-export function buildCategoryWindowTexts(taskData: unknown, title?: string | null): string[] {
+export function buildCategoryWindowTexts(
+	windows: Array<{ data?: { summary?: unknown } }> | null | undefined,
+	title?: string | null
+): string[] {
 	const providedTitle = typeof title === 'string' ? title.trim() : '';
-	const summaries = extractWindowSummaries(taskData).slice(0, CATEGORY_WINDOW_LIMIT);
+	const summaries = extractWindowSummaries(windows).slice(0, CATEGORY_WINDOW_LIMIT);
 
 	return summaries.map((summary) =>
 		[providedTitle, summary.slice(0, CATEGORY_SUMMARY_LIMIT).trim()].filter(Boolean).join('\n\n')

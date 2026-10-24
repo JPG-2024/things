@@ -485,7 +485,7 @@ export async function chatCompletions(
 	const context = typeof request.context === 'string' ? request.context.trim() : '';
 
 	// Locate the last user message so we can build the final user message from
-	// the decoupled `context` + `userMessage`, logging only the user message.
+	// the decoupled `context` + `userMessage`.
 	const messages = request.messages;
 	let lastUserIndex = -1;
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -500,7 +500,6 @@ export async function chatCompletions(
 		const msg = messages[lastUserIndex];
 		if (typeof msg.content === 'string') {
 			if (context) {
-				console.log('[userMessage]', msg.content);
 				msg.content = `context: ${context} ${msg.content}`;
 			}
 

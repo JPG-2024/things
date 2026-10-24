@@ -2,73 +2,39 @@ import { describe, expect, test } from 'bun:test';
 import { buildCategoryText, rankExemplarMatches } from './categoryText';
 
 describe('buildCategoryText', () => {
-	test('composes title + summary from the recursive analysis shape', () => {
+	test('composes title + summary', () => {
 		const text = buildCategoryText(
-			{
-				chunks: [],
-				finalResponse: { summary: 'A paragraph about markets and inflation.' }
-			},
+			'A paragraph about markets and inflation.',
 			'The economy in 2026'
 		);
 
 		expect(text).toBe('The economy in 2026\n\nA paragraph about markets and inflation.');
 	});
 
-	test('falls back to finalResponse.title when no title argument is given', () => {
-		const text = buildCategoryText({
-			finalResponse: { title: 'Main topic', summary: 'One paragraph.' }
-		});
-
-		expect(text).toBe('Main topic\n\nOne paragraph.');
+	test('works without a title', () => {
+		expect(buildCategoryText('One paragraph.')).toBe('One paragraph.');
 	});
 
-	test('the title argument wins over finalResponse.title', () => {
-		const text = buildCategoryText(
-			{ finalResponse: { title: 'Analysis title', summary: 'Body.' } },
-			'Article title'
-		);
-
-		expect(text).toBe('Article title\n\nBody.');
-	});
-
-	test('falls back to topics + keywords when there is no summary', () => {
-		const text = buildCategoryText({
-			finalResponse: { topics: ['Rust', 'Ownership'], keywords: ['borrow', 'lifetime'] }
-		});
-
-		expect(text).toBe('Rust, Ownership\nborrow, lifetime');
-	});
-
-	test('still uses the title when only topics/keywords are available', () => {
-		const text = buildCategoryText(
-			{ finalResponse: { topics: ['T'], keywords: ['K'] } },
-			'My article'
-		);
-
-		expect(text).toBe('My article\n\nT\nK');
+	test('uses the title alone when there is no summary', () => {
+		expect(buildCategoryText(null, 'My article')).toBe('My article');
 	});
 
 	test('caps the summary at 4000 chars', () => {
 		const summary = 'x'.repeat(5000);
 
-		const text = buildCategoryText({ finalResponse: { summary } });
+		const text = buildCategoryText(summary);
 
 		expect(text).toHaveLength(4000);
 	});
 
-	test('joins a flat string array as the summary', () => {
-		expect(buildCategoryText(['a', 'b', 'a'], 'Title')).toBe('Title\n\na, b');
-	});
-
-	test('trims a bare string', () => {
+	test('trims the summary', () => {
 		expect(buildCategoryText('  hello  ', 'Title')).toBe('Title\n\nhello');
 	});
 
 	test('returns empty for unusable input', () => {
 		expect(buildCategoryText(null)).toBe('');
 		expect(buildCategoryText(undefined)).toBe('');
-		expect(buildCategoryText(42)).toBe('');
-		expect(buildCategoryText({ finalResponse: { topics: [], keywords: [] } })).toBe('');
+		expect(buildCategoryText('')).toBe('');
 	});
 });
 

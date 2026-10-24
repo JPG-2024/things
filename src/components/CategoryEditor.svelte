@@ -1,28 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { articleState } from '@/stores/articleStore.svelte';
 	import {
 		assignCategoriesToArticle,
+		getArticleCategories,
 		getCategories,
-		getTasksByUrl,
-		saveCategory,
-		updateTaskDataById
+		saveCategory
 	} from '@/stores/webStore';
 	import { slugifyCategoryId } from '@/lib/utils/categories';
 	import { addCategoryExemplar, buildCategoryText } from '@/lib/utils/categoryEmbeddings';
-	import { workflowManager } from '@/runners/workflowManager.svelte';
+	import { classifyArticleCategory } from '@/runners/shared/taskFactories';
 	import CategoryItem from './CategoryItem.svelte';
 	import Icon from './Icon.svelte';
 	import SearchDropdown from './inputs/SearchDropdown.component.svelte';
 
 	interface Props {
 		articleUrl?: string | null;
-		runId?: string | null;
 		value?: string[];
 		onChange?: (ids: string[]) => void;
 	}
 
-	let { articleUrl = null, runId = null, value = [], onChange }: Props = $props();
+	let { articleUrl = null, value = [], onChange }: Props = $props();
 
 	let selectedIds = $state<string[]>([]);
 	let searchValue = $state('');
@@ -30,6 +29,7 @@
 	let feedingId = $state<string | null>(null);
 	let feedMessage = $state<string | null>(null);
 	let feedError = $state(false);
+	let reclassifying = $state(false);
 
 	const options = $derived(
 		viewState.categories
@@ -59,9 +59,8 @@
 		if (!articleUrl) return;
 
 		await assignCategoriesToArticle({ articleUrl, categoryIds: dedupeIds(nextIds) });
-		await updateTaskDataById(articleUrl, 'category', nextIds);
-		if (runId) {
-			workflowManager.setTaskData(runId, 'category', nextIds);
+		if (articleState.isCurrent(articleUrl)) {
+			articleState.setCategories(dedupeIds(nextIds));
 		}
 	}
 
@@ -94,43 +93,18 @@
 	}
 
 	/**
-	 * Resolve the analysis result and the article title (the `title` task's
-	 * data) for the current article: from the live run when available,
-	 * otherwise from the persisted task state (history).
+	 * Feeds the article into a category's exemplar set, using the same
+	 * `title + summary` representation the classifier compares against.
 	 */
-	async function resolveAnalysisAndTitle(): Promise<{ analysis: unknown; title: string | null }> {
-		let analysis: unknown = null;
-		let title: string | null = null;
-
-		if (runId) {
-			const liveAnalysis = workflowManager.getTaskData(runId, 'analysis');
-			if (liveAnalysis !== undefined) analysis = liveAnalysis;
-			const liveTitle = workflowManager.getTaskData(runId, 'title');
-			if (typeof liveTitle === 'string' && liveTitle.trim()) title = liveTitle;
-		}
-
-		if ((analysis === null || title === null) && articleUrl) {
-			const tasks = await getTasksByUrl(articleUrl);
-			if (analysis === null) {
-				analysis = tasks?.find((task) => task.id === 'analysis')?.data ?? null;
-			}
-			if (title === null) {
-				const titleTask = tasks?.find((task) => task.id === 'title');
-				if (typeof titleTask?.data === 'string' && titleTask.data.trim()) title = titleTask.data;
-			}
-		}
-
-		return { analysis, title };
-	}
-
 	async function feedCategory(categoryId: string) {
 		if (!articleUrl || feedingId) return;
 		feedingId = categoryId;
 		feedMessage = null;
 
 		try {
-			const { analysis, title } = await resolveAnalysisAndTitle();
-			const text = buildCategoryText(analysis, title);
+			const analysis = articleState.currentArticle.analysis;
+			const title = articleState.currentArticle.title;
+			const text = buildCategoryText(analysis?.summary ?? '', title);
 			if (!text) {
 				feedError = true;
 				feedMessage = 'No analysis text to feed';
@@ -147,6 +121,42 @@
 		}
 	}
 
+	/**
+	 * Forces a re-classification of the article. The pipeline only classifies
+	 * articles that have no categories, so this is the explicit way to
+	 * recalculate them.
+	 */
+	async function reclassify() {
+		if (!articleUrl || reclassifying) return;
+		reclassifying = true;
+		feedMessage = null;
+
+		try {
+			const analysis = articleState.currentArticle.analysis;
+			const title = articleState.currentArticle.title;
+			const categoryIds = await classifyArticleCategory({
+				title,
+				summary: analysis?.summary ?? '',
+				windows: analysis?.windows ?? []
+			});
+
+			if (categoryIds.length === 0) {
+				feedError = true;
+				feedMessage = 'No category matched';
+				return;
+			}
+
+			await persist(categoryIds);
+			feedError = false;
+			feedMessage = `Recalculated: ${categoryIds.map(categoryLabel).join(', ')}`;
+		} catch (error) {
+			feedError = true;
+			feedMessage = error instanceof Error ? error.message : 'Failed to recalculate';
+		} finally {
+			reclassifying = false;
+		}
+	}
+
 	$effect(() => {
 		const incoming = value ?? [];
 		const key = incoming.join('\u0000');
@@ -157,6 +167,17 @@
 
 	onMount(() => {
 		void loadCategories();
+
+		// Load the persisted categories when the caller did not provide them.
+		if (!articleUrl) return;
+		void getArticleCategories(articleUrl).then((ids) => {
+			if (ids.length === 0) return;
+			if ((value ?? []).length > 0) return;
+			selectedIds = ids;
+			if (articleState.isCurrent(articleUrl)) {
+				articleState.setCategories(ids);
+			}
+		});
 	});
 </script>
 
@@ -192,6 +213,20 @@
 				</button>
 			</span>
 		{/each}
+
+		<button
+			type="button"
+			class="reclassify-btn"
+			onclick={() => void reclassify()}
+			disabled={reclassifying}
+			aria-label="Recalculate the category of this article"
+		>
+			{#if reclassifying}
+				<Icon name="LoaderCircle" size={14} />
+			{:else}
+				<Icon name="RefreshCcw" size={14} tooltipProps={{ content: 'recalculate category' }} />
+			{/if}
+		</button>
 
 		<div class="category-search">
 			<SearchDropdown
@@ -273,6 +308,28 @@
 	}
 
 	.feed-btn:disabled {
+		cursor: default;
+		opacity: 0.3;
+	}
+
+	.reclassify-btn {
+		opacity: 0.55;
+		transition: opacity 0.15s;
+		cursor: pointer;
+		border: none;
+		background: none;
+		padding: 0 0.2rem;
+		color: var(--primary-color);
+		line-height: 1;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.reclassify-btn:hover:not(:disabled) {
+		opacity: 1;
+	}
+
+	.reclassify-btn:disabled {
 		cursor: default;
 		opacity: 0.3;
 	}

@@ -1,4 +1,4 @@
-import type { YouTubePlayerContext } from '@/runners/youtube/tasks/youtubeTasks.shared';
+import type { YouTubePlayerContext } from '@/types/youtube.types';
 
 /**
  * Global floating video player state. The player component itself is mounted

@@ -11,7 +11,7 @@
 
 <ToggleIcon
 	name="File"
-	bind:checked={viewState.showOnlyInitialArticles}
+	bind:checked={viewState.showOnlyImportedArticles}
 	{size}
-	tooltipProps={{ content: 'only initial articles' }}
+	tooltipProps={{ content: 'only imported articles' }}
 />

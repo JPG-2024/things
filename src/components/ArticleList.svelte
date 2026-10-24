@@ -15,7 +15,7 @@
 		MASONRY_PRESET_LABELS
 	} from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
-	import type { ArticleWithTasks } from '@/stores/webStore';
+	import type { ArticleRecord } from '@/stores/webStore';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
@@ -27,17 +27,17 @@
 	} from '@/lib/utils/articleGridCells';
 
 	interface Props {
-		items: ArticleWithTasks[];
+		items: ArticleRecord[];
 		/**
 		 * Enables grouping articles into per-profile stack cells and exposes the
 		 * `Alt+G` toggle. Off by default; pages that opt in (articles tab,
 		 * category page) share the global `viewState.groupArticlesByProfile`.
 		 */
 		groupable?: boolean;
-		keyOf?: (item: ArticleWithTasks) => string;
+		keyOf?: (item: ArticleRecord) => string;
 		itemTransition?: ItemTransition;
-		matchOf?: (article: ArticleWithTasks) => RawSearchMatch | null;
-		onArticleClick?: (article: ArticleWithTasks) => void | Promise<void>;
+		matchOf?: (article: ArticleRecord) => RawSearchMatch | null;
+		onArticleClick?: (article: ArticleRecord) => void | Promise<void>;
 		headerLeft?: Snippet<[]>;
 		/**
 		 * Pins the grid to a preset layout (e.g. `row` for search results)
@@ -54,7 +54,7 @@
 	let {
 		items,
 		groupable = false,
-		keyOf = (item: ArticleWithTasks) => item.url ?? '',
+		keyOf = (item: ArticleRecord) => item.url ?? '',
 		itemTransition,
 		matchOf = undefined,
 		onArticleClick = undefined,
@@ -91,7 +91,7 @@
 		}
 	}
 
-	function handleArticleClick(article: ArticleWithTasks) {
+	function handleArticleClick(article: ArticleRecord) {
 		if (onArticleClick) {
 			void onArticleClick(article);
 			return;
@@ -101,7 +101,7 @@
 		goto(`/youtube/${encodeURIComponent(article.url)}`);
 	}
 
-	function handleArticleHoverEnter(article: ArticleWithTasks) {
+	function handleArticleHoverEnter(article: ArticleRecord) {
 		viewState.hoveredArticleUrl = article.url ?? null;
 		viewState.hoveredPictureSrc = article.thumbnailSrc ?? null;
 	}
