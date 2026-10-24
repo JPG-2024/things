@@ -117,6 +117,7 @@ pub fn run() {
             get_article_categories,
             write_raw_content,
             read_raw_content,
+            read_raw_content_by_url,
             search_raw_content,
             list_web_store_categories,
             upsert_web_store_category,
