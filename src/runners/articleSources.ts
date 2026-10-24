@@ -14,6 +14,7 @@ import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
 import { getProfile, saveProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { ArticleSource } from '@/types/articleAnalysis.types';
+import type { KnownProfile } from '@/runners/articleRunner';
 
 /** What a source produced for one article. */
 export interface SourceResult {
@@ -143,7 +144,8 @@ export async function fetchWebSource(url: string): Promise<SourceResult> {
  * The profile is resolved here, not at the end of the run: the `web_profiles`
  * row is read first (no network), and only when it is missing the external
  * scraper is asked. The result is persisted straight away so the header can
- * show the channel picture without another call.
+ * show the channel picture without another call. A caller that already knows
+ * the channel (a profile refresh) passes it in and the step costs nothing.
  */
 export async function fetchYouTubeSource(
 	url: string,
@@ -154,6 +156,8 @@ export async function fetchYouTubeSource(
 		storedText?: string | null;
 		/** Thumbnail that is already downloaded: it is not downloaded again. */
 		existingThumbnail?: string | null;
+		/** Channel the caller already resolved: skips the scraper entirely. */
+		profile?: KnownProfile;
 	}
 ): Promise<SourceResult> {
 	const result = emptySourceResult();
@@ -181,7 +185,7 @@ export async function fetchYouTubeSource(
 		}
 	}
 
-	await resolveYouTubeProfile(result, url, videoId);
+	await resolveYouTubeProfile(result, url, videoId, options.profile);
 
 	if (options.storedText) {
 		result.text = options.storedText;
@@ -206,8 +210,20 @@ export async function fetchYouTubeSource(
 async function resolveYouTubeProfile(
 	result: SourceResult,
 	url: string,
-	videoId: string
+	videoId: string,
+	knownProfile?: KnownProfile
 ): Promise<void> {
+	if (knownProfile) {
+		// The caller resolved the channel before queuing the run (a profile
+		// refresh scrapes it once for the whole batch): every card of that
+		// batch gets it for free — no article lookup, no scraper call. The
+		// `web_profiles` row was already written by the caller.
+		result.profile = knownProfile.id;
+		result.profilePath = knownProfile.profilePath;
+		result.profilePictureSrc = knownProfile.profilePictureSrc;
+		return;
+	}
+
 	const { scrapStore } = await import('@/stores/scrapStore.svelte');
 
 	const existing = await getProfileForVideo(url);

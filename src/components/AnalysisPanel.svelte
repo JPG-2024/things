@@ -50,7 +50,40 @@
 	const previewDivisor = $derived(WINDOW_DIVISOR_LADDER[sliderIndex] ?? executedLevel);
 
 	const isRunning = $derived(article.status === 'running' && article.step === 'analysis');
-	const chunksCollapsed = $derived(!isRunning && !!summary);
+	const progress = $derived(article.progress);
+
+	/**
+	 * Denominator of the per-chunk labels. While a run streams, the whole
+	 * total is known from the start, so the labels count up (`3/6`) instead of
+	 * renumbering after every arrival (`3/3` → `3/4` → …).
+	 */
+	const windowTotal = $derived(
+		isRunning && progress !== null && progress.total > 0
+			? Math.max(progress.total, visibleWindows.length)
+			: visibleWindows.length
+	);
+
+	/**
+	 * The accordion opens when an analysis starts and closes when it ends, so
+	 * the windows stream in visibly and then get out of the way. Only the run
+	 * drives it: a manual toggle afterwards is never fought, because the
+	 * effect reacts to `isRunning`, never to `windowsOpen`.
+	 */
+	let windowsOpen = $state(false);
+	let runActive = false;
+
+	$effect(() => {
+		if (isRunning) {
+			runActive = true;
+			windowsOpen = true;
+			return;
+		}
+		if (!runActive) return;
+		runActive = false;
+		// A finished analysis collapses; a failed one keeps its partial windows
+		// on screen, so there is something to inspect or to re-run.
+		windowsOpen = !summary;
+	});
 
 	let rawModalIndex = $state<number | null>(null);
 	let rawModalText = $state('');
@@ -82,7 +115,7 @@
 	}
 </script>
 
-{#if visibleWindows.length > 0 || summary}
+{#if visibleWindows.length > 0 || summary || isRunning}
 	<div class="analysis-shell">
 		{#if showLevelControl}
 			<div class="level-row">
@@ -102,14 +135,24 @@
 			</div>
 		{/if}
 
-		{#if visibleWindows.length > 0}
-			<Spacer title="Windows" defaultOpen={!chunksCollapsed}>
+		{#if isRunning && progress && progress.total > 0}
+			<div class="progress-row">
+				<span class="progress-label">analysing windows</span>
+				<span class="progress-count">{progress.done}/{progress.total}</span>
+			</div>
+		{/if}
+
+		{#if visibleWindows.length > 0 || isRunning}
+			<Spacer title="Windows" bind:opened={windowsOpen}>
 				<div class="chunks-grid">
+					{#if isRunning && visibleWindows.length === 0}
+						<div class="chunk-pending">waiting for the first window…</div>
+					{/if}
 					{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
 						{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 							<div class="chunk-heading">
-								<span class="chunk-index">{originalIndex + 1}/{visibleWindows.length}</span>
+								<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
 								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
 									View raw text
 								</Button>
@@ -163,14 +206,28 @@
 		opacity: 0.7;
 	}
 
-	.chunks-grid {
+	.progress-row {
 		display: flex;
-		flex-direction: column;
-		gap: 2rem;
+		align-items: baseline;
+		gap: 0.5rem;
+		font-size: 0.82rem;
+		opacity: 0.7;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.progress-count {
+		font-weight: bold;
+	}
+
+	.chunks-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+		gap: 1rem;
+		align-items: start;
 	}
 
 	.chunk-item {
-		padding-bottom: 2rem;
+		padding-bottom: 0.75rem;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 	}
 
@@ -179,11 +236,17 @@
 		border-bottom: none;
 	}
 
+	.chunk-pending {
+		font-size: 0.75rem;
+		opacity: 0.5;
+		font-style: italic;
+	}
+
 	.chunk-heading {
 		display: flex;
 		gap: 0.6rem;
 		align-items: baseline;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.4rem;
 	}
 
 	.chunk-heading :global(button) {

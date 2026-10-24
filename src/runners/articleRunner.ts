@@ -22,7 +22,8 @@ import {
 import {
 	analyzeWindows,
 	clampWindowLevel,
-	WINDOW_DIVISOR_LADDER
+	WINDOW_DIVISOR_LADDER,
+	type AnalyzeWindowsOptions
 } from '@/lib/utils/windowAnalysis';
 import { readRawContent, writeRawContent } from '@/lib/utils/rawContent';
 import {
@@ -50,6 +51,26 @@ export interface ArticleRunOptions {
 	rawText?: string;
 	/** Forces the pipeline to ignore what is already stored. */
 	force?: boolean;
+	/**
+	 * Channel already resolved by the caller (a profile refresh scrapes it
+	 * once up front). The run fills the card from it instead of asking the
+	 * scraper again for every video it captures.
+	 */
+	profile?: KnownProfile;
+}
+
+/**
+ * A channel the caller already knows, in the shape the source step writes
+ * into the article row. `id` carries the caller's normalization (the same
+ * one `resolveYouTubeProfile` applies to a scraped id).
+ */
+export interface KnownProfile {
+	id: string;
+	profilePath: string | null;
+	/** Media file name of the channel picture, downloaded by the caller. */
+	profilePicture: string | null;
+	/** Resolved src of `profilePicture`, for immediate rendering. */
+	profilePictureSrc: string | null;
 }
 
 /** What a run produced. */
@@ -67,6 +88,35 @@ function languageName(): string | undefined {
 }
 
 /**
+ * Streams the windows of one analysis attempt into the store.
+ *
+ * `onAttempt` owns the reset: an attempt (a re-run, a forced run, or a retry
+ * after a context overflow) starts from an empty buffer, so the list on screen
+ * never shows two generations of windows at once. The screen therefore shows
+ * `0/total` until the first window lands, and `n/total` stays truthful.
+ *
+ * Every write is guarded by `isCurrent(url)`: a background run must not
+ * repaint the article on screen (D17).
+ */
+function analysisStream(url: string): Pick<AnalyzeWindowsOptions, 'onAttempt' | 'onWindow'> {
+	return {
+		onAttempt: (total) => {
+			if (!articleState.isCurrent(url)) return;
+			articleState.setAnalysis({ windows: [], summary: '', divisor: null });
+			articleState.setProgress({ done: 0, total });
+		},
+		onWindow: (window, index, total) => {
+			if (!articleState.isCurrent(url)) return;
+			const current = articleState.currentArticle.analysis?.windows ?? [];
+			// The summary and the divisor only exist once the whole attempt is
+			// finished: the locals of this run are what gets persisted.
+			articleState.setAnalysis({ windows: [...current, window], summary: '', divisor: null });
+			articleState.setProgress({ done: index + 1, total });
+		}
+	};
+}
+
+/**
  * Fetches what the source of an article can give for free.
  *
  * The body is only fetched when it is not already stored: an existing raw
@@ -79,6 +129,7 @@ async function collectSource(
 		force: boolean;
 		rawText?: string;
 		existingThumbnail?: string | null;
+		profile?: KnownProfile;
 	}
 ): Promise<SourceResult> {
 	const source = detectSource(url);
@@ -94,7 +145,8 @@ async function collectSource(
 		return fetchYouTubeSource(url, {
 			includeTranscript: options.mode === 'full',
 			storedText,
-			existingThumbnail: options.existingThumbnail
+			existingThumbnail: options.existingThumbnail,
+			profile: options.profile
 		});
 	}
 
@@ -135,7 +187,8 @@ export async function runArticle(
 		mode,
 		force,
 		rawText: options.rawText,
-		existingThumbnail: existing?.thumbnail ?? null
+		existingThumbnail: existing?.thumbnail ?? null,
+		profile: options.profile
 	});
 
 	const text = source.text;
@@ -208,16 +261,7 @@ export async function runArticle(
 			splitByHeaders,
 			model: viewState.aiModel,
 			languageName: languageName(),
-			onWindow: (window, index, total) => {
-				if (!articleState.isCurrent(url)) return;
-				const current = articleState.currentArticle.analysis?.windows ?? [];
-				articleState.setAnalysis({
-					windows: [...current, window],
-					summary: articleState.currentArticle.analysis?.summary ?? '',
-					divisor: articleState.currentArticle.analysis?.divisor ?? null
-				});
-				articleState.setProgress({ done: index + 1, total });
-			}
+			...analysisStream(url)
 		});
 
 		windows = analysis.windows;
@@ -321,16 +365,7 @@ export async function rerunArticleAnalysis(
 		splitByHeaders,
 		model: viewState.aiModel,
 		languageName: languageName(),
-		onWindow: (window, index, total) => {
-			if (!articleState.isCurrent(url)) return;
-			const current = articleState.currentArticle.analysis?.windows ?? [];
-			articleState.setAnalysis({
-				windows: [...current, window],
-				summary: articleState.currentArticle.analysis?.summary ?? '',
-				divisor: articleState.currentArticle.analysis?.divisor ?? null
-			});
-			articleState.setProgress({ done: index + 1, total });
-		}
+		...analysisStream(url)
 	});
 
 	await saveArticleAnalysis({

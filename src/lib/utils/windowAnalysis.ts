@@ -52,6 +52,15 @@ export interface AnalyzeWindowsOptions {
 	model?: string;
 	/** Language the summaries are written in. */
 	languageName?: string;
+	/**
+	 * Called once per attempt, before its first window.
+	 *
+	 * The split is already known at that point, so the total is available from
+	 * the very start of the run — and an attempt that climbs the divisor ladder
+	 * restarts with a fresh total. Listeners use it to reset their buffer: one
+	 * attempt owns the windows it streams, so two attempts can never coexist.
+	 */
+	onAttempt?: (total: number) => void;
 	/** Called after every window is summarized, to stream progress. */
 	onWindow?: (window: ArticleWindow, index: number, total: number) => void;
 }
@@ -176,6 +185,7 @@ export async function analyzeWindows(
 			});
 
 			const windows: ArticleWindow[] = [];
+			options.onAttempt?.(slices.length);
 			for (const [index, slice] of slices.entries()) {
 				const result = await processor.processChunk(slice.text, index);
 				const window: ArticleWindow = {
