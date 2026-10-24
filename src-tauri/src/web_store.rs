@@ -176,9 +176,10 @@ pub struct AssignCategoriesToArticleInput {
     pub category_ids: Vec<String>,
 }
 
-/// A single fed example for a category: the `topics + keywords` text of an
-/// article the user assigned to it. The text is the source of truth; the
-/// per-exemplar vector is derived from it in the LanceDB index.
+/// A single fed example for a category: the `title + summary` text of an
+/// article (or of one analysis window) the user assigned to it. The text is the
+/// source of truth; the per-exemplar vector is derived from it in the LanceDB
+/// index. `window_index` keeps the window exemplars of one article apart.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CategoryExemplarRecord {
@@ -191,6 +192,7 @@ pub struct CategoryExemplarRecord {
     pub model_dimensions: Option<i32>,
     pub created_at: i64,
     pub updated_at: i64,
+    pub window_index: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -201,6 +203,9 @@ pub struct UpsertCategoryExemplarInput {
     pub text: String,
     pub model_name: Option<String>,
     pub model_dimensions: Option<i32>,
+    /// Window slot of the exemplar; defaults to the single/whole-document slot.
+    #[serde(default)]
+    pub window_index: Option<i32>,
 }
 
 /// How many stored exemplars were embedded with the given model signature.
@@ -370,12 +375,13 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             id TEXT PRIMARY KEY,
             category_id TEXT NOT NULL,
             article_url TEXT NOT NULL,
+            window_index INTEGER NOT NULL DEFAULT 0,
             text TEXT NOT NULL,
             model_name TEXT,
             model_dimensions INTEGER,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
-            UNIQUE (category_id, article_url)
+            UNIQUE (category_id, article_url, window_index)
         );
 
         CREATE INDEX IF NOT EXISTS idx_category_exemplars_category_id
@@ -443,6 +449,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_strip_www_domains(conn)?;
     migrate_remove_unknown_profile_domain(conn)?;
     migrate_clear_category_exemplars(conn)?;
+    migrate_category_exemplars_window_index(conn)?;
 
     Ok(())
 }
@@ -471,6 +478,44 @@ fn migrate_clear_category_exemplars(conn: &Connection) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// One-time rebuild of `category_exemplars` to key exemplars by window.
+///
+/// Feeding the window summaries of an article means several exemplars share the
+/// same `(category_id, article_url)` pair, so the uniqueness key gains
+/// `window_index`. SQLite cannot alter a UNIQUE constraint in place, so the
+/// table is rebuilt and existing rows keep slot `0` (whole-document exemplar).
+fn migrate_category_exemplars_window_index(conn: &Connection) -> Result<(), String> {
+    if table_has_column(conn, "category_exemplars", "window_index") {
+        return Ok(());
+    }
+
+    // The rename carries the old index over to the legacy table; recreate it
+    // after the legacy table is dropped so the new table owns it again.
+    conn.execute_batch(
+        "ALTER TABLE category_exemplars RENAME TO category_exemplars_legacy;
+         CREATE TABLE category_exemplars (
+             id TEXT PRIMARY KEY,
+             category_id TEXT NOT NULL,
+             article_url TEXT NOT NULL,
+             window_index INTEGER NOT NULL DEFAULT 0,
+             text TEXT NOT NULL,
+             model_name TEXT,
+             model_dimensions INTEGER,
+             created_at INTEGER NOT NULL,
+             updated_at INTEGER NOT NULL,
+             UNIQUE (category_id, article_url, window_index)
+         );
+         INSERT INTO category_exemplars
+             (id, category_id, article_url, window_index, text, model_name, model_dimensions, created_at, updated_at)
+         SELECT id, category_id, article_url, 0, text, model_name, model_dimensions, created_at, updated_at
+         FROM category_exemplars_legacy;
+         DROP TABLE category_exemplars_legacy;
+         CREATE INDEX IF NOT EXISTS idx_category_exemplars_category_id
+             ON category_exemplars(category_id);",
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn migrate_rename_profiles_to_domains(conn: &Connection) -> Result<(), String> {
@@ -2745,13 +2790,14 @@ fn map_category_exemplar_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Catego
         model_dimensions: row.get(6)?,
         created_at: row.get(7)?,
         updated_at: row.get(8)?,
+        window_index: row.get(9)?,
     })
 }
 
 const CATEGORY_EXEMPLAR_SELECT: &str = "SELECT e.id, e.category_id, e.article_url,
         (SELECT a.title FROM web_articles a WHERE a.url = e.article_url
             ORDER BY a.updated_at DESC LIMIT 1),
-        e.text, e.model_name, e.model_dimensions, e.created_at, e.updated_at
+        e.text, e.model_name, e.model_dimensions, e.created_at, e.updated_at, e.window_index
      FROM category_exemplars e";
 
 fn query_category_exemplars(
@@ -2794,8 +2840,8 @@ pub async fn list_all_category_exemplars(
 }
 
 /// Insert a new exemplar or replace the text of an existing
-/// `(category_id, article_url)` pair. Returns the persisted row so the caller
-/// can key the derived vector with the same id.
+/// `(category_id, article_url, window_index)` triple. Returns the persisted row
+/// so the caller can key the derived vector with the same id.
 #[tauri::command]
 pub async fn upsert_category_exemplar(
     app: AppHandle,
@@ -2805,12 +2851,13 @@ pub async fn upsert_category_exemplar(
 
     let now = chrono_like_now();
     let id = uuid::Uuid::new_v4().to_string();
+    let window_index = input.window_index.unwrap_or(0);
 
     conn.execute(
         "INSERT INTO category_exemplars
-            (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
-         ON CONFLICT(category_id, article_url) DO UPDATE SET
+            (id, category_id, article_url, window_index, text, model_name, model_dimensions, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+         ON CONFLICT(category_id, article_url, window_index) DO UPDATE SET
             text = excluded.text,
             model_name = excluded.model_name,
             model_dimensions = excluded.model_dimensions,
@@ -2819,6 +2866,7 @@ pub async fn upsert_category_exemplar(
             id,
             input.category_id,
             input.article_url,
+            window_index,
             input.text,
             input.model_name,
             input.model_dimensions,
@@ -2829,12 +2877,53 @@ pub async fn upsert_category_exemplar(
 
     let mut rows = query_category_exemplars(
         &conn,
-        "WHERE e.category_id = ?1 AND e.article_url = ?2",
-        &[&input.category_id, &input.article_url],
+        "WHERE e.category_id = ?1 AND e.article_url = ?2 AND e.window_index = ?3",
+        &[&input.category_id, &input.article_url, &window_index],
     )?;
 
     rows.pop()
         .ok_or_else(|| "Exemplar upsert did not persist a row".to_string())
+}
+
+/// Remove every window exemplar of one article in one category, returning the
+/// removed ids so the caller can drop the matching derived vectors.
+fn delete_category_exemplars_for_article_rows(
+    conn: &Connection,
+    category_id: &str,
+    article_url: &str,
+) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id FROM category_exemplars WHERE category_id = ?1 AND article_url = ?2",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map(params![category_id, article_url], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+
+    let mut ids = Vec::new();
+    for row in rows {
+        ids.push(row.map_err(|error| error.to_string())?);
+    }
+
+    conn.execute(
+        "DELETE FROM category_exemplars WHERE category_id = ?1 AND article_url = ?2",
+        params![category_id, article_url],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(ids)
+}
+
+#[tauri::command]
+pub async fn delete_category_exemplars_for_article(
+    app: AppHandle,
+    category_id: String,
+    article_url: String,
+) -> Result<Vec<String>, String> {
+    let conn = get_db(&app)?;
+
+    delete_category_exemplars_for_article_rows(&conn, &category_id, &article_url)
 }
 
 #[tauri::command]
@@ -4675,6 +4764,23 @@ mod tests {
         .expect("insert exemplar");
     }
 
+    fn insert_window_exemplar(
+        conn: &Connection,
+        id: &str,
+        category_id: &str,
+        article_url: &str,
+        window_index: i32,
+        text: &str,
+    ) {
+        conn.execute(
+            "INSERT INTO category_exemplars
+                (id, category_id, article_url, window_index, text, model_name, model_dimensions, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'bge-m3', 1024, 0, 0)",
+            params![id, category_id, article_url, window_index, text],
+        )
+        .expect("insert window exemplar");
+    }
+
     #[test]
     fn category_exemplar_upsert_replaces_same_article_and_exposes_title() {
         let conn = build_in_memory_db();
@@ -4689,12 +4795,13 @@ mod tests {
             "bge-m3",
         );
 
-        // Same (category_id, article_url) pair must update in place, keeping id.
+        // Same (category_id, article_url, window_index) triple must update in
+        // place, keeping id.
         conn.execute(
             "INSERT INTO category_exemplars
                 (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
              VALUES ('e2', 'cat-a', 'https://example.com/a', 'python, pandas', 'bge-m3', 1024, 20, 20)
-             ON CONFLICT(category_id, article_url) DO UPDATE SET
+             ON CONFLICT(category_id, article_url, window_index) DO UPDATE SET
                 text = excluded.text,
                 model_name = excluded.model_name,
                 model_dimensions = excluded.model_dimensions,
@@ -4713,6 +4820,105 @@ mod tests {
             Some("title-https://example.com/a"),
             "list must surface the joined article title"
         );
+    }
+
+    #[test]
+    fn category_exemplar_windows_coexist_and_replace_per_window() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
+
+        insert_window_exemplar(&conn, "e0", "cat-a", "https://example.com/a", 0, "final summary");
+        insert_window_exemplar(&conn, "e1", "cat-a", "https://example.com/a", 1, "window one");
+        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/a", 2, "window two");
+
+        let rows =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(rows.len(), 3, "each window must keep its own row");
+
+        // Re-feeding the same window replaces it in place and keeps its id.
+        conn.execute(
+            "INSERT INTO category_exemplars
+                (id, category_id, article_url, window_index, text, model_name, model_dimensions, created_at, updated_at)
+             VALUES ('e-new', 'cat-a', 'https://example.com/a', 1, 'window one v2', 'bge-m3', 1024, 30, 30)
+             ON CONFLICT(category_id, article_url, window_index) DO UPDATE SET
+                text = excluded.text,
+                updated_at = excluded.updated_at",
+            [],
+        )
+        .expect("upsert window exemplar");
+
+        let rows =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(rows.len(), 3, "upsert must not add a window");
+        let updated = rows
+            .iter()
+            .find(|row| row.window_index == 1)
+            .expect("window one row");
+        assert_eq!(updated.id, "e1", "conflict must keep the original id");
+        assert_eq!(updated.text, "window one v2");
+    }
+
+    #[test]
+    fn delete_category_exemplars_for_article_removes_all_windows() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_window_exemplar(&conn, "e0", "cat-a", "https://example.com/a", 0, "final");
+        insert_window_exemplar(&conn, "e1", "cat-a", "https://example.com/a", 1, "window");
+        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/b", 0, "other article");
+
+        let mut removed =
+            delete_category_exemplars_for_article_rows(&conn, "cat-a", "https://example.com/a")
+                .expect("delete windows");
+        removed.sort();
+
+        assert_eq!(removed, vec!["e0".to_string(), "e1".to_string()]);
+        let remaining =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].article_url, "https://example.com/b");
+    }
+
+    #[test]
+    fn migrate_category_exemplars_window_index_rebuilds_legacy_table() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE category_exemplars (
+                id TEXT PRIMARY KEY,
+                category_id TEXT NOT NULL,
+                article_url TEXT NOT NULL,
+                text TEXT NOT NULL,
+                model_name TEXT,
+                model_dimensions INTEGER,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                UNIQUE (category_id, article_url)
+            );
+            CREATE INDEX idx_category_exemplars_category_id
+                ON category_exemplars(category_id);
+            INSERT INTO category_exemplars
+                (id, category_id, article_url, text, model_name, model_dimensions, created_at, updated_at)
+            VALUES ('e1', 'cat-a', 'https://example.com/a', 'old text', 'bge-m3', 1024, 5, 5);
+            PRAGMA user_version = 1;",
+        )
+        .expect("legacy schema");
+
+        init_schema(&conn).expect("init schema");
+
+        assert!(
+            table_has_column(&conn, "category_exemplars", "window_index"),
+            "migration must add the window index column"
+        );
+        let rows =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(rows.len(), 1, "existing exemplars must survive the rebuild");
+        assert_eq!(rows[0].window_index, 0);
+        assert_eq!(rows[0].text, "old text");
+
+        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/a", 1, "second window");
+        let rows =
+            query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
+        assert_eq!(rows.len(), 2, "new key must allow several windows per article");
     }
 
     #[test]

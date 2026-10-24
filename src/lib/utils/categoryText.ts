@@ -14,6 +14,9 @@ const QUERY_TOPIC_LIMIT = 30;
 // per window (an entire merged document); cap it so the embeddings context
 // cannot overflow.
 const CATEGORY_SUMMARY_LIMIT = 4000;
+// Upper bound on the per-window exemplars fed for one article. Long documents
+// can produce many windows; the index only needs a representative sample.
+const CATEGORY_WINDOW_LIMIT = 24;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -69,6 +72,47 @@ export function buildCategoryText(taskData: unknown, title?: string | null): str
 	const resolvedTitle = providedTitle || analysisTitle;
 
 	return [resolvedTitle, summary].filter(Boolean).join('\n\n').trim();
+}
+
+/**
+ * Per-window summaries from a `windowSummary` analysis result.
+ *
+ * The recursive `{ chunks, finalResponse }` shape stores one `{ summary }` per
+ * window; empty and duplicate summaries are dropped so they never become
+ * duplicate exemplars. Returns `[]` for any other result shape.
+ */
+export function extractWindowSummaries(taskData: unknown): string[] {
+	if (!isRecord(taskData)) return [];
+	const chunks = taskData.chunks;
+	if (!Array.isArray(chunks)) return [];
+
+	const summaries: string[] = [];
+	for (const entry of chunks) {
+		if (!isRecord(entry)) continue;
+		const chunkData = entry.data;
+		if (!isRecord(chunkData)) continue;
+		const summary = typeof chunkData.summary === 'string' ? chunkData.summary.trim() : '';
+		if (summary) summaries.push(summary);
+	}
+
+	return [...new Set(summaries)];
+}
+
+/**
+ * Build one exemplar text per window summary, each as `title + window summary`.
+ *
+ * `windowSummary` keeps every window small enough for the embedding window, so
+ * (unlike `buildCategoryText`'s 4000-char cap on the combined final summary)
+ * nothing is truncated. Capped at `CATEGORY_WINDOW_LIMIT` windows; returns `[]`
+ * when the task data holds no window summaries.
+ */
+export function buildCategoryWindowTexts(taskData: unknown, title?: string | null): string[] {
+	const providedTitle = typeof title === 'string' ? title.trim() : '';
+	const summaries = extractWindowSummaries(taskData).slice(0, CATEGORY_WINDOW_LIMIT);
+
+	return summaries.map((summary) =>
+		[providedTitle, summary.slice(0, CATEGORY_SUMMARY_LIMIT).trim()].filter(Boolean).join('\n\n')
+	);
 }
 
 /**

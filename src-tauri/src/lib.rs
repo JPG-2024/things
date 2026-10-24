@@ -18,7 +18,8 @@ pub use crate::url::url_to_folder_name;
 
 mod web_store;
 pub use crate::web_store::{
-    assign_categories_to_article, delete_category_exemplar, delete_web_profile_template,
+    assign_categories_to_article, delete_category_exemplar,
+    delete_category_exemplars_for_article, delete_web_profile_template,
     delete_web_store_articles_by_urls, delete_web_store_category, delete_web_store_domain,
     delete_web_store_profile, delete_web_store_template,
     fetch_remote_profile, filter_existing_article_urls, get_category_exemplar_model_status,
@@ -129,6 +130,7 @@ pub fn run() {
             list_all_category_exemplars,
             upsert_category_exemplar,
             delete_category_exemplar,
+            delete_category_exemplars_for_article,
             get_category_exemplar_model_status,
             update_category_exemplars_model,
             list_web_store_templates,
