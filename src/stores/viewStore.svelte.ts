@@ -175,6 +175,7 @@ class ViewState {
 	inferenceServiceUp = $state(false);
 	scrapServiceUp = $state(false);
 	ttsServiceUp = $state(false);
+	ttsAuthRequired = $state(false);
 	whisperServiceUp = $state(false);
 	llamaServersStatus = $state<LlamaServerStatus[]>([]);
 	categoryTopN = $state(1);

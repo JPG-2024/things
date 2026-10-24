@@ -36,6 +36,12 @@
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
 	import { MAX_ANALYSIS_DEPTH, MIN_ANALYSIS_DEPTH } from '@/runners/shared/analysisConstants';
 	import type { DefaultAnalysisKind } from '@/runners/shared/sharedTasks';
+	import {
+		getTTSApiKey,
+		setTTSApiKey,
+		clearTTSApiKey,
+		validateTTSApiKey
+	} from '@/lib/utils/ttsAuth';
 
 	let rebuildingCategories = $state(false);
 	let models = $state<LlamaModelEntry[]>([]);
@@ -45,6 +51,9 @@
 	let restarting = $state(false);
 	let starting = $state(false);
 	let stopping = $state(false);
+	let ttsApiKey = $state('');
+	let ttsAuthStatus = $state<{ valid: boolean; error?: string } | null>(null);
+	let validatingTTSKey = $state(false);
 
 	function toOptions(entries: LlamaModelEntry[]) {
 		return entries.map((model) => ({ label: model.name, value: model.name }));
@@ -136,6 +145,9 @@
 
 	onMount(() => {
 		void reconcileLlamaModels().then(() => refreshModels());
+		void getTTSApiKey().then((key) => {
+			if (key) ttsApiKey = key;
+		});
 	});
 
 	async function handleRebuildCategoryIndex() {
@@ -148,6 +160,21 @@
 		} finally {
 			rebuildingCategories = false;
 		}
+	}
+
+	async function handleSaveTTSKey() {
+		if (ttsApiKey.trim()) {
+			await setTTSApiKey(ttsApiKey.trim());
+		} else {
+			await clearTTSApiKey();
+		}
+		ttsAuthStatus = null;
+	}
+
+	async function handleValidateKey() {
+		validatingTTSKey = true;
+		ttsAuthStatus = await validateTTSApiKey();
+		validatingTTSKey = false;
 	}
 
 	const providerOptions = [
@@ -460,6 +487,36 @@
 			</FieldsRow>
 		</div>
 	</Spacer>
+	<Spacer title="TTS Authentication" icon="Key" defaultOpen={false}>
+		<div class="inference-section">
+			<TextField
+				label="API Key"
+				type="password"
+				placeholder="sk-..."
+				bind:value={ttsApiKey}
+				tooltip="API key for the TTS service. Stored in the local settings file."
+			>
+				{#snippet suffix()}
+					<Button onClick={handleValidateKey} disabled={validatingTTSKey || !ttsApiKey}>
+						{validatingTTSKey ? 'Validating...' : 'Validate'}
+					</Button>
+				{/snippet}
+			</TextField>
+			{#if ttsAuthStatus}
+				<p
+					class="auth-status"
+					class:success={ttsAuthStatus.valid}
+					class:error={!ttsAuthStatus.valid}
+				>
+					{ttsAuthStatus.valid ? '✓ API key is valid' : `✗ ${ttsAuthStatus.error}`}
+				</p>
+			{/if}
+			<div class="server-actions">
+				<Button onClick={handleSaveTTSKey} icon="Save">Save</Button>
+			</div>
+			<p class="helper-text">API key for the TTS service. Stored in the local settings file.</p>
+		</div>
+	</Spacer>
 </div>
 
 <style>
@@ -548,5 +605,29 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+
+	.auth-status {
+		margin: 0;
+		font-size: 0.85rem;
+		padding: 0.5rem;
+		border-radius: 0.375rem;
+		word-break: break-word;
+	}
+
+	.auth-status.success {
+		color: rgb(140, 220, 160);
+		background: rgba(140, 220, 160, 0.1);
+	}
+
+	.auth-status.error {
+		color: rgb(255, 140, 109);
+		background: rgba(255, 140, 109, 0.1);
+	}
+
+	.helper-text {
+		margin: 0;
+		font-size: 0.75rem;
+		color: rgba(255, 255, 255, 0.5);
 	}
 </style>

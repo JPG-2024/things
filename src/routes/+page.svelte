@@ -83,8 +83,12 @@
 		return `${label} ${up ? 'online' : 'offline'}`;
 	}
 
-	function externalServiceTooltip(label: string, up: boolean): string {
-		return `${label} ${up ? 'online' : 'offline'}`;
+	function externalServiceTooltip(label: string, name: ExternalServiceName, up: boolean): string {
+		if (!up) return `${label} offline`;
+		if (name === 'tts' && viewState.ttsAuthRequired) {
+			return `${label}: online (auth required)`;
+		}
+		return `${label}: online`;
 	}
 
 	const EXTERNAL_SERVICE_DOTS = [
@@ -437,10 +441,17 @@
 					></span>
 				</Tooltip>
 				{#each EXTERNAL_SERVICE_DOTS as service (service.name)}
-					<Tooltip content={externalServiceTooltip(service.label, externalServiceUp(service.name))}>
+					<Tooltip
+						content={externalServiceTooltip(
+							service.label,
+							service.name,
+							externalServiceUp(service.name)
+						)}
+					>
 						<span
 							class="embeddings-health"
 							class:up={externalServiceUp(service.name)}
+							class:auth-required={service.name === 'tts' && viewState.ttsAuthRequired}
 							role="status"
 							aria-label={`${service.label} status`}
 						></span>
@@ -551,6 +562,11 @@
 	.embeddings-health.up {
 		background: rgb(120, 220, 140);
 		box-shadow: 0 0 6px rgb(120, 220, 140);
+	}
+
+	.embeddings-health.auth-required {
+		background: rgb(255, 200, 100);
+		box-shadow: 0 0 6px rgb(255, 200, 100);
 	}
 
 	.dashboard-container {

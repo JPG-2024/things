@@ -1,3 +1,5 @@
+import { getTTSAuthHeaders } from '@/lib/utils/ttsAuth';
+
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
 const TRANSCRIBE_API_URL = import.meta.env.VITE_TRANSCRIBE_API_URL ?? 'http://localhost:8001';
@@ -368,13 +370,23 @@ export async function generateSpeech(
 	signal?: AbortSignal
 ): Promise<{ blob: Blob; durationSeconds: number | null }> {
 	try {
+		const headers = await getTTSAuthHeaders();
 		const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: {
+				'Content-Type': 'application/json',
+				...headers
+			},
 			body: JSON.stringify(params),
 			signal
 		});
 
+		if (res.status === 401) {
+			throw new Error('TTS authentication failed. Please configure your API key in Settings.');
+		}
+		if (res.status === 429) {
+			throw new Error('TTS rate limit exceeded. Please wait before trying again.');
+		}
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
 			await setErrorFrom(new Error(message), 'Failed to generate speech');

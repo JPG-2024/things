@@ -1,5 +1,6 @@
 import { viewState } from '@/stores/viewStore.svelte';
 import { createAdaptivePoller } from '@/lib/utils/adaptivePoller';
+import { getTTSApiKey } from '@/lib/utils/ttsAuth';
 
 const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
@@ -65,6 +66,12 @@ export async function refreshExternalServicesHealth(): Promise<void> {
 	viewState.scrapServiceUp = scrapUp;
 	viewState.ttsServiceUp = ttsUp;
 	viewState.whisperServiceUp = whisperUp;
+
+	// Verificar si se requiere autenticación para TTS
+	if (ttsUp) {
+		const key = await getTTSApiKey();
+		viewState.ttsAuthRequired = !key;
+	}
 }
 
 /**
