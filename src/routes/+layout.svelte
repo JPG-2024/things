@@ -373,8 +373,7 @@
 		margin: 0;
 		font-size: 14px;
 		font-family: 'MonaspaceXenonFrozen', monospace;
-		border-left: 1px solid rgba(128, 128, 128, 0.055);
-		border-right: 1px solid rgba(128, 128, 128, 0.055);
+		border: 1px solid var(--gray-300);
 	}
 
 	@font-face {
@@ -449,6 +448,29 @@
 		gap: 1.5rem;
 		box-sizing: border-box;
 		margin: 0;
+		overflow-y: auto;
+		scrollbar-gutter: stable;
+		height: 100vh;
+		/* scroll-behavior: smooth removed: it glided every programmatic scroll
+		 * (goto, scrollIntoView, anchor restores) over many frames, reading as
+		 * lag after navigation. scroll-padding-top still applies. */
+		scroll-padding-top: 5rem;
+		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
+		border-bottom: none;
+		border-top: none;
+	}
+
+	/* Background layer: painted on a viewport-fixed pseudo-element instead of
+	 * `background-attachment: fixed` on `main`. The attachment mode forces a
+	 * full repaint of the element's background on every scroll step; a fixed
+	 * pseudo-element paints once and lets the compositor scroll over it.
+	 * z-index: -1 keeps it behind `main`'s children (which carry z-index: 1
+	 * via `main > *`); `main` itself has no background so the layer shows. */
+	main::before {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		pointer-events: none;
 		background-image: linear-gradient(
 			180deg,
 			rgba(0, 0, 0),
@@ -456,15 +478,7 @@
 			color-mix(in srgb, var(--bg-color) 30%, transparent)
 		);
 		background-size: 100% 150%;
-		background-attachment: fixed;
-		overflow-y: auto;
-		scrollbar-gutter: stable;
-		height: 100vh;
-		scroll-behavior: smooth;
-		scroll-padding-top: 5rem;
-		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
-		border-bottom: none;
-		border-top: none;
+		content: '';
 	}
 
 	main.blur-active {
