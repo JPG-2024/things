@@ -20,6 +20,7 @@
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
+	import MiniProfilePicker from '@/components/TTSPlayer/MiniProfilePicker.svelte';
 	import type { PauseSettings, SynthParams } from '@/types/tts.types';
 
 	interface SettingsValue {
@@ -54,6 +55,8 @@
 		management?: boolean;
 		profiles?: VoiceProfile[];
 		selectedProfileId?: string;
+		/** Applies a voice-profile selection immediately; the modal stays open. */
+		onSelectProfile?: (profileId: string) => void | Promise<void>;
 		onAddVoice?: () => void | Promise<void>;
 		onSaveProfile?: (profileId: string, name: string, image: string) => Promise<boolean>;
 		onDeleteProfile?: (profileId: string) => Promise<boolean>;
@@ -81,6 +84,7 @@
 		management = false,
 		profiles = [],
 		selectedProfileId = '',
+		onSelectProfile,
 		onAddVoice,
 		onSaveProfile,
 		onDeleteProfile,
@@ -189,6 +193,7 @@
 	let saveTargetProfileId = $state(NEW_PROFILE_VALUE);
 	let saveNamePrefix = $state('');
 	let saveImageSrc = $state('');
+	let profileFilter = $state('');
 
 	function snapshot(): SettingsValue {
 		return {
@@ -292,6 +297,7 @@
 			hoveredChunkName = null;
 			manageView = 'buttons';
 			recordingSaved = false;
+			profileFilter = '';
 			const tokens = instruct ? instruct.split(',').map((t) => t.trim()) : [];
 			draftInstructEnabled = tokens.length > 0;
 			draftGender = tokens.find((t) => (DESIGN_GENDERS as readonly string[]).includes(t)) ?? '';
@@ -556,7 +562,6 @@
 		},
 		() => ({
 			enabled: show,
-			ignoreInputs: true,
 			stopPropagation: true,
 			preventDefault: true
 		})
@@ -595,8 +600,19 @@
 
 			<div class="config-column">
 				{#if management}
-					<Spacer title="Voices" icon="Users" defaultOpen={false}>
+					<Spacer title="Voices" icon="Users" defaultOpen={true}>
 						{#if manageView === 'buttons'}
+							{#if profiles.length > 0}
+								<MiniProfilePicker
+									variant="inline"
+									bind:filter={profileFilter}
+									{profiles}
+									{selectedProfileId}
+									onPick={(profile) => void onSelectProfile?.(profile.id)}
+								/>
+							{:else}
+								<p class="voice-hint">No voices yet. Add or record one below.</p>
+							{/if}
 							<div class="voice-manage">
 								<Button icon="Mic" onClick={openRecordPanel}>Record</Button>
 								<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
@@ -1017,8 +1033,8 @@
 
 	.settings-modal {
 		position: relative;
-		width: 100%;
-		max-width: 460px;
+		width: 90vw;
+		max-width: none;
 		max-height: 92vh;
 		overflow-y: auto;
 		background: rgba(14, 14, 14, 0.98);
@@ -1145,6 +1161,7 @@
 		gap: 0.75rem;
 		align-items: center;
 		justify-content: center;
+		margin-top: 1rem;
 	}
 
 	.voice-form {

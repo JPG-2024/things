@@ -7,20 +7,16 @@
 	import { resetAudioContext } from '@/lib/audioContextManager';
 	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import type { VoiceProfile } from '@/lib/utils/ttsService';
 	import type { SynthParams, PauseSettings } from '@/types/tts.types';
 	import { TtsPlaybackEngine } from './playbackEngine.svelte';
 	import { formatTime } from './playbackMath';
 	import TTSPlayerMini from './TTSPlayerMini.svelte';
-	import MiniProfilePicker from './MiniProfilePicker.svelte';
 	import VoiceSettingsModal from '@/components/modals/VoiceSettingsModal.svelte';
 
 	const config = getCurrentStyle();
 
 	const engine = new TtsPlaybackEngine();
 
-	let showProfilePicker = $state(false);
-	let pickerFilter = $state('');
 	let showControls = $state(false);
 	let hideControlsTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -109,32 +105,23 @@
 		engine.stop();
 	}
 
-	function openProfilePicker() {
-		if (showProfilePicker) return;
-		pickerFilter = '';
-		showProfilePicker = true;
-	}
-
-	function closeProfilePicker() {
-		showProfilePicker = false;
-	}
-
-	function handlePickProfile(profile: VoiceProfile) {
-		void ttsState.handleLiveVoiceWheelChange({ ...wheelInitial, profileId: profile.id });
-		showProfilePicker = false;
+	function openVoiceSettings() {
+		voiceSettingsState.openTts();
 	}
 
 	function handlePlayerClick() {
-		if (!showProfilePicker) {
-			openProfilePicker();
-		}
+		openVoiceSettings();
 	}
 
 	function handlePlayerKeydown(event: KeyboardEvent) {
-		if (!showProfilePicker && (event.key === 'Enter' || event.key === ' ')) {
+		if (event.key === 'Enter') {
 			event.preventDefault();
-			openProfilePicker();
+			openVoiceSettings();
 		}
+	}
+
+	function handleSelectProfile(profileId: string) {
+		void ttsState.handleLiveVoiceWheelChange({ ...wheelInitial, profileId });
 	}
 
 	function applySynthSettings(value: {
@@ -177,16 +164,13 @@
 	createHotkey(
 		'Escape',
 		() => {
-			if (showProfilePicker) {
-				closeProfilePicker();
-			} else {
-				handleStop();
-			}
+			handleStop();
 		},
-		{
+		() => ({
+			enabled: !voiceSettingsState.ttsOpen,
 			stopPropagation: true,
 			preventDefault: true
-		}
+		})
 	);
 
 	createHotkey('Space', handlePrimaryClick, {
@@ -293,46 +277,27 @@
 	});
 </script>
 
-{#snippet profilePicker()}
-	<MiniProfilePicker
-		bind:filter={pickerFilter}
-		profiles={ttsState.voiceProfiles}
-		selectedProfileId={ttsState.selectedProfileId}
-		onPick={handlePickProfile}
-		onSettings={() => {
-			showProfilePicker = false;
-			voiceSettingsState.openTts();
-		}}
-	/>
-{/snippet}
-
 {#if panelVisible}
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
 		class="tts-player tts-player--mini"
-		class:tts-player--picking={showProfilePicker}
-		role={!showProfilePicker ? 'button' : undefined}
-		aria-label={!showProfilePicker ? 'Select voice' : undefined}
-		tabindex={!showProfilePicker ? 0 : undefined}
+		role="button"
+		aria-label="Voice settings"
+		tabindex="0"
 		onmousemove={handlePlayerMouseMove}
 		onclick={handlePlayerClick}
 		onkeydown={handlePlayerKeydown}
 	>
-		{#if showProfilePicker}
-			{@render profilePicker()}
-		{:else}
-			<TTSPlayerMini
-				analyser={engine.analyser}
-				{waveColor}
-				drawConfig={waveDrawConfig}
-				waveConfig={config}
-				waitingForChunk={engine.waitingForChunk}
-				{showControls}
-				{remainingLabel}
-				onPrimary={handlePrimaryClick}
-				onStop={handleStop}
-			/>
-		{/if}
+		<TTSPlayerMini
+			analyser={engine.analyser}
+			{waveColor}
+			drawConfig={waveDrawConfig}
+			waveConfig={config}
+			waitingForChunk={engine.waitingForChunk}
+			{showControls}
+			{remainingLabel}
+			onPrimary={handlePrimaryClick}
+			onStop={handleStop}
+		/>
 	</div>
 {/if}
 
@@ -347,6 +312,7 @@
 	management={true}
 	profiles={ttsState.voiceProfiles}
 	selectedProfileId={ttsState.selectedProfileId}
+	onSelectProfile={handleSelectProfile}
 	instruct={ttsState.config.instruct ?? ''}
 	showVoiceDesign={true}
 	onAddVoice={() => mainVoiceState.runAddVoice()}
@@ -396,22 +362,5 @@
 	.tts-player--mini:focus-visible {
 		outline: 2px solid var(--primary-color);
 		outline-offset: 4px;
-	}
-
-	.tts-player--picking {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 0.5rem;
-		left: 0;
-		right: 0;
-		width: 100%;
-		transform: none;
-		height: auto;
-		padding: 0.75rem 1rem;
-		background: rgba(9, 9, 9, 0.92) !important;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: var(--radius-lg);
-		cursor: default;
 	}
 </style>

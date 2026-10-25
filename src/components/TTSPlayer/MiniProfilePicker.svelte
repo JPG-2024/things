@@ -18,6 +18,8 @@
 		onAction?: () => void;
 		/** Opens the synthesis settings modal for the current context. */
 		onSettings?: () => void;
+		/** `inline` fits the picker inside a settings panel instead of the overlay. */
+		variant?: 'overlay' | 'inline';
 	}
 
 	let {
@@ -30,8 +32,11 @@
 		actionIcon = 'X',
 		actionLabel = 'Close picker',
 		onAction,
-		onSettings
+		onSettings,
+		variant = 'overlay'
 	}: Props = $props();
+
+	const inline = $derived(variant === 'inline');
 
 	const filteredProfiles = $derived(
 		filter.trim() === ''
@@ -53,7 +58,11 @@
 	}
 </script>
 
-<div class="mini-picker" transition:fly={{ duration: 200, y: 40 }}>
+<div
+	class="mini-picker"
+	class:mini-picker--inline={inline}
+	transition:fly={{ duration: 200, y: 40 }}
+>
 	<div class="mini-picker__header">
 		{#if label}
 			<span class="mini-picker__label">{label}</span>
@@ -155,6 +164,16 @@
 		padding: 1.5rem;
 	}
 
+	.mini-picker--inline .mini-picker__header {
+		width: 100%;
+		min-width: 0;
+		padding: 0 0 0.75rem 0;
+	}
+
+	.mini-picker--inline .mini-picker__empty {
+		padding: 0.25rem 0;
+	}
+
 	.mini-picker__label {
 		font-size: 0.75rem;
 		font-weight: 600;
@@ -232,7 +251,7 @@
 	}
 
 	.mini-picker__profile.selected .mini-picker__avatar-wrap {
-		box-shadow: 0 0 0 2px var(--primary-color);
+		/* box-shadow: 0 0 0 2px var(--primary-color); */
 	}
 
 	.mini-picker__avatar {
