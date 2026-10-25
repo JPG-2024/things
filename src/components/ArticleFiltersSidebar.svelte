@@ -65,6 +65,15 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+		background-image: linear-gradient(
+			145deg,
+			rgba(0, 0, 0),
+			color-mix(in srgb, var(--primary-color) 15%, transparent),
+			color-mix(in srgb, var(--bg-color) 15%, transparent),
+			rgba(0, 0, 0)
+		);
+		padding: 0.5rem;
+		border-radius: var(--radius-sm);
 	}
 
 	.sidebar-header {
@@ -75,7 +84,7 @@
 	}
 
 	.sidebar-header.centered {
-		justify-content: center;
+		justify-content: end;
 	}
 
 	.close-trigger {

@@ -111,7 +111,7 @@
 		font-weight: 600;
 		font-family: var(--font-secondary);
 		letter-spacing: 0.05em;
-		color: var(--bg-color);
+		color: var(--primary-color);
 		padding: 1rem 0;
 	}
 
