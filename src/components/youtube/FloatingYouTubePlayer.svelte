@@ -222,10 +222,10 @@
 		width: clamp(280px, 24vw, 400px);
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-md);
+		/* border-radius: var(--radius-md); */
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
-		transition: opacity 150ms ease;
+		transition: opacity 200ms ease;
 		/* border: 2px solid var(--bg-color); */
 	}
 
@@ -283,7 +283,7 @@
 		width: 80px;
 		height: 80px;
 		overflow: hidden;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-md);
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		cursor: pointer;

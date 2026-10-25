@@ -229,6 +229,7 @@
 		align-items: flex-start;
 		gap: 1rem;
 		width: 100%;
+		padding-bottom: 15rem;
 	}
 
 	/* Controls rail sized to its content, pinned near the top of the scrollport

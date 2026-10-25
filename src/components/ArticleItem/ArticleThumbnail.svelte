@@ -106,7 +106,7 @@
 		height: 10px;
 		border-radius: 50%;
 		background: var(--primary-color);
-		z-index: 10;
+		z-index: 8;
 		pointer-events: none;
 	}
 
