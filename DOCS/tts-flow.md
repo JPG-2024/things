@@ -291,14 +291,22 @@ Defines 4 wave animation styles (`softSingleDim`, `organicMultiDim`, `softSingle
 
 ### TTS Service (`src/lib/utils/ttsService.ts`)
 
-The HTTP layer. Two API endpoints:
+The HTTP layer. Two services:
 
 - `POST {TTS_API_URL}/tts/mp3` — speech generation (returns MP3 blob)
+- `GET {TTS_API_URL}/voices` — list voice profiles
+- `GET {TTS_API_URL}/voices/{id}` — list voice chunks for a profile
+- `DELETE {TTS_API_URL}/voices/chunk/{name}` — delete a voice chunk
+- `DELETE {TTS_API_URL}/voices/{id}` — delete a voice profile
+- `PATCH {TTS_API_URL}/voices/{id}` — update a profile name/image
 - `POST {WHISPER_API_URL}/transcribe-chunks` — voice profile creation (SSE stream)
-- `GET {WHISPER_API_URL}/voices` — list voice profiles
-- `GET {WHISPER_API_URL}/voices/{id}` — list voice chunks for a profile
-- `DELETE {WHISPER_API_URL}/voices/chunk/{name}` — delete a voice chunk
-- `DELETE {WHISPER_API_URL}/voices/{id}` — delete a voice profile
+- `POST {WHISPER_API_URL}/voices/upload` — upload a recorded voice chunk
+
+Every `TTS_API_URL` call goes through `ttsFetch`, which attaches the stored
+`X-API-Key` (see `ttsAuth.ts`); the omnivoice service rejects everything except
+`/health`, `/internal/*`, `/images/*` and `/outputs/*` without it. The whisper
+service has no auth. `getImage` URLs are plain `<img src>` values, which is why
+they cannot carry the header — and do not need to.
 
 ---
 

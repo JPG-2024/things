@@ -38,12 +38,25 @@ function isAbort(err: unknown): boolean {
 	return err instanceof DOMException && err.name === 'AbortError';
 }
 
+/**
+ * Fetch against the TTS API with the stored `X-API-Key` attached. Every
+ * endpoint except `/health`, `/internal/*`, `/images/*` and `/outputs/*`
+ * requires it, so all TTS calls must go through here rather than calling
+ * `fetch` directly.
+ */
+async function ttsFetch(path: string, init: RequestInit = {}): Promise<Response> {
+	const headers = new Headers(init.headers);
+	const auth = await getTTSAuthHeaders();
+	for (const [name, value] of Object.entries(auth)) headers.set(name, value);
+	return fetch(`${TTS_API_URL}${path}`, { ...init, headers });
+}
+
 /** Shared promise for the voice profile list; see {@link fetchVoiceProfiles}. */
 let voiceProfilesPromise: Promise<VoiceProfile[]> | null = null;
 
 async function requestVoiceProfiles(silent: boolean): Promise<VoiceProfile[]> {
 	try {
-		const res = await fetch(`${TTS_API_URL}/voices`);
+		const res = await ttsFetch('/voices');
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
 			if (!silent) await setErrorFrom(new Error(message), 'Failed to fetch voice profiles');
@@ -87,7 +100,7 @@ export function getImage(filename: string): string {
 
 export async function fetchVoiceChunks(profileId: string, silent = false): Promise<Voice[]> {
 	try {
-		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`);
+		const res = await ttsFetch(`/voices/${encodeURIComponent(profileId)}`);
 		if (!res.ok) {
 			const message = await parseErrorDetail(res);
 			if (!silent) await setErrorFrom(new Error(message), 'Failed to fetch voice chunks');
@@ -105,7 +118,7 @@ export async function fetchVoiceChunks(profileId: string, silent = false): Promi
 
 export async function deleteVoiceChunk(name: string): Promise<void> {
 	try {
-		const res = await fetch(`${TTS_API_URL}/voices/chunk/${encodeURIComponent(name)}`, {
+		const res = await ttsFetch(`/voices/chunk/${encodeURIComponent(name)}`, {
 			method: 'DELETE'
 		});
 		if (!res.ok) {
@@ -123,7 +136,7 @@ export async function deleteVoiceChunk(name: string): Promise<void> {
 
 export async function deleteVoiceProfile(profileId: string): Promise<void> {
 	try {
-		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+		const res = await ttsFetch(`/voices/${encodeURIComponent(profileId)}`, {
 			method: 'DELETE'
 		});
 		if (!res.ok) {
@@ -144,7 +157,7 @@ export async function updateVoiceProfile(
 	patch: { name_prefix?: string; image_src?: string }
 ): Promise<VoiceProfile> {
 	try {
-		const res = await fetch(`${TTS_API_URL}/voices/${encodeURIComponent(profileId)}`, {
+		const res = await ttsFetch(`/voices/${encodeURIComponent(profileId)}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(patch)
@@ -370,13 +383,9 @@ export async function generateSpeech(
 	signal?: AbortSignal
 ): Promise<{ blob: Blob; durationSeconds: number | null }> {
 	try {
-		const headers = await getTTSAuthHeaders();
-		const res = await fetch(`${TTS_API_URL}/tts/mp3`, {
+		const res = await ttsFetch('/tts/mp3', {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				...headers
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(params),
 			signal
 		});
