@@ -143,27 +143,33 @@
 		{/if}
 
 		{#if visibleWindows.length > 0 || isRunning}
-			<Spacer title="Windows" bind:opened={windowsOpen}>
-				<div class="chunks-grid">
-					{#if isRunning && visibleWindows.length === 0}
-						<div class="chunk-pending">waiting for the first window…</div>
-					{/if}
-					{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
-						{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
-						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
-							<div class="chunk-heading">
-								<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
-								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
-									View raw text
-								</Button>
+			<!-- Owns the `@container` context of the grid: it reacts to the width
+				 of this column, not of the window (the filters panel makes those
+				 differ). Kept off `.analysis-shell` so the fixed backdrop of the
+				 raw-text modal is not trapped by the containment. -->
+			<div class="windows-container">
+				<Spacer title="Windows" bind:opened={windowsOpen}>
+					<div class="chunks-grid">
+						{#if isRunning && visibleWindows.length === 0}
+							<div class="chunk-pending">waiting for the first window…</div>
+						{/if}
+						{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
+							{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
+							<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+								<div class="chunk-heading">
+									<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
+									<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
+										View raw text
+									</Button>
+								</div>
+								<div class="chunk-summary">
+									<MarkdownRenderer content={window.data.summary} />
+								</div>
 							</div>
-							<div class="chunk-summary">
-								<MarkdownRenderer content={window.data.summary} />
-							</div>
-						</div>
-					{/each}
-				</div>
-			</Spacer>
+						{/each}
+					</div>
+				</Spacer>
+			</div>
 		{/if}
 
 		{#if !isRunning && summary}
@@ -219,11 +225,26 @@
 		font-weight: bold;
 	}
 
+	.windows-container {
+		width: 100%;
+		/* Anchors the `@container` rule below: the grid reacts to the width of
+		 * this column, not to the width of the window — the filters panel makes
+		 * those differ. */
+		container-type: inline-size;
+	}
+
 	.chunks-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 1rem;
 		align-items: start;
+	}
+
+	/* Narrow column: a single column instead of two ~290px cards. */
+	@container (max-width: 44rem) {
+		.chunks-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
 	}
 
 	.chunk-item {
