@@ -195,14 +195,25 @@ export async function fetchYouTubeSource(
 	if (options.storedText) {
 		result.text = options.storedText;
 	} else if (options.includeTranscript) {
-		const timedCaptions = await invoke<Array<{ caption: string }>>('get_youtube_transcript_timed', {
-			id: videoId,
-			language: viewState.language
-		});
-		result.text = (timedCaptions ?? [])
-			.map((item) => item.caption)
-			.join(' ')
-			.trim();
+		// A missing transcript must not abort the run: the profile and the
+		// thumbnail are already resolved at this point, and the article has to
+		// be saved with them. The empty body is surfaced later, at the
+		// analysis step, as a "no captions" error.
+		try {
+			const timedCaptions = await invoke<Array<{ caption: string }>>(
+				'get_youtube_transcript_timed',
+				{
+					id: videoId,
+					language: viewState.language
+				}
+			);
+			result.text = (timedCaptions ?? [])
+				.map((item) => item.caption)
+				.join(' ')
+				.trim();
+		} catch (error) {
+			console.warn('[articleSources] youtube transcript fetch failed', error);
+		}
 	}
 
 	return result;

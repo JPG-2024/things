@@ -256,6 +256,11 @@ export async function runArticle(
 
 		const body = text ?? (await readRawContent(url)) ?? '';
 		if (!body.trim()) {
+			// The article row was already saved with its metadata; the error
+			// only tells why there is no analysis behind it.
+			if (detectSource(url) === 'youtube') {
+				throw new Error(`No captions or transcript available for "${url}"`);
+			}
 			throw new Error(`Article "${url}" has no body to analyse`);
 		}
 

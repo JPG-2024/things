@@ -272,16 +272,20 @@ class ArticleManager {
 		if (articleState.isCurrent(entry.url)) {
 			articleState.setStep('source');
 		}
-		await runArticle(entry.url, entry.options);
+		try {
+			await runArticle(entry.url, entry.options);
+		} finally {
+			// Even a failed run persists the article row (e.g. a YouTube video
+			// without captions is saved with its profile and thumbnail before
+			// the analysis error): the cache is invalidated and the card is
+			// repainted so the saved metadata is visible regardless.
+			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
+			articleCacheStore.invalidate();
 
-		const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-		articleCacheStore.invalidate();
-
-		// A fresh article only has its metadata after the run: repaint it so
-		// the thumbnail and the title appear without re-opening the page.
-		const refreshed = await getArticleByUrl(entry.url);
-		if (refreshed && articleState.isCurrent(entry.url)) {
-			this.paintArticle(refreshed);
+			const refreshed = await getArticleByUrl(entry.url);
+			if (refreshed && articleState.isCurrent(entry.url)) {
+				this.paintArticle(refreshed);
+			}
 		}
 	}
 
