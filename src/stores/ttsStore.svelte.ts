@@ -19,6 +19,16 @@ export interface TTSRefConfig {
 	refText: string;
 }
 
+/**
+ * A content block currently on screen that can be spoken (e.g. a mounted
+ * `MarkdownRenderer`). The text is read through a getter at press time, not
+ * captured at registration, so streamed content stays current.
+ */
+export interface TTSTextTarget {
+	id: string;
+	getText: () => string;
+}
+
 export interface TTSConfig extends TTSRefConfig {
 	/**
 	 * Voice-design instruct (restricted backend vocabulary). '' = voice
@@ -49,6 +59,23 @@ class TTSState {
 	isPaused = $state(false);
 	errorMessage = $state('');
 	durationSeconds = $state<number | null>(null);
+
+	/* ------------------------------------------------------------------ */
+	/* On-screen text targets (blocks under the pointer, e.g. MarkdownRenderer) */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Every registered text block. Components register themselves in `onMount`
+	 * and unregister on teardown, so this list tracks what is actually mounted.
+	 */
+	targets = $state<TTSTextTarget[]>([]);
+	/** Id of the block currently under the pointer (see `ttsTargetTracker`). */
+	hoveredTargetId = $state<string | null>(null);
+	private _nextTargetId = 0;
+
+	hoveredTarget = $derived(
+		this.targets.find((target) => target.id === this.hoveredTargetId) ?? null
+	);
 
 	textContents = $state<string[]>([]);
 	isGenerating = $state(false);
@@ -192,6 +219,26 @@ class TTSState {
 	addVoiceMessage = $state('');
 	addVoiceLoading = $state(false);
 	private abortController: AbortController | null = null;
+
+	/**
+	 * Registers an on-screen text block as a TTS candidate and returns the id
+	 * the pointer tracker matches against (`data-tts-target`).
+	 */
+	registerTarget(getText: () => string): string {
+		const id = `t${++this._nextTargetId}`;
+		this.targets = [...this.targets, { id, getText }];
+		return id;
+	}
+
+	unregisterTarget(id: string): void {
+		this.targets = this.targets.filter((target) => target.id !== id);
+		if (this.hoveredTargetId === id) this.hoveredTargetId = null;
+	}
+
+	setHoveredTarget(id: string | null): void {
+		if (this.hoveredTargetId === id) return;
+		this.hoveredTargetId = id;
+	}
 
 	setTextContents(contents: string[]): void {
 		this.textContents = contents;

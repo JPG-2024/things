@@ -17,6 +17,10 @@
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
 	import { ensureLlamaServers } from '@/lib/utils/llamaHealth';
 	import { LLAMA_AUTOSTART_DELAY_MS } from '@/constants';
+	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
+	import { ensureAudioContext } from '@/lib/audioContextManager';
+	import { hashText } from '@/lib/utils/ttsTargets';
+	import { installTargetPointerTracking } from '@/lib/utils/ttsTargetTracker';
 
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
@@ -215,6 +219,36 @@
 		})
 	);
 
+	// S speaks what is under the pointer: a registered markdown block wins over
+	// the hovered article card, which keeps its previous behavior (summary).
+	// It lives here instead of `+page.svelte` so every route gets it, including
+	// the ones rendering AnalysisPanel / FullContentModal / ChatModal.
+	createHotkey(
+		'S',
+		async () => {
+			const target = ttsState.hoveredTarget;
+			if (target) {
+				const text = target.getText();
+				if (!text.trim()) return;
+				void ensureAudioContext();
+				// The id hashes the text, so re-pressing on unchanged content
+				// replays the cache while content that changed since the last
+				// press regenerates.
+				ttsState.setTextContents([text]);
+				await ttsState.generateTTS(`target:${target.id}:${hashText(text)}`);
+				return;
+			}
+			const url = viewState.hoveredArticleUrl;
+			if (!url) return;
+			void ensureAudioContext();
+			await generateTTSfromArticleURL(url);
+		},
+		() => ({
+			enabled: ttsState.hoveredTargetId !== null || viewState.hoveredArticleUrl !== null,
+			ignoreInputs: true
+		})
+	);
+
 	createHotkey(
 		'Escape',
 		() => {
@@ -261,6 +295,11 @@
 			const timer = setTimeout(() => void ensureLlamaServers(), LLAMA_AUTOSTART_DELAY_MS);
 			return () => clearTimeout(timer);
 		}
+	});
+
+	onMount(() => {
+		// Tracks which markdown block is under the pointer for the S hotkey.
+		return installTargetPointerTracking();
 	});
 
 	onMount(() => {

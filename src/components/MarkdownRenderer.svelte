@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import MarkdownIt from 'markdown-it';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	interface Props {
 		content?: string | null;
@@ -10,6 +12,28 @@
 	const DEFAULT_FONT_SIZE = 1.1;
 
 	let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props();
+
+	let container: HTMLDivElement | undefined = $state();
+	/** Id stamped on the container so the pointer tracker can find this block. */
+	let targetId: string | null = $state(null);
+
+	/**
+	 * Text handed to TTS: prefer what is actually rendered (clean prose, real
+	 * paragraph breaks, collapsed blocks left out), falling back to the markdown
+	 * source when the container is not laid out.
+	 */
+	function readTargetText(): string {
+		const rendered = container?.innerText?.trim();
+		if (rendered) return rendered;
+		return (content ?? '').trim();
+	}
+
+	// Make this block speakable while it is under the pointer.
+	onMount(() => {
+		const id = ttsState.registerTarget(readTargetText);
+		targetId = id;
+		return () => ttsState.unregisterTarget(id);
+	});
 
 	// Initialize markdown-it
 	const md = new MarkdownIt({
@@ -45,7 +69,7 @@
 
 {#if content}
 	<!-- apply computed font size -->
-	<div class="markdown-container">
+	<div class="markdown-container" data-tts-target={targetId} bind:this={container}>
 		{@html md.render(preprocessContent(content))}
 	</div>
 {/if}
