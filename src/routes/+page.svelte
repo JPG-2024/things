@@ -23,17 +23,12 @@
 		mapArticlesFromRecords,
 		type WebStoreArticleRecord
 	} from '@/stores/webStore';
-	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
-	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import { startLlamaHealthPolling } from '@/lib/utils/llamaHealth';
-	import {
-		startExternalServicesHealthPolling,
-		type ExternalServiceName
-	} from '@/lib/utils/externalServicesHealth';
+	import { startExternalServicesHealthPolling } from '@/lib/utils/externalServicesHealth';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import ArticleFiltersSidebar from '@/components/ArticleFiltersSidebar.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -72,47 +67,37 @@
 		viewState.backgroundColor = `rgb(${r}, ${g}, ${b})`;
 	}
 
-	function llamaServiceTooltip(
-		name: 'inference' | 'embeddings',
-		label: string,
-		up: boolean
-	): string {
-		const status = viewState.llamaServersStatus.find((entry) => entry.name === name);
-		if (status?.error) return `${label}: ${status.error}`;
-		return `${label} ${up ? 'online' : 'offline'}`;
-	}
-
-	function externalServiceTooltip(label: string, name: ExternalServiceName, up: boolean): string {
-		if (!up) return `${label} offline`;
-		if (name === 'tts' && viewState.ttsAuthRequired) {
-			return `${label}: online (auth required)`;
-		}
-		return `${label}: online`;
-	}
-
-	const EXTERNAL_SERVICE_DOTS = [
-		{ name: 'scrap', label: 'Scrap service' },
-		{ name: 'tts', label: 'TTS service' },
-		{ name: 'whisper', label: 'Whisper service' }
-	] as const satisfies ReadonlyArray<{ name: ExternalServiceName; label: string }>;
-
-	function externalServiceUp(name: ExternalServiceName): boolean {
-		switch (name) {
-			case 'scrap':
-				return viewState.scrapServiceUp;
-			case 'tts':
-				return viewState.ttsServiceUp;
-			case 'whisper':
-				return viewState.whisperServiceUp;
-		}
-	}
-
 	let toolbarEl = $state<HTMLDivElement>();
 	let searchInput = $state<{ focus: () => void } | null>(null);
+	let filtersColumnEl = $state<HTMLDivElement>();
+	let filtersAnchorEl = $state<HTMLDivElement>();
 
 	// Focus the page search whenever the filters panel opens (F, icon, typing).
 	$effect(() => {
 		if (articleFilters.filtersPanelVisible) searchInput?.focus();
+	});
+
+	// Click-outside dismissal for the filters column. `pointerdown` (not
+	// `click`) so a drag-select that starts inside and ends outside does not
+	// dismiss it. Bind to the whole left column instead of the sidebar card so
+	// its gutter and scrollbar count as inside.
+	$effect(() => {
+		if (!articleFilters.filtersPanelVisible) return;
+
+		function handlePointerDown(event: PointerEvent) {
+			if (event.button !== 0) return;
+			const target = event.target as Node | null;
+			if (!target) return;
+			if (filtersColumnEl?.contains(target)) return;
+			// Search input + filter trigger open the panel and must not dismiss
+			// it: closing here would make the icon's own click re-toggle it open
+			// and the input's focus handler reopen it mid-typing.
+			if (filtersAnchorEl?.contains(target)) return;
+			articleFilters.filtersPanelVisible = false;
+		}
+
+		window.addEventListener('pointerdown', handlePointerDown, true);
+		return () => window.removeEventListener('pointerdown', handlePointerDown, true);
 	});
 
 	/** "Search in articles content" button: commits the typed term, runs the
@@ -201,19 +186,6 @@
 		await readClipboardAndHandle();
 	}
 
-	const sHotkey = createHotkey(
-		'S',
-		async () => {
-			if (!viewState.hoveredArticleUrl) return;
-			void ensureAudioContext();
-			await generateTTSfromArticleURL(viewState.hoveredArticleUrl);
-		},
-		() => ({
-			enabled: viewState.hoveredArticleUrl !== null,
-			ignoreInputs: true
-		})
-	);
-
 	const pHotkey = createHotkey(
 		'P',
 		async () => {
@@ -284,6 +256,9 @@
 		})
 	);
 
+	// Global health polling: the flags it writes into `viewState` are rendered
+	// by the Settings modal's Services block, so it runs here (always mounted)
+	// instead of only while the modal is open.
 	$effect(() => {
 		const stopLlama = startLlamaHealthPolling();
 		const stopExternal = startExternalServicesHealthPolling();
@@ -320,7 +295,7 @@
 					Things
 				</LuminousText>
 			</div>
-			<div class="toolbar-center">
+			<div class="toolbar-center" bind:this={filtersAnchorEl}>
 				<Input
 					type="text"
 					bind:this={searchInput}
@@ -419,51 +394,6 @@
 
 				<ToolbarDivider />
 
-				<Tooltip
-					content={llamaServiceTooltip(
-						'inference',
-						'Inference service',
-						viewState.inferenceServiceUp
-					)}
-				>
-					<span
-						class="embeddings-health"
-						class:up={viewState.inferenceServiceUp}
-						role="status"
-						aria-label="Inference service status"
-					></span>
-				</Tooltip>
-				<Tooltip
-					content={llamaServiceTooltip(
-						'embeddings',
-						'Embeddings service',
-						viewState.embeddingsServiceUp
-					)}
-				>
-					<span
-						class="embeddings-health"
-						class:up={viewState.embeddingsServiceUp}
-						role="status"
-						aria-label="Embeddings service status"
-					></span>
-				</Tooltip>
-				{#each EXTERNAL_SERVICE_DOTS as service (service.name)}
-					<Tooltip
-						content={externalServiceTooltip(
-							service.label,
-							service.name,
-							externalServiceUp(service.name)
-						)}
-					>
-						<span
-							class="embeddings-health"
-							class:up={externalServiceUp(service.name)}
-							class:auth-required={service.name === 'tts' && viewState.ttsAuthRequired}
-							role="status"
-							aria-label={`${service.label} status`}
-						></span>
-					</Tooltip>
-				{/each}
 				<Tooltip content="Change primary color">
 					<label class="color-dot-trigger" aria-label="Change primary color">
 						<span class="color-dot" style:background-color={viewState.primaryColor}></span>
@@ -499,7 +429,7 @@
 >
 	<!-- Always-rendered left track: the grid template animates 0 ↔ panel width
 	     so the lists push right smoothly; content mounts with a fly transition. -->
-	<div class="filters-column">
+	<div class="filters-column" bind:this={filtersColumnEl}>
 		<div class="filters-column-scroll">
 			{#if articleFilters.filtersPanelVisible}
 				<div
@@ -551,29 +481,6 @@
 		cursor: pointer;
 		padding: 0.45rem;
 		flex-shrink: 0;
-	}
-
-	.embeddings-health {
-		width: 9px;
-		height: 9px;
-		border-radius: 50%;
-		margin: 0 0.4rem;
-		flex-shrink: 0;
-		background: rgb(255, 140, 109);
-		box-shadow: 0 0 6px rgb(255, 140, 109);
-		transition:
-			background 0.2s,
-			box-shadow 0.2s;
-	}
-
-	.embeddings-health.up {
-		background: rgb(120, 220, 140);
-		box-shadow: 0 0 6px rgb(120, 220, 140);
-	}
-
-	.embeddings-health.auth-required {
-		background: rgb(255, 200, 100);
-		box-shadow: 0 0 6px rgb(255, 200, 100);
 	}
 
 	.dashboard-container {
