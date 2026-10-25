@@ -38,9 +38,9 @@ export async function clearTTSApiKey(): Promise<void> {
 
 export async function getTTSAuthHeaders(): Promise<Record<string, string>> {
 	const key = (await getTTSApiKey()) as string;
-	const fixedKey = key.slice(0, key.length / 2);
+	/* const fixedKey = key.slice(0, key.length / 2); */
 
-	return key ? { 'X-API-Key': fixedKey } : {};
+	return key ? { 'X-API-Key': key } : {};
 }
 
 export async function validateTTSApiKey(): Promise<{ valid: boolean; error?: string }> {
