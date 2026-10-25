@@ -12,6 +12,7 @@
 	import ToggleField from '@/components/inputs/fields/ToggleField.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import { ttsState } from '@/stores/ttsStore.svelte';
 	import {
 		CARD_COLUMN_MAX,
 		CARD_COLUMN_MIN,
@@ -272,17 +273,24 @@
 	}
 
 	async function handleSaveTTSKey() {
-		if (ttsApiKey.trim()) {
-			await setTTSApiKey(ttsApiKey.trim());
+		const key = ttsApiKey.trim();
+		if (key) {
+			await setTTSApiKey(key);
 		} else {
 			await clearTTSApiKey();
 		}
 		ttsAuthStatus = null;
+		viewState.ttsAuthRequired = !key;
+		if (key) {
+			// The boot loaders bailed out on the pre-key 401 (or hold a list
+			// fetched with the previous key), so refill from the fresh key.
+			void ttsState.initVoiceProfiles(true);
+		}
 	}
 
 	async function handleValidateKey() {
 		validatingTTSKey = true;
-		ttsAuthStatus = await validateTTSApiKey();
+		ttsAuthStatus = await validateTTSApiKey(ttsApiKey.trim() || undefined);
 		validatingTTSKey = false;
 	}
 
@@ -755,7 +763,6 @@
 		margin-top: 0.3rem;
 		flex-shrink: 0;
 		background: rgb(255, 140, 109);
-		box-shadow: 0 0 6px rgb(255, 140, 109);
 		transition:
 			background 0.2s,
 			box-shadow 0.2s;
