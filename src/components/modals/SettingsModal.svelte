@@ -33,6 +33,7 @@
 		startLlamaServers,
 		stopLlamaServers
 	} from '@/lib/utils/llamaHealth';
+	import type { ExternalServiceName } from '@/lib/utils/externalServicesHealth';
 	import { partitionModels, type LlamaModelEntry } from '@/lib/utils/llamaModels';
 	import { WINDOW_DIVISOR_LADDER } from '@/lib/utils/windowAnalysis';
 	import {
@@ -83,6 +84,115 @@
 			viewState.llamaEmbeddingsModel
 		)
 	);
+
+	/** Dot color: `up` green, `warn` amber (starting / auth required), `down` red. */
+	type DotTone = 'up' | 'warn' | 'down';
+	/** Status text color: `ok` green, `warn` amber, `error` red, `muted` gray. */
+	type StatusTone = 'ok' | 'warn' | 'error' | 'muted';
+
+	interface ServiceHealthRow {
+		key: string;
+		label: string;
+		dot: DotTone;
+		status: string;
+		statusTone: StatusTone;
+		/** Configured model file; only present for the local llama.cpp services. */
+		model?: string;
+	}
+
+	const LLAMA_SERVICES = [
+		{ key: 'inference', label: 'Inference service' },
+		{ key: 'embeddings', label: 'Embeddings service' }
+	] as const;
+
+	const EXTERNAL_SERVICES = [
+		{ key: 'scrap', label: 'Scrap service' },
+		{ key: 'tts', label: 'TTS service' },
+		{ key: 'whisper', label: 'Whisper service' }
+	] as const;
+
+	function externalServiceUp(name: ExternalServiceName): boolean {
+		switch (name) {
+			case 'scrap':
+				return viewState.scrapServiceUp;
+			case 'tts':
+				return viewState.ttsServiceUp;
+			case 'whisper':
+				return viewState.whisperServiceUp;
+		}
+	}
+
+	/**
+	 * Health rows rendered at the top of the modal: HTTP flags for the dot plus
+	 * `llamaServersStatus` for the port/starting/stopped detail and the error.
+	 */
+	const llamaHealthRows = $derived(
+		LLAMA_SERVICES.map(({ key, label }): ServiceHealthRow => {
+			const up = key === 'inference' ? viewState.inferenceServiceUp : viewState.embeddingsServiceUp;
+			const model =
+				key === 'inference' ? viewState.llamaInferenceModel : viewState.llamaEmbeddingsModel;
+			const status = viewState.llamaServersStatus.find((entry) => entry.name === key);
+			if (status?.error) {
+				return { key, label, model, dot: 'down', status: status.error, statusTone: 'error' };
+			}
+			if (status?.healthy) {
+				return {
+					key,
+					label,
+					model,
+					dot: 'up',
+					status: `online · :${status.port}`,
+					statusTone: 'ok'
+				};
+			}
+			if (status?.running) {
+				return {
+					key,
+					label,
+					model,
+					dot: 'warn',
+					status: `starting… · :${status.port}`,
+					statusTone: 'warn'
+				};
+			}
+			if (status) {
+				return {
+					key,
+					label,
+					model,
+					dot: 'down',
+					status: `stopped · :${status.port}`,
+					statusTone: 'muted'
+				};
+			}
+			return {
+				key,
+				label,
+				model,
+				dot: up ? 'up' : 'down',
+				status: up ? 'online' : 'offline',
+				statusTone: up ? 'ok' : 'error'
+			};
+		})
+	);
+
+	const externalHealthRows = $derived(
+		EXTERNAL_SERVICES.map(({ key, label }): ServiceHealthRow => {
+			const up = externalServiceUp(key);
+			if (key === 'tts' && up && viewState.ttsAuthRequired) {
+				return { key, label, dot: 'warn', status: 'online · auth required', statusTone: 'warn' };
+			}
+			return {
+				key,
+				label,
+				dot: up ? 'up' : 'down',
+				status: up ? 'online' : 'offline',
+				statusTone: up ? 'ok' : 'error'
+			};
+		})
+	);
+
+	const healthRows = $derived([...llamaHealthRows, ...externalHealthRows]);
 
 	async function refreshModels() {
 		loadingModels = true;
@@ -214,6 +324,37 @@
 		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 		Settings
 	</h2>
+	<section class="services-block" aria-label="Service health">
+		<span class="services-title">Services</span>
+		<ul class="services-list">
+			{#each healthRows as row (row.key)}
+				<li class="service-row">
+					<span class="health-dot" class:up={row.dot === 'up'} class:warn={row.dot === 'warn'}
+					></span>
+					<div class="service-main">
+						<span class="service-label">{row.label}</span>
+						{#if row.model !== undefined}
+							<span
+								class="service-model"
+								class:empty={!row.model}
+								title={row.model || 'No model selected'}
+							>
+								{row.model || 'no model selected'}
+							</span>
+						{/if}
+					</div>
+					<span
+						class="service-status"
+						class:ok={row.statusTone === 'ok'}
+						class:warn={row.statusTone === 'warn'}
+						class:error={row.statusTone === 'error'}
+					>
+						{row.status}
+					</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
 	<IconDropdownField
 		label="Language"
 		options={languageOptions}
@@ -307,22 +448,6 @@
 			<CheckboxField label="Show all models" bind:checked={showAllModels} />
 			{#if modelsError}
 				<p class="error-text">{modelsError}</p>
-			{/if}
-			{#if viewState.llamaServersStatus.length > 0}
-				<ul class="server-status">
-					{#each viewState.llamaServersStatus as status (status.name)}
-						<li>
-							<span class="status-name">{status.name}</span>
-							{#if status.error}
-								<span class="error-text">{status.error}</span>
-							{:else}
-								<span class="status-port" class:up={status.healthy}>
-									{status.running ? (status.healthy ? 'online' : 'starting…') : 'stopped'} · :{status.port}
-								</span>
-							{/if}
-						</li>
-					{/each}
-				</ul>
 			{/if}
 			<div class="server-actions">
 				<Button
@@ -593,6 +718,106 @@
 		border-radius: var(--radius-md);
 	}
 
+	.services-block {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		padding: 1rem;
+		background: rgba(255, 255, 255, 0.05);
+		border-radius: var(--radius-md);
+	}
+
+	.services-title {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.services-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.service-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+	}
+
+	.health-dot {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		margin-top: 0.3rem;
+		flex-shrink: 0;
+		background: rgb(255, 140, 109);
+		box-shadow: 0 0 6px rgb(255, 140, 109);
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
+	}
+
+	.health-dot.up {
+		background: rgb(120, 220, 140);
+		box-shadow: 0 0 6px rgb(120, 220, 140);
+	}
+
+	.health-dot.warn {
+		background: rgb(255, 200, 100);
+		box-shadow: 0 0 6px rgb(255, 200, 100);
+	}
+
+	.service-main {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.service-label {
+		font-size: 0.85rem;
+		color: rgba(255, 255, 255, 0.85);
+	}
+
+	.service-model {
+		font-size: 0.72rem;
+		color: rgba(255, 255, 255, 0.45);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.service-model.empty {
+		color: rgb(255, 200, 100);
+		font-style: italic;
+	}
+
+	.service-status {
+		flex-shrink: 0;
+		max-width: 55%;
+		font-size: 0.8rem;
+		text-align: right;
+		word-break: break-word;
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.service-status.ok {
+		color: rgb(140, 220, 160);
+	}
+
+	.service-status.warn {
+		color: rgb(255, 200, 100);
+	}
+
+	.service-status.error {
+		color: rgb(255, 140, 109);
+	}
+
 	.card-layout-group {
 		display: flex;
 		flex-direction: column;
@@ -616,35 +841,6 @@
 		font-size: 0.8rem;
 		color: rgb(255, 140, 109);
 		word-break: break-word;
-	}
-
-	.server-status {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		font-size: 0.8rem;
-	}
-
-	.server-status li {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-
-	.status-name {
-		text-transform: capitalize;
-		color: rgba(255, 255, 255, 0.8);
-	}
-
-	.status-port {
-		color: rgba(255, 255, 255, 0.6);
-	}
-
-	.status-port.up {
-		color: rgb(140, 220, 160);
 	}
 
 	.server-actions {
