@@ -546,7 +546,7 @@ export async function getProfile(profileId: string): Promise<ArticleProfile | nu
 	}
 }
 
-/** Reads the article row of an url, with the thumbnail src resolved. */
+/** Reads the article row of an url, with thumbnail and profile picture srcs resolved. */
 export async function getArticleByUrl(url: string): Promise<ArticleRecord | null> {
 	try {
 		const row = await invoke<WebStoreArticleRecord | null>('get_web_store_article_by_url', { url });
@@ -554,7 +554,9 @@ export async function getArticleByUrl(url: string): Promise<ArticleRecord | null
 			return null;
 		}
 
-		return resolveArticleThumbnail(mapStoredArticle(row));
+		return resolveProfilePictureField(
+			await resolveArticleThumbnail(mapStoredArticle(row))
+		);
 	} catch (error) {
 		console.error('Error querying article', error);
 		return null;
