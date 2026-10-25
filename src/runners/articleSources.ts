@@ -158,6 +158,8 @@ export async function fetchYouTubeSource(
 		existingThumbnail?: string | null;
 		/** Channel the caller already resolved: skips the scraper entirely. */
 		profile?: KnownProfile;
+		/** Title the caller already knows (the channel scrape carries it). */
+		title?: string;
 	}
 ): Promise<SourceResult> {
 	const result = emptySourceResult();
@@ -167,6 +169,9 @@ export async function fetchYouTubeSource(
 	}
 
 	result.domain = 'youtube.com';
+	// The channel scrape already knows the title: a metadata capture stores
+	// it instead of leaving the card without one until a `full` run.
+	result.title = options.title ?? null;
 
 	if (options.existingThumbnail) {
 		result.thumbnail = options.existingThumbnail;

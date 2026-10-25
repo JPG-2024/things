@@ -246,7 +246,13 @@ class ScrapState {
 			// article at a time, so there is nothing to fan out here.
 			for (const video of toFetch) {
 				try {
-					articleManager.enqueue(video.url, { mode: 'metadata', profile: knownProfile });
+					articleManager.enqueue(video.url, {
+						mode: 'metadata',
+						profile: knownProfile,
+						// The channel scrape already carries the title: the card
+						// is stored with it instead of waiting for a `full` run.
+						title: video.title ?? undefined
+					});
 					fetched++;
 				} catch (err) {
 					failed++;

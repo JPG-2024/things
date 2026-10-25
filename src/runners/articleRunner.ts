@@ -57,6 +57,12 @@ export interface ArticleRunOptions {
 	 * scraper again for every video it captures.
 	 */
 	profile?: KnownProfile;
+	/**
+	 * Title the caller already knows (the channel scrape carries it). The
+	 * run fills the card from it instead of waiting for the LLM title of a
+	 * later `full` run.
+	 */
+	title?: string;
 }
 
 /**
@@ -130,6 +136,7 @@ async function collectSource(
 		rawText?: string;
 		existingThumbnail?: string | null;
 		profile?: KnownProfile;
+		title?: string;
 	}
 ): Promise<SourceResult> {
 	const source = detectSource(url);
@@ -146,7 +153,8 @@ async function collectSource(
 			includeTranscript: options.mode === 'full',
 			storedText,
 			existingThumbnail: options.existingThumbnail,
-			profile: options.profile
+			profile: options.profile,
+			title: options.title
 		});
 	}
 
@@ -195,7 +203,7 @@ export async function runArticle(
 	const thumbnail = source.thumbnail ?? existing?.thumbnail ?? null;
 	const mediaDirectory = source.mediaDirectory ?? existing?.mediaDirectory ?? null;
 	const profile = source.profile ?? existing?.profile ?? null;
-	let title = source.title ?? existing?.title ?? null;
+	let title = options.title ?? source.title ?? existing?.title ?? null;
 	const date = source.date ?? existing?.date ?? null;
 
 	// --- 2. RAW ----------------------------------------------------------
