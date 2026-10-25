@@ -128,7 +128,7 @@
 	</div>
 
 	<div class="manual-add">
-		<Input bind:value={manualInput} placeholder="Paste URLs here (one per line)"></Input>
+		<Input bind:value={manualInput} placeholder="Paste URLs here (one per line)" collectUrls />
 		<button
 			type="button"
 			class="manual-add-btn"

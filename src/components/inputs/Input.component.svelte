@@ -22,6 +22,11 @@
 		onEnter?: (value: string) => void;
 		/** Keep the typed value after Enter (commit-style search instead of send-and-clear). */
 		keepValueOnEnter?: boolean;
+		/**
+		 * Multi-URL fields: extract the links from pasted/dropped text and insert
+		 * them at the caret instead of letting the native paste replace the value.
+		 */
+		collectUrls?: boolean;
 	}
 
 	let {
@@ -41,7 +46,8 @@
 		onFocus,
 		onBlur,
 		onEnter,
-		keepValueOnEnter = false
+		keepValueOnEnter = false,
+		collectUrls = false
 	}: Props = $props();
 
 	let inputEl = $state<HTMLInputElement | null>(null);
@@ -76,11 +82,33 @@
 		onFocus?.(value);
 	}
 
-	function extractUrlFromHtml(html: string): string {
-		const hrefMatch = html.match(/href="([^"]+)"/);
-		if (hrefMatch) return hrefMatch[1];
-		const urlMatch = html.match(/https?:\/\/\S+/);
-		return urlMatch ? urlMatch[0] : html;
+	/** Extract every link found in pasted/dropped text (HTML or plain). */
+	function extractLinks(raw: string): string {
+		const hrefs = [...raw.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+		if (hrefs.length > 0) return hrefs.join(' ');
+
+		const urls = raw.match(/https?:\/\/\S+/g);
+		return urls?.length ? urls.join(' ') : raw;
+	}
+
+	/** Insert text at the caret (or over the selection) instead of replacing the whole value. */
+	function insertText(text: string) {
+		const clean = text.replace(/\s+/g, ' ').trim();
+		if (!clean) return;
+
+		const current = value;
+		const start = inputEl?.selectionStart ?? current.length;
+		const end = inputEl?.selectionEnd ?? start;
+		const before = current.slice(0, start);
+		const after = current.slice(end);
+		const leadingSpace = before && !/\s$/.test(before) ? ' ' : '';
+		const trailingSpace = after && !/^\s/.test(after) ? ' ' : '';
+
+		value = `${before}${leadingSpace}${clean}${trailingSpace}${after}`;
+		onChange?.(value);
+
+		const caret = before.length + leadingSpace.length + clean.length;
+		queueMicrotask(() => inputEl?.setSelectionRange(caret, caret));
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -114,19 +142,16 @@
 		}
 
 		if (text) {
-			text = extractUrlFromHtml(text);
-			value = value ? `${value} ${text}` : text;
-			onChange?.(value);
+			insertText(extractLinks(text));
 		}
 	}
 
 	function handlePaste(event: ClipboardEvent) {
 		const raw = event.clipboardData?.getData('text/plain');
-		if (raw) {
-			const text = extractUrlFromHtml(raw);
-			value = value ? `${value} ${text}` : text;
-			onChange?.(value);
-		}
+		if (!raw) return;
+
+		event.preventDefault();
+		insertText(extractLinks(raw));
 	}
 </script>
 
@@ -150,8 +175,8 @@
 					onfocus={handleFocus}
 					onblur={handleBlur}
 					onkeydown={handleKeydown}
-					ondrop={handleDrop}
-					onpaste={handlePaste}
+					ondrop={collectUrls ? handleDrop : undefined}
+					onpaste={collectUrls ? handlePaste : undefined}
 				/>
 			</div>
 		{:else}
@@ -170,8 +195,8 @@
 				onfocus={handleFocus}
 				onblur={handleBlur}
 				onkeydown={handleKeydown}
-				ondrop={handleDrop}
-				onpaste={handlePaste}
+				ondrop={collectUrls ? handleDrop : undefined}
+				onpaste={collectUrls ? handlePaste : undefined}
 			/>
 		{/if}
 	</Label>
@@ -193,8 +218,8 @@
 			onfocus={handleFocus}
 			onblur={handleBlur}
 			onkeydown={handleKeydown}
-			ondrop={handleDrop}
-			onpaste={handlePaste}
+			ondrop={collectUrls ? handleDrop : undefined}
+			onpaste={collectUrls ? handlePaste : undefined}
 			autocomplete="off"
 		/>
 	</div>
@@ -214,8 +239,8 @@
 		onfocus={handleFocus}
 		onblur={handleBlur}
 		onkeydown={handleKeydown}
-		ondrop={handleDrop}
-		onpaste={handlePaste}
+		ondrop={collectUrls ? handleDrop : undefined}
+		onpaste={collectUrls ? handlePaste : undefined}
 	/>
 {/if}
 
