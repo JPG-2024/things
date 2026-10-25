@@ -231,6 +231,12 @@ class ArticleManager {
 						articleState.setStatus('done');
 						articleState.setStep(null);
 						viewState.loaded = true;
+						// Auto speech: read the final summary out loud once
+						// nothing else is queued, so the voice never talks
+						// over the next article's analysis in the same batch.
+						if (this.queue.length === 0) {
+							void this.speakSummary(entry.url);
+						}
 					}
 				} catch (error) {
 					console.error(`[articleManager] run failed for "${entry.url}"`, error);
@@ -286,6 +292,23 @@ class ArticleManager {
 			if (refreshed && articleState.isCurrent(entry.url)) {
 				this.paintArticle(refreshed);
 			}
+		}
+	}
+
+	/**
+	 * Speaks the final summary of an article when auto speech is on.
+	 *
+	 * Fire-and-forget: an article without a summary simply stays silent, so a
+	 * TTS problem must never bubble up into the queue.
+	 */
+	private async speakSummary(url: string): Promise<void> {
+		if (!viewState.autoSpeechEnabled) return;
+		try {
+			const { generateTTSfromArticleURL } = await import('@/lib/utils/tts');
+			await generateTTSfromArticleURL(url);
+		} catch {
+			// No summary persisted for this url (or the TTS backend refused
+			// it): nothing to read, not a pipeline error.
 		}
 	}
 
