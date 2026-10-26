@@ -148,6 +148,13 @@ class TTSState {
 	volumeWhileTTS = $state(2);
 	/** Auto-minimize the floating YouTube player while TTS is playing. */
 	autoMinimizeWhileTTS = $state(true);
+	/**
+	 * Seconds into the current chunk's playback before the next chunk's
+	 * generation is requested. Spreads requests out so the backend isn't hit
+	 * back-to-back (rate limits). The underrun path still requests
+	 * immediately, so a chunk shorter than this never stalls.
+	 */
+	prefetchDelaySeconds = $state(4);
 	/** Duration (ms) of the YouTube-player volume fade when ducking/restoring. 0 = instant. */
 	volumeFadeMs = $state(400);
 	private _chunkEndsParagraph: boolean[] = [];

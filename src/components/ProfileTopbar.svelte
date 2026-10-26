@@ -4,6 +4,7 @@
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import { navigateBack } from '@/stores/navigationHistory.svelte';
+	import TogleIccon from '@/components/ToggleIcon.svelte';
 
 	interface Props {
 		/** Plain label rendered next to the optional thumb. */
@@ -32,9 +33,10 @@
 <div class="top-bar">
 	<Toolbar justify="space-between" iconSize={20}>
 		<div class="topbar-left">
-			<Icon
+			<TogleIccon
 				name="ArrowLeft"
 				onClick={handleBack}
+				checked
 				tooltipProps={{ content: 'back' }}
 				ariaLabel="Go back"
 			/>

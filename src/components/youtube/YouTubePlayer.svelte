@@ -19,14 +19,7 @@
 
 <div class="yt-wrapper">
 	<button class="yt-thumbnail-btn" onclick={openInFloatingPlayer} aria-label="Play video">
-		<img
-			src={playerData.thumbnailImageSrc}
-			alt="YouTube thumbnail"
-			class="yt-thumbnail"
-			style={playerData.thumbnailImageSrc
-				? `view-transition-name: ${toThumbnailVTName(playerData.url ?? '')}`
-				: undefined}
-		/>
+		<img src={playerData.thumbnailImageSrc} alt="YouTube thumbnail" class="yt-thumbnail" />
 	</button>
 
 	<button class="yt-play" onclick={openInFloatingPlayer} aria-label="Play video" title="Play video">
@@ -61,7 +54,7 @@
 		width: 100%;
 		height: 80%;
 		object-fit: cover;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-sm);
 	}
 
 	.yt-thumbnail-btn {

@@ -5,7 +5,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { WaveStyleConfig } from '@/lib/ttsPlayerConfig';
 	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		analyser: AnalyserNode | null;
@@ -32,7 +32,7 @@
 	}: Props = $props();
 </script>
 
-<div class="tts-player-mini__content" transition:fly={{ duration: 200, y: -200 }}>
+<div class="tts-player-mini__content" transition:fade={{ duration: 250 }}>
 	<div class="tts-player-mini__canvas-clip">
 		<WaveformCanvas
 			variant="mini"
@@ -162,8 +162,9 @@
 	.tts-player-mini__error {
 		position: absolute;
 		bottom: calc(100% + 0.5rem);
-		left: 80%;
-		transform: translateX(-50%);
+		right: 0;
+		left: auto;
+		transform: none;
 		white-space: nowrap;
 		display: flex;
 		align-items: center;

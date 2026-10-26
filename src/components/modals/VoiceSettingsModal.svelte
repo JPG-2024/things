@@ -121,35 +121,6 @@
 	];
 	const DESIGN_NONE_VALUE = '';
 
-	// Decorative bat art, kept out of the template so whitespace/indentation
-	// are preserved exactly. Trailing spaces are trimmed per line to avoid
-	// phantom horizontal scroll.
-	const ASCII_ART = [
-		'                                  #%**#+',
-		'                                 =%    %.',
-		'                                 %=    *+',
-		'                                =%     .%',
-		'                   .+**=        #=      *+        .+**=',
-		'                  .##**#=      -%       .%       .##**#+',
-		'                  #+   +#      *+   ==   #+      **   -%',
-		'                 ##     %.    .%   =##=  -%      %-    *#',
-		'                +#      *+    +*   #==#   #=    +#      ##',
-		'                %.      -%    %.  -%  %-  =%    #=       %=',
-		'               #+   .    #=  +#   *+  +*   %=  -%    .   -%',
-		'              ##   ###   +#  %=   %.  .%   =%  *+   ###   ##',
-		'        +****%#   +# #+   %.=%   +*    *+   %= %.  +# #+   #%****+',
-		'       ##****=    %. =%   #-%=   %-    -%   =%-#   %= .%    =****##',
-		'      .*        -#*   %=  ==#   =#      #=   #==  =%   +#-        *.',
-		'       *%******#%=    +#        %=      =%        #+    =%#*****#%*',
-		'        .+*****=       %.      =%        %=      .%       =*****+.',
-		'                       *+      #=        =%      +*',
-		'                       -%     =%          %=     %-',
-		'                        #=    #=          =#    =#',
-		'                        =#   -%            %-   #=',
-		'                         ##**#=            =#**##',
-		'                          =**=              =**='
-	].join('\n');
-
 	let draftAudioFile = $state('');
 	let draftRandomChunk = $state(false);
 	let draftSynthParams = $state<SynthParams>({
@@ -593,10 +564,10 @@
 				×
 			</button>
 
-			<div class="ascii-header">
-				<!-- <pre class="ascii-art" aria-hidden="true">{ASCII_ART}</pre> -->
-				<p class="ascii-caption">{title}</p>
-			</div>
+			<h2>
+				<Icon name="AudioWaveform" size={30} color={viewState.primaryColor} />
+				{title}
+			</h2>
 
 			<div class="config-column">
 				{#if management}
@@ -987,6 +958,15 @@
 				{#if management}
 					<Spacer title="Playback" icon="Volume2" defaultOpen={false}>
 						<RangeSelector
+							id="settings-prefetchDelay"
+							label="Generation delay (s)"
+							bind:value={ttsState.prefetchDelaySeconds}
+							min={0}
+							max={15}
+							step={0.5}
+							format={(v) => v.toFixed(1)}
+						/>
+						<RangeSelector
 							id="settings-duckVolume"
 							label="YouTube volume while TTS (%)"
 							bind:value={ttsState.volumeWhileTTS}
@@ -1038,7 +1018,6 @@
 		max-height: 92vh;
 		overflow-y: auto;
 		background: rgba(14, 14, 14, 0.98);
-		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: var(--radius-lg);
 		padding: 2rem 1.5rem 2rem;
 		display: flex;
@@ -1049,34 +1028,14 @@
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 	}
 
-	.ascii-header {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.35rem;
-	}
-
-	.ascii-caption {
+	h2 {
 		font-family: var(--font-secondary);
-		margin: 0;
-		font-size: 1.2rem;
+		margin: 0 0 0.5rem 0;
+		font-size: 1.1rem;
 		color: var(--primary-color);
-		opacity: 0.3;
-		padding: 1rem 0;
-		letter-spacing: 0.02em;
-	}
-
-	.ascii-art {
-		margin: 0 auto;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		font-size: 0.4rem;
-		line-height: 0.7;
-		white-space: pre;
-		color: var(--primary-color);
-		opacity: 0.2;
-		max-width: 100%;
-		overflow-x: auto;
-		user-select: none;
+		display: flex;
+		gap: 1rem;
+		align-items: center;
 	}
 
 	.config-column {
@@ -1161,7 +1120,7 @@
 		gap: 0.75rem;
 		align-items: center;
 		justify-content: center;
-		margin-top: 1rem;
+		margin-top: 2rem;
 	}
 
 	.voice-form {

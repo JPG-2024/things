@@ -159,10 +159,20 @@ class ViewState {
 
 	primaryColor = $state(DEFAULT_PRIMARY_COLOR);
 	backgroundColor = $state(DEFAULT_BG_COLOR);
+	// Text-shadow and icon drop-shadow glow effects across the UI. Toggled from
+	// the dashboard toolbar; +layout.svelte mirrors it onto an `html` class.
+	glowEnabled = $state(true);
 	tintHue = $derived(rgbToHue(this.backgroundColor));
 	primaryTintHue = $derived(rgbToHue(this.primaryColor));
 	blur = $state(false);
+	// "Read copied text": the dashboard title click and the global clipboard
+	// shortcut speak copied prose instead of capturing it. URL lists still go
+	// through the capture pipeline.
 	clipboardTtsEnabled = $state(false);
+	// True once the user has accepted the OS global-shortcut binding. Set by the
+	// first-run prompt so later launches can probe silently instead of asking
+	// again (the desktop remembers the consent either way).
+	globalShortcutConsented = $state(false);
 	forceLanguageEnabled = $state(false);
 	thumbnailReductionMagnitud = $state(2);
 	embeddingsEnabled = $state(false);

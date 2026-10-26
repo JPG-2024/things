@@ -131,7 +131,6 @@ export class TtsPlaybackEngine {
 			this.currentChunkDuration = buf.duration;
 			this.nextChunkPrefetchRequested = false;
 			this.pruneDecodedBehind();
-			this.prefetchNextChunk();
 
 			this.recomputeOffsets();
 			this.totalPlaybackDuration = this.computeTotal();
@@ -358,10 +357,9 @@ export class TtsPlaybackEngine {
 	}
 
 	/**
-	 * Requests the next chunk as soon as the current one starts playing, so a
-	 * slow backend gets the whole chunk duration to synthesize it instead of
-	 * only the last `prebufferSeconds`. Safe to race with the countdown
-	 * fallback: the store's `generateNextChunk()` is single-flight.
+	 * Requests the next chunk once the delay gate and the prebuffer window in
+	 * `startCountdown()` say it's time. Safe to race with the underrun path in
+	 * `handleChunkEnded()`: the store's `generateNextChunk()` is single-flight.
 	 */
 	private prefetchNextChunk(): void {
 		const nextIdx = this.currentChunkIndex + 1;
@@ -380,33 +378,48 @@ export class TtsPlaybackEngine {
 		});
 	}
 
+	/**
+	 * Seconds elapsed since the current chunk started playing. `playbackStartTime`
+	 * is rebuilt as `now - globalStart` on every (re)start, so a seek or resume
+	 * mid-chunk yields the offset inside the chunk instead of a negative value.
+	 */
+	private secondsIntoCurrentChunk(): number {
+		return (
+			(performance.now() - this.playbackStartTime) / 1000 -
+			this.chunkOffsets[this.currentChunkIndex]
+		);
+	}
+
 	private startCountdown(): void {
 		this.clearCountdown();
 		this.countdownInterval = setInterval(() => {
 			const elapsed = (performance.now() - this.playbackStartTime) / 1000;
 			this.elapsedSeconds = elapsed;
 
-			if (
-				!this.nextChunkPrefetchRequested &&
-				this.currentChunkIndex + 1 < ttsState.totalChunks &&
-				this.currentChunkIndex + 1 >= ttsState.blobs.length
-			) {
-				const chunkEndTime =
-					this.playbackStartTime +
-					(this.chunkOffsets[this.currentChunkIndex] + this.currentChunkDuration) * 1000;
-				const timeRemaining = (chunkEndTime - performance.now()) / 1000;
+			const nextIdx = this.currentChunkIndex + 1;
+			if (this.nextChunkPrefetchRequested || nextIdx >= ttsState.totalChunks) return;
+			// The next chunk is already synthesized: nothing to request.
+			if (nextIdx < ttsState.blobs.length) return;
 
-				const estimatedGenTime = ttsState.averageGenerationTime;
-				const prebufferSeconds = Math.max(
-					MIN_PREBUFFER,
-					this.currentChunkDuration * PREBUFFER_RATIO,
-					estimatedGenTime * 1.2
-				);
+			// Rate-limit guard: never start a request before this much of the
+			// current chunk has played. The underrun path in `handleChunkEnded()`
+			// bypasses this so short chunks never stall.
+			if (this.secondsIntoCurrentChunk() < ttsState.prefetchDelaySeconds) return;
 
-				if (timeRemaining <= prebufferSeconds) {
-					this.nextChunkPrefetchRequested = true;
-					void ttsState.generateNextChunk();
-				}
+			const chunkEndTime =
+				this.playbackStartTime +
+				(this.chunkOffsets[this.currentChunkIndex] + this.currentChunkDuration) * 1000;
+			const timeRemaining = (chunkEndTime - performance.now()) / 1000;
+
+			const estimatedGenTime = ttsState.averageGenerationTime;
+			const prebufferSeconds = Math.max(
+				MIN_PREBUFFER,
+				this.currentChunkDuration * PREBUFFER_RATIO,
+				estimatedGenTime * 1.2
+			);
+
+			if (timeRemaining <= prebufferSeconds) {
+				this.prefetchNextChunk();
 			}
 		}, 500);
 	}

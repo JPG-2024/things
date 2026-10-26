@@ -339,7 +339,7 @@
 					/>
 				</button>
 
-				<button type="button" class="settings-trigger" aria-label="Toggle clipboard TTS">
+				<button type="button" class="settings-trigger" aria-label="Toggle read copied text">
 					<ToggleIcon
 						name="MessageSquareText"
 						bind:checked={viewState.clipboardTtsEnabled}
@@ -393,6 +393,14 @@
 				</button>
 
 				<ToolbarDivider />
+
+				<button type="button" class="settings-trigger" aria-label="Toggle glow effects">
+					<ToggleIcon
+						name="Sparkles"
+						bind:checked={viewState.glowEnabled}
+						tooltipProps={{ content: 'glow effects' }}
+					/>
+				</button>
 
 				<Tooltip content="Change primary color">
 					<label class="color-dot-trigger" aria-label="Change primary color">

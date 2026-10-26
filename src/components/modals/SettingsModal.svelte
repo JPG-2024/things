@@ -2,11 +2,11 @@
 	import Icon from '@/components/Icon.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import DatabaseManager from '@/components/DatabaseManager.svelte';
+	import GlobalShortcutSettings from '@/components/GlobalShortcutSettings.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
 	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
 	import FieldsRow from '@/components/inputs/fields/FieldsRow.component.svelte';
-	import IconDropdownField from '@/components/inputs/fields/IconDropdownField.component.svelte';
 	import NumberField from '@/components/inputs/fields/NumberField.component.svelte';
 	import TextField from '@/components/inputs/fields/TextField.component.svelte';
 	import ToggleField from '@/components/inputs/fields/ToggleField.component.svelte';
@@ -317,13 +317,13 @@
 	}
 
 	const languageOptions = [
-		{ label: 'Spanish', value: 'es', emoji: '🇪🇸' },
-		{ label: 'English', value: 'en', emoji: '🇬🇧' },
-		{ label: 'French', value: 'fr', emoji: '🇫🇷' },
-		{ label: 'German', value: 'de', emoji: '🇩🇪' },
-		{ label: 'Portuguese', value: 'pt', emoji: '🇵🇹' },
-		{ label: 'Italian', value: 'it', emoji: '🇮🇹' },
-		{ label: 'Japanese', value: 'ja', emoji: '🇯🇵' }
+		{ label: 'Spanish', value: 'es' },
+		{ label: 'English', value: 'en' },
+		{ label: 'French', value: 'fr' },
+		{ label: 'German', value: 'de' },
+		{ label: 'Portuguese', value: 'pt' },
+		{ label: 'Italian', value: 'it' },
+		{ label: 'Japanese', value: 'ja' }
 	];
 </script>
 
@@ -332,41 +332,9 @@
 		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 		Settings
 	</h2>
-	<section class="services-block" aria-label="Service health">
-		<span class="services-title">Services</span>
-		<ul class="services-list">
-			{#each healthRows as row (row.key)}
-				<li class="service-row">
-					<span class="health-dot" class:up={row.dot === 'up'} class:warn={row.dot === 'warn'}
-					></span>
-					<div class="service-main">
-						<span class="service-label">{row.label}</span>
-						{#if row.model !== undefined}
-							<span
-								class="service-model"
-								class:empty={!row.model}
-								title={row.model || 'No model selected'}
-							>
-								{row.model || 'no model selected'}
-							</span>
-						{/if}
-					</div>
-					<span
-						class="service-status"
-						class:ok={row.statusTone === 'ok'}
-						class:warn={row.statusTone === 'warn'}
-						class:error={row.statusTone === 'error'}
-					>
-						{row.status}
-					</span>
-				</li>
-			{/each}
-		</ul>
-	</section>
-	<IconDropdownField
+	<DropdownField
 		label="Language"
 		options={languageOptions}
-		iconSize={20}
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
@@ -388,6 +356,37 @@
 	</Spacer>
 	<Spacer title="Llama.cpp" icon="Cpu" defaultOpen={false}>
 		<div class="inference-section">
+			<section class="services-block" aria-label="Service health">
+				<span class="services-title">Services</span>
+				<ul class="services-list">
+					{#each healthRows as row (row.key)}
+						<li class="service-row">
+							<span class="health-dot" class:up={row.dot === 'up'} class:warn={row.dot === 'warn'}
+							></span>
+							<div class="service-main">
+								<span class="service-label">{row.label}</span>
+								{#if row.model !== undefined}
+									<span
+										class="service-model"
+										class:empty={!row.model}
+										title={row.model || 'No model selected'}
+									>
+										{row.model || 'no model selected'}
+									</span>
+								{/if}
+							</div>
+							<span
+								class="service-status"
+								class:ok={row.statusTone === 'ok'}
+								class:warn={row.statusTone === 'warn'}
+								class:error={row.statusTone === 'error'}
+							>
+								{row.status}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</section>
 			<ToggleField
 				label="Launch servers automatically"
 				tooltip="Start the local llama.cpp servers when the app opens."
@@ -590,6 +589,11 @@
 			/>
 		</div>
 	</Spacer>
+	<Spacer title="Global shortcut" icon="Keyboard">
+		<div class="inference-section">
+			<GlobalShortcutSettings />
+		</div>
+	</Spacer>
 	<Spacer title="Databases" icon="Database">
 		<div class="inference-section">
 			<DatabaseManager />
@@ -730,9 +734,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-		padding: 1rem;
-		background: rgba(255, 255, 255, 0.05);
-		border-radius: var(--radius-md);
+		padding-bottom: 0.85rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 	}
 
 	.services-title {

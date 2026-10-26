@@ -108,9 +108,11 @@ function serializeView() {
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
 		toggles: {
+			glowEnabled: viewState.glowEnabled,
 			autoSpeechEnabled: viewState.autoSpeechEnabled,
 			forceLanguageEnabled: viewState.forceLanguageEnabled,
 			clipboardTtsEnabled: viewState.clipboardTtsEnabled,
+			globalShortcutConsented: viewState.globalShortcutConsented,
 			embeddingsEnabled: viewState.embeddingsEnabled,
 			llamaAutoStart: viewState.llamaAutoStart,
 			llamaReasoning: viewState.llamaReasoning,
@@ -131,7 +133,8 @@ function serializeTts() {
 		selectedProfileId: ttsState.selectedProfileId,
 		namePrefix: ttsState.namePrefix,
 		config: $state.snapshot(ttsState.config),
-		pauseSettings: $state.snapshot(ttsState.pauseSettings)
+		pauseSettings: $state.snapshot(ttsState.pauseSettings),
+		prefetchDelaySeconds: ttsState.prefetchDelaySeconds
 	};
 }
 
@@ -214,6 +217,9 @@ function applyView(raw: unknown): void {
 	if (typeof raw.backgroundColor === 'string') viewState.backgroundColor = raw.backgroundColor;
 
 	const toggles = isPlainObject(raw.toggles) ? raw.toggles : {};
+	if (typeof toggles.glowEnabled === 'boolean') {
+		viewState.glowEnabled = toggles.glowEnabled;
+	}
 	if (typeof toggles.autoSpeechEnabled === 'boolean') {
 		viewState.autoSpeechEnabled = toggles.autoSpeechEnabled;
 	}
@@ -222,6 +228,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.clipboardTtsEnabled === 'boolean') {
 		viewState.clipboardTtsEnabled = toggles.clipboardTtsEnabled;
+	}
+	if (typeof toggles.globalShortcutConsented === 'boolean') {
+		viewState.globalShortcutConsented = toggles.globalShortcutConsented;
 	}
 	if (typeof toggles.embeddingsEnabled === 'boolean') {
 		viewState.embeddingsEnabled = toggles.embeddingsEnabled;
@@ -266,6 +275,10 @@ function applyTts(raw: unknown): void {
 	ttsState.config = mergedConfig;
 
 	ttsState.pauseSettings = mergeValue(TTS_PAUSE_DEFAULTS, raw.pauseSettings);
+
+	if (typeof raw.prefetchDelaySeconds === 'number') {
+		ttsState.prefetchDelaySeconds = clamp(raw.prefetchDelaySeconds, 0, 30);
+	}
 
 	if (typeof raw.selectedProfileId === 'string') {
 		ttsState.selectedProfileId = raw.selectedProfileId;

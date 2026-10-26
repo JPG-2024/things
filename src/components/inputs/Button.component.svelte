@@ -47,7 +47,7 @@
 	}
 
 	button:hover :global(svg) {
-		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
+		filter: var(--glow-filter);
 	}
 
 	button:disabled {

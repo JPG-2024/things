@@ -8,6 +8,12 @@
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
 
+	/** True while TTS owns the audio: from generation start until stop/reset,
+	 * including the paused-but-resumable state. Drives auto-minimize, the
+	 * thumbnail grayscale and the video volume duck so all three share one
+	 * window. */
+	const ttsActive = $derived(ttsState.isGenerating || ttsState.isPlaying || ttsState.isPaused);
+
 	let frameEl: HTMLIFrameElement | null = $state(null);
 
 	const FADE_STEPS = 10;
@@ -64,12 +70,13 @@
 	}
 
 	function applyCurrentVolume(): void {
-		fadePlayerVolume(ttsState.isPlaying ? ttsState.volumeWhileTTS : 100);
+		fadePlayerVolume(ttsActive ? ttsState.volumeWhileTTS : 100);
 	}
 
-	// Duck the video to a low volume while TTS is actively playing, and restore
-	// it to full volume otherwise. Tracks `active`, `ttsState.isPlaying`, and the
-	// iframe reference so it re-applies whenever any of them change.
+	// Duck the video to a low volume for the whole TTS window (generating,
+	// playing and paused), and restore full volume once it is over. Tracks
+	// `active`, `ttsActive`, and the iframe reference so it re-applies whenever
+	// any of them change.
 	$effect(() => {
 		if (!active) {
 			clearFade();
@@ -111,29 +118,30 @@
 		return () => window.removeEventListener('message', onMessage);
 	});
 
-	// Auto-minimize the player to the mini thumbnail while TTS is playing and
-	// restore the previous mode once it stops. Only acts on transitions so it
-	// never fights the user manually toggling the player mid-playback.
-	let wasPlaying = false;
+	// Auto-minimize the player to the mini thumbnail as soon as TTS starts
+	// generating — not only once the audio plays — and restore the previous
+	// mode once generation, playback and pause are all over. Only acts on
+	// transitions so it never fights the user manually toggling the player.
+	let wasActive = false;
 	let prevMinimized = false;
 
 	$effect(() => {
 		if (!active) {
-			wasPlaying = false;
+			wasActive = false;
 			return;
 		}
 
-		const playing = ttsState.isPlaying && ttsState.autoMinimizeWhileTTS;
+		const engage = ttsActive && ttsState.autoMinimizeWhileTTS;
 
-		if (playing && !wasPlaying) {
+		if (engage && !wasActive) {
 			prevMinimized = playerStore.minimized;
 			if (!playerStore.minimized) playerStore.minimize();
-		} else if (!playing && wasPlaying) {
+		} else if (!engage && wasActive) {
 			if (prevMinimized) playerStore.minimize();
 			else playerStore.restore();
 		}
 
-		wasPlaying = playing;
+		wasActive = engage;
 	});
 
 	createHotkey(
@@ -190,7 +198,7 @@
 		</div>
 
 		{#if minimized}
-			<div class="player-mini" transition:fade={{ duration: 150 }}>
+			<div class="player-mini" class:is-tts-active={ttsActive} transition:fade={{ duration: 150 }}>
 				<button
 					class="player-mini-restore"
 					onclick={() => playerStore.restore()}
@@ -208,8 +216,8 @@
 	/* Zero-size anchor: children are absolutely positioned from this corner. */
 	.floating-player {
 		position: fixed;
-		right: 1.5rem;
-		bottom: 1.3rem;
+		right: var(--float-anchor-right);
+		bottom: var(--float-anchor-bottom);
 		width: 0;
 		height: 0;
 		z-index: 600; /* above content, below modals (9999/10000) */
@@ -280,11 +288,11 @@
 		position: absolute;
 		right: 0;
 		bottom: 0;
-		width: 80px;
-		height: 80px;
+		width: var(--float-mini-width);
+		height: var(--float-mini-height);
 		overflow: hidden;
 		border-radius: var(--radius-md);
-		background: #000;
+		background: transparent;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		cursor: pointer;
 	}
@@ -304,6 +312,13 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		transform: scale(1.4);
+		transition: filter 250ms ease;
+		filter: grayscale(0);
+	}
+
+	/* Mid grayscale for the whole TTS window: the video is ducked at that
+	 * point, so the thumbnail reads as "backed off". */
+	.player-mini.is-tts-active img {
+		filter: grayscale(0.95);
 	}
 </style>

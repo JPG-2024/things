@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { scale } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -113,7 +113,7 @@
 
 <div class="article-layout">
 	{#if hasMedia}
-		<div class="media-col" transition:fly={{ duration: 300, y: 24 }}>
+		<div class="media-col" transition:scale={{ start: 0.8, duration: 100 }}>
 			{#if isYouTube && videoId}
 				<YouTubePlayer
 					data={{
@@ -147,7 +147,7 @@
 					aria-label="View full content"
 					title="View full content (F)"
 				>
-					<Icon name="Maximize2" size={30} color="var(--primary-color)" />
+					<Icon name="Code" size={24} color="var(--primary-color)" />
 				</button>
 			{/if}
 			{#if article.url && article.status !== 'running'}

@@ -77,7 +77,7 @@
 		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-lg);
+		border-radius: var(--radius-sm);
 		container-type: inline-size;
 	}
 

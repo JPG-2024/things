@@ -341,17 +341,24 @@
 	.tts-player--mini {
 		position: fixed;
 		top: auto;
-		right: auto;
-		bottom: 1.5rem;
-		left: 50%;
-		transform: translateX(-50%);
+		/* Shares the floating player's corner geometry so the strip sits
+		 * centered on top of the minimized YouTube thumbnail (see the
+		 * --float-* vars in +layout.svelte). Without a video it simply rests
+		 * on the same transparent spot. */
+		left: auto;
+		right: var(--float-anchor-right);
+		bottom: calc(var(--float-anchor-bottom) + (var(--float-mini-height) - 70px) / 2);
+		transform: none;
 		background: transparent !important;
 		border: none;
 		box-shadow: none;
 		padding: 0;
 		border-radius: 0;
-		width: 260px;
+		width: var(--float-mini-width);
 		height: 70px;
+		/* The error toast renders above the strip; the base .tts-player rule
+		 * clips it otherwise. */
+		overflow: visible;
 		cursor: pointer;
 		display: flex;
 		align-items: center;

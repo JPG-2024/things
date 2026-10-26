@@ -28,7 +28,13 @@
 	import Modal from '@/components/Modal.svelte';
 	import ChatModal from '@/components/ChatModal.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { GLOBAL_CLIPBOARD_TRIGGER_EVENT, readClipboardAndHandle } from '@/lib/utils/clipboard';
+	import {
+		GLOBAL_CLIPBOARD_TRIGGER_EVENT,
+		GLOBAL_CLIPBOARD_TRIGGER_LABEL,
+		readClipboardAndHandle
+	} from '@/lib/utils/clipboard';
+	import { globalShortcutStore } from '@/stores/globalShortcutStore.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { recordNavigation } from '@/stores/navigationHistory.svelte';
 	import { page } from '$app/state';
@@ -40,6 +46,46 @@
 	let conversationMode = $state(false);
 	let chatOpen = $state(false);
 
+	// First-run offer for the OS-global clipboard shortcut. It is only shown
+	// when the shortcut is not already bound, and registration waits for a user
+	// gesture so the desktop dialog never appears on its own.
+	let shortcutPromptVisible = $state(false);
+	// True when the shortcut was previously set up but is no longer bound (the
+	// user removed it in the desktop settings), so the banner re-offers it.
+	let shortcutReoffer = $state(false);
+
+	async function enableShortcut(): Promise<void> {
+		if (await globalShortcutStore.register()) {
+			shortcutPromptVisible = false;
+		}
+	}
+
+	function dismissShortcutPrompt(): void {
+		shortcutPromptVisible = false;
+	}
+
+	/**
+	 * Reuses an existing binding silently; otherwise offers to bind it. Never
+	 * calls the binding path on its own, so the desktop dialog is user-driven.
+	 */
+	async function initGlobalShortcut(): Promise<void> {
+		if (await globalShortcutStore.probe()) return;
+
+		// Unsupported platform/portal: stay quiet instead of offering a shortcut
+		// that can never be registered on this system.
+		if (!globalShortcutStore.supported) return;
+
+		// The user already opted in but the probe found no binding. Re-bind
+		// silently; the desktop only opens its dialog if the binding was removed
+		// in the meantime, which is the intended re-offer.
+		if (viewState.globalShortcutConsented) {
+			if (await globalShortcutStore.register()) return;
+			shortcutReoffer = true;
+		}
+
+		shortcutPromptVisible = true;
+	}
+
 	$effect(() => {
 		const color = viewState.primaryColor;
 		document.documentElement.style.setProperty('--primary-color', color);
@@ -48,6 +94,12 @@
 	$effect(() => {
 		const bgColor = viewState.backgroundColor;
 		document.documentElement.style.setProperty('--bg-color', bgColor);
+	});
+
+	// Glow switch: `html.glow-off` neutralizes text-shadow (blanket override
+	// below) and the `--glow-filter` icon drop-shadows.
+	$effect(() => {
+		document.documentElement.classList.toggle('glow-off', !viewState.glowEnabled);
 	});
 
 	/* 	$effect(() => {
@@ -316,6 +368,8 @@
 			}
 		});
 
+		void initGlobalShortcut();
+
 		return () => {
 			disposed = true;
 			unlisten?.();
@@ -333,6 +387,30 @@
 >
 	{@render children()}
 </main>
+
+{#if shortcutPromptVisible}
+	<aside class="shortcut-prompt" role="region" aria-label="Global clipboard shortcut">
+		<p>
+			{#if shortcutReoffer}
+				The global clipboard shortcut is not active. Enable it to send the clipboard to Things with <kbd
+					>{globalShortcutStore.trigger ?? GLOBAL_CLIPBOARD_TRIGGER_LABEL}</kbd
+				>.
+			{:else}
+				Use <kbd>{globalShortcutStore.trigger ?? GLOBAL_CLIPBOARD_TRIGGER_LABEL}</kbd> from any app to
+				send the clipboard to Things. Your desktop will ask you to confirm it once.
+			{/if}
+		</p>
+		{#if globalShortcutStore.error}
+			<p class="shortcut-prompt-error">{globalShortcutStore.error}</p>
+		{/if}
+		<div class="shortcut-prompt-actions">
+			<Button onClick={dismissShortcutPrompt} disabled={globalShortcutStore.busy}>Not now</Button>
+			<Button onClick={() => void enableShortcut()} disabled={globalShortcutStore.busy}>
+				{globalShortcutStore.busy ? 'Enabling…' : 'Enable shortcut'}
+			</Button>
+		</div>
+	</aside>
+{/if}
 
 <!-- <TasksStatusBar /> -->
 
@@ -416,9 +494,21 @@
 		--radius-md: 10px;
 		--radius-lg: 14px;
 
+		/* Floating corner widget: the minimized YouTube thumbnail and the TTS
+		 * strip share this geometry so they stay stacked as one piece. */
+		--float-anchor-right: 1.5rem;
+		--float-anchor-bottom: 1.3rem;
+		--float-mini-width: 260px;
+		--float-mini-height: 146px; /* 260 * 9/16 — keep in sync with the width */
+
 		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, white 80%, transparent));
 		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, white 40%, transparent));
 		--glow-lg: drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
+
+		/* The whole icon-glow filter as one value so the toolbar toggle can
+		 * collapse it to `none` (a blanket `filter: none !important` would also
+		 * kill unrelated filters such as the emoji tint). */
+		--glow-filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
 
 		--glow-text:
 			0 0 5px color-mix(in srgb, var(--primary-color) 55%, transparent),
@@ -438,6 +528,20 @@
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 		-webkit-text-size-adjust: 100%;
+	}
+
+	/* Glow switch (dashboard toolbar toggle). `html.glow-off` collapses the icon
+	 * drop-shadow filter to `none` and the rule below blanks every text-shadow
+	 * in one place instead of editing each component. `:global` keeps Svelte
+	 * from scoping the selectors onto elements of this component only. */
+	:global(html.glow-off) {
+		--glow-filter: none;
+	}
+
+	:global(html.glow-off *),
+	:global(html.glow-off *::before),
+	:global(html.glow-off *::after) {
+		text-shadow: none !important;
 	}
 
 	main {
@@ -583,5 +687,47 @@
 	:global(*) {
 		scrollbar-width: thin;
 		scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+	}
+
+	/* First-run offer for the OS-global clipboard shortcut. Sits above the app
+	 * but below the modal layer, and never blocks the rest of the UI. */
+	.shortcut-prompt {
+		position: fixed;
+		right: 1.5rem;
+		bottom: 1.5rem;
+		z-index: 9000;
+		width: min(360px, calc(100vw - 3rem));
+		padding: 1rem 1.1rem;
+		border: 1px solid var(--article-border);
+		border-radius: var(--radius-md);
+		background: rgba(0, 0, 0, 0.92);
+		backdrop-filter: blur(10px);
+		font-size: 0.85rem;
+		line-height: 1.4;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.shortcut-prompt p {
+		margin: 0;
+	}
+
+	.shortcut-prompt kbd {
+		font-family: var(--font-secondary);
+		color: var(--primary-color);
+		border: 1px solid var(--article-border);
+		border-radius: var(--radius-sm);
+		padding: 0.05rem 0.3rem;
+	}
+
+	.shortcut-prompt-error {
+		color: #ff8a8a;
+	}
+
+	.shortcut-prompt-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 </style>

@@ -82,11 +82,11 @@
 	}
 
 	.icon-glow:hover {
-		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
+		filter: var(--glow-filter);
 	}
 
 	.icon-glow.glow {
-		filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
+		filter: var(--glow-filter);
 	}
 	.icon-glow :global(svg) {
 		opacity: 1;

@@ -192,8 +192,7 @@
 	.analysis-shell {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
-		padding: 1rem 0;
+		gap: 2rem;
 	}
 
 	.level-row {
@@ -298,7 +297,5 @@
 	}
 
 	.final-section {
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
-		padding-top: 1rem;
 	}
 </style>

@@ -18,16 +18,15 @@ pub use crate::url::url_to_folder_name;
 
 mod web_store;
 pub use crate::web_store::{
-    assign_categories_to_article, delete_category_exemplar,
-    delete_category_exemplars_for_article, delete_web_store_articles_by_urls,
-    delete_web_store_category, delete_web_store_domain, delete_web_store_profile,
-    fetch_remote_profile, filter_existing_article_urls, get_article_analysis,
-    get_article_categories, get_category_exemplar_model_status, get_web_store_article_by_url,
-    get_web_store_domain, get_web_store_profile, list_all_category_exemplars,
-    list_articles_by_categories, list_articles_without_profile, list_categories_with_articles,
-    list_category_exemplars, list_web_store_articles, list_web_store_categories,
-    list_web_store_domains, list_web_store_profiles, read_raw_content, read_raw_content_by_url,
-    save_article_analysis, search_raw_content, set_profile_article_order,
+    assign_categories_to_article, delete_category_exemplar, delete_category_exemplars_for_article,
+    delete_web_store_articles_by_urls, delete_web_store_category, delete_web_store_domain,
+    delete_web_store_profile, fetch_remote_profile, filter_existing_article_urls,
+    get_article_analysis, get_article_categories, get_category_exemplar_model_status,
+    get_web_store_article_by_url, get_web_store_domain, get_web_store_profile,
+    list_all_category_exemplars, list_articles_by_categories, list_articles_without_profile,
+    list_categories_with_articles, list_category_exemplars, list_web_store_articles,
+    list_web_store_categories, list_web_store_domains, list_web_store_profiles, read_raw_content,
+    read_raw_content_by_url, save_article_analysis, search_raw_content, set_profile_article_order,
     update_category_exemplars_model, update_web_store_article_viewed, upsert_category_exemplar,
     upsert_web_store_article, upsert_web_store_category, upsert_web_store_domain,
     upsert_web_store_profile, write_raw_content,
@@ -69,6 +68,70 @@ async fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
     .map_err(|error| error.to_string())?
 }
 
+/// Whether this build can register OS-global shortcuts at all.
+#[tauri::command]
+fn global_shortcut_supported() -> bool {
+    cfg!(target_os = "linux")
+}
+
+/// Reports the trigger the clipboard shortcut is bound to, without ever asking
+/// the user to bind it. Starts the activation listener when it is bound.
+#[tauri::command]
+async fn probe_global_shortcut(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    if !global_shortcut_supported() {
+        return Ok(None);
+    }
+
+    if app
+        .state::<global_shortcut::GlobalShortcutState>()
+        .is_registered()
+    {
+        return Ok(app
+            .state::<global_shortcut::GlobalShortcutState>()
+            .trigger());
+    }
+
+    let trigger = global_shortcut::request(app.clone(), global_shortcut::GlobalShortcutMode::Probe)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if trigger.is_some() {
+        app.state::<global_shortcut::GlobalShortcutState>()
+            .mark_registered(trigger.clone());
+    }
+
+    Ok(trigger)
+}
+
+/// Binds the clipboard shortcut, opening the desktop confirmation dialog when
+/// the shortcut has not been accepted before. Returns the bound trigger.
+#[tauri::command]
+async fn register_global_shortcut(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    if !global_shortcut_supported() {
+        return Ok(None);
+    }
+
+    if app
+        .state::<global_shortcut::GlobalShortcutState>()
+        .is_registered()
+    {
+        return Ok(app
+            .state::<global_shortcut::GlobalShortcutState>()
+            .trigger());
+    }
+
+    let trigger = global_shortcut::request(app.clone(), global_shortcut::GlobalShortcutMode::Bind)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if trigger.is_some() {
+        app.state::<global_shortcut::GlobalShortcutState>()
+            .mark_registered(trigger.clone());
+    }
+
+    Ok(trigger)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -82,6 +145,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(LlamaServersState::default())
         .manage(AudioRecorderState::default())
+        .manage(global_shortcut::GlobalShortcutState::default())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -89,7 +153,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             db_manager::migrate_legacy_layout(app.handle())?;
-            global_shortcut::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -143,6 +206,9 @@ pub fn run() {
             list_llama_models,
             llama_defaults,
             read_clipboard_text,
+            global_shortcut_supported,
+            probe_global_shortcut,
+            register_global_shortcut,
             index_chunks,
             search_similar_chunks,
             delete_chunks_by_article,
