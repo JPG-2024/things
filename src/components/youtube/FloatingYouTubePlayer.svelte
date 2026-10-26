@@ -17,9 +17,33 @@
 	let frameEl: HTMLIFrameElement | null = $state(null);
 
 	const FADE_STEPS = 10;
-	/** Last volume we told the player. YouTube starts each (re)load at 100. */
+	/** Last volume we told the player. Only used as the next fade's start
+	 * point: YouTube starts each (re)load at 100. */
 	let currentVolume = 100;
 	let fadeTimer: ReturnType<typeof setInterval> | null = null;
+	/** Follow-up sends after an iframe (re)load. `setVolume` is silently
+	 * ignored until the embed's player is ready, and the `onReady` message may
+	 * never reach a Tauri webview, so the desired volume is re-sent on a short
+	 * schedule instead of trusting a single message. */
+	let reassertTimers: ReturnType<typeof setTimeout>[] = [];
+	/** Delays (ms) after `onload`/`onReady`. The last one sits past the
+	 * slowest fade (`volumeFadeMs` tops out at 2000ms). */
+	const REASSERT_DELAYS_MS = [150, 400, 900, 1800, 3000];
+
+	/** `origin` lets the embed post `onReady` back to this window. Only http(s)
+	 * origins are usable — the Tauri shell runs on `tauri://`, where the
+	 * re-assert schedule is the fallback. */
+	const EMBED_ORIGIN_PARAM =
+		typeof window !== 'undefined' &&
+		(window.location.protocol === 'http:' || window.location.protocol === 'https:')
+			? `&origin=${encodeURIComponent(window.location.origin)}`
+			: '';
+
+	/** Volume the player should be at right now. Read inside the effect so
+	 * `ttsActive` and the duck slider stay tracked as dependencies. */
+	function desiredVolume(): number {
+		return ttsActive ? ttsState.volumeWhileTTS : 100;
+	}
 
 	function setPlayerVolume(volume: number): void {
 		frameEl?.contentWindow?.postMessage(
@@ -35,21 +59,48 @@
 		}
 	}
 
+	function clearReasserts(): void {
+		for (const timer of reassertTimers) clearTimeout(timer);
+		reassertTimers = [];
+	}
+
+	/** Push the current desired volume at the player with no fade. Skipped
+	 * while a fade is in flight (it ends on the target itself) and retried
+	 * shortly after it settles, so a load landing mid-fade can never leave the
+	 * player on a value it never received. */
+	function reassertNow(): void {
+		if (fadeTimer !== null) {
+			reassertTimers.push(setTimeout(reassertNow, 300));
+			return;
+		}
+		const target = desiredVolume();
+		currentVolume = target;
+		setPlayerVolume(target);
+	}
+
+	function scheduleReasserts(): void {
+		clearReasserts();
+		for (const delayMs of REASSERT_DELAYS_MS) {
+			reassertTimers.push(setTimeout(reassertNow, delayMs));
+		}
+	}
+
 	/** Ramp the player from its current volume to `target` over the configured
-	 * fade duration. Cancels any in-flight fade, so rapid changes stay smooth. */
+	 * fade duration. Cancels any in-flight fade, so rapid changes stay smooth.
+	 * Always sends at least one message even when the tracked volume already
+	 * matches: that message may have been dropped while the player was still
+	 * loading, and skipping the send is what left the video stuck loud. */
 	function fadePlayerVolume(target: number): void {
 		clearFade();
 		const start = currentVolume;
-		if (start === target) return;
 
-		const durationMs = ttsState.volumeFadeMs;
-		if (durationMs <= 0) {
+		if (start === target || ttsState.volumeFadeMs <= 0) {
 			currentVolume = target;
 			setPlayerVolume(target);
 			return;
 		}
 
-		const intervalMs = durationMs / FADE_STEPS;
+		const intervalMs = ttsState.volumeFadeMs / FADE_STEPS;
 		let step = 0;
 		fadeTimer = setInterval(() => {
 			step += 1;
@@ -70,24 +121,33 @@
 	}
 
 	function applyCurrentVolume(): void {
-		fadePlayerVolume(ttsActive ? ttsState.volumeWhileTTS : 100);
+		fadePlayerVolume(desiredVolume());
 	}
 
 	// Duck the video to a low volume for the whole TTS window (generating,
 	// playing and paused), and restore full volume once it is over. Tracks
-	// `active`, `ttsActive`, and the iframe reference so it re-applies whenever
-	// any of them change.
+	// `active`, `ttsActive`, the duck slider and the iframe reference: reading
+	// `frameEl` here is deliberate — `setPlayerVolume()` otherwise only runs
+	// inside the fade interval, outside this effect, so a `{#key}` remount of
+	// the iframe would never re-apply the volume.
 	$effect(() => {
-		if (!active) {
+		const frame = frameEl;
+		const target = desiredVolume();
+		if (!active || !frame) {
 			clearFade();
+			clearReasserts();
 			return;
 		}
-		applyCurrentVolume();
+		fadePlayerVolume(target);
 	});
 
-	// Clear any in-flight fade if the component is torn down.
+	// Clear any in-flight fade or pending re-assert if the component is torn
+	// down.
 	$effect(() => {
-		return () => clearFade();
+		return () => {
+			clearFade();
+			clearReasserts();
+		};
 	});
 
 	// The `{#key active.videoId}` block remounts the iframe on video change and
@@ -111,6 +171,7 @@
 			) {
 				resetVolumeTracking();
 				applyCurrentVolume();
+				scheduleReasserts();
 			}
 		};
 
@@ -185,13 +246,16 @@
 				<iframe
 					bind:this={frameEl}
 					class="player-video"
-					src={`https://www.youtube-nocookie.com/embed/${active.videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
+					src={`https://www.youtube-nocookie.com/embed/${active.videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1${EMBED_ORIGIN_PARAM}`}
 					title="YouTube video player"
 					allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
 					allowfullscreen
 					onload={() => {
 						resetVolumeTracking();
 						applyCurrentVolume();
+						// The player is not ready yet at this point, so every
+						// command sent above is dropped: keep re-sending.
+						scheduleReasserts();
 					}}
 				></iframe>
 			{/key}
