@@ -158,29 +158,17 @@ async fn run(
     // removed the key assignment and we should ask again.
     let existing = bound_trigger(&portal, &session, &id).await?;
 
-    let bound = if existing.is_some() {
-        // Reuse the persisted binding: no `bind_shortcuts`, no dialog.
-        existing
-    } else if mode == GlobalShortcutMode::Probe {
-        // Probing never asks the user to bind.
+    // A binding the desktop already knows is *returning*, not new: the portal
+    // answers the bind without any dialog, and re-registers the session's
+    // actions with KGlobalAccel (`setActions` is the only path that does it,
+    // `CreateSession`'s `loadActions` never does). Without this call the
+    // component stays inactive (`isActive=false`) and key presses never reach
+    // our listener, which is why a working shortcut died on app restart.
+    let bound = if existing.is_none() && mode == GlobalShortcutMode::Probe {
+        // Probing never asks the user to bind a shortcut that does not exist.
         None
     } else {
-        let shortcut =
-            NewShortcut::new(id.clone(), description).preferred_trigger(trigger.as_str());
-
-        // `bind_shortcuts` resolves once the user has interacted with the
-        // portal dialog on first use; later binds reuse the stored decision.
-        let request = portal
-            .bind_shortcuts(&session, &[shortcut], None, BindShortcutsOptions::default())
-            .await
-            .map_err(backend_error)?;
-
-        let response = request.response().map_err(backend_error)?;
-        response
-            .shortcuts()
-            .iter()
-            .find(|shortcut| shortcut.id() == id && !shortcut.trigger_description().is_empty())
-            .map(|shortcut| shortcut.trigger_description().to_owned())
+        bind_shortcut(&portal, &session, &id, &trigger, &description).await?
     };
 
     eprintln!(
@@ -236,6 +224,31 @@ async fn run(
 
 /// Returns the trigger currently assigned to `id`, if the desktop already has
 /// it bound (either persisted from a previous run or bound in this session).
+async fn bind_shortcut(
+    portal: &GlobalShortcuts,
+    session: &Session<GlobalShortcuts>,
+    id: &str,
+    trigger: &str,
+    description: &str,
+) -> Result<Option<String>, GlobalShortcutError> {
+    let shortcut =
+        NewShortcut::new(id.to_owned(), description.to_owned()).preferred_trigger(trigger);
+
+    // `bind_shortcuts` resolves once the user has interacted with the portal
+    // dialog on first use; later binds reuse the stored decision.
+    let request = portal
+        .bind_shortcuts(session, &[shortcut], None, BindShortcutsOptions::default())
+        .await
+        .map_err(backend_error)?;
+
+    let response = request.response().map_err(backend_error)?;
+    Ok(response
+        .shortcuts()
+        .iter()
+        .find(|shortcut| shortcut.id() == id && !shortcut.trigger_description().is_empty())
+        .map(|shortcut| shortcut.trigger_description().to_owned()))
+}
+
 async fn bound_trigger(
     portal: &GlobalShortcuts,
     session: &Session<GlobalShortcuts>,
