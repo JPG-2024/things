@@ -53,7 +53,7 @@ export const WAVE_STYLES: Record<GeneratingWaveStyle, WaveStyleConfig> = {
 			{ cycles: 1.5, amplitudeRatio: 0.35, speedRatio: 1.0 },
 			{ cycles: 2.55, amplitudeRatio: 0.1, speedRatio: 1.3 }
 		],
-		amplitude: 0.18,
+		amplitude: 0.6,
 		baseSpeed: 0.6,
 		pointCount: 80,
 		strokeAlpha: 1.0
