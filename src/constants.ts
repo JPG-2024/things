@@ -78,7 +78,7 @@ export const TAB_PAGE_CONFIG = {
 	profiles: { pageSize: 10 },
 	domains: { pageSize: 10 },
 	categories: { pageSize: 10 },
-	articles: { pageSize: 10 }
+	articles: { pageSize: 60 }
 } satisfies Record<string, TabPageConfig>;
 
 /** Default card layout per wheel tab, seeded into viewState on first run. */
