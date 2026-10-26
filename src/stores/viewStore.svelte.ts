@@ -137,9 +137,11 @@ class ViewState {
 
 	messages = $state<Message[]>([]);
 
-	aiProvider = $state<'llama' | 'openrouter'>('llama');
+	aiProvider = $state<'llama' | 'openrouter' | 'opencode'>('llama');
 	aiUrl = $state<string>('');
 	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
+	// OpenCode Go provider: model id from https://opencode.ai/inference/v1/models.
+	opencodeModel = $state<string>('');
 
 	llamaModelsDir = $state<string>('');
 	llamaInferenceModel = $state<string>('');

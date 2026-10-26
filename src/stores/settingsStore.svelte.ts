@@ -87,6 +87,7 @@ function serializeView() {
 		aiProvider: viewState.aiProvider,
 		aiUrl: viewState.aiUrl,
 		aiModel: viewState.aiModel,
+		opencodeModel: viewState.opencodeModel,
 		llamaModelsDir: viewState.llamaModelsDir,
 		llamaInferenceModel: viewState.llamaInferenceModel,
 		llamaInferencePort: viewState.llamaInferencePort,
@@ -134,7 +135,10 @@ function serializeTts() {
 		namePrefix: ttsState.namePrefix,
 		config: $state.snapshot(ttsState.config),
 		pauseSettings: $state.snapshot(ttsState.pauseSettings),
-		prefetchDelaySeconds: ttsState.prefetchDelaySeconds
+		prefetchDelaySeconds: ttsState.prefetchDelaySeconds,
+		volumeWhileTTS: ttsState.volumeWhileTTS,
+		volumeFadeMs: ttsState.volumeFadeMs,
+		autoMinimizeWhileTTS: ttsState.autoMinimizeWhileTTS
 	};
 }
 
@@ -145,11 +149,16 @@ function applyView(raw: unknown): void {
 		viewState.language = raw.language as typeof viewState.language;
 		settingsPersistence.languagePersisted = true;
 	}
-	if (raw.aiProvider === 'llama' || raw.aiProvider === 'openrouter') {
+	if (
+		raw.aiProvider === 'llama' ||
+		raw.aiProvider === 'openrouter' ||
+		raw.aiProvider === 'opencode'
+	) {
 		viewState.aiProvider = raw.aiProvider;
 	}
 	if (typeof raw.aiUrl === 'string') viewState.aiUrl = raw.aiUrl;
 	if (typeof raw.aiModel === 'string') viewState.aiModel = raw.aiModel;
+	if (typeof raw.opencodeModel === 'string') viewState.opencodeModel = raw.opencodeModel;
 	if (typeof raw.llamaModelsDir === 'string') viewState.llamaModelsDir = raw.llamaModelsDir;
 	if (typeof raw.llamaInferenceModel === 'string') {
 		viewState.llamaInferenceModel = raw.llamaInferenceModel;
@@ -278,6 +287,17 @@ function applyTts(raw: unknown): void {
 
 	if (typeof raw.prefetchDelaySeconds === 'number') {
 		ttsState.prefetchDelaySeconds = clamp(raw.prefetchDelaySeconds, 0, 30);
+	}
+
+	// Ranges mirror the sliders in VoiceSettingsModal → Playback.
+	if (typeof raw.volumeWhileTTS === 'number') {
+		ttsState.volumeWhileTTS = clamp(Math.trunc(raw.volumeWhileTTS), 0, 30);
+	}
+	if (typeof raw.volumeFadeMs === 'number') {
+		ttsState.volumeFadeMs = clamp(Math.trunc(raw.volumeFadeMs), 0, 2000);
+	}
+	if (typeof raw.autoMinimizeWhileTTS === 'boolean') {
+		ttsState.autoMinimizeWhileTTS = raw.autoMinimizeWhileTTS;
 	}
 
 	if (typeof raw.selectedProfileId === 'string') {

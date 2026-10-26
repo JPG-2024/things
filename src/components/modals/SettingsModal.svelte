@@ -43,6 +43,13 @@
 		clearTTSApiKey,
 		validateTTSApiKey
 	} from '@/lib/utils/ttsAuth';
+	import {
+		getOpencodeApiKey,
+		setOpencodeApiKey,
+		clearOpencodeApiKey,
+		validateOpencodeApiKey,
+		listOpencodeModels
+	} from '@/lib/utils/opencodeAuth';
 
 	let rebuildingCategories = $state(false);
 	let models = $state<LlamaModelEntry[]>([]);
@@ -55,6 +62,12 @@
 	let ttsApiKey = $state('');
 	let ttsAuthStatus = $state<{ valid: boolean; error?: string } | null>(null);
 	let validatingTTSKey = $state(false);
+	let opencodeApiKey = $state('');
+	let opencodeAuthStatus = $state<{ valid: boolean; error?: string } | null>(null);
+	let validatingOpencodeKey = $state(false);
+	let opencodeModels = $state<string[]>([]);
+	let opencodeModelsError = $state<string | null>(null);
+	let loadingOpencodeModels = $state(false);
 
 	function toOptions(entries: LlamaModelEntry[]) {
 		return entries.map((model) => ({ label: model.name, value: model.name }));
@@ -258,6 +271,10 @@
 		void getTTSApiKey().then((key) => {
 			if (key) ttsApiKey = key;
 		});
+		void getOpencodeApiKey().then((key) => {
+			if (key) opencodeApiKey = key;
+		});
+		void refreshOpencodeModels();
 	});
 
 	async function handleRebuildCategoryIndex() {
@@ -296,8 +313,51 @@
 
 	const providerOptions = [
 		{ label: 'Llama', value: 'llama' },
-		{ label: 'OpenRouter', value: 'openrouter' }
+		{ label: 'OpenRouter', value: 'openrouter' },
+		{ label: 'OpenCode Go', value: 'opencode' }
 	];
+
+	const opencodeModelOptions = $derived.by(() => {
+		const options = opencodeModels.map((id) => ({ label: id, value: id }));
+		const selected = viewState.opencodeModel;
+		if (selected && !options.some((option) => option.value === selected)) {
+			options.push({ label: selected, value: selected });
+		}
+		return options;
+	});
+
+	async function refreshOpencodeModels() {
+		loadingOpencodeModels = true;
+		opencodeModelsError = null;
+		try {
+			const listing = await listOpencodeModels();
+			opencodeModels = listing.models;
+		} catch (error) {
+			opencodeModelsError = error instanceof Error ? error.message : String(error);
+			opencodeModels = [];
+		} finally {
+			loadingOpencodeModels = false;
+		}
+	}
+
+	async function handleSaveOpencodeKey() {
+		const key = opencodeApiKey.trim();
+		if (key) {
+			await setOpencodeApiKey(key);
+		} else {
+			await clearOpencodeApiKey();
+		}
+		opencodeAuthStatus = null;
+		// The model list is fetched with the saved key, so refill it after a
+		// key change.
+		void refreshOpencodeModels();
+	}
+
+	async function handleValidateOpencodeKey() {
+		validatingOpencodeKey = true;
+		opencodeAuthStatus = await validateOpencodeApiKey(opencodeApiKey.trim() || undefined);
+		validatingOpencodeKey = false;
+	}
 
 	const windowLevelOptions = WINDOW_DIVISOR_LADDER.map((divisor, index) => ({
 		label: `÷${divisor}`,
@@ -338,7 +398,7 @@
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
-	<Spacer title="Openrouter" icon="Cloud">
+	<Spacer title="AI Provider" icon="Cloud">
 		<div class="inference-section">
 			<DropdownField
 				label="AI Provider"
@@ -346,12 +406,56 @@
 				tooltip="Where inference requests are sent."
 				bind:value={viewState.aiProvider}
 			/>
-			<TextField
-				label="AI URL"
-				tooltip="Base URL of the OpenAI-compatible endpoint."
-				bind:value={viewState.aiUrl}
-			/>
-			<TextField label="AI Model" bind:value={viewState.aiModel} />
+			{#if viewState.aiProvider === 'openrouter'}
+				<TextField
+					label="AI URL"
+					tooltip="Base URL of the OpenAI-compatible endpoint."
+					bind:value={viewState.aiUrl}
+				/>
+				<TextField label="AI Model" bind:value={viewState.aiModel} />
+			{:else if viewState.aiProvider === 'opencode'}
+				<TextField
+					label="API Key"
+					type="password"
+					placeholder="oc_sk_..."
+					bind:value={opencodeApiKey}
+					tooltip="Personal or service account key from the OpenCode Console (Account › Personal API keys). Stored in the local settings file."
+				>
+					{#snippet suffix()}
+						<Button
+							onClick={handleValidateOpencodeKey}
+							disabled={validatingOpencodeKey || !opencodeApiKey}
+						>
+							{validatingOpencodeKey ? 'Validating...' : 'Validate'}
+						</Button>
+					{/snippet}
+				</TextField>
+				{#if opencodeAuthStatus}
+					<p
+						class="auth-status"
+						class:success={opencodeAuthStatus.valid}
+						class:error={!opencodeAuthStatus.valid}
+					>
+						{opencodeAuthStatus.valid ? '✓ API key is valid' : `✗ ${opencodeAuthStatus.error}`}
+					</p>
+				{/if}
+				<div class="server-actions">
+					<Button onClick={handleSaveOpencodeKey} icon="Save">Save</Button>
+				</div>
+				<DropdownField
+					label="Model"
+					bind:value={viewState.opencodeModel}
+					options={opencodeModelOptions}
+					placeholder={loadingOpencodeModels ? 'Loading…' : 'Select a model'}
+					tooltip="Model ids from https://opencode.ai/inference/v1/models. Free (-free) models return 403 outside OpenCode; claude-*/gemini-*/gpt-* use other API families and fail through chat/completions."
+				/>
+				{#if opencodeModelsError}
+					<p class="error-text">{opencodeModelsError}</p>
+				{/if}
+				<p class="helper-text">
+					Inference only (chat completions). Embeddings keep running on the local llama.cpp server.
+				</p>
+			{/if}
 		</div>
 	</Spacer>
 	<Spacer title="Llama.cpp" icon="Cpu" defaultOpen={false}>
