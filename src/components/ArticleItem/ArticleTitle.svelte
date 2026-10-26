@@ -13,7 +13,7 @@
 <style>
 	.article-title {
 		font-family: var(--font-secondary);
-		color: var(--gray-200);
+		line-height: 2;
 		text-align: left;
 		font-size: 0.7rem;
 		flex: 1;
