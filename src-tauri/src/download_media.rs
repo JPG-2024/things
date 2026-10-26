@@ -58,10 +58,7 @@ pub async fn download_and_save_image(
         return Ok(filename);
     }
 
-    println!(
-        "[Image] Saving image to folder: {}",
-        media_dir.display()
-    );
+    println!("[Image] Saving image to folder: {}", media_dir.display());
 
     // Create the thumbs directory if it doesn't exist
     std::fs::create_dir_all(&media_dir)

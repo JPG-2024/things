@@ -41,7 +41,10 @@ pub struct DatabaseInfo {
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
 }
@@ -79,7 +82,8 @@ fn read_active_file(app: &AppHandle) -> Result<String, String> {
         return Ok(DEFAULT_WORKSPACE.to_string());
     }
     let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
-    let parsed: ActiveDatabaseFile = serde_json::from_str(&raw).map_err(|error| error.to_string())?;
+    let parsed: ActiveDatabaseFile =
+        serde_json::from_str(&raw).map_err(|error| error.to_string())?;
     let name = parsed.active.trim();
     if name.is_empty() {
         Ok(DEFAULT_WORKSPACE.to_string())
@@ -100,13 +104,17 @@ fn write_active_file(app: &AppHandle, name: &str) -> Result<(), String> {
 }
 
 fn set_active_cache(name: Option<String>) {
-    let mut cache = ACTIVE_CACHE.write().unwrap_or_else(|poison| poison.into_inner());
+    let mut cache = ACTIVE_CACHE
+        .write()
+        .unwrap_or_else(|poison| poison.into_inner());
     *cache = name;
 }
 
 pub fn active_name(app: &AppHandle) -> Result<String, String> {
     {
-        let cache = ACTIVE_CACHE.read().unwrap_or_else(|poison| poison.into_inner());
+        let cache = ACTIVE_CACHE
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner());
         if let Some(name) = cache.as_ref() {
             return Ok(name.clone());
         }
@@ -302,7 +310,11 @@ fn add_tree_to_zip(
             .to_string_lossy()
             .replace('\\', "/");
 
-        if entry.file_type().map_err(|error| error.to_string())?.is_dir() {
+        if entry
+            .file_type()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+        {
             zip.add_directory(format!("{relative}/"), zip_options())
                 .map_err(|error| error.to_string())?;
             add_tree_to_zip(zip, root, &path, skip)?;
@@ -369,7 +381,11 @@ pub fn db_list(app: AppHandle) -> Result<Vec<DatabaseInfo>, String> {
 
     for entry in fs::read_dir(&root).map_err(|error| error.to_string())? {
         let entry = entry.map_err(|error| error.to_string())?;
-        if !entry.file_type().map_err(|error| error.to_string())?.is_dir() {
+        if !entry
+            .file_type()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+        {
             continue;
         }
         let name = entry.file_name().to_string_lossy().to_string();
@@ -526,7 +542,10 @@ mod tests {
     use super::*;
 
     fn temp_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("notian-db-manager-{label}-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!(
+            "notian-db-manager-{label}-{}",
+            uuid::Uuid::new_v4()
+        ));
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
     }
@@ -605,7 +624,11 @@ mod tests {
             fs::read(staging.join(RAW_CONTENT_DIR).join("a.txt")).unwrap(),
             b"hello"
         );
-        assert!(staging.join(MEDIA_DIR).join("folder").join("b.webp").is_file());
+        assert!(staging
+            .join(MEDIA_DIR)
+            .join("folder")
+            .join("b.webp")
+            .is_file());
 
         let _ = fs::remove_dir_all(source);
         let _ = fs::remove_dir_all(staging);

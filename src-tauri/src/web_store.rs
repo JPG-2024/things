@@ -1834,14 +1834,13 @@ fn upsert_web_store_article_row(
     }
 
     let filter = format!("url = '{}' COLLATE NOCASE", input.url.replace('\'', "''"));
-    let mut records = query_articles(conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None).map_err(
-        |error| {
+    let mut records =
+        query_articles(conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None).map_err(|error| {
             format!(
                 "Failed to query existing article for url='{}': {}",
                 input.url, error
             )
-        },
-    )?;
+        })?;
     let previous_article = records.pop();
 
     if previous_article.is_some() {
@@ -1921,10 +1920,7 @@ fn upsert_web_store_article_row(
         .map_err(|error| {
             format!(
                 "Failed to UPDATE article by id='{}' stored-url='{}' url='{}': {}",
-                article_id,
-                stored_url,
-                input.url,
-                error
+                article_id, stored_url, input.url, error
             )
         })?;
         return Ok(());
@@ -2214,7 +2210,10 @@ async fn delete_articles_for_bucket(
                 article_urls.push(url.to_string());
             }
         }
-        if let Some(thumbnail) = article_value.get("thumbnail").and_then(|value| value.as_str()) {
+        if let Some(thumbnail) = article_value
+            .get("thumbnail")
+            .and_then(|value| value.as_str())
+        {
             if !thumbnails.iter().any(|existing| existing == thumbnail) {
                 thumbnails.push(thumbnail.to_string());
             }
@@ -2373,10 +2372,10 @@ fn read_article_analysis(
 ) -> Result<Option<ArticleAnalysisRecord>, String> {
     let (summary, divisor, mode): (Option<String>, Option<i64>, Option<String>) = match conn
         .query_row(
-            "SELECT summary, analysis_divisor, mode FROM web_articles WHERE url = ?1 COLLATE NOCASE",
-            params![url],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        ) {
+        "SELECT summary, analysis_divisor, mode FROM web_articles WHERE url = ?1 COLLATE NOCASE",
+        params![url],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ) {
         Ok(value) => value,
         Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
         Err(error) => return Err(error.to_string()),
@@ -2490,7 +2489,10 @@ pub async fn save_article_analysis(
 /// already has categories: the pipeline only auto-classifies when it has
 /// none.
 #[tauri::command]
-pub async fn get_article_categories(app: AppHandle, article_url: String) -> Result<Vec<String>, String> {
+pub async fn get_article_categories(
+    app: AppHandle,
+    article_url: String,
+) -> Result<Vec<String>, String> {
     let conn = get_db(&app)?;
 
     let mut stmt = conn
@@ -3003,12 +3005,12 @@ fn delete_category_exemplars_for_article_rows(
     article_url: &str,
 ) -> Result<Vec<String>, String> {
     let mut stmt = conn
-        .prepare(
-            "SELECT id FROM category_exemplars WHERE category_id = ?1 AND article_url = ?2",
-        )
+        .prepare("SELECT id FROM category_exemplars WHERE category_id = ?1 AND article_url = ?2")
         .map_err(|error| error.to_string())?;
     let rows = stmt
-        .query_map(params![category_id, article_url], |row| row.get::<_, String>(0))
+        .query_map(params![category_id, article_url], |row| {
+            row.get::<_, String>(0)
+        })
         .map_err(|error| error.to_string())?;
 
     let mut ids = Vec::new();
@@ -3580,7 +3582,6 @@ fn query_categories_with_articles(
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4145,14 +4146,7 @@ mod tests {
             .query_row(
                 "SELECT url, title, profile, mode FROM web_articles WHERE id = 'Vaksg4xJqm0'",
                 [],
-                |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                    ))
-                },
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .expect("read updated row");
         assert_eq!(url, canonical, "the stored url is rewritten to canonical");
@@ -4630,7 +4624,9 @@ mod tests {
     #[test]
     fn read_article_analysis_returns_none_for_unknown_article() {
         let conn = build_in_memory_db();
-        assert!(read_article_analysis(&conn, "missing").expect("read").is_none());
+        assert!(read_article_analysis(&conn, "missing")
+            .expect("read")
+            .is_none());
     }
 
     #[test]
@@ -4715,7 +4711,10 @@ mod tests {
         .expect("query metadata");
 
         assert_eq!(metadata.articles.len(), 1);
-        assert_eq!(metadata.articles[0].url.as_deref(), Some("https://example.com/pending"));
+        assert_eq!(
+            metadata.articles[0].url.as_deref(),
+            Some("https://example.com/pending")
+        );
 
         let full = query_articles_without_profile(
             &conn,
@@ -4730,7 +4729,10 @@ mod tests {
         .expect("query full");
 
         assert_eq!(full.articles.len(), 1);
-        assert_eq!(full.articles[0].url.as_deref(), Some("https://example.com/done"));
+        assert_eq!(
+            full.articles[0].url.as_deref(),
+            Some("https://example.com/done")
+        );
 
         // Without a mode filter every article is returned, including the ones
         // that were never analysed.
@@ -4901,9 +4903,30 @@ mod tests {
         insert_category(&conn, "cat-a", "Alpha");
         insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
 
-        insert_window_exemplar(&conn, "e0", "cat-a", "https://example.com/a", 0, "final summary");
-        insert_window_exemplar(&conn, "e1", "cat-a", "https://example.com/a", 1, "window one");
-        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/a", 2, "window two");
+        insert_window_exemplar(
+            &conn,
+            "e0",
+            "cat-a",
+            "https://example.com/a",
+            0,
+            "final summary",
+        );
+        insert_window_exemplar(
+            &conn,
+            "e1",
+            "cat-a",
+            "https://example.com/a",
+            1,
+            "window one",
+        );
+        insert_window_exemplar(
+            &conn,
+            "e2",
+            "cat-a",
+            "https://example.com/a",
+            2,
+            "window two",
+        );
 
         let rows =
             query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
@@ -4938,7 +4961,14 @@ mod tests {
         insert_category(&conn, "cat-a", "Alpha");
         insert_window_exemplar(&conn, "e0", "cat-a", "https://example.com/a", 0, "final");
         insert_window_exemplar(&conn, "e1", "cat-a", "https://example.com/a", 1, "window");
-        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/b", 0, "other article");
+        insert_window_exemplar(
+            &conn,
+            "e2",
+            "cat-a",
+            "https://example.com/b",
+            0,
+            "other article",
+        );
 
         let mut removed =
             delete_category_exemplars_for_article_rows(&conn, "cat-a", "https://example.com/a")
@@ -4988,10 +5018,21 @@ mod tests {
         assert_eq!(rows[0].window_index, 0);
         assert_eq!(rows[0].text, "old text");
 
-        insert_window_exemplar(&conn, "e2", "cat-a", "https://example.com/a", 1, "second window");
+        insert_window_exemplar(
+            &conn,
+            "e2",
+            "cat-a",
+            "https://example.com/a",
+            1,
+            "second window",
+        );
         let rows =
             query_category_exemplars(&conn, "WHERE e.category_id = ?1", &[&"cat-a"]).expect("list");
-        assert_eq!(rows.len(), 2, "new key must allow several windows per article");
+        assert_eq!(
+            rows.len(),
+            2,
+            "new key must allow several windows per article"
+        );
     }
 
     #[test]
@@ -5091,22 +5132,12 @@ mod tests {
                 (id, url, created_at, title, thumbnail, content, media_directory,
                  main_color, profile, domain, embedding_source_text, updated_at, viewed, date)
              VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, ?5, ?6, NULL, ?3, 0, NULL)",
-            params![
-                id,
-                id,
-                created_at,
-                format!("title-{}", id),
-                profile,
-                domain
-            ],
+            params![id, id, created_at, format!("title-{}", id), profile, domain],
         )
         .expect("insert article with domain");
     }
 
-    fn list_urls(
-        conn: &Connection,
-        filter: &ArticlesWithoutProfileFilter,
-    ) -> Vec<String> {
+    fn list_urls(conn: &Connection, filter: &ArticlesWithoutProfileFilter) -> Vec<String> {
         let result = query_articles_without_profile(conn, filter, Some(0), Some(50))
             .expect("query articles without profile");
         result

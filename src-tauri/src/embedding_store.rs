@@ -595,9 +595,7 @@ fn build_category_exemplar_batch(
             Arc::new(StringArray::from(ids)),
             Arc::new(StringArray::from(category_ids)),
             Arc::new(StringArray::from(urls)),
-            Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
-                embeddings, dim,
-            )),
+            Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(embeddings, dim)),
             Arc::new(Int64Array::from(created_ats)),
             Arc::new(StringArray::from(model_names)),
             Arc::new(Int32Array::from(model_dimensions_values)),
