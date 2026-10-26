@@ -23,6 +23,11 @@ export class TtsPlaybackEngine {
 	totalPlaybackDuration = $state(0);
 
 	isSettingUp = false;
+	/** Claims `start()` for the whole `await ensureAudioContext()` window:
+	 * without it a second `start()` (store effect vs. `togglePlay()`) slips
+	 * through and schedules a second source for the same chunk, which plays
+	 * twice, slightly out of phase. */
+	isStarting = false;
 	playbackStartTime = 0;
 	countdownInterval: ReturnType<typeof setInterval> | null = null;
 	pausedAt = 0;
@@ -194,17 +199,20 @@ export class TtsPlaybackEngine {
 	}
 
 	async start(): Promise<void> {
-		if (this.isSettingUp || ttsState.blobs.length === 0) return;
-		this.decodedChunks = new Array(ttsState.blobs.length).fill(null);
-		this.decodedDurations = new Array(ttsState.blobs.length).fill(0);
-		this.chunkOffsets = [];
-		this.currentChunkIndex = 0;
+		if (this.isStarting || this.isSettingUp || ttsState.blobs.length === 0) return;
+		this.isStarting = true;
 		try {
+			this.decodedChunks = new Array(ttsState.blobs.length).fill(null);
+			this.decodedDurations = new Array(ttsState.blobs.length).fill(0);
+			this.chunkOffsets = [];
+			this.currentChunkIndex = 0;
 			await ensureAudioContext();
 			await this.playChunkAt(0);
 		} catch (err) {
 			this.setError(err, 'Failed to start playback');
 			this.stop();
+		} finally {
+			this.isStarting = false;
 		}
 	}
 
@@ -397,6 +405,29 @@ export class TtsPlaybackEngine {
 			this.elapsedSeconds = elapsed;
 
 			const nextIdx = this.currentChunkIndex + 1;
+
+			// Underrun recovery. `requestChunk()` gives up whenever
+			// `generateNextChunk()` answers `false` (the initial generation
+			// still owns the abort controller, or the request failed) and
+			// nothing else plays a chunk that shows up later — the session
+			// would sit in "playing" forever, which also keeps the video
+			// ducked. Play the chunk as soon as it lands; if generation gave
+			// up with no audio on the way, end the session instead so the
+			// duck is restored and the error can be shown.
+			if (this.waitingForChunk && !this.currentSource) {
+				if (nextIdx < ttsState.blobs.length) {
+					this.waitingForChunk = false;
+					void this.playChunkAt(nextIdx);
+					return;
+				}
+				if (ttsState.isPlaying && !ttsState.isGenerating) {
+					const reason = ttsState.errorMessage;
+					this.stop();
+					if (reason) ttsState.errorMessage = reason;
+					return;
+				}
+			}
+
 			if (this.nextChunkPrefetchRequested || nextIdx >= ttsState.totalChunks) return;
 			// The next chunk is already synthesized: nothing to request.
 			if (nextIdx < ttsState.blobs.length) return;

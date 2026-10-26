@@ -11,6 +11,7 @@
 import { articleState } from '@/stores/articleStore.svelte';
 import { viewState } from '@/stores/viewStore.svelte';
 import { runArticle, type ArticleRunOptions } from '@/runners/articleRunner';
+import { ensureAudioContext } from '@/lib/audioContextManager';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 import { getArticleAnalysis, getArticleByUrl, type ArticleRecord } from '@/stores/webStore';
 import type { ArticleWindow } from '@/types/articleAnalysis.types';
@@ -304,6 +305,11 @@ class ArticleManager {
 	private async speakSummary(url: string): Promise<void> {
 		if (!viewState.autoSpeechEnabled) return;
 		try {
+			// Warm the audio context up front, the way the `S` hotkey and the
+			// clipboard path do: playback is started from an effect with no
+			// user gesture behind it, so a suspended context would leave the
+			// auto-read silent while the video is already ducked.
+			void ensureAudioContext();
 			const { generateTTSfromArticleURL } = await import('@/lib/utils/tts');
 			await generateTTSfromArticleURL(url);
 		} catch {
