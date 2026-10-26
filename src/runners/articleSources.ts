@@ -1,9 +1,10 @@
 /**
  * Article sources.
  *
- * Every source knows how to produce the same shape: the body (when the source
- * gives it for free), the thumbnail, the domain, the profile and the date.
- * The pipeline above does not care where the data came from.
+ * Every source produces the same two-part result: the body (when the source
+ * gives it for free) and the card decoration — thumbnail, favicon, domain,
+ * profile and date — which is fetched in parallel and never in front of the
+ * body. The pipeline above does not care where the data came from.
  */
 import { invoke } from '@tauri-apps/api/core';
 import { compactMarkdown } from '@/lib/utils/splitter';
@@ -40,6 +41,27 @@ export interface SourceResult {
 	date: string | null;
 	/** Title of the article, when the source knows it without an LLM. */
 	title: string | null;
+}
+
+/**
+ * What a source returned: the body as soon as it is here, plus the card
+ * decoration still in flight.
+ */
+export interface SourceFetch {
+	/**
+	 * Everything known as soon as the body is ready. `text` is the only field
+	 * the analysis needs, so nothing else is awaited before returning.
+	 */
+	source: SourceResult;
+	/**
+	 * Thumbnail, favicon and channel of the card. It starts together with the
+	 * body and resolves in the background: the caller paints it as soon as it
+	 * lands and persists it when the run ends — never in front of the analysis.
+	 *
+	 * Every piece logs its own failure and leaves its field empty, so the
+	 * decoration never rejects.
+	 */
+	decoration: Promise<Partial<SourceResult>>;
 }
 
 /** An empty source result: every field is filled by the caller. */
@@ -88,10 +110,16 @@ export function youTubeVideoId(url: string): string | null {
  * Web source.
  *
  * The markdown comes for free with the extraction, so the body is always
- * available.
+ * available. The favicon and the `og:image` thumbnail are decoration: they
+ * start here but resolve in the returned `decoration`, never in front of the
+ * body.
  */
-export async function fetchWebSource(url: string): Promise<SourceResult> {
-	const result = emptySourceResult();
+export async function fetchWebSource(url: string): Promise<SourceFetch> {
+	const source = emptySourceResult();
+	const domain = domainFromUrl(url);
+
+	// The favicon only needs the domain, so it starts before the page fetch.
+	const faviconTask = downloadFavicon(domain);
 
 	const response = await invoke<{
 		metadata: Record<string, string>;
@@ -102,44 +130,49 @@ export async function fetchWebSource(url: string): Promise<SourceResult> {
 	});
 
 	const metadata = response.metadata ?? {};
-	result.text = compactMarkdown(response.markdown ?? '');
+	source.text = compactMarkdown(response.markdown ?? '');
 
-	const domain = domainFromUrl(url);
-	result.domain = domain || null;
-	result.profile = domain || null;
-
-	const favicon = await downloadFavicon(domain);
-	result.profilePictureSrc = favicon?.src ?? null;
+	source.domain = domain || null;
+	source.profile = domain || null;
+	source.title = metadata['og:title'] || metadata['twitter:title'] || null;
+	source.date = metadata['article:published_time'] || metadata['og:published_time'] || null;
 
 	const imageUrl = metadata['og:image'] || metadata['twitter:image'];
-	if (imageUrl) {
+	const thumbnailTask = (async (): Promise<Partial<SourceResult>> => {
+		if (!imageUrl) return {};
+
 		const resolvedImageUrl = imageUrl.startsWith('/')
 			? `${new URL(url).origin}${imageUrl}`
 			: imageUrl;
-		const mediaDirectory = await resolveMediaDirectory(url, domain || null);
 		try {
+			const mediaDirectory = await resolveMediaDirectory(url, domain || null);
 			const thumbnail = await invoke<string>('download_and_save_image', {
 				url: resolvedImageUrl,
 				folderName: mediaDirectory,
 				reductionMagnitud: viewState.thumbnailReductionMagnitud,
 				maxDimension: 1024
 			});
-			result.mediaDirectory = mediaDirectory;
-			result.thumbnail = thumbnail;
-			result.thumbnailSrc = await getMediaSrc(thumbnail);
+			return { mediaDirectory, thumbnail, thumbnailSrc: await getMediaSrc(thumbnail) };
 		} catch (error) {
 			console.warn('[articleSources] thumbnail download failed', error);
+			return {};
 		}
-	}
+	})();
 
-	result.title = metadata['og:title'] || metadata['twitter:title'] || null;
-	result.date = metadata['article:published_time'] || metadata['og:published_time'] || null;
+	const decoration = (async (): Promise<Partial<SourceResult>> => {
+		const [favicon, thumbnail] = await Promise.all([faviconTask, thumbnailTask]);
+		return { profilePictureSrc: favicon?.src ?? null, ...thumbnail };
+	})();
 
-	return result;
+	return { source, decoration };
 }
 
 /**
  * YouTube source.
+ *
+ * The body (the transcript) and the card (thumbnail + channel) are two
+ * independent requests, so they start together: the returned `source` carries
+ * only the body, and the card arrives through the returned `decoration`.
  *
  * The profile is resolved here, not at the end of the run: the `web_profiles`
  * row is read first (no network), and only when it is missing the external
@@ -160,45 +193,33 @@ export async function fetchYouTubeSource(
 		profile?: KnownProfile;
 		/** Title the caller already knows (the channel scrape carries it). */
 		title?: string;
+		/**
+		 * Called as soon as the thumbnail file exists, which can be while the
+		 * transcript is still being fetched. Lets the view paint it without
+		 * waiting for the rest of the card.
+		 */
+		onThumbnail?: (thumbnail: string, thumbnailSrc: string) => void;
 	}
-): Promise<SourceResult> {
-	const result = emptySourceResult();
+): Promise<SourceFetch> {
+	const source = emptySourceResult();
 	const videoId = youTubeVideoId(url);
 	if (!videoId) {
 		throw new Error(`Not a YouTube video url: ${url}`);
 	}
 
-	result.domain = 'youtube.com';
+	source.domain = 'youtube.com';
 	// The channel scrape already knows the title: a metadata capture stores
 	// it instead of leaving the card without one until a `full` run.
-	result.title = options.title ?? null;
+	source.title = options.title ?? null;
 
-	if (options.existingThumbnail) {
-		result.thumbnail = options.existingThumbnail;
-	} else {
-		const thumbnailUrl = getYouTubeThumbnailUrl(videoId, 'high');
-		try {
-			const { mediaDirectory, fileName } = await downloadImageUrl(
-				thumbnailUrl,
-				viewState.thumbnailReductionMagnitud
-			);
-			result.mediaDirectory = mediaDirectory;
-			result.thumbnail = fileName;
-			result.thumbnailSrc = await getMediaSrc(fileName);
-		} catch (error) {
-			console.warn('[articleSources] youtube thumbnail download failed', error);
-		}
-	}
+	// Body: the stored text when there is one, the transcript otherwise. A
+	// missing transcript must not abort the run: the card is already being
+	// decorated, and the empty body is surfaced later, at the analysis step,
+	// as a "no captions" error.
+	const bodyTask = (async (): Promise<string | null> => {
+		if (options.storedText) return options.storedText;
+		if (!options.includeTranscript) return null;
 
-	await resolveYouTubeProfile(result, url, videoId, options.profile);
-
-	if (options.storedText) {
-		result.text = options.storedText;
-	} else if (options.includeTranscript) {
-		// A missing transcript must not abort the run: the profile and the
-		// thumbnail are already resolved at this point, and the article has to
-		// be saved with them. The empty body is surfaced later, at the
-		// analysis step, as a "no captions" error.
 		try {
 			const timedCaptions = await invoke<Array<{ caption: string }>>(
 				'get_youtube_transcript_timed',
@@ -207,51 +228,90 @@ export async function fetchYouTubeSource(
 					language: viewState.language
 				}
 			);
-			result.text = (timedCaptions ?? [])
+			return (timedCaptions ?? [])
 				.map((item) => item.caption)
 				.join(' ')
 				.trim();
 		} catch (error) {
 			console.warn('[articleSources] youtube transcript fetch failed', error);
+			return null;
 		}
-	}
+	})();
 
-	return result;
+	const thumbnailTask = (async (): Promise<Partial<SourceResult>> => {
+		if (options.existingThumbnail) return { thumbnail: options.existingThumbnail };
+
+		try {
+			const thumbnailUrl = getYouTubeThumbnailUrl(videoId, 'high');
+			const { mediaDirectory, fileName } = await downloadImageUrl(
+				thumbnailUrl,
+				viewState.thumbnailReductionMagnitud
+			);
+			const thumbnailSrc = await getMediaSrc(fileName);
+			options.onThumbnail?.(fileName, thumbnailSrc);
+			return { mediaDirectory, thumbnail: fileName, thumbnailSrc };
+		} catch (error) {
+			console.warn('[articleSources] youtube thumbnail download failed', error);
+			return {};
+		}
+	})();
+
+	const profileTask = (async (): Promise<Partial<SourceResult>> => {
+		try {
+			return await resolveYouTubeProfile(url, videoId, options.profile);
+		} catch (error) {
+			console.warn('[articleSources] youtube profile resolve failed', error);
+			return {};
+		}
+	})();
+
+	const decoration = (async (): Promise<Partial<SourceResult>> => {
+		const [thumbnail, profile] = await Promise.all([thumbnailTask, profileTask]);
+		return { ...thumbnail, ...profile };
+	})();
+
+	source.text = await bodyTask;
+
+	return { source, decoration };
 }
 
 /**
  * Resolves the channel of a YouTube video: the stored profile first (zero
  * network), the external scraper only when it is missing.
+ *
+ * Pure decoration: the caller runs it in the background, so a failure only
+ * costs the channel of the card, never the article.
  */
 async function resolveYouTubeProfile(
-	result: SourceResult,
 	url: string,
 	videoId: string,
 	knownProfile?: KnownProfile
-): Promise<void> {
+): Promise<Partial<SourceResult>> {
 	if (knownProfile) {
 		// The caller resolved the channel before queuing the run (a profile
 		// refresh scrapes it once for the whole batch): every card of that
 		// batch gets it for free — no article lookup, no scraper call. The
 		// `web_profiles` row was already written by the caller.
-		result.profile = knownProfile.id;
-		result.profilePath = knownProfile.profilePath;
-		result.profilePictureSrc = knownProfile.profilePictureSrc;
-		return;
+		return {
+			profile: knownProfile.id,
+			profilePath: knownProfile.profilePath,
+			profilePictureSrc: knownProfile.profilePictureSrc
+		};
 	}
 
 	const { scrapStore } = await import('@/stores/scrapStore.svelte');
 
 	const existing = await getProfileForVideo(url);
 	if (existing) {
-		result.profile = existing.id;
-		result.profilePath = existing.profilePath;
-		result.profilePictureSrc = existing.profilePictureSrc;
-		return;
+		return {
+			profile: existing.id,
+			profilePath: existing.profilePath,
+			profilePictureSrc: existing.profilePictureSrc
+		};
 	}
 
 	const scraped = await scrapStore.getProfileInfoFromVideo(videoId);
-	if (!scraped) return;
+	if (!scraped) return {};
 
 	const profileId = scraped.id.replace(/\./g, '');
 	const profileUrl = buildYouTubeProfileUrl(scraped.profilePath || profileId);
@@ -270,9 +330,11 @@ async function resolveYouTubeProfile(
 
 	await saveProfile(profileId, profilePicture, profileUrl, 'youtube.com');
 
-	result.profile = profileId;
-	result.profilePath = scraped.profilePath;
-	result.profilePictureSrc = profilePictureSrc;
+	return {
+		profile: profileId,
+		profilePath: scraped.profilePath,
+		profilePictureSrc
+	};
 }
 
 interface StoredProfile {
@@ -306,7 +368,7 @@ async function getProfileForVideo(url: string): Promise<StoredProfile | null> {
 	return {
 		id: profileId,
 		profilePath: profilePath ?? profileId,
-		profilePictureSrc: profile.profilePicture ?? null
+		profilePictureSrc: profile.profilePictureSrc ?? null
 	};
 }
 

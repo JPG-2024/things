@@ -41,18 +41,23 @@ is either analysed or it is not, and the analysis is persisted in two places
 
 ### 1. SOURCE
 
-Fetches what the source gives for free:
+Fetches what the source gives for free. The step returns in two parts:
 
-- **web**: `extract_blog` → markdown → `compactMarkdown`. The body always
-  comes with the extraction.
-- **youtube**: the thumbnail plus, in `full` mode, the transcript
-  (`get_youtube_transcript_timed`). The transcript is a separate and
-  expensive request, so `metadata` mode skips it.
-- **raw**: the text is already in memory.
+- **body** — everything the analysis needs, awaited before the step returns:
+  - **web**: `extract_blog` → markdown → `compactMarkdown`. The body always
+    comes with the extraction.
+  - **youtube**: in `full` mode, the transcript
+    (`get_youtube_transcript_timed`). It is a separate and expensive request,
+    so `metadata` mode skips it.
+  - **raw**: the text is already in memory.
+- **card decoration** — thumbnail, favicon and channel: started together with
+  the body but **not** awaited, so a slow thumbnail, favicon or channel scrape
+  never delays the analysis. It is painted as soon as it lands and written to
+  the row by a second upsert at the end of the run (see step 3).
 
-The **profile** of a YouTube video is resolved here and persisted straight
-away: the `web_profiles` row is read first (zero network) and the external
-scraper is only asked when the row is missing.
+The **profile** of a YouTube video is resolved as decoration: the
+`web_profiles` row is read first (zero network) and the external scraper is
+only asked when the row is missing.
 
 Every step asks _"do I already have this?"_ before spending it:
 
@@ -71,6 +76,11 @@ for free write it.
 
 `upsert_web_store_article` stores the metadata: title, thumbnail, domain,
 profile, date and the `mode`.
+
+The thumbnail and the channel are not there yet (they are decoration), so the
+run upserts the row a second time in its `finally` — with whatever the
+decoration produced — whether the run succeeded or failed. One writer, in
+order: the analysis is never waiting on this.
 
 `mode` is explicit:
 

@@ -32,6 +32,7 @@ import {
 	fetchRawSource,
 	fetchWebSource,
 	fetchYouTubeSource,
+	type SourceFetch,
 	type SourceResult
 } from '@/runners/articleSources';
 import { buildArticleTitle, classifyArticleCategory } from '@/runners/shared/taskFactories';
@@ -127,6 +128,10 @@ function analysisStream(url: string): Pick<AnalyzeWindowsOptions, 'onAttempt' | 
  *
  * The body is only fetched when it is not already stored: an existing raw
  * file means the article does not have to be downloaded again (D24).
+ *
+ * The card (thumbnail, favicon, channel) comes back as `decoration`: it is
+ * already in flight when this resolves, but the caller does not have to wait
+ * for it, so the analysis only queues behind the body.
  */
 async function collectSource(
 	url: string,
@@ -137,12 +142,17 @@ async function collectSource(
 		existingThumbnail?: string | null;
 		profile?: KnownProfile;
 		title?: string;
+		/** Forwarded to the YouTube source: paints the thumbnail on download. */
+		onThumbnail?: (thumbnail: string, thumbnailSrc: string) => void;
 	}
-): Promise<SourceResult> {
+): Promise<SourceFetch> {
 	const source = detectSource(url);
 
 	if (source === 'raw') {
-		return fetchRawSource(options.rawText ?? '');
+		return {
+			source: await fetchRawSource(options.rawText ?? ''),
+			decoration: Promise.resolve<Partial<SourceResult>>({})
+		};
 	}
 
 	// A stored raw file means the body is already here: no re-fetch.
@@ -154,13 +164,17 @@ async function collectSource(
 			storedText,
 			existingThumbnail: options.existingThumbnail,
 			profile: options.profile,
-			title: options.title
+			title: options.title,
+			onThumbnail: options.onThumbnail
 		});
 	}
 
 	// The body is reused. The thumbnail is only downloaded when it is missing.
 	if (storedText && options.existingThumbnail) {
-		return { ...emptySourceResult(), text: storedText };
+		return {
+			source: { ...emptySourceResult(), text: storedText },
+			decoration: Promise.resolve({})
+		};
 	}
 
 	return fetchWebSource(url);
@@ -172,6 +186,10 @@ async function collectSource(
  * The run always persists what it produces, but it only writes to the store
  * while its url is still the one on screen (D17): a run that finishes after
  * the user navigated away must not repaint the current article.
+ *
+ * The card (thumbnail, favicon, channel) is decoration: it is fetched in
+ * parallel with the body, painted as soon as it lands and persisted when the
+ * run ends, so the analysis never queues behind it.
  */
 export async function runArticle(
 	url: string,
@@ -191,161 +209,225 @@ export async function runArticle(
 		articleState.setStatus('running');
 	}
 
-	const source = await collectSource(url, {
+	const { source, decoration } = await collectSource(url, {
 		mode,
 		force,
 		rawText: options.rawText,
 		existingThumbnail: existing?.thumbnail ?? null,
-		profile: options.profile
+		profile: options.profile,
+		// The file exists as soon as it is downloaded: painting it here keeps
+		// the media column from waiting for the rest of the card (channel
+		// scrape), which is the slowest part.
+		onThumbnail: (thumbnail, thumbnailSrc) => {
+			if (!articleState.isCurrent(url)) return;
+			articleState.setThumbnail(thumbnail, thumbnailSrc);
+		}
 	});
+
+	// The card decoration is already in flight when the body arrives and is
+	// painted as soon as it lands: the analysis only needs `source.text`, so
+	// it never queues behind a thumbnail, a favicon or a channel scrape. The
+	// row itself is written by the `finally` below, which also covers the runs
+	// that fail, so the card is persisted exactly once and in order.
+	const decorationTask = decoration
+		.then((partial) => {
+			if (articleState.isCurrent(url)) {
+				if (partial.thumbnail && partial.thumbnailSrc) {
+					articleState.setThumbnail(partial.thumbnail, partial.thumbnailSrc);
+				}
+				if (partial.profilePictureSrc) {
+					articleState.setProfile(partial.profile ?? source.profile, partial.profilePictureSrc);
+				}
+			}
+			return partial;
+		})
+		.catch((error): Partial<SourceResult> => {
+			console.warn(`[articleRunner] card decoration failed for "${url}"`, error);
+			return {};
+		});
 
 	const text = source.text;
 	const thumbnail = source.thumbnail ?? existing?.thumbnail ?? null;
+	const thumbnailSrc = source.thumbnailSrc ?? existing?.thumbnailSrc ?? null;
 	const mediaDirectory = source.mediaDirectory ?? existing?.mediaDirectory ?? null;
 	const profile = source.profile ?? existing?.profile ?? null;
+	const profilePictureSrc = source.profilePictureSrc ?? existing?.profilePictureSrc ?? null;
 	let title = options.title ?? source.title ?? existing?.title ?? null;
 	const date = source.date ?? existing?.date ?? null;
 
-	// --- 2. RAW ----------------------------------------------------------
-	// The body is only stored when the source gave it for free.
+	// What the card already had is painted now; the pieces still being
+	// downloaded are painted by `decorationTask`. Guarded like every other
+	// store write: a background run must not repaint another article (D17).
 	if (articleState.isCurrent(url)) {
-		articleState.setStep('raw');
-	}
-	if (text) {
-		await writeRawContent(url, text);
+		articleState.setThumbnail(thumbnail, thumbnailSrc);
+		if (profilePictureSrc !== null) {
+			articleState.setProfile(profile, profilePictureSrc);
+		}
 	}
 
-	// --- 3. ARTICLE ------------------------------------------------------
-	if (articleState.isCurrent(url)) {
-		articleState.setStep('article');
-	}
-	await saveArticle(url, {
-		title,
-		thumbnail,
-		directory: mediaDirectory,
-		profile,
-		date,
-		mode: mode === 'metadata' ? 'metadata' : undefined
-	});
+	try {
+		// --- 2. RAW ------------------------------------------------------
+		// The body is only stored when the source gave it for free.
+		if (articleState.isCurrent(url)) {
+			articleState.setStep('raw');
+		}
+		if (text) {
+			await writeRawContent(url, text);
+		}
 
-	// A `metadata` run stops here: the article is captured and pending.
-	if (mode === 'metadata') {
+		// --- 3. ARTICLE --------------------------------------------------
+		if (articleState.isCurrent(url)) {
+			articleState.setStep('article');
+		}
+		await saveArticle(url, {
+			title,
+			thumbnail,
+			directory: mediaDirectory,
+			profile,
+			date,
+			mode: mode === 'metadata' ? 'metadata' : undefined
+		});
+
+		// A `metadata` run stops here: the article is captured and pending.
+		if (mode === 'metadata') {
+			if (articleState.isCurrent(url)) {
+				articleState.setStatus('done');
+				articleState.setStep(null);
+			}
+			return { url, mode, reusedAnalysis: false, divisor: existingAnalysis?.divisor ?? null };
+		}
+
+		// --- 4. ANALYSIS -------------------------------------------------
+		let windows: ArticleWindow[] = existingAnalysis?.windows ?? [];
+		let summary = existingAnalysis?.summary ?? '';
+		let divisor = existingAnalysis?.divisor ?? null;
+		let reusedAnalysis = false;
+
+		const hasUsableAnalysis =
+			!force && existingAnalysis !== null && existingAnalysis.windows.length > 0;
+
+		if (hasUsableAnalysis) {
+			reusedAnalysis = true;
+		} else {
+			if (articleState.isCurrent(url)) {
+				articleState.setStep('analysis');
+				articleState.setStatus('running');
+			}
+
+			const body = text ?? (await readRawContent(url)) ?? '';
+			if (!body.trim()) {
+				// The article row was already saved with its metadata; the error
+				// only tells why there is no analysis behind it.
+				if (detectSource(url) === 'youtube') {
+					throw new Error(`No captions or transcript available for "${url}"`);
+				}
+				throw new Error(`Article "${url}" has no body to analyse`);
+			}
+
+			const level = clampWindowLevel(viewState.windowLevel);
+			const requestedDivisor = WINDOW_DIVISOR_LADDER[level];
+			// Web articles split by markdown headings: no knob, no clamp.
+			const splitByHeaders = detectSource(url) === 'web';
+
+			const analysis = await analyzeWindows(body, {
+				divisor: splitByHeaders ? null : requestedDivisor,
+				splitByHeaders,
+				model: viewState.aiModel,
+				languageName: languageName(),
+				...analysisStream(url)
+			});
+
+			windows = analysis.windows;
+			summary = analysis.summary;
+			divisor = analysis.divisor;
+
+			await saveArticleAnalysis({ url, summary, divisor, windows });
+		}
+
+		if (articleState.isCurrent(url)) {
+			articleState.setAnalysis({ windows, summary, divisor });
+		}
+
+		// --- 5. TITLE ----------------------------------------------------
+		if (articleState.isCurrent(url)) {
+			articleState.setStep('title');
+		}
+		// A reused analysis already has its title stored: regenerating it would
+		// spend an LLM call for nothing.
+		if (!reusedAnalysis || !title) {
+			const generatedTitle = await buildArticleTitle(summary);
+			if (generatedTitle) {
+				title = generatedTitle;
+				await saveArticle(url, { title });
+				if (articleState.isCurrent(url)) {
+					articleState.setTitle(generatedTitle);
+				}
+			}
+		}
+
+		// --- 6. CATEGORY -------------------------------------------------
+		if (articleState.isCurrent(url)) {
+			articleState.setStep('category');
+		}
+		// The database is the source of truth for the categories of an article.
+		let categories = await getArticleCategories(url);
+
+		// The category is only auto-classified when the article has none (D5).
+		if (categories.length === 0) {
+			const categoryIds = await classifyArticleCategory({
+				title,
+				summary,
+				windows
+			});
+			if (categoryIds.length > 0) {
+				await assignCategoriesToArticle({ articleUrl: url, categoryIds });
+				categories = categoryIds;
+				if (articleState.isCurrent(url)) {
+					articleState.setCategories(categoryIds);
+				}
+			}
+		}
+
+		// --- 7. EMBEDDINGS -----------------------------------------------
+		if (viewState.embeddingsEnabled) {
+			if (articleState.isCurrent(url)) {
+				articleState.setStep('embeddings');
+			}
+			try {
+				await embedAnalysis({ url, windows, categories });
+			} catch (error) {
+				console.error(`[articleRunner] embeddings failed for "${url}"`, error);
+			}
+		}
+
 		if (articleState.isCurrent(url)) {
 			articleState.setStatus('done');
 			articleState.setStep(null);
 		}
-		return { url, mode, reusedAnalysis: false, divisor: existingAnalysis?.divisor ?? null };
-	}
 
-	// --- 4. ANALYSIS -----------------------------------------------------
-	let windows: ArticleWindow[] = existingAnalysis?.windows ?? [];
-	let summary = existingAnalysis?.summary ?? '';
-	let divisor = existingAnalysis?.divisor ?? null;
-	let reusedAnalysis = false;
+		return { url, mode, reusedAnalysis, divisor };
+	} finally {
+		// --- CARD --------------------------------------------------------
+		// The decorated card is written once the run is over (success or
+		// failure): step 3 stored whatever the source already had, and this
+		// fills in the thumbnail, the media folder and the channel. Only the
+		// fields the decoration actually produced are written again.
+		const partial = await decorationTask;
+		const decorated =
+			partial.thumbnail !== undefined ||
+			partial.mediaDirectory !== undefined ||
+			partial.profile !== undefined;
 
-	const hasUsableAnalysis =
-		!force && existingAnalysis !== null && existingAnalysis.windows.length > 0;
-
-	if (hasUsableAnalysis) {
-		reusedAnalysis = true;
-	} else {
-		if (articleState.isCurrent(url)) {
-			articleState.setStep('analysis');
-			articleState.setStatus('running');
-		}
-
-		const body = text ?? (await readRawContent(url)) ?? '';
-		if (!body.trim()) {
-			// The article row was already saved with its metadata; the error
-			// only tells why there is no analysis behind it.
-			if (detectSource(url) === 'youtube') {
-				throw new Error(`No captions or transcript available for "${url}"`);
-			}
-			throw new Error(`Article "${url}" has no body to analyse`);
-		}
-
-		const level = clampWindowLevel(viewState.windowLevel);
-		const requestedDivisor = WINDOW_DIVISOR_LADDER[level];
-		// Web articles split by markdown headings: no knob, no clamp.
-		const splitByHeaders = detectSource(url) === 'web';
-
-		const analysis = await analyzeWindows(body, {
-			divisor: splitByHeaders ? null : requestedDivisor,
-			splitByHeaders,
-			model: viewState.aiModel,
-			languageName: languageName(),
-			...analysisStream(url)
-		});
-
-		windows = analysis.windows;
-		summary = analysis.summary;
-		divisor = analysis.divisor;
-
-		await saveArticleAnalysis({ url, summary, divisor, windows });
-	}
-
-	if (articleState.isCurrent(url)) {
-		articleState.setAnalysis({ windows, summary, divisor });
-	}
-
-	// --- 5. TITLE --------------------------------------------------------
-	if (articleState.isCurrent(url)) {
-		articleState.setStep('title');
-	}
-	// A reused analysis already has its title stored: regenerating it would
-	// spend an LLM call for nothing.
-	if (!reusedAnalysis || !title) {
-		const generatedTitle = await buildArticleTitle(summary);
-		if (generatedTitle) {
-			title = generatedTitle;
-			await saveArticle(url, { title });
-			if (articleState.isCurrent(url)) {
-				articleState.setTitle(generatedTitle);
-			}
+		if (decorated) {
+			await saveArticle(url, {
+				title,
+				thumbnail: partial.thumbnail ?? thumbnail,
+				directory: partial.mediaDirectory ?? mediaDirectory,
+				profile: partial.profile ?? profile,
+				date
+			});
 		}
 	}
-
-	// --- 6. CATEGORY -----------------------------------------------------
-	if (articleState.isCurrent(url)) {
-		articleState.setStep('category');
-	}
-	// The database is the source of truth for the categories of an article.
-	let categories = await getArticleCategories(url);
-
-	// The category is only auto-classified when the article has none (D5).
-	if (categories.length === 0) {
-		const categoryIds = await classifyArticleCategory({
-			title,
-			summary,
-			windows
-		});
-		if (categoryIds.length > 0) {
-			await assignCategoriesToArticle({ articleUrl: url, categoryIds });
-			categories = categoryIds;
-			if (articleState.isCurrent(url)) {
-				articleState.setCategories(categoryIds);
-			}
-		}
-	}
-
-	// --- 7. EMBEDDINGS ---------------------------------------------------
-	if (viewState.embeddingsEnabled) {
-		if (articleState.isCurrent(url)) {
-			articleState.setStep('embeddings');
-		}
-		try {
-			await embedAnalysis({ url, windows, categories });
-		} catch (error) {
-			console.error(`[articleRunner] embeddings failed for "${url}"`, error);
-		}
-	}
-
-	if (articleState.isCurrent(url)) {
-		articleState.setStatus('done');
-		articleState.setStep(null);
-	}
-
-	return { url, mode, reusedAnalysis, divisor };
 }
 
 /**
