@@ -18,10 +18,11 @@ pub use crate::url::url_to_folder_name;
 
 mod web_store;
 pub use crate::web_store::{
-    assign_categories_to_article, delete_category_exemplar, delete_category_exemplars_for_article,
-    delete_web_store_articles_by_urls, delete_web_store_category, delete_web_store_domain,
-    delete_web_store_profile, fetch_remote_profile, filter_existing_article_urls,
-    get_article_analysis, get_article_categories, get_category_exemplar_model_status,
+    assign_categories_to_article, assign_categories_to_profile, delete_category_exemplar,
+    delete_category_exemplars_for_article, delete_web_store_articles_by_urls,
+    delete_web_store_category, delete_web_store_domain, delete_web_store_profile,
+    fetch_remote_profile, filter_existing_article_urls, get_article_analysis,
+    get_article_categories, get_category_exemplar_model_status, get_profile_categories,
     get_web_store_article_by_url, get_web_store_domain, get_web_store_profile,
     list_all_category_exemplars, list_articles_by_categories, list_articles_without_profile,
     list_categories_with_articles, list_category_exemplars, list_web_store_articles,
@@ -178,6 +179,7 @@ pub fn run() {
             get_article_analysis,
             save_article_analysis,
             get_article_categories,
+            get_profile_categories,
             write_raw_content,
             read_raw_content,
             read_raw_content_by_url,
@@ -186,6 +188,7 @@ pub fn run() {
             upsert_web_store_category,
             delete_web_store_category,
             assign_categories_to_article,
+            assign_categories_to_profile,
             list_category_exemplars,
             list_all_category_exemplars,
             upsert_category_exemplar,

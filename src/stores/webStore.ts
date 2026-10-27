@@ -156,6 +156,11 @@ export type AssignCategoriesToArticleInput = {
 	categoryIds: string[];
 };
 
+export type AssignCategoriesToProfileInput = {
+	profileId: string;
+	categoryIds: string[];
+};
+
 type UpsertWebStoreArticleInput = {
 	url: string;
 	title: string | null;
@@ -447,6 +452,7 @@ export async function getProfiles(options?: ProfilesOptions): Promise<ArticlePro
 					? Promise.resolve([])
 					: invoke<WebStoreProfileRecord[]>('list_web_store_profiles', {
 							domainId: null,
+							categoryIds: options?.categoryIds ?? null,
 							includeArticles: options?.includeArticles ?? null,
 							articleCount: options?.articleCount ?? null,
 							offset: options?.offset ?? null,
@@ -899,6 +905,27 @@ export async function assignCategoriesToArticle(
 	} catch (error) {
 		console.error('Error assigning categories to article:', error);
 	}
+}
+
+/** Reads the category ids linked to a profile (channel or domain). */
+export async function getProfileCategories(profileId: string): Promise<string[]> {
+	try {
+		return await invoke<string[]>('get_profile_categories', { profileId });
+	} catch (error) {
+		console.error(`Error querying categories of profile "${profileId}"`, error);
+		return [];
+	}
+}
+
+/**
+ * Replaces the categories linked to a profile (replace-all). Unlike the
+ * article variant this one rejects on failure, so the profile page can
+ * resync its optimistic pills (see its change handler).
+ */
+export async function assignCategoriesToProfile(
+	input: AssignCategoriesToProfileInput
+): Promise<void> {
+	await invoke('assign_categories_to_profile', { input });
 }
 
 export async function getCategoryExemplars(

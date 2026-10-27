@@ -19,7 +19,10 @@
 	});
 
 	$effect(() => {
-		void articleCacheStore.fetchDomainsWithArticles({ card: viewState.cardLayout.domains });
+		void articleCacheStore.fetchDomainsWithArticles({
+			card: viewState.cardLayout.domains,
+			categoryIds: articleFilters.ids('categories')
+		});
 	});
 </script>
 

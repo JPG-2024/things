@@ -182,6 +182,13 @@ pub struct AssignCategoriesToArticleInput {
     pub category_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignCategoriesToProfileInput {
+    pub profile_id: String,
+    pub category_ids: Vec<String>,
+}
+
 /// A single fed example for a category: the `title + summary` text of an
 /// article (or of one analysis window) the user assigned to it. The text is the
 /// source of truth; the per-exemplar vector is derived from it in the LanceDB
@@ -308,6 +315,7 @@ fn get_db(app: &AppHandle) -> Result<Connection, String> {
 
 fn init_schema(conn: &Connection) -> Result<(), String> {
     migrate_rename_profiles_to_domains(conn)?;
+    migrate_profile_category_shape(conn)?;
 
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS web_domains (
@@ -363,8 +371,6 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             deleted_at INTEGER
         );
 
-        DROP TABLE IF EXISTS profile_category;
-
         CREATE TABLE IF NOT EXISTS article_category (
             article_url TEXT NOT NULL,
             category_id TEXT NOT NULL,
@@ -373,6 +379,15 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         );
 
         CREATE INDEX IF NOT EXISTS idx_article_category_category_id ON article_category(category_id);
+
+        CREATE TABLE IF NOT EXISTS profile_category (
+            profile_id TEXT NOT NULL,
+            category_id TEXT NOT NULL,
+            PRIMARY KEY (profile_id, category_id),
+            FOREIGN KEY (category_id) REFERENCES web_categories(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_profile_category_category_id ON profile_category(category_id);
 
         CREATE TABLE IF NOT EXISTS category_exemplars (
             id TEXT PRIMARY KEY,
@@ -556,6 +571,28 @@ fn migrate_category_exemplars_window_index(conn: &Connection) -> Result<(), Stri
              ON category_exemplars(category_id);",
     )
     .map_err(|error| error.to_string())
+}
+
+/// Drops a `profile_category` table in the legacy shape (it carried an FK to
+/// `web_profiles`, which would reject domain ids) so the current shape can be
+/// created in its place. No data migration: links are cheap to re-assign and
+/// the legacy table has been emptied by a full drop on every startup until now.
+fn migrate_profile_category_shape(conn: &Connection) -> Result<(), String> {
+    let has_legacy: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_foreign_key_list('profile_category')
+             WHERE \"table\" = 'web_profiles'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if has_legacy {
+        conn.execute("DROP TABLE profile_category", [])
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
 }
 
 fn migrate_rename_profiles_to_domains(conn: &Connection) -> Result<(), String> {
@@ -1313,6 +1350,16 @@ fn upsert_profile(conn: &Connection, profile: &WebStoreProfileRecord) -> Result<
 }
 
 fn delete_domain(conn: &Connection, domain_id: &str) -> Result<(), String> {
+    // The domain's own links plus those of its channels, which go away with it.
+    // profile_category keys are stored lowercase, so match them case-insensitively.
+    conn.execute(
+        "DELETE FROM profile_category
+         WHERE profile_id = ?1 COLLATE NOCASE
+            OR LOWER(profile_id) IN (SELECT LOWER(id) FROM web_profiles WHERE domain_id = ?1)",
+        params![domain_id],
+    )
+    .map_err(|error| error.to_string())?;
+
     conn.execute(
         "DELETE FROM web_profiles WHERE domain_id = ?1",
         params![domain_id],
@@ -1325,6 +1372,12 @@ fn delete_domain(conn: &Connection, domain_id: &str) -> Result<(), String> {
 }
 
 fn delete_profile(conn: &Connection, profile_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM profile_category WHERE profile_id = ?1 COLLATE NOCASE",
+        params![profile_id],
+    )
+    .map_err(|error| error.to_string())?;
+
     conn.execute(
         "DELETE FROM web_profiles WHERE id = ?1",
         params![profile_id],
@@ -1392,6 +1445,31 @@ pub async fn list_web_store_articles(
         .collect())
 }
 
+/// WHERE fragment restricting entities to those linked to any of `category_ids`.
+///
+/// Filtering reads the stored `profile_category` links (never the categories of
+/// the entity's articles): a link is what the profile page writes, so it is the
+/// only way to tag a domain or channel that has no (or unrelated) articles.
+fn category_link_clause(alias: &str, category_ids: &[String]) -> (String, Vec<String>) {
+    let placeholders = category_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    (
+        format!(
+            "LOWER({alias}.id) IN (
+                SELECT DISTINCT LOWER(pc.profile_id)
+                FROM profile_category pc
+                INNER JOIN web_categories c ON pc.category_id = c.id
+                WHERE pc.category_id IN ({placeholders}) AND c.deleted_at IS NULL
+            )"
+        ),
+        category_ids.to_vec(),
+    )
+}
+
 fn query_domains_filtered(
     conn: &Connection,
     category_ids: Option<&[String]>,
@@ -1411,19 +1489,10 @@ fn query_domains_filtered(
 
     if let Some(cats) = category_ids {
         if !cats.is_empty() {
-            let placeholders = cats.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            where_clauses.push(format!(
-                "LOWER(p.id) IN (
-                    SELECT DISTINCT LOWER(a.domain)
-                    FROM web_articles a
-                    INNER JOIN article_category ac ON ac.article_url = a.url
-                    INNER JOIN web_categories c ON ac.category_id = c.id
-                    WHERE ac.category_id IN ({}) AND c.deleted_at IS NULL AND a.domain IS NOT NULL
-                )",
-                placeholders
-            ));
-            for id in cats {
-                params.push(Box::new(id.clone()));
+            let (clause, values) = category_link_clause("p", cats);
+            where_clauses.push(clause);
+            for value in values {
+                params.push(Box::new(value));
             }
         }
     }
@@ -1550,6 +1619,7 @@ pub async fn get_web_store_domain(
 fn query_profiles_filtered(
     conn: &Connection,
     domain_id: Option<&str>,
+    category_ids: Option<&[String]>,
     include_articles: bool,
     offset: Option<usize>,
     limit: Option<usize>,
@@ -1568,6 +1638,16 @@ fn query_profiles_filtered(
         if !normalized.is_empty() {
             where_clauses.push("LOWER(p.domain_id) = ?".to_string());
             params.push(Box::new(normalized));
+        }
+    }
+
+    if let Some(cats) = category_ids {
+        if !cats.is_empty() {
+            let (clause, values) = category_link_clause("p", cats);
+            where_clauses.push(clause);
+            for value in values {
+                params.push(Box::new(value));
+            }
         }
     }
 
@@ -1626,6 +1706,7 @@ fn query_profiles_filtered(
 pub async fn list_web_store_profiles(
     app: AppHandle,
     domain_id: Option<String>,
+    category_ids: Option<Vec<String>>,
     include_articles: Option<bool>,
     article_count: Option<usize>,
     offset: Option<usize>,
@@ -1634,8 +1715,14 @@ pub async fn list_web_store_profiles(
     let conn = get_db(&app)?;
 
     let include = include_articles.unwrap_or(false);
-    let mut profiles =
-        query_profiles_filtered(&conn, domain_id.as_deref(), include, offset, limit)?;
+    let mut profiles = query_profiles_filtered(
+        &conn,
+        domain_id.as_deref(),
+        category_ids.as_deref(),
+        include,
+        offset,
+        limit,
+    )?;
 
     if include {
         let per_profile_count = article_count.unwrap_or(10);
@@ -2515,6 +2602,40 @@ pub async fn get_article_categories(
     Ok(categories)
 }
 
+/// Reads the category ids linked to a profile (channel or domain).
+///
+/// The profile page editor seeds from this on load; the links are also what
+/// the dashboard's category facet filters on.
+#[tauri::command]
+pub async fn get_profile_categories(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<Vec<String>, String> {
+    let conn = get_db(&app)?;
+    query_profile_categories(&conn, &profile_id)
+}
+
+fn query_profile_categories(conn: &Connection, profile_id: &str) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT category_id FROM profile_category
+             WHERE profile_id = ?1 COLLATE NOCASE
+             ORDER BY category_id ASC",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let rows = stmt
+        .query_map(params![profile_id], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+
+    let mut categories = Vec::new();
+    for row in rows {
+        categories.push(row.map_err(|error| error.to_string())?);
+    }
+
+    Ok(categories)
+}
+
 #[tauri::command]
 pub async fn write_raw_content(
     app: AppHandle,
@@ -2786,6 +2907,17 @@ fn delete_category_rows(conn: &mut Connection, category_id: &str) -> Result<(), 
     })?;
 
     tx.execute(
+        "DELETE FROM profile_category WHERE category_id = ?1",
+        params![category_id],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to delete profile links for category id='{}': {}",
+            category_id, error
+        )
+    })?;
+
+    tx.execute(
         "DELETE FROM category_exemplars WHERE category_id = ?1",
         params![category_id],
     )
@@ -2886,6 +3018,88 @@ pub async fn assign_categories_to_article(
         format!(
             "Failed to commit category assignment for article url='{}': {}",
             input.article_url, error
+        )
+    })?;
+    Ok(())
+}
+
+/// Replaces the categories linked to a profile (channel or domain).
+///
+/// Replace-all, mirroring `assign_categories_to_article`: the input is the
+/// full desired set, so removing a pill means it is absent from the next write.
+#[tauri::command]
+pub async fn assign_categories_to_profile(
+    app: AppHandle,
+    input: AssignCategoriesToProfileInput,
+) -> Result<(), String> {
+    let mut conn = get_db(&app)?;
+    assign_profile_categories(&mut conn, &input.profile_id, &input.category_ids)
+}
+
+fn assign_profile_categories(
+    conn: &mut Connection,
+    profile_id: &str,
+    category_ids: &[String],
+) -> Result<(), String> {
+    // Soft key: every reader matches it case-insensitively, so store one
+    // canonical form and the PK can never split the same profile in two.
+    let profile_key = profile_id.trim().to_lowercase();
+
+    let tx = conn.transaction().map_err(|error| {
+        format!(
+            "Failed to start transaction for category assignment on profile id='{}': {}",
+            profile_id, error
+        )
+    })?;
+
+    tx.execute(
+        "DELETE FROM profile_category WHERE profile_id = ?1 COLLATE NOCASE",
+        params![profile_key],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to clear existing categories for profile id='{}': {}",
+            profile_id, error
+        )
+    })?;
+
+    for category_id in category_ids {
+        let category_exists: bool = tx
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM web_categories WHERE id = ?1 AND deleted_at IS NULL",
+                [category_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                format!(
+                    "Failed to check existence of category '{}' for profile id='{}': {}",
+                    category_id, profile_id, error
+                )
+            })?;
+
+        if !category_exists {
+            return Err(format!(
+                "Category '{}' does not exist or is deleted (profile id='{}')",
+                category_id, profile_id
+            ));
+        }
+
+        tx.execute(
+            "INSERT OR IGNORE INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
+            params![profile_key, category_id],
+        )
+        .map_err(|error| {
+            format!(
+                "Failed to assign category '{}' to profile id='{}': {}",
+                category_id, profile_id, error
+            )
+        })?;
+    }
+
+    tx.commit().map_err(|error| {
+        format!(
+            "Failed to commit category assignment for profile id='{}': {}",
+            profile_id, error
         )
     })?;
     Ok(())
@@ -3633,6 +3847,24 @@ mod tests {
             params![article_url, category_id],
         )
         .expect("link article to category");
+    }
+
+    fn insert_profile_row(conn: &Connection, id: &str, domain_id: &str) {
+        insert_domain_row(conn, domain_id);
+        conn.execute(
+            "INSERT OR IGNORE INTO web_profiles (id, name, domain_id, count, profile_picture, url, updated_at)
+             VALUES (?1, ?1, ?2, 0, NULL, NULL, 0)",
+            params![id, domain_id],
+        )
+        .expect("insert profile");
+    }
+
+    fn link_profile_to_category(conn: &Connection, profile_id: &str, category_id: &str) {
+        conn.execute(
+            "INSERT INTO profile_category (profile_id, category_id) VALUES (?1, ?2)",
+            params![profile_id, category_id],
+        )
+        .expect("link profile to category");
     }
 
     /// List queries must not drag the article body through IPC: the frontend
@@ -5041,6 +5273,8 @@ mod tests {
         insert_category(&conn, "cat-a", "Alpha");
         insert_article(&conn, "https://example.com/a", "channel", 1_000, None);
         link_article_to_category(&conn, "https://example.com/a", "cat-a");
+        insert_profile_row(&conn, "channel", "example.com");
+        link_profile_to_category(&conn, "channel", "cat-a");
         insert_exemplar(
             &conn,
             "e1",
@@ -5058,13 +5292,125 @@ mod tests {
         let link_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM article_category", [], |r| r.get(0))
             .expect("count links");
+        let profile_link_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM profile_category", [], |r| r.get(0))
+            .expect("count profile links");
         let category_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM web_categories", [], |r| r.get(0))
             .expect("count categories");
 
         assert_eq!(exemplar_count, 0);
         assert_eq!(link_count, 0);
+        assert_eq!(profile_link_count, 0);
         assert_eq!(category_count, 0);
+    }
+
+    /// Replace-all: the input is the full desired set, so unassigned pills
+    /// disappear. The key is stored lowercase and read case-insensitively.
+    #[test]
+    fn assign_profile_categories_replaces_the_whole_set() {
+        let mut conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_category(&conn, "cat-b", "Beta");
+
+        assign_profile_categories(&mut conn, "ChannelOne", &["cat-a".into(), "cat-b".into()])
+            .expect("assign both");
+        assign_profile_categories(&mut conn, "ChannelOne", &["cat-b".into()]).expect("replace");
+
+        let stored: Vec<String> = query_profile_categories(&conn, "channelone").expect("read back");
+        assert_eq!(stored, vec!["cat-b".to_string()]);
+
+        // One canonical row per profile: replace-all left exactly the desired
+        // set, with no case-variant duplicate key.
+        let row_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM profile_category", [], |r| r.get(0))
+            .expect("count rows");
+        assert_eq!(row_count, 1);
+    }
+
+    #[test]
+    fn assign_profile_categories_rejects_unknown_or_deleted_categories() {
+        let mut conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+
+        let unknown = assign_profile_categories(&mut conn, "channel", &["nope".into()]);
+        assert!(unknown.is_err(), "unknown category must be rejected");
+
+        delete_category_rows(&mut conn, "cat-a").expect("delete category");
+        let deleted = assign_profile_categories(&mut conn, "channel", &["cat-a".into()]);
+        assert!(deleted.is_err(), "deleted category must be rejected");
+    }
+
+    /// Q5 semantics: filtering reads stored links only — never the categories
+    /// of the entity's articles.
+    #[test]
+    fn category_filters_read_stored_links_not_article_categories() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+
+        // Domain with a categorized article but no link of its own: not a match.
+        insert_article_with_domain(&conn, "art-1", None, Some("linked-less.com"), 1_000);
+        link_article_to_category(&conn, "art-1", "cat-a");
+
+        // Domain tagged directly (no articles at all): match.
+        insert_domain_row(&conn, "tagged.com");
+
+        // Channel tagged directly: match. Channel with a categorized article: not.
+        insert_profile_row(&conn, "tagged-channel", "tagged.com");
+        insert_profile_row(&conn, "article-channel", "linked-less.com");
+        insert_article(&conn, "art-2", "article-channel", 1_000, None);
+        link_article_to_category(&conn, "art-2", "cat-a");
+
+        link_profile_to_category(&conn, "tagged.com", "cat-a");
+        link_profile_to_category(&conn, "tagged-channel", "cat-a");
+
+        let cats = ["cat-a".to_string()];
+        let domains = query_domains_filtered(&conn, Some(&cats), None, false, None, None)
+            .expect("domains by category");
+        let domain_ids: Vec<&str> = domains.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(domain_ids, vec!["tagged.com"], "only stored links match");
+
+        let profiles = query_profiles_filtered(&conn, None, Some(&cats), false, None, None)
+            .expect("profiles by category");
+        let profile_ids: Vec<&str> = profiles.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(
+            profile_ids, vec!["tagged-channel"],
+            "only stored links match"
+        );
+    }
+
+    /// Deleting a profile/domain removes only its own links; a shared category
+    /// stays alive for everyone else (Q7: removal never takes a live category
+    /// away from another profile).
+    #[test]
+    fn delete_profile_and_domain_cascade_only_their_own_links() {
+        let conn = build_in_memory_db();
+        insert_category(&conn, "cat-a", "Alpha");
+        insert_profile_row(&conn, "keep-channel", "keep.com");
+        insert_profile_row(&conn, "drop-channel", "drop.com");
+        link_profile_to_category(&conn, "keep.com", "cat-a");
+        link_profile_to_category(&conn, "keep-channel", "cat-a");
+        link_profile_to_category(&conn, "drop.com", "cat-a");
+        link_profile_to_category(&conn, "drop-channel", "cat-a");
+
+        delete_profile(&conn, "drop-channel").expect("delete channel");
+
+        let after_profile = query_profile_categories(&conn, "drop-channel").expect("read");
+        assert!(after_profile.is_empty(), "profile links must be gone");
+
+        delete_domain(&conn, "drop.com").expect("delete domain");
+        let after_domain = query_profile_categories(&conn, "drop.com").expect("read");
+        assert!(after_domain.is_empty(), "domain links must be gone");
+
+        // The survivor keeps its link and the category itself stays.
+        assert_eq!(
+            query_profile_categories(&conn, "keep-channel").expect("read"),
+            vec!["cat-a".to_string()]
+        );
+        let category_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM web_categories", [], |r| r.get(0))
+            .expect("count categories");
+        assert_eq!(category_count, 1, "category must survive a profile delete");
     }
 
     #[test]

@@ -7,11 +7,15 @@
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import {
+		assignCategoriesToProfile,
 		deleteProfileById,
 		getProfile,
+		getProfileCategories,
+		invalidateProfilesCache,
 		type ArticleProfile,
 		type ArticleRecord
 	} from '@/stores/webStore';
+	import CategoryEditor from '@/components/CategoryEditor.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
@@ -23,6 +27,7 @@
 	let profile = $state<ArticleProfile | null>(null);
 	let loading = $state(true);
 	let isDeleting = $state(false);
+	let profileCategoryIds = $state<string[]>([]);
 
 	let summaryOpen = $state(false);
 	let summaryText = $state('');
@@ -73,10 +78,29 @@
 		loading = true;
 		try {
 			profile = await getProfile(profileId);
+			if (profile) {
+				profileCategoryIds = await getProfileCategories(profileId);
+			}
 		} finally {
 			loading = false;
 		}
 	});
+
+	/**
+	 * Optimistic pills first, then persist. On failure the stored links are
+	 * re-read so the row never keeps pills the database rejected.
+	 */
+	async function handleCategoriesChange(nextIds: string[]) {
+		profileCategoryIds = nextIds;
+		try {
+			await assignCategoriesToProfile({ profileId, categoryIds: nextIds });
+			invalidateProfilesCache();
+			articleCacheStore.invalidateProfiles();
+		} catch (error) {
+			console.error('Failed to assign categories to profile', profileId, error);
+			profileCategoryIds = await getProfileCategories(profileId);
+		}
+	}
 
 	$effect(() => {
 		// `page` is a global store: while navigating away, params can flip to
@@ -193,6 +217,9 @@
 			<div class="loading-indicator"></div>
 		</div>
 	{:else if profile}
+		<div class="category-row">
+			<CategoryEditor value={profileCategoryIds} onChange={handleCategoriesChange} />
+		</div>
 		<div class="articles-container">
 			<ArticleList
 				items={articleCacheStore.profileArticles(profileId)}
@@ -324,7 +351,12 @@
 
 	.articles-container {
 		width: 100%;
-		padding-top: 4.5rem;
+		padding-top: 1.5rem;
+	}
+
+	.category-row {
+		width: 100%;
+		padding-top: 1.5rem;
 	}
 
 	.empty-state {

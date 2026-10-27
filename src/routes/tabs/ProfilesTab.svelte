@@ -19,7 +19,10 @@
 	});
 
 	$effect(() => {
-		void articleCacheStore.fetchProfilesWithArticles({ card: viewState.cardLayout.profiles });
+		void articleCacheStore.fetchProfilesWithArticles({
+			card: viewState.cardLayout.profiles,
+			categoryIds: articleFilters.ids('categories')
+		});
 	});
 </script>
 

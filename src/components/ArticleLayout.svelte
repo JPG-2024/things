@@ -6,7 +6,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
-	import CategoryEditor from '@/components/CategoryEditor.svelte';
+	import ArticleCategoryEditor from '@/components/ArticleCategoryEditor.svelte';
 	import AnalysisPanel from '@/components/AnalysisPanel.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
@@ -151,7 +151,7 @@
 				</button>
 			{/if}
 			{#if article.url && article.status !== 'running'}
-				<CategoryEditor articleUrl={article.url} value={article.categories} />
+				<ArticleCategoryEditor articleUrl={article.url} value={article.categories} />
 			{/if}
 		</div>
 	</div>
@@ -215,7 +215,7 @@
 		padding: 1rem 0;
 	}
 
-	.category-editor_container :global(.category-editor) {
+	.category-editor_container :global(.article-category-editor) {
 		flex: 1 1 auto;
 		min-width: 0;
 	}
