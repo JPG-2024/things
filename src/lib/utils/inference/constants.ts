@@ -11,6 +11,10 @@ export const ANALYSIS_COMPLETION_OPTIONS = {
 	presence_penalty: 0,
 	repetition_penalty: 1,
 	n_predict: 2048,
+	// The pipeline never spends decode budget on thinking: the provider turns
+	// this into `chat_template_kwargs.enable_thinking = false` per request, so
+	// the analysis stays exempt even with the global `--reasoning on` toggle on.
+	reasoning_effort: 'none',
 	stream: false
 } as const;
 
