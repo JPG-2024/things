@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Tooltip from '@/components/Tooltip.svelte';
 	import type { ProfileStackCell } from '@/lib/utils/articleGridCells';
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
@@ -17,6 +18,10 @@
 
 	// Newest preview article anchors the pile (index 0) and owns the unread dot.
 	const frontArticle = $derived(cell.preview[0]);
+
+	// Grid mode only: row mode already prints the front title beside the thumb,
+	// so no popup there (mirrors ArticleItem's resolvedTooltip rule).
+	const stackTooltip = $derived(isRowMode ? null : (frontArticle?.title ?? null));
 
 	// Overlap pile: the newest preview article anchors the pile untransformed
 	// (straight, at the pile's top-left), and each older thumb steps down-right
@@ -55,34 +60,46 @@
 	</div>
 {/snippet}
 
-<button type="button" class="articles-stack" class:row={isRowMode} onclick={() => onClick(cell)}>
-	{#if isRowMode}
-		<!-- Row mode: compact pile inside ArticleItemRow's fixed thumb box
-		     (150x80), newest title in the title position. The box clips the
-		     fan, so no bottom padding reserve is needed. -->
-		<div class="articles-stack__row-thumb">
+{#snippet stackButton()}
+	<button type="button" class="articles-stack" class:row={isRowMode} onclick={() => onClick(cell)}>
+		{#if isRowMode}
+			<!-- Row mode: compact pile inside ArticleItemRow's fixed thumb box
+			     (150x80), newest title in the title position. The box clips the
+			     fan, so no bottom padding reserve is needed. -->
+			<div class="articles-stack__row-thumb">
+				<div class="articles-stack__pile">
+					<div class="articles-stack__spacer"></div>
+					{#each cell.preview as article, index (article.id)}
+						{@render layer(article, index, cell.preview.length)}
+					{/each}
+				</div>
+			</div>
+			<div class="articles-stack__row-text">
+				<div class="articles-stack__row-title">{cell.preview[0]?.title ?? ''}</div>
+			</div>
+		{:else}
 			<div class="articles-stack__pile">
+				<!-- Invisible spacer with the same 16:9 footprint as a layer, so the pile
+				     is exactly one layer tall at any column width; fan layers overflow it
+				     downward into the pile's reserved bottom padding. -->
 				<div class="articles-stack__spacer"></div>
 				{#each cell.preview as article, index (article.id)}
 					{@render layer(article, index, cell.preview.length)}
 				{/each}
 			</div>
-		</div>
-		<div class="articles-stack__row-text">
-			<div class="articles-stack__row-title">{cell.preview[0]?.title ?? ''}</div>
-		</div>
-	{:else}
-		<div class="articles-stack__pile">
-			<!-- Invisible spacer with the same 16:9 footprint as a layer, so the pile
-			     is exactly one layer tall at any column width; fan layers overflow it
-			     downward into the pile's reserved bottom padding. -->
-			<div class="articles-stack__spacer"></div>
-			{#each cell.preview as article, index (article.id)}
-				{@render layer(article, index, cell.preview.length)}
-			{/each}
-		</div>
-	{/if}
-</button>
+		{/if}
+	</button>
+{/snippet}
+
+{#if stackTooltip}
+	<!-- Tooltip appends its popup to document.body, so the grid cell's
+	     overflow: hidden never clips the title. -->
+	<Tooltip content={stackTooltip}>
+		{@render stackButton()}
+	</Tooltip>
+{:else}
+	{@render stackButton()}
+{/if}
 
 <style>
 	.articles-stack {
