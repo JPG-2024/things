@@ -109,10 +109,7 @@
 		position: absolute;
 		inset: -3px;
 		border-radius: 100px;
-		border: 1px solid
-			color-mix(in srgb, var(--primary-color) calc(30% + var(--pct) * 30%), transparent);
-		box-shadow: 0 0 calc(var(--pct) * 12px)
-			color-mix(in srgb, var(--primary-color) calc(40% + var(--pct) * 40%), transparent);
+
 		opacity: 0;
 		transition: opacity 150ms ease;
 		pointer-events: none;
@@ -154,11 +151,7 @@
 		inset: 0;
 		border-radius: 100px;
 		background: hsl(0 0% 8%);
-		box-shadow:
-			0 -2px 6px 0 hsl(210 10% 0% / 0.5) inset,
-			0 2px 6px 0 hsl(210 10% 0% / 0.65) inset,
-			0 -1px 0 hsl(0 0% 100% / 0.12) inset,
-			0 0 6px hsl(0 0% 0% / 0.6) inset;
+
 		pointer-events: none;
 	}
 
@@ -171,11 +164,11 @@
 		border-radius: 100px;
 		background: linear-gradient(
 			90deg,
-			color-mix(in srgb, var(--primary-color) 55%, transparent),
-			var(--primary-color)
+			transparent 50%,
+			color-mix(in srgb, var(--bg-color) 20%, transparent),
+			color-mix(in srgb, var(--primary-color) 10%, var(--primary-color))
 		);
-		box-shadow: 0 0 calc(var(--pct) * 10px)
-			color-mix(in srgb, var(--primary-color) calc(25% + var(--pct) * 25%), transparent);
+
 		transition:
 			width 0.1s ease,
 			box-shadow 0.1s ease;
@@ -190,26 +183,19 @@
 		aspect-ratio: 1;
 		border-radius: 50%;
 		background: hsl(0 0% 16%);
-		box-shadow:
-			0 1px 3px hsl(0 0% 0% / 0.6),
-			0 0 0 1px hsl(0 0% 100% / 0.14) inset,
-			0 0 calc(var(--pct) * 16px)
-				color-mix(in srgb, var(--primary-color) calc(15% + var(--pct) * 45%), transparent);
-		transition:
-			left 0.1s ease,
-			box-shadow 0.1s ease;
+
 		display: grid;
 		place-items: center;
 	}
 
 	/* The "eye" in the middle of the knob: brighter and bigger glow with value. */
 	.range-thumb::after {
+		background: var(--primary-color);
 		content: '';
 		position: absolute;
 		width: 26%;
 		aspect-ratio: 1;
 		border-radius: 50%;
-		background: color-mix(in srgb, var(--primary-color) calc(50% + var(--pct) * 50%), transparent);
 	}
 
 	.range-wrapper.disabled .range-fill {
@@ -219,7 +205,6 @@
 
 	.range-wrapper.disabled .range-thumb {
 		background: hsl(0 0% 22%);
-		box-shadow: 0 1px 3px hsl(0 0% 0% / 0.5);
 	}
 
 	.range-wrapper.disabled .range-thumb::after {

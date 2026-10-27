@@ -99,8 +99,9 @@
 
 	.label-value {
 		font-family: var(--font-secondary);
-		font-size: 0.7rem;
-		color: var(--bg-color);
+		font-size: 0.9rem;
+		color: var(--primary-color);
 		text-wrap: nowrap;
+		font-weight: bold;
 	}
 </style>

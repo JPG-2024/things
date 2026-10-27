@@ -273,7 +273,7 @@ class ViewState {
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
 	/** Width (px) of the filters left panel column. Tuned in SettingsModal. */
-	filtersPanelWidth = $state(250);
+	filtersPanelWidth = $state(400);
 	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
 	rawSearchLastPattern = $state('');
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
@@ -442,8 +442,8 @@
 			{#if articleFilters.filtersPanelVisible}
 				<div
 					class="filters-sidebar-slot"
-					in:fly={{ x: -viewState.filtersPanelWidth, duration: 250, opacity: 0.6 }}
-					out:fly={{ x: -viewState.filtersPanelWidth, duration: 250, opacity: 0.6 }}
+					in:fly={{ x: -20, duration: 100 }}
+					out:fly={{ x: -20, duration: 100 }}
 				>
 					<ArticleFiltersSidebar onSearchInContent={handleSearchInContent} />
 				</div>
@@ -503,13 +503,21 @@
 
 	/* Filters left panel column: 0 collapsed, the configured width when open. */
 	.dashboard-container.filters-open {
-		grid-template-columns: var(--filters-panel-width, 250px) minmax(0, 1fr);
+		grid-template-columns: var(--filters-panel-width, 400px) minmax(0, 1fr);
 	}
 
 	.filters-column {
 		grid-column: 1;
 		min-width: 0;
 		overflow: hidden;
+		background-image: linear-gradient(
+			90deg,
+			rgba(0, 0, 0) 0%,
+			color-mix(in srgb, var(--primary-color) 15%, transparent) 20%,
+			color-mix(in srgb, var(--bg-color) 10%, black) 45%,
+			transparent 65%,
+			transparent 100%
+		);
 	}
 
 	.filters-column-scroll {
@@ -536,7 +544,7 @@
 		margin: 0 auto;
 		padding: 0.2rem 2rem 2rem;
 		background: linear-gradient(
-			color-mix(in srgb, var(--primary-color), black 92%),
+			color-mix(in srgb, var(--primary-color), black 98%),
 			rgba(9, 9, 9, 1),
 			rgba(9, 9, 9, 1),
 			transparent

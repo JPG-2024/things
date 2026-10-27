@@ -1015,7 +1015,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: rgba(0, 0, 0, 0.92);
+		background: rgba(0, 0, 0);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
 		z-index: 100000;
@@ -1023,7 +1023,7 @@
 
 	.settings-modal {
 		position: relative;
-		width: 90vw;
+		width: 50vw;
 		max-width: none;
 		max-height: 92vh;
 		overflow-y: auto;
