@@ -6,6 +6,8 @@
 /** Result of summarizing one window. */
 export interface WindowSummaryChunkData {
 	summary: string;
+	/** Short label of the window summary; absent when the title call failed. */
+	title?: string;
 }
 
 /** Result of merging every window summary. */

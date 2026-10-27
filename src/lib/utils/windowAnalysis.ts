@@ -2,7 +2,8 @@
  * Window analysis — the only analytic of the MVP article runner.
  *
  * The article body is split into windows, every window is summarized with one
- * LLM call and the window summaries are merged with one more call. When the
+ * LLM call (plus a short title call for its label) and the window summaries
+ * are merged with one more call. When the
  * context of the model overflows, the run climbs the window-divisor ladder
  * (`1 → 2 → 4 → 8 → 16`) and the level it *actually* executed is reported
  * back, so the caller can store it instead of deducing it.
@@ -192,7 +193,10 @@ export async function analyzeWindows(
 					index,
 					start: slice.startOffset,
 					end: slice.endOffset,
-					data: { summary: result.summary }
+					data: {
+						summary: result.summary,
+						...(result.title ? { title: result.title } : {})
+					}
 				};
 				windows.push(window);
 				options.onWindow?.(window, index, slices.length);

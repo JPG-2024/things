@@ -158,6 +158,9 @@
 							<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 								<div class="chunk-heading">
 									<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
+									{#if window.data.title}
+										<span class="chunk-title">{window.data.title}</span>
+									{/if}
 									<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
 										View raw text
 									</Button>
@@ -267,12 +270,24 @@
 		gap: 0.6rem;
 		align-items: baseline;
 		margin-bottom: 0.4rem;
+		font-family: var(--font-secondary);
+		white-space: wrap;
 	}
 
 	.chunk-heading :global(button) {
 		margin-left: auto;
 		font-size: 0.7rem;
 		padding: 0;
+	}
+
+	.chunk-title {
+		flex: 1;
+		min-width: 0;
+		font-size: 0.78rem;
+		font-weight: 600;
+		opacity: 0.85;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 

@@ -98,7 +98,8 @@ It replaces the old `template_id` column: the "imported articles" filter is
 The only analytic of the app.
 
 - The body is split into windows.
-- One LLM call per window.
+- One LLM call per window, plus one short call that labels its summary
+  (best-effort: a failed label only loses the title shown on the card).
 - One LLM call merges the window summaries.
 
 The split depends on the source:
