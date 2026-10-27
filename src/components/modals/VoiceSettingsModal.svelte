@@ -10,6 +10,7 @@
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
 	import { startSystemRecording, stopSystemRecording } from '@/lib/utils/systemAudioRecorder';
+	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -965,6 +966,15 @@
 							max={15}
 							step={0.5}
 							format={(v) => v.toFixed(1)}
+						/>
+						<RangeSelector
+							id="settings-playerVolume"
+							label="YouTube volume (%)"
+							bind:value={playerStore.volume}
+							min={0}
+							max={100}
+							step={1}
+							format={(v) => v.toString()}
 						/>
 						<RangeSelector
 							id="settings-duckVolume"

@@ -9,6 +9,8 @@ import type { YouTubePlayerContext } from '@/types/youtube.types';
 class PlayerState {
 	active = $state<YouTubePlayerContext | null>(null);
 	minimized = $state(false);
+	/** Normal volume (%) of the floating YouTube player when TTS is not ducking. */
+	volume = $state(100);
 
 	open(context: YouTubePlayerContext): void {
 		this.active = context;

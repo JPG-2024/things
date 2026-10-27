@@ -1,6 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { viewState } from '@/stores/viewStore.svelte';
+import { playerStore } from '@/stores/playerStore.svelte';
 import { scrapStore } from '@/stores/scrapStore.svelte';
 import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
 import { CARD_LAYOUT_DEFAULTS, type CardTab } from '@/constants';
@@ -126,6 +127,12 @@ function serializeView() {
 function serializeScrap() {
 	return {
 		maxVideos: scrapStore.maxVideos
+	};
+}
+
+function serializePlayer() {
+	return {
+		volume: playerStore.volume
 	};
 }
 
@@ -272,6 +279,14 @@ function applyScrap(raw: unknown): void {
 	}
 }
 
+function applyPlayer(raw: unknown): void {
+	if (!isPlainObject(raw)) return;
+
+	if (typeof raw.volume === 'number') {
+		playerStore.volume = clamp(Math.trunc(raw.volume), 0, 100);
+	}
+}
+
 function applyTts(raw: unknown): void {
 	if (!isPlainObject(raw)) return;
 
@@ -318,16 +333,18 @@ export async function loadSettings(): Promise<void> {
 	loaded = true;
 
 	try {
-		// Fetch all sections in parallel (one round-trip instead of three) and
+		// Fetch all sections in parallel (one round-trip instead of four) and
 		// apply them in the original order to keep hydration semantics.
-		const [view, scrap, tts] = await Promise.all([
+		const [view, scrap, tts, player] = await Promise.all([
 			store.get<unknown>('view'),
 			store.get<unknown>('scrap'),
-			store.get<unknown>('tts')
+			store.get<unknown>('tts'),
+			store.get<unknown>('player')
 		]);
 		applyView(view);
 		applyScrap(scrap);
 		applyTts(tts);
+		applyPlayer(player);
 		store.set('version', SETTINGS_VERSION).catch((err) => {
 			console.warn('[settings] failed to save version', err);
 		});
@@ -354,6 +371,9 @@ export function startSettingsPersistence(): void {
 		});
 		$effect(() => {
 			void activeStore.set('tts', serializeTts()).catch(warnWriteFailure);
+		});
+		$effect(() => {
+			void activeStore.set('player', serializePlayer()).catch(warnWriteFailure);
 		});
 	});
 }

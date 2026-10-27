@@ -40,9 +40,11 @@
 			: '';
 
 	/** Volume the player should be at right now. Read inside the effect so
-	 * `ttsActive` and the duck slider stay tracked as dependencies. */
+	 * `ttsActive`, the duck slider and the base volume stay tracked as
+	 * dependencies. */
 	function desiredVolume(): number {
-		return ttsActive ? ttsState.volumeWhileTTS : 100;
+		// Ducking never makes the video louder than the configured base volume.
+		return ttsActive ? Math.min(playerStore.volume, ttsState.volumeWhileTTS) : playerStore.volume;
 	}
 
 	function setPlayerVolume(volume: number): void {
