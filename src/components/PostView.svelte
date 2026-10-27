@@ -59,12 +59,21 @@
 
 	async function handleDelete() {
 		if (!viewState.url || isDeleting) return;
+		const url = viewState.url;
 		try {
 			isDeleting = true;
-			const res = await deleteArticleByUrl(viewState.url);
+			// Cancel first: the article can be deleted while it is queued or
+			// being analysed, and the run must not write it back after the
+			// delete (it aborts before its next persistence point).
+			articleManager.forget(url);
+			const res = await deleteArticleByUrl(url);
 			if (res?.success) {
 				articleCacheStore.invalidate();
-				void navigateBack();
+				await navigateBack();
+				// The url is gone: nothing on screen may keep pointing at it, or
+				// the next open would enqueue the whole pipeline again.
+				articleState.reset();
+				viewState.url = null;
 			} else {
 				console.error('Failed to delete article');
 			}
@@ -91,7 +100,7 @@
 				tooltipProps={{ content: 'generate embeddings' }}
 			/>
 
-			{#if viewState.url && !viewState.loading}
+			{#if viewState.url}
 				<button
 					class="delete-btn"
 					onclick={handleDelete}

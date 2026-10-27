@@ -36,6 +36,7 @@ import {
 	type SourceResult
 } from '@/runners/articleSources';
 import { buildArticleTitle, classifyArticleCategory } from '@/runners/shared/taskFactories';
+import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
 import { LANG_NAMES } from '@/constants';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
@@ -198,6 +199,10 @@ export async function runArticle(
 	const mode: ArticleMode = options.mode ?? 'full';
 	const force = options.force === true;
 
+	// Cancelled before it even started (the article was deleted while queued):
+	// bail out so the pipeline cannot capture it again.
+	throwIfRunCancelled(url);
+
 	const existing = await getArticleByUrl(url);
 	const existingAnalysis = force ? null : await getArticleAnalysis(url);
 
@@ -268,6 +273,7 @@ export async function runArticle(
 	try {
 		// --- 2. RAW ------------------------------------------------------
 		// The body is only stored when the source gave it for free.
+		throwIfRunCancelled(url);
 		if (articleState.isCurrent(url)) {
 			articleState.setStep('raw');
 		}
@@ -276,6 +282,9 @@ export async function runArticle(
 		}
 
 		// --- 3. ARTICLE --------------------------------------------------
+		// A delete that landed while the body was being fetched must not be
+		// undone by re-inserting the row here.
+		throwIfRunCancelled(url);
 		if (articleState.isCurrent(url)) {
 			articleState.setStep('article');
 		}
@@ -309,6 +318,7 @@ export async function runArticle(
 		if (hasUsableAnalysis) {
 			reusedAnalysis = true;
 		} else {
+			throwIfRunCancelled(url);
 			if (articleState.isCurrent(url)) {
 				articleState.setStep('analysis');
 				articleState.setStatus('running');
@@ -341,6 +351,9 @@ export async function runArticle(
 			summary = analysis.summary;
 			divisor = analysis.divisor;
 
+			// The delete can land in the middle of a long analysis: persisting
+			// the windows now would resurrect the row.
+			throwIfRunCancelled(url);
 			await saveArticleAnalysis({ url, summary, divisor, windows });
 		}
 
@@ -354,10 +367,12 @@ export async function runArticle(
 		}
 		// A reused analysis already has its title stored: regenerating it would
 		// spend an LLM call for nothing.
+		throwIfRunCancelled(url);
 		if (!reusedAnalysis || !title) {
 			const generatedTitle = await buildArticleTitle(summary);
 			if (generatedTitle) {
 				title = generatedTitle;
+				throwIfRunCancelled(url);
 				await saveArticle(url, { title });
 				if (articleState.isCurrent(url)) {
 					articleState.setTitle(generatedTitle);
@@ -374,12 +389,14 @@ export async function runArticle(
 
 		// The category is only auto-classified when the article has none (D5).
 		if (categories.length === 0) {
+			throwIfRunCancelled(url);
 			const categoryIds = await classifyArticleCategory({
 				title,
 				summary,
 				windows
 			});
 			if (categoryIds.length > 0) {
+				throwIfRunCancelled(url);
 				await assignCategoriesToArticle({ articleUrl: url, categoryIds });
 				categories = categoryIds;
 				if (articleState.isCurrent(url)) {
@@ -390,6 +407,7 @@ export async function runArticle(
 
 		// --- 7. EMBEDDINGS -----------------------------------------------
 		if (viewState.embeddingsEnabled) {
+			throwIfRunCancelled(url);
 			if (articleState.isCurrent(url)) {
 				articleState.setStep('embeddings');
 			}
@@ -412,20 +430,26 @@ export async function runArticle(
 		// failure): step 3 stored whatever the source already had, and this
 		// fills in the thumbnail, the media folder and the channel. Only the
 		// fields the decoration actually produced are written again.
-		const partial = await decorationTask;
-		const decorated =
-			partial.thumbnail !== undefined ||
-			partial.mediaDirectory !== undefined ||
-			partial.profile !== undefined;
+		//
+		// A deleted article is skipped entirely: this write is the last one of
+		// the run and re-inserting the row here is exactly what made a deleted
+		// card come back after its run ended.
+		if (!isRunCancelled(url)) {
+			const partial = await decorationTask;
+			const decorated =
+				partial.thumbnail !== undefined ||
+				partial.mediaDirectory !== undefined ||
+				partial.profile !== undefined;
 
-		if (decorated) {
-			await saveArticle(url, {
-				title,
-				thumbnail: partial.thumbnail ?? thumbnail,
-				directory: partial.mediaDirectory ?? mediaDirectory,
-				profile: partial.profile ?? profile,
-				date
-			});
+			if (decorated && !isRunCancelled(url)) {
+				await saveArticle(url, {
+					title,
+					thumbnail: partial.thumbnail ?? thumbnail,
+					directory: partial.mediaDirectory ?? mediaDirectory,
+					profile: partial.profile ?? profile,
+					date
+				});
+			}
 		}
 	}
 }
@@ -441,6 +465,7 @@ export async function rerunArticleAnalysis(
 	url: string,
 	options: { windowLevel?: number } = {}
 ): Promise<ArticleRunResult> {
+	throwIfRunCancelled(url);
 	const body = (await readRawContent(url)) ?? '';
 	if (!body.trim()) {
 		throw new Error(`Article "${url}" has no body to analyse`);
@@ -450,6 +475,7 @@ export async function rerunArticleAnalysis(
 	const requestedDivisor = WINDOW_DIVISOR_LADDER[level];
 	const splitByHeaders = detectSource(url) === 'web';
 
+	throwIfRunCancelled(url);
 	if (articleState.isCurrent(url)) {
 		articleState.setStep('analysis');
 		articleState.setStatus('running');
@@ -463,6 +489,7 @@ export async function rerunArticleAnalysis(
 		...analysisStream(url)
 	});
 
+	throwIfRunCancelled(url);
 	await saveArticleAnalysis({
 		url,
 		summary: analysis.summary,
@@ -480,11 +507,13 @@ export async function rerunArticleAnalysis(
 
 	// The title is regenerated from the new summary; the category is left
 	// untouched on purpose.
+	throwIfRunCancelled(url);
 	if (articleState.isCurrent(url)) {
 		articleState.setStep('title');
 	}
 	const generatedTitle = await buildArticleTitle(analysis.summary);
 	if (generatedTitle) {
+		throwIfRunCancelled(url);
 		await saveArticle(url, { title: generatedTitle });
 		if (articleState.isCurrent(url)) {
 			articleState.setTitle(generatedTitle);

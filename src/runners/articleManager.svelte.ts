@@ -14,6 +14,12 @@ import { runArticle, type ArticleRunOptions } from '@/runners/articleRunner';
 import { ensureAudioContext } from '@/lib/audioContextManager';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 import { getArticleAnalysis, getArticleByUrl, type ArticleRecord } from '@/stores/webStore';
+import {
+	cancelRun,
+	isRunCancelled,
+	isRunCancelledError,
+	resumeRun
+} from '@/runners/shared/runCancellation';
 import type { ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** One queued article. */
@@ -84,6 +90,9 @@ class ArticleManager {
 		// One canonical form of the url for the store, the lookups and the
 		// queue: a row saved under another form of the same url is found.
 		url = this.canonical(url);
+		// Opening is an explicit "process this again": a previous delete must
+		// not keep the new run aborted.
+		resumeRun(url);
 		articleState.begin(url);
 
 		const article = await getArticleByUrl(url);
@@ -114,6 +123,7 @@ class ArticleManager {
 	 */
 	refresh(url: string): void {
 		url = this.canonical(url);
+		resumeRun(url);
 		this.queue = this.queue.filter((entry) => entry.url !== url);
 		this.queue.unshift({
 			url,
@@ -129,6 +139,7 @@ class ArticleManager {
 		// Normalizing before the dedupe keeps the queue free of duplicate
 		// entries for the same article under different url forms.
 		url = this.canonical(url);
+		resumeRun(url);
 		const existing = this.queue.findIndex((entry) => entry.url === url);
 		const entry: QueueEntry = {
 			url,
@@ -155,6 +166,7 @@ class ArticleManager {
 	 */
 	rerunAnalysis(url: string, options: { windowLevel?: number } = {}): void {
 		url = this.canonical(url);
+		resumeRun(url);
 		this.queue = this.queue.filter((entry) => !(entry.url === url && entry.kind === 'analysis'));
 		this.queue.push({
 			url,
@@ -165,6 +177,27 @@ class ArticleManager {
 		});
 
 		this.drain();
+	}
+
+	/**
+	 * Drops articles from the queue and aborts their in-flight run.
+	 *
+	 * Called before deleting rows: a queued run would recreate the article from
+	 * scratch, and a running one would write the row (raw body, analysis,
+	 * title, category, card) right after the delete, so the card would come
+	 * back on the next list repaint. The runner checks the cancellation mark
+	 * before every persistence point and stops without writing.
+	 */
+	forget(urls: string | string[]): void {
+		const targets = new Set(
+			(Array.isArray(urls) ? urls : [urls]).map((url) => this.canonical(url))
+		);
+		if (targets.size === 0) return;
+
+		this.queue = this.queue.filter((entry) => !targets.has(entry.url));
+		for (const url of targets) {
+			cancelRun(url);
+		}
 	}
 
 	/**
@@ -240,13 +273,21 @@ class ArticleManager {
 						}
 					}
 				} catch (error) {
-					console.error(`[articleManager] run failed for "${entry.url}"`, error);
 					viewState.loading = false;
+					// A deleted article is not a failed run: it was aborted before
+					// writing, so there is nothing to log and no row to flag.
+					if (isRunCancelledError(error)) {
+						continue;
+					}
+					console.error(`[articleManager] run failed for "${entry.url}"`, error);
 					if (articleState.isCurrent(entry.url)) {
 						articleState.setStatus('error', error instanceof Error ? error.message : String(error));
 					}
 				} finally {
 					this.active = null;
+					// The mark only has to outlive the run it aborts: a later
+					// capture of the same url is a new run.
+					resumeRun(entry.url);
 				}
 			}
 		} finally {
@@ -282,16 +323,20 @@ class ArticleManager {
 		try {
 			await runArticle(entry.url, entry.options);
 		} finally {
-			// Even a failed run persists the article row (e.g. a YouTube video
-			// without captions is saved with its profile and thumbnail before
-			// the analysis error): the cache is invalidated and the card is
-			// repainted so the saved metadata is visible regardless.
-			const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
-			articleCacheStore.invalidate();
+			// A cancelled article was deleted: there is no row to repaint and
+			// no card to refresh.
+			if (!isRunCancelled(entry.url)) {
+				// Even a failed run persists the article row (e.g. a YouTube
+				// video without captions is saved with its profile and thumbnail
+				// before the analysis error): the cache is invalidated and the
+				// card is repainted so the saved metadata is visible regardless.
+				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
+				articleCacheStore.invalidate();
 
-			const refreshed = await getArticleByUrl(entry.url);
-			if (refreshed && articleState.isCurrent(entry.url)) {
-				this.paintArticle(refreshed);
+				const refreshed = await getArticleByUrl(entry.url);
+				if (refreshed && articleState.isCurrent(entry.url)) {
+					this.paintArticle(refreshed);
+				}
 			}
 		}
 	}

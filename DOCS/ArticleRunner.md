@@ -149,6 +149,7 @@ class ArticleManager {
 	refresh(url: string): void;
 	enqueue(url: string, options?: { mode?: 'full' | 'metadata' }): void;
 	rerunAnalysis(url: string, options?: { windowLevel?: number }): Promise<void>;
+	forget(urls: string | string[]): void;
 }
 ```
 
@@ -162,10 +163,31 @@ class ArticleManager {
   analysis).
 - `rerunAnalysis()` redoes only the windows and the title: the category is
   never overwritten by a rerun.
+- `forget()` drops the article from the queue and aborts its in-flight run.
+  It is called by **both** delete paths (article page and dashboard selection)
+  before the rows go away, because a run always ends by writing its own row:
+  without the abort, deleting an article that is queued or being analysed only
+  hides it until the run recreates it and the drain repaints the lists.
+
+### Cancellation
+
+`src/runners/shared/runCancellation.ts` holds the set of cancelled urls (it
+lives in its own module so the runner can consult it without importing the
+manager that imports the runner).
+
+- `forget()` marks the url and removes its queue entry.
+- `runArticle` / `rerunArticleAnalysis` call `throwIfRunCancelled(url)` before
+  **every** persistence point (raw body, article row, analysis, title,
+  category, embeddings, and the decorated card written in the `finally`), so a
+  deleted article is never stored again.
+- The abort surfaces as a `RunCancelledError`; the manager swallows it (no log,
+  no `error` status, no per-entry card repaint) and moves on to the next entry.
+- Enqueuing (or opening) the same url again resumes it: the mark only lives as
+  long as the run it cancels.
 
 A run that finishes after the user navigated away **persists** in the
 database, but it only writes to the store while its url is still the one on
-screen.
+screen. A **cancelled** run is the exception: it persists nothing at all.
 
 ### The view lifecycle around a run
 

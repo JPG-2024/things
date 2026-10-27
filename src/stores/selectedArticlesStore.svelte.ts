@@ -1,6 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import { deleteArticlesByUrls } from '@/stores/webStore';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+import { articleManager } from '@/runners/articleManager.svelte';
 
 class SelectedArticlesStore {
 	selectedUrls = new SvelteSet<string>();
@@ -39,6 +40,10 @@ class SelectedArticlesStore {
 		this.isDeleting = true;
 		const urlsToDelete = [...this.selectedUrls];
 		try {
+			// Queued runs are dropped and the in-flight one is aborted before
+			// the rows go away: otherwise the run recreates the article right
+			// after the delete and the card reappears on the next repaint.
+			articleManager.forget(urlsToDelete);
 			try {
 				// Single batched IPC: rows, embeddings, raw content and thumbnails
 				// are all cleaned up server-side (IPC-6).
