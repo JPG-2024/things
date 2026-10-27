@@ -20,6 +20,10 @@ export interface RawSearchResult {
 
 export type ArticleContentMode = 'both' | 'thumbnail' | 'title';
 
+// Reasoning effort for ChatModal requests; 'none' disables thinking and each
+// non-none level is forwarded as-is to the selected provider.
+export type ChatReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+
 export type LayoutKey = 'row' | 'grid-3' | 'grid';
 
 export interface MasonryPreset {
@@ -218,6 +222,9 @@ class ViewState {
 	// L2 distance cutoff for retrieved chunks (same metric the similar-
 	// embeddings components filter on; 0 = identical, larger = less similar).
 	chatSearchMaxDistance = $state(0.6);
+	// Chat (ChatModal) reasoning effort sent with every request; the provider
+	// adapters translate `reasoning_effort` into their own native fields.
+	chatReasoningEffort = $state<ChatReasoningEffort>('none');
 
 	conversationSystemPrompt = $state(
 		`You are a concise conversational assistant.

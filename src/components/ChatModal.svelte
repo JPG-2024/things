@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+
+	import { fly } from 'svelte/transition';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -16,7 +16,17 @@
 	} from '@/lib/utils/inference/chat-completions-provider';
 	import { retrieveContextChunks } from '@/lib/utils/embeddingStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
+	import ReasoningPanel from '@/components/ReasoningPanel.component.svelte';
+	import type { ChatReasoningEffort } from '@/stores/viewStore.svelte';
+	import { createReasoningTagSplitter, splitThoughtTags } from '@/lib/utils/reasoningTags';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+
+	const REASONING_EFFORTS = [
+		{ value: 'none', label: 'None' },
+		{ value: 'low', label: 'Low' },
+		{ value: 'medium', label: 'Medium' },
+		{ value: 'high', label: 'High' }
+	] as const satisfies ReadonlyArray<{ value: ChatReasoningEffort; label: string }>;
 
 	let { onExit }: { onExit: () => void } = $props();
 
@@ -25,11 +35,13 @@
 		role: 'user' | 'assistant';
 		content: string;
 		done: boolean;
+		reasoning?: string;
 		sources?: SearchChunkResult[];
 	}
 
 	let messages = $state<ChatMessage[]>([]);
 	let streamedText = $state('');
+	let streamedReasoning = $state('');
 	let streaming = $state(false);
 	let searching = $state(false);
 	let error = $state<string | null>(null);
@@ -41,6 +53,7 @@
 	// Session toggle for embedding retrieval; seeded from the persisted
 	// settings choice and written back so the choice sticks across sessions.
 	let searchEnabled = $state(viewState.chatSearchEnabled);
+	let reasoningMenuOpen = $state(false);
 
 	const searchTables = $derived(
 		viewState.chatSearchTables
@@ -52,6 +65,15 @@
 	function toggleSearch() {
 		searchEnabled = !searchEnabled;
 		viewState.chatSearchEnabled = searchEnabled;
+	}
+
+	function toggleReasoningMenu() {
+		reasoningMenuOpen = !reasoningMenuOpen;
+	}
+
+	function selectReasoningEffort(effort: ChatReasoningEffort) {
+		viewState.chatReasoningEffort = effort;
+		reasoningMenuOpen = false;
 	}
 
 	function generateId(): string {
@@ -111,6 +133,7 @@
 	async function streamResponse(userPrompt: string) {
 		const trimmed = userPrompt.trim();
 		if (!trimmed || streaming || searching) return;
+		reasoningMenuOpen = false;
 
 		// Retrieval runs before the messages are pushed so the sources are
 		// attached to the reply from the start and render while it streams.
@@ -137,6 +160,7 @@
 		messages.push(assistantMsg);
 
 		streamedText = '';
+		streamedReasoning = '';
 		activeAssistantId = assistantId;
 		streaming = true;
 		error = null;
@@ -172,26 +196,52 @@
 			max_completion_tokens: viewState.conversationMaxTokens,
 			top_p: viewState.conversationTopP,
 			frequency_penalty: viewState.conversationFrequencyPenalty,
-			presence_penalty: viewState.conversationPresencePenalty
+			presence_penalty: viewState.conversationPresencePenalty,
+			reasoning_effort: viewState.chatReasoningEffort
 		};
+
+		// Reasoning can arrive as `reasoning_content` deltas or as inline thought
+		// tags in `content`; the splitter routes the tags away from the answer.
+		const tagSplitter = createReasoningTagSplitter();
+		let sawReasoningContent = false;
 
 		try {
 			const response = await chatCompletions(request, {
 				signal: abortController.signal,
 				onToken: (token) => {
-					streamedText += token;
+					const parts = tagSplitter.feed(token);
+					if (parts.reasoning) streamedReasoning += parts.reasoning;
+					if (parts.content) streamedText += parts.content;
+					void scrollToBottom();
+				},
+				onReasoningToken: (token) => {
+					sawReasoningContent = true;
+					streamedReasoning += token;
 					void scrollToBottom();
 				}
 			});
 
 			const finalText = response.choices?.[0]?.message?.content;
-			if (typeof finalText === 'string' && finalText.trim()) {
-				streamedText = finalText;
+			let finalReasoning = '';
+			if (typeof finalText === 'string' && finalText) {
+				const parts = splitThoughtTags(finalText);
+				if (parts.content.trim()) {
+					streamedText = parts.content;
+				}
+				if (parts.reasoning && !sawReasoningContent) {
+					streamedReasoning += parts.reasoning;
+					finalReasoning = parts.reasoning;
+				}
 			}
 
 			const idx = messages.findIndex((m) => m.id === assistantId);
 			if (idx !== -1) {
-				messages[idx] = { ...messages[idx], content: streamedText, done: true };
+				messages[idx] = {
+					...messages[idx],
+					content: streamedText,
+					reasoning: streamedReasoning || finalReasoning,
+					done: true
+				};
 				if (viewState.autoSpeechEnabled && streamedText.trim()) {
 					void ensureAudioContext();
 					void ttsState.generateFromClipboard(streamedText);
@@ -201,7 +251,12 @@
 			if (err instanceof DOMException && err.name === 'AbortError') {
 				const idx = messages.findIndex((m) => m.id === assistantId);
 				if (idx !== -1) {
-					messages[idx] = { ...messages[idx], content: streamedText, done: true };
+					messages[idx] = {
+						...messages[idx],
+						content: streamedText,
+						reasoning: streamedReasoning,
+						done: true
+					};
 				}
 				return;
 			}
@@ -232,8 +287,10 @@
 		requestEpoch++;
 		messages = [];
 		streamedText = '';
+		streamedReasoning = '';
 		streaming = false;
 		searching = false;
+		reasoningMenuOpen = false;
 		activeAssistantId = null;
 		error = null;
 	}
@@ -247,8 +304,10 @@
 		// clear on exit per spec
 		messages = [];
 		streamedText = '';
+		streamedReasoning = '';
 		streaming = false;
 		searching = false;
+		reasoningMenuOpen = false;
 		activeAssistantId = null;
 		error = null;
 		onExit();
@@ -290,8 +349,8 @@
 
 <div
 	bind:this={modalEl}
-	in:fade={{ duration: 100, easing: cubicOut }}
-	out:fade={{ duration: 200 }}
+	in:fly={{ x: -10, duration: 40 }}
+	out:fly={{ x: -30, duration: 100 }}
 	class="chat-modal"
 	role="dialog"
 	aria-modal="true"
@@ -303,10 +362,53 @@
 			<ToggleIcon
 				name="FileDigit"
 				checked={searchEnabled}
-				size={20}
+				size={18}
 				tooltipProps={{ content: 'search context in embeddings' }}
 				onClick={toggleSearch}
 			/>
+			<div class="chat-modal__reasoning-wrap">
+				<button
+					type="button"
+					class="chat-modal__reasoning-btn"
+					class:chat-modal__reasoning-btn--active={viewState.chatReasoningEffort !== 'none'}
+					onclick={toggleReasoningMenu}
+					aria-label="Reasoning effort"
+					title="reasoning effort sent as-is to the provider"
+					aria-expanded={reasoningMenuOpen}
+				>
+					<Icon name="Brain" size={18} color={viewState.primaryColor} />
+				</button>
+				{#if reasoningMenuOpen}
+					<button
+						type="button"
+						class="chat-modal__menu-backdrop"
+						onclick={() => (reasoningMenuOpen = false)}
+						aria-label="Close reasoning menu"
+					></button>
+					<div class="chat-modal__reasoning-menu" role="menu">
+						{#each REASONING_EFFORTS as effort (effort.value)}
+							<button
+								type="button"
+								class="chat-modal__reasoning-item"
+								class:chat-modal__reasoning-item--selected={viewState.chatReasoningEffort ===
+									effort.value}
+								role="menuitemradio"
+								aria-checked={viewState.chatReasoningEffort === effort.value}
+								onclick={() => selectReasoningEffort(effort.value)}
+							>
+								<Icon
+									name="Dot"
+									size={14}
+									color={viewState.chatReasoningEffort === effort.value
+										? 'var(--primary-color)'
+										: 'transparent'}
+								/>
+								{effort.label}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 			{#if messages.length > 0}
 				<button
 					type="button"
@@ -323,7 +425,7 @@
 				onclick={handleExit}
 				aria-label="Close chat"
 			>
-				<Icon name="X" size={22} color={viewState.primaryColor} />
+				<Icon name="X" size={18} color={viewState.primaryColor} />
 			</button>
 		</div>
 	</div>
@@ -344,14 +446,26 @@
 			>
 				{#if msg.role === 'user'}
 					<p class="chat-modal__user-text">{msg.content}</p>
+				{:else if msg.id === activeAssistantId}
+					<div class="chat-modal__assistant-content">
+						{#if streamedReasoning}
+							<ReasoningPanel reasoning={streamedReasoning} {streaming} />
+						{/if}
+						{#if streamedText}
+							<MarkdownRenderer content={streamedText} />
+						{:else if !streamedReasoning}
+							<span class="chat-modal__thinking">Thinking...</span>
+						{/if}
+					</div>
 				{:else}
 					<div class="chat-modal__assistant-content">
-						{#if msg.id === activeAssistantId && streamedText}
-							<MarkdownRenderer content={streamedText} />
-						{:else if msg.content}
+						{#if msg.reasoning}
+							<ReasoningPanel reasoning={msg.reasoning} />
+						{/if}
+						{#if msg.content}
 							<MarkdownRenderer content={msg.content} />
-						{:else if !msg.done}
-							<span class="chat-modal__thinking">Thinking...</span>
+						{:else if msg.reasoning}
+							<span class="chat-modal__no-answer">No final response from the model</span>
 						{/if}
 					</div>
 				{/if}
@@ -404,7 +518,7 @@
 
 <style>
 	.chat-modal {
-		--chat-gap: 0.75rem;
+		--chat-gap: 0rem;
 		display: flex;
 		flex-direction: column;
 		position: fixed;
@@ -412,12 +526,12 @@
 		bottom: var(--chat-gap);
 		left: var(--chat-gap);
 		right: auto;
-		width: calc(50vw - var(--chat-gap) * 2);
+		width: calc(70vw - var(--chat-gap) * 2);
 		overflow: hidden;
 		font-family: var(--font-secondary);
 		background: rgba(14, 14, 14, 0.95);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: var(--radius-lg);
+		border: 3px solid rgba(255, 255, 255, 0.1);
+		/* border-radius: var(--radius-sm); */
 		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 		z-index: 1100;
 	}
@@ -427,12 +541,12 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 1rem 1.5rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
 		flex-shrink: 0;
 	}
 
 	.chat-modal__title {
-		font-size: 1.1rem;
+		font-size: 0.9rem;
 		font-weight: 600;
 		color: var(--primary-color);
 	}
@@ -460,6 +574,85 @@
 	.chat-modal__clear-btn:hover,
 	.chat-modal__exit-btn:hover {
 		opacity: 1;
+	}
+
+	.chat-modal__reasoning-wrap {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.chat-modal__reasoning-btn {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		cursor: pointer;
+		opacity: 0.7;
+		transition: opacity 0.2s;
+	}
+
+	.chat-modal__reasoning-btn:hover {
+		opacity: 1;
+	}
+
+	.chat-modal__reasoning-btn--active,
+	.chat-modal__reasoning-btn--active:hover {
+		opacity: 1;
+		filter: var(--glow-filter);
+	}
+
+	.chat-modal__menu-backdrop {
+		all: unset;
+		position: fixed;
+		inset: 0;
+		z-index: 1;
+		cursor: default;
+	}
+
+	.chat-modal__reasoning-menu {
+		position: absolute;
+		top: calc(100% + 0.25rem);
+		right: 0;
+		z-index: 2;
+		display: flex;
+		flex-direction: column;
+		min-width: 8rem;
+		padding: 0.3rem;
+		border-radius: var(--radius-md);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(14, 14, 14, 0.98);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+	}
+
+	.chat-modal__reasoning-item {
+		all: unset;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.35rem 0.5rem;
+		border-radius: var(--radius-sm);
+		font-size: 0.8rem;
+		color: rgba(255, 255, 255, 0.7);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.chat-modal__reasoning-item:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: white;
+	}
+
+	.chat-modal__reasoning-item--selected {
+		color: var(--primary-color);
+	}
+
+	.chat-modal__no-answer {
+		font-size: 0.75rem;
+		font-style: italic;
+		color: rgba(255, 255, 255, 0.3);
 	}
 
 	.chat-modal__messages {
@@ -493,6 +686,7 @@
 		padding: 0.75rem 1rem;
 		font-size: 0.8rem;
 		line-height: 1.6;
+		color: var(--bg-color);
 	}
 
 	.chat-modal__message--user {
