@@ -86,7 +86,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		opacity: 0.8;
+		opacity: 1;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
 		border: 1px solid var(--article-border);

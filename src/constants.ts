@@ -13,7 +13,7 @@ export const ARTICLE_THUMBNAIL_SIZES = {
 } as const;
 export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
 export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
-export const PROFILE_COLUMN_WIDTH = '17rem';
+export const PROFILE_COLUMN_WIDTH = '10rem';
 
 /** Blank space before the first card of a wheel (fake-scroll runway). */
 export const WHEEL_START_SPACE = '8vw';

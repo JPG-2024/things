@@ -89,7 +89,7 @@
 	}
 
 	.article-thumbnail-title :global(.article-title) {
-		font-size: 0.65rem;
-		line-height: 2;
+		font-size: 0.8rem;
+		line-height: 1.9;
 	}
 </style>

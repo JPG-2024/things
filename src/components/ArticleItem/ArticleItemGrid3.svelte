@@ -68,7 +68,7 @@
 		grid-column: 1 / -1;
 		grid-row: 1;
 		padding: 3px 0;
-		font-size: 0.7rem;
+		font-size: 0.8rem;
 		font-weight: bold;
 		min-width: 0;
 	}
