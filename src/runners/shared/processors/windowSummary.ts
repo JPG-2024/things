@@ -10,13 +10,8 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { parseTitleText } from '@/lib/utils/inference/finalResponse';
-import {
-	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
-	RECURSIVE_SUMMARY_USER_MESSAGE,
-	TITLE_SYSTEM_MESSAGE,
-	buildRecursiveSummarySystemMessage,
-	buildWindowTitleUserMessage
-} from '@/lib/utils/inference/prompts';
+import { TITLE_SYSTEM_MESSAGE, buildWindowTitleUserMessage } from '@/lib/utils/inference/prompts';
+import { promptState } from '@/stores/promptStore.svelte';
 import {
 	ANALYSIS_COMPLETION_OPTIONS,
 	DEFAULT_DYNAMIC_MODEL,
@@ -47,19 +42,22 @@ export const windowSummaryProcessor: ProcessorDef = {
 		};
 
 		const summarizeText = async (text: string, final: boolean): Promise<string> => {
+			// Read per call, not per build: the prompts are user-editable and a
+			// change must reach the next request of an already running analysis.
+			const system = promptState.resolve('windowSystem');
+			const instruction = final
+				? promptState.resolve('finalUser')
+				: promptState.resolve('windowUser');
 			const response = await chatCompletions({
 				...completionOptions,
 				stream: false,
 				messages: [
-					{
-						role: 'system',
-						content: buildRecursiveSummarySystemMessage(config.languageName)
-					},
+					{ role: 'system', content: system },
 					{
 						role: 'user',
-						content: final
-							? `${RECURSIVE_SUMMARY_FINAL_USER_MESSAGE}\n\n${text}`
-							: `${RECURSIVE_SUMMARY_USER_MESSAGE}:\n\n${text}`
+						// No glue text: the editor shows the instruction as a whole,
+						// so what the model gets must read the same way.
+						content: `${instruction}\n\n${text}`
 					}
 				]
 			});

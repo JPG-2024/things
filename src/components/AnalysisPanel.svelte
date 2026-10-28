@@ -3,6 +3,8 @@
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Modal from '@/components/Modal.svelte';
+	import Icon from '@/components/Icon.svelte';
+	import PromptSettingsModal from '@/components/modals/PromptSettingsModal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import { articleState } from '@/stores/articleStore.svelte';
@@ -87,6 +89,7 @@
 
 	let rawModalIndex = $state<number | null>(null);
 	let rawModalText = $state('');
+	let promptsOpen = $state(false);
 
 	async function openRawText(index: number) {
 		rawModalIndex = index;
@@ -115,81 +118,93 @@
 	}
 </script>
 
-{#if visibleWindows.length > 0 || summary || isRunning}
-	<div class="analysis-shell">
+<div class="analysis-shell">
+	<!-- Always rendered — even before the first run and on web articles, which
+		 have no window knob — so the prompts are configurable at any time. -->
+	<div class="level-row">
 		{#if showLevelControl}
-			<div class="level-row">
-				<span class="level-label">window ÷</span>
-				<div class="level-slider">
-					<RangeSelector
-						id="window-level"
-						min={0}
-						max={WINDOW_DIVISOR_LADDER.length - 1}
-						step={1}
-						bind:value={sliderIndex}
-						disabled={isRunning}
-						onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
-					/>
-				</div>
-				<span class="level-label">÷{previewDivisor}</span>
+			<span class="level-label">window ÷</span>
+			<div class="level-slider">
+				<RangeSelector
+					id="window-level"
+					min={0}
+					max={WINDOW_DIVISOR_LADDER.length - 1}
+					step={1}
+					bind:value={sliderIndex}
+					disabled={isRunning}
+					onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
+				/>
 			</div>
+			<span class="level-label">÷{previewDivisor}</span>
 		{/if}
-
-		{#if isRunning && progress && progress.total > 0}
-			<div class="progress-row">
-				<span class="progress-label">analysing windows</span>
-				<span class="progress-count">{progress.done}/{progress.total}</span>
-			</div>
-		{/if}
-
-		{#if visibleWindows.length > 0 || isRunning}
-			<!-- Owns the `@container` context of the grid: it reacts to the width
-				 of this column, not of the window (the filters panel makes those
-				 differ). Kept off `.analysis-shell` so the fixed backdrop of the
-				 raw-text modal is not trapped by the containment. -->
-			<div class="windows-container">
-				<Spacer title="Windows" bind:opened={windowsOpen}>
-					<div class="chunks-grid">
-						{#if isRunning && visibleWindows.length === 0}
-							<div class="chunk-pending">waiting for the first window…</div>
-						{/if}
-						{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
-							{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
-							<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
-								<div class="chunk-heading">
-									<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
-									{#if window.data.title}
-										<span class="chunk-title">{window.data.title}</span>
-									{/if}
-									<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
-										View raw text
-									</Button>
-								</div>
-								<div class="chunk-summary">
-									<MarkdownRenderer content={window.data.summary} />
-								</div>
-							</div>
-						{/each}
-					</div>
-				</Spacer>
-			</div>
-		{/if}
-
-		{#if !isRunning && summary}
-			<div class="final-section">
-				<MarkdownRenderer content={summary} />
-			</div>
-		{/if}
-
-		<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
-			{#if rawModalIndex !== null}
-				<div class="raw-text-modal-container">
-					<div class="chunk-raw-text">{rawModalText}</div>
-				</div>
-			{/if}
-		</Modal>
+		<span class="prompts-trigger">
+			<Icon
+				name="ScrollText"
+				size={16}
+				disabled={isRunning}
+				ariaLabel="Edit prompts"
+				tooltipProps={{ content: 'edit prompts' }}
+				onClick={() => (promptsOpen = true)}
+			/>
+		</span>
 	</div>
-{/if}
+
+	{#if isRunning && progress && progress.total > 0}
+		<div class="progress-row">
+			<span class="progress-label">analysing windows</span>
+			<span class="progress-count">{progress.done}/{progress.total}</span>
+		</div>
+	{/if}
+
+	{#if visibleWindows.length > 0 || isRunning}
+		<!-- Owns the `@container` context of the grid: it reacts to the width
+			 of this column, not of the window (the filters panel makes those
+			 differ). Kept off `.analysis-shell` so the fixed backdrop of the
+			 raw-text modal is not trapped by the containment. -->
+		<div class="windows-container">
+			<Spacer title="Windows" bind:opened={windowsOpen}>
+				<div class="chunks-grid">
+					{#if isRunning && visibleWindows.length === 0}
+						<div class="chunk-pending">waiting for the first window…</div>
+					{/if}
+					{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
+						{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
+						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+							<div class="chunk-heading">
+								<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
+								{#if window.data.title}
+									<span class="chunk-title">{window.data.title}</span>
+								{/if}
+								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
+									View raw text
+								</Button>
+							</div>
+							<div class="chunk-summary">
+								<MarkdownRenderer content={window.data.summary} />
+							</div>
+						</div>
+					{/each}
+				</div>
+			</Spacer>
+		</div>
+	{/if}
+
+	{#if !isRunning && summary}
+		<div class="final-section">
+			<MarkdownRenderer content={summary} />
+		</div>
+	{/if}
+
+	<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
+		{#if rawModalIndex !== null}
+			<div class="raw-text-modal-container">
+				<div class="chunk-raw-text">{rawModalText}</div>
+			</div>
+		{/if}
+	</Modal>
+
+	<PromptSettingsModal show={promptsOpen} onClose={() => (promptsOpen = false)} />
+</div>
 
 <style>
 	.analysis-shell {
@@ -212,6 +227,13 @@
 	.level-label {
 		font-size: 0.82rem;
 		opacity: 0.7;
+	}
+
+	/* Panel-level action: pinned to the right edge, away from the slider. */
+	.prompts-trigger {
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
 	}
 
 	.progress-row {

@@ -38,7 +38,6 @@ import {
 import { buildArticleTitle, classifyArticleCategory } from '@/runners/shared/taskFactories';
 import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
-import { LANG_NAMES } from '@/constants';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** Options of a run. */
@@ -89,10 +88,6 @@ export interface ArticleRunResult {
 	reusedAnalysis: boolean;
 	/** The divisor the analysis actually executed, when there was one. */
 	divisor: number | null;
-}
-
-function languageName(): string | undefined {
-	return LANG_NAMES[viewState.language];
 }
 
 /**
@@ -343,7 +338,6 @@ export async function runArticle(
 				divisor: splitByHeaders ? null : requestedDivisor,
 				splitByHeaders,
 				model: viewState.aiModel,
-				languageName: languageName(),
 				...analysisStream(url)
 			});
 
@@ -485,7 +479,6 @@ export async function rerunArticleAnalysis(
 		divisor: splitByHeaders ? null : requestedDivisor,
 		splitByHeaders,
 		model: viewState.aiModel,
-		languageName: languageName(),
 		...analysisStream(url)
 	});
 

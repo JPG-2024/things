@@ -51,8 +51,6 @@ export interface AnalyzeWindowsOptions {
 	splitByHeaders?: boolean;
 	/** Model used for the summarization calls. */
 	model?: string;
-	/** Language the summaries are written in. */
-	languageName?: string;
 	/**
 	 * Called once per attempt, before its first window.
 	 *
@@ -173,8 +171,7 @@ export async function analyzeWindows(
 	// split and the ladder) stay importable without the inference stack.
 	const { windowSummaryProcessor } = await import('@/runners/shared/processors');
 	const processor = windowSummaryProcessor.build({
-		model: options.model,
-		languageName: options.languageName
+		model: options.model
 	});
 	let divisor = options.divisor;
 

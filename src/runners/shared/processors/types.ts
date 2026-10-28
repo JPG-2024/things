@@ -19,8 +19,6 @@ export interface WindowSummaryFinal {
 export interface WindowSummaryProcessorConfig {
 	/** Model to use for the summarization calls. */
 	model?: string;
-	/** Language the summaries are written in. */
-	languageName?: string;
 	/** Extra completion options merged into every call. */
 	completionOptions?: Record<string, unknown>;
 }

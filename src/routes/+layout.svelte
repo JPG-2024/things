@@ -15,6 +15,7 @@
 	import ConversationSettings from '@/components/ConversationSettings.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { startSettingsPersistence } from '@/stores/settingsStore.svelte';
+	import { startPromptsPersistence } from '@/stores/promptStore.svelte';
 	import { ensureLlamaServers } from '@/lib/utils/llamaHealth';
 	import { LLAMA_AUTOSTART_DELAY_MS } from '@/constants';
 	import { generateTTSfromArticleURL } from '@/lib/utils/tts';
@@ -355,6 +356,7 @@
 
 	onMount(() => {
 		startSettingsPersistence();
+		startPromptsPersistence();
 		// BOOT-3: defer the llama autostart (model reconciliation + server spawn)
 		// so it does not compete with the first render and the initial page
 		// fetches.

@@ -17,6 +17,7 @@
 		"test": "bun test",
 		"test:watch": "bun test --watch",
 		"test:tts-targets": "bun test src/lib/utils/ttsTargets.test.ts",
+		"test:prompts": "bun test src/lib/utils/promptText.test.ts",
 		"format": "prettier --write . && eslint --fix ."
 	},
 	"license": "MIT",
