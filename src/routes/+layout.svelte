@@ -518,6 +518,11 @@
 		--radius-md: 10px;
 		--radius-lg: 14px;
 
+		/* Extra horizontal breathing room on ultra-wide displays; 0 elsewhere
+		 * so normal windows keep the current edge-to-edge layout. The fixed
+		 * dashboard toolbar reuses it to stay aligned with the padded grid. */
+		--page-gutter-x: 10px;
+
 		/* Floating corner widget: the minimized YouTube thumbnail and the TTS
 		 * strip share this geometry so they stay stacked as one piece. */
 		--float-anchor-right: 1.5rem;
@@ -542,6 +547,8 @@
 		--gray-100: rgb(219, 219, 219);
 		--gray-200: rgb(196, 194, 194);
 		--gray-300: rgb(173, 172, 172);
+		--gray-500: rgb(133, 133, 133);
+		--gray-700: rgb(58, 57, 57);
 		--gray-900: rgb(12, 12, 12);
 
 		--article-border: rgba(120, 119, 119, 0.3);
@@ -569,6 +576,16 @@
 		text-shadow: none !important;
 	}
 
+	/* Ultra-wide gutter: the 2200px breakpoint covers 21:9 (2560x1080,
+	 * 3440x1440) and 32:9 displays. Content is inset with padding rather than
+	 * a max-width so the masonry grid keeps scaling its columns while the
+	 * line length stays reasonable. */
+	@media (min-width: 2200px) {
+		:root {
+			--page-gutter-x: clamp(10rem, 25vw, 50rem);
+		}
+	}
+
 	main {
 		display: flex;
 		position: relative;
@@ -577,6 +594,7 @@
 		gap: 1.5rem;
 		box-sizing: border-box;
 		margin: 0;
+		padding-inline: var(--page-gutter-x);
 		overflow-y: auto;
 		/* scrollbar-gutter: stable; */
 		height: 100vh;
@@ -601,10 +619,10 @@
 		z-index: -1;
 		pointer-events: none;
 		background-image: linear-gradient(
-			180deg,
-			rgba(0, 0, 0),
-			rgba(0, 0, 0),
-			color-mix(in srgb, var(--bg-color) 30%, transparent)
+			130deg,
+			color-mix(in srgb, var(--primary-color) 10%, black),
+			rgba(0, 0, 0) 50%,
+			color-mix(in srgb, var(--bg-color) 25%, black)
 		);
 		background-size: 100% 150%;
 		content: '';
