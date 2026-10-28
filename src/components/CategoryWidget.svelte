@@ -5,6 +5,7 @@
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
+	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 	import {
 		deleteProfileById,
 		getArticlesWithoutProfile,
@@ -136,7 +137,9 @@
 							src={article.thumbnailSrc}
 							alt="Article"
 							class="mini-img"
-							style={`view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`}
+							style={VIEW_TRANSITIONS_ENABLED
+								? `view-transition-name: vt-main-image-${toVTName(article.url ?? '')}`
+								: undefined}
 						/>
 					</button>
 				{/each}

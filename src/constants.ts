@@ -17,6 +17,15 @@ export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
 /** Width of the edge fade overlays of a wheel (any CSS length). */
 export const WHEEL_FADE_WIDTH = '8%';
 
+/**
+ * Shift+wheel history navigation (see `installWheelHistoryNavigation`). One
+ * gesture moves a single step: the deltas accumulate until they pass
+ * `WHEEL_NAVIGATION_MIN_DELTA_PX`, then the gesture re-arms only after the
+ * wheel has been quiet for `WHEEL_NAVIGATION_QUIET_MS`.
+ */
+export const WHEEL_NAVIGATION_MIN_DELTA_PX = 24;
+export const WHEEL_NAVIGATION_QUIET_MS = 140;
+
 /** Thumbnail preset used by the entity cards of the grid. */
 export const ENTITY_ARTICLE_THUMBNAIL = 'sm';
 /** Gap between article grid cells inside an EntityCard (px). */

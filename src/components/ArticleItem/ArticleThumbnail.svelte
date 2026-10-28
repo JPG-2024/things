@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { toThumbnailVTName } from '@/lib/utils/url';
+	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import ArticleTitle from './ArticleTitle.svelte';
 
@@ -38,16 +39,21 @@
 		class="article-thumbnail"
 		loading="lazy"
 		decoding="async"
-		style={`view-transition-name: ${toThumbnailVTName(url ?? '')}`}
+		style={VIEW_TRANSITIONS_ENABLED
+			? `view-transition-name: ${toThumbnailVTName(url ?? '')}`
+			: undefined}
 	/>
 {/snippet}
 
 <!-- The container owns the box (fluid 16:9 or an explicit width/height) and is a
 	query container, so the placeholder title sizes itself with `cqi` in every
-	ArticleItem layout without any JS measurement. -->
+	ArticleItem layout without any JS measurement. The query container is only
+	needed for the placeholder: with an image there is no `cqi` to resolve, and
+	a wheel of entity cards mounts one container per thumbnail. -->
 <div
 	class="article-thumbnail-container"
 	class:sized
+	class:placeholder={!src}
 	style={sized ? `width: ${width}px; height: ${height}px;` : undefined}
 >
 	{#if unread}
@@ -78,6 +84,10 @@
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
 		border-radius: var(--radius-sm);
+	}
+
+	/* Only the placeholder resolves `cqi` units. */
+	.article-thumbnail-container.placeholder {
 		container-type: inline-size;
 	}
 

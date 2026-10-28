@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Card from '@/components/Card.svelte';
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
-	import { ENTITY_CARD_GAP_PX } from '@/constants';
+	import { ENTITY_ARTICLE_THUMBNAIL, ENTITY_CARD_GAP_PX } from '@/constants';
 	import { articleCapacity } from '@/lib/utils/cardLayout';
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { Snippet } from 'svelte';
@@ -60,7 +60,7 @@
 				<ArticleItem
 					{article}
 					thumbnailOnly
-					thumbnailSize="sm"
+					thumbnailSize={ENTITY_ARTICLE_THUMBNAIL}
 					unread={unread && !article.viewed}
 					tooltip={article.title ?? null}
 					onClick={onArticleClick}

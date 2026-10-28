@@ -10,7 +10,7 @@
 		voiceSettingsState,
 		articleFilters
 	} from '@/stores/viewStore.svelte';
-	import type { RawSearchResult } from '@/stores/viewStore.svelte';
+	import type { AiProvider, RawSearchResult } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 	import type { ProfileArticleTabId } from '@/stores/tabAnimationStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
@@ -24,6 +24,7 @@
 		type WebStoreArticleRecord
 	} from '@/stores/webStore';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
+	import Tabs from '@/components/Tabs.svelte';
 	import Tooltip from '@/components/Tooltip.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
@@ -41,6 +42,15 @@
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
 	import DomainsTab from './tabs/DomainsTab.svelte';
+
+	// Header provider switch: icon-only pills backed by the same
+	// `viewState.aiProvider` the Settings modal writes, so both stay in sync.
+	// Lucide has no brand logos, so each provider gets a representative icon.
+	const AI_PROVIDER_TABS = [
+		{ id: 'llama', label: 'Llama (local)', icon: 'Cpu' },
+		{ id: 'openrouter', label: 'OpenRouter', icon: 'Route' },
+		{ id: 'opencode', label: 'OpenCode Go', icon: 'Terminal' }
+	];
 
 	function rgbToHex(rgb: string): string {
 		const match = rgb.match(/\d+/g);
@@ -427,6 +437,14 @@
 	</div>
 	<div class="toolbar-row tabs-row">
 		<ProfileArticleTabs />
+		<ToolbarDivider />
+		<Tabs
+			tabs={AI_PROVIDER_TABS}
+			activeTab={viewState.aiProvider}
+			onTabChange={(id) => (viewState.aiProvider = id as AiProvider)}
+			iconOnly
+			iconSize={18}
+		/>
 	</div>
 </div>
 
@@ -511,10 +529,10 @@
 		min-width: 0;
 		overflow: hidden;
 		background-image: linear-gradient(
-			90deg,
+			145deg,
 			rgba(0, 0, 0) 0%,
 			color-mix(in srgb, var(--primary-color) 15%, transparent) 20%,
-			color-mix(in srgb, var(--bg-color) 10%, black) 45%,
+			color-mix(in srgb, var(--bg-color) 12%, black) 45%,
 			transparent 65%,
 			transparent 100%
 		);

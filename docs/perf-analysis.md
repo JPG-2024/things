@@ -86,9 +86,21 @@ Menores: `coinSound.ts` (AudioContext por sonido, `onended` puede no dispararse 
 
 - **`src/components/MasonryGrid.svelte`**: sin virtualización — `{#each renderedItems}` (L399) pinta todo; cualquier cambio de items dispara `observeAll()` completo + ~4 pasadas O(N) de `getBoundingClientRect` por ciclo de resize (2×rAF + settle 250 ms + `fonts.ready`). Con scroll infinito (`LoadMoreSentinel`), el set renderizado crece sin límite. Resize de ventana = O(N)/frame.
 - **Streaming O(n²)**: `onToken` re-renderiza el markdown completo por token (`taskRunner.svelte.ts:460-472` → `MarkdownRenderer` re-corre `md.render(fullText)`); `ChatModal.svelte:120-126` hace `scrollToBottom()` por token (tick + lectura de `scrollHeight` = forced layout por token).
-- `ArticleThumbnail.svelte:35-40` sin `loading="lazy"`/`decoding="async"` → todas las imágenes cargan eager.
+- `ArticleThumbnail.svelte:35-40` ya lleva `loading="lazy"`/`decoding="async"` (corregido; esta línea estaba obsoleta).
 - Búsqueda sin límite: `search_raw_content` (`web_store.rs:2311-2395`) lee cada archivo de `raw_content/` completo y devuelve todos los matches.
 - Doble búsqueda: `handleSearchInContent()` (`+page.svelte:116-120`) corre la búsqueda y además flippea `unifiedFilter`, cuyo `$effect` re-corre la misma búsqueda 1 s después.
+
+#### Wheel horizontal (tabs de entidades)
+
+El scroll lateral de `ProfileList` perdía frames. Causas corregidas:
+
+- **~120 `backdrop-filter` por pantalla**: `EntityCard` pasa `tooltip={article.title}` a cada artículo → `ArticleThumbnail` montaba un `Tooltip` por thumbnail → cada uno appendía a `document.body` un `<span position:fixed backdrop-filter:blur(8px)>` (invisible, `opacity:0`, pero sigue componiéndose) y registraba un listener de `mousemove` de window. El `backdrop-filter` es lo que forzaba el re-filtrado del fondo por frame. Ahora el tooltip no usa `backdrop-filter` y se marca `visibility:hidden` cuando no está visible (sigue en el DOM porque el portal a `body` depende de él).
+- **Máscara en el scroller**: `.wheel-stage` usaba `mask-image` sobre el elemento que scrollea, con un track `width:max-content`. Ahora el fade de bordes son dos overlays `position:absolute` (capas estáticas).
+- **`scroll-behavior: smooth` + `scrollLeft +=`**: cada tick de rueda re-apuntaba una animación de ~500px → el strip se movía a saltos. Ahora el scroll es instantáneo (`scrollBy`) y `smooth` solo se pide explícitamente.
+- **`view-transition-name` por thumbnail**: inerte (`VIEW_TRANSITIONS_ENABLED = false`, el `startViewTransition` hace SIGSEGV en WebKitGTK) pero marcaba ~120 elementos. Ahora solo se aplica con el flag activo.
+- **Virtualización por columnas**: `ProfileList` solo monta las columnas visibles (±1). El rango se calcula aritméticamente (`lib/utils/wheelLayout.ts`) porque las columnas miden siempre lo mismo, y la banda tiene altura fija (`entityCardBandHeight`) para que las filas del grid no cambien de alto al hacer scroll.
+
+Pendiente: `MasonryGrid` (scroll vertical de la tab Articles) sigue sin virtualizar.
 
 ### Arranque
 

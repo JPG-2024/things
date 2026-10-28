@@ -21,12 +21,14 @@
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import { hashText } from '@/lib/utils/ttsTargets';
 	import { installTargetPointerTracking } from '@/lib/utils/ttsTargetTracker';
+	import { installWheelHistoryNavigation } from '@/lib/utils/wheelHistoryNavigation';
 
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import ChatModal from '@/components/ChatModal.svelte';
+	import DevFps from '@/components/DevFps.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		GLOBAL_CLIPBOARD_TRIGGER_EVENT,
@@ -37,6 +39,7 @@
 	import Button from '@/components/inputs/Button.component.svelte';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { recordNavigation } from '@/stores/navigationHistory.svelte';
+	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 	import { page } from '$app/state';
 
 	let { children } = $props();
@@ -128,8 +131,10 @@
 	// WebKitGTK 2.52.6 (Ubuntu 26.04) regardless of
 	// WEBKIT_DISABLE_DMABUF_RENDERER. Flip to true once Ubuntu ships a patched
 	// WebKitGTK; the morph anchors (toThumbnailVTName) are already in place.
-	const VIEW_TRANSITIONS_ENABLED = false;
-
+	//
+	// The flag lives in `lib/utils/vtNames` because the `view-transition-name`
+	// anchors are only applied while it is on: marking every thumbnail of a
+	// wheel costs compositing work for nothing.
 	onNavigate((navigation) => {
 		if (!VIEW_TRANSITIONS_ENABLED) return;
 		if (!document.startViewTransition) return;
@@ -355,6 +360,11 @@
 	});
 
 	onMount(() => {
+		// Shift+wheel walks the in-app history (down = back, up = forward).
+		return installWheelHistoryNavigation();
+	});
+
+	onMount(() => {
 		let unlisten: (() => void) | undefined;
 		let disposed = false;
 
@@ -387,6 +397,8 @@
 >
 	{@render children()}
 </main>
+
+<DevFps />
 
 {#if shortcutPromptVisible}
 	<aside class="shortcut-prompt" role="region" aria-label="Global clipboard shortcut">
@@ -553,13 +565,13 @@
 		box-sizing: border-box;
 		margin: 0;
 		overflow-y: auto;
-		scrollbar-gutter: stable;
+		/* scrollbar-gutter: stable; */
 		height: 100vh;
 		/* scroll-behavior: smooth removed: it glided every programmatic scroll
 		 * (goto, scrollIntoView, anchor restores) over many frames, reading as
 		 * lag after navigation. scroll-padding-top still applies. */
 		scroll-padding-top: 5rem;
-		transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
+		/* transition: filter 300ms cubic-bezier(0.4, 0, 0.2, 1); */
 		border-bottom: none;
 		border-top: none;
 	}

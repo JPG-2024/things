@@ -26,6 +26,9 @@ export interface RawSearchResult {
 
 export type ArticleContentMode = 'both' | 'thumbnail' | 'title';
 
+// Where inference requests are sent: local llama.cpp, OpenRouter, or OpenCode Go.
+export type AiProvider = 'llama' | 'openrouter' | 'opencode';
+
 // Reasoning effort for ChatModal requests; 'none' disables thinking and each
 // non-none level is forwarded as-is to the selected provider.
 export type ChatReasoningEffort = 'none' | 'low' | 'medium' | 'high';
@@ -169,7 +172,7 @@ class ViewState {
 
 	messages = $state<Message[]>([]);
 
-	aiProvider = $state<'llama' | 'openrouter' | 'opencode'>('llama');
+	aiProvider = $state<AiProvider>('llama');
 	aiUrl = $state<string>('');
 	aiModel = $state('liquid/lfm-2.5-1.2b-thinking:free');
 	// OpenCode Go provider: model id from https://opencode.ai/inference/v1/models.

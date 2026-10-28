@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { toVTName } from '@/lib/utils/url';
+	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 
 	type Props = {
 		src: string;
@@ -17,7 +18,9 @@
 			{src}
 			{alt}
 			class="image"
-			style={`view-transition-name: vt-main-image-${toVTName(transitionKey)}`}
+			style={VIEW_TRANSITIONS_ENABLED
+				? `view-transition-name: vt-main-image-${toVTName(transitionKey)}`
+				: undefined}
 		/>
 	</div>
 {/if}

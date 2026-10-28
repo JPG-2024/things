@@ -77,9 +77,19 @@
 	function handleMouseMove() {
 		if (isHovered) updatePosition();
 	}
-</script>
 
-<svelte:window onmousemove={handleMouseMove} />
+	// The window listener only exists while the pointer is over the tooltip.
+	// A wheel of entity cards mounts one Tooltip per thumbnail, so a listener
+	// per instance multiplied the mousemove cost by the number of cards.
+	// (`<svelte:window>` cannot be placed inside a block, so it is bound by
+	// hand.)
+	$effect(() => {
+		if (!isHovered) return;
+		const onMove = () => handleMouseMove();
+		window.addEventListener('mousemove', onMove);
+		return () => window.removeEventListener('mousemove', onMove);
+	});
+</script>
 
 <div
 	bind:this={wrapperEl}
@@ -110,12 +120,14 @@
 
 	.tooltip {
 		position: fixed;
-		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
 		border: none;
 		border-radius: var(--radius-sm);
-		background: black;
+		/* No backdrop-filter: the tooltip is portaled to `document.body`, so a
+		   wheel of entity cards puts ~120 of these on the page at once and the
+		   compositor re-blurs the backdrop on every frame. */
+		background: rgba(0, 0, 0, 0.92);
 
 		color: var(--gray-100);
 		padding: 0.4rem 0.7rem;
@@ -130,13 +142,19 @@
 		transform: translate(-50%, -100%);
 		margin-top: -8px;
 		opacity: 0;
-		transition: opacity 0.15s;
+		/* Hidden means "not painted": the element stays in the DOM (the body
+		   portal depends on it) but costs no layer and no compositing work. */
+		visibility: hidden;
+		transition:
+			opacity 0.15s,
+			visibility 0.15s;
 		word-wrap: break-word;
 		font-weight: bold;
 	}
 
 	.tooltip.visible {
 		opacity: 1;
+		visibility: visible;
 	}
 
 	.tooltip-bottom {
