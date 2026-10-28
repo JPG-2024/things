@@ -10,16 +10,16 @@ Fecha: 2026-10-21 · Scope: frontend SvelteKit/Svelte 5 + Tauri v2 · Verificado
 
 Lo verificado en `src/routes/+layout.svelte`:
 
-| Componente | Montaje | ¿Se desmonta al cerrar? |
-|---|---|---|
-| `PodcastMode`, `ConversationMode`, `ChatModal`, `DownloadModal` | `{#if ...}` | ✅ Sí, se destruyen |
-| `SettingsModal`, `PodcastSettings` | dentro de `<Modal show={...}>` → internamente `{#if show}` | ✅ Sí |
-| `ConversationSettings` | dentro de `<Drawer>` → `{#if isOpen}` | ✅ Sí |
-| `TTSPlayer` | sin condición | ❌ Siempre montado (solo se oculta visualmente) |
-| `FloatingYouTubePlayer` | sin condición | ❌ Siempre montado |
-| `TaskWorkflowEditor` | sin condición | ❌ Siempre montado |
+| Componente                                                      | Montaje                                                    | ¿Se desmonta al cerrar?                         |
+| --------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `PodcastMode`, `ConversationMode`, `ChatModal`, `DownloadModal` | `{#if ...}`                                                | ✅ Sí, se destruyen                             |
+| `SettingsModal`, `PodcastSettings`                              | dentro de `<Modal show={...}>` → internamente `{#if show}` | ✅ Sí                                           |
+| `ConversationSettings`                                          | dentro de `<Drawer>` → `{#if isOpen}`                      | ✅ Sí                                           |
+| `TTSPlayer`                                                     | sin condición                                              | ❌ Siempre montado (solo se oculta visualmente) |
+| `FloatingYouTubePlayer`                                         | sin condición                                              | ❌ Siempre montado                              |
+| `TaskWorkflowEditor`                                            | sin condición                                              | ❌ Siempre montado                              |
 
-El problema real no es el DOM montado, es el **código**: el chunk del layout (`nodes/0…js`, 179 KB) incluye el código de *todos* estos componentes (podcast, conversación, chat, settings) porque los importa estáticamente, y todo a su vez arrastra el chunk monolítico.
+El problema real no es el DOM montado, es el **código**: el chunk del layout (`nodes/0…js`, 179 KB) incluye el código de _todos_ estos componentes (podcast, conversación, chat, settings) porque los importa estáticamente, y todo a su vez arrastra el chunk monolítico.
 
 ---
 
@@ -27,12 +27,12 @@ El problema real no es el DOM montado, es el **código**: el chunk del layout (`
 
 ### Cliente (build/ = 9.7 MB; JS: 28 archivos, 5.1 MB raw / 437 KB gzip)
 
-| Culpable | Peso | Causa |
-|---|---|---|
+| Culpable             | Peso                          | Causa                                                                                                                                                                                                                                                                                                 |
+| -------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`@lucide/svelte`** | **4.7 MB chunk (92% del JS)** | `import * as icons from '@lucide/svelte'` en `src/components/Icon.svelte:2` mata el tree-shaking: los 1,689 íconos van al bundle, todo eager en el arranque. El chunk (`BbFnvJV_.js`) es importado por el entry SPA y por todos los node chunks → el lazy-loading de rutas de SvelteKit queda anulado |
-| `openai` SDK | ~300 KB | import estático en `src/lib/utils/inference/chat-completions-provider.ts:1` |
-| `markdown-it` | 141 KB | import estático desde `MarkdownRenderer`, que importa el layout |
-| Fuentes TTF | **4.3 MB** | `BetterVCR 25.09.ttf` (2.7 MB), `MonaspaceXenonFrozen-Light` (820 KB), `MonaspaceXenonFrozen-Bold` (817 KB — **ni siquiera se usa**, la var `--font-primary-bold` no se referencia en ningún lado) |
+| `openai` SDK         | ~300 KB                       | import estático en `src/lib/utils/inference/chat-completions-provider.ts:1`                                                                                                                                                                                                                           |
+| `markdown-it`        | 141 KB                        | import estático desde `MarkdownRenderer`, que importa el layout                                                                                                                                                                                                                                       |
+| Fuentes TTF          | **4.3 MB**                    | `BetterVCR 25.09.ttf` (2.7 MB), `MonaspaceXenonFrozen-Light` (820 KB), `MonaspaceXenonFrozen-Bold` (817 KB — **ni siquiera se usa**, la var `--font-primary-bold` no se referencia en ningún lado)                                                                                                    |
 
 No hay `manualChunks` en `vite.config.js`. No se usan transformers.js/onnx/tensorflow/pdfjs: los embeddings corren en `llama-server` externo vía HTTP.
 
@@ -114,12 +114,14 @@ Pendiente: `MasonryGrid` (scroll vertical de la tab Articles) sigue sin virtuali
 ## 5. Complejidad innecesaria / código muerto
 
 **Archivos muertos (0 imports):**
+
 - `src-tauri/src/chromadb.rs` (145 líneas; referencia módulos inexistentes — no compilaría si se declarara), `download_media copy.rs`.
 - `src/lib/apiListeners.ts`, `src/lib/listeners/markdownListener.ts`, `metadataListener.ts`, `src/lib/types/flowStatus.ts`.
 - Componentes: `TextNode.svelte`, `InstantResponse.svelte`, `LoadingStack.svelte`, `CategoryWidget.svelte`, `CompletionOptionsPanel.svelte`, `Tasks/TasksStatusBar.svelte`, `Tasks/CreateTaskForm.svelte`, `Tasks/TaskRerunEditor.svelte` (398 líneas), `inputs/fields/RangeField`, `TextareaField`.
 - `src/routes/api/chunk/+server.ts` (server route en SPA estática), `src/lib/utils/LEGACY/*` (en el árbol de `src/**`, type-checked), `webStore.getArticles()`.
 
 **Duplicación / sobre-abstracción:**
+
 - Ladder de 5 estados de task duplicado ×2 en `TasksRender.svelte` (~120 líneas).
 - Estado de voz triplicado: `ttsState.voiceChunks/config` + `useVoiceProfiles` + `mainVoiceState`.
 - `workflowManager.svelte.ts`: ~9 pass-throughs 1:1 a `workflowStore`; `toErrorMessage` duplicado; tipo `WorkflowTaskStackEntry` duplicado.
@@ -129,6 +131,7 @@ Pendiente: `MasonryGrid` (scroll vertical de la tab Articles) sigue sin virtuali
 **Logs ruidosos:** `helpers/tasks.ts:43`, `embeddingTasks.ts:318,332`, `chat-completions-provider.ts:503` (loguea el mensaje del usuario), `AskComponent.svelte:173,176` (token por token), `micService.ts`, `recursiveTask.ts:366`.
 
 **Anti-patrones Svelte 5:**
+
 - `paginationResource.svelte.ts:13` — `items = $state<TItem[]>([])` (deep-proxy) sobre arrays que solo se reemplazan wholesale; `$state.raw` bastaría.
 - `viewStore.svelte.ts:236` — `rawSearchResults = $state(null)` con deep-proxy sobre cada match.
 - `workflowStore.svelte.ts:31` — `SvelteMap` deep-reactivo de runs con payloads grandes; cada mutación de task reconstruye 4 arrays derivados.
@@ -139,6 +142,7 @@ Pendiente: `MasonryGrid` (scroll vertical de la tab Articles) sigue sin virtuali
 ## 6. Plan de mejoras propuesto (por impacto/esfuerzo)
 
 **Fase 1 — Bundle ligero (el 90% del peso):**
+
 1. `Icon.svelte`: reemplazar `import *` por registro explícito de solo los íconos usados → **4.7 MB → ~30 KB**.
 2. Fuentes: convertir TTF → WOFF2 subset y borrar la Bold no usada → **4.3 MB → ~300 KB**.
 3. Dynamic `import()` para `PodcastMode`, `ConversationMode`, `ChatModal`, `openai`, `markdown-it` → el arranque solo carga lo visible.
