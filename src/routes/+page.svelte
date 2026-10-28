@@ -534,7 +534,7 @@
 			145deg,
 			rgba(0, 0, 0) 0%,
 			color-mix(in srgb, var(--primary-color) 15%, transparent) 20%,
-			color-mix(in srgb, var(--bg-color) 12%, black) 45%,
+			color-mix(in srgb, var(--bg-color) 12%, black) 20%,
 			transparent 65%,
 			transparent 100%
 		);

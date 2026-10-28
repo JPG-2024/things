@@ -65,7 +65,7 @@
 		grid-template-columns: repeat(var(--grid-cols-narrow, 2), minmax(0, 1fr));
 		gap: 1rem;
 		width: 100%;
-		padding-inline: 2rem;
+		padding-inline: 4rem;
 		padding-bottom: 4rem;
 		box-sizing: border-box;
 	}

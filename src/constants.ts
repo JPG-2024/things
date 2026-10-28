@@ -15,7 +15,7 @@ export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
 export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
 
 /** Width of the edge fade overlays of a wheel (any CSS length). */
-export const WHEEL_FADE_WIDTH = '8%';
+export const WHEEL_FADE_WIDTH = '10%';
 
 /**
  * Shift+wheel history navigation (see `installWheelHistoryNavigation`). One
