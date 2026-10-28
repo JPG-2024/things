@@ -5,13 +5,22 @@
 
 	interface Props {
 		content?: string | null;
+		/** CSS font-size del contenedor. Un número se interpreta como rem. */
 		fontSize?: string | number;
 	}
 
 	export type MarkdownRendererProps = Props;
-	const DEFAULT_FONT_SIZE = 0.7;
 
-	let { content, fontSize = DEFAULT_FONT_SIZE }: Props = $props();
+	let { content, fontSize }: Props = $props();
+
+	/**
+	 * Explicit override only. When undefined the container falls back to
+	 * `--markdown-font-size` (mirrored app-wide from Settings → Reading in
+	 * `+layout.svelte`), then to the local `0.8rem` in the stylesheet.
+	 */
+	const resolvedFontSize = $derived(
+		fontSize == null ? undefined : typeof fontSize === 'number' ? `${fontSize}rem` : fontSize
+	);
 
 	let container: HTMLDivElement | undefined = $state();
 	/** Id stamped on the container so the pointer tracker can find this block. */
@@ -68,8 +77,13 @@
 </script>
 
 {#if content}
-	<!-- apply computed font size -->
-	<div class="markdown-container" data-tts-target={targetId} bind:this={container}>
+	<!-- inline font-size only when the `fontSize` prop is passed -->
+	<div
+		class="markdown-container"
+		style:font-size={resolvedFontSize}
+		data-tts-target={targetId}
+		bind:this={container}
+	>
 		{@html md.render(preprocessContent(content))}
 	</div>
 {/if}
@@ -83,7 +97,11 @@
 		text-align: left;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-		font-size: 0.8rem;
+		/* Order of precedence: inline `fontSize` prop > `--markdown-font-size`
+		 * set by an ancestor (mirrored app-wide in `+layout.svelte`) > this
+		 * fallback. Inner rules that carry their own size use `em` so they
+		 * scale with the container. */
+		font-size: var(--markdown-font-size, 0.8rem);
 	}
 
 	.markdown-container :global(thead th) {
@@ -124,33 +142,33 @@
 	.markdown-container :global(h5),
 	.markdown-container :global(h6) {
 		font-weight: bold;
+		color: var(--primary-color);
 	}
 
 	.markdown-container :global(h2) {
 		font-family: var(--font-secondary);
-		font-size: 0.9rem;
+		/* em so it tracks the container (was 0.9rem on a 0.8rem base). */
+		font-size: 1.125em;
 		padding-top: 2rem;
 		padding-bottom: 1.2rem;
 	}
 
 	.markdown-container :global(p) {
-		color: var(--gray-200);
+		font-family: var(--font-secondary);
+		color: var(--gray-300);
 		margin: 0.8rem;
-		line-height: 1.9;
+		line-height: 2.2;
 	}
 
 	.markdown-container :global(code) {
 		border-radius: var(--radius-sm);
-
 		padding: 2px 6px;
 		color: #fafafa;
 	}
 
 	.markdown-container :global(pre) {
-		margin: 1rem 0;
-
+		margin: 1em 0;
 		border-radius: var(--radius-md);
-
 		padding: 15px;
 		overflow-x: auto;
 	}
@@ -202,87 +220,6 @@
 	}
 
 	.markdown-container :global(img) {
-		margin: 1rem 0;
-		border-radius: var(--radius-md);
-		height: auto;
-	}
-
-	.markdown-container :global(table) {
-		margin: 1rem 0;
-		border-collapse: collapse;
-		width: 100%;
-	}
-
-	.markdown-container :global(th),
-	.markdown-container :global(td) {
-		border: 1px solid var(--bg-color);
-		padding: 0.714rem;
-		text-align: left;
-	}
-
-	.markdown-container :global(th) {
-		background-color: rgba(33, 207, 117, 0.1);
-		font-family: var(--font-secondary);
-	}
-
-	.markdown-container :global(code) {
-		border-radius: var(--radius-sm);
-
-		padding: 2px 6px;
-		color: #fafafa;
-	}
-
-	.markdown-container :global(pre) {
-		margin: 1em 0;
-
-		border-radius: var(--radius-md);
-
-		padding: 15px;
-		overflow-x: auto;
-	}
-
-	.markdown-container :global(pre code) {
-		border-radius: 0;
-		background-color: transparent;
-		padding: 0;
-		white-space: pre-wrap;
-		word-wrap: break-word;
-		overflow-wrap: break-word;
-	}
-
-	.markdown-container :global(a) {
-		text-decoration: underline;
-	}
-
-	.markdown-container :global(p) {
-	}
-
-	.markdown-container :global(ul),
-	.markdown-container :global(ol) {
-		margin: 1rem 0 1rem 2rem;
-		padding: 0;
-	}
-
-	.markdown-container :global(ul) {
-		margin-left: 24px;
-	}
-
-	.markdown-container :global(li) {
-		margin: 0.5rem 0;
-	}
-
-	.markdown-container :global(blockquote) {
-		margin: 1rem 0;
-		padding-left: 1rem;
-		color: #d0d0d0;
-		font-style: italic;
-	}
-
-	.markdown-container :global(em) {
-		font-style: italic;
-	}
-
-	.markdown-container :global(img) {
 		margin: 1em 0;
 		border-radius: var(--radius-md);
 		height: auto;
@@ -303,13 +240,7 @@
 
 	.markdown-container :global(th) {
 		background-color: rgba(33, 207, 117, 0.1);
+		font-family: var(--font-secondary);
 		font-weight: bold;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		:root {
-			background-color: #2f2f2f;
-			color: #f6f6f6;
-		}
 	}
 </style>

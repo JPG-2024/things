@@ -112,6 +112,7 @@ function serializeView() {
 		chatSearchMaxDistance: viewState.chatSearchMaxDistance,
 		windowLevel: viewState.windowLevel,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
+		markdownFontSize: viewState.markdownFontSize,
 		primaryColor: viewState.primaryColor,
 		backgroundColor: viewState.backgroundColor,
 		toggles: {
@@ -237,6 +238,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);
+	}
+	if (typeof raw.markdownFontSize === 'number') {
+		viewState.setMarkdownFontSize(raw.markdownFontSize);
 	}
 	if (typeof raw.primaryColor === 'string') viewState.primaryColor = raw.primaryColor;
 	if (typeof raw.backgroundColor === 'string') viewState.backgroundColor = raw.backgroundColor;

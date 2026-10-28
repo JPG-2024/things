@@ -3,6 +3,7 @@
 	import type { ProfileStackCell } from '@/lib/utils/articleGridCells';
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
+	import ArticleTitle from '@/components/ArticleItem/ArticleTitle.svelte';
 
 	interface Props {
 		cell: ProfileStackCell;
@@ -33,9 +34,7 @@
 		// thumb sits at the right side, tilted a little to the left.
 		// translateX(22%) is relative to the layer's own width (82% of the
 		// pile), landing its right edge flush with the pile's right side.
-		if (total === 2) {
-			return index === 0 ? 'z-index: 2;' : 'transform: translateX(22%) rotate(-3deg); z-index: 1;';
-		}
+
 		const depth = index;
 		const x = depth * 20;
 		const y = depth * 10;
@@ -45,7 +44,11 @@
 </script>
 
 {#snippet layer(article: ArticleRecord, index: number, total: number)}
-	<div class="articles-stack__layer" style={layerStyle(index, total)}>
+	<div
+		class="articles-stack__layer"
+		class:placeholder={!article.thumbnailSrc}
+		style={layerStyle(index, total)}
+	>
 		{#if index === 0 && frontArticle && !frontArticle.viewed}
 			<span class="articles-stack__unread-dot" aria-hidden="true"></span>
 		{/if}
@@ -54,8 +57,12 @@
 		{:else}
 			<div
 				class="articles-stack__fallback"
-				style={`background: ${article.primaryColor ?? article.mainColor ?? 'var(--bg-color)'};`}
-			></div>
+				style={`background: ${article.primaryColor ?? article.mainColor ?? 'var(--gray-900)'};`}
+			>
+				{#if article.title}
+					<ArticleTitle title={article.title.slice(0, 80)} />
+				{/if}
+			</div>
 		{/if}
 	</div>
 {/snippet}
@@ -177,6 +184,11 @@
 		border: 1px solid var(--article-border);
 	}
 
+	/* Only the placeholder resolves `cqi` units (mirrors ArticleThumbnail). */
+	.articles-stack__layer.placeholder {
+		container-type: inline-size;
+	}
+
 	.articles-stack__layer img {
 		width: 100%;
 		height: 100%;
@@ -185,8 +197,19 @@
 	}
 
 	.articles-stack__fallback {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 100%;
 		height: 100%;
+		padding: 0.4rem;
+		border: 2px solid var(--gray-300);
+
+		color: rgba(255, 255, 255, 0.75);
+		font-size: clamp(0.5rem, 10cqi, 0.7rem);
+		line-height: 1.15;
+		text-align: center;
+		overflow: hidden;
 	}
 
 	/* Front-thumbnail unread marker: kept inside the layer's rounded corner

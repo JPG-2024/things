@@ -4,6 +4,9 @@ import {
 	CARD_LAYOUT_DEFAULTS,
 	ENTITY_GRID_COLUMNS_MAX,
 	ENTITY_GRID_COLUMNS_MIN,
+	MARKDOWN_FONT_SIZE_DEFAULT,
+	MARKDOWN_FONT_SIZE_MAX,
+	MARKDOWN_FONT_SIZE_MIN,
 	type CardLayout,
 	type CardTab
 } from '@/constants';
@@ -307,6 +310,19 @@ class ViewState {
 	filtersPanelWidth = $state(400);
 	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
 	rawSearchLastPattern = $state('');
+	/**
+	 * Base font size of every MarkdownRenderer (rem). `+layout.svelte` mirrors
+	 * it onto the `--markdown-font-size` custom property, so the component's
+	 * inner styles scale from the container. Tuned in Settings → Reading.
+	 */
+	markdownFontSize = $state(MARKDOWN_FONT_SIZE_DEFAULT);
+
+	/** Updates the markdown base font size, clamped onto its bounds. */
+	setMarkdownFontSize(value: number): void {
+		const next = Number.isFinite(value) ? value : MARKDOWN_FONT_SIZE_DEFAULT;
+		const clamped = Math.min(MARKDOWN_FONT_SIZE_MAX, Math.max(MARKDOWN_FONT_SIZE_MIN, next));
+		this.markdownFontSize = Math.round(clamped * 100) / 100;
+	}
 
 	isYouTube = $derived(
 		this.url && /^https?:\/\//.test(this.url)

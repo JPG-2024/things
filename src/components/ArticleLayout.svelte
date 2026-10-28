@@ -229,7 +229,7 @@
 
 	.article-title {
 		font-family: var(--font-secondary);
-		font-size: 1.2rem;
+		font-size: 1.1rem;
 		margin-right: auto;
 		width: 100%;
 		padding: 1rem 0;

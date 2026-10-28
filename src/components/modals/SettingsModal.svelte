@@ -8,6 +8,7 @@
 	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
 	import FieldsRow from '@/components/inputs/fields/FieldsRow.component.svelte';
 	import NumberField from '@/components/inputs/fields/NumberField.component.svelte';
+	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import TextField from '@/components/inputs/fields/TextField.component.svelte';
 	import ToggleField from '@/components/inputs/fields/ToggleField.component.svelte';
 	import { viewState } from '../../stores/viewStore.svelte';
@@ -20,6 +21,9 @@
 		CARD_ROW_MIN,
 		ENTITY_GRID_COLUMNS_MAX,
 		ENTITY_GRID_COLUMNS_MIN,
+		MARKDOWN_FONT_SIZE_MAX,
+		MARKDOWN_FONT_SIZE_MIN,
+		MARKDOWN_FONT_SIZE_STEP,
 		type CardTab
 	} from '@/constants';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
@@ -689,6 +693,24 @@
 				tooltip="Downscale factor applied to generated thumbnails."
 				bind:value={viewState.thumbnailReductionMagnitud}
 			/>
+		</div>
+	</Spacer>
+	<Spacer title="Reading" icon="Type">
+		<div class="inference-section">
+			<RangeSelector
+				id="markdown-font-size"
+				label="Markdown font size"
+				min={MARKDOWN_FONT_SIZE_MIN}
+				max={MARKDOWN_FONT_SIZE_MAX}
+				step={MARKDOWN_FONT_SIZE_STEP}
+				format={(v) => `${v.toFixed(2)} rem`}
+				value={viewState.markdownFontSize}
+				onChange={(v) => viewState.setMarkdownFontSize(v)}
+			/>
+			<p class="helper-text">
+				Applies to every rendered markdown block: article windows, summaries, chat and the
+				full-content modal.
+			</p>
 		</div>
 	</Spacer>
 	<Spacer title="Global shortcut" icon="Keyboard">

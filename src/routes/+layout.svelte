@@ -99,6 +99,16 @@
 		document.documentElement.style.setProperty('--bg-color', bgColor);
 	});
 
+	// Markdown base font size (Settings → Reading): mirrored as a custom
+	// property so every MarkdownRenderer scales its container and inner styles
+	// follow, without prop drilling.
+	$effect(() => {
+		document.documentElement.style.setProperty(
+			'--markdown-font-size',
+			`${viewState.markdownFontSize}rem`
+		);
+	});
+
 	// Glow switch: `html.glow-off` neutralizes text-shadow (blanket override
 	// below) and the `--glow-filter` icon drop-shadows.
 	$effect(() => {
@@ -529,7 +539,8 @@
 
 		--gray-100: rgb(219, 219, 219);
 		--gray-200: rgb(196, 194, 194);
-		--gray-300: rgb(118, 118, 118);
+		--gray-300: rgb(173, 172, 172);
+		--gray-900: rgb(12, 12, 12);
 
 		--article-border: rgba(120, 119, 119, 0.3);
 

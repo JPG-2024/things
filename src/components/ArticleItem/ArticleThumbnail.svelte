@@ -133,22 +133,6 @@
 		overflow: hidden;
 	}
 
-	.article-thumbnail-placeholder span {
-		display: -webkit-box;
-		-webkit-line-clamp: 4;
-		line-clamp: 4;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	.article-thumbnail-placeholder.initial span {
-		font-size: 2rem;
-		font-weight: bold;
-		line-height: 1;
-		-webkit-line-clamp: none;
-		line-clamp: none;
-	}
-
 	.sized .article-thumbnail-placeholder {
 		border-radius: var(--radius-sm);
 	}

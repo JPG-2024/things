@@ -49,6 +49,12 @@ export const CARD_COLUMN_MAX = 8;
 export const CARD_ROW_MIN = 1;
 export const CARD_ROW_MAX = 6;
 
+/** Tamaño base del markdown (rem). Expuesto en Settings → Reading. */
+export const MARKDOWN_FONT_SIZE_DEFAULT = 0.8;
+export const MARKDOWN_FONT_SIZE_MIN = 0.6;
+export const MARKDOWN_FONT_SIZE_MAX = 1.4;
+export const MARKDOWN_FONT_SIZE_STEP = 0.05;
+
 /**
  * BOOT-3: delay before the deferred llama autostart (see `+layout.svelte`),
  * so the model reconciliation and server spawn do not compete with the first

@@ -175,7 +175,7 @@
 		left: -100%;
 		width: 100%;
 		height: 2px;
-		background: linear-gradient(90deg, transparent, var(--bg-color, #7c6af7), transparent);
+		background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
 		opacity: 0;
 		transition: opacity 0.2s;
 	}

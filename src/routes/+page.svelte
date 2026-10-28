@@ -573,7 +573,7 @@
 		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 0.2rem 2rem 2rem;
+		padding: 0.2rem 2rem 3rem;
 		background: linear-gradient(
 			color-mix(in srgb, var(--primary-color), black 98%),
 			rgba(9, 9, 9, 1),
@@ -581,6 +581,7 @@
 			transparent
 		);
 		opacity: 1;
+		/* background-color: black; */
 		transition:
 			transform 250ms ease-out,
 			opacity 250ms ease-out,
