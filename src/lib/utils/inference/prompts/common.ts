@@ -1,2 +1,0 @@
-export const DEFAULT_IA_SYSTEM_MESSAGE =
-	'You are a helpful AI assistant. Respond concisely and accurately.';
