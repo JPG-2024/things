@@ -8,7 +8,8 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 import { compactMarkdown } from '@/lib/utils/splitter';
-import { downloadImageUrl, getMediaSrc, resolveMediaDirectory } from '@/lib/utils/files';
+import { extractArticle } from '@/lib/utils/articleExtractor';
+import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
@@ -109,10 +110,9 @@ export function youTubeVideoId(url: string): string | null {
 /**
  * Web source.
  *
- * The markdown comes for free with the extraction, so the body is always
- * available. The favicon and the `og:image` thumbnail are decoration: they
- * start here but resolve in the returned `decoration`, never in front of the
- * body.
+ * The extractor service returns the markdown and the title together, so the
+ * body is always available. The favicon is decoration: it starts here but
+ * resolves in the returned `decoration`, never in front of the body.
  */
 export async function fetchWebSource(url: string): Promise<SourceFetch> {
 	const source = emptySourceResult();
@@ -121,47 +121,16 @@ export async function fetchWebSource(url: string): Promise<SourceFetch> {
 	// The favicon only needs the domain, so it starts before the page fetch.
 	const faviconTask = downloadFavicon(domain);
 
-	const response = await invoke<{
-		metadata: Record<string, string>;
-		markdown: string;
-	}>('extract_blog', {
-		url,
-		selectors: ['body']
-	});
+	const article = await extractArticle(url);
 
-	const metadata = response.metadata ?? {};
-	source.text = compactMarkdown(response.markdown ?? '');
-
+	source.text = compactMarkdown(article.content);
+	source.title = article.title;
 	source.domain = domain || null;
 	source.profile = domain || null;
-	source.title = metadata['og:title'] || metadata['twitter:title'] || null;
-	source.date = metadata['article:published_time'] || metadata['og:published_time'] || null;
-
-	const imageUrl = metadata['og:image'] || metadata['twitter:image'];
-	const thumbnailTask = (async (): Promise<Partial<SourceResult>> => {
-		if (!imageUrl) return {};
-
-		const resolvedImageUrl = imageUrl.startsWith('/')
-			? `${new URL(url).origin}${imageUrl}`
-			: imageUrl;
-		try {
-			const mediaDirectory = await resolveMediaDirectory(url, domain || null);
-			const thumbnail = await invoke<string>('download_and_save_image', {
-				url: resolvedImageUrl,
-				folderName: mediaDirectory,
-				reductionMagnitud: viewState.thumbnailReductionMagnitud,
-				maxDimension: 1024
-			});
-			return { mediaDirectory, thumbnail, thumbnailSrc: await getMediaSrc(thumbnail) };
-		} catch (error) {
-			console.warn('[articleSources] thumbnail download failed', error);
-			return {};
-		}
-	})();
 
 	const decoration = (async (): Promise<Partial<SourceResult>> => {
-		const [favicon, thumbnail] = await Promise.all([faviconTask, thumbnailTask]);
-		return { profilePictureSrc: favicon?.src ?? null, ...thumbnail };
+		const favicon = await faviconTask;
+		return { profilePictureSrc: favicon?.src ?? null };
 	})();
 
 	return { source, decoration };

@@ -44,8 +44,9 @@ is either analysed or it is not, and the analysis is persisted in two places
 Fetches what the source gives for free. The step returns in two parts:
 
 - **body** — everything the analysis needs, awaited before the step returns:
-  - **web**: `extract_blog` → markdown → `compactMarkdown`. The body always
-    comes with the extraction.
+  - **web**: `extractArticle` (`POST /api/article` on the scraper service,
+    `format: md`, `render: auto`, `engine: defuddle`) → markdown →
+    `compactMarkdown`. The body always comes with the extraction.
   - **youtube**: in `full` mode, the transcript
     (`get_youtube_transcript_timed`). It is a separate and expensive request,
     so `metadata` mode skips it.
