@@ -145,6 +145,14 @@
 		color: var(--primary-color);
 	}
 
+	.markdown-container :global(h1) {
+		font-family: var(--font-secondary);
+		/* em so it tracks the container (was 0.9rem on a 0.8rem base). */
+		font-size: 1.125em;
+		padding-top: 2rem;
+		padding-bottom: 1.2rem;
+	}
+
 	.markdown-container :global(h2) {
 		font-family: var(--font-secondary);
 		/* em so it tracks the container (was 0.9rem on a 0.8rem base). */
