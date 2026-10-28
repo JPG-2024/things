@@ -58,6 +58,22 @@
 			: null
 	);
 
+	/**
+	 * Profile voice chunk used to synthesize the chunk currently reproduced.
+	 * `-1` (default reference) resolves to the selected reference's position
+	 * in the profile so non-random mode still shows a real number.
+	 */
+	const voiceChunkLabel = $derived.by(() => {
+		if (!ttsState.isPlaying && !ttsState.isPaused) return null;
+		const idx = ttsState.voiceChunkIndexAt(engine.currentChunkIndex);
+		if (idx === null || ttsState.voiceChunks.length === 0) return null;
+		const resolved =
+			idx >= 0
+				? idx
+				: ttsState.voiceChunks.findIndex((c) => c.audio_file === ttsState.config.refAudioFilename);
+		return resolved >= 0 ? `#${resolved + 1}/${ttsState.voiceChunks.length}` : null;
+	});
+
 	const panelVisible = $derived(
 		ttsState.isPlaying ||
 			ttsState.isPaused ||
@@ -295,6 +311,7 @@
 			waitingForChunk={engine.waitingForChunk}
 			{showControls}
 			{remainingLabel}
+			{voiceChunkLabel}
 			onPrimary={handlePrimaryClick}
 			onStop={handleStop}
 		/>

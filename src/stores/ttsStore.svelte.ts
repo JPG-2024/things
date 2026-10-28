@@ -90,7 +90,7 @@ class TTSState {
 	private _nextChunkIndex = 0;
 	private _generationSession = 0;
 	private _generationTimes: number[] = [];
-	private _chunkVoiceIndices: number[] = [];
+	private _chunkVoiceIndices = $state<number[]>([]);
 	private readonly _MAX_TRACKED_TIMES = 5;
 	/**
 	 * Conservative fallback used before any chunk has been measured, so the
@@ -199,6 +199,15 @@ class TTSState {
 		const min = Math.min(minGapMs, maxGapMs);
 		const max = Math.max(minGapMs, maxGapMs);
 		return min + Math.random() * (max - min);
+	}
+
+	/**
+	 * Voice-chunk index used to synthesize a playlist chunk: 0-based into
+	 * `voiceChunks`, `-1` when the default/config reference was used, `null`
+	 * when the playlist doesn't cover that index.
+	 */
+	voiceChunkIndexAt(playlistIndex: number): number | null {
+		return this._chunkVoiceIndices[playlistIndex] ?? null;
 	}
 
 	sentenceGapMs(): number {

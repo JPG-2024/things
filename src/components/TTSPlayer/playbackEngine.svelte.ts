@@ -36,7 +36,8 @@ export class TtsPlaybackEngine {
 	 * total and seek math only need these, so decoded buffers can be pruned
 	 * (see `pruneDecodedBehind`). */
 	decodedDurations: number[] = [];
-	currentChunkIndex = 0;
+	/** Reactive so the mini player can label the voice chunk being reproduced. */
+	currentChunkIndex = $state(0);
 	chunkOffsets: number[] = [];
 	currentChunkDuration = 0;
 	nextChunkPrefetchRequested = false;

@@ -15,6 +15,7 @@
 		waitingForChunk: boolean;
 		showControls: boolean;
 		remainingLabel: string | null;
+		voiceChunkLabel: string | null;
 		onPrimary: () => void;
 		onStop: () => void;
 	}
@@ -27,6 +28,7 @@
 		waitingForChunk,
 		showControls,
 		remainingLabel,
+		voiceChunkLabel,
 		onPrimary,
 		onStop
 	}: Props = $props();
@@ -80,6 +82,10 @@
 
 				{#if remainingLabel}
 					<span class="tts-player-mini__time">{remainingLabel}</span>
+				{/if}
+
+				{#if voiceChunkLabel}
+					<span class="tts-player-mini__voice-chunk">{voiceChunkLabel}</span>
 				{/if}
 			</div>
 		{/if}
@@ -153,6 +159,15 @@
 	.tts-player-mini__time {
 		color: var(--primary-color);
 		opacity: 0.85;
+		font-size: 0.72rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		padding: 0 0.2rem;
+	}
+
+	.tts-player-mini__voice-chunk {
+		color: var(--primary-color);
+		opacity: 0.7;
 		font-size: 0.72rem;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
