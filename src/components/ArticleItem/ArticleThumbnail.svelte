@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toThumbnailVTName } from '@/lib/utils/url';
 	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
-	import Tooltip from '@/components/Tooltip.svelte';
+	import { tooltip as tooltipAction } from '@/lib/actions/tooltip';
 	import ArticleTitle from './ArticleTitle.svelte';
 
 	interface Props {
@@ -39,6 +39,7 @@
 		class="article-thumbnail"
 		loading="lazy"
 		decoding="async"
+		use:tooltipAction={{ content: tooltip }}
 		style={VIEW_TRANSITIONS_ENABLED
 			? `view-transition-name: ${toThumbnailVTName(url ?? '')}`
 			: undefined}
@@ -60,11 +61,7 @@
 		<span class="unread-dot" aria-hidden="true"></span>
 	{/if}
 	{#if src}
-		{#if tooltip}
-			<Tooltip content={tooltip}>{@render thumbnailImage()}</Tooltip>
-		{:else}
-			{@render thumbnailImage()}
-		{/if}
+		{@render thumbnailImage()}
 	{:else}
 		<div class="article-thumbnail-placeholder" class:initial={fallbackVariant === 'initial'}>
 			{#if fallbackText}
@@ -118,15 +115,6 @@
 		background: var(--primary-color);
 		z-index: 8;
 		pointer-events: none;
-	}
-
-	/* Tooltip wraps its children in an unsized flex box; make it fill the
-	   thumbnail so the image keeps its 100% sizing. */
-	.article-thumbnail-container :global(.tooltip-wrapper) {
-		width: 100%;
-		height: 100%;
-		min-width: 0;
-		justify-content: center;
 	}
 
 	.article-thumbnail-placeholder {

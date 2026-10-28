@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { viewState } from '@/stores/viewStore.svelte';
 	import Icon from '@/components/Icon.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
+	import { tooltip } from '@/lib/actions/tooltip';
 
 	let localSystemPrompt = $state(viewState.conversationSystemPrompt);
 	let localExtraUserPrompt = $state(viewState.conversationExtraUserPrompt);
@@ -68,12 +68,14 @@
 
 	<div class="field">
 		<div class="field-row">
-			<Tooltip
-				content="Controls randomness. Lower values are more focused, higher values more creative."
-				position="bottom"
+			<label
+				class="field-label"
+				use:tooltip={{
+					content:
+						'Controls randomness. Lower values are more focused, higher values more creative.',
+					position: 'bottom'
+				}}>Temperature</label
 			>
-				<label class="field-label">Temperature</label>
-			</Tooltip>
 			<span class="field-value">{localTemperature}</span>
 		</div>
 		<input
@@ -88,9 +90,13 @@
 
 	<div class="field">
 		<div class="field-row">
-			<Tooltip content="Maximum length of the response in tokens." position="bottom">
-				<label class="field-label">Max Tokens</label>
-			</Tooltip>
+			<label
+				class="field-label"
+				use:tooltip={{
+					content: 'Maximum length of the response in tokens.',
+					position: 'bottom'
+				}}>Max Tokens</label
+			>
 			<span class="field-value">{localMaxTokens}</span>
 		</div>
 		<input
@@ -105,12 +111,13 @@
 
 	<div class="field">
 		<div class="field-row">
-			<Tooltip
-				content="Nucleus sampling. Lower values focus on more likely words."
-				position="bottom"
+			<label
+				class="field-label"
+				use:tooltip={{
+					content: 'Nucleus sampling. Lower values focus on more likely words.',
+					position: 'bottom'
+				}}>Top P</label
 			>
-				<label class="field-label">Top P</label>
-			</Tooltip>
 			<span class="field-value">{localTopP}</span>
 		</div>
 		<input type="range" class="field-range" min={0} max={1} step={0.05} bind:value={localTopP} />
@@ -118,12 +125,13 @@
 
 	<div class="field">
 		<div class="field-row">
-			<Tooltip
-				content="Reduces repetition of words based on how often they appear."
-				position="bottom"
+			<label
+				class="field-label"
+				use:tooltip={{
+					content: 'Reduces repetition of words based on how often they appear.',
+					position: 'bottom'
+				}}>Frequency Penalty</label
 			>
-				<label class="field-label">Frequency Penalty</label>
-			</Tooltip>
 			<span class="field-value">{localFrequencyPenalty}</span>
 		</div>
 		<input
@@ -138,9 +146,13 @@
 
 	<div class="field">
 		<div class="field-row">
-			<Tooltip content="Encourages new topics by penalizing words already used." position="bottom">
-				<label class="field-label">Presence Penalty</label>
-			</Tooltip>
+			<label
+				class="field-label"
+				use:tooltip={{
+					content: 'Encourages new topics by penalizing words already used.',
+					position: 'bottom'
+				}}>Presence Penalty</label
+			>
 			<span class="field-value">{localPresencePenalty}</span>
 		</div>
 		<input

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tooltip from '@/components/Tooltip.svelte';
+	import { tooltip } from '@/lib/actions/tooltip';
 	import type { ProfileStackCell } from '@/lib/utils/articleGridCells';
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
@@ -61,7 +61,13 @@
 {/snippet}
 
 {#snippet stackButton()}
-	<button type="button" class="articles-stack" class:row={isRowMode} onclick={() => onClick(cell)}>
+	<button
+		type="button"
+		class="articles-stack"
+		class:row={isRowMode}
+		onclick={() => onClick(cell)}
+		use:tooltip={{ content: stackTooltip }}
+	>
 		{#if isRowMode}
 			<!-- Row mode: compact pile inside ArticleItemRow's fixed thumb box
 			     (150x80), newest title in the title position. The box clips the
@@ -91,15 +97,7 @@
 	</button>
 {/snippet}
 
-{#if stackTooltip}
-	<!-- Tooltip appends its popup to document.body, so the grid cell's
-	     overflow: hidden never clips the title. -->
-	<Tooltip content={stackTooltip}>
-		{@render stackButton()}
-	</Tooltip>
-{:else}
-	{@render stackButton()}
-{/if}
+{@render stackButton()}
 
 <style>
 	.articles-stack {

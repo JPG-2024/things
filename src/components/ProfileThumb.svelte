@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
-	import Tooltip from '@/components/Tooltip.svelte';
-	import type { TooltipProps } from '@/components/Tooltip.svelte';
+	import { tooltip as tooltipAction, type TooltipOptions } from '@/lib/actions/tooltip';
 
 	interface Props {
 		/** Raw media filename or an already-resolved src (asset src, dev `/@fs` path, remote favicon, data URI). */
 		src?: string | null;
 		alt?: string;
-		/** When set, the thumb is wrapped in a Tooltip showing this text. */
+		/** When set, the thumb shows this text on hover. */
 		tooltip?: string;
 		/** Extra tooltip options (position, ignoreMenuCtx…). */
-		tooltipProps?: Omit<TooltipProps, 'children'>;
+		tooltipProps?: TooltipOptions;
 		/** Thumb edge length in px. */
 		size?: number;
 		shape?: 'circle' | 'rounded';
@@ -29,6 +28,10 @@
 	}: Props = $props();
 
 	let resolvedSrc = $state<string | null>(null);
+
+	const tooltipOptions = $derived<TooltipOptions | undefined>(
+		tooltip ? { content: tooltip, ...tooltipProps } : tooltipProps
+	);
 
 	$effect(() => {
 		const raw = src;
@@ -56,7 +59,7 @@
 	});
 </script>
 
-{#snippet img()}
+{#snippet img(withTooltip: boolean)}
 	<img
 		class="profile-thumb"
 		class:rounded={shape === 'rounded'}
@@ -64,25 +67,28 @@
 		{alt}
 		style:width="{size}px"
 		style:height="{size}px"
+		use:tooltipAction={withTooltip ? tooltipOptions : undefined}
 	/>
 {/snippet}
 
 {#snippet thumbBody()}
 	{#if onclick}
-		<button type="button" class="thumb-btn" {onclick} aria-label={tooltip ?? alt}>
-			{@render img()}
+		<button
+			type="button"
+			class="thumb-btn"
+			{onclick}
+			aria-label={tooltip ?? alt}
+			use:tooltipAction={tooltipOptions}
+		>
+			{@render img(false)}
 		</button>
 	{:else}
-		{@render img()}
+		{@render img(true)}
 	{/if}
 {/snippet}
 
 {#if resolvedSrc}
-	{#if tooltip}
-		<Tooltip content={tooltip} {...tooltipProps}>{@render thumbBody()}</Tooltip>
-	{:else}
-		{@render thumbBody()}
-	{/if}
+	{@render thumbBody()}
 {/if}
 
 <style>

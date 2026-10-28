@@ -681,6 +681,61 @@
 		z-index: 99999;
 	}
 
+	/* Tooltip singleton (`@/lib/actions/tooltip` creates one element for the
+	 * whole app and portals it to `document.body`), so it lives outside any
+	 * component's scope and needs global rules. */
+	:global(.tooltip) {
+		position: fixed;
+		box-sizing: border-box;
+		outline: none;
+		border: none;
+		border-radius: var(--radius-sm);
+		/* No backdrop-filter: one element is fine, but a blur re-filters the
+		 * backdrop on every frame while the pointer moves. */
+		background: rgba(0, 0, 0, 0.92);
+		color: var(--gray-100);
+		padding: 0.4rem 0.7rem;
+		font-family: var(--font-secondary);
+		font-size: 0.8rem;
+		white-space: pre-wrap;
+		z-index: 9999;
+		pointer-events: none;
+		max-width: 600px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		transform: translate(-50%, -100%);
+		margin-top: -8px;
+		opacity: 0;
+		/* Hidden means "not painted": the element stays in the DOM (it is the
+		 * shared portal) but costs no layer and no compositing work. */
+		visibility: hidden;
+		transition:
+			opacity 0.15s,
+			visibility 0.15s;
+		word-wrap: break-word;
+		font-weight: bold;
+	}
+
+	:global(.tooltip.visible) {
+		opacity: 1;
+		visibility: visible;
+	}
+
+	:global(.tooltip-bottom) {
+		transform: translate(-50%, 0);
+		margin-top: 8px;
+	}
+
+	:global(.tooltip-left) {
+		transform: translate(-100%, -50%);
+		margin-left: -8px;
+	}
+
+	:global(.tooltip-right) {
+		transform: translate(0, -50%);
+		margin-left: 8px;
+	}
+
 	/* Thin, unobtrusive scrollbars app-wide. */
 	:global(::-webkit-scrollbar) {
 		width: 4px;

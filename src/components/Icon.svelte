@@ -2,15 +2,14 @@
 	import * as icons from '@lucide/svelte';
 	import { type Icon } from '@lucide/svelte';
 	import { getContext, type Component } from 'svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
-	import type { TooltipProps } from '@/components/Tooltip.svelte';
+	import { tooltip, type TooltipOptions } from '@/lib/actions/tooltip';
 
 	interface Props {
 		name: string;
 		size?: number;
 		color?: string;
 		onClick?: (event: MouseEvent) => void;
-		tooltipProps?: Omit<TooltipProps, 'children'>;
+		tooltipProps?: TooltipOptions;
 		disabled?: boolean;
 		ariaLabel?: string;
 		[key: string]: unknown;
@@ -38,20 +37,22 @@
 	}
 </script>
 
-{#if tooltipProps}
-	<Tooltip {...tooltipProps}>
-		{#if onClick}
-			<button onclick={handleClick} class="icon-button" {disabled} aria-label={ariaLabel}>
-				<Icon {...props} {color} size={resolvedSize} />
-			</button>
-		{:else}
-			<Icon {...props} {color} size={resolvedSize} />
-		{/if}
-	</Tooltip>
-{:else if onClick}
-	<button onclick={handleClick} class="icon-button" {disabled} aria-label={ariaLabel}>
+{#if onClick}
+	<button
+		onclick={handleClick}
+		class="icon-button"
+		{disabled}
+		aria-label={ariaLabel}
+		use:tooltip={tooltipProps}
+	>
 		<Icon {...props} {color} size={resolvedSize} />
 	</button>
+{:else if tooltipProps?.content}
+	<!-- No natural host element to attach the action to when the icon is not a
+	   button; this span only exists for icons that actually carry a tooltip. -->
+	<span class="icon-tooltip-host" use:tooltip={tooltipProps}>
+		<Icon {...props} {color} size={resolvedSize} />
+	</span>
 {:else}
 	<Icon {...props} {color} size={resolvedSize} />
 {/if}
@@ -66,6 +67,11 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+	}
+
+	.icon-tooltip-host {
+		display: inline-flex;
+		align-items: center;
 	}
 	.icon-button:hover :global(svg) {
 		color: white !important;

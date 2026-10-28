@@ -25,11 +25,11 @@
 	} from '@/stores/webStore';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Tabs from '@/components/Tabs.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
 	import Toolbar from '@/components/Toolbar.svelte';
 	import ToolbarDivider from '@/components/ToolbarDivider.svelte';
 	import { startLlamaHealthPolling } from '@/lib/utils/llamaHealth';
 	import { startExternalServicesHealthPolling } from '@/lib/utils/externalServicesHealth';
+	import { tooltip } from '@/lib/actions/tooltip';
 	import ProfileArticleTabs from '@/components/ProfileArticleTabs.svelte';
 	import ArticleFiltersSidebar from '@/components/ArticleFiltersSidebar.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -412,17 +412,19 @@
 					/>
 				</button>
 
-				<Tooltip content="Change primary color">
-					<label class="color-dot-trigger" aria-label="Change primary color">
-						<span class="color-dot" style:background-color={viewState.primaryColor}></span>
-						<input
-							type="color"
-							class="color-picker-input"
-							value={rgbToHex(viewState.primaryColor)}
-							oninput={handleColorChange}
-						/>
-					</label>
-				</Tooltip>
+				<label
+					class="color-dot-trigger"
+					aria-label="Change primary color"
+					use:tooltip={{ content: 'Change primary color' }}
+				>
+					<span class="color-dot" style:background-color={viewState.primaryColor}></span>
+					<input
+						type="color"
+						class="color-picker-input"
+						value={rgbToHex(viewState.primaryColor)}
+						oninput={handleColorChange}
+					/>
+				</label>
 				<label class="color-dot-trigger" aria-label="Change background color">
 					<span class="color-dot" style:background-color={viewState.backgroundColor}></span>
 					<input

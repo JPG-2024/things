@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { setContext, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import {
 		calculatePopupPosition,
 		type PopupPosition,
 		type PopupPositionInput
 	} from '@/lib/position';
+	import { hideTooltip } from '@/lib/actions/tooltip';
 	import Card from './Card.svelte';
 
 	interface Props {
@@ -32,13 +33,15 @@
 		compact = false
 	}: Props = $props();
 
-	const popupCtx = $state({ open: false });
+	let wasOpen = false;
 	$effect(() => {
-		popupCtx.open = open;
+		triggerEl?.toggleAttribute('data-popup-open', open);
+		// Opening under the pointer dismisses whichever tooltip was showing.
+		if (open && !wasOpen) hideTooltip();
+		wasOpen = open;
 	});
-	setContext('popup-menu-open', popupCtx);
 
-	let triggerEl: HTMLDivElement;
+	let triggerEl = $state<HTMLDivElement>();
 	let panelEl = $state<HTMLDivElement | undefined>();
 	let panelX = $state(0);
 	let panelY = $state(0);
@@ -138,6 +141,7 @@
 	<div
 		bind:this={panelEl}
 		use:portal
+		data-popup-open
 		class="popup-menu panel-{effectivePosition}"
 		class:compact
 		style="left: {panelX}px; top: {panelY}px; visibility: {positioned ? 'visible' : 'hidden'};"

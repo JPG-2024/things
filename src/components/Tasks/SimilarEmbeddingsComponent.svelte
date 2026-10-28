@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import Icon from '@/components/Icon.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
+	import { tooltip } from '@/lib/actions/tooltip';
 	import {
 		findSimilarChunks,
 		formatSearchChunkTooltip,
@@ -178,18 +178,18 @@
 			<p class="similar-header">{label} ({effectiveResults.length})</p>
 			<div class="similar-thumbs">
 				{#each groupedResults as group (group.articleUrl)}
-					<Tooltip content={formatSearchChunkTooltip(group.chunks)} position="bottom">
-						<button
-							class="similar-thumb-btn"
-							onclick={() => navigateToArticle(group.articleUrl, group.chunks[0]?.profileId)}
-						>
-							{#if thumbnails[group.articleUrl]}
-								<img class="similar-thumb" src={thumbnails[group.articleUrl]} alt="" />
-							{:else}
-								<div class="similar-thumb-fallback">{group.chunks.length}</div>
-							{/if}
-						</button>
-					</Tooltip>
+					{@const tooltipText = formatSearchChunkTooltip(group.chunks)}
+					<button
+						class="similar-thumb-btn"
+						onclick={() => navigateToArticle(group.articleUrl, group.chunks[0]?.profileId)}
+						use:tooltip={{ content: tooltipText, position: 'bottom' }}
+					>
+						{#if thumbnails[group.articleUrl]}
+							<img class="similar-thumb" src={thumbnails[group.articleUrl]} alt="" />
+						{:else}
+							<div class="similar-thumb-fallback">{group.chunks.length}</div>
+						{/if}
+					</button>
 				{/each}
 			</div>
 		{/if}

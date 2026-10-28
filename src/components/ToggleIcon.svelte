@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import type { TooltipProps } from '@/components/Tooltip.svelte';
+	import type { TooltipOptions } from '@/lib/actions/tooltip';
 
 	interface Props {
 		name: string;
@@ -8,7 +8,7 @@
 		color?: string;
 		size?: number;
 		label?: string | null;
-		tooltipProps?: Omit<TooltipProps, 'children'>;
+		tooltipProps?: TooltipOptions;
 		onClick?: (event: MouseEvent) => void;
 		[key: string]: unknown;
 	}

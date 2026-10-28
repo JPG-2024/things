@@ -1,7 +1,7 @@
 <script lang="ts">
 	import EmojiString from '@/components/EmojiString.svelte';
-	import Tooltip from '@/components/Tooltip.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
+	import { tooltip } from '@/lib/actions/tooltip';
 	import { viewState } from '@/stores/viewStore.svelte';
 
 	export interface EntityBarItem {
@@ -54,23 +54,15 @@
 			onmouseenter={() => onHoverEnter?.(item)}
 			onmouseleave={() => onHoverLeave?.()}
 			aria-label={item.name}
+			use:tooltip={{ content: item.name, ignoreMenuCtx: true }}
 		>
-			<!-- Tooltip/ProfileThumb get ignoreMenuCtx: the only EntityBar consumer
-				lives inside the filters popup, where the popup context is always open;
-				without this flag the suppression rule would keep these tooltips
-				permanently hidden. -->
+			<!-- ignoreMenuCtx: the only EntityBar consumer lives inside the filters
+				popup, where a menu is always open; without this flag the suppression
+				rule would keep these tooltips permanently hidden. -->
 			{#if item.profilePictureSrc}
-				<ProfileThumb
-					src={item.profilePictureSrc}
-					tooltip={item.name}
-					tooltipProps={{ ignoreMenuCtx: true }}
-					size={50}
-					shape="rounded"
-				/>
+				<ProfileThumb src={item.profilePictureSrc} size={50} shape="rounded" />
 			{:else}
-				<Tooltip content={item.name} ignoreMenuCtx>
-					<EmojiString value={item.name} active={isActive(item)} />
-				</Tooltip>
+				<EmojiString value={item.name} active={isActive(item)} />
 			{/if}
 		</button>
 	{/each}
@@ -100,6 +92,9 @@
 		justify-content: center;
 		cursor: pointer;
 		opacity: 0.5;
+		/* Previously inherited from the tooltip wrapper's `text-transform`; kept
+		 * here so entity names render exactly as before the wrapper went away. */
+		text-transform: capitalize;
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
