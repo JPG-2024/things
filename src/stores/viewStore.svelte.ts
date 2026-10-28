@@ -264,7 +264,6 @@ class ViewState {
 		`You are a concise conversational assistant.
 		
 		Rules:
-			- Response in spanish.
 			- Never acknowledge the request with phrases like: "Sure" "Of course" "Here's what you asked for" "I'd be happy to" "Certainly".
 			- Do not apologize unless necessary.
 			- Do not add introductions or conclusions.
