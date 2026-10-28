@@ -560,9 +560,7 @@ export async function getArticleByUrl(url: string): Promise<ArticleRecord | null
 			return null;
 		}
 
-		return resolveProfilePictureField(
-			await resolveArticleThumbnail(mapStoredArticle(row))
-		);
+		return resolveProfilePictureField(await resolveArticleThumbnail(mapStoredArticle(row)));
 	} catch (error) {
 		console.error('Error querying article', error);
 		return null;

@@ -66,8 +66,7 @@ class MainVoiceState {
 			ttsState.namePrefix = result.name_prefix;
 			return result.profile_id;
 		} catch (err) {
-			ttsState.errorMessage =
-				err instanceof Error ? err.message : 'Failed to save recorded voice';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to save recorded voice';
 			return null;
 		}
 	}
@@ -104,8 +103,7 @@ class MainVoiceState {
 			ttsState.voiceProfiles = await fetchVoiceProfiles({ force: true });
 			return true;
 		} catch (err) {
-			ttsState.errorMessage =
-				err instanceof Error ? err.message : 'Failed to update voice profile';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to update voice profile';
 			return false;
 		}
 	}
@@ -128,8 +126,7 @@ class MainVoiceState {
 			}
 			return true;
 		} catch (err) {
-			ttsState.errorMessage =
-				err instanceof Error ? err.message : 'Failed to delete voice profile';
+			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to delete voice profile';
 			return false;
 		}
 	}

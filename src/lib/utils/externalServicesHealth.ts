@@ -84,8 +84,7 @@ export function startExternalServicesHealthPolling(): () => void {
 		intervalMs: POLL_INTERVAL_MS,
 		maxIntervalMs: POLL_MAX_INTERVAL_MS,
 		refresh: refreshExternalServicesHealth,
-		isAllUp: () =>
-			viewState.scrapServiceUp && viewState.ttsServiceUp && viewState.whisperServiceUp,
+		isAllUp: () => viewState.scrapServiceUp && viewState.ttsServiceUp && viewState.whisperServiceUp,
 		label: 'external-services'
 	});
 }
