@@ -6,6 +6,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
+	import { slideRight } from '@/lib/utils/itemTransitions';
 	import {
 		assignCategoriesToProfile,
 		deleteProfileById,
@@ -227,6 +228,7 @@
 				hasMore={articleCacheStore.hasMoreProfileArticles(profileId)}
 				onLoadMore={() => articleCacheStore.loadMoreProfileArticles(profileId)}
 				onArticleClick={handleNavigateToArticle}
+				itemTransition={slideRight}
 			/>
 		</div>
 	{:else}

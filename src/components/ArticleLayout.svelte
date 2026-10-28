@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { scale } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -113,7 +113,7 @@
 
 <div class="article-layout">
 	{#if hasMedia}
-		<div class="media-col" transition:scale={{ start: 0.8, duration: 100 }}>
+		<div class="media-col" transition:fade={{ duration: 200 }}>
 			{#if isYouTube && videoId}
 				<YouTubePlayer
 					data={{
