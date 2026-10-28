@@ -52,3 +52,16 @@ export function buildTransition(
 			return {};
 	}
 }
+
+/**
+ * Default enter/leave animation for grids that receive no explicit
+ * transition: a subtle fade + scale (no-op under reduced motion). It lives
+ * here, not inside the grid component, so callers that wrap the transition
+ * (e.g. `ArticleList`'s grouping-swap suppression) can fall back to the exact
+ * same animation when the caller has none of its own.
+ */
+export function enterLeave(node: Element, options?: ItemTransitionOptions): TransitionConfig {
+	if (prefersReducedMotion()) return {};
+	const duration = options?.duration ?? 200;
+	return scale(node, { duration, start: 0.96, opacity: 0, easing: cubicOut });
+}

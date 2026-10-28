@@ -1,6 +1,12 @@
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 import { isoDateDaysAgo } from '@/lib/utils/date';
-import { CARD_LAYOUT_DEFAULTS, type CardLayout, type CardTab } from '@/constants';
+import {
+	CARD_LAYOUT_DEFAULTS,
+	ENTITY_GRID_COLUMNS_MAX,
+	ENTITY_GRID_COLUMNS_MIN,
+	type CardLayout,
+	type CardTab
+} from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
 import { DEFAULT_WINDOW_LEVEL } from '@/lib/utils/windowAnalysis';
 import { getProfiles } from '@/stores/webStore';
@@ -114,6 +120,28 @@ class ViewState {
 		domains: { ...CARD_LAYOUT_DEFAULTS.domains },
 		categories: { ...CARD_LAYOUT_DEFAULTS.categories }
 	});
+
+	/**
+	 * Responsive entity grid (Profiles/Domains/Categories): column counts used
+	 * below/above the container-query breakpoint of `ProfileList.svelte`.
+	 */
+	gridColumnsNarrow = $state(2);
+	gridColumnsWide = $state(3);
+	/** Rows of the entity grid snap to the top of the dashboard scrollport. */
+	gridSnapEnabled = $state(true);
+
+	/** Updates one column count of the entity grid, clamped onto its bounds. */
+	setGridColumnCount(kind: 'narrow' | 'wide', value: number): void {
+		const clamped = Math.min(
+			ENTITY_GRID_COLUMNS_MAX,
+			Math.max(
+				ENTITY_GRID_COLUMNS_MIN,
+				Math.trunc(Number.isFinite(value) ? value : ENTITY_GRID_COLUMNS_MIN)
+			)
+		);
+		if (kind === 'narrow') this.gridColumnsNarrow = clamped;
+		else this.gridColumnsWide = clamped;
+	}
 
 	/** Updates one tab's card layout, clamped onto its bounds. */
 	setCardLayout(tab: CardTab, patch: Partial<CardLayout>): void {

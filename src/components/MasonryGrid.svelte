@@ -3,9 +3,8 @@
 	import { viewState, MASONRY_PRESETS } from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, MasonryPreset } from '@/stores/viewStore.svelte';
 	import { onMount, tick } from 'svelte';
-	import { scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { enterLeave } from '@/lib/utils/itemTransitions';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
 
 	interface Props {
@@ -219,20 +218,6 @@
 	function getWrappers(): HTMLDivElement[] {
 		if (!gridEl?.isConnected) return [];
 		return Array.from(gridEl.querySelectorAll<HTMLDivElement>('.grid-item'));
-	}
-
-	// Allocated once per component (not per item) and read live, so a mid-session
-	// change to the OS setting is still honoured by the next transition.
-	const reducedMotionQuery =
-		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-
-	const prefersReducedMotion = (): boolean => reducedMotionQuery?.matches ?? false;
-
-	// Subtle fade + scale used when items enter or leave the list. Becomes a
-	// no-op when the user prefers reduced motion.
-	function enterLeave(node: Element, { duration = 200 }: { duration?: number } = {}) {
-		if (prefersReducedMotion()) return {};
-		return scale(node, { duration, start: 0.96, opacity: 0, easing: cubicOut });
 	}
 
 	// A single ResizeObserver tracks every item's content box. Browsers already

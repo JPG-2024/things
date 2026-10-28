@@ -1,6 +1,6 @@
 export const RAW_PROCESS_LIMIT = 1000;
 
-// 📐 Wheel layout per tab
+// 📐 Entity card grid
 /**
  * Fixed-width presets for `ArticleItem`'s thumbnail-only mode. `fill` is a
  * separate, fluid option (100% wide, 16:9) handled by the item itself.
@@ -13,30 +13,32 @@ export const ARTICLE_THUMBNAIL_SIZES = {
 } as const;
 export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
 export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';
-export const PROFILE_COLUMN_WIDTH = '10rem';
 
-/** Blank space before the first card of a wheel (fake-scroll runway). */
-export const WHEEL_START_SPACE = '8vw';
-/**
- * Blank space after the last card of a wheel. Sized so the end of the last
- * cards settles near the center of the viewport (or a bit beyond).
- */
-export const WHEEL_END_SPACE = '45vw';
+/** Width of the edge fade overlays of a wheel (any CSS length). */
+export const WHEEL_FADE_WIDTH = '8%';
 
-/** Horizontal padding of `Card` (1rem each side). */
-export const ENTITY_CARD_PADDING_X = 16;
+/** Thumbnail preset used by the entity cards of the grid. */
+export const ENTITY_ARTICLE_THUMBNAIL = 'sm';
 /** Gap between article grid cells inside an EntityCard (px). */
 export const ENTITY_CARD_GAP_PX = 12;
+
+/**
+ * Responsive card grid of the entity tabs (Profiles/Domains/Categories): the
+ * column counts below are configurable (`viewState.gridColumnsNarrow` /
+ * `gridColumnsWide`) and switch at the breakpoint documented in
+ * `ProfileList.svelte` (a container-query condition cannot read a CSS
+ * variable, so the number lives in the stylesheet).
+ *
+ * Clamping bounds for those counts.
+ */
+export const ENTITY_GRID_COLUMNS_MIN = 1;
+export const ENTITY_GRID_COLUMNS_MAX = 6;
 
 /** Clamping bounds for card layout settings (see CardLayout). */
 export const CARD_COLUMN_MIN = 1;
 export const CARD_COLUMN_MAX = 8;
 export const CARD_ROW_MIN = 1;
 export const CARD_ROW_MAX = 6;
-export const WHEEL_CARDS_MIN = 1;
-export const WHEEL_CARDS_MAX = 8;
-export const CELL_WIDTH_MIN = 60;
-export const CELL_WIDTH_MAX = 320;
 
 /**
  * BOOT-3: delay before the deferred llama autostart (see `+layout.svelte`),
@@ -46,22 +48,18 @@ export const CELL_WIDTH_MAX = 320;
 export const LLAMA_AUTOSTART_DELAY_MS = 3000;
 
 /**
- * Article grid knobs for the wheel cards. The card width grows with `columns`
- * (each cell targets `cellWidth` px), and `columns * rows` is the article count
- * fetched from the backend and shown per card.
+ * Article grid knobs for the entity cards: `columns * rows` is the article
+ * count fetched from the backend and shown per card. The card itself is
+ * fluid (it fills its grid cell), so only the in-card grid is configured.
  */
 export interface CardLayout {
 	/** Article grid columns inside a card. */
 	columns: number;
 	/** Article grid rows inside a card. */
 	rows: number;
-	/** Cards stacked vertically inside a single wheel column. */
-	cardsPerColumn: number;
-	/** Target width (px) of a single article cell; drives the card width. */
-	cellWidth: number;
 }
 
-/** Identifies a wheel tab whose rows are EntityCards. */
+/** Identifies an entity tab whose cards are EntityCards. */
 export type CardTab = 'profiles' | 'domains' | 'categories';
 
 export interface TabPageConfig {
@@ -71,21 +69,21 @@ export interface TabPageConfig {
 
 /**
  * Pagination sizes per tab. This is the single place that defines how much each
- * tab fetches; the wheel paginates cards, not the articles inside a card
+ * tab fetches; the entity tabs paginate cards, not the articles inside a card
  * (card article counts come from the per-tab CardLayout).
  */
 export const TAB_PAGE_CONFIG = {
 	profiles: { pageSize: 10 },
 	domains: { pageSize: 10 },
 	categories: { pageSize: 10 },
-	articles: { pageSize: 60 }
+	articles: { pageSize: 120 }
 } satisfies Record<string, TabPageConfig>;
 
-/** Default card layout per wheel tab, seeded into viewState on first run. */
+/** Default card layout per entity tab, seeded into viewState on first run. */
 export const CARD_LAYOUT_DEFAULTS: Record<CardTab, CardLayout> = {
-	profiles: { columns: 2, rows: 3, cardsPerColumn: 2, cellWidth: 110 },
-	domains: { columns: 2, rows: 3, cardsPerColumn: 2, cellWidth: 110 },
-	categories: { columns: 3, rows: 2, cardsPerColumn: 5, cellWidth: 130 }
+	profiles: { columns: 2, rows: 3 },
+	domains: { columns: 2, rows: 3 },
+	categories: { columns: 3, rows: 2 }
 };
 
 export const BLOG_SUMMARY_SYSTEM_PROMPT = `Eres un experto resumidor de textos. Tu resumen debe ser en español, dame luego 5 puntos principales y una breve conclusion.`;

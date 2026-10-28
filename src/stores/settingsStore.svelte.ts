@@ -4,7 +4,12 @@ import { viewState } from '@/stores/viewStore.svelte';
 import { playerStore } from '@/stores/playerStore.svelte';
 import { scrapStore } from '@/stores/scrapStore.svelte';
 import { ttsState, type TTSConfig } from '@/stores/ttsStore.svelte';
-import { CARD_LAYOUT_DEFAULTS, type CardTab } from '@/constants';
+import {
+	CARD_LAYOUT_DEFAULTS,
+	ENTITY_GRID_COLUMNS_MAX,
+	ENTITY_GRID_COLUMNS_MIN,
+	type CardTab
+} from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
 import { clampWindowLevel } from '@/lib/utils/windowAnalysis';
 
@@ -118,9 +123,13 @@ function serializeView() {
 			embeddingsEnabled: viewState.embeddingsEnabled,
 			llamaAutoStart: viewState.llamaAutoStart,
 			llamaReasoning: viewState.llamaReasoning,
-			captureOnlyOnPaste: viewState.captureOnlyOnPaste
+			captureOnlyOnPaste: viewState.captureOnlyOnPaste,
+			groupArticlesByProfile: viewState.groupArticlesByProfile
 		},
-		cardLayout: $state.snapshot(viewState.cardLayout)
+		cardLayout: $state.snapshot(viewState.cardLayout),
+		gridColumnsNarrow: viewState.gridColumnsNarrow,
+		gridColumnsWide: viewState.gridColumnsWide,
+		gridSnapEnabled: viewState.gridSnapEnabled
 	};
 }
 
@@ -260,6 +269,9 @@ function applyView(raw: unknown): void {
 	if (typeof toggles.captureOnlyOnPaste === 'boolean') {
 		viewState.captureOnlyOnPaste = toggles.captureOnlyOnPaste;
 	}
+	if (typeof toggles.groupArticlesByProfile === 'boolean') {
+		viewState.groupArticlesByProfile = toggles.groupArticlesByProfile;
+	}
 
 	// Card layout: merge each tab section over the defaults so a partial or
 	// legacy persisted shape still produces a complete CardLayout.
@@ -269,6 +281,23 @@ function applyView(raw: unknown): void {
 		if (!isPlainObject(rawLayout)) continue;
 		viewState.cardLayout[tab] = clampCardLayout(mergeValue(CARD_LAYOUT_DEFAULTS[tab], rawLayout));
 	}
+
+	// Entity grid: responsive column counts and row snapping.
+	if (typeof raw.gridColumnsNarrow === 'number') {
+		viewState.gridColumnsNarrow = clamp(
+			Math.trunc(raw.gridColumnsNarrow),
+			ENTITY_GRID_COLUMNS_MIN,
+			ENTITY_GRID_COLUMNS_MAX
+		);
+	}
+	if (typeof raw.gridColumnsWide === 'number') {
+		viewState.gridColumnsWide = clamp(
+			Math.trunc(raw.gridColumnsWide),
+			ENTITY_GRID_COLUMNS_MIN,
+			ENTITY_GRID_COLUMNS_MAX
+		);
+	}
+	if (typeof raw.gridSnapEnabled === 'boolean') viewState.gridSnapEnabled = raw.gridSnapEnabled;
 }
 
 function applyScrap(raw: unknown): void {

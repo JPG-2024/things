@@ -18,7 +18,8 @@
 	import type { ArticleRecord } from '@/stores/webStore';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
-	import type { ItemTransition } from '@/lib/utils/itemTransitions';
+	import { enterLeave } from '@/lib/utils/itemTransitions';
+	import type { ItemTransition, ItemTransitionOptions } from '@/lib/utils/itemTransitions';
 	import ArticlesStack from '@/components/ArticlesStack.svelte';
 	import {
 		buildArticleGridCells,
@@ -143,6 +144,40 @@
 					article
 				}))
 	);
+
+	// A grouping flip rewrites every cell key (url ↔ profile:<id>), so the keyed
+	// {#each} would replay the tab transition across the whole grid at once.
+	// Suppress both halves of that one swap; mounts from load-more/search still
+	// animate. The flag is a plain variable (not reactive): effect.pre sets it
+	// before the DOM update and the transitions read it while the cells are
+	// created/removed. It cannot be cleared from an effect: MasonryGrid's
+	// post-mount mirror assigns `renderedItems` in its own effect, so the keyed
+	// swap lands a flush *later* than this flip — a macrotask timeout clears the
+	// flag only after that swap has been applied (and clears it even when the
+	// flip happens with zero items mounted). `lastGrouped` is seeded on the
+	// effect's first run instead of at init, so no reactive value is read
+	// outside a reactive context.
+	let suppressSwap = false;
+	let lastGrouped: boolean | undefined = undefined;
+
+	$effect.pre(() => {
+		const grouped = groupable && viewState.groupArticlesByProfile;
+		if (lastGrouped === undefined) {
+			lastGrouped = grouped;
+			return;
+		}
+		if (grouped === lastGrouped) return;
+		lastGrouped = grouped;
+		suppressSwap = true;
+		setTimeout(() => {
+			suppressSwap = false;
+		}, 0);
+	});
+
+	function cellTransition(node: Element, options?: ItemTransitionOptions) {
+		if (suppressSwap) return { duration: 0 };
+		return (itemTransition ?? enterLeave)(node, options);
+	}
 </script>
 
 <div class="article-list">
@@ -172,7 +207,7 @@
 				<MasonryGrid
 					items={gridItems}
 					keyOf={(cell) => cell.key}
-					{itemTransition}
+					itemTransition={cellTransition}
 					{headerLeft}
 					{presetOverride}
 				>

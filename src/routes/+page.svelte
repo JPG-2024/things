@@ -450,7 +450,7 @@
 			{/if}
 		</div>
 	</div>
-	<div id="dashboard-content" class="dashboard-content">
+	<div id="dashboard-content" class="dashboard-content" class:snap-on={viewState.gridSnapEnabled}>
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'domains'}
@@ -529,6 +529,17 @@
 	.dashboard-content {
 		overflow-y: auto;
 		padding-top: 10rem;
+		/* Keeps a snapped row (its cards) below the fixed toolbar. Only
+		   meaningful while `scroll-snap-type` is set by `.snap-on`. */
+		scroll-padding-top: 10rem;
+	}
+
+	/* Opt-in row snapping of the entity grid (Settings → Cards → Grid). The
+	   grid rows are static while scrolling, so their snap points never move.
+	   `proximity`, not `mandatory`: rows differ in height and a row taller
+	   than the viewport would trap the scroll otherwise. */
+	.dashboard-content.snap-on {
+		scroll-snap-type: y proximity;
 	}
 
 	.dashboard-toolbar-container {

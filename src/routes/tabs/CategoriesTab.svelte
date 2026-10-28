@@ -2,7 +2,6 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import CategoryCard from './components/CategoryCard.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { goto } from '$app/navigation';
@@ -11,7 +10,6 @@
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const categoryItemTransition = tabAnimationStore.transitionFor('categories');
-	const layout = $derived(viewState.cardLayout.categories);
 
 	$effect(() => {
 		const onlyArticlesAfter = viewState.onlyArticlesAfter;
@@ -54,9 +52,6 @@
 	<ProfileList
 		items={visibleCategories}
 		itemTransition={categoryItemTransition}
-		columns
-		columnWidth={entityColumnWidth(layout)}
-		cardsPerColumn={layout.cardsPerColumn}
 		key={(category) => category.categoryId}
 	>
 		{#snippet row(category)}
@@ -90,7 +85,8 @@
 
 <style>
 	.categories-tab {
-		padding-bottom: 4rem;
+		/* Bottom clearance of the grid lives in ProfileList. */
+		width: 100%;
 	}
 	.empty-profiles-container {
 		display: flex;

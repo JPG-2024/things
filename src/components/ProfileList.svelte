@@ -1,45 +1,19 @@
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
-	import WheelStage from '@/components/WheelStage.svelte';
 	import type { ItemTransition } from '@/lib/utils/itemTransitions';
-	import { PROFILE_COLUMN_WIDTH, WHEEL_END_SPACE, WHEEL_START_SPACE } from '@/constants';
+	import { viewState } from '@/stores/viewStore.svelte';
 
 	interface Props {
 		items: T[];
 		itemTransition: ItemTransition;
-		/** Renders each item's card inside the row cell. */
+		/** Renders each item's card inside the grid cell. */
 		row: Snippet<[T]>;
 		key: (item: T) => string | number;
-		columns?: boolean;
-		/** Column width in columns mode (e.g. '17rem'). */
-		columnWidth?: string;
-		/** Cards stacked vertically inside a single wheel column. */
-		cardsPerColumn?: number;
-		/** Vertical gap between stacked rows. */
-		rowGap?: number;
-		/** Wheel track height (any CSS length). */
-		height?: string;
-		/** Blank space before the first card (fake-scroll runway). */
-		startSpace?: string;
-		/** Blank space after the last card, so its end settles near the center. */
-		endSpace?: string;
+		/** Extra content rendered after the last card (load-more sentinel). */
 		sentinel?: Snippet;
 	}
 
-	let {
-		items,
-		itemTransition,
-		row,
-		key,
-		columns = false,
-		columnWidth = PROFILE_COLUMN_WIDTH,
-		cardsPerColumn = 1,
-		rowGap = 10,
-		height = 'auto',
-		startSpace = WHEEL_START_SPACE,
-		endSpace = WHEEL_END_SPACE,
-		sentinel = undefined
-	}: Props = $props();
+	let { items, itemTransition, row, key, sentinel = undefined }: Props = $props();
 
 	// Mirror items after mount so the keyed {#each} sees them as added. Svelte
 	// suppresses intro transitions for elements present during the initial
@@ -54,72 +28,66 @@
 	});
 </script>
 
-{#if columns}
-	<div class="profile-list columns">
-		<WheelStage
-			gap={50}
-			{rowGap}
-			rows={cardsPerColumn}
-			{height}
-			scrollSpeed={5}
-			keyboard
-			label="Column cards"
-			{startSpace}
-			{endSpace}
-		>
-			{#each renderedItems as item (key(item))}
-				<div
-					class="profile-row"
-					class:column={columns}
-					style:width={columns ? columnWidth : undefined}
-					in:itemTransition
-					out:itemTransition
-				>
-					{@render row(item)}
-				</div>
-			{/each}
-			{#if sentinel}
-				<div class="sentinel-cell">
-					{@render sentinel()}
-				</div>
-			{/if}
-		</WheelStage>
-	</div>
-{:else}
-	<div class="profile-list">
+<div class="profile-list-container">
+	<div
+		class="profile-list"
+		style="--grid-cols-narrow: {viewState.gridColumnsNarrow}; --grid-cols-wide: {viewState.gridColumnsWide};"
+	>
 		{#each renderedItems as item (key(item))}
 			<div class="profile-row" in:itemTransition out:itemTransition>
 				{@render row(item)}
 			</div>
 		{/each}
+		{#if sentinel}
+			<div class="sentinel-cell">
+				{@render sentinel()}
+			</div>
+		{/if}
 	</div>
-{/if}
+</div>
 
 <style>
+	/* The container measures the content area (it shrinks when the filters
+	   panel opens), so the breakpoint applies to the width the grid actually
+	   has — a media query would read the viewport and stay wrong then. The
+	   800px is a literal because a container-query condition cannot read a
+	   CSS variable. */
+	.profile-list-container {
+		container-type: inline-size;
+		width: 100%;
+		min-width: 0;
+	}
+
+	/* Fluid card grid: cards fill their cell (Card is width/height 100%), so
+	   every card of a row takes the height of the tallest one for free. */
 	.profile-list {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		width: 100%;
+		display: grid;
+		grid-template-columns: repeat(var(--grid-cols-narrow, 2), minmax(0, 1fr));
 		gap: 1rem;
-	}
-
-	.profile-row {
 		width: 100%;
-		max-width: 90vw;
-		margin: 0 auto;
+		padding-inline: 2rem;
+		padding-bottom: 4rem;
+		box-sizing: border-box;
 	}
 
-	/* Columns mode: cards flow horizontally, cardinal scroll handled by WheelStage */
-	.profile-row.column {
-		max-width: none;
+	@container (min-width: 800px) {
+		.profile-list {
+			grid-template-columns: repeat(var(--grid-cols-wide, 3), minmax(0, 1fr));
+		}
 	}
 
+	/* Rows snap to the top of the dashboard scrollport (opt-in from Settings;
+	   inert while `scroll-snap-type` is not set on #dashboard-content). All
+	   cards of a row share this top edge, so the row produces one snap point. */
+	.profile-row {
+		display: grid;
+		scroll-snap-align: start;
+		min-width: 0;
+	}
+
+	/* The sentinel spans every column so it starts its own full-width row. */
 	.sentinel-cell {
-		/* Span every row so the sentinel starts its own column instead of
-		   filling a partial column left over from an uneven item count. */
-		grid-row: 1 / -1;
-		align-self: center;
-		width: 8rem;
+		grid-column: 1 / -1;
+		min-width: 0;
 	}
 </style>

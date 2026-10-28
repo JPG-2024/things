@@ -2,13 +2,11 @@
 	import ProfileList from '@/components/ProfileList.svelte';
 	import ProfileWidget from '@/components/ProfileWidget.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
-	import { entityColumnWidth } from '@/lib/utils/cardLayout';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
 	const domainItemTransition = tabAnimationStore.transitionFor('domains');
-	const layout = $derived(viewState.cardLayout.domains);
 
 	const visibleDomains = $derived.by(() => {
 		const ids = articleFilters.ids('domains');
@@ -26,14 +24,7 @@
 	});
 </script>
 
-<ProfileList
-	items={visibleDomains}
-	itemTransition={domainItemTransition}
-	columns
-	columnWidth={entityColumnWidth(layout)}
-	cardsPerColumn={layout.cardsPerColumn}
-	key={(d) => d.id}
->
+<ProfileList items={visibleDomains} itemTransition={domainItemTransition} key={(d) => d.id}>
 	{#snippet row(domain)}
 		<ProfileWidget
 			profileWithArticles={domain}

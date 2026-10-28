@@ -18,10 +18,8 @@
 		CARD_COLUMN_MIN,
 		CARD_ROW_MAX,
 		CARD_ROW_MIN,
-		CELL_WIDTH_MAX,
-		CELL_WIDTH_MIN,
-		WHEEL_CARDS_MAX,
-		WHEEL_CARDS_MIN,
+		ENTITY_GRID_COLUMNS_MAX,
+		ENTITY_GRID_COLUMNS_MIN,
 		type CardTab
 	} from '@/constants';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
@@ -708,7 +706,7 @@
 			{#snippet cardLayoutFields(tab: CardTab, title: string)}
 				<div class="card-layout-group">
 					<span class="card-layout-title">{title}</span>
-					<FieldsRow columns={4}>
+					<FieldsRow columns={2}>
 						<NumberField
 							label="Columnas"
 							min={CARD_COLUMN_MIN}
@@ -723,22 +721,6 @@
 							value={viewState.cardLayout[tab].rows}
 							onCommit={(value) => viewState.setCardLayout(tab, { rows: value })}
 						/>
-						<NumberField
-							label="Wheel filas"
-							min={WHEEL_CARDS_MIN}
-							max={WHEEL_CARDS_MAX}
-							tooltip="Cards apiladas verticalmente por columna del wheel."
-							value={viewState.cardLayout[tab].cardsPerColumn}
-							onCommit={(value) => viewState.setCardLayout(tab, { cardsPerColumn: value })}
-						/>
-						<NumberField
-							label="Cell width (px)"
-							min={CELL_WIDTH_MIN}
-							max={CELL_WIDTH_MAX}
-							tooltip="Ancho objetivo de cada thumbnail; con él se calcula el ancho de la card."
-							value={viewState.cardLayout[tab].cellWidth}
-							onCommit={(value) => viewState.setCardLayout(tab, { cellWidth: value })}
-						/>
 					</FieldsRow>
 					<p class="cards-helper">
 						{viewState.cardLayout[tab].columns} columnas × {viewState.cardLayout[tab].rows} filas = {viewState
@@ -749,6 +731,32 @@
 			{@render cardLayoutFields('profiles', 'Profiles')}
 			{@render cardLayoutFields('domains', 'Domains')}
 			{@render cardLayoutFields('categories', 'Categories')}
+			<div class="card-layout-group">
+				<span class="card-layout-title">Grid</span>
+				<FieldsRow columns={2}>
+					<NumberField
+						label="Columnas estrechas"
+						min={ENTITY_GRID_COLUMNS_MIN}
+						max={ENTITY_GRID_COLUMNS_MAX}
+						tooltip="Columnas del grid por debajo del ancho de ruptura (800px)."
+						value={viewState.gridColumnsNarrow}
+						onCommit={(value) => viewState.setGridColumnCount('narrow', value)}
+					/>
+					<NumberField
+						label="Columnas anchas"
+						min={ENTITY_GRID_COLUMNS_MIN}
+						max={ENTITY_GRID_COLUMNS_MAX}
+						tooltip="Columnas del grid a partir del ancho de ruptura (800px)."
+						value={viewState.gridColumnsWide}
+						onCommit={(value) => viewState.setGridColumnCount('wide', value)}
+					/>
+				</FieldsRow>
+				<ToggleField
+					label="Snap de filas"
+					tooltip="Alinea la fila superior del grid con el borde superior del panel al hacer scroll."
+					bind:checked={viewState.gridSnapEnabled}
+				/>
+			</div>
 		</div>
 	</Spacer>
 	<Spacer title="Filters" icon="Filter">
