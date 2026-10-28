@@ -1,9 +1,6 @@
 mod youtube;
 pub use crate::youtube::{get_youtube_transcript_timed, get_youtube_transcript_timed_text};
 
-mod markdown;
-pub use crate::markdown::{extract_blog, extract_markdown, extract_metadata};
-
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
@@ -196,9 +193,6 @@ pub fn run() {
             delete_category_exemplars_for_article,
             get_category_exemplar_model_status,
             update_category_exemplars_model,
-            extract_markdown,
-            extract_metadata,
-            extract_blog,
             get_youtube_transcript_timed,
             get_youtube_transcript_timed_text,
             download_and_save_image,
