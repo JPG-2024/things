@@ -284,7 +284,7 @@
 	.trigger {
 		position: relative;
 		color: var(--primary-color);
-		backdrop-filter: blur(8px);
+
 		box-sizing: border-box;
 		outline: none;
 		/* border: 1px solid rgba(255, 255, 255, 0.1); */

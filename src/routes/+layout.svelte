@@ -330,7 +330,10 @@
 			enabled:
 				articleFilters.filtersPanelVisible ||
 				(selectedArticlesStore.selectedUrls.size > 0 && !chatOpen),
-			ignoreInputs: true,
+			// Opening the panel focuses the page search input, so Escape must
+			// work from inside inputs while it is visible; once closed, keep
+			// inputs protected so typing there cannot clear article selections.
+			ignoreInputs: !articleFilters.filtersPanelVisible,
 			preventDefault: true,
 			stopPropagation: true
 		})
@@ -557,7 +560,7 @@
 
 		font-synthesis: none;
 		text-rendering: optimizeLegibility;
-		-webkit-font-smoothing: antialiased;
+		/* -webkit-font-smoothing: antialiased; */
 		-moz-osx-font-smoothing: grayscale;
 		-webkit-text-size-adjust: 100%;
 	}

@@ -3,7 +3,12 @@
 	import { fly } from 'svelte/transition';
 	import EntityBar from '@/components/EntityBar.svelte';
 	import type { EntityBarItem } from '@/components/EntityBar.svelte';
-	import { viewState, articleFilters, type ArticleFilterKind } from '@/stores/viewStore.svelte';
+	import {
+		viewState,
+		articleFilters,
+		type ArticleFilterEntry,
+		type ArticleFilterKind
+	} from '@/stores/viewStore.svelte';
 	import { getProfiles, type ArticleProfile } from '@/stores/webStore';
 
 	interface FilterSection {
@@ -37,64 +42,104 @@
 		}
 	});
 
-	// Narrowed by the search draft — the same term EntityBar applies — so
-	// typing in the page search filters the panel lists in live, while the
-	// applied filter (committed on Enter) drives the rest of the page.
+	/**
+	 * Entries a facet section should render. Selected entries always stay visible
+	 * so they can be deselected; a typed term adds the entities that match it.
+	 * With an empty term, profile/domain sections collapse to just the selection,
+	 * which keeps the panel from dumping the full entity lists. Categories opt
+	 * into `showAllWhenEmpty` so they remain the browseable facet.
+	 */
+	function sectionItems(
+		entities: EntityBarItem[],
+		kind: ArticleFilterKind,
+		query: string,
+		showAllWhenEmpty: boolean
+	): EntityBarItem[] {
+		const active: ArticleFilterEntry[] = articleFilters.entries(kind);
+		const activeIds = new Set(active.map((entry) => entry.id));
+		const items = entities.filter(
+			(item) =>
+				activeIds.has(item.id) ||
+				(query ? item.name.toLowerCase().includes(query) : showAllWhenEmpty)
+		);
+		// Selected entities missing from the fetched list (stale cache) still
+		// render so the selection is never invisible.
+		const visibleIds = new Set(items.map((item) => item.id));
+		for (const entry of active) {
+			if (!visibleIds.has(entry.id)) {
+				items.push({ id: entry.id, name: entry.name, profilePictureSrc: null });
+			}
+		}
+		return items;
+	}
+
+	// Narrowed by the search draft: typing filters the panel lists in live,
+	// while the applied filter (committed on Enter) drives the rest of the page.
 	const sections = $derived.by<FilterSection[]>(() => {
 		const query = viewState.unifiedFilterDraft.trim().toLowerCase();
-		const matches = (name: string) => !query || name.toLowerCase().includes(query);
 		return [
 			{
 				kind: 'categories',
 				label: 'Categories',
 				separators: true,
 				// Categories have no picture: EntityBar falls back to EmojiString.
-				items: viewState.categories
-					.map((category) => ({
+				items: sectionItems(
+					viewState.categories.map((category) => ({
 						id: category.id,
 						name: category.name,
 						profilePictureSrc: null
-					}))
-					.filter((item) => matches(item.name))
+					})),
+					'categories',
+					query,
+					true
+				)
 			},
 			{
 				kind: 'profiles',
 				label: 'Profiles',
-				items: profiles
-					.map((profile) => ({
+				items: sectionItems(
+					profiles.map((profile) => ({
 						id: profile.id,
 						name: profile.name,
 						profilePictureSrc: profile.profilePictureSrc ?? null
-					}))
-					.filter((item) => matches(item.name))
+					})),
+					'profiles',
+					query,
+					false
+				)
 			},
 			{
 				kind: 'domains',
 				label: 'Domains',
-				items: domains
-					.map((domain) => ({
+				items: sectionItems(
+					domains.map((domain) => ({
 						id: domain.id,
 						name: domain.name,
 						profilePictureSrc: domain.profilePictureSrc ?? null
-					}))
-					.filter((item) => matches(item.name))
+					})),
+					'domains',
+					query,
+					false
+				)
 			}
 		];
 	});
 </script>
 
 {#if !loading}
-	<div in:fly={{ y: 8, duration: 200 }}>
+	<div class="filter-sections" in:fly={{ y: 8, duration: 200 }}>
 		{#each sections as section (section.kind)}
 			{#if section.items.length > 0}
-				<div class="section-title">{section.label}</div>
-				<div class="entity-bar-container">
-					<EntityBar
-						items={section.items}
-						activeIds={articleFilters.ids(section.kind)}
-						separators={section.separators ?? false}
-						onSelect={(item) => articleFilters.toggle(section.kind, item.id, item.name)}
-					/>
+				<div class="filter-section">
+					<div class="section-title">{section.label}</div>
+					<div class="entity-bar-container">
+						<EntityBar
+							items={section.items}
+							activeIds={articleFilters.ids(section.kind)}
+							separators={section.separators ?? false}
+							onSelect={(item) => articleFilters.toggle(section.kind, item.id, item.name)}
+						/>
+					</div>
 				</div>
 			{/if}
 		{/each}
@@ -102,8 +147,34 @@
 {/if}
 
 <style>
+	/* The strip is short and wide: sections sit side by side and the row
+	   scrolls horizontally when its columns exceed the viewport. */
+	.filter-sections {
+		display: flex;
+		align-items: flex-start;
+		gap: 2rem;
+		min-height: 0;
+		padding: 0.25rem 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
+	.filter-section {
+		display: flex;
+		flex-direction: column;
+		flex: 0 0 auto;
+	}
+
+	/* One line per section; the strip scrolls instead of wrapping items into
+	   rows that would not fit in the strip height. */
+	.filter-section :global(.entity-bar) {
+		width: max-content;
+		flex-wrap: nowrap;
+		justify-content: flex-start;
+	}
+
 	.entity-bar-container {
-		padding: 1rem 0;
+		padding: 0.25rem 0;
 	}
 
 	.section-title {
@@ -112,10 +183,6 @@
 		font-family: var(--font-secondary);
 		letter-spacing: 0.05em;
 		color: var(--primary-color);
-		padding: 1rem 0;
-	}
-
-	.section-title:first-child {
-		margin-top: 0;
+		padding: 0.25rem 0;
 	}
 </style>

@@ -25,59 +25,65 @@
 </script>
 
 <div class="filters-sidebar">
-	{#if articleFilters.hasActive}
-		<div class="sidebar-header" in:fly={{ y: 8, duration: 200 }}>
-			<Button icon="X" onClick={handleClearAndClose}>Clear filters</Button>
-		</div>
-	{:else}
-		<div class="sidebar-header centered" in:fly={{ y: 8, duration: 200 }}>
-			<button
-				type="button"
-				class="close-trigger"
-				onclick={handleClose}
-				aria-label="Close filters panel"
-			>
-				<Icon name="X" />
-			</button>
-		</div>
-	{/if}
-	{#if articleFilters.hasActive}
-		<div class="sidebar-chips">
-			<ActiveFilterChips />
-		</div>
-	{/if}
+	<div class="sidebar-top">
+		{#if articleFilters.hasActive}
+			<div class="sidebar-header" in:fly={{ y: -8, duration: 200 }}>
+				<Button icon="X" onClick={handleClearAndClose}>Clear filters</Button>
+			</div>
+			<div class="sidebar-chips">
+				<ActiveFilterChips />
+			</div>
+		{:else}
+			<div class="sidebar-header" in:fly={{ y: -8, duration: 200 }}>
+				<button
+					type="button"
+					class="close-trigger"
+					onclick={handleClose}
+					aria-label="Close filters panel"
+				>
+					<Icon name="X" />
+				</button>
+			</div>
+		{/if}
+		{#if viewState.unifiedFilterDraft.trim()}
+			<div class="sidebar-raw-search">
+				<Button
+					icon="Search"
+					disabled={viewState.unifiedFilterDraft.trim().length < 4}
+					onClick={onSearchInContent}
+				>
+					Search in articles content
+				</Button>
+			</div>
+		{/if}
+	</div>
 	<ArticleFiltersPanel />
-	{#if viewState.unifiedFilterDraft.trim()}
-		<div class="sidebar-raw-search">
-			<Button
-				icon="Search"
-				disabled={viewState.unifiedFilterDraft.trim().length < 4}
-				onClick={onSearchInContent}
-			>
-				Search in articles content
-			</Button>
-		</div>
-	{/if}
 </div>
 
 <style>
 	.filters-sidebar {
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		gap: 0.25rem;
 		width: 100%;
-		padding: 0.5rem;
+		height: 100%;
+		box-sizing: border-box;
+		padding: 0 0.5rem;
 		border-radius: var(--radius-sm);
+	}
+
+	.sidebar-top {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		min-width: 0;
 	}
 
 	.sidebar-header {
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
-		width: 100%;
-	}
-
-	.sidebar-header.centered {
-		justify-content: end;
+		flex-shrink: 0;
 	}
 
 	.close-trigger {
@@ -96,14 +102,14 @@
 	}
 
 	.sidebar-chips {
-		padding: 0.5rem 0;
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.sidebar-raw-search {
 		display: flex;
 		justify-content: center;
-		margin-top: 0.75rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
+		margin-left: auto;
+		flex-shrink: 0;
 	}
 </style>

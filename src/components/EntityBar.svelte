@@ -2,7 +2,6 @@
 	import EmojiString from '@/components/EmojiString.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { tooltip } from '@/lib/actions/tooltip';
-	import { viewState } from '@/stores/viewStore.svelte';
 
 	export interface EntityBarItem {
 		id: string;
@@ -30,18 +29,13 @@
 		onHoverLeave = undefined
 	}: Props = $props();
 
-	const filterTerm = $derived(viewState.unifiedFilterDraft.trim().toLowerCase());
-	const filteredItems = $derived(
-		filterTerm ? items.filter((item) => item.name.toLowerCase().includes(filterTerm)) : items
-	);
-
 	function isActive(item: EntityBarItem): boolean {
 		return activeIds.includes(item.id);
 	}
 </script>
 
 <div class="entity-bar">
-	{#each filteredItems as item, index (item.id)}
+	{#each items as item, index (item.id)}
 		{#if separators && index > 0}
 			<span class="entity-divider" aria-hidden="true"></span>
 		{/if}

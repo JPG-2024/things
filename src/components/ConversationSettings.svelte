@@ -199,7 +199,6 @@
 	}
 
 	.field-textarea {
-		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
 		border: none;

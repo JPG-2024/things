@@ -62,7 +62,6 @@
 
 <style>
 	.dropdown-input {
-		backdrop-filter: blur(8px);
 		box-sizing: border-box;
 		outline: none;
 		border-radius: var(--radius-sm);

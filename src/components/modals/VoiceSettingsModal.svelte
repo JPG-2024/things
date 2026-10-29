@@ -1016,8 +1016,6 @@
 		justify-content: center;
 		align-items: center;
 		background: rgba(0, 0, 0);
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
 		z-index: 100000;
 	}
 
@@ -1026,14 +1024,13 @@
 		width: 50vw;
 		max-width: none;
 		max-height: 92vh;
-		overflow-y: auto;
-		background: rgba(14, 14, 14, 0.98);
-		border-radius: var(--radius-lg);
-		padding: 2rem 1.5rem 2rem;
+		overflow: hidden;
+		background: #0e0e0e;
+
+		padding: 2rem 0 0;
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		gap: 1.25rem;
 		color: white;
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 	}
@@ -1046,6 +1043,7 @@
 		display: flex;
 		gap: 1rem;
 		align-items: center;
+		padding: 0 1.5rem;
 	}
 
 	.config-column {
@@ -1053,6 +1051,9 @@
 		flex-direction: column;
 		gap: 1.5rem;
 		width: 100%;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 0.75rem 1.5rem 2rem;
 	}
 
 	.close-btn {

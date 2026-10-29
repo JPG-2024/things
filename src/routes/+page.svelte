@@ -79,7 +79,7 @@
 
 	let toolbarEl = $state<HTMLDivElement>();
 	let searchInput = $state<{ focus: () => void } | null>(null);
-	let filtersColumnEl = $state<HTMLDivElement>();
+	let filtersStripEl = $state<HTMLDivElement>();
 	let filtersAnchorEl = $state<HTMLDivElement>();
 
 	// Focus the page search whenever the filters panel opens (F, icon, typing).
@@ -87,10 +87,10 @@
 		if (articleFilters.filtersPanelVisible) searchInput?.focus();
 	});
 
-	// Click-outside dismissal for the filters column. `pointerdown` (not
+	// Click-outside dismissal for the filters strip. `pointerdown` (not
 	// `click`) so a drag-select that starts inside and ends outside does not
-	// dismiss it. Bind to the whole left column instead of the sidebar card so
-	// its gutter and scrollbar count as inside.
+	// dismiss it. Bind to the whole strip instead of the sidebar card so its
+	// gutter and scrollbar count as inside.
 	$effect(() => {
 		if (!articleFilters.filtersPanelVisible) return;
 
@@ -98,7 +98,7 @@
 			if (event.button !== 0) return;
 			const target = event.target as Node | null;
 			if (!target) return;
-			if (filtersColumnEl?.contains(target)) return;
+			if (filtersStripEl?.contains(target)) return;
 			// Search input + filter trigger open the panel and must not dismiss
 			// it: closing here would make the icon's own click re-toggle it open
 			// and the input's focus handler reopen it mid-typing.
@@ -453,17 +453,18 @@
 <div
 	class="dashboard-container"
 	class:filters-open={articleFilters.filtersPanelVisible}
-	style:--filters-panel-width="{viewState.filtersPanelWidth}px"
+	style:--filters-panel-height="{viewState.filtersPanelHeight}vh"
 >
-	<!-- Always-rendered left track: the grid template animates 0 ↔ panel width
-	     so the lists push right smoothly; content mounts with a fly transition. -->
-	<div class="filters-column" bind:this={filtersColumnEl}>
-		<div class="filters-column-scroll">
+	<!-- Always-rendered top track: the grid rows animate 0 ↔ strip height so
+	     the article grid is pushed down smoothly; content mounts with a fly
+	     transition. -->
+	<div class="filters-strip" bind:this={filtersStripEl}>
+		<div class="filters-strip-scroll">
 			{#if articleFilters.filtersPanelVisible}
 				<div
 					class="filters-sidebar-slot"
-					in:fly={{ x: -20, duration: 100 }}
-					out:fly={{ x: -20, duration: 100 }}
+					in:fly={{ y: -8, duration: 100 }}
+					out:fly={{ y: -8, duration: 100 }}
 				>
 					<ArticleFiltersSidebar onSearchInContent={handleSearchInContent} />
 				</div>
@@ -513,22 +514,30 @@
 
 	.dashboard-container {
 		display: grid;
-		grid-template-columns: 0px minmax(0, 1fr);
-		transition: grid-template-columns 15ms ease-out;
+		grid-template-rows: 0px minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr);
+		transition: grid-template-rows 150ms ease-out;
 
-		width: 100%;
+		/* Full-bleed: span the viewport (main insets its children by the page
+		   gutter) so the strip lines up with the fixed toolbar, while
+		   `.dashboard-content` re-applies the gutter to the article grid. */
+		width: calc(100% + 2 * var(--page-gutter-x));
+		margin-inline: calc(var(--page-gutter-x) * -1);
+		/* Clear the fixed toolbar; the grid rows start right below it. */
+		padding-top: 10rem;
+		box-sizing: border-box;
 		height: 100vh;
 		overflow: hidden;
 	}
 
-	/* Filters left panel column: 0 collapsed, the configured width when open. */
+	/* Filters top strip: 0 collapsed, the configured height when open. */
 	.dashboard-container.filters-open {
-		grid-template-columns: var(--filters-panel-width, 400px) minmax(0, 1fr);
+		grid-template-rows: var(--filters-panel-height, 20vh) minmax(0, 1fr);
 	}
 
-	.filters-column {
-		grid-column: 1;
-		min-width: 0;
+	.filters-strip {
+		grid-row: 1;
+		min-height: 0;
 		overflow: hidden;
 		background-image: linear-gradient(
 			145deg,
@@ -540,18 +549,25 @@
 		);
 	}
 
-	.filters-column-scroll {
+	.filters-strip-scroll {
 		height: 100%;
-		overflow-y: auto;
-		padding: 10rem 0.5rem 2rem 1rem;
+		box-sizing: border-box;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding: 0.25rem var(--page-gutter-x);
+	}
+
+	/* The sidebar uses grid rows (header + sections), so the wrapper must
+	   forward the strip's definite height for `height: 100%` to resolve. */
+	.filters-sidebar-slot {
+		height: 100%;
+		min-height: 0;
 	}
 
 	.dashboard-content {
+		grid-row: 2;
 		overflow-y: auto;
-		padding-top: 10rem;
-		/* Keeps a snapped row (its cards) below the fixed toolbar. Only
-		   meaningful while `scroll-snap-type` is set by `.snap-on`. */
-		scroll-padding-top: 10rem;
+		padding-inline: var(--page-gutter-x);
 	}
 
 	/* Opt-in row snapping of the entity grid (Settings → Cards → Grid). The
