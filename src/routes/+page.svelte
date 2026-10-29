@@ -524,7 +524,7 @@
 		width: calc(100% + 2 * var(--page-gutter-x));
 		margin-inline: calc(var(--page-gutter-x) * -1);
 		/* Clear the fixed toolbar; the grid rows start right below it. */
-		padding-top: 10rem;
+		padding-top: 8rem;
 		box-sizing: border-box;
 		height: 100vh;
 		overflow: hidden;
@@ -532,7 +532,7 @@
 
 	/* Filters top strip: 0 collapsed, the configured height when open. */
 	.dashboard-container.filters-open {
-		grid-template-rows: var(--filters-panel-height, 20vh) minmax(0, 1fr);
+		grid-template-rows: var(--filters-panel-height, 5vh) minmax(0, 1fr);
 	}
 
 	.filters-strip {
@@ -589,20 +589,10 @@
 		gap: 0.5rem;
 		width: 100%;
 		margin: 0 auto;
-		padding: 0.2rem 2rem 3rem;
-		background: linear-gradient(
-			color-mix(in srgb, var(--primary-color), black 98%),
-			rgba(9, 9, 9, 1),
-			rgba(9, 9, 9, 1),
-			transparent
-		);
+		padding: 0.2rem 2rem 2rem;
+
 		opacity: 1;
 		/* background-color: black; */
-		transition:
-			transform 250ms ease-out,
-			opacity 250ms ease-out,
-			height 250ms ease-out,
-			padding 250ms ease-out;
 	}
 
 	.toolbar-row {
