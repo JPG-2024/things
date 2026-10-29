@@ -27,11 +27,30 @@
 	 * effect below, and a failed resolve can be retried on the next open. */
 	let embedSrcVideoId: string | null = null;
 
+	/** TEMP diagnostic: in dev, `localStorage['things:direct-embed'] = '1'`
+	 * frames `youtube-nocookie` directly (the pre-wrapper architecture) so the
+	 * wrapper's nested iframe can be A/B tested for frame pacing. Remove once
+	 * the performance question is settled. */
+	function directEmbedOverride(videoId: string): string | null {
+		if (!import.meta.env.DEV) return null;
+		const enabled =
+			import.meta.env.VITE_DIRECT_EMBED === '1' ||
+			localStorage.getItem('things:direct-embed') === '1';
+		if (!enabled) return null;
+		console.warn('[diag] direct YouTube embed override active (no wrapper)');
+		return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+	}
+
 	$effect(() => {
 		const videoId = active?.videoId;
 		if (!videoId || embedSrcVideoId === videoId) return;
 		embedSrcVideoId = videoId;
 		embedSrc = null;
+		const direct = directEmbedOverride(videoId);
+		if (direct) {
+			embedSrc = direct;
+			return;
+		}
 		let cancelled = false;
 		invoke<string>('youtube_embed_url', { videoId })
 			.then((url) => {
