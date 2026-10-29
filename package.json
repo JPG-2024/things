@@ -9,7 +9,7 @@
 		"preview": "vite preview",
 		"tauri": "tauri",
 		"linux": "WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
-		"linux-x11": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev",
+		"linux-x11": "VITE_DIRECT_EMBED=1 GDK_BACKEND=x11 bun run tauri dev",
 		"build-linux": "GSTREAMER_HELPERS_DIR=/usr/lib/gstreamer-1.0 NO_STRIP=true bun run tauri build --bundles appimage",
 		"dev-icon": "bash bin/install-dev-desktop.sh",
 		"dev-icon:remove": "bash bin/install-dev-desktop.sh --remove",
