@@ -135,9 +135,6 @@
 			{#if article.profilePictureSrc}
 				<ProfileThumb src={article.profilePictureSrc} size={50} onclick={goToProfile} />
 			{/if}
-			{#if article.title}
-				<div class="article-title">{article.title}</div>
-			{/if}
 		</div>
 		<div class="category-editor_container">
 			{#if article.url}
@@ -225,19 +222,6 @@
 		align-items: center;
 		gap: 1rem;
 		width: 100%;
-	}
-
-	.article-title {
-		font-family: var(--font-secondary);
-		font-size: 1.1rem;
-		margin-right: auto;
-		width: 100%;
-		padding: 1rem 0;
-		font-variant: all-small-caps;
-	}
-
-	.article-title::after {
-		content: '.';
 	}
 
 	.article-analysis {

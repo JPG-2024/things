@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	/* import { createHotkey } from '@tanstack/svelte-hotkeys'; */
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { articleState } from '@/stores/articleStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 	import Icon from '@/components/Icon.svelte';
@@ -19,6 +20,15 @@
 	// url waits in the queue) until the drain finishes, regardless of which
 	// article is on screen.
 	const processing = $derived(articleManager.processing);
+
+	const article = $derived(articleState.currentArticle);
+	/**
+	 * The article title, gated on `status === 'done'` — the uniform "the
+	 * loader finished" signal for both a fresh run (set where `loaded` rises)
+	 * and a plain open of a cached article (`loaded` stays false there). It
+	 * reveals in sync with the topbar sweep.
+	 */
+	const readyTitle = $derived(article.status === 'done' ? article.title : null);
 
 	$effect(() => {
 		if (!viewState.domainUrl || viewState.isRawMode) {
@@ -49,15 +59,22 @@
 </script>
 
 <div class="top-bar" class:loaded={viewState.loaded}>
-	<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button>
+	<div class="topbar-left">
+		<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button
+		>
 
-	<button type="button" class="favicon-btn" aria-label="Navigate back">
-		{#if faviconSrc}
-			<img class="favicon" src={faviconSrc} alt="" />
-		{:else}
-			<Icon name="ClipboardType" />
-		{/if}
-	</button>
+		<button type="button" class="favicon-btn" aria-label="Navigate back">
+			{#if faviconSrc}
+				<img class="favicon" src={faviconSrc} alt="" />
+			{:else}
+				<Icon name="ClipboardType" />
+			{/if}
+		</button>
+	</div>
+
+	{#if readyTitle}
+		<div class="topbar-title" class:reveal={viewState.loaded}>{readyTitle}</div>
+	{/if}
 
 	{@render children?.()}
 
@@ -167,6 +184,57 @@
 		width: 28px;
 		height: 28px;
 		background: color-mix(in srgb, var(--bg-color) 15%, transparent);
+	}
+
+	/* Left cluster: the back arrow and the favicon stay together so the favicon
+	   is pinned beside the back button even when no title fills the middle. */
+	.topbar-left {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-shrink: 0;
+	}
+
+	/* Article title in the middle. `flex-grow` fills the space between the
+	   left cluster and the toolbar, so the toolbar stays hugging the right. */
+	.topbar-title {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-family: var(--font-secondary);
+		font-size: 0.95rem;
+		font-variant: all-small-caps;
+		padding: 0 0.25rem;
+		text-align: center;
+	}
+
+	.topbar-title::after {
+		content: '.';
+	}
+
+	/* Left→right wipe, matching the `.top-bar.loaded::before` sweep. Only
+	   applied for a fresh run (`loaded` rises when the run ends): a plain open
+	   of a cached article shows the title without the animation. */
+	.topbar-title.reveal {
+		animation: topbar-title-reveal 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+	}
+
+	@keyframes topbar-title-reveal {
+		from {
+			clip-path: inset(0 100% 0 0);
+		}
+		to {
+			clip-path: inset(0 0 0 0);
+		}
+	}
+
+	/* The Toolbar's internal `width: 100%` would grab the middle away from the
+	   title; keep it sized to its icons so the title can grow into the gap. */
+	.top-bar > :global(.toolbar) {
+		flex: 0 0 auto;
+		width: auto;
 	}
 
 	.topbar-progress {
