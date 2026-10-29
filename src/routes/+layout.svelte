@@ -146,7 +146,8 @@
 	// The flag lives in `lib/utils/vtNames` because the `view-transition-name`
 	// anchors are only applied while it is on: marking every thumbnail of a
 	// wheel costs compositing work for nothing.
-	onNavigate((navigation) => {
+
+	/* 	onNavigate((navigation) => {
 		if (!VIEW_TRANSITIONS_ENABLED) return;
 		if (!document.startViewTransition) return;
 		return new Promise<void>((resolve) => {
@@ -155,7 +156,7 @@
 				await navigation.complete;
 			});
 		});
-	});
+	}); */
 
 	afterNavigate((navigation) => {
 		recordNavigation(navigation.from?.url ?? null, navigation.to?.url ?? null);
