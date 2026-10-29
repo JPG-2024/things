@@ -793,7 +793,7 @@
 				{/if}
 
 				{#if showVoiceDesign}
-					<Spacer title="Voice design" icon="AudioWaveform" defaultOpen={false}>
+					<Spacer title="Voice design" icon="AudioWaveform" defaultOpen={true}>
 						<Dropdown
 							label="Voice mode"
 							options={VOICE_MODE_OPTIONS}
@@ -852,7 +852,7 @@
 				{/if}
 
 				{#if !draftInstructEnabled}
-					<Spacer title="Chunk" icon="Podcast" defaultOpen={false}>
+					<Spacer title="Chunk" icon="Podcast" defaultOpen={true}>
 						<div class="row">
 							<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
 						</div>
@@ -880,7 +880,7 @@
 					</Spacer>
 				{/if}
 
-				<Spacer title="Synthesis" icon="SlidersHorizontal" defaultOpen={false}>
+				<Spacer title="Synthesis" icon="SlidersHorizontal" defaultOpen={true}>
 					{#if !draftInstructEnabled}
 						<RangeSelector
 							id="settings-numStep"
@@ -922,7 +922,7 @@
 				</Spacer>
 
 				{#if showPauses}
-					<Spacer title="Pauses" icon="Timer" defaultOpen={false}>
+					<Spacer title="Pauses" icon="Timer" defaultOpen={true}>
 						<RangeSelector
 							id="settings-minGapMs"
 							label="Min gap between sentences (s)"
@@ -957,7 +957,7 @@
 				{/if}
 
 				{#if management}
-					<Spacer title="Playback" icon="Volume2" defaultOpen={false}>
+					<Spacer title="Playback" icon="Volume2" defaultOpen={true}>
 						<RangeSelector
 							id="settings-prefetchDelay"
 							label="Generation delay (s)"
