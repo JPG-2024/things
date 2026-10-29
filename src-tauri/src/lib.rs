@@ -1,6 +1,9 @@
 mod youtube;
 pub use crate::youtube::{get_youtube_transcript_timed, get_youtube_transcript_timed_text};
 
+mod embed_server;
+pub use crate::embed_server::youtube_embed_url;
+
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
@@ -151,6 +154,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             db_manager::migrate_legacy_layout(app.handle())?;
+            // Serves the YouTube player wrapper for the floating player; the
+            // webview origin is a custom protocol in prod, which YouTube's
+            // embed refuses (see embed_server.rs). Must not fail startup:
+            // the only consumer degrades to "no iframe rendered".
+            if let Err(error) = embed_server::start_embed_server() {
+                eprintln!("youtube embed server failed to start: {error}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -195,6 +205,7 @@ pub fn run() {
             update_category_exemplars_model,
             get_youtube_transcript_timed,
             get_youtube_transcript_timed_text,
+            youtube_embed_url,
             download_and_save_image,
             url_to_folder_name,
             ensure_llama_servers,

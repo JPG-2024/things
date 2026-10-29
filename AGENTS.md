@@ -245,6 +245,23 @@ Use a reactive options function (getter) when the hotkey should only fire under 
 - Keep Rust changes focused; do not refactor unrelated modules while touching command plumbing.
 - Follow existing Rust module organization rather than creating new layers prematurely.
 
+### YouTube embed wrapper (`src-tauri/src/embed_server.rs`)
+
+- The floating player never iframes YouTube directly. In prod the webview
+  origin is `tauri://localhost`, and YouTube's embed refuses to play from a
+  non-HTTP origin (tauri-apps/tauri#14422, "Error 153"). `embed_server` runs
+  in dev and prod alike: an axum server bound to `127.0.0.1:<random port>`
+  with a single route `GET /embed?v=<id>` (video id regex-validated) that
+  serves a wrapper page framing `youtube-nocookie` and relaying
+  `postMessage` traffic both ways.
+- `FloatingYouTubePlayer.svelte` resolves `src` via the
+  `youtube_embed_url` Tauri command and must keep treating the wrapper
+  iframe as the player window (volume commands/events travel through the
+  relay unchanged).
+- CSP in `tauri.conf.json` allows `http://127.0.0.1:*` in `frame-src`
+  because the port is picked at runtime (`portpicker`). Do not change the
+  bind away from loopback.
+
 ### Linux app icon (GNOME / Wayland)
 
 - On Wayland, GNOME ignores the window icon; the dock/Activities/Alt-Tab icon comes from an installed `.desktop` file matched by app id (`things`, verified via `WAYLAND_DEBUG=1 ... | grep set_app_id`), then `Icon=` from the icon theme.

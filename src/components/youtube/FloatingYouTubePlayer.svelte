@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import { invoke } from '@tauri-apps/api/core';
 	import { fade } from 'svelte/transition';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -13,6 +14,40 @@
 	 * thumbnail grayscale and the video volume duck so all three share one
 	 * window. */
 	const ttsActive = $derived(ttsState.isGenerating || ttsState.isPlaying || ttsState.isPaused);
+
+	/** The embed is not framed from this page directly: the production webview
+	 * origin is the `tauri://` protocol, which YouTube's embed refuses to play
+	 * from (tauri-apps/tauri#14422, Error 153). `youtube_embed_url` (Rust) hands
+	 * back a loopback wrapper URL that frames the real embed and relays
+	 * `postMessage` traffic both ways, so the volume API below works as if the
+	 * player sat one hop away. */
+	let embedSrc = $state<string | null>(null);
+	/** Non-reactive memo: which videoId the current `embedSrc` belongs to.
+	 * Kept out of rune-land so resolving the same URL twice never re-runs the
+	 * effect below, and a failed resolve can be retried on the next open. */
+	let embedSrcVideoId: string | null = null;
+
+	$effect(() => {
+		const videoId = active?.videoId;
+		if (!videoId || embedSrcVideoId === videoId) return;
+		embedSrcVideoId = videoId;
+		embedSrc = null;
+		let cancelled = false;
+		invoke<string>('youtube_embed_url', { videoId })
+			.then((url) => {
+				if (cancelled) return;
+				embedSrc = url;
+			})
+			.catch((error: unknown) => {
+				if (cancelled) return;
+				embedSrc = null;
+				embedSrcVideoId = null;
+				console.error('Failed to resolve YouTube embed URL', error);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	let frameEl: HTMLIFrameElement | null = $state(null);
 
@@ -29,15 +64,6 @@
 	/** Delays (ms) after `onload`/`onReady`. The last one sits past the
 	 * slowest fade (`volumeFadeMs` tops out at 2000ms). */
 	const REASSERT_DELAYS_MS = [150, 400, 900, 1800, 3000];
-
-	/** `origin` lets the embed post `onReady` back to this window. Only http(s)
-	 * origins are usable — the Tauri shell runs on `tauri://`, where the
-	 * re-assert schedule is the fallback. */
-	const EMBED_ORIGIN_PARAM =
-		typeof window !== 'undefined' &&
-		(window.location.protocol === 'http:' || window.location.protocol === 'https:')
-			? `&origin=${encodeURIComponent(window.location.origin)}`
-			: '';
 
 	/** Volume the player should be at right now. Read inside the effect so
 	 * `ttsActive`, the duck slider and the base volume stay tracked as
@@ -245,21 +271,24 @@
 				</button>
 			</div>
 			{#key active.videoId}
-				<iframe
-					bind:this={frameEl}
-					class="player-video"
-					src={`https://www.youtube-nocookie.com/embed/${active.videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1${EMBED_ORIGIN_PARAM}`}
-					title="YouTube video player"
-					allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
-					allowfullscreen
-					onload={() => {
-						resetVolumeTracking();
-						applyCurrentVolume();
-						// The player is not ready yet at this point, so every
-						// command sent above is dropped: keep re-sending.
-						scheduleReasserts();
-					}}
-				></iframe>
+				{#if embedSrc}
+					<iframe
+						bind:this={frameEl}
+						class="player-video"
+						src={embedSrc}
+						title="YouTube video player"
+						allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
+						allowfullscreen
+						onload={() => {
+							resetVolumeTracking();
+							applyCurrentVolume();
+							// The player is not ready yet at this point, so every
+							// command sent above is dropped: keep re-sending until
+							// the wrapper relays an onReady for us.
+							scheduleReasserts();
+						}}
+					></iframe>
+				{/if}
 			{/key}
 		</div>
 
