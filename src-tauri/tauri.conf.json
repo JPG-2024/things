@@ -25,6 +25,11 @@
 	"bundle": {
 		"active": true,
 		"targets": "all",
+		"linux": {
+			"appimage": {
+				"bundleMediaFramework": true
+			}
+		},
 		"macOS": {
 			"entitlements": "entitlements.plist"
 		},

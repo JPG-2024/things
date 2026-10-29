@@ -266,6 +266,7 @@ Use a reactive options function (getter) when the hotkey should only fire under 
 
 - On Wayland, GNOME ignores the window icon; the dock/Activities/Alt-Tab icon comes from an installed `.desktop` file matched by app id (`things`, verified via `WAYLAND_DEBUG=1 ... | grep set_app_id`), then `Icon=` from the icon theme.
 - `tauri dev` installs neither, so the generic placeholder shows. Run `bun run dev-icon` to install a user-level `things.desktop` + icon (remove with `bun run dev-icon:remove`), then restart the dev app. `bin/install-dev-desktop.sh` does the work.
+- Dev and packaged builds share the window app id (`things` binary name), so only one `things.desktop` can be active at a time. After `bun run build-linux`, run `bun run appimage-icon` (`bin/install-appimage-desktop.sh`, undo with `bun run appimage-icon:remove`) to point the launcher at the AppImage — otherwise a pinned launcher resolves the dev entry first and starts the debug binary, which shows "Could not connect to localhost: Connection refused" without Vite. Unpin/re-pin the launcher after switching.
 - `bundle.icon` in `tauri.conf.json` lists `icons/icon.png` first: Tauri's Linux codegen uses the first `.png` as the default window icon, so ordering controls icon resolution on X11.
 - Do not set `app.enableGTKAppId` to `true` without a custom desktop template: the bundler emits `StartupWMClass=<exec name>` (`things`), and switching the app id to the identifier would break Wayland icon matching.
 
