@@ -3,11 +3,16 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { fade } from 'svelte/transition';
 	import { playerStore } from '@/stores/playerStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
+
+	/** True while the voice settings modal is open: the player then lifts
+	 * above its backdrop (see `.over-voice-modal`) so the video/thumbnail
+	 * stays visible while tweaking voice settings. */
+	const voiceModalOpen = $derived(voiceSettingsState.ttsOpen);
 
 	/** True while TTS owns the audio: from generation start until stop/reset,
 	 * including the paused-but-resumable state. Drives auto-minimize, the
@@ -267,7 +272,12 @@
 </script>
 
 {#if active}
-	<div class="floating-player" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+	<div
+		class="floating-player"
+		class:over-voice-modal={voiceModalOpen}
+		in:fade={{ duration: 200 }}
+		out:fade={{ duration: 200 }}
+	>
 		<!-- The iframe stays mounted while minimized so audio keeps playing;
 			it is only hidden via the `.frame-hidden` class. -->
 		<div class="player-frame" class:frame-hidden={minimized}>
@@ -335,6 +345,13 @@
 		width: 0;
 		height: 0;
 		z-index: 600; /* above content, below modals (9999/10000) */
+	}
+
+	/* The voice settings modal's backdrop sits at 100000; lift the player one
+	   step above it so the video/thumbnail stays visible while it is open.
+	   Conditional, so every other modal still covers the player as before. */
+	.floating-player.over-voice-modal {
+		z-index: 100001;
 	}
 
 	.player-frame {
