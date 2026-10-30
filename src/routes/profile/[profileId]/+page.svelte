@@ -159,7 +159,6 @@
 
 <div class="profile-page">
 	<ProfileTopbar
-		iconName="Users"
 		name={profile?.name}
 		thumbSrc={profile?.profilePictureSrc}
 		fallbackIcon="User"
