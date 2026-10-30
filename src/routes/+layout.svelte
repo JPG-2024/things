@@ -624,7 +624,7 @@
 		pointer-events: none;
 		background-image: linear-gradient(
 			130deg,
-			color-mix(in srgb, var(--primary-color) 10%, black),
+			color-mix(in srgb, var(--primary-color) 12%, black),
 			rgba(0, 0, 0) 50%,
 			color-mix(in srgb, var(--bg-color) 25%, black)
 		);

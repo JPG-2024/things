@@ -177,7 +177,7 @@
 		display: grid;
 		grid-template-columns: 300px minmax(0, 1fr);
 		column-gap: 1.5rem;
-		row-gap: 1.5rem;
+		row-gap: 1rem;
 		align-items: start;
 	}
 

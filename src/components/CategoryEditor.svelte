@@ -145,7 +145,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 1rem;
 	}
 
 	.category-pill {

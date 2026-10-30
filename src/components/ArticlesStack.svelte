@@ -203,7 +203,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 0.4rem;
-		border: 2px solid var(--gray-300);
+		border: 1px solid var(--gray-300);
 
 		color: rgba(255, 255, 255, 0.75);
 		font-size: clamp(0.5rem, 10cqi, 0.7rem);

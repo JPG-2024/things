@@ -524,7 +524,7 @@
 		width: calc(100% + 2 * var(--page-gutter-x));
 		margin-inline: calc(var(--page-gutter-x) * -1);
 		/* Clear the fixed toolbar; the grid rows start right below it. */
-		padding-top: 8rem;
+		padding-top: 10rem;
 		box-sizing: border-box;
 		height: 100vh;
 		overflow: hidden;
@@ -532,7 +532,7 @@
 
 	/* Filters top strip: 0 collapsed, the configured height when open. */
 	.dashboard-container.filters-open {
-		grid-template-rows: var(--filters-panel-height, 5vh) minmax(0, 1fr);
+		grid-template-rows: var(--filters-panel-height);
 	}
 
 	.filters-strip {
