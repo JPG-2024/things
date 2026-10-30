@@ -164,7 +164,7 @@
 		border-radius: 100px;
 		background: linear-gradient(
 			90deg,
-			transparent 50%,
+			var(--gray-800) 50%,
 			color-mix(in srgb, var(--bg-color) 20%, transparent),
 			color-mix(in srgb, var(--primary-color) 10%, var(--primary-color))
 		);
