@@ -1090,7 +1090,7 @@
 	.tts-grid-2 {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 1.25rem 0.75rem;
+		gap: 1.25rem 2.2rem;
 		align-items: start;
 	}
 
