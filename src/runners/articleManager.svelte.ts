@@ -51,6 +51,9 @@ class ArticleManager {
 
 	private draining = false;
 
+	/** Batch-end subscribers; each caller keeps its own unsubscribe. */
+	private drainSubscribers: Array<() => void | Promise<void>> = [];
+
 	constructor() {
 		// Keeps `active` in sync with the step and the progress of the run.
 		// A root effect is used because the manager lives outside the
@@ -77,6 +80,31 @@ class ArticleManager {
 	 */
 	get processing(): boolean {
 		return this.queue.length > 0 || this.active !== null;
+	}
+
+	/**
+	 * Registers a batch-end subscriber: it fires once the queue drains with
+	 * no run active, right before the list caches repaint. A callback that
+	 * writes to the database is therefore reflected by that repaint. Every
+	 * fired subscriber is awaited; a standing one fires on every batch. The
+	 * returned function unsubscribes.
+	 */
+	afterDrain(callback: () => void | Promise<void>): () => void {
+		this.drainSubscribers.push(callback);
+		return () => {
+			this.drainSubscribers = this.drainSubscribers.filter((cb) => cb !== callback);
+		};
+	}
+
+	/** Fires the batch-end subscribers, awaiting each and isolating failures. */
+	private async fireDrainSubscribers(): Promise<void> {
+		for (const callback of [...this.drainSubscribers]) {
+			try {
+				await callback();
+			} catch (error) {
+				console.error('[articleManager] afterDrain subscriber failed', error);
+			}
+		}
 	}
 
 	/**
@@ -299,6 +327,10 @@ class ArticleManager {
 		// thumbnails) they had when the batch started. Skipped when a queue
 		// started meanwhile: that drain repaints at its own end.
 		if (processed && this.queue.length === 0 && this.active === null) {
+			// Subscribers run before the repaint: a write they perform (e.g. the
+			// profile rank of the just-captured videos) must be visible to the
+			// re-query below.
+			await this.fireDrainSubscribers();
 			try {
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 				await articleCacheStore.refreshAfterRuns();

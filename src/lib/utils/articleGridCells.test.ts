@@ -112,4 +112,40 @@ describe('buildArticleGridCells', () => {
 
 		expect(cells.map((cell) => cell.key)).toEqual(['profile:new', 'profile:old']);
 	});
+
+	test('stack preview follows the profile rank over capture recency', () => {
+		// Capture time rises with a fetch batch's enqueue order (runs are
+		// sequential), so created_at DESC would anchor the pile on the batch's
+		// oldest video and read reversed against the channel page.
+		const stack = buildArticleGridCells([
+			article({ profileId: 'p1', createdAt: 30, profileRank: 2 }),
+			article({ profileId: 'p1', createdAt: 20, profileRank: 0 }),
+			article({ profileId: 'p1', createdAt: 10, profileRank: 1 })
+		]).find((cell) => cell.kind === 'stack');
+
+		if (stack?.kind !== 'stack') return;
+		expect(stack.preview.map((a) => a.id)).toEqual(['a31', 'a32', 'a30']);
+	});
+
+	test('profiles without ranks fall back to capture recency in the preview', () => {
+		const stack = buildArticleGridCells([
+			article({ profileId: 'p1', createdAt: 10 }),
+			article({ profileId: 'p1', createdAt: 30 }),
+			article({ profileId: 'p1', createdAt: 20 })
+		]).find((cell) => cell.kind === 'stack');
+
+		if (stack?.kind !== 'stack') return;
+		expect(stack.preview.map((a) => a.id)).toEqual(['a34', 'a35', 'a33']);
+	});
+
+	test('ranked articles stay ahead of unranked ones in mixed buckets', () => {
+		const stack = buildArticleGridCells([
+			article({ profileId: 'p1', createdAt: 99 }),
+			article({ profileId: 'p1', createdAt: 20, profileRank: 0 }),
+			article({ profileId: 'p1', createdAt: 40 })
+		]).find((cell) => cell.kind === 'stack');
+
+		if (stack?.kind !== 'stack') return;
+		expect(stack.preview.map((a) => a.id)).toEqual(['a37', 'a36', 'a38']);
+	});
 });

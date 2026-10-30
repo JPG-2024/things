@@ -73,6 +73,10 @@ pub struct WebStoreArticleRecord {
     pub analysis_divisor: Option<i64>,
     /// `full` = analysed, `metadata` = captured but pending analysis.
     pub mode: Option<String>,
+    /// Channel-page rank (`set_profile_article_order`). `None` keeps the row
+    /// in the created_at fallback of the order clause and of the stack
+    /// previews, which ride on the list rows.
+    pub profile_rank: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1083,6 +1087,7 @@ fn row_to_stored_article(
     let domain: Option<String> = row.get("domain")?;
     let profile_picture: Option<String> = row.get("profile_picture")?;
     let mode: Option<String> = row.get("mode").ok().flatten();
+    let profile_rank: Option<i64> = row.get::<_, Option<i64>>("profile_rank").unwrap_or(None);
     let summary: Option<String> = body_column_or_none(row, "summary");
     let analysis_divisor: Option<i64> = row
         .get::<_, Option<i64>>("analysis_divisor")
@@ -1111,6 +1116,7 @@ fn row_to_stored_article(
         summary,
         analysis_divisor,
         mode,
+        profile_rank,
     })
 }
 
@@ -1122,7 +1128,7 @@ fn body_column_or_none(row: &rusqlite::Row<'_>, name: &str) -> Option<String> {
 
 const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
         a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-        a.viewed, a.date, a.domain,
+        a.viewed, a.date, a.domain, a.profile_rank,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
@@ -1135,7 +1141,7 @@ const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, 
 /// the list query.
 const ARTICLE_LIST_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail,
         a.media_directory, a.main_color, a.profile, a.updated_at,
-        a.viewed, a.date, a.domain,
+        a.viewed, a.date, a.domain, a.profile_rank,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
@@ -3579,6 +3585,59 @@ fn apply_profile_article_order(
         })?;
     }
 
+    // The scrape list covers only what the channel page returned: any other
+    // article of the profile (captured beyond the first page, or through a
+    // different entry point) would stay in the `profile_rank IS NULL` tail
+    // and sort below every ranked row regardless of recency. Holding the
+    // ranks that follow the scraped ones keeps their listing order, which is
+    // the same `created_at DESC` the tail ordered them by.
+    let unranked_urls: Vec<String> = {
+        let mut stmt = tx
+            .prepare(
+                "SELECT url FROM web_articles
+                 WHERE profile_rank IS NULL
+                   AND (LOWER(profile) = ?1 OR LOWER(domain) = ?1)
+                 ORDER BY created_at DESC, date DESC NULLS LAST",
+            )
+            .map_err(|error| {
+                format!(
+                    "Failed to list unranked articles for id='{}': {}",
+                    normalized, error
+                )
+            })?;
+        let collected = stmt
+            .query_map([&normalized], |row| row.get(0))
+            .map_err(|error| {
+                format!(
+                    "Failed to query unranked articles for id='{}': {}",
+                    normalized, error
+                )
+            })?
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|error| {
+                format!(
+                    "Failed to read unranked articles for id='{}': {}",
+                    normalized, error
+                )
+            })?;
+        drop(stmt);
+        collected
+    };
+
+    for (offset, url) in unranked_urls.iter().enumerate() {
+        let rank = (urls.len() + offset) as i64;
+        tx.execute(
+            "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
+            params![rank, url],
+        )
+        .map_err(|error| {
+            format!(
+                "Failed to append profile rank url='{}' for id='{}': {}",
+                url, normalized, error
+            )
+        })?;
+    }
+
     tx.commit().map_err(|error| {
         format!(
             "Failed to commit profile article order for id='{}': {}",
@@ -4257,7 +4316,8 @@ mod tests {
 
         insert_article(&conn, "a-first", profile, 1_000_000_000_000, None);
         insert_article(&conn, "b-second", profile, 2_000_000_000_000, None);
-        // Out of the scrape window now: stale rank must be cleared.
+        // Out of the scrape window now: rank is cleared, then re-append by
+        // created_at after the scraped ones.
         insert_article(&conn, "c-stale", profile, 3_000_000_000_000, None);
         conn.execute(
             "UPDATE web_articles SET profile_rank = 7 WHERE url = 'c-stale'",
@@ -4283,7 +4343,47 @@ mod tests {
         };
         assert_eq!(rank_of("b-second"), Some(0));
         assert_eq!(rank_of("a-first"), Some(1));
-        assert_eq!(rank_of("c-stale"), None, "stale rank is cleared");
+        assert_eq!(
+            rank_of("c-stale"),
+            Some(2),
+            "stale rank is cleared and re-appended after the scraped ones"
+        );
+    }
+
+    #[test]
+    fn apply_profile_article_order_appends_unlisted_articles_by_created_at_desc() {
+        // Articles outside the scraped list keep their listing order
+        // (created_at DESC) behind the scraped ones: the first scrape page
+        // never turns older captures into NULL-ranked stragglers.
+        let mut conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        insert_article(&conn, "s-zero", profile, 1_000_000_000_000, None);
+        insert_article(&conn, "s-one", profile, 2_000_000_000_000, None);
+        insert_article(&conn, "old-first", profile, 3_000_000_000_000, None);
+        insert_article(&conn, "old-second", profile, 4_000_000_000_000, None);
+        insert_article(&conn, "old-third", profile, 5_000_000_000_000, None);
+
+        apply_profile_article_order(
+            &mut conn,
+            profile,
+            &["s-one".to_string(), "s-zero".to_string()],
+        )
+        .expect("apply");
+
+        let rank_of = |url: &str| -> Option<i64> {
+            conn.query_row(
+                "SELECT profile_rank FROM web_articles WHERE url = ?1",
+                [url],
+                |row| row.get(0),
+            )
+            .expect("read rank")
+        };
+        assert_eq!(rank_of("s-one"), Some(0));
+        assert_eq!(rank_of("s-zero"), Some(1));
+        assert_eq!(rank_of("old-third"), Some(2));
+        assert_eq!(rank_of("old-second"), Some(3));
+        assert_eq!(rank_of("old-first"), Some(4));
     }
 
     #[test]

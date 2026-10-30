@@ -29,6 +29,9 @@ export interface ArticleRecord {
 	analysisDivisor?: number | null;
 	/** `full` = analysed, `metadata` = captured but pending analysis. */
 	mode?: ArticleMode | null;
+	/** Channel-page rank; rides on the spread WebStoreArticleRecord.
+	 * `null`/absent = no rank (captures order falls back to recency). */
+	profileRank?: number | null;
 	viewed?: boolean | null;
 	[key: string]: unknown;
 }
@@ -105,6 +108,8 @@ export type WebStoreArticleRecord = {
 	analysisDivisor: number | null;
 	/** `full` = analysed, `metadata` = captured but pending analysis. */
 	mode: ArticleMode | null;
+	/** Channel-page rank; `null`/absent = no rank (created_at fallback). */
+	profileRank?: number | null;
 };
 
 export type WebStoreProfileDeletion = {

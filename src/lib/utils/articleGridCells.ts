@@ -8,7 +8,8 @@ export type ProfileStackCell = {
 	/** Stable across page loads so merges update the cell in place. */
 	key: string;
 	profileId: string;
-	/** Latest articles, newest first, up to previewCount. */
+	/** Articles in display order: channel-page rank first, capture recency
+	 * fallback when the row holds no rank. Up to previewCount. */
 	preview: ArticleRecord[];
 };
 
@@ -32,6 +33,22 @@ function articleCellKeyOf(article: ArticleRecord): string {
 
 function articleCreatedAt(article: ArticleRecord): number | null {
 	return typeof article.createdAt === 'number' ? article.createdAt : null;
+}
+
+function articleRank(article: ArticleRecord): number | null {
+	return typeof article.profileRank === 'number' ? article.profileRank : null;
+}
+
+/** Newest first: channel-page rank when the article holds one, capture recency
+ * when it does not. Ranked articles always win over unranked ones. */
+function articleDisplayOrder(a: ArticleRecord, b: ArticleRecord): number {
+	const rankA = articleRank(a);
+	const rankB = articleRank(b);
+	if (rankA !== null || rankB !== null) {
+		const rankCompare = (rankA ?? Number.POSITIVE_INFINITY) - (rankB ?? Number.POSITIVE_INFINITY);
+		if (rankCompare !== 0) return rankCompare;
+	}
+	return (articleCreatedAt(b) ?? 0) - (articleCreatedAt(a) ?? 0);
 }
 
 function cellRecency(cell: ArticleGridCell): number | null {
@@ -74,9 +91,11 @@ export function buildArticleGridCells(
 	}
 
 	for (const [profileId, groupArticles] of groups) {
-		const sorted = [...groupArticles].sort(
-			(a, b) => (articleCreatedAt(b) ?? 0) - (articleCreatedAt(a) ?? 0)
-		);
+		// Capture time (`created_at`) rises with a fetch batch's enqueue order,
+		// so sorting it DESC anchors the pile on the batch's oldest video and
+		// reads reversed against the channel page. The channel rank is the
+		// profile's display order, exactly what the profile list renders.
+		const sorted = [...groupArticles].sort(articleDisplayOrder);
 		if (sorted.length < 2) {
 			// A lone article cannot stack: render it flat like ungrouped items.
 			cells.push({ kind: 'article', key: articleCellKeyOf(sorted[0]), article: sorted[0] });

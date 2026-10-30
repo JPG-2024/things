@@ -265,19 +265,36 @@ class ScrapState {
 
 			// Mirror the channel-page order onto the saved articles so the
 			// profile list matches what YouTube shows.
-			await invoke<number>('set_profile_article_order', {
-				profileId: normalizedProfileId,
-				urls: normalized.map((video) => video.url)
-			});
+			const rankingUrls = normalized.map((video) => video.url);
 
 			if (fetched === 0) {
-				// Nothing was queued, so no run will repaint the list and the rank
-				// reorder still has to land. When there are runs, the repaint
-				// belongs to the queue: refetching here would only show whatever
-				// finished first and hide the rest until the next navigation.
+				// Nothing was queued, so no run will repaint the list and the
+				// rank reorder still has to land before the forced refetch.
+				await invoke<number>('set_profile_article_order', {
+					profileId: normalizedProfileId,
+					urls: rankingUrls
+				});
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 				await articleCacheStore.fetchProfileArticles(profileId, {
 					force: true
+				});
+			} else {
+				// Runs are still queued: their rows do not exist yet, so a rank
+				// written now matches nothing and the drain-time repaint would
+				// keep the old videos ranked first and drop the new ones into
+				// the NULL tail reversed. The rank rewrite is deferred to the
+				// manager's batch-end hook: every row is persisted by then, and
+				// the repaint that follows re-queries the fixed order.
+				const unsubscribe = articleManager.afterDrain(async () => {
+					unsubscribe();
+					try {
+						await invoke<number>('set_profile_article_order', {
+							profileId: normalizedProfileId,
+							urls: rankingUrls
+						});
+					} catch (error) {
+						console.error('[scrapStore] failed to rank profile articles after the batch', error);
+					}
 				});
 			}
 
