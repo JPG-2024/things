@@ -17,7 +17,7 @@
 
 	const isRowMode = $derived(layoutKey === 'row');
 
-	// Newest preview article anchors the pile (index 0) and owns the unread dot.
+	// Newest preview article anchors the pile (index 0) and feeds the grid tooltip.
 	const frontArticle = $derived(cell.preview[0]);
 
 	// Grid mode only: row mode already prints the front title beside the thumb,
@@ -49,7 +49,7 @@
 		class:placeholder={!article.thumbnailSrc}
 		style={layerStyle(index, total)}
 	>
-		{#if index === 0 && frontArticle && !frontArticle.viewed}
+		{#if !article.viewed}
 			<span class="articles-stack__unread-dot" aria-hidden="true"></span>
 		{/if}
 		{#if article.thumbnailSrc}
@@ -212,12 +212,13 @@
 		overflow: hidden;
 	}
 
-	/* Front-thumbnail unread marker: kept inside the layer's rounded corner
-	 * (the layer clips its overflow) so it tracks the anchor thumb's transform. */
+	/* Per-layer unread marker: kept inside the layer's rounded corner
+	 * (the layer clips its overflow) so it tracks each layer's own transform.
+	 * 2px inset is the safe limit against the 8px corner radius. */
 	.articles-stack__unread-dot {
 		position: absolute;
-		top: 0.25rem;
-		right: 0.25rem;
+		top: 0.125rem;
+		right: 0.125rem;
 		width: 10px;
 		height: 10px;
 		border-radius: 50%;
