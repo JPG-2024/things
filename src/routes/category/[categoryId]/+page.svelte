@@ -73,7 +73,7 @@
 </script>
 
 <div class="category-page">
-	<ProfileTopbar name={categoryName} onBack={handleBack}>
+	<ProfileTopbar iconName="Tags" name={categoryName} onBack={handleBack}>
 		{#snippet actions()}
 			<Icon
 				name="FileDigit"

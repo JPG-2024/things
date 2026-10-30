@@ -13,13 +13,15 @@
 		thumbSrc?: string | null;
 		/** Icon shown in place of the thumb when `thumbSrc` is missing (e.g. 'User'). */
 		fallbackIcon?: string;
+		/** Optional icon rendered at the left of the name (e.g. 'Tag'). */
+		iconName?: string;
 		/** Back handler; defaults to navigating home. */
 		onBack?: () => void;
 		/** Right-side toolbar icons. */
 		actions?: Snippet;
 	}
 
-	let { name, thumbSrc, fallbackIcon, onBack, actions }: Props = $props();
+	let { name, thumbSrc, fallbackIcon, iconName, onBack, actions }: Props = $props();
 
 	function handleBack() {
 		if (onBack) {
@@ -47,6 +49,11 @@
 					{:else if fallbackIcon}
 						<Icon name={fallbackIcon} ariaLabel={name} />
 					{/if}
+					{#if iconName}
+						<span class="identity-icon">
+							<Icon name={iconName} ariaLabel={name} />
+						</span>
+					{/if}
 					<span class="name">{name}</span>
 				</div>
 			{/if}
@@ -58,8 +65,9 @@
 <style>
 	.top-bar {
 		width: 100%;
-		padding: 0.5 1rem;
-		padding-right: 2rem;
+		padding: 1rem 0;
+		padding-right: 3rem;
+		padding-bottom: 2rem;
 	}
 
 	.topbar-left {
@@ -74,6 +82,12 @@
 		gap: 0.6rem;
 		min-width: 0;
 		max-width: 40ch;
+	}
+
+	.identity-icon {
+		display: inline-flex;
+		align-items: center;
+		flex-shrink: 0;
 	}
 
 	.name {
