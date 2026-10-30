@@ -174,6 +174,7 @@
 	.article-layout {
 		width: 100%;
 		padding: 3rem;
+		padding-top: 5rem;
 		display: grid;
 		grid-template-columns: 300px minmax(0, 1fr);
 		column-gap: 1.5rem;

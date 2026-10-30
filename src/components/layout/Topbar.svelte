@@ -98,7 +98,7 @@
 		right: 0;
 		left: 0;
 		z-index: 10;
-		padding: 0.6rem 1.5rem;
+		padding: 1rem 1.5rem;
 		box-sizing: border-box;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
@@ -196,18 +196,18 @@
 	}
 
 	/* Article title in the middle. `flex-grow` fills the space between the
-	   left cluster and the toolbar, so the toolbar stays hugging the right. */
+	   left cluster and the toolbar, so the toolbar stays hugging the right.
+	   A title wider than the available space wraps instead of truncating; the
+	   topbar grows to fit it (it only sets `min-height`). */
 	.topbar-title {
 		flex: 1 1 auto;
 		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow-wrap: anywhere;
 		font-family: var(--font-secondary);
 		font-size: 0.95rem;
 		font-variant: all-small-caps;
 		padding: 0 0.25rem;
-		text-align: center;
+		text-align: left;
 	}
 
 	.topbar-title::after {
