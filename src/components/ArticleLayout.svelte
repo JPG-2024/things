@@ -132,8 +132,20 @@
 
 	<div class="meta-col" class:span-all={!hasMedia}>
 		<div class="title-row">
-			{#if article.profilePictureSrc}
-				<ProfileThumb src={article.profilePictureSrc} size={50} onclick={goToProfile} />
+			{#if article.profilePictureSrc || article.profile}
+				<button
+					type="button"
+					class="profile-link"
+					onclick={goToProfile}
+					aria-label={article.profile ? `View ${article.profile}` : 'View profile'}
+				>
+					{#if article.profilePictureSrc}
+						<ProfileThumb src={article.profilePictureSrc} alt={article.profile ?? ''} size={50} />
+					{/if}
+					{#if article.profile}
+						<span class="profile-name">{article.profile}</span>
+					{/if}
+				</button>
 			{/if}
 		</div>
 		<div class="category-editor_container">
@@ -223,6 +235,40 @@
 		align-items: center;
 		gap: 1rem;
 		width: 100%;
+	}
+
+	/* Single click target for the whole profile row: `ProfileThumb` is rendered
+	 * without its own `onclick`, so it stays a plain <img> and no button nests
+	 * inside this one. */
+	.profile-link {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+		max-width: 100%;
+		cursor: pointer;
+	}
+
+	.profile-name {
+		overflow: hidden;
+		min-width: 0;
+		font-family: var(--font-secondary);
+		font-size: 0.85rem;
+		line-height: 1.1;
+		font-weight: bold;
+		color: var(--gray-100);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		transition: color 0.1s;
+	}
+
+	.profile-link:hover .profile-name {
+		color: var(--primary-color);
+	}
+
+	.profile-link:hover :global(img.profile-thumb) {
+		transform: scale(1.1);
 	}
 
 	.article-analysis {
