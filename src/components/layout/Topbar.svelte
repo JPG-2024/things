@@ -102,8 +102,8 @@
 		box-sizing: border-box;
 		border-bottom-left-radius: 3px;
 		border-bottom-right-radius: 3px;
-		border-left: 1px solid var(--primary-color);
-		border-right: 1px solid var(--primary-color);
+		border-left: 1px solid var(--bg-color);
+		border-right: 1px solid var(--bg-color);
 	}
 
 	.top-bar::after {
