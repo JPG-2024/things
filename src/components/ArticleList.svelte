@@ -16,6 +16,7 @@
 	} from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import type { ArticleRecord } from '@/stores/webStore';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { selectedArticlesStore } from '@/stores/selectedArticlesStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { enterLeave } from '@/lib/utils/itemTransitions';
@@ -113,6 +114,13 @@
 
 	function handleStackClick(cell: ProfileStackCell) {
 		goto(`/profile/${encodeURIComponent(cell.profileId)}`);
+	}
+
+	// Stars are persisted through the cache store, which repaints every loaded
+	// list (and prunes the favorites view when the toggle turns one off).
+	function handleToggleFavorite(article: ArticleRecord) {
+		if (!article.url) return;
+		void articleCacheStore.setArticleFavorite(article.url, !article.favorite);
 	}
 
 	// Alt+G flips profile grouping. Only active when the caller opted in
@@ -230,6 +238,9 @@
 								unread={!cell.article.viewed}
 								selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
 								matchSnippet={matchOf?.(cell.article) ?? undefined}
+								showFavorite
+								favorite={cell.article.favorite === true}
+								onToggleFavorite={handleToggleFavorite}
 								onClick={handleArticleClick}
 								onHoverEnter={handleArticleHoverEnter}
 								onHoverLeave={handleArticleHoverLeave}

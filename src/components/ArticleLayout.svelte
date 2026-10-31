@@ -3,6 +3,8 @@
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { articleState } from '@/stores/articleStore.svelte';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { getArticleByUrl } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
@@ -104,6 +106,31 @@
 		preventDefault: true
 	}));
 
+	// Favorite state of the open article. The row is read directly (the
+	// reading view sits outside the dashboard caches) and every toggle runs
+	// through the cache store, so the lists underneath repaint too.
+	let favorite = $state(false);
+	let favoriteRequestId = 0;
+
+	$effect(() => {
+		const url = article.url;
+		const requestId = ++favoriteRequestId;
+		favorite = false;
+		if (!url) return;
+		void getArticleByUrl(url).then((record) => {
+			if (requestId !== favoriteRequestId) return;
+			favorite = record?.favorite ?? false;
+		});
+	});
+
+	async function toggleFavorite(): Promise<void> {
+		const url = article.url;
+		if (!url) return;
+		const next = !favorite;
+		const saved = await articleCacheStore.setArticleFavorite(url, next);
+		if (saved) favorite = next;
+	}
+
 	function goToProfile() {
 		if (!article.profile) return;
 		viewState.currentProfileId = article.profile;
@@ -150,6 +177,15 @@
 		</div>
 		<div class="category-editor_container">
 			{#if article.url}
+				<button
+					class="full-content-button favorite-button"
+					class:favorite
+					onclick={toggleFavorite}
+					aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+					title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+				>
+					<Icon name="Star" size={24} color="var(--primary-color)" />
+				</button>
 				<button
 					class="full-content-button"
 					onclick={openFullContent}
@@ -295,6 +331,16 @@
 
 	.full-content-button:hover {
 		background-color: var(--hover-bg);
+	}
+
+	/* Outlined star when unfilled, solid primary once saved. */
+	.favorite-button :global(svg) {
+		fill: transparent;
+		transition: fill 0.15s;
+	}
+
+	.favorite-button.favorite :global(svg) {
+		fill: var(--primary-color);
 	}
 
 	@media (max-width: 760px) {

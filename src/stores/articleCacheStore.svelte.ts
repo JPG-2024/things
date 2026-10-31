@@ -3,6 +3,7 @@ import {
 	getArticlesWithoutProfile,
 	getCategoriesWithArticlesPage,
 	getProfiles,
+	setArticleFavorite,
 	type ArticleRecord,
 	type ArticleProfile,
 	type CategoryWithArticles
@@ -41,6 +42,8 @@ type ArticlesParams = {
 	dateFrom?: string;
 	/** `metadata` restricts the list to captured-but-not-analysed articles. */
 	mode?: ArticleMode;
+	/** `true` = only favorites (favorites tab), `false`/absent = every article. */
+	favorite?: boolean;
 };
 
 type CategoryArticlesParams = {
@@ -60,7 +63,8 @@ function buildArticlesSignature(params: ArticlesParams): string {
 		profileIds: sortedIds(params.profileIds),
 		domainIds: sortedIds(params.domainIds),
 		dateFrom: params.dateFrom ?? null,
-		mode: params.mode ?? null
+		mode: params.mode ?? null,
+		favorite: params.favorite ?? null
 	});
 }
 
@@ -78,7 +82,8 @@ async function fetchArticlesPage(
 		profileIds: params.profileIds,
 		domainIds: params.domainIds,
 		dateFrom: params.dateFrom,
-		mode: params.mode
+		mode: params.mode,
+		favorite: params.favorite
 	});
 
 	return { items: result.articles, total: result.total };
@@ -130,6 +135,18 @@ class ArticleCacheStore {
 	);
 
 	private readonly articles = new PaginationResource<ArticleRecord, ArticlesParams>(
+		ARTICLES_PAGE_SIZE,
+		buildArticlesSignature,
+		fetchArticlesPage
+	);
+
+	/**
+	 * Favorites paginate through their own resource so browsing them never
+	 * evicts the articles pages (and vice versa): each list keeps its own
+	 * items, offset and total. The `favorite: true` filter rides on every
+	 * fetch, so the shared list query answers `favorited_at IS NOT NULL`.
+	 */
+	private readonly favorites = new PaginationResource<ArticleRecord, ArticlesParams>(
 		ARTICLES_PAGE_SIZE,
 		buildArticlesSignature,
 		fetchArticlesPage
@@ -258,6 +275,18 @@ class ArticleCacheStore {
 		return this.articles.offset;
 	}
 
+	get favoriteArticles(): ArticleRecord[] {
+		return this.favorites.visibleItems;
+	}
+
+	get loadingFavorites(): boolean {
+		return this.favorites.loading;
+	}
+
+	get hasMoreFavorites(): boolean {
+		return this.favorites.hasMore;
+	}
+
 	get categoriesWithArticles(): CategoryWithArticles[] {
 		const pages: CategoryWithArticles[] = [];
 		for (const [categoryId, entry] of this.categoryPages) {
@@ -329,6 +358,39 @@ class ArticleCacheStore {
 			},
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
+	}
+
+	/**
+	 * Fetches the favorites list — the same facet machinery as the articles
+	 * list, pinned to `favorite: true` (every favorited article, regardless of
+	 * profile), into the dedicated favorites resource.
+	 */
+	async fetchFavorites(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryIds?: string[];
+		onlyWithoutProfile?: boolean;
+		profileIds?: string[];
+		domainIds?: string[];
+		dateFrom?: string;
+		mode?: ArticleMode;
+	}) {
+		await this.favorites.fetch(
+			{
+				categoryIds: options?.categoryIds,
+				onlyWithoutProfile: options?.onlyWithoutProfile,
+				profileIds: options?.profileIds,
+				domainIds: options?.domainIds,
+				dateFrom: options?.dateFrom,
+				mode: options?.mode,
+				favorite: true
+			},
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
+	}
+
+	async loadMoreFavorites(): Promise<void> {
+		await this.favorites.loadMore();
 	}
 
 	/** Fetches the paginated article list of one profile into its own cache. */
@@ -523,6 +585,7 @@ class ArticleCacheStore {
 		this.profiles.invalidate();
 		this.domains.invalidate();
 		this.articles.invalidate();
+		this.favorites.invalidate();
 		for (const resource of this.profileArticlesResources.values()) {
 			resource.invalidate();
 		}
@@ -544,6 +607,7 @@ class ArticleCacheStore {
 			this.profiles.refreshLoaded(),
 			this.domains.refreshLoaded(),
 			this.articles.refreshLoaded(),
+			this.favorites.refreshLoaded(),
 			this.categoryArticlesResource.refreshLoaded(),
 			...[...this.profileArticlesResources.values()].map((resource) => resource.refreshLoaded()),
 			this.refreshLoadedCategoryPages()
@@ -623,6 +687,69 @@ class ArticleCacheStore {
 		this.articles.invalidate();
 	}
 
+	/**
+	 * Persists a favorite toggle and repaints every loaded list in place, so
+	 * the star flips everywhere without a refetch:
+	 *
+	 * - The favorites list reflects membership: unfavorite prunes the row and
+	 *   its counters; a new star marks the list stale (it can only be added
+	 *   from a surface the favorites view is not showing, e.g. the reading
+	 *   view), so the next visit refetches it.
+	 * - Everything else — including raw search results — is patched in place.
+	 *
+	 * Returns whether the change was persisted; failed toggles leave the
+	 * caches untouched so the UI can roll back (or simply not repaint).
+	 */
+	async setArticleFavorite(url: string, favorite: boolean): Promise<boolean> {
+		const saved = await setArticleFavorite(url, favorite);
+		if (!saved) return false;
+
+		const now = Date.now();
+		const patch = (article: ArticleRecord): ArticleRecord =>
+			article.url === url ? { ...article, favorite, favoritedAt: favorite ? now : null } : article;
+
+		if (favorite) {
+			this.favorites.invalidate();
+		} else {
+			const removed = this.favorites.remove((article) => article.url === url);
+			if (removed > 0) {
+				this.favorites.total = Math.max(0, this.favorites.total - removed);
+				this.favorites.offset = this.favorites.items.length;
+				this.favorites.hasMore = this.favorites.offset < this.favorites.total;
+			}
+		}
+
+		this.articles.replace((items) => items.map(patch));
+
+		for (const resource of this.profileArticlesResources.values()) {
+			resource.replace((items) => items.map(patch));
+		}
+		this.categoryArticlesResource.replace((items) => items.map(patch));
+
+		const mapEmbedded = (profile: ArticleProfile): ArticleProfile =>
+			profile.articles ? { ...profile, articles: profile.articles.map(patch) } : profile;
+		this.profiles.replace((items) => items.map(mapEmbedded));
+		this.domains.replace((items) => items.map(mapEmbedded));
+
+		// Collect first: a SvelteMap must not be mutated while being iterated.
+		const patchedPages: Array<[string, CategoryPageEntry]> = [];
+		for (const [categoryId, entry] of this.categoryPages) {
+			patchedPages.push([categoryId, { ...entry, articles: entry.articles.map(patch) }]);
+		}
+		for (const [categoryId, entry] of patchedPages) {
+			this.categoryPages.set(categoryId, entry);
+		}
+
+		// Raw search rows live on viewState, not in a resource.
+		if (viewState.rawSearchResults) {
+			viewState.rawSearchResults = viewState.rawSearchResults.map((result) =>
+				result.article.url === url ? { ...result, article: patch(result.article) } : result
+			);
+		}
+
+		return true;
+	}
+
 	removeArticlesByUrls(urls: Set<string>) {
 		if (urls.size === 0) return;
 
@@ -632,6 +759,11 @@ class ArticleCacheStore {
 		this.articles.total = Math.max(0, this.articles.total - removedArticles);
 		this.articles.offset = this.articles.items.length;
 		this.articles.hasMore = this.articles.offset < this.articles.total;
+
+		const removedFavorites = this.favorites.remove(hasUrl);
+		this.favorites.total = Math.max(0, this.favorites.total - removedFavorites);
+		this.favorites.offset = this.favorites.items.length;
+		this.favorites.hasMore = this.favorites.offset < this.favorites.total;
 
 		// Prune every cached per-profile list too, keeping each resource's
 		// pagination counters consistent so its next loadMore stays aligned.

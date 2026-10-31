@@ -2,6 +2,7 @@
 	import type { ArticleRecord } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
+	import Icon from '@/components/Icon.svelte';
 	import ArticleItemRow from './ArticleItemRow.svelte';
 	import ArticleItemGrid3 from './ArticleItemGrid3.svelte';
 	import ArticleItemGrid from './ArticleItemGrid.svelte';
@@ -22,6 +23,15 @@
 		layoutKey?: LayoutKey;
 		selected?: boolean;
 		matchSnippet?: RawSearchMatch;
+		/**
+		 * Renders the favorite star at the card's top-right corner. Opt-in so
+		 * star-less surfaces (EntityCard previews) keep the plain button root.
+		 */
+		showFavorite?: boolean;
+		/** Current favorite state; a saved favorite keeps the star visible. */
+		favorite?: boolean;
+		/** Fired by the star button; wiring lives with the caller. */
+		onToggleFavorite?: (article: ArticleRecord) => void;
 		onClick: (article: ArticleRecord) => void;
 		onHoverEnter: (article: ArticleRecord) => void;
 		onHoverLeave: () => void;
@@ -39,6 +49,9 @@
 		layoutKey,
 		selected = false,
 		matchSnippet = undefined,
+		showFavorite = false,
+		favorite = false,
+		onToggleFavorite = undefined,
 		onClick,
 		onHoverEnter,
 		onHoverLeave
@@ -83,50 +96,77 @@
 	);
 </script>
 
-<button
-	type="button"
-	class="article-card {layoutKey ?? ''}"
-	class:selected
-	class:fixed-thumb-card={isFixedThumb}
-	style={isFixedThumb ? `--fixed-thumb-w: ${resolvedThumbnailWidth}px;` : undefined}
-	onclick={() => onClick(article)}
-	onmouseenter={() => onHoverEnter(article)}
-	onmouseleave={onHoverLeave}
-	aria-label="View article"
->
-	{#if isRowMode}
-		<ArticleItemRow
-			{article}
-			{showThumbnail}
-			{showText}
-			{matchSnippet}
-			tooltip={resolvedTooltip}
-			{unread}
-		/>
-	{:else if layoutKey === 'grid-3'}
-		<ArticleItemGrid3
-			{article}
-			{showThumbnail}
-			{showText}
-			{matchSnippet}
-			tooltip={resolvedTooltip}
-			{unread}
-		/>
-	{:else}
-		<ArticleItemGrid
-			{article}
-			{showThumbnail}
-			{showText}
-			{isFixedThumb}
-			thumbWidth={resolvedThumbnailWidth}
-			thumbHeight={resolvedThumbnailHeight}
-			{unread}
-			tooltip={resolvedTooltip}
-			{matchSnippet}
-			showTitle={showThumbnailTitle}
-		/>
-	{/if}
-</button>
+{#snippet cardButton()}
+	<button
+		type="button"
+		class="article-card {layoutKey ?? ''}"
+		class:selected
+		class:fixed-thumb-card={isFixedThumb}
+		style={isFixedThumb ? `--fixed-thumb-w: ${resolvedThumbnailWidth}px;` : undefined}
+		onclick={() => onClick(article)}
+		onmouseenter={() => onHoverEnter(article)}
+		onmouseleave={onHoverLeave}
+		aria-label="View article"
+	>
+		{#if isRowMode}
+			<ArticleItemRow
+				{article}
+				{showThumbnail}
+				{showText}
+				{matchSnippet}
+				tooltip={resolvedTooltip}
+				{unread}
+			/>
+		{:else if layoutKey === 'grid-3'}
+			<ArticleItemGrid3
+				{article}
+				{showThumbnail}
+				{showText}
+				{matchSnippet}
+				tooltip={resolvedTooltip}
+				{unread}
+			/>
+		{:else}
+			<ArticleItemGrid
+				{article}
+				{showThumbnail}
+				{showText}
+				{isFixedThumb}
+				thumbWidth={resolvedThumbnailWidth}
+				thumbHeight={resolvedThumbnailHeight}
+				{unread}
+				tooltip={resolvedTooltip}
+				{matchSnippet}
+				showTitle={showThumbnailTitle}
+			/>
+		{/if}
+	</button>
+{/snippet}
+
+<!-- The star cannot nest inside the card (a <button> in a <button> is invalid
+     HTML), so star-enabled surfaces wrap the card in a positioned container
+     and hang the toggle off it as a sibling. -->
+{#if showFavorite}
+	<div class="article-item">
+		{@render cardButton()}
+		<button
+			type="button"
+			class="article-star"
+			class:favorite
+			onclick={() => onToggleFavorite?.(article)}
+			aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+		>
+			<Icon
+				name="Star"
+				size={16}
+				color="var(--primary-color)"
+				tooltipProps={{ content: favorite ? 'remove favorite' : 'add favorite' }}
+			/>
+		</button>
+	</div>
+{:else}
+	{@render cardButton()}
+{/if}
 
 <style>
 	.article-card {
@@ -194,5 +234,53 @@
 		min-width: var(--fixed-thumb-w);
 		max-width: var(--fixed-thumb-w);
 		padding: 0;
+	}
+
+	/* Positioned shell for the star sibling; must behave like the card for
+	   layout purposes (grid cells, masonry width). */
+	.article-item {
+		position: relative;
+		width: 100%;
+		min-width: 0;
+	}
+
+	/* Star at the card's top-right corner, just left of the unread dot (which
+	   sits at the thumbnail's own top-right corner). Hidden until hover unless
+	   the article is already a favorite. */
+	.article-star {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		background: none;
+		border: none;
+		cursor: pointer;
+		line-height: 0;
+		z-index: 9;
+		opacity: 0;
+		transition:
+			opacity 0.15s,
+			transform 0.15s;
+	}
+
+	.article-item:hover .article-star,
+	.article-star.favorite,
+	.article-star:focus-visible {
+		opacity: 1;
+	}
+
+	.article-star:hover {
+		transform: scale(1.15);
+	}
+
+	.article-star :global(svg) {
+		fill: transparent;
+	}
+
+	.article-star.favorite :global(svg) {
+		fill: var(--primary-color);
 	}
 </style>

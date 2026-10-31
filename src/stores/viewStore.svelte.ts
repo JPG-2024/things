@@ -90,6 +90,7 @@ function envPort(url: string, fallback: number): number {
 
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'LayoutGrid' },
+	{ id: 'favorites', label: 'Favorites', icon: 'Star' },
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
 	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
 	{ id: 'domains', label: 'Domains', icon: 'Globe' }
@@ -288,7 +289,9 @@ class ViewState {
 				: null
 	);
 
-	activeProfileArticleTab = $state<'profiles' | 'articles' | 'categories' | 'domains'>('articles');
+	activeProfileArticleTab = $state<
+		'profiles' | 'articles' | 'favorites' | 'categories' | 'domains'
+	>('articles');
 	showOnlyRawArticles = $state(false);
 	/** Shows only the articles that were captured but not analysed yet. */
 	showOnlyImportedArticles = $state(false);

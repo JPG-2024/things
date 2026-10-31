@@ -1,0 +1,150 @@
+<script lang="ts">
+	import ArticleList from '@/components/ArticleList.svelte';
+	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
+	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
+	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
+
+	// Clone of ArticlesTab pinned to the favorites filter: every facet, preset,
+	// grouping toggle and the search branch behave the same, the list itself
+	// just queries `favorite: true` (all articles, not only profile-less ones).
+	const searchResults = $derived(viewState.rawSearchResults);
+
+	// Created once so the transition function identity stays stable across renders.
+	const articleItemTransition = tabAnimationStore.transitionFor('favorites');
+
+	// Raw search results are post-filtered client-side by the profile/domain
+	// facets (category membership is not present on search rows).
+	const filteredSearchResults = $derived.by(() => {
+		const results = searchResults ?? [];
+		if (!articleFilters.hasActive) return results;
+		const profileIds = articleFilters.ids('profiles');
+		const domainIds = articleFilters.ids('domains');
+		return results.filter(({ article }) => {
+			const profile = (article.profile ?? '').toLowerCase();
+			const domain = (article.domain ?? '').toLowerCase();
+			const profileOk = profileIds.length === 0 || profileIds.includes(profile);
+			const domainOk = domainIds.length === 0 || domainIds.includes(domain);
+			return profileOk && domainOk;
+		});
+	});
+
+	const searchArticles = $derived(filteredSearchResults.map((result) => result.article));
+
+	// ArticleList works on ArticleRecord[]; the match lookup is by article
+	// identity so results are displayed even when `url` is missing.
+	const searchMatches = $derived(
+		new Map(filteredSearchResults.map((result) => [result.article, result.match]))
+	);
+
+	function handleClearSearch() {
+		// Clears results, the committed filter and the typed draft, so coming
+		// back from another route cannot re-trigger the auto raw search.
+		viewState.clearUnifiedFilter();
+		viewState.rawSearchResults = null;
+	}
+
+	const filtersActive = $derived(articleFilters.hasActive);
+
+	$effect(() => {
+		const onlyRaw = viewState.showOnlyRawArticles;
+		const showOnlyImported = viewState.showOnlyImportedArticles;
+		void articleCacheStore.fetchFavorites({
+			onlyWithoutProfile: onlyRaw,
+			profileIds: articleFilters.ids('profiles'),
+			domainIds: articleFilters.ids('domains'),
+			categoryIds: articleFilters.ids('categories'),
+			mode: showOnlyImported ? 'metadata' : undefined
+		});
+	});
+</script>
+
+<div class="article-tab__container">
+	{#if viewState.rawSearchLoading}
+		<div class="empty-profiles-container">
+			<div class="empty-profiles-pill">Searching raw content...</div>
+		</div>
+	{:else if searchResults !== null}
+		<div class="search-results-header">
+			<button type="button" class="search-results-clear" onclick={handleClearSearch}>
+				{filteredSearchResults.length} result{filteredSearchResults.length !== 1 ? 's' : ''} — clear
+			</button>
+		</div>
+		<ArticleList
+			items={searchArticles}
+			presetOverride="row"
+			itemTransition={articleItemTransition}
+			matchOf={(article) => searchMatches.get(article) ?? null}
+			emptyMessage="No matches found"
+		/>
+	{:else if filtersActive && articleCacheStore.favoriteArticles.length === 0 && !articleCacheStore.loadingFavorites}
+		<div class="empty-profiles-container">
+			<button type="button" class="empty-profiles-pill" onclick={() => articleFilters.clear()}>
+				0 results for active filters — clear
+			</button>
+		</div>
+	{:else}
+		<ArticleList
+			items={articleCacheStore.favoriteArticles}
+			groupable
+			itemTransition={articleItemTransition}
+			loading={articleCacheStore.loadingFavorites}
+			hasMore={articleCacheStore.hasMoreFavorites}
+			onLoadMore={() => articleCacheStore.loadMoreFavorites()}
+			emptyMessage="No favorites"
+		/>
+	{/if}
+</div>
+
+<style>
+	.article-tab__container {
+		padding-left: 1.5rem;
+		padding-right: 2rem;
+	}
+	.empty-profiles-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+	}
+
+	.empty-profiles-pill {
+		opacity: 0.6;
+		transition: opacity 0.15s;
+		border: 1px dashed var(--primary-color);
+		border-radius: var(--radius-lg);
+		padding: 7px 20px;
+		color: var(--primary-color);
+		font-weight: bold;
+		font-size: 0.88rem;
+		line-height: 1.2;
+	}
+
+	.empty-profiles-pill:hover {
+		opacity: 1;
+	}
+
+	.search-results-header {
+		display: flex;
+		justify-content: center;
+		padding: 1rem 0;
+	}
+
+	.search-results-clear {
+		all: unset;
+		cursor: pointer;
+		opacity: 0.6;
+		transition: opacity 0.15s;
+		border: 1px solid var(--primary-color);
+		border-radius: var(--radius-sm);
+		padding: 7px 20px;
+		color: var(--primary-color);
+		font-weight: bold;
+		font-size: 0.88rem;
+		line-height: 1.2;
+	}
+
+	.search-results-clear:hover {
+		opacity: 1;
+	}
+</style>

@@ -33,6 +33,10 @@ export interface ArticleRecord {
 	 * `null`/absent = no rank (captures order falls back to recency). */
 	profileRank?: number | null;
 	viewed?: boolean | null;
+	/** When the article was starred (`null` = not a favorite). */
+	favoritedAt?: number | null;
+	/** Derived from `favoritedAt`; the boolean the UI toggles. */
+	favorite?: boolean;
 	[key: string]: unknown;
 }
 
@@ -110,6 +114,8 @@ export type WebStoreArticleRecord = {
 	mode: ArticleMode | null;
 	/** Channel-page rank; `null`/absent = no rank (created_at fallback). */
 	profileRank?: number | null;
+	/** When the article was starred (`null` = not a favorite). */
+	favoritedAt: number | null;
 };
 
 export type WebStoreProfileDeletion = {
@@ -272,7 +278,8 @@ function mapStoredArticle(row: WebStoreArticleRecord): ArticleRecord {
 	return {
 		...row,
 		profilePicture: row.profilePicture,
-		profileId: row.profile
+		profileId: row.profile,
+		favorite: row.favoritedAt != null
 	};
 }
 
@@ -773,6 +780,19 @@ export async function markArticleAsViewed(url: string): Promise<boolean> {
 	}
 }
 
+/**
+ * Stars/unstars an article. Returns whether the row was actually updated so
+ * callers only repaint their lists on a persisted change.
+ */
+export async function setArticleFavorite(url: string, favorite: boolean): Promise<boolean> {
+	try {
+		return await invoke<boolean>('update_web_store_article_favorite', { url, favorite });
+	} catch (error) {
+		console.error(`Error setting article favorite (url='${url}'):`, error);
+		return false;
+	}
+}
+
 export async function deleteProfileById(profileId: string): Promise<WebStoreProfileDeletion> {
 	try {
 		// Only the branch decision needs the entity record: article rows, their
@@ -1015,6 +1035,8 @@ export async function getArticlesWithoutProfile(options?: {
 	dateFrom?: string;
 	/** `metadata` restricts the list to captured-but-not-analysed articles. */
 	mode?: ArticleMode;
+	/** `true` = only favorites, `false` = only non-favorites, absent = all. */
+	favorite?: boolean;
 }): Promise<ArticlesWithoutProfileResponse> {
 	try {
 		const result = await invoke<{
@@ -1029,7 +1051,8 @@ export async function getArticlesWithoutProfile(options?: {
 			profileIds: options?.profileIds ?? null,
 			domainIds: options?.domainIds ?? null,
 			dateFrom: options?.dateFrom ?? null,
-			mode: options?.mode ?? null
+			mode: options?.mode ?? null,
+			favorite: options?.favorite ?? null
 		});
 
 		const resolvedArticles = await mapAndResolveArticles(result.articles);

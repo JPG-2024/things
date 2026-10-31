@@ -41,6 +41,7 @@
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
+	import FavoritesTab from './tabs/FavoritesTab.svelte';
 	import DomainsTab from './tabs/DomainsTab.svelte';
 
 	// Header provider switch: icon-only pills backed by the same
@@ -234,7 +235,13 @@
 	// moves to the tab on its right, ArrowLeft to the one on its left. TTS owns
 	// the plain arrows while playback is active (seek), and overlays own them
 	// otherwise, so the switch stays disabled then.
-	const TAB_ORDER: ProfileArticleTabId[] = ['articles', 'profiles', 'domains', 'categories'];
+	const TAB_ORDER: ProfileArticleTabId[] = [
+		'articles',
+		'favorites',
+		'profiles',
+		'domains',
+		'categories'
+	];
 
 	function switchTab(delta: 1 | -1) {
 		const currentIndex = TAB_ORDER.indexOf(viewState.activeProfileArticleTab);
@@ -476,6 +483,8 @@
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'domains'}
 			<DomainsTab />
+		{:else if viewState.activeProfileArticleTab === 'favorites'}
+			<FavoritesTab />
 		{:else if viewState.activeProfileArticleTab === 'categories'}
 			<CategoriesTab />
 		{:else}
