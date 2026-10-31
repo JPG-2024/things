@@ -302,15 +302,14 @@
 		padding: 0;
 	}
 
+	/* Wraps to as many lines as needed: truncating here would hide part of
+	 * the window title, and the grid lets the cards grow. */
 	.chunk-title {
 		flex: 1;
 		min-width: 0;
 		font-size: 0.78rem;
 		font-weight: 600;
 		opacity: 0.85;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.chunk-index {
