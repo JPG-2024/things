@@ -175,12 +175,14 @@
 								{#if window.data.title}
 									<span class="chunk-title">{window.data.title}</span>
 								{/if}
-								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
-									View raw text
-								</Button>
 							</div>
 							<div class="chunk-summary">
 								<MarkdownRenderer content={window.data.summary} />
+							</div>
+							<div class="chunk-action">
+								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
+									View raw text
+								</Button>
 							</div>
 						</div>
 					{/each}
@@ -296,10 +298,15 @@
 		white-space: wrap;
 	}
 
-	.chunk-heading :global(button) {
-		margin-left: auto;
+	/* Full-width footer action for the window card. */
+	.chunk-action {
+		margin-top: 0.4rem;
+	}
+
+	.chunk-action :global(button) {
+		width: 100%;
 		font-size: 0.7rem;
-		padding: 0;
+		padding: 0.35rem 0.5rem;
 	}
 
 	/* Wraps to as many lines as needed: truncating here would hide part of
@@ -307,9 +314,9 @@
 	.chunk-title {
 		flex: 1;
 		min-width: 0;
-		font-size: 0.78rem;
-		font-weight: 600;
-		opacity: 0.85;
+		font-size: 0.9rem;
+		font-weight: bold;
+		color: var(--primary-color);
 	}
 
 	.chunk-index {
