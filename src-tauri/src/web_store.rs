@@ -77,6 +77,9 @@ pub struct WebStoreArticleRecord {
     /// in the created_at fallback of the order clause and of the stack
     /// previews, which ride on the list rows.
     pub profile_rank: Option<i64>,
+    /// When the article was starred (`NULL` = not a favorite). Drives the
+    /// favorites list order (most recently starred first).
+    pub favorited_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -362,6 +365,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             analysis_divisor INTEGER,
             mode TEXT,
             profile_rank INTEGER,
+            favorited_at INTEGER,
             FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
@@ -467,6 +471,13 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "web_articles",
         "profile_rank",
         "ALTER TABLE web_articles ADD COLUMN profile_rank INTEGER",
+    )?;
+    // NULL = not favorited; set to the toggle time (ms) when starred.
+    ensure_column(
+        conn,
+        "web_articles",
+        "favorited_at",
+        "ALTER TABLE web_articles ADD COLUMN favorited_at INTEGER",
     )?;
     ensure_column(
         conn,
@@ -1088,6 +1099,7 @@ fn row_to_stored_article(
     let profile_picture: Option<String> = row.get("profile_picture")?;
     let mode: Option<String> = row.get("mode").ok().flatten();
     let profile_rank: Option<i64> = row.get::<_, Option<i64>>("profile_rank").unwrap_or(None);
+    let favorited_at: Option<i64> = row.get::<_, Option<i64>>("favorited_at").unwrap_or(None);
     let summary: Option<String> = body_column_or_none(row, "summary");
     let analysis_divisor: Option<i64> = row
         .get::<_, Option<i64>>("analysis_divisor")
@@ -1117,6 +1129,7 @@ fn row_to_stored_article(
         analysis_divisor,
         mode,
         profile_rank,
+        favorited_at,
     })
 }
 
@@ -1128,7 +1141,7 @@ fn body_column_or_none(row: &rusqlite::Row<'_>, name: &str) -> Option<String> {
 
 const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
         a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-        a.viewed, a.date, a.domain, a.profile_rank,
+        a.viewed, a.date, a.domain, a.profile_rank, a.favorited_at,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
@@ -1141,7 +1154,7 @@ const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, 
 /// the list query.
 const ARTICLE_LIST_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail,
         a.media_directory, a.main_color, a.profile, a.updated_at,
-        a.viewed, a.date, a.domain, a.profile_rank,
+        a.viewed, a.date, a.domain, a.profile_rank, a.favorited_at,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
@@ -2117,6 +2130,29 @@ pub async fn update_web_store_article_viewed(
         .execute(
             "UPDATE web_articles SET viewed = ?1 WHERE url = ?2 COLLATE NOCASE",
             params![viewed as i64, url],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+/// Stars/unstars an article: `favorited_at` stores the toggle time (the same
+/// millisecond clock as `created_at`) when favoriting and clears to NULL when
+/// unfavoriting, so the favorites list can order by recency of the toggle.
+#[tauri::command]
+pub async fn update_web_store_article_favorite(
+    app: AppHandle,
+    url: String,
+    favorite: bool,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+
+    let changes = conn
+        .execute(
+            "UPDATE web_articles
+             SET favorited_at = CASE WHEN ?1 = 1 THEN ?2 ELSE NULL END
+             WHERE url = ?3 COLLATE NOCASE",
+            params![favorite as i64, chrono_like_now(), url],
         )
         .map_err(|error| error.to_string())?;
 
@@ -3372,6 +3408,9 @@ struct ArticlesWithoutProfileFilter {
     /// `full` restricts it to analysed ones. `None` means "any mode".
     mode: Option<String>,
     only_without_profile: Option<bool>,
+    /// `Some(true)` restricts the list to favorites (`favorited_at IS NOT
+    /// NULL`); `Some(false)` to non-favorites; `None` keeps the full list.
+    favorite: Option<bool>,
 }
 
 /// Normalizes facet ids for comparison against `LOWER(a.profile/a.domain)`:
@@ -3473,6 +3512,14 @@ fn query_articles_without_profile(
         params.push(Box::new(mode.to_string()));
     }
 
+    if let Some(favorite_only) = filter.favorite {
+        if favorite_only {
+            where_clauses.push("a.favorited_at IS NOT NULL".to_string());
+        } else {
+            where_clauses.push("a.favorited_at IS NULL".to_string());
+        }
+    }
+
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -3493,10 +3540,18 @@ fn query_articles_without_profile(
             .map_err(|error| error.to_string())?
     };
 
+    // Favorites sort by recency of the toggle (newest star first); every
+    // other listing keeps its usual ordering.
+    let order_sql = if filter.favorite.is_some() {
+        " ORDER BY a.favorited_at DESC, a.created_at DESC"
+    } else {
+        article_order_clause(filter.profile_id.is_some())
+    };
+
     let body = format!(
         "{}{} LIMIT {} OFFSET {}",
         where_sql,
-        article_order_clause(filter.profile_id.is_some()),
+        order_sql,
         limit.unwrap_or(20),
         offset.unwrap_or(0)
     );
@@ -3518,6 +3573,7 @@ pub async fn list_articles_without_profile(
     domain_ids: Option<Vec<String>>,
     date_from: Option<String>,
     mode: Option<String>,
+    favorite: Option<bool>,
 ) -> Result<ArticlesWithoutProfileResponse, String> {
     let conn = get_db(&app)?;
 
@@ -3531,6 +3587,7 @@ pub async fn list_articles_without_profile(
             date_from,
             mode,
             only_without_profile,
+            favorite,
         },
         offset,
         limit,
@@ -5591,6 +5648,62 @@ mod tests {
             .iter()
             .map(|a| a.url.clone().unwrap_or_default())
             .collect()
+    }
+
+    fn star_article(conn: &Connection, id: &str, favorited_at: i64) {
+        conn.execute(
+            "UPDATE web_articles SET favorited_at = ?1 WHERE id = ?2",
+            params![favorited_at, id],
+        )
+        .expect("star article");
+    }
+
+    #[test]
+    fn query_articles_favorite_filter_orders_by_favorited_at() {
+        let conn = build_in_memory_db();
+        insert_article_with_domain(&conn, "a-new", None, None, 3);
+        insert_article_with_domain(&conn, "a-old", None, None, 1);
+        insert_article_with_domain(&conn, "a-rest", None, None, 2);
+
+        // Star the *older* article last: favorites must order by the toggle
+        // time, not by created_at.
+        star_article(&conn, "a-old", 300);
+        star_article(&conn, "a-new", 100);
+
+        let favorites = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                favorite: Some(true),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(favorites, vec!["a-old", "a-new"]);
+
+        // `favorite: false` answers the complement in the plain list order.
+        let rest = list_urls(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                favorite: Some(false),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+        );
+        assert_eq!(rest, vec!["a-rest"]);
+
+        // The count query shares the WHERE clause, so the total matches too.
+        let response = query_articles_without_profile(
+            &conn,
+            &ArticlesWithoutProfileFilter {
+                favorite: Some(true),
+                only_without_profile: Some(false),
+                ..Default::default()
+            },
+            None,
+            None,
+        )
+        .expect("favorite total");
+        assert_eq!(response.total, 2);
     }
 
     #[test]

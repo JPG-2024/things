@@ -28,9 +28,10 @@ pub use crate::web_store::{
     list_categories_with_articles, list_category_exemplars, list_web_store_articles,
     list_web_store_categories, list_web_store_domains, list_web_store_profiles, read_raw_content,
     read_raw_content_by_url, save_article_analysis, search_raw_content, set_profile_article_order,
-    update_category_exemplars_model, update_web_store_article_viewed, upsert_category_exemplar,
-    upsert_web_store_article, upsert_web_store_category, upsert_web_store_domain,
-    upsert_web_store_profile, write_raw_content,
+    update_category_exemplars_model, update_web_store_article_favorite,
+    update_web_store_article_viewed, upsert_category_exemplar, upsert_web_store_article,
+    upsert_web_store_category, upsert_web_store_domain, upsert_web_store_profile,
+    write_raw_content,
 };
 
 mod audio_capture;
@@ -138,7 +139,7 @@ pub fn run() {
     #[cfg(target_os = "linux")]
     {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-    } 
+    }
 
     dotenv::dotenv().ok();
 
@@ -181,6 +182,7 @@ pub fn run() {
             fetch_remote_profile,
             delete_web_store_articles_by_urls,
             update_web_store_article_viewed,
+            update_web_store_article_favorite,
             delete_web_store_domain,
             delete_web_store_profile,
             get_article_analysis,

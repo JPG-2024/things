@@ -112,6 +112,7 @@ The app runs **one linear pipeline per article**:
   - `save_article_analysis_round_trips_and_replaces_windows`
   - `read_article_analysis_returns_none_for_unknown_article`
   - `list_articles_without_profile_filters_by_mode`
+  - `query_articles_favorite_filter_orders_by_favorited_at`
   - `upsert_article_row_updates_by_id_when_the_url_form_differs`
   - `upsert_article_row_inserts_when_no_row_matches_url_or_id`
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
