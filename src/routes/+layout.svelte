@@ -183,19 +183,24 @@
 			!!ttsState.errorMessage
 	);
 
-	const blurActive = $derived(
-		ttsPlayerVisible ||
-			voiceSettingsState.ttsOpen ||
+	// Real overlays: a modal or drawer owns the pointer and the keyboard. The
+	// TTS mini strip is deliberately not one of them — it is ambient playback,
+	// so it must not gate hotkeys (shift+wheel history nav, grid presets…).
+	const overlayActive = $derived(
+		voiceSettingsState.ttsOpen ||
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
 			conversationMode ||
 			chatOpen
 	);
 
+	/** `overlayActive` plus the TTS strip: drives the (currently inert) blur class. */
+	const blurActive = $derived(ttsPlayerVisible || overlayActive);
+
 	// Mirror the overlay state into the store so descendant components (e.g.
 	// MasonryGrid) can gate their hotkeys without prop drilling.
 	$effect(() => {
-		viewState.overlayOpen = blurActive;
+		viewState.overlayOpen = overlayActive;
 	});
 
 	createHotkey(

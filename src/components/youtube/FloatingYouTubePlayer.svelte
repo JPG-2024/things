@@ -263,7 +263,10 @@
 			playerStore.toggleMinimized();
 		},
 		() => ({
-			enabled: active !== null && !viewState.overlayOpen,
+			// Escape is also "stop TTS" while playback owns the audio, and the
+			// hotkey manager fires every matching handler — stay out of its way
+			// so one press cannot both stop TTS and minimize the video.
+			enabled: active !== null && !viewState.overlayOpen && !ttsActive,
 			ignoreInputs: true,
 			stopPropagation: true,
 			preventDefault: true

@@ -1,7 +1,6 @@
 import { WHEEL_NAVIGATION_MIN_DELTA_PX, WHEEL_NAVIGATION_QUIET_MS } from '@/constants';
 import { navigateBack, navigateForward } from '@/stores/navigationHistory.svelte';
 import { viewState } from '@/stores/viewStore.svelte';
-import { ttsState } from '@/stores/ttsStore.svelte';
 import { resolveWheelDelta } from './wheelDelta';
 
 const TEXT_ENTRY_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
@@ -18,6 +17,11 @@ function isEditableTarget(target: EventTarget | null): boolean {
  * listener sits in the capture phase on purpose: `Tabs` and `WheelStage` own
  * `wheel` in the bubble phase (Tabs switches tabs, WheelStage scrolls its
  * strip) and would otherwise consume the gesture first.
+ *
+ * Real overlays (voice settings modal, drawers, conversation, chat) own the
+ * wheel while they are open; the TTS mini strip does not — only the arrow
+ * keys are handed over to playback (seek), so shift+wheel keeps walking the
+ * history during playback.
  *
  * A gesture moves one step: deltas accumulate until they pass the threshold
  * and the gesture only re-arms after `WHEEL_NAVIGATION_QUIET_MS` without
@@ -40,7 +44,7 @@ export function installWheelHistoryNavigation(): () => void {
 
 	function handleWheel(event: WheelEvent): void {
 		if (!event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
-		if (viewState.overlayOpen || ttsState.isPlaying || ttsState.isPaused) return;
+		if (viewState.overlayOpen) return;
 		if (isEditableTarget(event.target)) return;
 
 		const delta = resolveWheelDelta(event.deltaX, event.deltaY, event.deltaMode);
