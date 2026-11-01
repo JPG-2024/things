@@ -110,6 +110,13 @@ function serializeView() {
 		chatSearchTables: viewState.chatSearchTables,
 		chatSearchMaxResults: viewState.chatSearchMaxResults,
 		chatSearchMaxDistance: viewState.chatSearchMaxDistance,
+		conversationSystemPrompt: viewState.conversationSystemPrompt,
+		conversationExtraUserPrompt: viewState.conversationExtraUserPrompt,
+		conversationTemperature: viewState.conversationTemperature,
+		conversationMaxTokens: viewState.conversationMaxTokens,
+		conversationTopP: viewState.conversationTopP,
+		conversationFrequencyPenalty: viewState.conversationFrequencyPenalty,
+		conversationPresencePenalty: viewState.conversationPresencePenalty,
 		windowLevel: viewState.windowLevel,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		markdownFontSize: viewState.markdownFontSize,
@@ -232,6 +239,27 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.chatSearchMaxDistance === 'number') {
 		viewState.chatSearchMaxDistance = clamp(raw.chatSearchMaxDistance, 0, 2);
+	}
+	if (typeof raw.conversationSystemPrompt === 'string') {
+		viewState.conversationSystemPrompt = raw.conversationSystemPrompt;
+	}
+	if (typeof raw.conversationExtraUserPrompt === 'string') {
+		viewState.conversationExtraUserPrompt = raw.conversationExtraUserPrompt;
+	}
+	if (typeof raw.conversationTemperature === 'number') {
+		viewState.conversationTemperature = clamp(raw.conversationTemperature, 0, 2);
+	}
+	if (typeof raw.conversationMaxTokens === 'number') {
+		viewState.conversationMaxTokens = clamp(Math.trunc(raw.conversationMaxTokens), 100, 16000);
+	}
+	if (typeof raw.conversationTopP === 'number') {
+		viewState.conversationTopP = clamp(raw.conversationTopP, 0, 1);
+	}
+	if (typeof raw.conversationFrequencyPenalty === 'number') {
+		viewState.conversationFrequencyPenalty = clamp(raw.conversationFrequencyPenalty, -2, 2);
+	}
+	if (typeof raw.conversationPresencePenalty === 'number') {
+		viewState.conversationPresencePenalty = clamp(raw.conversationPresencePenalty, -2, 2);
 	}
 	if (typeof raw.windowLevel === 'number') {
 		viewState.windowLevel = clampWindowLevel(raw.windowLevel);

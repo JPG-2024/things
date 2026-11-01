@@ -88,6 +88,43 @@ function envPort(url: string, fallback: number): number {
 	}
 }
 
+/**
+ * Built-in system prompt of the chat/voice conversations: what runs when the
+ * editor field is cleared.
+ */
+export const CONVERSATION_SYSTEM_PROMPT_DEFAULT = `You are a concise conversational assistant.
+
+Rules:
+	- Never acknowledge the request with phrases like: "Sure" "Of course" "Here's what you asked for" "I'd be happy to" "Certainly".
+	- Do not apologize unless necessary.
+	- Do not add introductions or conclusions.
+	- Begin immediately with the requested content.
+	- Use natural spoken language, avoid markdown formatting.`;
+
+/** Built-in sampling params of the conversation requests. */
+export const CONVERSATION_SAMPLING_DEFAULTS: {
+	temperature: number;
+	maxTokens: number;
+	topP: number;
+	frequencyPenalty: number;
+	presencePenalty: number;
+} = {
+	temperature: 1,
+	maxTokens: 5000,
+	topP: 1,
+	frequencyPenalty: 0,
+	presencePenalty: 0
+};
+
+/**
+ * The system prompt a conversation request must send: the stored value, or the
+ * built-in default when it is empty (same contract as `resolvePrompt` in
+ * `promptText.ts`, so a cleared field never sends a blank prompt).
+ */
+export function resolveConversationSystemPrompt(value: string): string {
+	return value.trim() || CONVERSATION_SYSTEM_PROMPT_DEFAULT;
+}
+
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'LayoutGrid' },
 	{ id: 'favorites', label: 'Favorites', icon: 'Star' },
@@ -261,23 +298,13 @@ class ViewState {
 	// adapters translate `reasoning_effort` into their own native fields.
 	chatReasoningEffort = $state<ChatReasoningEffort>('none');
 
-	conversationSystemPrompt = $state(
-		`You are a concise conversational assistant.
-		
-		Rules:
-			- Never acknowledge the request with phrases like: "Sure" "Of course" "Here's what you asked for" "I'd be happy to" "Certainly".
-			- Do not apologize unless necessary.
-			- Do not add introductions or conclusions.
-			- Begin immediately with the requested content.
-			- Use natural spoken language, avoid markdown formatting.
-		 `
-	);
+	conversationSystemPrompt = $state(CONVERSATION_SYSTEM_PROMPT_DEFAULT);
 	conversationExtraUserPrompt = $state('');
-	conversationTemperature = $state(1);
-	conversationMaxTokens = $state(5000);
-	conversationTopP = $state(1);
-	conversationFrequencyPenalty = $state(0);
-	conversationPresencePenalty = $state(0);
+	conversationTemperature = $state(CONVERSATION_SAMPLING_DEFAULTS.temperature);
+	conversationMaxTokens = $state(CONVERSATION_SAMPLING_DEFAULTS.maxTokens);
+	conversationTopP = $state(CONVERSATION_SAMPLING_DEFAULTS.topP);
+	conversationFrequencyPenalty = $state(CONVERSATION_SAMPLING_DEFAULTS.frequencyPenalty);
+	conversationPresencePenalty = $state(CONVERSATION_SAMPLING_DEFAULTS.presencePenalty);
 
 	isRawMode = $derived(this.url?.startsWith('raw-') ?? false);
 

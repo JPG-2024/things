@@ -11,7 +11,11 @@
 		type LlamaChatMessage
 	} from '@/lib/utils/inference/chat-completions-provider';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { drawersState, viewState } from '@/stores/viewStore.svelte';
+	import {
+		drawersState,
+		viewState,
+		resolveConversationSystemPrompt
+	} from '@/stores/viewStore.svelte';
 	import {
 		getAudioContext,
 		ensureAudioContext,
@@ -194,7 +198,10 @@
 		void scrollToBottom();
 
 		const historyForApi: LlamaChatMessage[] = [
-			{ role: 'system', content: viewState.conversationSystemPrompt }
+			{
+				role: 'system',
+				content: resolveConversationSystemPrompt(viewState.conversationSystemPrompt)
+			}
 		];
 		for (const m of messages) {
 			if (m.id === assistantId) break;

@@ -8,7 +8,7 @@
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { viewState, resolveConversationSystemPrompt } from '@/stores/viewStore.svelte';
 	import { ensureAudioContext } from '@/lib/audioContextManager';
 	import {
 		chatCompletions,
@@ -17,6 +17,7 @@
 	import { retrieveContextChunks } from '@/lib/utils/embeddingStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import ReasoningPanel from '@/components/ReasoningPanel.component.svelte';
+	import ConversationSettingsModal from '@/components/modals/ConversationSettingsModal.svelte';
 	import type { ChatReasoningEffort } from '@/stores/viewStore.svelte';
 	import { createReasoningTagSplitter, splitThoughtTags } from '@/lib/utils/reasoningTags';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
@@ -54,6 +55,7 @@
 	// settings choice and written back so the choice sticks across sessions.
 	let searchEnabled = $state(viewState.chatSearchEnabled);
 	let reasoningMenuOpen = $state(false);
+	let settingsOpen = $state(false);
 
 	const searchTables = $derived(
 		viewState.chatSearchTables
@@ -169,7 +171,10 @@
 		await scrollToBottom();
 
 		const historyForApi: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-			{ role: 'system', content: viewState.conversationSystemPrompt }
+			{
+				role: 'system',
+				content: resolveConversationSystemPrompt(viewState.conversationSystemPrompt)
+			}
 		];
 		for (const m of messages) {
 			if (m.id === assistantId) break;
@@ -319,8 +324,13 @@
 		}
 	}
 
+	/**
+	 * Esc closes the settings editor first; only a second Esc exits the chat.
+	 * The hotkey manager fires every matching registration on one keypress, so
+	 * the chat handler must be disabled while the editor owns the key.
+	 */
 	createHotkey('Escape', handleExit, () => ({
-		enabled: true,
+		enabled: !settingsOpen,
 		ignoreInputs: false,
 		preventDefault: true,
 		stopPropagation: true
@@ -409,6 +419,18 @@
 					</div>
 				{/if}
 			</div>
+			<button
+				type="button"
+				class="chat-modal__settings-btn"
+				onclick={() => {
+					reasoningMenuOpen = false;
+					settingsOpen = true;
+				}}
+				aria-label="Edit assistant style"
+				title="edit assistant style"
+			>
+				<Icon name="ScrollText" size={18} color={viewState.primaryColor} />
+			</button>
 			{#if messages.length > 0}
 				<button
 					type="button"
@@ -516,6 +538,10 @@
 	</div>
 </div>
 
+<!-- Outside .chat-modal: that element has overflow:hidden, and a transformed
+	 ancestor (the fly transition) would clip the fixed backdrop. -->
+<ConversationSettingsModal show={settingsOpen} onClose={() => (settingsOpen = false)} />
+
 <style>
 	.chat-modal {
 		--chat-gap: 0rem;
@@ -558,7 +584,8 @@
 	}
 
 	.chat-modal__clear-btn,
-	.chat-modal__exit-btn {
+	.chat-modal__exit-btn,
+	.chat-modal__settings-btn {
 		all: unset;
 		display: inline-flex;
 		align-items: center;
@@ -572,7 +599,8 @@
 	}
 
 	.chat-modal__clear-btn:hover,
-	.chat-modal__exit-btn:hover {
+	.chat-modal__exit-btn:hover,
+	.chat-modal__settings-btn:hover {
 		opacity: 1;
 	}
 
