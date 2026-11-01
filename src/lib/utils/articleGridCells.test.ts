@@ -148,4 +148,32 @@ describe('buildArticleGridCells', () => {
 		if (stack?.kind !== 'stack') return;
 		expect(stack.preview.map((a) => a.id)).toEqual(['a37', 'a36', 'a38']);
 	});
+
+	test('flags a stack as favorite when any article is starred, even outside the preview', () => {
+		// The starred article is the oldest and falls outside previewCount:2,
+		// but the stack must still light up its favorite star so a hidden star
+		// is never invisible.
+		const stack = buildArticleGridCells(
+			[
+				article({ profileId: 'p1', createdAt: 50 }),
+				article({ profileId: 'p1', createdAt: 20 }),
+				article({ profileId: 'p1', createdAt: 10, favorite: true })
+			],
+			{ previewCount: 2 }
+		).find((cell) => cell.kind === 'stack');
+
+		if (stack?.kind !== 'stack') return;
+		expect(stack.preview.map((a) => a.createdAt)).toEqual([50, 20]);
+		expect(stack.hasFavorite).toBe(true);
+	});
+
+	test('leaves a stack unflagged when no article is starred', () => {
+		const stack = buildArticleGridCells([
+			article({ profileId: 'p1', createdAt: 30 }),
+			article({ profileId: 'p1', createdAt: 20, favorite: false })
+		]).find((cell) => cell.kind === 'stack');
+
+		if (stack?.kind !== 'stack') return;
+		expect(stack.hasFavorite).toBe(false);
+	});
 });

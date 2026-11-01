@@ -4,6 +4,7 @@
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import ArticleTitle from '@/components/ArticleItem/ArticleTitle.svelte';
+	import Icon from '@/components/Icon.svelte';
 
 	interface Props {
 		cell: ProfileStackCell;
@@ -101,6 +102,15 @@
 				{/each}
 			</div>
 		{/if}
+		{#if cell.hasFavorite}
+			<!-- Favorite marker at the card's top-right corner, the same spot
+			     ArticleItem hangs its star. The pile layers stay below (their
+			     z-index is capped by the preview count), so it reads over the
+			     whole stack. -->
+			<span class="articles-stack__favorite" aria-hidden="true">
+				<Icon name="Star" size={16} color="var(--primary-color)" />
+			</span>
+		{/if}
 	</button>
 {/snippet}
 
@@ -118,6 +128,8 @@
 		cursor: pointer;
 		font: inherit;
 		color: inherit;
+		/* Anchor for the favorite star (same corner ArticleItem uses). */
+		position: relative;
 	}
 
 	/* Row mode mirrors ArticleItemRow: fixed 150x80 thumb box on the left,
@@ -228,5 +240,24 @@
 
 	.articles-stack:hover .articles-stack__layer {
 		will-change: transform;
+	}
+
+	/* Favorite marker: same top-right corner and fill treatment as
+	   ArticleItem's star, but non-interactive (the stack button navigates to
+	   the profile). It renders after the pile, so the layers never cover it. */
+	.articles-stack__favorite {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 0;
+		z-index: 9;
+		pointer-events: none;
+	}
+
+	.articles-stack__favorite :global(svg) {
+		fill: var(--primary-color);
 	}
 </style>

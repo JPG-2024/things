@@ -11,6 +11,10 @@ export type ProfileStackCell = {
 	/** Articles in display order: channel-page rank first, capture recency
 	 * fallback when the row holds no rank. Up to previewCount. */
 	preview: ArticleRecord[];
+	/** True when any article in the profile group is a favorite, including
+	 * articles that fall outside the visible preview layers. Drives the
+	 * stack's favorite star marker. */
+	hasFavorite: boolean;
 };
 
 /** One masonry cell: a single article rendered as a plain ArticleItem. */
@@ -106,7 +110,8 @@ export function buildArticleGridCells(
 			kind: 'stack',
 			key: `profile:${profileId}`,
 			profileId,
-			preview: sorted.slice(0, previewCount)
+			preview: sorted.slice(0, previewCount),
+			hasFavorite: sorted.some((article) => article.favorite === true)
 		});
 	}
 
