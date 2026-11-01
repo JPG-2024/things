@@ -23,6 +23,10 @@ const LLAMA_SPECIFIC_FIELDS = new Set([
 	'mirostat_tau',
 	'mirostat_eta',
 	'repeat_penalty',
+	// OpenCode rejects `repetition_penalty` when it is combined with
+	// `frequency_penalty`/`presence_penalty` (400), and it is not part of the
+	// OpenAI surface: drop it like `repeat_penalty` before sending upstream.
+	'repetition_penalty',
 	'repeat_last_n',
 	'cache_prompt',
 	'n_keep',

@@ -93,7 +93,7 @@
 		gap: 10px;
 		/* -webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px); */
-		background: color-mix(in srgb, var(--bg-color), black 90%);
+		background: color-mix(in srgb, var(--primary-color), black 90%);
 		min-height: 30px;
 		right: 0;
 		left: 0;
@@ -207,7 +207,7 @@
 		font-size: 0.95rem;
 		font-variant: all-small-caps;
 		padding: 0 0.25rem;
-		text-align: left;
+		text-align: center;
 	}
 
 	.topbar-title::after {

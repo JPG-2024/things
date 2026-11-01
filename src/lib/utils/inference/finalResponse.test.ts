@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseTitleText, stripFinalResponse } from './finalResponse';
+import { parseQuestionsResponse, parseTitleText, stripFinalResponse } from './finalResponse';
 
 // The literal tag sequence is assembled here because the repo strips it from
 // any authored source; see `assistant-text.ts`.
@@ -100,5 +100,65 @@ describe('parseTitleText', () => {
 	test('returns empty string for unusable output', () => {
 		expect(parseTitleText('')).toBe('');
 		expect(parseTitleText('---\n\n"  "')).toBe('');
+	});
+});
+
+describe('parseQuestionsResponse', () => {
+	test('parses a clean JSON object', () => {
+		const raw = '{"questions":["¿Qué es el:/cierre?","¿Por qué importa?"]}';
+		expect(parseQuestionsResponse(raw, 2)).toEqual(['¿Qué es el:/cierre?', '¿Por qué importa?']);
+	});
+
+	test('parses the requested count out of the schema', () => {
+		const raw = '{"questions":["A?","B?","C?"]}';
+		expect(parseQuestionsResponse(raw, 3)).toEqual(['A?', 'B?', 'C?']);
+	});
+
+	test('parses JSON wrapped in a reasoning turn', () => {
+		const raw = [
+			`${thinkOpen}I should find two questions.${thinkClose}`,
+			'',
+			'Here is the answer:',
+			'```json',
+			'{"questions":["First question?","Second question?"]}',
+			'```'
+		].join('\n');
+
+		expect(parseQuestionsResponse(raw, 2)).toEqual(['First question?', 'Second question?']);
+	});
+
+	test('finds the JSON object when prose surrounds it', () => {
+		expect(parseQuestionsResponse('Sure: {"questions":["A?","B?"]} hope that helps', 2)).toEqual([
+			'A?',
+			'B?'
+		]);
+	});
+
+	test('keeps braces inside string values', () => {
+		expect(parseQuestionsResponse('{"questions":["C}? no","B?"]}', 2)).toEqual(['C}? no', 'B?']);
+	});
+
+	test('trims the questions', () => {
+		expect(parseQuestionsResponse('{"questions":["  A?  ","B?"]}', 2)).toEqual(['A?', 'B?']);
+	});
+
+	test('returns null when the count does not match', () => {
+		expect(parseQuestionsResponse('{"questions":["Only one?"]}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"questions":["A?","B?","C?"]}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"questions":["A?","B?"]}', 3)).toBeNull();
+	});
+
+	test('returns null for malformed shapes', () => {
+		expect(parseQuestionsResponse('{"questions":"not an array"}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"questions":["A?", 42]}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"questions":["","B?"]}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"other":["A?","B?"]}', 2)).toBeNull();
+		expect(parseQuestionsResponse('{"questions":["A?","B?"]} trailing {', 2)).toEqual(['A?', 'B?']);
+	});
+
+	test('returns null when there is no JSON at all', () => {
+		expect(parseQuestionsResponse('', 2)).toBeNull();
+		expect(parseQuestionsResponse('no json here', 2)).toBeNull();
+		expect(parseQuestionsResponse('{ broken', 2)).toBeNull();
 	});
 });

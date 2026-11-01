@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import {
 	clampWindowLevel,
 	DEFAULT_WINDOW_LEVEL,
@@ -102,5 +102,38 @@ describe('splitArticleIntoWindows', () => {
 
 	test('an empty body yields no windows', () => {
 		expect(splitArticleIntoWindows('', { divisor: 4 })).toEqual([]);
+	});
+});
+
+describe('analyzeWindows', () => {
+	test('keeps every processor field on the window data', async () => {
+		// Registered before `analyzeWindows` runs: its processor import is
+		// dynamic, so the mock must be in place first. A field added to the
+		// processor result but dropped when building `ArticleWindow.data`
+		// (as `questions` once was) fails here.
+		mock.module('@/runners/shared/processors', () => ({
+			windowSummaryProcessor: {
+				build: () => ({
+					processChunk: async () => ({
+						summary: 'window summary',
+						questions: ['First question?', 'Second question?'],
+						title: 'Window title'
+					}),
+					combineChunks: async () => ({ summary: 'final summary' })
+				})
+			}
+		}));
+
+		const { analyzeWindows } = await import('./windowAnalysis');
+		const result = await analyzeWindows('body', { divisor: 1 });
+
+		expect(result.divisor).toBe(1);
+		expect(result.summary).toBe('final summary');
+		expect(result.windows).toHaveLength(1);
+		expect(result.windows[0].data).toEqual({
+			summary: 'window summary',
+			questions: ['First question?', 'Second question?'],
+			title: 'Window title'
+		});
 	});
 });

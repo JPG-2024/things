@@ -51,6 +51,69 @@ export function stripFinalResponse(text: string): string {
 }
 
 /**
+ * Parse the per-window questions out of a raw model response.
+ *
+ * The request asks for structured output (`response_format` json_schema), but
+ * the guarantee is provider-dependent: llama converts the schema to a grammar,
+ * OpenRouter forwards it to compatible models, and OpenCode may ignore it.
+ * So the parser is defensive: keep only the final response, then extract the
+ * first balanced JSON object anywhere in the text and validate its shape
+ * against the count the window was asked for.
+ * @param text - Raw assistant text for the questions task.
+ * @param expectedCount - Number of questions the request asked for.
+ * @returns Exactly `expectedCount` trimmed questions, or `null` when nothing
+ * usable remains.
+ */
+export function parseQuestionsResponse(text: string, expectedCount: number): string[] | null {
+	// Not `stripFinalResponse`: that helper keeps only the first line, while a
+	// JSON answer spans several. Dropping thinking blocks is enough; the JSON
+	// extractor below does the rest.
+	const response = stripThinkBlocks(text);
+	if (!response.trim()) return null;
+
+	const start = response.indexOf('{');
+	if (start === -1) return null;
+
+	// Walk the string so an object containing a brace inside a string value
+	// still closes at the right place.
+	let depth = 0;
+	let end = -1;
+	let inString = false;
+	let escaped = false;
+	for (let i = start; i < response.length; i++) {
+		const char = response[i];
+		if (inString) {
+			if (escaped) escaped = false;
+			else if (char === '\\') escaped = true;
+			else if (char === '"') inString = false;
+			continue;
+		}
+		if (char === '"') inString = true;
+		else if (char === '{') depth++;
+		else if (char === '}') {
+			depth--;
+			if (depth === 0) {
+				end = i + 1;
+				break;
+			}
+		}
+	}
+	if (end === -1) return null;
+
+	try {
+		const parsed = JSON.parse(response.slice(start, end)) as { questions?: unknown };
+		const questions = parsed?.questions;
+		if (!Array.isArray(questions)) return null;
+		const cleaned = questions
+			.filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+			.map((q) => q.trim());
+		return cleaned.length === expectedCount ? cleaned : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Parse a title out of a raw model response.
  *
  * Keeps only the final response of the turn, then delegates the shaping to the

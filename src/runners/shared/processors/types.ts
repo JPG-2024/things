@@ -6,6 +6,8 @@
 /** Result of summarizing one window. */
 export interface WindowSummaryChunkData {
 	summary: string;
+	/** Two questions the window answers; absent when the questions call failed. */
+	questions?: string[];
 	/** Short label of the window summary; absent when the title call failed. */
 	title?: string;
 }

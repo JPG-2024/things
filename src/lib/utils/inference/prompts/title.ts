@@ -12,3 +12,13 @@ export function buildTitleUserMessage(): string {
 export function buildWindowTitleUserMessage(): string {
 	return 'Create a short title (max 8 words) labeling this section of the article. No Markdown, no quotes, no trailing period.';
 }
+
+/**
+ * User message for the per-window questions call: exactly `count` questions
+ * the section answers. The count is also enforced by the response schema
+ * (`windowQuestionsSchema`); the prompt repeats it because not every
+ * provider honors the schema.
+ */
+export function buildWindowQuestionsUserMessage(count: number): string {
+	return `Write exactly ${count} questions that this section of the article answers. Respond only with JSON.`;
+}

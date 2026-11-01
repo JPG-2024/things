@@ -192,6 +192,7 @@ export async function analyzeWindows(
 					end: slice.endOffset,
 					data: {
 						summary: result.summary,
+						...(result.questions ? { questions: result.questions } : {}),
 						...(result.title ? { title: result.title } : {})
 					}
 				};

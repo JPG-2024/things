@@ -11,6 +11,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import { readRawWindow } from '@/lib/utils/rawContent';
+	import { readWindowQuestions } from '@/lib/utils/windowQuestions';
 	import { detectSource } from '@/runners/articleSources';
 	import {
 		clampWindowLevel,
@@ -169,6 +170,7 @@
 					{/if}
 					{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
 						{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
+						{@const questions = readWindowQuestions(window.data)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 							<div class="chunk-heading">
 								<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
@@ -176,9 +178,17 @@
 									<span class="chunk-title">{window.data.title}</span>
 								{/if}
 							</div>
+							{#if questions.length}
+								<ul class="chunk-questions">
+									{#each questions as question (question)}
+										<li>{question}</li>
+									{/each}
+								</ul>
+							{/if}
 							<div class="chunk-summary">
 								<MarkdownRenderer content={window.data.summary} />
 							</div>
+
 							<div class="chunk-action">
 								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
 									View raw text
@@ -314,7 +324,7 @@
 	.chunk-title {
 		flex: 1;
 		min-width: 0;
-		font-size: 0.9rem;
+		font-size: 1rem;
 		font-weight: bold;
 		color: var(--primary-color);
 	}
@@ -324,6 +334,21 @@
 		opacity: 0.45;
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+
+	/* Quieter than the summary: smaller, italic, no markdown weight. */
+	.chunk-questions {
+		padding: 1rem;
+		font-size: 0.85rem;
+		font-weight: bold;
+		line-height: 2rem;
+		font-family: var(--font-secondary);
+		color: var(--bg-color);
+		list-style-type: square;
+	}
+
+	.chunk-questions li + li {
+		margin-top: 0.2rem;
 	}
 
 	.raw-text-modal-container {
