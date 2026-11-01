@@ -6,6 +6,7 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { getArticleByUrl } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
+	import { articleManager } from '@/runners/articleManager.svelte';
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import ArticleCategoryEditor from '@/components/ArticleCategoryEditor.svelte';
@@ -136,6 +137,16 @@
 		viewState.currentProfileId = article.profile;
 		goto(`/profile/${article.profile}`);
 	}
+
+	/**
+	 * Manual retry: a remembered extraction failure (or any failed run) is
+	 * only re-attempted from here — `refresh` forces the source step and
+	 * clears the stored marker on success.
+	 */
+	function handleRefresh() {
+		if (!article.url) return;
+		articleManager.refresh(article.url);
+	}
 </script>
 
 <div class="article-layout">
@@ -194,12 +205,27 @@
 				>
 					<Icon name="Code" size={24} color="var(--primary-color)" />
 				</button>
+				<button
+					class="full-content-button"
+					onclick={handleRefresh}
+					aria-label="Refresh article"
+					title="Refresh article (re-extract content)"
+				>
+					<Icon name="RefreshCcw" size={24} color="var(--primary-color)" />
+				</button>
 			{/if}
 			{#if article.url && article.status !== 'running'}
 				<ArticleCategoryEditor articleUrl={article.url} value={article.categories} />
 			{/if}
 		</div>
 	</div>
+
+	{#if article.status === 'error' && article.error}
+		<div class="error-notice" role="alert">
+			<span class="error-message">{article.error}</span>
+			<span class="error-hint">Click the refresh icon to retry.</span>
+		</div>
+	{/if}
 
 	<div class="article-analysis">
 		<AnalysisPanel />
@@ -252,6 +278,32 @@
 	.article-analysis,
 	.article-content {
 		grid-column: 1 / -1;
+	}
+
+	/* Why the article is empty after a failed run: the stored error message
+	 * plus the one action that retries it (the refresh icon above). */
+	.error-notice {
+		grid-column: 1 / -1;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius-sm);
+		background-color: var(--hover-bg);
+		font-family: var(--font-secondary);
+		font-size: 0.85rem;
+		line-height: 1.3;
+	}
+
+	.error-message {
+		color: var(--gray-100);
+		word-break: break-word;
+	}
+
+	.error-hint {
+		color: var(--gray-100);
+		opacity: 0.7;
 	}
 
 	.category-editor_container {

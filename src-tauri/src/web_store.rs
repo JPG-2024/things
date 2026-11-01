@@ -80,6 +80,10 @@ pub struct WebStoreArticleRecord {
     /// When the article was starred (`NULL` = not a favorite). Drives the
     /// favorites list order (most recently starred first).
     pub favorited_at: Option<i64>,
+    /// Generic failure marker written by the pipeline (`NULL` = no failure).
+    /// While set, opening the article does not force the run again; only an
+    /// explicit refresh retries (and clears it on success).
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -366,6 +370,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             mode TEXT,
             profile_rank INTEGER,
             favorited_at INTEGER,
+            error_message TEXT,
             FOREIGN KEY (domain) REFERENCES web_domains(id)
         );
         CREATE INDEX IF NOT EXISTS idx_web_articles_url ON web_articles(url);
@@ -478,6 +483,13 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "web_articles",
         "favorited_at",
         "ALTER TABLE web_articles ADD COLUMN favorited_at INTEGER",
+    )?;
+    // NULL = no remembered failure; the message of the last failed run otherwise.
+    ensure_column(
+        conn,
+        "web_articles",
+        "error_message",
+        "ALTER TABLE web_articles ADD COLUMN error_message TEXT",
     )?;
     ensure_column(
         conn,
@@ -1100,6 +1112,9 @@ fn row_to_stored_article(
     let mode: Option<String> = row.get("mode").ok().flatten();
     let profile_rank: Option<i64> = row.get::<_, Option<i64>>("profile_rank").unwrap_or(None);
     let favorited_at: Option<i64> = row.get::<_, Option<i64>>("favorited_at").unwrap_or(None);
+    let error_message: Option<String> = row
+        .get::<_, Option<String>>("error_message")
+        .unwrap_or(None);
     let summary: Option<String> = body_column_or_none(row, "summary");
     let analysis_divisor: Option<i64> = row
         .get::<_, Option<i64>>("analysis_divisor")
@@ -1130,6 +1145,7 @@ fn row_to_stored_article(
         mode,
         profile_rank,
         favorited_at,
+        error_message,
     })
 }
 
@@ -1141,7 +1157,7 @@ fn body_column_or_none(row: &rusqlite::Row<'_>, name: &str) -> Option<String> {
 
 const ARTICLE_COLUMNS: &str = "a.id, a.url, a.created_at, a.title, a.thumbnail, a.content,
         a.media_directory, a.main_color, a.profile, a.embedding_source_text, a.updated_at,
-        a.viewed, a.date, a.domain, a.profile_rank, a.favorited_at,
+        a.viewed, a.date, a.domain, a.profile_rank, a.favorited_at, a.error_message,
         (SELECT COALESCE(
             (SELECT p.profile_picture FROM web_profiles p WHERE LOWER(p.id) = LOWER(a.profile)),
             (SELECT d.profile_picture FROM web_domains d WHERE LOWER(d.id) = LOWER(a.domain))
@@ -2153,6 +2169,40 @@ pub async fn update_web_store_article_favorite(
              SET favorited_at = CASE WHEN ?1 = 1 THEN ?2 ELSE NULL END
              WHERE url = ?3 COLLATE NOCASE",
             params![favorite as i64, chrono_like_now(), url],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+/// Remembers (or clears) a pipeline failure on the article row.
+///
+/// A non-NULL `error_message` makes `articleManager.open()` skip the run: a
+/// failed extraction is not forced again on every open of a saved article, only
+/// by an explicit refresh (which clears the marker on success).
+#[tauri::command]
+pub async fn update_web_store_article_error(
+    app: AppHandle,
+    url: String,
+    error: Option<String>,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    update_article_error_row(&conn, &url, error)
+}
+
+/// Writes `error_message` for one article (matched like the other row updates,
+/// by url case-insensitively). A blank message is stored as NULL.
+fn update_article_error_row(
+    conn: &Connection,
+    url: &str,
+    error: Option<String>,
+) -> Result<bool, String> {
+    let error = normalize_optional_string(error);
+
+    let changes = conn
+        .execute(
+            "UPDATE web_articles SET error_message = ?1 WHERE url = ?2 COLLATE NOCASE",
+            params![error, url],
         )
         .map_err(|error| error.to_string())?;
 
@@ -5704,6 +5754,46 @@ mod tests {
         )
         .expect("favorite total");
         assert_eq!(response.total, 2);
+    }
+
+    #[test]
+    fn update_article_error_sets_round_trips_and_clears() {
+        let conn = build_in_memory_db();
+        insert_article(&conn, "a1", "p1", 1, None);
+
+        fn read_error_message(conn: &Connection, url: &str) -> Option<String> {
+            let filter = format!("url = '{}' COLLATE NOCASE", url.replace('\'', "''"));
+            query_articles(conn, ARTICLE_COLUMNS, Some(&filter), Some(1), None)
+                .expect("read article")
+                .pop()
+                .expect("article row")
+                .error_message
+        }
+
+        // A failed run is remembered on the row and survives a re-read.
+        assert!(
+            update_article_error_row(&conn, "a1", Some("extraction failed".into()))
+                .expect("set error")
+        );
+        assert_eq!(
+            read_error_message(&conn, "a1").as_deref(),
+            Some("extraction failed")
+        );
+
+        // A successful retry clears the marker.
+        assert!(update_article_error_row(&conn, "a1", None).expect("clear error"));
+        assert!(read_error_message(&conn, "a1").is_none());
+
+        // A blank message is stored as NULL, never as an empty marker.
+        assert!(
+            update_article_error_row(&conn, "a1", Some("   ".into())).expect("blank error")
+        );
+        assert!(read_error_message(&conn, "a1").is_none());
+
+        // An unknown url updates nothing.
+        assert!(
+            !update_article_error_row(&conn, "missing", Some("x".into())).expect("unknown url")
+        );
     }
 
     #[test]

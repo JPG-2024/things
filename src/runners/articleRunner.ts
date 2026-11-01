@@ -17,7 +17,8 @@ import {
 	getArticleByUrl,
 	getArticleCategories,
 	saveArticle,
-	saveArticleAnalysis
+	saveArticleAnalysis,
+	setArticleError
 } from '@/stores/webStore';
 import {
 	analyzeWindows,
@@ -222,7 +223,24 @@ export async function runArticle(
 			if (!articleState.isCurrent(url)) return;
 			articleState.setThumbnail(thumbnail, thumbnailSrc);
 		}
+	}).catch(async (error): Promise<SourceFetch> => {
+		// The extraction failed: remember it on the row so opening the article
+		// does not force the fetch over and over (`open()` skips the pipeline
+		// while the marker is set; the refresh icon retries). A minimal row is
+		// written when none exists yet, so a fresh capture remembers it too.
+		// A deleted article is never resurrected by the marker write.
+		if (!isRunCancelled(url)) {
+			const message = error instanceof Error ? error.message : String(error);
+			await saveArticle(url, {});
+			await setArticleError(url, message);
+		}
+		throw error;
 	});
+
+	// This run got the source: a failure remembered by an earlier run is stale.
+	if (existing?.errorMessage) {
+		await setArticleError(url, null);
+	}
 
 	// The card decoration is already in flight when the body arrives and is
 	// painted as soon as it lands: the analysis only needs `source.text`, so
@@ -322,11 +340,18 @@ export async function runArticle(
 			const body = text ?? (await readRawContent(url)) ?? '';
 			if (!body.trim()) {
 				// The article row was already saved with its metadata; the error
-				// only tells why there is no analysis behind it.
-				if (detectSource(url) === 'youtube') {
-					throw new Error(`No captions or transcript available for "${url}"`);
+				// only tells why there is no analysis behind it. Like an
+				// extraction failure it is remembered on the row: opening the
+				// article again must not force the fetch until the user
+				// refreshes.
+				const message =
+					detectSource(url) === 'youtube'
+						? `No captions or transcript available for "${url}"`
+						: `Article "${url}" has no body to analyse`;
+				if (!isRunCancelled(url)) {
+					await setArticleError(url, message);
 				}
-				throw new Error(`Article "${url}" has no body to analyse`);
+				throw new Error(message);
 			}
 
 			const level = clampWindowLevel(viewState.windowLevel);

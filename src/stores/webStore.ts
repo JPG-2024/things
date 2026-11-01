@@ -37,6 +37,10 @@ export interface ArticleRecord {
 	favoritedAt?: number | null;
 	/** Derived from `favoritedAt`; the boolean the UI toggles. */
 	favorite?: boolean;
+	/** Generic failure marker written by the last run (`null`/absent = no
+	 * failure). While set, opening the article does not force the pipeline
+	 * again; only an explicit refresh retries (and clears it on success). */
+	errorMessage?: string | null;
 	[key: string]: unknown;
 }
 
@@ -116,6 +120,9 @@ export type WebStoreArticleRecord = {
 	profileRank?: number | null;
 	/** When the article was starred (`null` = not a favorite). */
 	favoritedAt: number | null;
+	/** Generic failure marker from the last run. Only present on the
+	 * article-detail fetch (list queries omit the column). */
+	errorMessage?: string | null;
 };
 
 export type WebStoreProfileDeletion = {
@@ -789,6 +796,22 @@ export async function setArticleFavorite(url: string, favorite: boolean): Promis
 		return await invoke<boolean>('update_web_store_article_favorite', { url, favorite });
 	} catch (error) {
 		console.error(`Error setting article favorite (url='${url}'):`, error);
+		return false;
+	}
+}
+
+/**
+ * Remembers (or clears, with `null`) a pipeline failure on the article row.
+ *
+ * While the message is set, `articleManager.open()` skips the run instead of
+ * forcing the failed step on every open; an explicit refresh retries and
+ * clears the marker on success. Returns whether the row was updated.
+ */
+export async function setArticleError(url: string, error: string | null): Promise<boolean> {
+	try {
+		return await invoke<boolean>('update_web_store_article_error', { url, error });
+	} catch (err) {
+		console.error(`Error setting article error (url='${url}'):`, err);
 		return false;
 	}
 }

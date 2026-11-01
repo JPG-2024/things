@@ -140,6 +140,16 @@ class ArticleManager {
 			return;
 		}
 
+		// A failure the pipeline remembered (a failed extraction, a missing
+		// transcript): opening must not force the same step again on every
+		// visit. The article is painted as-is and only an explicit refresh
+		// (the icon in the layout) re-runs it, clearing the marker on success.
+		if (article?.errorMessage) {
+			articleState.setStatus('error', article.errorMessage);
+			viewState.loading = false;
+			return;
+		}
+
 		// An article captured but not analysed is completed on open (D25):
 		// opening always runs the full pipeline.
 		this.enqueue(url, { mode: 'full', ...options });
