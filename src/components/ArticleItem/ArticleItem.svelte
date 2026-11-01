@@ -7,6 +7,9 @@
 	import ArticleItemGrid3 from './ArticleItemGrid3.svelte';
 	import ArticleItemGrid from './ArticleItemGrid.svelte';
 	import { ARTICLE_THUMBNAIL_SIZES, type ArticleThumbnailSize } from '@/constants';
+	import { playerStore } from '@/stores/playerStore.svelte';
+	import { youTubeVideoId } from '@/runners/articleSources';
+	import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 
 	interface Props {
 		article: ArticleRecord;
@@ -94,6 +97,27 @@
 	const resolvedTooltip = $derived(
 		tooltip ?? (showThumbnail && !showText && !showThumbnailTitle ? (article.title ?? null) : null)
 	);
+
+	/** Shift+click plays the article straight in the floating player, skipping
+	 * the reading view (the article stays unread). Only YouTube URLs have a
+	 * player; on anything else the modifier is a no-op. Plain click is
+	 * untouched and goes through the caller's `onClick`. */
+	function handleCardClick(event: MouseEvent): void {
+		if (event.shiftKey) {
+			const url = article.url;
+			const videoId = url ? youTubeVideoId(url) : null;
+			if (!url || !videoId) return;
+			playerStore.open({
+				mediaDirectory: '',
+				thumbnailImage: '',
+				thumbnailImageSrc: article.thumbnailSrc ?? getYouTubeThumbnailUrl(videoId, 'high'),
+				videoId,
+				url
+			});
+			return;
+		}
+		onClick(article);
+	}
 </script>
 
 {#snippet cardButton()}
@@ -103,7 +127,7 @@
 		class:selected
 		class:fixed-thumb-card={isFixedThumb}
 		style={isFixedThumb ? `--fixed-thumb-w: ${resolvedThumbnailWidth}px;` : undefined}
-		onclick={() => onClick(article)}
+		onclick={handleCardClick}
 		onmouseenter={() => onHoverEnter(article)}
 		onmouseleave={onHoverLeave}
 		aria-label="View article"
