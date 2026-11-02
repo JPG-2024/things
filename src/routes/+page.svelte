@@ -36,7 +36,9 @@
 
 	// Toolbar auto-hide while scrolling the dashboard: re-enable by restoring
 	// the import and adding `use:autoHide={{ scrollContainerId: 'dashboard-content' }}`
-	// to the dashboard-toolbar-container div below.
+	// to the dashboard-toolbar-container div below. The toolbar sits in normal
+	// flow (not fixed), so autoHide's translateY/height:0 hide would reflow the
+	// dashboard instead of overlaying it — rework needed before re-enabling.
 	// import { autoHide } from '@/lib/actions/autoHide';
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
@@ -295,8 +297,10 @@
 <div
 	bind:this={toolbarEl}
 	class="dashboard-toolbar-container"
-	/* Auto-hide on scroll intentionally disabled for the filters panel layout.
-	   To re-enable, restore the action import and add:
+	/* Auto-hide on scroll intentionally disabled for the filters panel layout
+	   (and the toolbar is in normal flow now, so hiding it would reflow the
+	   dashboard rather than overlay it). To re-enable, restore the action
+	   import and add:
 	   use:autoHide={{ scrollContainerId: 'dashboard-content' }} */
 >
 	<div class="toolbar-row page-topbar">
@@ -502,6 +506,10 @@
 		display: flex;
 		align-items: center;
 		justify-self: end;
+		/* Wrap instead of overflowing when the window is narrow. */
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		row-gap: 0.3rem;
 	}
 
 	.toolbar-left {
@@ -528,14 +536,15 @@
 		transition: grid-template-rows 150ms ease-out;
 
 		/* Full-bleed: span the viewport (main insets its children by the page
-		   gutter) so the strip lines up with the fixed toolbar, while
+		   gutter) so the strip lines up with the toolbar, while
 		   `.dashboard-content` re-applies the gutter to the article grid. */
 		width: calc(100% + 2 * var(--page-gutter-x));
 		margin-inline: calc(var(--page-gutter-x) * -1);
-		/* Clear the fixed toolbar; the grid rows start right below it. */
-		padding-top: 10rem;
-		box-sizing: border-box;
-		height: 100vh;
+		/* In-flow row under the toolbar: main is a 100vh flex column, so this
+		   fills whatever height the (possibly wrapping) header leaves. No
+		   fixed-toolbar clearance padding needed. */
+		flex: 1 1 0%;
+		min-height: 0;
 		overflow: hidden;
 	}
 
@@ -588,17 +597,19 @@
 	}
 
 	.dashboard-toolbar-container {
-		position: fixed;
-		top: 0;
-		right: 0;
-		left: 0;
+		/* In normal flow (was fixed): main is a 100vh flex column and the
+		   dashboard below flexes to fill the remaining height, so the header
+		   needs no clearance padding and stays aligned with the content. */
+		position: relative;
 		z-index: 10;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 		width: 100%;
-		margin: 0 auto;
-		padding: 0.2rem 2rem 2rem;
+		flex-shrink: 0;
+		/* Horizontal inset comes from main's --page-gutter-x (was 2rem, which
+		   misaligned the toolbar against the article grid). */
+		padding: 0.2rem 0 1.25rem;
 
 		opacity: 1;
 		/* background-color: black; */
@@ -612,6 +623,9 @@
 
 	.tabs-row {
 		justify-content: center;
+		/* The two tab groups (profile + AI provider) stack when narrow. */
+		flex-wrap: wrap;
+		gap: 0.5rem;
 	}
 
 	.toolbar-center {
@@ -621,6 +635,40 @@
 		width: 340px;
 		padding: 0 1rem;
 		gap: 0.3rem;
+	}
+
+	/* Narrow windows: the search drops to a second row so the title and the
+	   action buttons stop overflowing. Row 1 becomes `title | actions`, row 2
+	   spans the full width with the search capped and centered (full-bleed
+	   under 700px). */
+	@media (max-width: 1000px) {
+		.page-topbar :global(.toolbar--grid) {
+			grid-template-columns: auto minmax(0, 1fr);
+		}
+
+		.toolbar-left {
+			grid-row: 1;
+			grid-column: 1;
+		}
+
+		.toolbar-actions {
+			grid-row: 1;
+			grid-column: 2;
+		}
+
+		.toolbar-center {
+			grid-row: 2;
+			grid-column: 1 / -1;
+			width: 100%;
+			max-width: 40rem;
+			padding: 0;
+		}
+	}
+
+	@media (max-width: 700px) {
+		.toolbar-center {
+			max-width: none;
+		}
 	}
 
 	/* Search input stretches to fill the center slot next to the filter icon. */

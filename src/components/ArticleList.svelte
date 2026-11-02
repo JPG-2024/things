@@ -126,7 +126,7 @@
 	// Alt+G flips profile grouping. Only active when the caller opted in
 	// (`groupable`), so the profile/category pages leave it inert.
 	createHotkey(
-		'Alt+G',
+		'G',
 		() => {
 			viewState.groupArticlesByProfile = !viewState.groupArticlesByProfile;
 		},
@@ -239,6 +239,7 @@
 								selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
 								matchSnippet={matchOf?.(cell.article) ?? undefined}
 								showFavorite
+								showProfileThumb
 								favorite={cell.article.favorite === true}
 								onToggleFavorite={handleToggleFavorite}
 								onClick={handleArticleClick}

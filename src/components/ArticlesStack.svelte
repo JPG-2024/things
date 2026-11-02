@@ -5,6 +5,7 @@
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import ArticleTitle from '@/components/ArticleItem/ArticleTitle.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 
 	interface Props {
 		cell: ProfileStackCell;
@@ -111,6 +112,18 @@
 				<Icon name="Star" size={16} color="var(--primary-color)" />
 			</span>
 		{/if}
+		<!-- Attribution at the stack card's bottom-left corner (mirrors
+		     ArticleItem's thumb). Non-interactive: the stack button keeps
+		     navigating to the profile page. -->
+		<span class="articles-stack__profile" aria-hidden="true">
+			{#if frontArticle?.profilePictureSrc}
+				<ProfileThumb src={frontArticle.profilePictureSrc} size={22} />
+			{:else if frontArticle?.url?.startsWith('raw-')}
+				<span class="articles-stack__raw-badge">
+					<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
+				</span>
+			{/if}
+		</span>
 	</button>
 {/snippet}
 
@@ -259,5 +272,38 @@
 
 	.articles-stack__favorite :global(svg) {
 		fill: var(--primary-color);
+	}
+
+	/* Profile attribution at the stack card's bottom-left corner (the star
+	   mirrors it at the top-right). z-index 11 clears the pile layers (capped
+	   at the preview count) and the favorite marker (9); pointer-events keep
+	   the click on the stack button. */
+	.articles-stack__profile {
+		position: absolute;
+		left: 0.25rem;
+		top: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 0;
+		pointer-events: none;
+		background-color: black;
+		z-index: 11;
+	}
+
+	.articles-stack__profile :global(.profile-thumb) {
+		box-shadow:
+			0 0 0 1px rgba(0, 0, 0, 0.4),
+			0 1px 2px rgba(0, 0, 0, 0.35);
+	}
+
+	/* Raw-text stack: no profile/domain picture, so the same icon the
+	   Topbar falls back to in postview, shaped like the avatar. */
+	.articles-stack__raw-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
 	}
 </style>

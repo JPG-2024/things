@@ -3,6 +3,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import ArticleItemRow from './ArticleItemRow.svelte';
 	import ArticleItemGrid3 from './ArticleItemGrid3.svelte';
 	import ArticleItemGrid from './ArticleItemGrid.svelte';
@@ -31,6 +32,13 @@
 		 * star-less surfaces (EntityCard previews) keep the plain button root.
 		 */
 		showFavorite?: boolean;
+		/**
+		 * Renders the profile/domain thumb at the card's bottom-left corner
+		 * (the raw-text fallback shows the same icon the Topbar uses in
+		 * postview). Opt-in so non-list surfaces (EntityCard previews) keep
+		 * the plain card.
+		 */
+		showProfileThumb?: boolean;
 		/** Current favorite state; a saved favorite keeps the star visible. */
 		favorite?: boolean;
 		/** Fired by the star button; wiring lives with the caller. */
@@ -53,6 +61,7 @@
 		selected = false,
 		matchSnippet = undefined,
 		showFavorite = false,
+		showProfileThumb = false,
 		favorite = false,
 		onToggleFavorite = undefined,
 		onClick,
@@ -163,6 +172,20 @@
 				{matchSnippet}
 				showTitle={showThumbnailTitle}
 			/>
+		{/if}
+		{#if showProfileThumb}
+			<!-- Attribution at the card's bottom-left corner. Non-interactive
+			     (pointer-events: none) so it can live inside the card button
+			     without nesting a <button>: clicking still opens the article. -->
+			<span class="article-profile-thumb" aria-hidden="true">
+				{#if article.profilePictureSrc}
+					<ProfileThumb src={article.profilePictureSrc} size={24} />
+				{:else if article.url?.startsWith('raw-')}
+					<span class="article-raw-badge">
+						<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
+					</span>
+				{/if}
+			</span>
 		{/if}
 	</button>
 {/snippet}
@@ -306,5 +329,42 @@
 
 	.article-star.favorite :global(svg) {
 		fill: var(--primary-color);
+	}
+
+	/* Profile/domain attribution at the card's bottom-left corner (the star
+	   mirrors it at the top-right). Absolute inside the card (already
+	   position: relative), so it never changes the measured cell height;
+	   pointer-events keep the click (and the hover state) on the card.
+	   z-index 6 paints over the selection tint (5) and below the unread dot
+	   (8) and the star (9). */
+	.article-profile-thumb {
+		position: absolute;
+		left: 0.25rem;
+		top: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 0;
+		pointer-events: none;
+		z-index: 6;
+	}
+
+	/* Ring separates the avatar from both the article image and the card
+	   background; a shadow ring keeps the box (and the layout) untouched. */
+	.article-profile-thumb :global(.profile-thumb) {
+		box-shadow:
+			0 0 0 1px rgba(0, 0, 0, 0.4),
+			0 1px 2px rgba(0, 0, 0, 0.35);
+	}
+
+	/* Raw-text articles have no profile/domain picture: show the same icon
+	   the Topbar falls back to in postview, shaped like the avatar. */
+	.article-raw-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
 	}
 </style>

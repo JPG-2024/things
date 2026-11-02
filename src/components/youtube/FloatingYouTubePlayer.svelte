@@ -381,7 +381,6 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
-		border: 0;
 		border: 2px solid var(--gray-700);
 		border-style: dashed;
 		border-radius: var(--radius-sm);

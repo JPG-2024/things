@@ -343,7 +343,7 @@
 		font-weight: bold;
 		line-height: 2rem;
 		font-family: var(--font-secondary);
-		color: var(--bg-color);
+		color: white;
 		list-style-type: square;
 	}
 
