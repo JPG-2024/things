@@ -33,6 +33,7 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
+		padding: 0 0.7rem;
 	}
 
 	.toolbar--grid {
