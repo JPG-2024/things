@@ -168,7 +168,7 @@
 		flex-direction: column;
 		gap: 1.5rem;
 		padding: 0 1rem;
-		width: min(46rem, 88vw);
+		width: 100%;
 	}
 
 	.conversation-header h2 {
@@ -257,7 +257,9 @@
 		grid-column: 1 / -1;
 	}
 
-	@media (max-width: 900px) {
+	/* The dialog itself caps at 900px, so react to its width rather than the
+	 * viewport: below 600px two columns would be too narrow and labels wrap. */
+	@container (max-width: 600px) {
 		.completion-grid {
 			grid-template-columns: 1fr;
 		}

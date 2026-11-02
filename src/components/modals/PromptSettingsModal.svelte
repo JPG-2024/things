@@ -77,7 +77,7 @@
 		flex-direction: column;
 		gap: 1.5rem;
 		padding: 0 1rem;
-		width: min(46rem, 88vw);
+		width: 100%;
 	}
 
 	.prompts-header h2 {

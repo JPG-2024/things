@@ -1029,8 +1029,8 @@
 
 	.settings-modal {
 		position: relative;
-		width: 50vw;
-		max-width: none;
+		width: 100vw;
+		max-width: 900px;
 		max-height: 92vh;
 		overflow: hidden;
 		background: #0e0e0e;
@@ -1041,6 +1041,9 @@
 		align-items: stretch;
 		color: white;
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+		/* Query container for the @container grid rules below: the dialog caps
+		 * at 900px, so grids must react to its width, not the viewport. */
+		container-type: inline-size;
 	}
 
 	h2 {
@@ -1099,7 +1102,7 @@
 		grid-column: 1 / -1;
 	}
 
-	@media (max-width: 900px) {
+	@container (max-width: 600px) {
 		.tts-grid-2 {
 			grid-template-columns: 1fr;
 		}

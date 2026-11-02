@@ -59,12 +59,16 @@
 		position: relative;
 		background: black;
 		padding: 1.5rem;
-		width: 90vw;
+		width: 100vw;
+		max-width: 900px;
 		height: fit-content;
 		max-height: 90vh;
 		overflow-y: auto;
 		border-radius: var(--radius-md);
 		z-index: 10000;
+		/* Lets descendant grids switch to @container rules based on the
+		 * dialog's own width instead of the viewport. */
+		container-type: inline-size;
 	}
 
 	.modal-content {
