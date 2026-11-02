@@ -13,7 +13,6 @@
 
 	interface FilterSection {
 		kind: ArticleFilterKind;
-		label: string;
 		items: EntityBarItem[];
 		/** Text-only rows (categories) use vertical dividers between items. */
 		separators?: boolean;
@@ -80,7 +79,6 @@
 		return [
 			{
 				kind: 'categories',
-				label: 'Categories',
 				separators: true,
 				// Categories have no picture: EntityBar falls back to EmojiString.
 				items: sectionItems(
@@ -96,7 +94,6 @@
 			},
 			{
 				kind: 'profiles',
-				label: 'Profiles',
 				items: sectionItems(
 					profiles.map((profile) => ({
 						id: profile.id,
@@ -110,7 +107,6 @@
 			},
 			{
 				kind: 'domains',
-				label: 'Domains',
 				items: sectionItems(
 					domains.map((domain) => ({
 						id: domain.id,
@@ -127,11 +123,10 @@
 </script>
 
 {#if !loading}
-	<div class="filter-sections" in:fly={{ y: 8, duration: 200 }}>
+	<div class="filter-sections">
 		{#each sections as section (section.kind)}
 			{#if section.items.length > 0}
 				<div class="filter-section">
-					<div class="section-title">{section.label}</div>
 					<div class="entity-bar-container">
 						<EntityBar
 							items={section.items}
@@ -147,42 +142,22 @@
 {/if}
 
 <style>
-	/* The strip is short and wide: sections sit side by side and the row
-	   scrolls horizontally when its columns exceed the viewport. */
+	/* Sections stack vertically, one wrapping row each. Nothing scrolls:
+	   the strip's fixed height clips whatever excess the wraps produce. */
 	.filter-sections {
 		display: flex;
-		align-items: flex-start;
-		gap: 2rem;
-		min-height: 0;
+		flex-direction: column;
+		justify-content: space-evenly;
+		gap: 1rem;
+		min-height: 60px;
 		padding: 0.25rem 0;
-		overflow-x: auto;
-		overflow-y: hidden;
 	}
 
 	.filter-section {
-		display: flex;
-		flex-direction: column;
-		flex: 0 0 auto;
-	}
-
-	/* One line per section; the strip scrolls instead of wrapping items into
-	   rows that would not fit in the strip height. */
-	.filter-section :global(.entity-bar) {
-		width: max-content;
-		flex-wrap: nowrap;
-		justify-content: flex-start;
+		min-width: 0;
 	}
 
 	.entity-bar-container {
-		padding: 0.25rem 0;
-	}
-
-	.section-title {
-		font-size: 0.7rem;
-		font-weight: 600;
-		font-family: var(--font-secondary);
-		letter-spacing: 0.05em;
-		color: var(--primary-color);
 		padding: 0.25rem 0;
 	}
 </style>

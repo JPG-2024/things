@@ -335,8 +335,6 @@ class ViewState {
 	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
 	rawSearchContextChars = $state(200);
-	/** Height (vh) of the filters top strip. Tuned in SettingsModal. */
-	filtersPanelHeight = $state(15);
 	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
 	rawSearchLastPattern = $state('');
 	/**

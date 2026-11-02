@@ -84,6 +84,10 @@
 	let searchInput = $state<{ focus: () => void } | null>(null);
 	let filtersStripEl = $state<HTMLDivElement>();
 	let filtersAnchorEl = $state<HTMLDivElement>();
+	/** Measured height of the open filters panel content. Fed into the
+	 * `--filters-panel-height` custom property so the strip's grid row grows
+	 * with the wrapped entity rows (and re-animates when they reflow). */
+	let filtersContentHeight = $state(0);
 
 	// Focus the page search whenever the filters panel opens (F, icon, typing).
 	$effect(() => {
@@ -112,14 +116,6 @@
 		window.addEventListener('pointerdown', handlePointerDown, true);
 		return () => window.removeEventListener('pointerdown', handlePointerDown, true);
 	});
-
-	/** "Search in articles content" button: commits the typed term, runs the
-	 * raw search and closes the filters panel. */
-	function handleSearchInContent() {
-		viewState.commitUnifiedFilter();
-		void handleRawSearch(viewState.unifiedFilterDraft, true);
-		articleFilters.filtersPanelVisible = false;
-	}
 
 	async function handleRawSearch(pattern: string, force = false) {
 		const trimmed = pattern.trim();
@@ -464,20 +460,23 @@
 <div
 	class="dashboard-container"
 	class:filters-open={articleFilters.filtersPanelVisible}
-	style:--filters-panel-height="{viewState.filtersPanelHeight}vh"
+	style:--filters-panel-height="{filtersContentHeight}px"
 >
 	<!-- Always-rendered top track: the grid rows animate 0 ↔ strip height so
 	     the article grid is pushed down smoothly; content mounts with a fly
-	     transition. -->
+	     transition. The strip height is measured off the panel content
+	     (bind:clientHeight), so it always matches the wrapped rows and
+	     re-animates when they reflow. -->
 	<div class="filters-strip" bind:this={filtersStripEl}>
 		<div class="filters-strip-scroll">
 			{#if articleFilters.filtersPanelVisible}
 				<div
 					class="filters-sidebar-slot"
-					in:fly={{ y: -8, duration: 100 }}
-					out:fly={{ y: -8, duration: 100 }}
+					bind:clientHeight={filtersContentHeight}
+					/* 					in:fly={{ y: -8, duration: 100 }}
+					out:fly={{ y: -8, duration: 100 }} */
 				>
-					<ArticleFiltersSidebar onSearchInContent={handleSearchInContent} />
+					<ArticleFiltersSidebar />
 				</div>
 			{/if}
 		</div>
@@ -533,7 +532,6 @@
 		display: grid;
 		grid-template-rows: 0px minmax(0, 1fr);
 		grid-template-columns: minmax(0, 1fr);
-		transition: grid-template-rows 150ms ease-out;
 
 		/* Full-bleed: span the viewport (main insets its children by the page
 		   gutter) so the strip lines up with the toolbar, while
@@ -548,7 +546,7 @@
 		overflow: hidden;
 	}
 
-	/* Filters top strip: 0 collapsed, the configured height when open. */
+	/* Filters top strip: 0 collapsed, the measured content height when open. */
 	.dashboard-container.filters-open {
 		grid-template-rows: var(--filters-panel-height);
 	}
@@ -568,18 +566,8 @@
 	}
 
 	.filters-strip-scroll {
-		height: 100%;
 		box-sizing: border-box;
-		overflow-x: auto;
-		overflow-y: hidden;
 		padding: 0.25rem var(--page-gutter-x);
-	}
-
-	/* The sidebar uses grid rows (header + sections), so the wrapper must
-	   forward the strip's definite height for `height: 100%` to resolve. */
-	.filters-sidebar-slot {
-		height: 100%;
-		min-height: 0;
 	}
 
 	.dashboard-content {

@@ -781,18 +781,6 @@
 			</div>
 		</div>
 	</Spacer>
-	<Spacer title="Filters" icon="Filter">
-		<div class="inference-section">
-			<NumberField
-				label="Panel height"
-				min={10}
-				max={60}
-				step={5}
-				tooltip="Height in viewport units (vh) of the filters top strip."
-				bind:value={viewState.filtersPanelHeight}
-			/>
-		</div>
-	</Spacer>
 	<Spacer title="Scraping" icon="Globe">
 		<div class="inference-section">
 			<NumberField
