@@ -431,7 +431,7 @@ export async function runArticle(
 				articleState.setStep('embeddings');
 			}
 			try {
-				await embedAnalysis({ url, windows, categories });
+				await embedAnalysis({ url, windows, categories, profileId: profile ?? undefined });
 			} catch (error) {
 				console.error(`[articleRunner] embeddings failed for "${url}"`, error);
 			}

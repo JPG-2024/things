@@ -55,8 +55,9 @@
 	const windows = $derived(articleState.currentArticle.analysis?.windows ?? []);
 
 	const tables = $derived.by(() => {
-		// The default table is the one the analysis indexes into (`summary`);
-		// a configured `embeddingTable` prop overrides it (comma-separated).
+		// Falls back to the chat search tables (`summary, questions` by default,
+		// the fields the analysis indexes into); a configured `embeddingTable`
+		// prop overrides it (comma-separated).
 		const raw =
 			typeof componentProps.embeddingTable === 'string' && componentProps.embeddingTable.trim()
 				? componentProps.embeddingTable.trim()

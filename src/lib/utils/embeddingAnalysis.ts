@@ -55,7 +55,13 @@ function collectFieldValues(windows: ArticleWindow[], field: string): Embeddable
  * the same name, so a new analytic is a new table, not a new schema.
  */
 export async function embedAnalysis(
-	article: { url: string; windows: ArticleWindow[]; categories?: string[] },
+	article: {
+		url: string;
+		windows: ArticleWindow[];
+		categories?: string[];
+		/** Profile (channel) id of the article, for the `profile_id` filter. */
+		profileId?: string;
+	},
 	fields: string[] = viewState.embeddingFields
 ): Promise<void> {
 	const usableFields = fields.filter((field) => field.trim().length > 0);
@@ -89,7 +95,8 @@ export async function embedAnalysis(
 			endOffset: values[index].end,
 			modelName: EMBEDDING_MODEL,
 			modelDimensions: entry.embedding.length,
-			category
+			category,
+			profileId: article.profileId
 		}));
 
 		try {

@@ -234,6 +234,7 @@ export async function retrieveContextChunks(
 		excludeArticleUrl
 	} = options;
 
+	console.log(tables);
 	const trimmedTables = tables.map((t) => t.trim()).filter(Boolean);
 	const trimmedQuery = query.trim();
 	if (trimmedTables.length === 0 || !trimmedQuery) return [];
@@ -252,6 +253,8 @@ export async function retrieveContextChunks(
 	const searches = trimmedTables.map((table) =>
 		searchChunks({ table, embedding, limit }).catch(() => [] as SearchChunkResult[])
 	);
+
+	console.log(searches);
 	const groups = await Promise.all(searches);
 
 	return mergeSearchResults(groups, { excludeArticleUrl, maxDistance, maxResults });
