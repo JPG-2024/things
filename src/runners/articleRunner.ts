@@ -12,7 +12,6 @@
 import { articleState } from '@/stores/articleStore.svelte';
 import { viewState } from '@/stores/viewStore.svelte';
 import {
-	assignCategoriesToArticle,
 	getArticleAnalysis,
 	getArticleByUrl,
 	getArticleCategories,
@@ -36,7 +35,12 @@ import {
 	type SourceFetch,
 	type SourceResult
 } from '@/runners/articleSources';
-import { buildArticleTitle, classifyArticleCategory } from '@/runners/shared/taskFactories';
+import {
+	buildArticleTitle,
+	inheritProfileCategoriesIfEmpty,
+	resolveArticleCategories,
+	type ArticleCategoryResolution
+} from '@/runners/shared/taskFactories';
 import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
@@ -409,17 +413,35 @@ export async function runArticle(
 		// The category is only auto-classified when the article has none (D5).
 		if (categories.length === 0) {
 			throwIfRunCancelled(url);
-			const categoryIds = await classifyArticleCategory({
-				title,
-				summary,
-				windows
-			});
-			if (categoryIds.length > 0) {
-				throwIfRunCancelled(url);
-				await assignCategoriesToArticle({ articleUrl: url, categoryIds });
-				categories = categoryIds;
+			// A fresh YouTube capture resolves its channel as decoration, so the
+			// local `profile` can still be null here. The decoration task is
+			// already in flight (and awaited at the end of the run), so waiting
+			// for it costs nothing and gives the fallback its profile id.
+			const categoryProfile = profile ?? (await decorationTask).profile ?? null;
+			throwIfRunCancelled(url);
+			let resolution: ArticleCategoryResolution;
+			try {
+				resolution = await resolveArticleCategories({
+					url,
+					title,
+					summary,
+					windows,
+					profileId: categoryProfile
+				});
+			} catch (error) {
+				// The profile ids may already be persisted even when the
+				// classifier failed: repaint them so the pills stay truthful
+				// before the run fails.
+				const persisted = await getArticleCategories(url);
+				if (persisted.length > 0 && articleState.isCurrent(url)) {
+					articleState.setCategories(persisted);
+				}
+				throw error;
+			}
+			if (resolution.categoryIds.length > 0) {
+				categories = resolution.categoryIds;
 				if (articleState.isCurrent(url)) {
-					articleState.setCategories(categoryIds);
+					articleState.setCategories(resolution.categoryIds);
 				}
 			}
 		}
@@ -451,6 +473,18 @@ export async function runArticle(
 		}
 
 		return { url, mode, reusedAnalysis, divisor };
+	} catch (error) {
+		// A run that dies before the category step (missing transcript, failed
+		// analysis) must not lose the profile fallback: the article still
+		// belongs to its channel or domain.
+		if (!isRunCancelled(url)) {
+			const categoryProfile = profile ?? (await decorationTask).profile ?? null;
+			const { categoryIds, applied } = await inheritProfileCategoriesIfEmpty(url, categoryProfile);
+			if (applied && articleState.isCurrent(url)) {
+				articleState.setCategories(categoryIds);
+			}
+		}
+		throw error;
 	} finally {
 		// --- CARD --------------------------------------------------------
 		// The decorated card is written once the run is over (success or

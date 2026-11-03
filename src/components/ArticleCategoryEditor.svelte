@@ -2,9 +2,13 @@
 	import { onMount } from 'svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleState } from '@/stores/articleStore.svelte';
-	import { assignCategoriesToArticle, getArticleCategories } from '@/stores/webStore';
+	import {
+		assignCategoriesToArticle,
+		getArticleByUrl,
+		getArticleCategories
+	} from '@/stores/webStore';
 	import { addCategoryExemplar, buildCategoryText } from '@/lib/utils/categoryEmbeddings';
-	import { classifyArticleCategory } from '@/runners/shared/taskFactories';
+	import { resolveArticleCategories } from '@/runners/shared/taskFactories';
 	import CategoryEditor from './CategoryEditor.svelte';
 	import Icon from './Icon.svelte';
 
@@ -35,7 +39,12 @@
 	async function handleChange(nextIds: string[]) {
 		if (!articleUrl) return;
 		const ids = dedupeIds(nextIds);
-		await assignCategoriesToArticle({ articleUrl, categoryIds: ids });
+		try {
+			await assignCategoriesToArticle({ articleUrl, categoryIds: ids });
+		} catch (error) {
+			console.error('Failed to assign categories to article', error);
+			return;
+		}
 		if (articleState.isCurrent(articleUrl)) {
 			articleState.setCategories(ids);
 		}
@@ -83,10 +92,18 @@
 		try {
 			const analysis = articleState.currentArticle.analysis;
 			const title = articleState.currentArticle.title;
-			const categoryIds = await classifyArticleCategory({
+			// The article page paints the profile of the open article; read the
+			// row only when it is missing (or when the editor is not on it).
+			const profileId =
+				(articleState.isCurrent(articleUrl) ? articleState.currentArticle.profile : null) ??
+				(await getArticleByUrl(articleUrl))?.profile ??
+				null;
+			const { categoryIds, profileIds, classifiedIds } = await resolveArticleCategories({
+				url: articleUrl,
 				title,
 				summary: analysis?.summary ?? '',
-				windows: analysis?.windows ?? []
+				windows: analysis?.windows ?? [],
+				profileId
 			});
 
 			if (categoryIds.length === 0) {
@@ -95,12 +112,30 @@
 				return;
 			}
 
-			await handleChange(categoryIds);
+			// The resolver already persisted the union; only paint the store.
+			if (articleState.isCurrent(articleUrl)) {
+				articleState.setCategories(categoryIds);
+			}
 			feedError = false;
-			feedMessage = `Recalculated: ${categoryIds.map(categoryLabel).join(', ')}`;
+			feedMessage =
+				classifiedIds.length > 0
+					? `Recalculated: ${categoryIds.map(categoryLabel).join(', ')}`
+					: profileIds.length > 0
+						? `No match — inherited from profile: ${categoryIds.map(categoryLabel).join(', ')}`
+						: 'No category matched';
 		} catch (error) {
 			feedError = true;
 			feedMessage = error instanceof Error ? error.message : 'Failed to recalculate';
+			// The profile ids may already be persisted even when the classifier
+			// failed: repaint the pills from the store so they stay truthful.
+			try {
+				const persisted = await getArticleCategories(articleUrl);
+				if (persisted.length > 0 && articleState.isCurrent(articleUrl)) {
+					articleState.setCategories(persisted);
+				}
+			} catch {
+				// Best effort: the error above is the one to surface.
+			}
 		} finally {
 			reclassifying = false;
 		}

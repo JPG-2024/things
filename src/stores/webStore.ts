@@ -946,21 +946,12 @@ export async function deleteCategory(categoryId: string): Promise<boolean> {
 export async function assignCategoriesToArticle(
 	input: AssignCategoriesToArticleInput
 ): Promise<void> {
-	try {
-		await invoke('assign_categories_to_article', { input });
-	} catch (error) {
-		console.error('Error assigning categories to article:', error);
-	}
+	await invoke('assign_categories_to_article', { input });
 }
 
 /** Reads the category ids linked to a profile (channel or domain). */
 export async function getProfileCategories(profileId: string): Promise<string[]> {
-	try {
-		return await invoke<string[]>('get_profile_categories', { profileId });
-	} catch (error) {
-		console.error(`Error querying categories of profile "${profileId}"`, error);
-		return [];
-	}
+	return await invoke<string[]>('get_profile_categories', { profileId });
 }
 
 /**

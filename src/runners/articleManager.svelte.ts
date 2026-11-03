@@ -11,9 +11,18 @@
 import { articleState } from '@/stores/articleStore.svelte';
 import { viewState } from '@/stores/viewStore.svelte';
 import { runArticle, type ArticleRunOptions } from '@/runners/articleRunner';
+import {
+	inheritProfileCategoriesIfEmpty,
+	resolveArticleCategories
+} from '@/runners/shared/taskFactories';
 import { ensureAudioContext } from '@/lib/audioContextManager';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
-import { getArticleAnalysis, getArticleByUrl, type ArticleRecord } from '@/stores/webStore';
+import {
+	getArticleAnalysis,
+	getArticleByUrl,
+	getArticleCategories,
+	type ArticleRecord
+} from '@/stores/webStore';
 import {
 	cancelRun,
 	isRunCancelled,
@@ -133,6 +142,10 @@ class ArticleManager {
 			// The article is already analysed: nothing to do (D15).
 			this.paintAnalysis(analysis.windows, analysis.summary ?? '', analysis.divisor);
 			articleState.setStatus('done');
+			// The pipeline only runs on a full process, and this open skips it:
+			// an article with no categories is categorised here instead (profile
+			// first, then the classifier).
+			await this.categoriseAnalysedArticle(url, article, analysis);
 			// No run will end later, so the view must not wait for one.
 			// `loaded` is deliberately NOT raised here: the topbar sweep only
 			// fires when a full process ends, never on plain opens.
@@ -146,6 +159,9 @@ class ArticleManager {
 		// (the icon in the layout) re-runs it, clearing the marker on success.
 		if (article?.errorMessage) {
 			articleState.setStatus('error', article.errorMessage);
+			// A failed run never reached the category step: the profile fallback
+			// still applies, so the article is tagged even without an analysis.
+			await this.applyProfileCategoriesIfEmpty(url, article);
 			viewState.loading = false;
 			return;
 		}
@@ -415,6 +431,70 @@ class ArticleManager {
 			typeof article.profilePictureSrc === 'string' ? article.profilePictureSrc : null;
 		const profile = typeof article.profile === 'string' ? article.profile : null;
 		articleState.setProfile(profile, pictureSrc);
+	}
+
+	/**
+	 * Open-time equivalent of the pipeline's profile fallback.
+	 *
+	 * An already-analysed (or failed) article skips the pipeline, so its
+	 * category step never runs again. If it has no categories, copy the ones
+	 * linked to its profile (channel or domain), which is what lets a plain
+	 * open show the fallback.
+	 */
+	private async applyProfileCategoriesIfEmpty(
+		url: string,
+		article: ArticleRecord | null
+	): Promise<void> {
+		if (!article) return;
+
+		const profileId = typeof article.profile === 'string' ? article.profile : null;
+		const { categoryIds, applied } = await inheritProfileCategoriesIfEmpty(url, profileId);
+		if (applied && articleState.isCurrent(url)) {
+			articleState.setCategories(categoryIds);
+		}
+	}
+
+	/**
+	 * Open-time equivalent of the pipeline's category step for an article that
+	 * is already analysed: profile ids first, then the embedding classifier,
+	 * persisted as a union.
+	 *
+	 * A classifier failure leaves the profile ids in place and is only logged:
+	 * opening an article must never fail on it.
+	 */
+	private async categoriseAnalysedArticle(
+		url: string,
+		article: ArticleRecord | null,
+		analysis: { summary?: string | null; windows: ArticleWindow[] }
+	): Promise<void> {
+		if (!article) return;
+
+		// Same gate as the pipeline: an article that already has categories is
+		// never re-classified on open.
+		const existing = await getArticleCategories(url).catch(() => [] as string[]);
+		if (existing.length > 0) return;
+
+		const profileId = typeof article.profile === 'string' ? article.profile : null;
+		try {
+			const { categoryIds } = await resolveArticleCategories({
+				url,
+				title: article.title,
+				summary: analysis.summary ?? '',
+				windows: analysis.windows,
+				profileId
+			});
+			if (categoryIds.length > 0 && articleState.isCurrent(url)) {
+				articleState.setCategories(categoryIds);
+			}
+		} catch (error) {
+			// The profile ids may already be persisted: repaint them so the
+			// pills stay truthful.
+			console.error(`[articleManager] failed to categorise "${url}"`, error);
+			const persisted = await getArticleCategories(url).catch(() => [] as string[]);
+			if (persisted.length > 0 && articleState.isCurrent(url)) {
+				articleState.setCategories(persisted);
+			}
+		}
 	}
 
 	private paintAnalysis(windows: ArticleWindow[], summary: string, divisor: number | null): void {

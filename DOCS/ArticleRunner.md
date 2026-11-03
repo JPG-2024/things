@@ -124,11 +124,25 @@ One LLM call seeded with the summary. The result is stored in
 
 ### 6. CATEGORY
 
-The article is embedded (`title + summary`) and compared with the category
-exemplars through nearest-neighbour search.
+The step resolves the categories of the article in this order:
 
-The category is only auto-classified when the article **has no** categories.
-The refresh icon in the `CategoryEditor` forces a recalculation.
+1. The categories linked to its profile (channel or domain), awaited first.
+2. The embedding classifier (`title + summary` vs the category exemplars).
+
+Both lists are merged, deduplicated with the profile ids first, and persisted in
+one `assign_categories_to_article` call. The profile ids are always applied; if
+the classifier fails afterwards they are already stored and the run rethrows the
+error.
+
+The profile categories are a copy made at classification time: changing the
+categories of the profile later does not update the articles already classified.
+
+A run that fails before this step (for example a video without captions) still
+gets the profile categories: the runner applies them before rethrowing, and the
+open path applies them again for rows that already carry an error marker.
+
+The step only runs when the article **has no** categories. The refresh icon in
+the `CategoryEditor` forces a recalculation with the same order.
 
 ### 7. EMBEDDINGS
 
@@ -218,6 +232,10 @@ await articleManager.open(url);
 
 - The cached article and its analysis are read with **two local DB reads**,
   **zero network** and **zero LLM**.
+- An already-analysed article with no categories is categorised on open with
+  the same order as the pipeline (profile first, then the classifier). The
+  category step only runs on a full run, so this is what covers articles
+  captured before the profile was categorised.
 - An article without an analysis is enqueued and completed on the spot.
 
 ---

@@ -82,6 +82,8 @@
 			if (profile) {
 				profileCategoryIds = await getProfileCategories(profileId);
 			}
+		} catch (error) {
+			console.error('Failed to load profile categories', error);
 		} finally {
 			loading = false;
 		}
@@ -99,7 +101,11 @@
 			articleCacheStore.invalidateProfiles();
 		} catch (error) {
 			console.error('Failed to assign categories to profile', profileId, error);
-			profileCategoryIds = await getProfileCategories(profileId);
+			try {
+				profileCategoryIds = await getProfileCategories(profileId);
+			} catch {
+				// Keep the optimistic pills; the assignment already failed above.
+			}
 		}
 	}
 
