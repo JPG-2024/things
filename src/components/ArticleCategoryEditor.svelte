@@ -188,13 +188,12 @@
 				{:else}
 					<Icon name="RefreshCcw" size={14} tooltipProps={{ content: 'recalculate category' }} />
 				{/if}
+				{#if feedMessage}
+					<div class="feed-status" class:feed-error={feedError}>{feedMessage}</div>
+				{/if}
 			</button>
 		{/snippet}
 	</CategoryEditor>
-
-	{#if feedMessage}
-		<div class="feed-status" class:feed-error={feedError}>{feedMessage}</div>
-	{/if}
 </div>
 
 <style>
@@ -251,7 +250,8 @@
 
 	.feed-status {
 		font-size: 0.72rem;
-		opacity: 0.65;
+		font-family: var(--font-secondary);
+		margin-left: 20px;
 		color: var(--primary-color);
 	}
 

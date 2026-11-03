@@ -49,7 +49,7 @@
 		all: unset;
 		cursor: pointer;
 		display: flex;
-		justify-content: flex-start;
+		justify-content: center;
 		align-items: center;
 		width: 100%;
 		min-width: 0;

@@ -100,7 +100,6 @@
 			color-mix(in srgb, var(--bg-color) 20%, transparent),
 			rgba(0, 0, 0) 100%
 		);
-		border-radius: 30px 0 0 0;
 	}
 
 	/* Espejo inferior del borde superior */
@@ -117,7 +116,7 @@
 			color-mix(in srgb, var(--bg-color) 20%, transparent),
 			rgba(0, 0, 0) 100%
 		);
-		border-radius: 30px 0 0 0;
+
 		transform: scaleY(-1);
 		pointer-events: none;
 	}

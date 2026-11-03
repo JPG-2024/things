@@ -125,8 +125,12 @@
 				onCreate={handleCreate}
 			>
 				{#snippet trigger()}
-					<Icon name="CirclePlus" size={18} tooltipProps={{ content: 'Add category' }} />
-					<span class="add-label">category</span>
+					<Icon
+						name="CirclePlus"
+						size={22}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'Add category' }}
+					/>
 				{/snippet}
 			</SearchDropdown>
 		</div>
@@ -138,7 +142,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
-		width: 100%;
+		width: fit-content;
+		padding: 0.7rem 2rem;
+		border: 1px solid var(--gray-700);
+		border-radius: var(--radius-lg);
+		border-style: dashed;
 	}
 
 	.category-pills {
