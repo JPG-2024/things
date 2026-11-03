@@ -28,7 +28,7 @@
 	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import Modal from '@/components/Modal.svelte';
-	import ChatModal from '@/components/ChatModal.svelte';
+	import ChatPanel from '@/components/ChatPanel.svelte';
 	import DevFps from '@/components/DevFps.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
@@ -114,6 +114,12 @@
 	// below) and the `--glow-filter` icon drop-shadows.
 	$effect(() => {
 		document.documentElement.classList.toggle('glow-off', !viewState.glowEnabled);
+	});
+
+	// Mirror the chat dock state onto the root element so route-level styles
+	// (+page's dashboard full-bleed) can react without prop drilling.
+	$effect(() => {
+		document.documentElement.classList.toggle('chat-open', chatOpen);
 	});
 
 	/* 	$effect(() => {
@@ -346,7 +352,7 @@
 	);
 
 	createHotkey(
-		'Control+Space',
+		'Space',
 		() => {
 			chatOpen = !chatOpen;
 		},
@@ -416,7 +422,19 @@
 	class:flashy
 	class:embeddings-processed={viewState.embeddingsProcessed}
 >
-	{@render children()}
+	<!-- Split wrapper: the chat dock is the second grid column of the layout
+		(same pattern as +page's filters strip, horizontal), so open page
+		content reflows instead of being covered. -->
+	<div class="layout-body" class:chat-open={chatOpen}>
+		<div class="layout-page">
+			{@render children()}
+		</div>
+		{#if chatOpen}
+			<aside class="chat-dock">
+				<ChatPanel onExit={() => (chatOpen = false)} />
+			</aside>
+		{/if}
+	</div>
 </main>
 
 <DevFps />
@@ -475,16 +493,12 @@
 	<DownloadModal />
 {/if}
 
-{#if chatOpen}
-	<ChatModal onExit={() => (chatOpen = false)} />
-{/if}
-
 <style>
 	:global(body) {
 		margin: 0;
 		font-size: 14px;
 		font-family: 'MonaspaceXenonFrozen', monospace;
-		border: 1px solid var(--gray-300);
+		border: 2px solid var(--gray-300);
 	}
 
 	@font-face {
@@ -702,9 +716,73 @@
 		}
 	}
 
-	main > * {
+	/* Chat dock split: the dock is the always-rendered second grid column and
+	   the track width animates (filters-strip pattern, horizontal). Route
+	   content lives in column 1 and reflows as it opens. */
+	.layout-body {
+		--chat-dock-w: 50vw;
+
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 0px;
+		grid-template-rows: minmax(0, 1fr);
+		width: 100%;
+		flex: 1 1 0%;
+		min-height: 0;
+		transition: grid-template-columns 0.05s ease;
+	}
+
+	.layout-body.chat-open {
+		grid-template-columns: minmax(0, 1fr) var(--chat-dock-w);
+	}
+
+	/* Below the repo's narrow breakpoint the dock overlays the viewport as the
+	   only visible surface (full-screen chat), so no track width. */
+	@media (max-width: 1000px) {
+		.layout-body.chat-open {
+			--chat-dock-w: 0px;
+		}
+
+		.chat-dock {
+			position: fixed;
+			inset: 0;
+			z-index: 900;
+		}
+	}
+
+	/* Ultra-wide: cancel the mega-gutter while the chat is open so half of the
+	   viewport does not swallow the rest of the content at 2560px+ (10px is
+	   the base --page-gutter-x). */
+	@media (min-width: 2200px) {
+		:global(html.chat-open) {
+			--page-gutter-x: 10px;
+		}
+	}
+
+	/* Route fragments keep the relationship to main they had as direct
+	   children: definite height (this wrapper fills the remaining viewport)
+	   for +page's flex:1 dashboard grid, natural height otherwise (articles
+	   still scroll main). */
+	.layout-page {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	/* Stacking previously provided by `main > *`: every route fragment child
+	   sits above main::before and anchors its own absolute children. */
+	.layout-page > :global(*) {
 		position: relative;
 		z-index: 1;
+	}
+
+	.chat-dock {
+		grid-column: 2;
+		height: 100%;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.tts-chunk-log {

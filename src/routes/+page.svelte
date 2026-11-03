@@ -598,7 +598,6 @@
 		/* Horizontal inset comes from main's --page-gutter-x (was 2rem, which
 		   misaligned the toolbar against the article grid). */
 		padding: 0.2rem 0 1.25rem;
-
 		opacity: 1;
 		/* background-color: black; */
 	}

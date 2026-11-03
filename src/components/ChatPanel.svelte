@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 
-	import { fly } from 'svelte/transition';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -64,6 +63,8 @@
 			.filter(Boolean)
 	);
 
+	console.log(searchTables);
+
 	function toggleSearch() {
 		searchEnabled = !searchEnabled;
 		viewState.chatSearchEnabled = searchEnabled;
@@ -103,11 +104,10 @@
 		searching = true;
 		try {
 			return await retrieveContextChunks({
-				tables: searchTables,
+				tables: ['questions'],
 				query,
 				maxResults: viewState.chatSearchMaxResults,
-				maxDistance: viewState.chatSearchMaxDistance,
-				excludeArticleUrl: viewState.url ?? undefined
+				maxDistance: viewState.chatSearchMaxDistance
 			});
 		} catch (err) {
 			console.warn('[chat] embedding retrieval failed', err);
@@ -141,6 +141,7 @@
 		// attached to the reply from the start and render while it streams.
 		const epoch = requestEpoch;
 		const sources = await retrieveSources(trimmed);
+
 		if (epoch !== requestEpoch) return; // cleared or exited while retrieving
 
 		const userMsg: ChatMessage = {
@@ -357,15 +358,9 @@
 	});
 </script>
 
-<div
-	bind:this={modalEl}
-	in:fly={{ x: -10, duration: 40 }}
-	out:fly={{ x: -30, duration: 100 }}
-	class="chat-modal"
-	role="dialog"
-	aria-modal="true"
-	aria-label="Chat"
->
+<!-- Docked chat panel: the layout gives it its column (+layout `.chat-dock`),
+     the panel just fills it. -->
+<div bind:this={modalEl} class="chat-modal" role="complementary" aria-label="Chat">
 	<div class="chat-modal__header">
 		<span class="chat-modal__title">Chat</span>
 		<div class="chat-modal__actions">
@@ -544,22 +539,16 @@
 
 <style>
 	.chat-modal {
-		--chat-gap: 0rem;
 		display: flex;
 		flex-direction: column;
-		position: fixed;
-		top: var(--chat-gap);
-		bottom: var(--chat-gap);
-		left: var(--chat-gap);
-		right: auto;
-		width: calc(70vw - var(--chat-gap) * 2);
+		width: 100%;
+		height: 100%;
 		overflow: hidden;
 		font-family: var(--font-secondary);
 		background: rgba(14, 14, 14, 0.95);
-		border: 3px solid rgba(255, 255, 255, 0.1);
-		/* border-radius: var(--radius-sm); */
-		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-		z-index: 1100;
+		/* Separates the panel from the reflowed page content to its left (full
+		   viewport on small screens, where the dock overlays everything). */
+		border-left: 1px solid var(--gray-300);
 	}
 
 	.chat-modal__header {
@@ -770,7 +759,7 @@
 		align-items: center;
 		gap: 0.75rem;
 		flex-shrink: 0;
-		padding: 0.9rem 1.5rem;
+		padding: 0.5rem 1.5rem;
 		border-top: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(0, 0, 0, 0.2);
 	}
