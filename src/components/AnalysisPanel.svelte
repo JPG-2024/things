@@ -88,6 +88,51 @@
 		windowsOpen = !summary;
 	});
 
+	/**
+	 * Auto-follow: while a run streams, windows append at the bottom of the
+	 * grid in chronological order. The page itself scrolls (`#layout-main`),
+	 * so following means keeping the grid bottom in view. The decision is
+	 * measured *before* the new card is laid out: that is what makes "scrolled
+	 * up to read an earlier window" pause the follow until the user returns
+	 * to the bottom.
+	 */
+	const FOLLOW_SLACK_PX = 48;
+	let gridEl = $state<HTMLDivElement | null>(null);
+	let lastWindowCount = -1;
+	let pendingFollow = false;
+
+	function gridBottomVisible(): boolean {
+		if (!gridEl) return true;
+		const scroller = document.getElementById('layout-main');
+		const bottom = scroller?.getBoundingClientRect().bottom ?? window.innerHeight;
+		return gridEl.getBoundingClientRect().bottom <= bottom + FOLLOW_SLACK_PX;
+	}
+
+	$effect.pre(() => {
+		const count = visibleWindows.length;
+		if (count === lastWindowCount) return;
+		const grew = count > lastWindowCount;
+		// The first window of a run always follows, even when the panel starts
+		// below the fold; later ones only follow while the bottom stays in view.
+		pendingFollow = grew && (count === 1 || gridBottomVisible());
+		lastWindowCount = count;
+	});
+
+	$effect(() => {
+		// A finished run must not leave a pending follow behind: the next run
+		// would spend it on the previous generation of windows.
+		if (!isRunning) {
+			pendingFollow = false;
+			return;
+		}
+		if (visibleWindows.length === 0 || !pendingFollow) return;
+		pendingFollow = false;
+		// `nearest` leaves the page alone when the card is already visible and
+		// reveals a card taller than the viewport from its top instead of
+		// overshooting to the page bottom.
+		gridEl?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	});
+
 	let rawModalIndex = $state<number | null>(null);
 	let rawModalText = $state('');
 	let promptsOpen = $state(false);
@@ -164,16 +209,15 @@
 			 raw-text modal is not trapped by the containment. -->
 		<div class="windows-container">
 			<Spacer title="Windows" bind:opened={windowsOpen}>
-				<div class="chunks-grid">
+				<div class="chunks-grid" bind:this={gridEl}>
 					{#if isRunning && visibleWindows.length === 0}
 						<div class="chunk-pending">waiting for the first window…</div>
 					{/if}
-					{#each [...visibleWindows].reverse() as window, reversedIndex (window.index)}
-						{@const originalIndex = visibleWindows.length - 1 - reversedIndex}
+					{#each visibleWindows as window, index (window.index)}
 						{@const questions = readWindowQuestions(window.data)}
 						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 							<div class="chunk-heading">
-								<span class="chunk-index">{originalIndex + 1}/{windowTotal}</span>
+								<span class="chunk-index">{index + 1}/{windowTotal}</span>
 								{#if window.data.title}
 									<span class="chunk-title">{window.data.title}</span>
 								{/if}
@@ -190,7 +234,7 @@
 							</div>
 
 							<div class="chunk-action">
-								<Button icon="FileText" onClick={() => void openRawText(originalIndex)}>
+								<Button icon="FileText" onClick={() => void openRawText(index)}>
 									View raw text
 								</Button>
 							</div>
