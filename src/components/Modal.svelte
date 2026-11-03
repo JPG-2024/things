@@ -6,35 +6,60 @@
 	type Props = {
 		show?: boolean;
 		onClose: () => void;
+		/** Consumers with their own close affordance (chat) hide the corner ×. */
+		showClose?: boolean;
+		/** Consumers that own the Escape chain (chat closes its settings editor
+		 * first) disable this so one keypress cannot close both. */
+		closeOnEscape?: boolean;
+		/** Accessible name for the dialog element. */
+		ariaLabel?: string;
+		/** Dialog that fills the available height (chat), keeping a 1.5rem
+		 * margin on every side so a pinned footer lands near the viewport
+		 * bottom instead of floating mid-screen. */
+		fullHeight?: boolean;
 		children?: Snippet;
 	};
 
-	let { show = false, onClose, children }: Props = $props();
+	let {
+		show = false,
+		onClose,
+		showClose = true,
+		closeOnEscape = true,
+		ariaLabel,
+		fullHeight = false,
+		children
+	}: Props = $props();
 
 	const handleClose = () => {
 		onClose();
 	};
 
-	createHotkey('Escape', handleClose, {
+	createHotkey('Escape', handleClose, () => ({
+		enabled: closeOnEscape,
 		stopPropagation: true,
 		preventDefault: true
-	});
+	}));
 </script>
 
 {#if show}
 	<div
 		class="backdrop"
+		class:backdrop--full={fullHeight}
 		role="presentation"
 		transition:fade={{ duration: 200 }}
 		onclick={handleClose}
 	>
 		<div
 			class="modal"
+			class:modal--full={fullHeight}
 			role="dialog"
+			aria-label={ariaLabel}
 			transition:scale={{ start: 0.8, duration: 100 }}
 			onclick={(e) => e.stopPropagation()}
 		>
-			<button class="close-btn" onclick={handleClose} aria-label="Close modal">×</button>
+			{#if showClose}
+				<button class="close-btn" onclick={handleClose} aria-label="Close modal">×</button>
+			{/if}
 			<div class="modal-content">
 				{@render children?.()}
 			</div>
@@ -69,6 +94,36 @@
 		/* Lets descendant grids switch to @container rules based on the
 		 * dialog's own width instead of the viewport. */
 		container-type: inline-size;
+	}
+
+	/* Full-height dialog: the backdrop gains a 1.5rem frame and stretches the
+	 * dialog, so a consumer with a pinned footer (chat) ends near the viewport
+	 * bottom. `width: 100%` instead of `100vw` keeps the frame on narrow
+	 * viewports, and the flex chain gives the content a definite height. */
+	.backdrop--full {
+		padding: 1.5rem;
+		align-items: stretch;
+	}
+
+	.modal--full {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		max-height: 100%;
+		/* Full-bleed content: the consumer owns its own padding, so the chat's
+		 * header and input bar reach the dialog edges (the 1.5rem frame comes
+		 * from `.backdrop--full`). */
+		padding: 0;
+		/* The consumer owns scrolling (chat scrolls its message list). */
+		overflow: hidden;
+	}
+
+	.modal--full .modal-content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.modal-content {

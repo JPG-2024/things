@@ -5,6 +5,7 @@
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Modal from '@/components/Modal.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import SimilarEmbeddingsComponent from '@/components/Tasks/SimilarEmbeddingsComponent.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
@@ -59,13 +60,6 @@
 	let searchEnabled = $state(viewState.chatSearchEnabled);
 	let reasoningMenuOpen = $state(false);
 	let settingsOpen = $state(false);
-
-	const searchTables = $derived(
-		viewState.chatSearchTables
-			.split(',')
-			.map((t) => t.trim())
-			.filter(Boolean)
-	);
 
 	// The panel lives in the root layout, so it has no page props: the scope is
 	// derived from the current route (article, profile, category or library).
@@ -387,199 +381,208 @@
 	});
 </script>
 
-<!-- Docked chat panel: the layout gives it its column (+layout `.chat-dock`),
-     the panel just fills it. -->
-<div bind:this={modalEl} class="chat-modal" role="complementary" aria-label="Chat">
-	<div class="chat-modal__header">
-		<span class="chat-modal__title">Chat</span>
-		<div class="chat-modal__actions">
-			{#if searchEnabled && scope.kind !== 'library'}
-				<button
-					type="button"
-					class="chat-modal__scope"
-					class:chat-modal__scope--library={viewState.chatSearchScope === 'library'}
-					onclick={toggleScope}
-					aria-pressed={viewState.chatSearchScope === 'view'}
-					title={viewState.chatSearchScope === 'view'
-						? `Retrieving only from ${scope.label} — click to search the whole library`
-						: `Retrieving from the whole library — click to search only ${scope.label}`}
-				>
-					{viewState.chatSearchScope === 'view' ? scope.label : 'library'}
-				</button>
-			{/if}
-			<ToggleIcon
-				name="FileDigit"
-				checked={searchEnabled}
-				size={18}
-				tooltipProps={{ content: 'search context in embeddings' }}
-				onClick={toggleSearch}
-			/>
-			<div class="chat-modal__reasoning-wrap">
-				<button
-					type="button"
-					class="chat-modal__reasoning-btn"
-					class:chat-modal__reasoning-btn--active={viewState.chatReasoningEffort !== 'none'}
-					onclick={toggleReasoningMenu}
-					aria-label="Reasoning effort"
-					title="reasoning effort sent as-is to the provider"
-					aria-expanded={reasoningMenuOpen}
-				>
-					<Icon name="Brain" size={18} color={viewState.primaryColor} />
-				</button>
-				{#if reasoningMenuOpen}
+<!-- Chat as a centered dialog: Modal owns the dimmed backdrop, the fade/scale
+     transition, click-outside and focus containment; the chat only fills it. -->
+<Modal
+	show
+	fullHeight
+	onClose={handleExit}
+	showClose={false}
+	closeOnEscape={false}
+	ariaLabel="Chat"
+>
+	<div bind:this={modalEl} class="chat-modal">
+		<div class="chat-modal__header">
+			<span class="chat-modal__title">Chat</span>
+			<div class="chat-modal__actions">
+				{#if searchEnabled && scope.kind !== 'library'}
 					<button
 						type="button"
-						class="chat-modal__menu-backdrop"
-						onclick={() => (reasoningMenuOpen = false)}
-						aria-label="Close reasoning menu"
-					></button>
-					<div class="chat-modal__reasoning-menu" role="menu">
-						{#each REASONING_EFFORTS as effort (effort.value)}
-							<button
-								type="button"
-								class="chat-modal__reasoning-item"
-								class:chat-modal__reasoning-item--selected={viewState.chatReasoningEffort ===
-									effort.value}
-								role="menuitemradio"
-								aria-checked={viewState.chatReasoningEffort === effort.value}
-								onclick={() => selectReasoningEffort(effort.value)}
-							>
-								<Icon
-									name="Dot"
-									size={14}
-									color={viewState.chatReasoningEffort === effort.value
-										? 'var(--primary-color)'
-										: 'transparent'}
-								/>
-								{effort.label}
-							</button>
-						{/each}
-					</div>
+						class="chat-modal__scope"
+						class:chat-modal__scope--library={viewState.chatSearchScope === 'library'}
+						onclick={toggleScope}
+						aria-pressed={viewState.chatSearchScope === 'view'}
+						title={viewState.chatSearchScope === 'view'
+							? `Retrieving only from ${scope.label} — click to search the whole library`
+							: `Retrieving from the whole library — click to search only ${scope.label}`}
+					>
+						{viewState.chatSearchScope === 'view' ? scope.label : 'library'}
+					</button>
 				{/if}
-			</div>
-			<button
-				type="button"
-				class="chat-modal__settings-btn"
-				onclick={() => {
-					reasoningMenuOpen = false;
-					settingsOpen = true;
-				}}
-				aria-label="Edit assistant style"
-				title="edit assistant style"
-			>
-				<Icon name="ScrollText" size={18} color={viewState.primaryColor} />
-			</button>
-			{#if messages.length > 0}
+				<ToggleIcon
+					name="FileDigit"
+					checked={searchEnabled}
+					size={18}
+					tooltipProps={{ content: 'search context in embeddings' }}
+					onClick={toggleSearch}
+				/>
+				<div class="chat-modal__reasoning-wrap">
+					<button
+						type="button"
+						class="chat-modal__reasoning-btn"
+						class:chat-modal__reasoning-btn--active={viewState.chatReasoningEffort !== 'none'}
+						onclick={toggleReasoningMenu}
+						aria-label="Reasoning effort"
+						title="reasoning effort sent as-is to the provider"
+						aria-expanded={reasoningMenuOpen}
+					>
+						<Icon name="Brain" size={18} color={viewState.primaryColor} />
+					</button>
+					{#if reasoningMenuOpen}
+						<button
+							type="button"
+							class="chat-modal__menu-backdrop"
+							onclick={() => (reasoningMenuOpen = false)}
+							aria-label="Close reasoning menu"
+						></button>
+						<div class="chat-modal__reasoning-menu" role="menu">
+							{#each REASONING_EFFORTS as effort (effort.value)}
+								<button
+									type="button"
+									class="chat-modal__reasoning-item"
+									class:chat-modal__reasoning-item--selected={viewState.chatReasoningEffort ===
+										effort.value}
+									role="menuitemradio"
+									aria-checked={viewState.chatReasoningEffort === effort.value}
+									onclick={() => selectReasoningEffort(effort.value)}
+								>
+									<Icon
+										name="Dot"
+										size={14}
+										color={viewState.chatReasoningEffort === effort.value
+											? 'var(--primary-color)'
+											: 'transparent'}
+									/>
+									{effort.label}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 				<button
 					type="button"
-					class="chat-modal__clear-btn"
-					onclick={handleClear}
-					aria-label="Clear chat"
+					class="chat-modal__settings-btn"
+					onclick={() => {
+						reasoningMenuOpen = false;
+						settingsOpen = true;
+					}}
+					aria-label="Edit assistant style"
+					title="edit assistant style"
 				>
-					<Icon name="Trash2" size={18} color={viewState.primaryColor} />
+					<Icon name="ScrollText" size={18} color={viewState.primaryColor} />
+				</button>
+				{#if messages.length > 0}
+					<button
+						type="button"
+						class="chat-modal__clear-btn"
+						onclick={handleClear}
+						aria-label="Clear chat"
+					>
+						<Icon name="Trash2" size={18} color={viewState.primaryColor} />
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="chat-modal__exit-btn"
+					onclick={handleExit}
+					aria-label="Close chat"
+				>
+					<Icon name="X" size={18} color={viewState.primaryColor} />
+				</button>
+			</div>
+		</div>
+
+		<div class="chat-modal__messages" bind:this={messagesContainer}>
+			{#if messages.length === 0 && !streaming}
+				<div class="chat-modal__empty">
+					<p>Start a conversation...</p>
+					<span class="chat-modal__hint">Press Enter to send · Esc to close</span>
+				</div>
+			{/if}
+
+			{#each messages as msg (msg.id)}
+				<div
+					class="chat-modal__message"
+					class:chat-modal__message--user={msg.role === 'user'}
+					class:chat-modal__message--assistant={msg.role === 'assistant'}
+				>
+					{#if msg.role === 'user'}
+						<p class="chat-modal__user-text">{msg.content}</p>
+					{:else if msg.id === activeAssistantId}
+						<div class="chat-modal__assistant-content">
+							{#if streamedReasoning}
+								<ReasoningPanel reasoning={streamedReasoning} {streaming} />
+							{/if}
+							{#if streamedText}
+								<MarkdownRenderer content={streamedText} />
+							{:else if !streamedReasoning}
+								<span class="chat-modal__thinking">Thinking...</span>
+							{/if}
+						</div>
+					{:else}
+						<div class="chat-modal__assistant-content">
+							{#if msg.reasoning}
+								<ReasoningPanel reasoning={msg.reasoning} />
+							{/if}
+							{#if msg.content}
+								<MarkdownRenderer content={msg.content} />
+							{:else if msg.reasoning}
+								<span class="chat-modal__no-answer">No final response from the model</span>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				{#if msg.role === 'assistant' && msg.sources && msg.sources.length > 0}
+					<SimilarEmbeddingsComponent
+						id="analysis"
+						results={msg.sources}
+						label="Sources"
+						enabled={false}
+						articleUrl={null}
+					/>
+				{:else if msg.role === 'assistant' && msg.scopeMiss}
+					<p class="chat-modal__scope-miss">No indexed chunks in {msg.scopeMiss}.</p>
+				{/if}
+			{/each}
+
+			{#if error}
+				<div class="chat-modal__error">
+					<p>Error: {error}</p>
+					<button type="button" onclick={() => (error = null)}>×</button>
+				</div>
+			{/if}
+		</div>
+
+		<div class="chat-modal__input-bar">
+			{#if searching}
+				<span class="chat-modal__searching">Searching sources…</span>
+			{/if}
+			<div class="chat-modal__input-wrap">
+				<Input
+					autofocus
+					placeholder="Send a message..."
+					disabled={streaming || searching}
+					onEnter={handleEnter}
+				/>
+			</div>
+			{#if streaming}
+				<button
+					type="button"
+					class="chat-modal__stop-btn"
+					onclick={handleStop}
+					aria-label="Stop generation"
+				>
+					<Icon name="Square" size={16} color={viewState.primaryColor} />
+					<span>Stop</span>
 				</button>
 			{/if}
-			<button
-				type="button"
-				class="chat-modal__exit-btn"
-				onclick={handleExit}
-				aria-label="Close chat"
-			>
-				<Icon name="X" size={18} color={viewState.primaryColor} />
-			</button>
 		</div>
 	</div>
+</Modal>
 
-	<div class="chat-modal__messages" bind:this={messagesContainer}>
-		{#if messages.length === 0 && !streaming}
-			<div class="chat-modal__empty">
-				<p>Start a conversation...</p>
-				<span class="chat-modal__hint">Press Enter to send · Esc to close</span>
-			</div>
-		{/if}
-
-		{#each messages as msg (msg.id)}
-			<div
-				class="chat-modal__message"
-				class:chat-modal__message--user={msg.role === 'user'}
-				class:chat-modal__message--assistant={msg.role === 'assistant'}
-			>
-				{#if msg.role === 'user'}
-					<p class="chat-modal__user-text">{msg.content}</p>
-				{:else if msg.id === activeAssistantId}
-					<div class="chat-modal__assistant-content">
-						{#if streamedReasoning}
-							<ReasoningPanel reasoning={streamedReasoning} {streaming} />
-						{/if}
-						{#if streamedText}
-							<MarkdownRenderer content={streamedText} />
-						{:else if !streamedReasoning}
-							<span class="chat-modal__thinking">Thinking...</span>
-						{/if}
-					</div>
-				{:else}
-					<div class="chat-modal__assistant-content">
-						{#if msg.reasoning}
-							<ReasoningPanel reasoning={msg.reasoning} />
-						{/if}
-						{#if msg.content}
-							<MarkdownRenderer content={msg.content} />
-						{:else if msg.reasoning}
-							<span class="chat-modal__no-answer">No final response from the model</span>
-						{/if}
-					</div>
-				{/if}
-			</div>
-
-			{#if msg.role === 'assistant' && msg.sources && msg.sources.length > 0}
-				<SimilarEmbeddingsComponent
-					id="analysis"
-					results={msg.sources}
-					label="Sources"
-					enabled={false}
-					articleUrl={null}
-				/>
-			{:else if msg.role === 'assistant' && msg.scopeMiss}
-				<p class="chat-modal__scope-miss">No indexed chunks in {msg.scopeMiss}.</p>
-			{/if}
-		{/each}
-
-		{#if error}
-			<div class="chat-modal__error">
-				<p>Error: {error}</p>
-				<button type="button" onclick={() => (error = null)}>×</button>
-			</div>
-		{/if}
-	</div>
-
-	<div class="chat-modal__input-bar">
-		{#if searching}
-			<span class="chat-modal__searching">Searching sources…</span>
-		{/if}
-		<div class="chat-modal__input-wrap">
-			<Input
-				autofocus
-				placeholder="Send a message..."
-				disabled={streaming || searching}
-				onEnter={handleEnter}
-			/>
-		</div>
-		{#if streaming}
-			<button
-				type="button"
-				class="chat-modal__stop-btn"
-				onclick={handleStop}
-				aria-label="Stop generation"
-			>
-				<Icon name="Square" size={16} color={viewState.primaryColor} />
-				<span>Stop</span>
-			</button>
-		{/if}
-	</div>
-</div>
-
-<!-- Outside .chat-modal: that element has overflow:hidden, and a transformed
-	 ancestor (the fly transition) would clip the fixed backdrop. -->
+<!-- Outside the chat dialog: the Modal shell animates with a scale transform,
+	 which would turn this fixed backdrop into a relative one. -->
 <ConversationSettingsModal show={settingsOpen} onClose={() => (settingsOpen = false)} />
 
 <style>
@@ -588,12 +591,10 @@
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
+		min-height: 0;
 		overflow: hidden;
 		font-family: var(--font-secondary);
 		background: rgba(14, 14, 14, 0.95);
-		/* Separates the panel from the reflowed page content to its left (full
-		   viewport on small screens, where the dock overlays everything). */
-		border-left: 1px solid var(--gray-300);
 	}
 
 	.chat-modal__header {
@@ -831,7 +832,7 @@
 		align-items: center;
 		gap: 0.75rem;
 		flex-shrink: 0;
-		padding: 0.5rem 1.5rem;
+		padding: 0.9rem 1.5rem;
 		border-top: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(0, 0, 0, 0.2);
 	}
