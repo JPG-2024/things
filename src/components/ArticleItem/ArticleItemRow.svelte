@@ -84,7 +84,7 @@
 
 	.article-content :global(.article-title) {
 		font-family: var(--font-secondary);
-		font-variant: all-small-caps;
+		/* font-variant: all-small-caps; */
 		flex: none;
 		font-size: 0.8rem;
 		padding: 0 1rem;

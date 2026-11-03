@@ -175,7 +175,7 @@
 
 	.articles-stack__row-title {
 		font-family: var(--font-secondary);
-		font-variant: all-small-caps;
+		/* font-variant: all-small-caps; */
 		font-size: 0.8rem;
 		overflow: hidden;
 		text-align: left;
