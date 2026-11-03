@@ -48,7 +48,10 @@
 		await embedAnalysis({
 			url: article.url,
 			windows: article.analysis.windows,
-			categories: article.categories
+			categories: article.categories,
+			// Re-indexing must keep the owner bucket (channel or domain), or the
+			// chunks drop out of the chat retrieval scoped to a profile.
+			profileId: article.profile ?? article.domain ?? undefined
 		});
 
 		viewState.embeddingsProcessed = true;

@@ -209,17 +209,27 @@ export interface RetrieveContextChunksOptions {
 	limit?: number;
 	maxDistance?: number;
 	maxResults?: number;
+	/** Drop results from this article (e.g. "more like this one"). */
 	excludeArticleUrl?: string;
+	/** Restrict results to one article; unlike `excludeArticleUrl` it is a hard filter. */
+	articleUrl?: string;
+	/** Restrict results to the articles of one profile (channel/domain id). */
+	profileId?: string;
+	/** Restrict results to chunks whose first assigned category is this id. */
+	category?: string;
 }
 
 /**
  * Retrieve chunks similar to a free-form query across multiple tables.
  *
  * One `createEmbeddings` call produces the query vector; each table is then
- * searched in parallel with that same vector. Tables that don't exist resolve
- * to empty results, so a missing table is harmless. Failures to embed (service
- * down, request error) return `[]` — callers should treat retrieval as
- * best-effort context, never a hard dependency.
+ * searched in parallel with that same vector. `articleUrl`, `profileId` and
+ * `category` narrow the search inside LanceDB (pre-filtered before the vector
+ * search), so a scoped retrieval never leaks chunks from another article or
+ * profile. Tables that don't exist resolve to empty results, so a missing table
+ * is harmless. Failures to embed (service down, request error) return `[]` —
+ * callers should treat retrieval as best-effort context, never a hard
+ * dependency.
  */
 export async function retrieveContextChunks(
 	options: RetrieveContextChunksOptions
@@ -231,10 +241,14 @@ export async function retrieveContextChunks(
 		limit = 10,
 		maxDistance,
 		maxResults,
-		excludeArticleUrl
+		excludeArticleUrl,
+		articleUrl,
+		profileId,
+		category
 	} = options;
 
-	console.log(tables);
+	console.log(options);
+
 	const trimmedTables = tables.map((t) => t.trim()).filter(Boolean);
 	const trimmedQuery = query.trim();
 	if (trimmedTables.length === 0 || !trimmedQuery) return [];
@@ -251,10 +265,11 @@ export async function retrieveContextChunks(
 	if (!embedding) return [];
 
 	const searches = trimmedTables.map((table) =>
-		searchChunks({ table, embedding, limit }).catch(() => [] as SearchChunkResult[])
+		searchChunks({ table, embedding, limit, articleUrl, profileId, category }).catch(
+			() => [] as SearchChunkResult[]
+		)
 	);
 
-	console.log(searches);
 	const groups = await Promise.all(searches);
 
 	return mergeSearchResults(groups, { excludeArticleUrl, maxDistance, maxResults });

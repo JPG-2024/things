@@ -59,7 +59,11 @@ export async function embedAnalysis(
 		url: string;
 		windows: ArticleWindow[];
 		categories?: string[];
-		/** Profile (channel) id of the article, for the `profile_id` filter. */
+		/**
+		 * Owner bucket of the article, for the `profile_id` filter: the channel
+		 * id for a video, the domain id for a web article. It matches the id the
+		 * profile page uses, which is what the chat scope filters on.
+		 */
 		profileId?: string;
 	},
 	fields: string[] = viewState.embeddingFields

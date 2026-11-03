@@ -110,6 +110,7 @@ function serializeView() {
 		chatSearchTables: viewState.chatSearchTables,
 		chatSearchMaxResults: viewState.chatSearchMaxResults,
 		chatSearchMaxDistance: viewState.chatSearchMaxDistance,
+		chatSearchScope: viewState.chatSearchScope,
 		conversationSystemPrompt: viewState.conversationSystemPrompt,
 		conversationExtraUserPrompt: viewState.conversationExtraUserPrompt,
 		conversationTemperature: viewState.conversationTemperature,
@@ -239,6 +240,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.chatSearchMaxDistance === 'number') {
 		viewState.chatSearchMaxDistance = clamp(raw.chatSearchMaxDistance, 0, 2);
+	}
+	if (raw.chatSearchScope === 'view' || raw.chatSearchScope === 'library') {
+		viewState.chatSearchScope = raw.chatSearchScope;
 	}
 	if (typeof raw.conversationSystemPrompt === 'string') {
 		viewState.conversationSystemPrompt = raw.conversationSystemPrompt;

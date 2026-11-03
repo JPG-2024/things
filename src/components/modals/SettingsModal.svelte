@@ -646,6 +646,12 @@
 					bind:value={viewState.chatSearchMaxDistance}
 				/>
 			</FieldsRow>
+			<CheckboxField
+				label="Scope to current view"
+				tooltip="While an article, profile or category is open, retrieve context only from it. Off = always search the whole library."
+				checked={viewState.chatSearchScope === 'view'}
+				onChange={(checked) => (viewState.chatSearchScope = checked ? 'view' : 'library')}
+			/>
 		</div>
 	</Spacer>
 	<Spacer title="Category classification" icon="Tags">

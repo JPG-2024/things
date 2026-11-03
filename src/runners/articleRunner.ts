@@ -431,7 +431,15 @@ export async function runArticle(
 				articleState.setStep('embeddings');
 			}
 			try {
-				await embedAnalysis({ url, windows, categories, profileId: profile ?? undefined });
+				// `profile_id` is the bucket the profile page uses: the channel for
+				// a video, the domain for a web article. Storing only the channel
+				// would drop every web article out of a domain-scoped retrieval.
+				await embedAnalysis({
+					url,
+					windows,
+					categories,
+					profileId: profile ?? source.domain ?? existing?.domain ?? undefined
+				});
 			} catch (error) {
 				console.error(`[articleRunner] embeddings failed for "${url}"`, error);
 			}

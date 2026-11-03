@@ -297,6 +297,9 @@ class ViewState {
 	// L2 distance cutoff for retrieved chunks (same metric the similar-
 	// embeddings components filter on; 0 = identical, larger = less similar).
 	chatSearchMaxDistance = $state(0.6);
+	// `view` narrows retrieval to what is on screen (the open article, profile
+	// or category); `library` always searches every indexed chunk.
+	chatSearchScope = $state<'view' | 'library'>('view');
 	// Chat (ChatModal) reasoning effort sent with every request; the provider
 	// adapters translate `reasoning_effort` into their own native fields.
 	chatReasoningEffort = $state<ChatReasoningEffort>('none');

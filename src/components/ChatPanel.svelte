@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { page } from '$app/state';
 
 	import Input from '@/components/inputs/Input.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
@@ -15,6 +16,7 @@
 	} from '@/lib/utils/inference/chat-completions-provider';
 	import { retrieveContextChunks } from '@/lib/utils/embeddingStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
+	import { resolveChatScope, type ChatScope } from '@/lib/utils/chatScope';
 	import ReasoningPanel from '@/components/ReasoningPanel.component.svelte';
 	import ConversationSettingsModal from '@/components/modals/ConversationSettingsModal.svelte';
 	import type { ChatReasoningEffort } from '@/stores/viewStore.svelte';
@@ -37,6 +39,8 @@
 		done: boolean;
 		reasoning?: string;
 		sources?: SearchChunkResult[];
+		/** Scope label when a scoped retrieval came back empty, for the hint. */
+		scopeMiss?: string;
 	}
 
 	let messages = $state<ChatMessage[]>([]);
@@ -63,11 +67,22 @@
 			.filter(Boolean)
 	);
 
-	console.log(searchTables);
+	// The panel lives in the root layout, so it has no page props: the scope is
+	// derived from the current route (article, profile, category or library).
+	const scope = $derived(resolveChatScope(page.route.id, page.params));
+
+	/** Active hard filter, or `null` when the whole library is searched. */
+	const activeScope = $derived(
+		viewState.chatSearchScope === 'view' && scope.kind !== 'library' ? scope : null
+	);
 
 	function toggleSearch() {
 		searchEnabled = !searchEnabled;
 		viewState.chatSearchEnabled = searchEnabled;
+	}
+
+	function toggleScope() {
+		viewState.chatSearchScope = viewState.chatSearchScope === 'view' ? 'library' : 'view';
 	}
 
 	function toggleReasoningMenu() {
@@ -96,16 +111,24 @@
 
 	/**
 	 * Retrieval hook: searches the configured embedding tables with the user's
-	 * message and returns the closest chunks. Best-effort — a failed retrieval
-	 * degrades to answering without context, never blocks the chat.
+	 * message and returns the closest chunks. A non-null `scope` is a hard
+	 * filter inside LanceDB, so a scoped retrieval never leaks chunks from
+	 * another article or profile. Best-effort — a failed retrieval degrades to
+	 * answering without context, never blocks the chat.
 	 */
-	async function retrieveSources(query: string): Promise<SearchChunkResult[]> {
+	async function retrieveSources(
+		query: string,
+		scopeFilter: ChatScope | null
+	): Promise<SearchChunkResult[]> {
 		if (!searchEnabled || !viewState.embeddingsServiceUp) return [];
 		searching = true;
 		try {
 			return await retrieveContextChunks({
 				tables: ['questions'],
 				query,
+				articleUrl: scopeFilter?.articleUrl,
+				profileId: scopeFilter?.profileId,
+				category: scopeFilter?.category,
 				maxResults: viewState.chatSearchMaxResults,
 				maxDistance: viewState.chatSearchMaxDistance
 			});
@@ -139,8 +162,13 @@
 
 		// Retrieval runs before the messages are pushed so the sources are
 		// attached to the reply from the start and render while it streams.
+		// The scope is captured once so the hint matches the filter that ran,
+		// even if the route changes while the answer streams.
 		const epoch = requestEpoch;
-		const sources = await retrieveSources(trimmed);
+		// No retrieval, no scope hint: the miss only makes sense when a scoped
+		// search actually ran (service down or search off would be misleading).
+		const scopeFilter = searchEnabled && viewState.embeddingsServiceUp ? activeScope : null;
+		const sources = await retrieveSources(trimmed, scopeFilter);
 
 		if (epoch !== requestEpoch) return; // cleared or exited while retrieving
 
@@ -158,7 +186,8 @@
 			role: 'assistant',
 			content: '',
 			done: false,
-			sources
+			sources,
+			scopeMiss: scopeFilter && sources.length === 0 ? (scopeFilter.label ?? undefined) : undefined
 		};
 		messages.push(assistantMsg);
 
@@ -364,6 +393,20 @@
 	<div class="chat-modal__header">
 		<span class="chat-modal__title">Chat</span>
 		<div class="chat-modal__actions">
+			{#if searchEnabled && scope.kind !== 'library'}
+				<button
+					type="button"
+					class="chat-modal__scope"
+					class:chat-modal__scope--library={viewState.chatSearchScope === 'library'}
+					onclick={toggleScope}
+					aria-pressed={viewState.chatSearchScope === 'view'}
+					title={viewState.chatSearchScope === 'view'
+						? `Retrieving only from ${scope.label} — click to search the whole library`
+						: `Retrieving from the whole library — click to search only ${scope.label}`}
+				>
+					{viewState.chatSearchScope === 'view' ? scope.label : 'library'}
+				</button>
+			{/if}
 			<ToggleIcon
 				name="FileDigit"
 				checked={searchEnabled}
@@ -496,6 +539,8 @@
 					enabled={false}
 					articleUrl={null}
 				/>
+			{:else if msg.role === 'assistant' && msg.scopeMiss}
+				<p class="chat-modal__scope-miss">No indexed chunks in {msg.scopeMiss}.</p>
 			{/if}
 		{/each}
 
@@ -569,7 +614,34 @@
 	.chat-modal__actions {
 		display: flex;
 		align-items: center;
+		justify-content: flex-end;
+		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+
+	/* Retrieval scope: `this article` / `this profile` / `this category` when
+	   the search is narrowed, `library` when the chip was clicked off. */
+	.chat-modal__scope {
+		all: unset;
+		cursor: pointer;
+		padding: 0.2rem 0.55rem;
+		border-radius: var(--radius-lg);
+		border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+		color: var(--primary-color);
+		font-size: 0.68rem;
+		line-height: 1.2;
+		white-space: nowrap;
+		opacity: 0.9;
+		transition: opacity 0.15s;
+	}
+
+	.chat-modal__scope:hover {
+		opacity: 1;
+	}
+
+	.chat-modal__scope--library {
+		border-color: var(--gray-300);
+		color: rgba(255, 255, 255, 0.5);
 	}
 
 	.chat-modal__clear-btn,
@@ -780,6 +852,15 @@
 	.chat-modal__messages :global(.similar-embeddings) {
 		align-self: flex-start;
 		max-width: 85%;
+	}
+
+	.chat-modal__scope-miss {
+		align-self: flex-start;
+		margin: 0;
+		max-width: 85%;
+		font-size: 0.72rem;
+		font-style: italic;
+		color: rgba(255, 255, 255, 0.35);
 	}
 
 	.chat-modal__stop-btn {
