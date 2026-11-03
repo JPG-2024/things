@@ -17,7 +17,7 @@ Tables are created dynamically on first write. Searching a table that does not e
 | `chunk_text`       | `Utf8`                   | Yes      | Text content of the chunk. Usually left `null` at index time; `search_similar_chunks` reconstructs it from the raw article content using `start_offset`/`end_offset`. |
 | `embedding`        | `FixedSizeList<Float32>` | No       | Vector embedding                                                                                                                                                      |
 | `created_at`       | `Int64`                  | No       | Epoch millis                                                                                                                                                          |
-| `category`         | `Utf8`                   | Yes      | Article category                                                                                                                                                      |
+| `category`         | `List<Utf8>`             | Yes      | Every category assigned to the article (profile + classifier)                                                                                                         |
 | `profile_id`       | `Utf8`                   | Yes      | Profile ID                                                                                                                                                            |
 | `model_name`       | `Utf8`                   | Yes      | Embedding model name                                                                                                                                                  |
 | `model_dimensions` | `Int32`                  | Yes      | Embedding dimensions                                                                                                                                                  |
@@ -53,7 +53,7 @@ const results = await searchChunks({
 	table: 'analysis',
 	embedding: queryVector,
 	limit: 10,
-	category: 'tech', // optional filter
+	category: ['tech'], // optional filter: chunks whose category list contains 'tech'
 	profileId: 'abc' // optional filter
 });
 ```

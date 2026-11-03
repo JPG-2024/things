@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
+use arrow::array::builder::{ListBuilder, StringBuilder};
 use arrow::array::{
-    Array, FixedSizeListArray, Float32Array, Float64Array, Int32Array, Int64Array, RecordBatch,
-    StringArray,
+    Array, FixedSizeListArray, Float32Array, Float64Array, Int32Array, Int64Array, ListArray,
+    RecordBatch, StringArray,
 };
 use arrow::datatypes::{DataType, Field, Float32Type, Schema};
 use futures::StreamExt;
@@ -23,7 +24,7 @@ pub struct ChunkInput {
     pub chunk_text: Option<String>,
     pub embedding: Vec<f32>,
     pub created_at: Option<i64>,
-    pub category: Option<String>,
+    pub category: Option<Vec<String>>,
     pub profile_id: Option<String>,
     pub model_name: Option<String>,
     pub model_dimensions: Option<i32>,
@@ -38,7 +39,7 @@ pub struct SearchChunkResult {
     pub article_url: String,
     pub chunk_text: String,
     pub distance: f64,
-    pub category: Option<String>,
+    pub category: Option<Vec<String>>,
     pub profile_id: Option<String>,
     pub model_name: Option<String>,
     pub model_dimensions: Option<i32>,
@@ -70,7 +71,11 @@ fn chunk_schema(dim: i32) -> Arc<Schema> {
             false,
         ),
         Field::new("created_at", DataType::Int64, false),
-        Field::new("category", DataType::Utf8, true),
+        Field::new(
+            "category",
+            DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))),
+            true,
+        ),
         Field::new("profile_id", DataType::Utf8, true),
         Field::new("model_name", DataType::Utf8, true),
         Field::new("model_dimensions", DataType::Int32, true),
@@ -90,7 +95,7 @@ fn build_batch(
     let mut texts: Vec<Option<String>> = Vec::with_capacity(count);
     let mut embeddings: Vec<Option<Vec<Option<f32>>>> = Vec::with_capacity(count);
     let mut created_ats: Vec<i64> = Vec::with_capacity(count);
-    let mut categories: Vec<Option<&str>> = Vec::with_capacity(count);
+    let mut category_builder = ListBuilder::new(StringBuilder::new());
     let mut profile_ids: Vec<Option<&str>> = Vec::with_capacity(count);
     let mut model_names: Vec<Option<&str>> = Vec::with_capacity(count);
     let mut model_dimensions_values: Vec<Option<i32>> = Vec::with_capacity(count);
@@ -105,7 +110,15 @@ fn build_batch(
         texts.push(chunk.chunk_text.clone());
         embeddings.push(Some(chunk.embedding.iter().map(|&v| Some(v)).collect()));
         created_ats.push(chunk.created_at.unwrap_or(now));
-        categories.push(chunk.category.as_deref());
+        match &chunk.category {
+            Some(cats) => {
+                for cat in cats {
+                    category_builder.values().append_value(cat);
+                }
+                category_builder.append(true);
+            }
+            None => category_builder.append(false),
+        }
         profile_ids.push(chunk.profile_id.as_deref());
         model_names.push(chunk.model_name.as_deref());
         model_dimensions_values.push(chunk.model_dimensions);
@@ -119,7 +132,7 @@ fn build_batch(
     let embedding_array =
         Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(embeddings, dim));
     let created_at_array = Arc::new(Int64Array::from(created_ats));
-    let category_array = Arc::new(StringArray::from(categories));
+    let category_array = Arc::new(category_builder.finish());
     let profile_id_array = Arc::new(StringArray::from(profile_ids));
     let model_name_array = Arc::new(StringArray::from(model_names));
     let model_dimensions_array = Arc::new(Int32Array::from(model_dimensions_values));
@@ -171,15 +184,42 @@ pub async fn index_chunks(
 
     match db.open_table(&table).execute().await {
         Ok(tbl) => {
-            let article_url = &chunks[0].article_url;
-            let predicate = format!("article_url = '{}'", escape_sql_ident(article_url));
-            tbl.delete(&predicate)
-                .await
-                .map_err(|e: lancedb::Error| e.to_string())?;
-            tbl.add(vec![batch])
-                .execute()
-                .await
-                .map_err(|e: lancedb::Error| e.to_string())?;
+            // The `category` column changed from `Utf8` to `List<Utf8>`: a table
+            // created with the old shape cannot accept the new batch, so it is
+            // recreated. Embedding tables are derived data and are rebuilt on
+            // the next index anyway.
+            let needs_recreate = match tbl.schema().await {
+                Ok(schema) => schema
+                    .column_with_name("category")
+                    .map(|(_, field)| !matches!(field.data_type(), DataType::List(_)))
+                    .unwrap_or(true),
+                Err(_) => true,
+            };
+
+            if needs_recreate {
+                db.drop_table(&table, &[])
+                    .await
+                    .map_err(|e: lancedb::Error| e.to_string())?;
+                let tbl = db
+                    .create_table(&table, vec![batch])
+                    .execute()
+                    .await
+                    .map_err(|e: lancedb::Error| e.to_string())?;
+                let _ = tbl
+                    .create_index(&["embedding"], Index::Auto)
+                    .execute()
+                    .await;
+            } else {
+                let article_url = &chunks[0].article_url;
+                let predicate = format!("article_url = '{}'", escape_sql_ident(article_url));
+                tbl.delete(&predicate)
+                    .await
+                    .map_err(|e: lancedb::Error| e.to_string())?;
+                tbl.add(vec![batch])
+                    .execute()
+                    .await
+                    .map_err(|e: lancedb::Error| e.to_string())?;
+            }
         }
         Err(_) => {
             let tbl = db
@@ -205,6 +245,21 @@ fn build_filter_pair_int(column: &str, value: i32) -> String {
     format!("{} = {}", column, value)
 }
 
+/// SQL predicate matching rows whose `List<Utf8>` column contains any of the
+/// given values.
+fn build_array_contains_any_filter(column: &str, values: &[String]) -> String {
+    let predicates: Vec<String> = values
+        .iter()
+        .map(|value| format!("array_contains({}, '{}')", column, escape_sql_ident(value)))
+        .collect();
+
+    match predicates.len() {
+        0 => "false".to_string(),
+        1 => predicates.into_iter().next().unwrap_or_default(),
+        _ => format!("({})", predicates.join(" OR ")),
+    }
+}
+
 /// Extract a substring from raw content using char-based (Unicode scalar) offsets.
 /// Returns None when offsets are missing or invalid so the caller can fall back.
 fn extract_chunk_text(content: &str, start: Option<i32>, end: Option<i32>) -> Option<String> {
@@ -228,7 +283,7 @@ pub async fn search_similar_chunks(
     embedding: Vec<f32>,
     limit: Option<usize>,
     article_url: Option<String>,
-    category: Option<String>,
+    category: Option<Vec<String>>,
     profile_id: Option<String>,
     model_name: Option<String>,
     model_dimensions: Option<i32>,
@@ -249,8 +304,10 @@ pub async fn search_similar_chunks(
     if let Some(ref url) = article_url {
         filters.push(build_filter_pair("article_url", url));
     }
-    if let Some(ref cat) = category {
-        filters.push(build_filter_pair("category", cat));
+    if let Some(ref cats) = category {
+        if !cats.is_empty() {
+            filters.push(build_array_contains_any_filter("category", cats));
+        }
     }
     if let Some(ref pid) = profile_id {
         filters.push(build_filter_pair("profile_id", pid));
@@ -302,11 +359,11 @@ pub async fn search_similar_chunks(
             .downcast_ref::<StringArray>()
             .ok_or("column 2 is not StringArray")?;
 
-        let categories: &StringArray = batch
+        let categories: &ListArray = batch
             .column(5)
             .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or("column 5 is not StringArray")?;
+            .downcast_ref::<ListArray>()
+            .ok_or("column 5 is not ListArray")?;
         let profile_ids: &StringArray = batch
             .column(6)
             .as_any()
@@ -384,7 +441,17 @@ pub async fn search_similar_chunks(
                 category: if categories.is_null(i) {
                     None
                 } else {
-                    Some(categories.value(i).to_string())
+                    let values = categories.value(i);
+                    values
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map(|strings| {
+                            strings
+                                .iter()
+                                .flatten()
+                                .map(|value| value.to_string())
+                                .collect()
+                        })
                 },
                 profile_id: if profile_ids.is_null(i) {
                     None
@@ -855,4 +922,165 @@ pub async fn delete_category_exemplar_embeddings_by_category(
         .map_err(|e: lancedb::Error| e.to_string())?;
 
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow::array::{ListArray, StringArray};
+    use std::fs;
+
+    fn sample_chunks() -> Vec<ChunkInput> {
+        vec![
+            ChunkInput {
+                article_url: "a".into(),
+                chunk_text: Some("t1".into()),
+                embedding: vec![0.1, 0.2, 0.3, 0.4],
+                created_at: None,
+                category: Some(vec!["music".into()]),
+                profile_id: Some("p".into()),
+                model_name: Some("m".into()),
+                model_dimensions: Some(4),
+                start_offset: Some(0),
+                end_offset: Some(4),
+            },
+            ChunkInput {
+                article_url: "b".into(),
+                chunk_text: Some("t2".into()),
+                embedding: vec![0.4, 0.3, 0.2, 0.1],
+                created_at: None,
+                category: Some(vec!["gaming".into(), "music".into()]),
+                profile_id: Some("p".into()),
+                model_name: Some("m".into()),
+                model_dimensions: Some(4),
+                start_offset: Some(0),
+                end_offset: Some(4),
+            },
+            ChunkInput {
+                article_url: "c".into(),
+                chunk_text: Some("t3".into()),
+                embedding: vec![0.5, 0.5, 0.5, 0.5],
+                created_at: None,
+                category: None,
+                profile_id: None,
+                model_name: None,
+                model_dimensions: None,
+                start_offset: None,
+                end_offset: None,
+            },
+        ]
+    }
+
+    fn stored_categories(batch: &RecordBatch) -> Vec<Option<Vec<String>>> {
+        let categories: &ListArray = batch
+            .column_by_name("category")
+            .expect("category column")
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .expect("category column is a ListArray");
+
+        (0..batch.num_rows())
+            .map(|i| {
+                if categories.is_null(i) {
+                    return None;
+                }
+                let values = categories.value(i);
+                let strings = values
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .expect("list values are strings");
+                Some(
+                    strings
+                        .iter()
+                        .flatten()
+                        .map(|value| value.to_string())
+                        .collect(),
+                )
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn category_list_column_round_trips_and_filters() {
+        let dir =
+            std::env::temp_dir().join(format!("things-embeddings-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        let path = dir.to_string_lossy().to_string();
+
+        let db = connect(&path).execute().await.expect("connect");
+        let schema = chunk_schema(4);
+        let batch = build_batch(&sample_chunks(), &schema, 4).expect("build batch");
+        let tbl = db
+            .create_table("chunks", vec![batch])
+            .execute()
+            .await
+            .expect("create table");
+
+        let mut stream = tbl.query().limit(10).execute().await.expect("query");
+        let mut stored: Vec<Option<Vec<String>>> = Vec::new();
+        while let Some(batch_result) = stream.next().await {
+            let batch = batch_result.expect("batch");
+            stored.extend(stored_categories(&batch));
+        }
+        assert_eq!(stored.len(), 3);
+        assert_eq!(stored[0], Some(vec!["music".to_string()]));
+        assert_eq!(
+            stored[1],
+            Some(vec!["gaming".to_string(), "music".to_string()])
+        );
+        assert_eq!(stored[2], None);
+
+        // `array_contains_any` matches every row whose list holds the value.
+        let filter = build_array_contains_any_filter("category", &["music".to_string()]);
+        let mut stream = tbl
+            .query()
+            .only_if(filter)
+            .limit(10)
+            .execute()
+            .await
+            .expect("filtered query");
+        let mut matched = 0usize;
+        while let Some(batch_result) = stream.next().await {
+            let batch = batch_result.expect("batch");
+            matched += batch.num_rows();
+        }
+        assert_eq!(matched, 2);
+
+        // Multiple values OR together: only `gaming` exists, so one row.
+        let filter = build_array_contains_any_filter(
+            "category",
+            &["gaming".to_string(), "news".to_string()],
+        );
+        let mut stream = tbl
+            .query()
+            .only_if(filter)
+            .limit(10)
+            .execute()
+            .await
+            .expect("filtered query");
+        let mut matched = 0usize;
+        while let Some(batch_result) = stream.next().await {
+            let batch = batch_result.expect("batch");
+            matched += batch.num_rows();
+        }
+        assert_eq!(matched, 1);
+
+        // A category nobody has matches nothing.
+        let filter = build_array_contains_any_filter("category", &["news".to_string()]);
+        let mut stream = tbl
+            .query()
+            .only_if(filter)
+            .limit(10)
+            .execute()
+            .await
+            .expect("filtered query");
+        let mut matched = 0usize;
+        while let Some(batch_result) = stream.next().await {
+            let batch = batch_result.expect("batch");
+            matched += batch.num_rows();
+        }
+        assert_eq!(matched, 0);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

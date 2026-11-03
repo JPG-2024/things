@@ -100,7 +100,7 @@ The app runs **one linear pipeline per article**:
 - Run a single file: `bun test src/lib/utils/splitText.test.ts`
 - Existing test files at time of writing: `src/lib/utils/splitText.test.ts`, `src/lib/utils/categoryText.test.ts`, `src/lib/utils/embeddingSearch.test.ts` (pure merge logic; see `src/lib/utils/embeddingSearch.ts`), `src/lib/utils/windowAnalysis.test.ts` (window ladder + split; the processor is imported dynamically so the module stays testable without the inference stack), `src/lib/utils/reasoningTags.test.ts`, `src/lib/utils/cardLayout.test.ts` (card layout clamping + article capacity; see `src/lib/utils/cardLayout.ts`), `src/lib/utils/articleGridCells.test.ts` (profile-grouped stack previews follow the channel rank over capture recency; see `src/lib/utils/articleGridCells.ts`), `src/lib/utils/wheelDelta.test.ts` (shift+wheel dominant-axis delta; see `src/lib/utils/wheelDelta.ts`), `src/lib/utils/chatScope.test.ts` (route → chat retrieval scope; see `src/lib/utils/chatScope.ts`), `src/runners/shared/contextSizeError.test.ts`, `src/runners/shared/runCancellation.test.ts`
 - Rust tests are unit tests embedded in their owning module via `#[cfg(test)] mod tests`.
-- Known Rust tests at time of writing (all in `src-tauri/src/web_store.rs`, `web_store::tests`):
+- Known Rust tests at time of writing (mostly in `src-tauri/src/web_store.rs`, `web_store::tests`):
   - `query_articles_for_profile_orders_by_created_at_desc`
   - `query_categories_with_articles_orders_by_recent_and_paginates`
   - `query_categories_with_articles_respects_created_at_cutoff`
@@ -115,6 +115,7 @@ The app runs **one linear pipeline per article**:
   - `query_articles_favorite_filter_orders_by_favorited_at`
   - `upsert_article_row_updates_by_id_when_the_url_form_differs`
   - `upsert_article_row_inserts_when_no_row_matches_url_or_id`
+  - `embedding_store::tests::category_list_column_round_trips_and_filters` (LanceDB `List<Utf8>` category column + `array_contains` filter)
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
 ## Database Workspaces

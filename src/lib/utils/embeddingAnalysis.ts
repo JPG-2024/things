@@ -72,7 +72,7 @@ export async function embedAnalysis(
 	if (usableFields.length === 0) return;
 	if (article.windows.length === 0) return;
 
-	const category = article.categories?.[0];
+	const categories = article.categories ?? [];
 	const storeChunkText = viewState.embeddingStoreChunkText;
 
 	for (const field of usableFields) {
@@ -99,7 +99,7 @@ export async function embedAnalysis(
 			endOffset: values[index].end,
 			modelName: EMBEDDING_MODEL,
 			modelDimensions: entry.embedding.length,
-			category,
+			category: categories.length > 0 ? categories : undefined,
 			profileId: article.profileId
 		}));
 

@@ -17,7 +17,7 @@ export interface ChatScope {
 	articleUrl?: string;
 	/** Hard filter: only chunks of this profile (channel/domain id). */
 	profileId?: string;
-	/** Hard filter: only chunks whose first assigned category is this id. */
+	/** Hard filter: only chunks whose category list contains this id. */
 	category?: string;
 	/** Short label for the chat header; `null` when the scope is the library. */
 	label: string | null;

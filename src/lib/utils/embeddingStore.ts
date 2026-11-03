@@ -8,7 +8,8 @@ export interface ChunkInput {
 	chunkText?: string;
 	embedding: number[];
 	createdAt?: number;
-	category?: string;
+	/** Every category assigned to the article (profile + classifier). */
+	category?: string[];
 	profileId?: string;
 	modelName?: string;
 	modelDimensions?: number;
@@ -21,7 +22,8 @@ export interface SearchChunkResult {
 	articleUrl: string;
 	chunkText: string;
 	distance: number;
-	category?: string;
+	/** Every category assigned to the article (profile + classifier). */
+	category?: string[];
 	profileId?: string;
 	modelName?: string;
 	modelDimensions?: number;
@@ -34,7 +36,8 @@ export interface SearchChunksParams {
 	embedding: number[];
 	limit?: number;
 	articleUrl?: string;
-	category?: string;
+	/** Chunks whose category list contains any of these ids. */
+	category?: string[];
 	profileId?: string;
 	modelName?: string;
 	modelDimensions?: number;
@@ -133,6 +136,7 @@ export interface FindSimilarChunksOptions {
 	excludeArticleUrl?: string;
 	maxDistance?: number;
 	profileId?: string;
+	/** Restrict results to chunks whose category list contains this id. */
 	category?: string;
 	maxQueryChunks?: number;
 }
@@ -176,7 +180,7 @@ export async function findSimilarChunks(
 			embedding,
 			limit,
 			profileId,
-			category
+			category: category ? [category] : undefined
 		}).catch(() => [] as SearchChunkResult[])
 	);
 
@@ -215,7 +219,7 @@ export interface RetrieveContextChunksOptions {
 	articleUrl?: string;
 	/** Restrict results to the articles of one profile (channel/domain id). */
 	profileId?: string;
-	/** Restrict results to chunks whose first assigned category is this id. */
+	/** Restrict results to chunks whose category list contains this id. */
 	category?: string;
 }
 
@@ -265,9 +269,14 @@ export async function retrieveContextChunks(
 	if (!embedding) return [];
 
 	const searches = trimmedTables.map((table) =>
-		searchChunks({ table, embedding, limit, articleUrl, profileId, category }).catch(
-			() => [] as SearchChunkResult[]
-		)
+		searchChunks({
+			table,
+			embedding,
+			limit,
+			articleUrl,
+			profileId,
+			category: category ? [category] : undefined
+		}).catch(() => [] as SearchChunkResult[])
 	);
 
 	const groups = await Promise.all(searches);
