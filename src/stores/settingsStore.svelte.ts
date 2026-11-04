@@ -133,7 +133,8 @@ function serializeView() {
 			llamaAutoStart: viewState.llamaAutoStart,
 			llamaReasoning: viewState.llamaReasoning,
 			captureOnlyOnPaste: viewState.captureOnlyOnPaste,
-			groupArticlesByProfile: viewState.groupArticlesByProfile
+			groupArticlesByProfile: viewState.groupArticlesByProfile,
+			questionsEnabled: viewState.questionsEnabled
 		},
 		cardLayout: $state.snapshot(viewState.cardLayout),
 		gridColumnsNarrow: viewState.gridColumnsNarrow,
@@ -307,6 +308,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof toggles.groupArticlesByProfile === 'boolean') {
 		viewState.groupArticlesByProfile = toggles.groupArticlesByProfile;
+	}
+	if (typeof toggles.questionsEnabled === 'boolean') {
+		viewState.questionsEnabled = toggles.questionsEnabled;
 	}
 
 	// Card layout: merge each tab section over the defaults so a partial or

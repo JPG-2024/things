@@ -274,6 +274,9 @@ class ViewState {
 	// applies to raw text and YouTube videos; web articles split by markdown
 	// headings and have no knob.
 	windowLevel = $state(DEFAULT_WINDOW_LEVEL);
+	// Per-window questions are one extra LLM call per window. On by default;
+	// turning it off skips the call and leaves the windows with summary + title.
+	questionsEnabled = $state(true);
 	// Both sides of the category comparison are `title + summary` embeddings
 	// (query and fed exemplars), so the threshold sits higher than the old
 	// name/description-vs-document value of 0.35.

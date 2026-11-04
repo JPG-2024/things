@@ -52,6 +52,11 @@ export interface AnalyzeWindowsOptions {
 	/** Model used for the summarization calls. */
 	model?: string;
 	/**
+	 * Ask each window for the questions it answers. Defaults to `true`; when
+	 * `false` the extra per-window call is skipped.
+	 */
+	questions?: boolean;
+	/**
 	 * Called once per attempt, before its first window.
 	 *
 	 * The split is already known at that point, so the total is available from
@@ -171,7 +176,8 @@ export async function analyzeWindows(
 	// split and the ladder) stay importable without the inference stack.
 	const { windowSummaryProcessor } = await import('@/runners/shared/processors');
 	const processor = windowSummaryProcessor.build({
-		model: options.model
+		model: options.model,
+		questions: options.questions
 	});
 	let divisor = options.divisor;
 

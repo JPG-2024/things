@@ -101,6 +101,10 @@ The only analytic of the app.
 - The body is split into windows.
 - One LLM call per window, plus one short call that labels its summary
   (best-effort: a failed label only loses the title shown on the card).
+- One optional LLM call per window asks the questions the window answers.
+  `viewState.questionsEnabled` (panel toggle / Settings → Analysis) turns it
+  off; the windows then keep only their summary and title. The value applies to
+  the next analysis.
 - One LLM call merges the window summaries.
 
 The split depends on the source:

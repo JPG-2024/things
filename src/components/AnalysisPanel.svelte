@@ -7,6 +7,7 @@
 	import PromptSettingsModal from '@/components/modals/PromptSettingsModal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
+	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
@@ -183,6 +184,17 @@
 			</div>
 			<span class="level-label">÷{previewDivisor}</span>
 		{/if}
+		<!-- Questions are one extra LLM call per window. The toggle only
+			 affects the next analysis; the current windows keep what they
+			 already answered. -->
+		<ToggleIcon
+			name="MessageCircleQuestion"
+			bind:checked={viewState.questionsEnabled}
+			tooltipProps={{
+				content:
+					'ask each window what questions it answers (one extra call per window); applies to the next analysis'
+			}}
+		/>
 		<span class="prompts-trigger">
 			<Icon
 				name="ScrollText"
@@ -368,7 +380,7 @@
 	.chunk-title {
 		flex: 1;
 		min-width: 0;
-		font-size: 1rem;
+		font-size: 0.8rem;
 		font-weight: bold;
 		color: var(--primary-color);
 	}

@@ -21,6 +21,11 @@ export interface WindowSummaryFinal {
 export interface WindowSummaryProcessorConfig {
 	/** Model to use for the summarization calls. */
 	model?: string;
+	/**
+	 * Ask each window for the questions it answers (one extra call per
+	 * window). Defaults to `true`.
+	 */
+	questions?: boolean;
 	/** Extra completion options merged into every call. */
 	completionOptions?: Record<string, unknown>;
 }

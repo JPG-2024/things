@@ -106,24 +106,29 @@ describe('splitArticleIntoWindows', () => {
 });
 
 describe('analyzeWindows', () => {
-	test('keeps every processor field on the window data', async () => {
-		// Registered before `analyzeWindows` runs: its processor import is
-		// dynamic, so the mock must be in place first. A field added to the
-		// processor result but dropped when building `ArticleWindow.data`
-		// (as `questions` once was) fails here.
-		mock.module('@/runners/shared/processors', () => ({
-			windowSummaryProcessor: {
-				build: () => ({
+	let lastBuildConfig: { model?: string; questions?: boolean } | undefined;
+
+	// Registered before `analyzeWindows` runs: its processor import is
+	// dynamic, so the mock must be in place first. A field added to the
+	// processor result but dropped when building `ArticleWindow.data`
+	// (as `questions` once was) fails here.
+	mock.module('@/runners/shared/processors', () => ({
+		windowSummaryProcessor: {
+			build: (config: { model?: string; questions?: boolean }) => {
+				lastBuildConfig = config;
+				return {
 					processChunk: async () => ({
 						summary: 'window summary',
 						questions: ['First question?', 'Second question?'],
 						title: 'Window title'
 					}),
 					combineChunks: async () => ({ summary: 'final summary' })
-				})
+				};
 			}
-		}));
+		}
+	}));
 
+	test('keeps every processor field on the window data', async () => {
 		const { analyzeWindows } = await import('./windowAnalysis');
 		const result = await analyzeWindows('body', { divisor: 1 });
 
@@ -135,5 +140,12 @@ describe('analyzeWindows', () => {
 			questions: ['First question?', 'Second question?'],
 			title: 'Window title'
 		});
+	});
+
+	test('forwards the questions toggle to the processor', async () => {
+		const { analyzeWindows } = await import('./windowAnalysis');
+		await analyzeWindows('body', { divisor: 1, questions: false });
+
+		expect(lastBuildConfig?.questions).toBe(false);
 	});
 });

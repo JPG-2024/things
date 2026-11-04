@@ -41,6 +41,9 @@ export const windowSummaryProcessor: ProcessorDef = {
 	type: 'windowSummary',
 	build: (config: WindowSummaryProcessorConfig) => {
 		const model = config.model ?? DEFAULT_DYNAMIC_MODEL;
+		// One extra call per window: the user can turn it off and keep only the
+		// summary and its label.
+		const includeQuestions = config.questions !== false;
 		const completionOptions = {
 			...ANALYSIS_COMPLETION_OPTIONS,
 			...config.completionOptions,
@@ -137,7 +140,7 @@ export const windowSummaryProcessor: ProcessorDef = {
 				const summary = await summarizeText(chunk, false);
 				// Sequential on purpose: the local llama-server is single
 				// threaded, so parallel calls would just queue.
-				const questions = await extractQuestions(chunk);
+				const questions = includeQuestions ? await extractQuestions(chunk) : [];
 				const title = await summarizeTitle(summary);
 				return {
 					summary,
