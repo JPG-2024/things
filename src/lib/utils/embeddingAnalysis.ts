@@ -7,7 +7,7 @@
  */
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
-import { indexChunks, type ChunkInput } from '@/lib/utils/embeddingStore';
+import { deleteChunksByArticle, indexChunks, type ChunkInput } from '@/lib/utils/embeddingStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { ArticleWindow } from '@/types/articleAnalysis.types';
 
@@ -77,7 +77,16 @@ export async function embedAnalysis(
 
 	for (const field of usableFields) {
 		const values = collectFieldValues(article.windows, field);
-		if (values.length === 0) continue;
+		if (values.length === 0) {
+			// The field no longer exists in the analysis (e.g. questions were
+			// turned off): drop its old vectors so chat cannot retrieve them.
+			try {
+				await deleteChunksByArticle(field, article.url);
+			} catch (error) {
+				console.error(`[embedAnalysis] failed to clear field "${field}"`, error);
+			}
+			continue;
+		}
 
 		let response;
 		try {
