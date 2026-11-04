@@ -139,6 +139,20 @@
 		}
 	}
 
+	/**
+	 * Stars/unstars the open profile. The page state comes from `getProfile`
+	 * (not the list resources), so it flips itself once the persist succeeded;
+	 * the cache store repaints the cards in place.
+	 */
+	async function handleToggleFavorite() {
+		if (!profile || loading) return;
+		const next = !(profile.favorite === true);
+		const saved = await articleCacheStore.setProfileFavorite(profileId, next);
+		if (saved) {
+			profile = { ...profile, favorite: next, favoritedAt: next ? Date.now() : null };
+		}
+	}
+
 	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileId;
@@ -171,6 +185,17 @@
 		onBack={handleBack}
 	>
 		{#snippet actions()}
+			<!-- Wrapped so the fill CSS has a scoped host: Icon spreads `class`
+			     onto the svg itself, not its button. -->
+			<span class="profile-star" class:favorite={profile?.favorite === true}>
+				<Icon
+					name="Star"
+					onClick={handleToggleFavorite}
+					disabled={loading}
+					ariaLabel={profile?.favorite ? 'Remove from favorites' : 'Add to favorites'}
+					tooltipProps={{ content: profile?.favorite ? 'remove favorite' : 'add favorite' }}
+				/>
+			</span>
 			<Icon
 				name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
 				class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
@@ -263,6 +288,16 @@
 
 	.summary-wrapper {
 		position: relative;
+	}
+
+	/* Filled star while the profile is a favorite (same trick as
+	   ArticleItem's .article-star: CSS fill beats lucide's fill="none"). */
+	.profile-star :global(svg) {
+		fill: transparent;
+	}
+
+	.profile-star.favorite :global(svg) {
+		fill: var(--primary-color);
 	}
 
 	.summary-panel {

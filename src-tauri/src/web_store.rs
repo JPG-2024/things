@@ -94,6 +94,8 @@ pub struct WebStoreDomainRecord {
     pub count: i64,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
+    /// When the card was starred (`NULL` = not a favorite).
+    pub favorited_at: Option<i64>,
     pub most_recent_created_at: Option<i64>,
     pub articles: Option<Vec<WebStoreArticleRecord>>,
 }
@@ -107,6 +109,8 @@ pub struct WebStoreProfileRecord {
     pub count: i64,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
+    /// When the card was starred (`NULL` = not a favorite).
+    pub favorited_at: Option<i64>,
     pub most_recent_created_at: Option<i64>,
     pub articles: Option<Vec<WebStoreArticleRecord>>,
 }
@@ -335,6 +339,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             url TEXT,
+            favorited_at INTEGER,
             updated_at INTEGER NOT NULL
         );
 
@@ -345,6 +350,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             url TEXT,
+            favorited_at INTEGER,
             updated_at INTEGER NOT NULL,
             FOREIGN KEY (domain_id) REFERENCES web_domains(id)
         );
@@ -483,6 +489,19 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "web_articles",
         "favorited_at",
         "ALTER TABLE web_articles ADD COLUMN favorited_at INTEGER",
+    )?;
+    // Profile/domain cards star the same way: NULL = not favorited.
+    ensure_column(
+        conn,
+        "web_domains",
+        "favorited_at",
+        "ALTER TABLE web_domains ADD COLUMN favorited_at INTEGER",
+    )?;
+    ensure_column(
+        conn,
+        "web_profiles",
+        "favorited_at",
+        "ALTER TABLE web_profiles ADD COLUMN favorited_at INTEGER",
     )?;
     // NULL = no remembered failure; the message of the last failed run otherwise.
     ensure_column(
@@ -1070,6 +1089,7 @@ fn aggregate_domains(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreDomainR
                 count: 1,
                 profile_picture: None,
                 url: None,
+                favorited_at: None,
                 most_recent_created_at: None,
                 articles: None,
             });
@@ -1243,7 +1263,8 @@ fn query_domain_by_id(
     let mut stmt = conn
         .prepare(
             "SELECT id, name, count, profile_picture, url,
-                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at,
+                    favorited_at
              FROM web_domains WHERE id = ?1 COLLATE NOCASE",
         )
         .map_err(|error| error.to_string())?;
@@ -1257,6 +1278,7 @@ fn query_domain_by_id(
                 profile_picture: row.get(3)?,
                 url: row.get(4)?,
                 most_recent_created_at: row.get(5)?,
+                favorited_at: row.get(6)?,
                 articles: None,
             })
         })
@@ -1272,7 +1294,8 @@ fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String>
     let mut stmt = conn
         .prepare(
             "SELECT id, name, count, profile_picture, url,
-                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at,
+                    favorited_at
              FROM web_domains ORDER BY count DESC, name ASC",
         )
         .map_err(|error| error.to_string())?;
@@ -1286,6 +1309,7 @@ fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String>
                 profile_picture: row.get(3)?,
                 url: row.get(4)?,
                 most_recent_created_at: row.get(5)?,
+                favorited_at: row.get(6)?,
                 articles: None,
             })
         })
@@ -1306,7 +1330,8 @@ fn query_profile_by_id(
     let mut stmt = conn
         .prepare(
             "SELECT id, name, domain_id, count, profile_picture, url,
-                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at
+                    (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at,
+                    favorited_at
              FROM web_profiles WHERE id = ?1 COLLATE NOCASE",
         )
         .map_err(|error| error.to_string())?;
@@ -1321,6 +1346,7 @@ fn query_profile_by_id(
                 profile_picture: row.get(4)?,
                 url: row.get(5)?,
                 most_recent_created_at: row.get(6)?,
+                favorited_at: row.get(7)?,
                 articles: None,
             })
         })
@@ -1452,6 +1478,7 @@ fn rebuild_domains_from_articles(
                 count: 0,
                 profile_picture: Some(picture),
                 url: None,
+                favorited_at: None,
                 most_recent_created_at: None,
                 articles: None,
             });
@@ -1515,7 +1542,8 @@ fn query_domains_filtered(
 ) -> Result<Vec<WebStoreDomainRecord>, String> {
     let mut sql = String::from(
         "SELECT p.id, p.name, p.count, p.profile_picture, p.url,
-                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(p.id)) AS max_created_at
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(p.id)) AS max_created_at,
+                p.favorited_at
          FROM web_domains p",
     );
 
@@ -1576,6 +1604,7 @@ fn query_domains_filtered(
                     profile_picture: row.get(3)?,
                     url: row.get(4)?,
                     most_recent_created_at: row.get(5)?,
+                    favorited_at: row.get(6)?,
                     articles: None,
                 })
             },
@@ -1661,7 +1690,8 @@ fn query_profiles_filtered(
 ) -> Result<Vec<WebStoreProfileRecord>, String> {
     let mut sql = String::from(
         "SELECT p.id, p.name, p.domain_id, p.count, p.profile_picture, p.url,
-                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at
+                (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at,
+                p.favorited_at
          FROM web_profiles p",
     );
 
@@ -1723,6 +1753,7 @@ fn query_profiles_filtered(
                     profile_picture: row.get(4)?,
                     url: row.get(5)?,
                     most_recent_created_at: row.get(6)?,
+                    favorited_at: row.get(7)?,
                     articles: None,
                 })
             },
@@ -2175,6 +2206,55 @@ pub async fn update_web_store_article_favorite(
     Ok(changes > 0)
 }
 
+/// Stars/unstars a profile card. The id lives in `web_domains` or
+/// `web_profiles`; the domain-first branch mirrors the precedence of
+/// `get_web_store_domain`/`get_web_store_profile` (a domain id wins when both
+/// tables would match). `favorited_at` stores the toggle time when favoriting
+/// and clears to NULL when unfavoriting — same semantics as the article flag.
+/// Returns whether a row was actually updated.
+fn update_profile_favorite_row(
+    conn: &Connection,
+    id: &str,
+    favorite: bool,
+) -> Result<bool, String> {
+    let now = chrono_like_now();
+    let changes = conn
+        .execute(
+            "UPDATE web_domains
+             SET favorited_at = CASE WHEN ?1 = 1 THEN ?2 ELSE NULL END
+             WHERE id = ?3 COLLATE NOCASE",
+            params![favorite as i64, now, id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    if changes > 0 {
+        return Ok(true);
+    }
+
+    let changes = conn
+        .execute(
+            "UPDATE web_profiles
+             SET favorited_at = CASE WHEN ?1 = 1 THEN ?2 ELSE NULL END
+             WHERE id = ?3 COLLATE NOCASE",
+            params![favorite as i64, now, id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+/// Stars/unstars a profile card (channel or domain); see
+/// `update_profile_favorite_row` for the semantics.
+#[tauri::command]
+pub async fn update_web_store_profile_favorite(
+    app: AppHandle,
+    id: String,
+    favorite: bool,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    update_profile_favorite_row(&conn, &id, favorite)
+}
+
 /// Remembers (or clears) a pipeline failure on the article row.
 ///
 /// A non-NULL `error_message` makes `articleManager.open()` skip the run: a
@@ -2241,6 +2321,7 @@ pub async fn upsert_web_store_domain(
         count: 0,
         profile_picture: input.profile_picture,
         url: input.url,
+        favorited_at: None,
         most_recent_created_at: None,
         articles: None,
     };
@@ -2263,6 +2344,7 @@ pub async fn upsert_web_store_profile(
         count: 0,
         profile_picture: input.profile_picture,
         url: input.url,
+        favorited_at: None,
         most_recent_created_at: None,
         articles: None,
     };
@@ -5754,6 +5836,60 @@ mod tests {
         )
         .expect("favorite total");
         assert_eq!(response.total, 2);
+    }
+
+    #[test]
+    fn update_profile_favorite_round_trips_on_domains_and_profiles() {
+        let conn = build_in_memory_db();
+        insert_domain_row(&conn, "example.com");
+        insert_profile_row(&conn, "@channel", "youtube.com");
+
+        // Star and unstar a domain card.
+        assert!(update_profile_favorite_row(&conn, "example.com", true).expect("star domain"));
+        let domain = query_domain_by_id(&conn, "example.com")
+            .expect("query domain")
+            .expect("domain row");
+        assert!(domain.favorited_at.is_some(), "domain must carry the flag");
+        assert!(update_profile_favorite_row(&conn, "example.com", false).expect("unstar domain"));
+        let domain = query_domain_by_id(&conn, "example.com")
+            .expect("query domain")
+            .expect("domain row");
+        assert!(domain.favorited_at.is_none(), "unstar must clear the flag");
+
+        // Star and unstar a channel card (the web_profiles branch).
+        assert!(update_profile_favorite_row(&conn, "@channel", true).expect("star profile"));
+        let profile = query_profile_by_id(&conn, "@channel")
+            .expect("query profile")
+            .expect("profile row");
+        assert!(
+            profile.favorited_at.is_some(),
+            "profile must carry the flag"
+        );
+
+        // An unknown id reports "not updated" so callers skip cache mutation.
+        assert!(!update_profile_favorite_row(&conn, "missing.example", true).expect("unknown id"));
+    }
+
+    #[test]
+    fn update_profile_favorite_prefers_the_domain_row_when_both_match() {
+        let conn = build_in_memory_db();
+        // Same id in both tables: the domain-first branch must win, matching
+        // the precedence of get_web_store_domain/get_web_store_profile.
+        insert_domain_row(&conn, "dup.example");
+        insert_profile_row(&conn, "dup.example", "dup.example");
+
+        assert!(update_profile_favorite_row(&conn, "dup.example", true).expect("star"));
+        let domain = query_domain_by_id(&conn, "dup.example")
+            .expect("query domain")
+            .expect("domain row");
+        assert!(domain.favorited_at.is_some(), "domain row must win");
+        let profile = query_profile_by_id(&conn, "dup.example")
+            .expect("query profile")
+            .expect("profile row");
+        assert!(
+            profile.favorited_at.is_none(),
+            "profile row must stay untouched"
+        );
     }
 
     #[test]

@@ -65,6 +65,10 @@ export interface ArticleProfile {
 	profilePicture?: string | null;
 	profilePictureSrc?: string | null;
 	url?: string | null;
+	/** When the card was starred (`null`/absent = not a favorite). */
+	favoritedAt?: number | null;
+	/** Derived from `favoritedAt`; the boolean the UI toggles. */
+	favorite?: boolean;
 	mostRecentCreatedAt?: number | null;
 	articles?: ArticleRecord[];
 }
@@ -75,6 +79,8 @@ export interface WebStoreDomainRecord {
 	count: number;
 	profilePicture: string | null;
 	url: string | null;
+	/** When the card was starred (`null` = not a favorite). */
+	favoritedAt: number | null;
 	mostRecentCreatedAt: number | null;
 	articles?: WebStoreArticleRecord[] | null;
 }
@@ -86,6 +92,8 @@ export interface WebStoreProfileRecord {
 	count: number;
 	profilePicture: string | null;
 	url: string | null;
+	/** When the card was starred (`null` = not a favorite). */
+	favoritedAt: number | null;
 	mostRecentCreatedAt: number | null;
 	articles?: WebStoreArticleRecord[] | null;
 }
@@ -405,6 +413,8 @@ function domainRecordToArticleProfile(record: WebStoreDomainRecord): ArticleProf
 		domainId: record.id,
 		profilePicture: record.profilePicture,
 		url: record.url,
+		favoritedAt: record.favoritedAt,
+		favorite: record.favoritedAt != null,
 		mostRecentCreatedAt: record.mostRecentCreatedAt,
 		articles: record.articles ?? undefined
 	};
@@ -418,6 +428,8 @@ function profileRecordToArticleProfile(record: WebStoreProfileRecord): ArticlePr
 		domainId: record.domainId,
 		profilePicture: record.profilePicture,
 		url: record.url,
+		favoritedAt: record.favoritedAt,
+		favorite: record.favoritedAt != null,
 		mostRecentCreatedAt: record.mostRecentCreatedAt,
 		articles: record.articles ?? undefined
 	};
@@ -796,6 +808,21 @@ export async function setArticleFavorite(url: string, favorite: boolean): Promis
 		return await invoke<boolean>('update_web_store_article_favorite', { url, favorite });
 	} catch (error) {
 		console.error(`Error setting article favorite (url='${url}'):`, error);
+		return false;
+	}
+}
+
+/**
+ * Stars/unstars a profile card (channel or domain; the Rust side resolves
+ * which table holds the id, domain-first like `getProfile`). Returns whether
+ * a row was actually updated so callers only repaint their lists on a
+ * persisted change.
+ */
+export async function setProfileFavorite(profileId: string, favorite: boolean): Promise<boolean> {
+	try {
+		return await invoke<boolean>('update_web_store_profile_favorite', { id: profileId, favorite });
+	} catch (error) {
+		console.error(`Error setting profile favorite (id='${profileId}'):`, error);
 		return false;
 	}
 }

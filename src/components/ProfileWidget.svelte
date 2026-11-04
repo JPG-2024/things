@@ -44,6 +44,12 @@
 		await articleCacheStore.fetchProfilesWithArticles({ force: true });
 	}
 
+	/** Fire-and-forget: a failed persist simply does not repaint the star. */
+	function handleToggleFavorite() {
+		const next = !(profileWithArticles.favorite === true);
+		void articleCacheStore.setProfileFavorite(profileWithArticles.id, next);
+	}
+
 	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileWithArticles.id;
@@ -130,6 +136,24 @@
 				{profileWithArticles.name}
 			</button>
 		</div>
+		<!-- Sibling of the avatar/name buttons (a <button> cannot nest in a
+		     <button>); anchored to the card's top-right corner. -->
+		<button
+			type="button"
+			class="profile-star"
+			class:favorite={profileWithArticles.favorite === true}
+			onclick={handleToggleFavorite}
+			aria-label={profileWithArticles.favorite ? 'Remove from favorites' : 'Add to favorites'}
+		>
+			<Icon
+				name="Star"
+				size={16}
+				color="var(--primary-color)"
+				tooltipProps={{
+					content: profileWithArticles.favorite ? 'remove favorite' : 'add favorite'
+				}}
+			/>
+		</button>
 	{/snippet}
 </EntityCard>
 
@@ -204,6 +228,46 @@
 
 	.profile-name:hover {
 		color: var(--primary-color);
+	}
+
+	/* Star at the card's top-right corner, hidden until the card is hovered
+	   unless it is already favorited (mirrors ArticleItem's .article-star).
+	   The positioned ancestor is Card's `.widget`, so it hugs the corner. */
+	.profile-star {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		background: none;
+		border: none;
+		cursor: pointer;
+		line-height: 0;
+		z-index: 9;
+		opacity: 0;
+		transition:
+			opacity 0.15s,
+			transform 0.15s;
+	}
+
+	:global(.widget:hover) .profile-star,
+	.profile-star.favorite,
+	.profile-star:focus-visible {
+		opacity: 1;
+	}
+
+	.profile-star:hover {
+		transform: scale(1.15);
+	}
+
+	.profile-star :global(svg) {
+		fill: transparent;
+	}
+
+	.profile-star.favorite :global(svg) {
+		fill: var(--primary-color);
 	}
 
 	.img-button:hover :global(img.profile-thumb) {

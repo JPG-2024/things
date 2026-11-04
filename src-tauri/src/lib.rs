@@ -30,7 +30,7 @@ pub use crate::web_store::{
     read_raw_content_by_url, save_article_analysis, search_raw_content, set_profile_article_order,
     update_category_exemplars_model, update_web_store_article_error,
     update_web_store_article_favorite, update_web_store_article_viewed,
-    upsert_category_exemplar, upsert_web_store_article,
+    update_web_store_profile_favorite, upsert_category_exemplar, upsert_web_store_article,
     upsert_web_store_category, upsert_web_store_domain, upsert_web_store_profile,
     write_raw_content,
 };
@@ -184,6 +184,7 @@ pub fn run() {
             delete_web_store_articles_by_urls,
             update_web_store_article_viewed,
             update_web_store_article_favorite,
+            update_web_store_profile_favorite,
             update_web_store_article_error,
             delete_web_store_domain,
             delete_web_store_profile,

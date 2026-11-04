@@ -3,7 +3,9 @@ import {
 	getArticlesWithoutProfile,
 	getCategoriesWithArticlesPage,
 	getProfiles,
+	invalidateProfilesCache,
 	setArticleFavorite,
+	setProfileFavorite,
 	type ArticleRecord,
 	type ArticleProfile,
 	type CategoryWithArticles
@@ -746,6 +748,32 @@ class ArticleCacheStore {
 				result.article.url === url ? { ...result, article: patch(result.article) } : result
 			);
 		}
+
+		return true;
+	}
+
+	/**
+	 * Persists a profile favorite toggle and repaints the loaded profile and
+	 * domain lists in place, so the star flips everywhere without a refetch
+	 * (mirrors `setArticleFavorite`). The webStore `getProfiles` caches are
+	 * invalidated too, so the filters popup never serves a stale flag.
+	 *
+	 * Returns whether the change was persisted; a failed toggle leaves the
+	 * caches untouched so the UI simply does not repaint.
+	 */
+	async setProfileFavorite(profileId: string, favorite: boolean): Promise<boolean> {
+		const saved = await setProfileFavorite(profileId, favorite);
+		if (!saved) return false;
+
+		const now = Date.now();
+		const patch = (profile: ArticleProfile): ArticleProfile =>
+			profile.id === profileId
+				? { ...profile, favorite, favoritedAt: favorite ? now : null }
+				: profile;
+
+		this.profiles.replace((items) => items.map(patch));
+		this.domains.replace((items) => items.map(patch));
+		invalidateProfilesCache();
 
 		return true;
 	}
