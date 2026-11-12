@@ -69,6 +69,15 @@ libc = "0.2"
 tauri-plugin-store = "2"
 zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 
+# Phonon on-device TTS. `hf` compiles the tokenizer.json reader (required even
+# for local checkpoints); `hub` is deliberately absent so the library can never
+# download models — checkpoints are hand-downloaded folders (see phonon_tts.rs).
+ptts = { version = "0.7", features = ["hf"], optional = true }
+
+[features]
+default = ["phonon"]
+phonon = ["dep:ptts"]
+
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", features = ["global_shortcuts"] }
 

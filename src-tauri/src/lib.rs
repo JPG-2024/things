@@ -40,6 +40,12 @@ pub use crate::audio_capture::{
     start_system_audio_recording, stop_system_audio_recording, AudioRecorderState,
 };
 
+mod phonon_tts;
+pub use crate::phonon_tts::{
+    tts_list_voices, tts_phonon_available, tts_phonon_unload, tts_synthesize, tts_validate_checkpoint,
+    PhononState,
+};
+
 mod embedding_store;
 mod llama_server;
 mod track_download;
@@ -148,6 +154,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(LlamaServersState::default())
         .manage(AudioRecorderState::default())
+        .manage(PhononState::default())
         .manage(global_shortcut::GlobalShortcutState::default())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -235,6 +242,11 @@ pub fn run() {
             download_track,
             start_system_audio_recording,
             stop_system_audio_recording,
+            tts_phonon_available,
+            tts_validate_checkpoint,
+            tts_list_voices,
+            tts_synthesize,
+            tts_phonon_unload,
             db_list,
             db_active_name,
             db_media_dir,

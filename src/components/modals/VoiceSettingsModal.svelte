@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { fade, scale } from 'svelte/transition';
+	import { open } from '@tauri-apps/plugin-dialog';
 	import {
 		deleteVoiceChunk,
 		generateSpeech,
@@ -9,6 +10,7 @@
 		type Voice,
 		type VoiceProfile
 	} from '@/lib/utils/ttsService';
+	import { validatePhononCheckpoint } from '@/lib/utils/phononService';
 	import { startSystemRecording, stopSystemRecording } from '@/lib/utils/systemAudioRecorder';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
@@ -17,12 +19,18 @@
 	import Button from '@/components/inputs/Button.component.svelte';
 	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
+	import TextField from '@/components/inputs/fields/TextField.component.svelte';
 	import LoadingLine from '@/components/LoadingLine.svelte';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
 	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import Spacer from '@/components/Spacer.component.svelte';
 	import MiniProfilePicker from '@/components/TTSPlayer/MiniProfilePicker.svelte';
 	import type { PauseSettings, SynthParams } from '@/types/tts.types';
+
+	const ENGINE_OPTIONS = [
+		{ label: 'Omnivoice (service)', value: 'omnivoice' },
+		{ label: 'Phonon (on-device)', value: 'phonon' }
+	];
 
 	interface SettingsValue {
 		audioFile: string;
@@ -138,6 +146,10 @@
 	let hoveredChunkName = $state<string | null>(null);
 	let wasOpen = $state(false);
 
+	// Phonon checkpoint directory (draft; committed only after validation).
+	let draftPhononDir = $state('');
+	let phononDirStatus = $state<{ valid: boolean; error?: string } | null>(null);
+
 	// Voice design state (draft; committed through snapshot()/onChange).
 	let draftInstructEnabled = $state(false);
 	let draftGender = $state('');
@@ -187,6 +199,49 @@
 		revokeRecordedUrl();
 		cleanupTestAudio();
 		applyAndClose();
+	}
+
+	async function pickPhononDir() {
+		try {
+			const selected = await open({ directory: true, multiple: false });
+			if (typeof selected === 'string' && selected.trim()) {
+				draftPhononDir = selected.trim();
+				await commitPhononDir();
+			}
+		} catch (error) {
+			phononDirStatus = {
+				valid: false,
+				error: error instanceof Error ? error.message : String(error)
+			};
+		}
+	}
+
+	/**
+	 * Validates the draft path and commits it only when it is a real
+	 * checkpoint, so a half-typed path is never persisted. A successful
+	 * commit re-lists the voices, which also drops a persisted voice name
+	 * the new checkpoint doesn't carry.
+	 */
+	async function commitPhononDir() {
+		const dir = draftPhononDir.trim();
+		draftPhononDir = dir;
+		if (!dir) {
+			viewState.phononModelsDir = '';
+			ttsState.clearPhononVoices();
+			phononDirStatus = null;
+			return;
+		}
+		try {
+			await validatePhononCheckpoint(dir);
+			viewState.phononModelsDir = dir;
+			phononDirStatus = { valid: true };
+			void ttsState.loadPhononVoices();
+		} catch (error) {
+			phononDirStatus = {
+				valid: false,
+				error: error instanceof Error ? error.message : String(error)
+			};
+		}
 	}
 
 	function composeInstruct(): string {
@@ -276,6 +331,13 @@
 			draftAge = tokens.find((t) => (DESIGN_AGES as readonly string[]).includes(t)) ?? '';
 			draftPitch = tokens.find((t) => (DESIGN_PITCHES as readonly string[]).includes(t)) ?? '';
 			draftWhisper = tokens.includes('whisper');
+			draftPhononDir = viewState.phononModelsDir;
+			phononDirStatus = null;
+			if (ttsState.config.engine === 'phonon') {
+				// Boot with a persisted phonon engine: the dropdown needs the
+				// voice list even if setEngine never ran this session.
+				void ttsState.loadPhononVoices();
+			}
 		}
 		wasOpen = show;
 	});
@@ -576,7 +638,69 @@
 			<div class="config-column">
 				<Spacer title="TTS" icon="SlidersHorizontal" defaultOpen={true}>
 					<div class="tts-sections">
-						{#if management}
+						<h3 class="tts-section-title">Engine</h3>
+						<Dropdown
+							label="Synthesis engine"
+							options={ttsState.phononAvailable === false ? [ENGINE_OPTIONS[0]] : ENGINE_OPTIONS}
+							value={ttsState.config.engine}
+							disabled={ttsState.phononAvailable === null}
+							onChange={(v) => ttsState.setEngine(v === 'phonon' ? 'phonon' : 'omnivoice')}
+						/>
+						{#if ttsState.phononAvailable === false}
+							<p class="hint">
+								Phonon is not compiled into this build. Rebuild with the <code>phonon</code> feature to
+								enable it.
+							</p>
+						{:else if ttsState.config.engine === 'phonon'}
+							<TextField
+								label="Model directory"
+								placeholder="/path/to/phonon-checkpoint"
+								bind:value={draftPhononDir}
+								tooltip="Hand-downloaded Phonon checkpoint (config.json, tokenizer.json and model weights)."
+								onBlur={() => void commitPhononDir()}
+							>
+								{#snippet suffix()}
+									<Button onClick={() => void pickPhononDir()} icon="FolderOpen">Browse</Button>
+								{/snippet}
+							</TextField>
+							{#if phononDirStatus}
+								<p
+									class="voice-status"
+									class:done={phononDirStatus.valid}
+									class:error={!phononDirStatus.valid}
+								>
+									{phononDirStatus.valid
+										? '✓ Valid checkpoint directory'
+										: `✗ ${phononDirStatus.error}`}
+								</p>
+							{/if}
+							<p class="hint">
+								{viewState.phononModelsDir
+									? 'Synthesis runs on this local checkpoint.'
+									: 'Set a checkpoint directory to enable on-device synthesis. It must contain config.json, tokenizer.json and model weights.'}
+							</p>
+						{/if}
+
+						{#if ttsState.config.engine === 'phonon'}
+							<h3 class="tts-section-title">Voice</h3>
+							{#if ttsState.phononVoicesLoading}
+								<p class="voice-hint">Loading checkpoint voices…</p>
+							{:else if ttsState.phononVoices.length === 0}
+								<p class="voice-hint">
+									No registered voices in this checkpoint; synthesis runs unconditioned.
+								</p>
+							{:else}
+								<Dropdown
+									label="Voice"
+									options={[
+										{ label: 'Default', value: '' },
+										...ttsState.phononVoices.map((v) => ({ label: v, value: v }))
+									]}
+									value={ttsState.config.phononVoice}
+									onChange={(v) => (ttsState.config.phononVoice = v)}
+								/>
+							{/if}
+						{:else if management}
 							<h3 class="tts-section-title">Voice</h3>
 							{#if manageView === 'buttons'}
 								{#if profiles.length > 0}
@@ -797,7 +921,7 @@
 							{/if}
 						{/if}
 
-						{#if showVoiceDesign}
+						{#if showVoiceDesign && ttsState.config.engine === 'omnivoice'}
 							<h3 class="tts-section-title">Voice design</h3>
 							<Dropdown
 								label="Voice mode"
@@ -855,7 +979,7 @@
 							{/if}
 						{/if}
 
-						{#if !draftInstructEnabled}
+						{#if !draftInstructEnabled && ttsState.config.engine === 'omnivoice'}
 							<h3 class="tts-section-title">Chunk</h3>
 							<div class="row">
 								<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
@@ -885,38 +1009,53 @@
 
 						<h3 class="tts-section-title">Synthesis</h3>
 						<div class="tts-grid-2">
-							{#if !draftInstructEnabled}
+							{#if ttsState.config.engine === 'phonon'}
+								<!-- Phonon's SpeechOptions: temperature only. Speed and the
+									 diffusion knobs are omnivoice-only (hidden, not mutated). -->
 								<RangeSelector
-									id="settings-numStep"
-									label="Num Steps"
-									value={draftSynthParams.numStep}
-									min={1}
-									max={64}
-									step={1}
-									format={(v) => v.toString()}
-									onChange={(v) => (draftSynthParams.numStep = v)}
-								/>
-								<RangeSelector
-									id="settings-guidanceScale"
-									label="Guidance Scale"
-									value={draftSynthParams.guidanceScale}
+									id="settings-phononTemperature"
+									label="Temperature"
+									value={ttsState.config.phononTemperature}
 									min={0}
-									max={5}
-									step={0.5}
-									format={(v) => v.toFixed(1)}
-									onChange={(v) => (draftSynthParams.guidanceScale = v)}
+									max={1}
+									step={0.05}
+									format={(v) => v.toFixed(2)}
+									onChange={(v) => (ttsState.config.phononTemperature = v)}
+								/>
+							{:else}
+								{#if !draftInstructEnabled}
+									<RangeSelector
+										id="settings-numStep"
+										label="Num Steps"
+										value={draftSynthParams.numStep}
+										min={1}
+										max={64}
+										step={1}
+										format={(v) => v.toString()}
+										onChange={(v) => (draftSynthParams.numStep = v)}
+									/>
+									<RangeSelector
+										id="settings-guidanceScale"
+										label="Guidance Scale"
+										value={draftSynthParams.guidanceScale}
+										min={0}
+										max={5}
+										step={0.5}
+										format={(v) => v.toFixed(1)}
+										onChange={(v) => (draftSynthParams.guidanceScale = v)}
+									/>
+								{/if}
+								<RangeSelector
+									id="settings-speed"
+									label="Speed"
+									value={draftSynthParams.speed}
+									min={0.25}
+									max={2}
+									step={0.05}
+									format={(v) => v.toFixed(2)}
+									onChange={(v) => (draftSynthParams.speed = v)}
 								/>
 							{/if}
-							<RangeSelector
-								id="settings-speed"
-								label="Speed"
-								value={draftSynthParams.speed}
-								min={0.25}
-								max={2}
-								step={0.05}
-								format={(v) => v.toFixed(2)}
-								onChange={(v) => (draftSynthParams.speed = v)}
-							/>
 							<Dropdown
 								label="Chunk split level"
 								options={SPLIT_OPTIONS}

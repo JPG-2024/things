@@ -1,4 +1,5 @@
 import { getTTSAuthHeaders } from '@/lib/utils/ttsAuth';
+import { synthPhonon } from '@/lib/utils/phononService';
 
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
@@ -382,6 +383,19 @@ export async function generateSpeech(
 	},
 	signal?: AbortSignal
 ): Promise<{ blob: Blob; durationSeconds: number | null }> {
+	// Engine switch (one branch for every caller: ttsStore, ConversationMode,
+	// the design-voice test). Dynamic import mirrors setErrorFrom: ttsStore
+	// imports this module, so a static import would close the cycle.
+	const { ttsState } = await import('@/stores/ttsStore.svelte');
+	if (ttsState.config.engine === 'phonon') {
+		return synthPhonon({
+			text: params.text,
+			voice: ttsState.config.phononVoice,
+			temperature: ttsState.config.phononTemperature,
+			signal
+		});
+	}
+
 	try {
 		const res = await ttsFetch('/tts/mp3', {
 			method: 'POST',

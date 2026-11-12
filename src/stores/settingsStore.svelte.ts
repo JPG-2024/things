@@ -95,6 +95,7 @@ function serializeView() {
 		aiModel: viewState.aiModel,
 		opencodeModel: viewState.opencodeModel,
 		llamaModelsDir: viewState.llamaModelsDir,
+		phononModelsDir: viewState.phononModelsDir,
 		llamaInferenceModel: viewState.llamaInferenceModel,
 		llamaInferencePort: viewState.llamaInferencePort,
 		llamaInferenceCtxSize: viewState.llamaInferenceCtxSize,
@@ -186,6 +187,9 @@ function applyView(raw: unknown): void {
 	if (typeof raw.aiModel === 'string') viewState.aiModel = raw.aiModel;
 	if (typeof raw.opencodeModel === 'string') viewState.opencodeModel = raw.opencodeModel;
 	if (typeof raw.llamaModelsDir === 'string') viewState.llamaModelsDir = raw.llamaModelsDir;
+	if (typeof raw.phononModelsDir === 'string' && raw.phononModelsDir.trim()) {
+		viewState.phononModelsDir = raw.phononModelsDir;
+	}
 	if (typeof raw.llamaInferenceModel === 'string') {
 		viewState.llamaInferenceModel = raw.llamaInferenceModel;
 	}
@@ -365,6 +369,16 @@ function applyTts(raw: unknown): void {
 		0,
 		3
 	) as TTSConfig['splitLevel'];
+	// mergeValue accepts any same-typed string, so narrow the union explicitly.
+	// Validate before assigning: mutating the object after it became the
+	// `$state` value would bypass the proxy's set trap.
+	if (mergedConfig.engine !== 'phonon') mergedConfig.engine = 'omnivoice';
+	mergedConfig.phononTemperature = clamp(
+		typeof mergedConfig.phononTemperature === 'number' ? mergedConfig.phononTemperature : 0.3,
+		0,
+		1
+	);
+	if (typeof mergedConfig.phononVoice !== 'string') mergedConfig.phononVoice = '';
 	ttsState.config = mergedConfig;
 
 	ttsState.pauseSettings = mergeValue(TTS_PAUSE_DEFAULTS, raw.pauseSettings);

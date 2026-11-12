@@ -61,9 +61,11 @@
 	/**
 	 * Profile voice chunk used to synthesize the chunk currently reproduced.
 	 * `-1` (default reference) resolves to the selected reference's position
-	 * in the profile so non-random mode still shows a real number.
+	 * in the profile so non-random mode still shows a real number. Suppressed
+	 * under the Phonon engine, where reference chunks play no part.
 	 */
 	const voiceChunkLabel = $derived.by(() => {
+		if (ttsState.config.engine === 'phonon') return null;
 		if (!ttsState.isPlaying && !ttsState.isPaused) return null;
 		const idx = ttsState.voiceChunkIndexAt(engine.currentChunkIndex);
 		if (idx === null || ttsState.voiceChunks.length === 0) return null;
@@ -221,6 +223,7 @@
 
 	onMount(() => {
 		void ttsState.initVoiceProfiles();
+		void ttsState.initPhonon();
 		void mainVoiceState.ensureProfiles();
 	});
 

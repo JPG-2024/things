@@ -123,7 +123,20 @@ Only chunk 0 is generated eagerly. The store tracks:
 
 ## 4. API Call
 
-**`src/lib/utils/ttsService.ts:110-155`** — `generateSpeech()`:
+**`src/lib/utils/ttsService.ts`** — `generateSpeech()`:
+
+**Engine switch first (Q26).** Every call site (the store's two chunk paths,
+`ConversationMode` auto-speech, the design-voice test) reaches synthesis
+through this one function, so the branch lives here: when
+`ttsState.config.engine === 'phonon'` it calls `synthPhonon()`
+(`src/lib/utils/phononService.ts`) instead — a Tauri invoke of `tts_synthesize`
+on the local checkpoint (`src-tauri/src/phonon_tts.rs`) — and returns the same
+`{ blob, durationSeconds }` shape. The blob is a WAV parsed from the command's
+`ArrayBuffer`; duration comes from the WAV header (`wavDurationSeconds`), since
+`tauri::ipc::Response` carries no headers. Nothing else in the pipeline knows
+which engine ran.
+
+Otherwise (omnivoice, the default) it posts:
 
 ```
 POST {TTS_API_URL}/tts/mp3
@@ -289,11 +302,39 @@ Called before any TTS generation or playback to satisfy browser autoplay policie
 
 Defines 4 wave animation styles (`softSingleDim`, `organicMultiDim`, `softSingleBright`, `organicMultiBright`). Each specifies harmonics (cycles, amplitude, speed), base amplitude, point count, and stroke alpha. The default is `organicMultiBright`.
 
+### Phonon Engine (`src/lib/utils/phononService.ts` + `src-tauri/src/phonon_tts.rs`)
+
+The on-device alternative selected by `ttsState.config.engine` (switch in
+`VoiceSettingsModal → TTS → Engine`; persisted in the `tts` settings section
+and part of `configSig`, so flipping it rebuilds the playlist). Key points:
+
+- Cargo: `ptts` with `features = ["hf"]` only — **no `hub`**, so the library can
+  never download a model. Feature `phonon` is in `default`, so normal builds
+  include it; `tts_phonon_available` reports the compile-time fact and the
+  switch disables itself (with a visible reason) on builds without it.
+- Model directory: `viewState.phononModelsDir` (TTS settings → Engine →
+  Model directory, folder picker + `tts_validate_checkpoint` on commit; empty
+  until the user supplies a checkpoint). Validation requires `config.json`,
+  `tokenizer.json` and one weights file. A successful commit re-lists the
+  checkpoint voices and clears a persisted voice the new checkpoint lacks.
+- Commands: `tts_synthesize` (WAV bytes via `ipc::Response`), `tts_list_voices`
+  (first call pays the model load, shared with synthesis), `tts_phonon_unload`
+  (drops the resident model when the switch turns off), `tts_validate_checkpoint`,
+  `tts_phonon_available`.
+- The model loads lazily and stays resident across chunks (reloading ~75 MB per
+  chunk would defeat the prefetch strategy). Language comes from
+  `viewState.language`; an unmapped code falls back to `Lang::None`
+  (`Normalize::OFF`).
+- Synthesis parameters: only `phononTemperature` (0–1) and `phononVoice` are
+  meaningful; the diffusion knobs and `speed` are hidden in Phonon mode but
+  never mutated, so flipping back restores the omnivoice config exactly.
+- Cancellation: the abort signal cannot reach into a running command; stale
+  results are discarded by the store's generation session (as before).
+
 ### TTS Service (`src/lib/utils/ttsService.ts`)
 
-The HTTP layer. Two services:
+The HTTP layer. Two services:- `POST {TTS_API_URL}/tts/mp3` — speech generation (returns MP3 blob)
 
-- `POST {TTS_API_URL}/tts/mp3` — speech generation (returns MP3 blob)
 - `GET {TTS_API_URL}/voices` — list voice profiles
 - `GET {TTS_API_URL}/voices/{id}` — list voice chunks for a profile
 - `DELETE {TTS_API_URL}/voices/chunk/{name}` — delete a voice chunk

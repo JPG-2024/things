@@ -10,6 +10,11 @@ import {
 	type Voice,
 	type VoiceProfile
 } from '@/lib/utils/ttsService';
+import {
+	phononAvailable as probePhononAvailable,
+	listPhononVoices,
+	unloadPhonon
+} from '@/lib/utils/phononService';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
 import type { WheelSelection } from '@/types/tts.types';
@@ -30,6 +35,17 @@ export interface TTSTextTarget {
 }
 
 export interface TTSConfig extends TTSRefConfig {
+	/**
+	 * Synthesis engine: the external omnivoice HTTP service (default) or the
+	 * on-device Phonon checkpoint behind Tauri (`phonon_tts.rs`). Part of
+	 * `configSig`, so flipping it rebuilds the whole playlist — generated
+	 * blobs are from the other engine and must not mix.
+	 */
+	engine: 'omnivoice' | 'phonon';
+	/** Registered Phonon voice name; '' = the checkpoint's default voice. */
+	phononVoice: string;
+	/** Phonon flow temperature (0–1). */
+	phononTemperature: number;
 	/**
 	 * Voice-design instruct (restricted backend vocabulary). '' = voice
 	 * cloning through reference audio. Changing it is part of `configSig`,
@@ -104,6 +120,9 @@ class TTSState {
 		refAudioFilename: '042dee8a-d68d-4419-941b-eff42003d10e_0.mp3',
 		refText:
 			' Tenemos una novedad de un laboratorio de inteligencia artificial japonés llamado Sakana,  que acaba de lanzar algo conocido como Sakan…',
+		engine: 'omnivoice',
+		phononVoice: '',
+		phononTemperature: 0.3,
 		instruct: '',
 		numStep: 16,
 		denoise: true,
@@ -123,6 +142,9 @@ class TTSState {
 	 */
 	configSig = $derived(
 		JSON.stringify({
+			engine: this.config.engine,
+			phononVoice: this.config.phononVoice,
+			phononTemperature: this.config.phononTemperature,
 			instruct: this.config.instruct,
 			numStep: this.config.numStep,
 			denoise: this.config.denoise,
@@ -280,6 +302,92 @@ class TTSState {
 
 	/** Authoritative voice-profile list (BOOT-2b: consolidated voice state). */
 	voiceProfiles = $state<VoiceProfile[]>([]);
+
+	/* ------------------------------------------------------------------ */
+	/* Phonon (on-device engine)                                           */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Whether this build compiled the `phonon` cargo feature. Probed once at
+	 * boot; while `null` the engine switch renders optimistically enabled and
+	 * corrects itself when the probe lands. A build without the feature never
+	 * offers Phonon (the commands would error).
+	 */
+	phononAvailable = $state<boolean | null>(null);
+	/** Registered voices of the local checkpoint; loaded lazily on first use. */
+	phononVoices = $state<string[]>([]);
+	phononVoicesLoading = $state(false);
+	/** Model directory the voice list was loaded from (reload on change). */
+	private _phononVoicesDir = '';
+
+	/**
+	 * Boot probe for the engine switch (Q24). Must never throw: outside Tauri
+	 * (plain browser dev) there is no IPC and Phonon reports unavailable.
+	 */
+	async initPhonon(): Promise<void> {
+		this.phononAvailable = await probePhononAvailable();
+		if (!this.phononAvailable && this.config.engine === 'phonon') {
+			// Persisted engine from a build without the feature: fall back so
+			// playback isn't stuck on commands that always error.
+			this.config.engine = 'omnivoice';
+		}
+	}
+
+	/**
+	 * Loads the checkpoint's voice names, paying the one-time model load.
+	 * Cached per directory: switching the model dir in TTS settings invalidates it.
+	 */
+	async loadPhononVoices(force = false): Promise<void> {
+		const dir = viewState.phononModelsDir.trim();
+		// No checkpoint picked yet: nothing to list, and invoking with an empty
+		// path would surface a spurious "not a directory" error.
+		if (!dir) {
+			this.clearPhononVoices();
+			return;
+		}
+		if (!force && this._phononVoicesDir === dir && this.phononVoices.length > 0) return;
+		this.phononVoicesLoading = true;
+		try {
+			const voices = await listPhononVoices();
+			this.phononVoices = voices;
+			this._phononVoicesDir = dir;
+			// Silently drop a persisted voice the new checkpoint doesn't carry,
+			// mirroring setVoiceChunks with a vanished reference chunk.
+			if (this.config.phononVoice && !voices.includes(this.config.phononVoice)) {
+				this.config.phononVoice = '';
+			}
+			this.errorMessage = '';
+		} catch (err) {
+			this.phononVoices = [];
+			this._phononVoicesDir = '';
+			this.errorMessage = err instanceof Error ? err.message : 'Failed to load Phonon voices';
+		} finally {
+			this.phononVoicesLoading = false;
+		}
+	}
+
+	/** Drops the cached voice list when the checkpoint path is cleared. */
+	clearPhononVoices(): void {
+		this.phononVoices = [];
+		this._phononVoicesDir = '';
+		this.config.phononVoice = '';
+	}
+
+	/**
+	 * Flips the synthesis engine. On switch-off it drops the resident model
+	 * (fire-and-forget: the next Phonon request lazy-loads again). The caller
+	 * owns the playlist rebuild — `engine` is in `configSig`, so the existing
+	 * regeneration effect handles it like any synth-param change.
+	 */
+	setEngine(engine: 'omnivoice' | 'phonon'): void {
+		if (this.config.engine === engine) return;
+		this.config.engine = engine;
+		if (engine === 'phonon') {
+			void this.loadPhononVoices();
+		} else {
+			void unloadPhonon();
+		}
+	}
 
 	/** Fetches the chunk list of a profile into `voiceChunks`/`config` refs. */
 	async loadVoiceChunksForProfile(profileId: string, silent = false): Promise<void> {

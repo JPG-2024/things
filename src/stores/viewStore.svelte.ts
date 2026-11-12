@@ -220,6 +220,13 @@ class ViewState {
 	opencodeModel = $state<string>('');
 
 	llamaModelsDir = $state<string>('');
+	/**
+	 * Hand-downloaded Phonon checkpoint directory (`config.json` +
+	 * `tokenizer.json` + weights), validated by `tts_validate_checkpoint`.
+	 * Picked in TTS settings (`VoiceSettingsModal`) while the engine is
+	 * `phonon`; empty until the user supplies a checkpoint.
+	 */
+	phononModelsDir = $state<string>('');
 	llamaInferenceModel = $state<string>('');
 	llamaInferencePort = $state(envPort(ENV_LLAMA_URL, 8080));
 	// llama-server memory tuning: context window in tokens and prompt-cache
