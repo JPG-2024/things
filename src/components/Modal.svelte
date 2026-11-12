@@ -75,19 +75,15 @@
 		justify-content: center;
 		align-items: flex-start;
 		background: rgba(0, 0, 0, 0.9);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
 		z-index: 9999;
 	}
 
 	.modal {
 		position: relative;
 		background: black;
-		padding: 1.5rem;
 		width: 100vw;
-		max-width: 900px;
-		height: fit-content;
-		max-height: 90vh;
+		max-width: 1200px;
+		height: 100vh;
 		overflow-y: auto;
 		border-radius: var(--radius-md);
 		z-index: 10000;
@@ -101,7 +97,6 @@
 	 * bottom. `width: 100%` instead of `100vw` keeps the frame on narrow
 	 * viewports, and the flex chain gives the content a definite height. */
 	.backdrop--full {
-		padding: 1.5rem;
 		align-items: stretch;
 	}
 
@@ -109,8 +104,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		height: 100%;
-		max-height: 100%;
+		height: 100vh;
 		/* Full-bleed content: the consumer owns its own padding, so the chat's
 		 * header and input bar reach the dialog edges (the 1.5rem frame comes
 		 * from `.backdrop--full`). */
@@ -123,7 +117,6 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
 	}
 
 	.modal-content {
@@ -132,13 +125,13 @@
 
 	.close-btn {
 		position: absolute;
-		top: 0.6rem;
+		top: 1rem;
 		right: 1rem;
 		background: none;
 		border: none;
 		font-size: 2rem;
 		cursor: pointer;
-		color: white;
+		color: var(--bg-color);
 		padding: 0;
 		width: 2.5rem;
 		height: 2.5rem;

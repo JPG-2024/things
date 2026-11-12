@@ -70,6 +70,8 @@
 		justify-content: center;
 		gap: 0.7rem;
 		width: 100%;
+		min-height: 80px;
+		padding-bottom: 2rem;
 	}
 
 	.entity-divider {
@@ -85,7 +87,6 @@
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		opacity: 0.5;
 		/* Previously inherited from the tooltip wrapper's `text-transform`; kept
 		 * here so entity names render exactly as before the wrapper went away. */
 		text-transform: capitalize;

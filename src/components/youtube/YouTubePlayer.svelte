@@ -52,7 +52,7 @@
 		left: 0;
 		right: auto;
 		width: 100%;
-		height: 80%;
+		height: 100%;
 		object-fit: cover;
 		border-radius: var(--radius-sm);
 	}
@@ -60,8 +60,8 @@
 	.yt-thumbnail-btn {
 		position: absolute;
 		inset: 0;
-		width: 100%;
-		height: 100%;
+		width: 200px;
+		height: 120px;
 		padding: 0;
 		border: none;
 		background: transparent;
@@ -89,6 +89,5 @@
 
 		padding-left: 5px;
 		opacity: 0.9;
-		transform: translateY(-20px);
 	}
 </style>

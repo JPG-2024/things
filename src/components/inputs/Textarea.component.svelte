@@ -10,6 +10,8 @@
 		label?: string;
 		labelPosition?: 'top' | 'inline';
 		onChange?: (value: string) => void;
+		onEnter?: (value: string) => void;
+		autofocus?: boolean;
 	}
 
 	let {
@@ -20,16 +22,29 @@
 		rows = 3,
 		label,
 		labelPosition = 'top',
-		onChange
+		onChange,
+		onEnter,
+		autofocus = false
 	}: Props = $props();
 
 	function handleInput(event: Event) {
+		console.log(event);
 		const target = event.target as HTMLTextAreaElement;
 		const newValue = target.value;
 		value = newValue;
 
 		if (onChange) {
 			onChange(newValue);
+		}
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		console.log(event);
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			if (onEnter) {
+				onEnter(value);
+			}
 		}
 	}
 </script>
@@ -43,11 +58,21 @@
 			bind:value
 			{placeholder}
 			{disabled}
+			{autofocus}
 			oninput={handleInput}
+			onkeydown={handleKeydown}
 		></textarea>
 	</Label>
 {:else}
-	<textarea {id} class="text-input" {rows} bind:value {placeholder} {disabled} oninput={handleInput}
+	<textarea
+		{id}
+		class="text-input"
+		{rows}
+		bind:value
+		{placeholder}
+		{disabled}
+		{autofocus}
+		oninput={handleInput}
 	></textarea>
 {/if}
 

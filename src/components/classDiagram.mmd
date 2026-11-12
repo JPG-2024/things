@@ -1,0 +1,42 @@
+classDiagram
+    %% Clases principales del patrón
+    class Creador(Creador)
+        + creacionProducto() Product
+        + creacionProductoConParametros() Product
+        + creacionProductoPersonalizado() Product
+    
+    %% Clases concretas de producto
+    class ProductoA(Producto)
+        - nombre: String
+        - description: String
+    
+    class ProductoB(Producto)
+        - color: String
+        - size: int
+    
+    %% Subclases del creador
+    class FactoryA(Creador)
+        + creacionProducto() Product
+        + creacionProductoConParametros() Product
+        + creacionProductoPersonalizado() Product
+    
+    class FactoryB(Creador)
+        + creacionProducto() Product
+        + creacionProductoConParametros() Product
+        + creacionProductoPersonalizado() Product
+    
+    %% Relaciones
+    ProductoA "1" -- "0..*" Creador : implementa
+    ProductoB "1" -- "0..*" Creador : implementa
+    Creador "1" -- "*" Producto : produce
+    Creador *-- "ProductoA" : crea
+    Creador *-- "ProductoB" : crea
+    Creador *-- "*" Producto : produce (versátil)
+    
+    %% Cliente que usa el patrón
+    class Cliente
+        + crearProducto() Product
+        + obtenerResultado() String
+    
+    Cliente --> Creador : usa
+    Cliente --> Cliente

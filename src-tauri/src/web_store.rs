@@ -1572,10 +1572,13 @@ fn query_domains_filtered(
         sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
     }
 
+    // Favorites head the list (favorited_at DESC: NULLs sort last in SQLite,
+    // so the starred rows come first, most recently starred on top), then the
+    // regular activity order for everything else.
     sql.push_str(if include_articles {
-        " ORDER BY max_created_at DESC NULLS LAST"
+        " ORDER BY p.favorited_at DESC, max_created_at DESC NULLS LAST"
     } else {
-        " ORDER BY p.count DESC, p.name ASC"
+        " ORDER BY p.favorited_at DESC, p.count DESC, p.name ASC"
     });
 
     if include_articles {
@@ -1720,10 +1723,13 @@ fn query_profiles_filtered(
         sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
     }
 
+    // Favorites head the list (favorited_at DESC: NULLs sort last in SQLite,
+    // so the starred rows come first, most recently starred on top), then the
+    // regular activity order for everything else.
     sql.push_str(if include_articles {
-        " ORDER BY max_created_at DESC NULLS LAST"
+        " ORDER BY p.favorited_at DESC, max_created_at DESC NULLS LAST"
     } else {
-        " ORDER BY p.count DESC, p.name ASC"
+        " ORDER BY p.favorited_at DESC, p.count DESC, p.name ASC"
     });
 
     if include_articles {
@@ -5890,6 +5896,34 @@ mod tests {
             profile.favorited_at.is_none(),
             "profile row must stay untouched"
         );
+    }
+
+    #[test]
+    fn profile_list_orders_favorites_first() {
+        let conn = build_in_memory_db();
+
+        // Activity branch (include_articles): the starred domain has the
+        // *oldest* activity yet must head the list.
+        insert_article_with_domain(&conn, "a-new", None, Some("d-new.com"), 30);
+        insert_article_with_domain(&conn, "a-mid", None, Some("d-mid.com"), 20);
+        insert_article_with_domain(&conn, "a-old", None, Some("d-old.com"), 10);
+        assert!(update_profile_favorite_row(&conn, "d-old.com", true).expect("star domain"));
+
+        let domains =
+            query_domains_filtered(&conn, None, None, true, None, None).expect("query domains");
+        let ids = domains.iter().map(|d| d.id.as_str()).collect::<Vec<_>>();
+        assert_eq!(ids, vec!["d-old.com", "d-new.com", "d-mid.com"]);
+
+        // Count/name branch (no articles): favorites still lead, then the
+        // existing order (count ties here, so name decides).
+        insert_profile_row(&conn, "z-channel", "youtube.com");
+        insert_profile_row(&conn, "a-channel", "youtube.com");
+        assert!(update_profile_favorite_row(&conn, "z-channel", true).expect("star profile"));
+
+        let profiles =
+            query_profiles_filtered(&conn, None, None, false, None, None).expect("query profiles");
+        let ids = profiles.iter().map(|p| p.id.as_str()).collect::<Vec<_>>();
+        assert_eq!(ids, vec!["z-channel", "a-channel"]);
     }
 
     #[test]

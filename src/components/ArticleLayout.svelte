@@ -3,8 +3,6 @@
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { articleState } from '@/stores/articleStore.svelte';
-	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { getArticleByUrl } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import Image from '@/components/Image.svelte';
@@ -16,6 +14,7 @@
 	import { youTubeVideoId } from '@/runners/articleSources';
 	import Icon from './Icon.svelte';
 	import FullContentModal from './FullContentModal.svelte';
+	import FavoriteButton from './FavoriteButton.svelte';
 	import { readRawContent } from '@/lib/utils/rawContent';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
@@ -107,30 +106,7 @@
 		preventDefault: true
 	}));
 
-	// Favorite state of the open article. The row is read directly (the
-	// reading view sits outside the dashboard caches) and every toggle runs
-	// through the cache store, so the lists underneath repaint too.
-	let favorite = $state(false);
-	let favoriteRequestId = 0;
 
-	$effect(() => {
-		const url = article.url;
-		const requestId = ++favoriteRequestId;
-		favorite = false;
-		if (!url) return;
-		void getArticleByUrl(url).then((record) => {
-			if (requestId !== favoriteRequestId) return;
-			favorite = record?.favorite ?? false;
-		});
-	});
-
-	async function toggleFavorite(): Promise<void> {
-		const url = article.url;
-		if (!url) return;
-		const next = !favorite;
-		const saved = await articleCacheStore.setArticleFavorite(url, next);
-		if (saved) favorite = next;
-	}
 
 	function goToProfile() {
 		if (!article.profile) return;
@@ -187,35 +163,23 @@
 			{/if}
 		</div>
 		<div class="category-editor_container">
+			{#if article.url && article.status !== 'running'}
+				<ArticleCategoryEditor articleUrl={article.url} value={article.categories} />
+			{/if}
 			{#if article.url}
-				<button
-					class="full-content-button favorite-button"
-					class:favorite
-					onclick={toggleFavorite}
-					aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-					title={favorite ? 'Remove from favorites' : 'Add to favorites'}
-				>
-					<Icon name="Star" size={24} color="var(--primary-color)" />
-				</button>
+				<FavoriteButton url={article.url} />
 				<button
 					class="full-content-button"
 					onclick={openFullContent}
 					aria-label="View full content"
-					title="View full content (F)"
 				>
-					<Icon name="Code" size={24} color="var(--primary-color)" />
+					<Icon
+						name="Code"
+						size={24}
+						color="var(--primary-color)"
+						tooltipProps={{ content: 'View full content (F)' }}
+					/>
 				</button>
-				<button
-					class="full-content-button"
-					onclick={handleRefresh}
-					aria-label="Refresh article"
-					title="Refresh article (re-extract content)"
-				>
-					<Icon name="RefreshCcw" size={24} color="var(--primary-color)" />
-				</button>
-			{/if}
-			{#if article.url && article.status !== 'running'}
-				<ArticleCategoryEditor articleUrl={article.url} value={article.categories} />
 			{/if}
 		</div>
 	</div>
@@ -248,9 +212,9 @@
 	.article-layout {
 		width: 100%;
 		padding: 3rem;
-		padding-top: 5rem;
+		padding-top: 6rem;
 		display: grid;
-		grid-template-columns: 300px minmax(0, 1fr);
+		grid-template-columns: 220px minmax(0, 1fr);
 		column-gap: 1.5rem;
 		row-gap: 1rem;
 		align-items: start;
@@ -259,7 +223,7 @@
 	/* Fixed 300px track holding the article thumbnail or the YouTube player. */
 	.media-col {
 		grid-column: 1;
-		width: 300px;
+		width: 200px;
 		min-width: 0;
 	}
 
@@ -309,12 +273,11 @@
 	.category-editor_container {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 2rem;
 		padding: 1rem 0;
 	}
 
 	.category-editor_container :global(.article-category-editor) {
-		flex: 1 1 auto;
 		min-width: 0;
 	}
 
@@ -371,7 +334,6 @@
 	.full-content-button {
 		background: none;
 		border: none;
-		padding: 0.5rem;
 		cursor: pointer;
 		border-radius: var(--radius-sm);
 		transition: background-color 0.2s;
@@ -385,15 +347,6 @@
 		background-color: var(--hover-bg);
 	}
 
-	/* Outlined star when unfilled, solid primary once saved. */
-	.favorite-button :global(svg) {
-		fill: transparent;
-		transition: fill 0.15s;
-	}
-
-	.favorite-button.favorite :global(svg) {
-		fill: var(--primary-color);
-	}
 
 	@media (max-width: 760px) {
 		.article-layout {

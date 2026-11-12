@@ -36,8 +36,7 @@
 
 <style>
 	.full-content-modal {
-		padding: 1rem;
-		max-height: 85vh;
+		padding: 3rem;
 		overflow-y: auto;
 		width: 100%;
 	}

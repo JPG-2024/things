@@ -96,6 +96,7 @@
 
 <div class="category-editor">
 	<div class="category-pills">
+		<span class="category-editor__title">Tags</span>
 		{#each selectedIds as id (id)}
 			<span class="category-pill">
 				<CategoryItem value={categoryLabel(id)} />
@@ -149,11 +150,19 @@
 		border-style: dashed;
 	}
 
+	.category-editor__title {
+		font-family: var(--font-secondary);
+		font-size: 0.7rem;
+		color: var(--gray-500);
+		padding-top: 3px;
+		padding-right: 5px;
+	}
+
 	.category-pills {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem;
+		gap: 1.5rem;
 	}
 
 	.category-pill {
@@ -181,6 +190,7 @@
 
 	.category-search {
 		width: auto;
+		padding-top: 1px;
 	}
 
 	.add-label {

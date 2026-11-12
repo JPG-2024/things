@@ -60,7 +60,8 @@
 
 <div class="top-bar" class:loaded={viewState.loaded}>
 	<div class="topbar-left">
-		<button onclick={handleBackNavigation} class="back-navigation"><Icon name="ArrowLeft" /></button
+		<button onclick={handleBackNavigation} class="back-navigation"
+			><Icon name="ArrowLeft" color="var(--primary-color)" /></button
 		>
 
 		<button type="button" class="favicon-btn" aria-label="Navigate back">
@@ -93,17 +94,21 @@
 		gap: 10px;
 		/* -webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px); */
-		background: black;
+		/* 		background: linear-gradient(
+			270deg,
+			color-mix(in srgb, var(--bg-color) 1%, black) 0%,
+			color-mix(in srgb, var(--bg-color) 15%, black) 50%,
+			color-mix(in srgb, var(--bg-color) 1%, black) 100%,
+			transparent 100%
+		); */
+		background-color: rgba(21, 21, 21, 0.95);
 		min-height: 30px;
 		right: 0;
 		left: 0;
 		z-index: 10;
 		padding: 1rem 1.5rem;
+		padding-inline: var(--page-gutter-x);
 		box-sizing: border-box;
-		border-bottom-left-radius: 3px;
-		border-bottom-right-radius: 3px;
-		border-left: 1px solid var(--bg-color);
-		border-right: 1px solid var(--bg-color);
 	}
 
 	.top-bar::after {
@@ -112,11 +117,11 @@
 		bottom: 0;
 		right: 0;
 		width: 100%;
-		height: 1px;
+		height: 2px;
 		background: linear-gradient(
 			270deg,
 			color-mix(in srgb, var(--bg-color) 1%, transparent) 0%,
-			color-mix(in srgb, var(--bg-color) 90%, transparent) 50%,
+			color-mix(in srgb, var(--bg-color) 20%, transparent) 50%,
 			color-mix(in srgb, var(--bg-color) 1%, transparent) 100%,
 			transparent 100%
 		);

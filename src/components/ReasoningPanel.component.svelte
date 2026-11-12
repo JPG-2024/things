@@ -63,7 +63,7 @@
 
 	.reasoning__label {
 		font-size: 0.72rem;
-		color: rgba(255, 255, 255, 0.45);
+		color: var(--bg-color);
 		font-style: italic;
 		transition: color 0.15s;
 	}

@@ -168,44 +168,6 @@
 <div class="analysis-shell">
 	<!-- Always rendered — even before the first run and on web articles, which
 		 have no window knob — so the prompts are configurable at any time. -->
-	<div class="level-row">
-		{#if showLevelControl}
-			<span class="level-label">window ÷</span>
-			<div class="level-slider">
-				<RangeSelector
-					id="window-level"
-					min={0}
-					max={WINDOW_DIVISOR_LADDER.length - 1}
-					step={1}
-					bind:value={sliderIndex}
-					disabled={isRunning}
-					onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
-				/>
-			</div>
-			<span class="level-label">÷{previewDivisor}</span>
-		{/if}
-		<!-- Questions are one extra LLM call per window. The toggle only
-			 affects the next analysis; the current windows keep what they
-			 already answered. -->
-		<ToggleIcon
-			name="MessageCircleQuestion"
-			bind:checked={viewState.questionsEnabled}
-			tooltipProps={{
-				content:
-					'ask each window what questions it answers (one extra call per window); applies to the next analysis'
-			}}
-		/>
-		<span class="prompts-trigger">
-			<Icon
-				name="ScrollText"
-				size={16}
-				disabled={isRunning}
-				ariaLabel="Edit prompts"
-				tooltipProps={{ content: 'edit prompts' }}
-				onClick={() => (promptsOpen = true)}
-			/>
-		</span>
-	</div>
 
 	{#if isRunning && progress && progress.total > 0}
 		<div class="progress-row">
@@ -221,6 +183,47 @@
 			 raw-text modal is not trapped by the containment. -->
 		<div class="windows-container">
 			<Spacer title="Windows" bind:opened={windowsOpen}>
+				{#snippet titleSlot()}
+					<div class="level-row">
+						{#if showLevelControl}
+							<span class="level-label">window</span>
+							<div class="level-slider">
+								<RangeSelector
+									id="window-level"
+									min={0}
+									max={WINDOW_DIVISOR_LADDER.length - 1}
+									step={1}
+									bind:value={sliderIndex}
+									disabled={isRunning}
+									onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
+								/>
+							</div>
+							<span class="level-label">÷{previewDivisor}</span>
+						{/if}
+						<!-- Questions are one extra LLM call per window. The toggle only
+			 affects the next analysis; the current windows keep what they
+			 already answered. -->
+						<ToggleIcon
+							name="MessageCircleQuestion"
+							bind:checked={viewState.questionsEnabled}
+							tooltipProps={{
+								content:
+									'ask each window what questions it answers (one extra call per window); applies to the next analysis'
+							}}
+						/>
+						<span class="prompts-trigger">
+							<Icon
+								name="ScrollText"
+								size={16}
+								disabled={isRunning}
+								ariaLabel="Edit prompts"
+								tooltipProps={{ content: 'edit prompts' }}
+								onClick={() => (promptsOpen = true)}
+							/>
+						</span>
+					</div>
+				{/snippet}
+
 				<div class="chunks-grid" bind:this={gridEl}>
 					{#if isRunning && visibleWindows.length === 0}
 						<div class="chunk-pending">waiting for the first window…</div>
@@ -284,6 +287,8 @@
 	.level-row {
 		display: flex;
 		align-items: center;
+		width: 500px;
+		font-family: var(--font-secondary);
 		gap: 0.75rem;
 	}
 
@@ -299,7 +304,6 @@
 
 	/* Panel-level action: pinned to the right edge, away from the slider. */
 	.prompts-trigger {
-		margin-left: auto;
 		display: inline-flex;
 		align-items: center;
 	}
@@ -359,7 +363,7 @@
 		display: flex;
 		gap: 0.6rem;
 		align-items: baseline;
-		margin-bottom: 0.4rem;
+		margin-bottom: 1rem;
 		font-family: var(--font-secondary);
 		white-space: wrap;
 	}

@@ -10,7 +10,7 @@ export function buildTitleUserMessage(): string {
  * (label only, no markdown) but sized for a card heading, not a document.
  */
 export function buildWindowTitleUserMessage(): string {
-	return 'Create a short title (max 8 words) labeling this section of the article. No Markdown, no quotes, no trailing period.';
+	return 'create a short takeaway sentence (10 words maximum)';
 }
 
 /**

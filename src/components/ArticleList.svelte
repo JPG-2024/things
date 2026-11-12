@@ -274,7 +274,7 @@
 	.article-list__body {
 		display: flex;
 		align-items: flex-start;
-		gap: 1rem;
+		gap: 3rem;
 		width: 100%;
 		padding-bottom: 15rem;
 	}

@@ -82,9 +82,10 @@
 	   row span instead of clipping it. The full title wraps; nothing is
 	   line-clamped. Width mirrors the 80% thumbnail. */
 	.article-thumbnail-title {
-		width: 80%;
+		width: 100%;
 		min-width: 0;
 		padding-top: 1rem;
+		padding-left: 28px;
 		overflow-wrap: break-word;
 	}
 

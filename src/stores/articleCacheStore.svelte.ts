@@ -758,6 +758,14 @@ class ArticleCacheStore {
 	 * (mirrors `setArticleFavorite`). The webStore `getProfiles` caches are
 	 * invalidated too, so the filters popup never serves a stale flag.
 	 *
+	 * The lists are ordered favorites-first server-side (favorited_at DESC,
+	 * newest toggle on top), so a star also moves its card to the front of
+	 * every loaded window — exactly the page the next fetch would return. An
+	 * unstar leaves the card in place: its spot inside the non-favorites
+	 * order is unknowable without a refetch. A star that lands outside every
+	 * loaded window (e.g. from the profile page behind a filter) marks the
+	 * resources stale instead, so the next visit pulls the new top.
+	 *
 	 * Returns whether the change was persisted; a failed toggle leaves the
 	 * caches untouched so the UI simply does not repaint.
 	 */
@@ -771,8 +779,26 @@ class ArticleCacheStore {
 				? { ...profile, favorite, favoritedAt: favorite ? now : null }
 				: profile;
 
-		this.profiles.replace((items) => items.map(patch));
-		this.domains.replace((items) => items.map(patch));
+		let starredInWindow = false;
+		const applyPatch = (items: ArticleProfile[]): ArticleProfile[] => {
+			const patched = items.map(patch);
+			if (!favorite) return patched;
+
+			const index = patched.findIndex((profile) => profile.id === profileId);
+			if (index === -1) return patched;
+
+			starredInWindow = true;
+			const [card] = patched.splice(index, 1);
+			patched.unshift(card);
+			return patched;
+		};
+
+		this.profiles.replace(applyPatch);
+		this.domains.replace(applyPatch);
+		if (favorite && !starredInWindow) {
+			this.profiles.invalidate();
+			this.domains.invalidate();
+		}
 		invalidateProfilesCache();
 
 		return true;

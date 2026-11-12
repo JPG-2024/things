@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
+	import { cubicIn, cubicOut } from 'svelte/easing';
+	import { goto } from '$app/navigation';
 	import EntityBar from '@/components/EntityBar.svelte';
 	import type { EntityBarItem } from '@/components/EntityBar.svelte';
 	import {
@@ -123,7 +126,11 @@
 </script>
 
 {#if !loading}
-	<div class="filter-sections">
+	<div
+		class="filter-sections"
+		in:fade={{ duration: 200, easing: cubicIn }}
+		out:fade={{ duration: 300, easing: cubicOut }}
+	>
 		{#each sections as section (section.kind)}
 			{#if section.items.length > 0}
 				<div class="filter-section">
@@ -132,7 +139,7 @@
 							items={section.items}
 							activeIds={articleFilters.ids(section.kind)}
 							separators={section.separators ?? false}
-							onSelect={(item) => articleFilters.toggle(section.kind, item.id, item.name)}
+							onSelect={(item) => goto(`/profile/${item.id}`)}
 						/>
 					</div>
 				</div>

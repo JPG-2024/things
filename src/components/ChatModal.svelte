@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
-
+	import Textarea from '@/components/inputs/Textarea.component.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
+	import Button from '@/components/inputs/Button.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import Modal from '@/components/Modal.svelte';
@@ -44,6 +45,7 @@
 		scopeMiss?: string;
 	}
 
+	let userPrompt = $state<string>('');
 	let messages = $state<ChatMessage[]>([]);
 	let streamedText = $state('');
 	let streamedReasoning = $state('');
@@ -302,8 +304,12 @@
 		}
 	}
 
-	function handleEnter(value: string) {
-		const trimmed = value.trim();
+	const handleChangeUserPrompt = (newValue: string) => {
+		userPrompt = newValue;
+	};
+
+	function handleSendPrompt() {
+		const trimmed = userPrompt.trim();
 		if (!trimmed || streaming) return;
 		void streamResponse(trimmed);
 	}
@@ -559,12 +565,13 @@
 				<span class="chat-modal__searching">Searching sources…</span>
 			{/if}
 			<div class="chat-modal__input-wrap">
-				<Input
+				<Textarea
 					autofocus
 					placeholder="Send a message..."
 					disabled={streaming || searching}
-					onEnter={handleEnter}
+					onChange={handleChangeUserPrompt}
 				/>
+				<Button onClick={handleSendPrompt}>send</Button>
 			</div>
 			{#if streaming}
 				<button
@@ -590,7 +597,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		height: 100%;
+		height: 95vh;
 		min-height: 0;
 		overflow: hidden;
 		font-family: var(--font-secondary);
@@ -633,7 +640,7 @@
 		line-height: 1.2;
 		white-space: nowrap;
 		opacity: 0.9;
-		transition: opacity 0.15s;
+		transition: opacity 2s;
 	}
 
 	.chat-modal__scope:hover {
@@ -681,7 +688,7 @@
 		border-radius: 50%;
 		cursor: pointer;
 		opacity: 0.7;
-		transition: opacity 0.2s;
+		transition: opacity 2s;
 	}
 
 	.chat-modal__reasoning-btn:hover {
@@ -869,10 +876,8 @@
 		align-items: center;
 		gap: 0.4rem;
 		padding: 0.45rem 0.9rem;
-		border-radius: var(--radius-md);
-		border: 1px solid rgba(255, 80, 80, 0.35);
-		background: rgba(255, 80, 80, 0.1);
-		color: #ff5a5a;
+
+		background: transparent;
 		font-size: 0.85rem;
 		cursor: pointer;
 		white-space: nowrap;

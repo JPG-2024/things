@@ -105,8 +105,8 @@
 	}
 
 	.markdown-container :global(thead th) {
-		background-color: color-mix(in srgb, var(--bg-color) 80%, transparent);
-		color: #1a1a1a;
+		background-color: var(--gray-800);
+		color: var(--gray-200);
 	}
 	/* Styles for thought process */
 	.markdown-container :global(.thought-process) {
@@ -159,35 +159,42 @@
 		font-size: 1.125em;
 		padding-top: 2rem;
 		padding-bottom: 1.2rem;
+		text-decoration: underline;
 	}
 
 	.markdown-container :global(p) {
 		font-family: var(--font-secondary);
-		color: var(--gray-300);
-		margin: 0.8rem;
+		color: white;
 		line-height: 2.2;
 	}
 
 	.markdown-container :global(code) {
 		border-radius: var(--radius-sm);
 		padding: 2px 6px;
-		color: #fafafa;
+		color: var(--primary-color);
+		font-size: 1.2em;
 	}
 
 	.markdown-container :global(pre) {
-		margin: 1em 0;
-		border-radius: var(--radius-md);
-		padding: 15px;
+		margin-bottom: 2.5rem;
+		margin-top: 1rem;
+		border-radius: var(--radius-xs);
+		border: 6px solid var(--gray-700);
+		padding: 0.6rem 1rem;
 		overflow-x: auto;
+		border-style: double;
 	}
 
 	.markdown-container :global(pre code) {
 		border-radius: 0;
 		background-color: transparent;
+
 		padding: 0;
+		margin: 2rem 0;
 		white-space: pre-wrap;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
+		font-size: 1.2em;
 	}
 
 	.markdown-container :global(a) {
@@ -197,7 +204,7 @@
 	.markdown-container :global(ul),
 	.markdown-container :global(ol) {
 		margin: 1rem 0 1rem 2rem;
-		padding: 0;
+		padding: 0 1rem;
 		color: var(--gray-200);
 	}
 
@@ -207,8 +214,11 @@
 	}
 
 	.markdown-container :global(li) {
-		margin: 0.5rem 0;
 		color: var(--gray-200);
+		padding: 0.2rem 0;
+		font-family: var(--font-secondary);
+		list-style-type: square;
+		line-height: 2.1;
 	}
 
 	.markdown-container :global(blockquote) {
@@ -219,7 +229,7 @@
 	}
 
 	.markdown-container :global(strong) {
-		color: white;
+		color: var(--bg-color);
 		font-weight: bold;
 	}
 
@@ -241,13 +251,14 @@
 
 	.markdown-container :global(th),
 	.markdown-container :global(td) {
-		border: 1px solid var(--bg-color);
+		border: 1px solid var(--gray-800);
 		padding: 10px;
 		text-align: left;
+		font-family: var(--font-secondary);
+		color: var(--gray-300);
 	}
 
 	.markdown-container :global(th) {
-		background-color: rgba(33, 207, 117, 0.1);
 		font-family: var(--font-secondary);
 		font-weight: bold;
 	}

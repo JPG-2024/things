@@ -4,6 +4,8 @@
 	import DatabaseManager from '@/components/DatabaseManager.svelte';
 	import GlobalShortcutSettings from '@/components/GlobalShortcutSettings.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
+	import Tabs from '@/components/Tabs.svelte';
+	import type { AiProvider } from '@/stores/viewStore.svelte';
 	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
 	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
 	import FieldsRow from '@/components/inputs/fields/FieldsRow.component.svelte';
@@ -387,6 +389,12 @@
 		{ label: 'Italian', value: 'it' },
 		{ label: 'Japanese', value: 'ja' }
 	];
+
+	const AI_PROVIDER_TABS = [
+		{ id: 'llama', label: 'Llama (local)', icon: 'Cpu' },
+		{ id: 'openrouter', label: 'OpenRouter', icon: 'Route' },
+		{ id: 'opencode', label: 'OpenCode Go', icon: 'Terminal' }
+	];
 </script>
 
 <div class="drawer-inner">
@@ -399,6 +407,13 @@
 		options={languageOptions}
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
+	/>
+	<Tabs
+		tabs={AI_PROVIDER_TABS}
+		activeTab={viewState.aiProvider}
+		onTabChange={(id) => (viewState.aiProvider = id as AiProvider)}
+		iconOnly
+		iconSize={18}
 	/>
 	<Spacer title="AI Provider" icon="Cloud">
 		<div class="inference-section">

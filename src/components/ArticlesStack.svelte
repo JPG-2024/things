@@ -32,16 +32,12 @@
 	// layer ever crosses the grid cell's top clip edge (.grid-item has
 	// overflow: hidden); the pile's bottom padding absorbs the downward growth.
 	function layerStyle(index: number, total: number): string {
-		// Two-thumb layout: newest anchors the left side, straight; the older
-		// thumb sits at the right side, tilted a little to the left.
-		// translateX(22%) is relative to the layer's own width (82% of the
-		// pile), landing its right edge flush with the pile's right side.
-
 		const depth = index;
+		// Row mode: the pile lives inside the fixed 150x80 thumb box which clips
+		// the fan, so only the horizontal step matters — no downward rise.
+		const y = isRowMode ? 0 : depth * 10;
 		const x = depth * 20;
-		const y = depth * 10;
-		const rot = depth * 0;
-		return `transform: translate(${x}px, ${y}px) rotate(${rot}deg); z-index: ${total - index};`;
+		return `transform: translate(${x}px, ${y}px) ; z-index: ${total - index};`;
 	}
 </script>
 
@@ -117,7 +113,7 @@
 		     navigating to the profile page. -->
 		<span class="articles-stack__profile" aria-hidden="true">
 			{#if frontArticle?.profilePictureSrc}
-				<ProfileThumb src={frontArticle.profilePictureSrc} size={22} />
+				<ProfileThumb src={frontArticle.profilePictureSrc} size={40} />
 			{:else if frontArticle?.url?.startsWith('raw-')}
 				<span class="articles-stack__raw-badge">
 					<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
@@ -133,9 +129,10 @@
 	.articles-stack {
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		width: 100%;
 		padding: 0.75rem;
+		padding-left: 28px;
 		background: transparent;
 		border: none;
 		cursor: pointer;
@@ -161,13 +158,14 @@
 	.articles-stack__row-thumb {
 		position: relative;
 		flex: 0 0 auto;
-		width: 150px;
+		width: 200px;
 		height: 80px;
 		overflow: hidden;
 		border-radius: var(--radius-md);
 	}
 
 	.articles-stack__row-text {
+		font-size: 2.2rem;
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -179,22 +177,21 @@
 		font-size: 0.8rem;
 		overflow: hidden;
 		text-align: left;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		white-space: wrap;
 		padding: 0 1rem;
 	}
 
 	.articles-stack__pile {
 		position: relative;
-		width: 100%;
+		width: 200px;
 		/* Room for the downward fan: (previewCount - 1) * 8px rise plus corner
 		 * lift from rotation. 40px covers up to 5 preview layers. */
 		padding-bottom: 40px;
 	}
 
 	.articles-stack__spacer {
-		width: 82%;
 		aspect-ratio: 16 / 9;
+		height: 80px;
 		visibility: hidden;
 	}
 
@@ -202,11 +199,15 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 82%;
-		aspect-ratio: 16 / 9;
+		width: 150px;
+		height: 80px;
 		overflow: hidden;
-		border-radius: var(--radius-sm, 8px);
-		border: 1px solid var(--article-border);
+		border-radius: var(--radius-md);
+		border: 2px solid var(--article-border);
+	}
+
+	.articles-stack.row .articles-stack__layer {
+		height: 80px;
 	}
 
 	/* Only the placeholder resolves `cqi` units (mirrors ArticleThumbnail). */
@@ -249,10 +250,6 @@
 		background: var(--primary-color);
 		z-index: 10;
 		pointer-events: none;
-	}
-
-	.articles-stack:hover .articles-stack__layer {
-		will-change: transform;
 	}
 
 	/* Favorite marker: same top-right corner and fill treatment as

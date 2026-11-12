@@ -15,7 +15,7 @@
 		font-family: var(--font-secondary);
 		line-height: 1.4;
 		text-align: left;
-		font-size: 0.7rem;
+		font-size: 0.85rem;
 		flex: 1;
 		min-width: 0;
 		height: 100%;

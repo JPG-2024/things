@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '@/components/Icon.svelte';
+	import ProfileFavoriteButton from '@/components/ProfileFavoriteButton.svelte';
 	import EntityCard from '@/components/EntityCard.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
@@ -42,12 +43,6 @@
 		}
 		articleCacheStore.invalidateProfiles();
 		await articleCacheStore.fetchProfilesWithArticles({ force: true });
-	}
-
-	/** Fire-and-forget: a failed persist simply does not repaint the star. */
-	function handleToggleFavorite() {
-		const next = !(profileWithArticles.favorite === true);
-		void articleCacheStore.setProfileFavorite(profileWithArticles.id, next);
 	}
 
 	async function handleNavigateToArticle(article: ArticleRecord) {
@@ -138,22 +133,13 @@
 		</div>
 		<!-- Sibling of the avatar/name buttons (a <button> cannot nest in a
 		     <button>); anchored to the card's top-right corner. -->
-		<button
-			type="button"
-			class="profile-star"
-			class:favorite={profileWithArticles.favorite === true}
-			onclick={handleToggleFavorite}
-			aria-label={profileWithArticles.favorite ? 'Remove from favorites' : 'Add to favorites'}
-		>
-			<Icon
-				name="Star"
+		{#if profileWithArticles.favoritedAt}
+			<ProfileFavoriteButton
+				profileId={profileWithArticles.id}
 				size={16}
-				color="var(--primary-color)"
-				tooltipProps={{
-					content: profileWithArticles.favorite ? 'remove favorite' : 'add favorite'
-				}}
+				className="profile-star"
 			/>
-		</button>
+		{/if}
 	{/snippet}
 </EntityCard>
 

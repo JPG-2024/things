@@ -484,7 +484,7 @@
 		margin: 0;
 		font-size: 14px;
 		font-family: 'MonaspaceXenonFrozen', monospace;
-		border: 2px solid var(--gray-300);
+		/* border: 2px solid var(--gray-700); */
 	}
 
 	@font-face {
@@ -561,7 +561,7 @@
 		--gray-800: rgb(33, 33, 33);
 		--gray-900: rgb(12, 12, 12);
 
-		--article-border: rgba(120, 119, 119, 0.3);
+		--article-border: var(--gray-700);
 
 		color: var(--gray-100);
 
@@ -735,11 +735,11 @@
 		border-radius: var(--radius-sm);
 		/* No backdrop-filter: one element is fine, but a blur re-filters the
 		 * backdrop on every frame while the pointer moves. */
-		background: rgba(0, 0, 0, 0.92);
+		background: var(--gray-700);
 		color: var(--gray-100);
 		padding: 0.4rem 0.7rem;
 		font-family: var(--font-secondary);
-		font-size: 0.8rem;
+		font-size: 0.7rem;
 		white-space: pre-wrap;
 		z-index: 9999;
 		pointer-events: none;

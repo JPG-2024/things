@@ -179,7 +179,7 @@
 			     without nesting a <button>: clicking still opens the article. -->
 			<span class="article-profile-thumb" aria-hidden="true">
 				{#if article.profilePictureSrc}
-					<ProfileThumb src={article.profilePictureSrc} size={24} />
+					<ProfileThumb src={article.profilePictureSrc} size={40} />
 				{:else if article.url?.startsWith('raw-')}
 					<span class="article-raw-badge">
 						<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
@@ -206,7 +206,7 @@
 			<Icon
 				name="Star"
 				size={16}
-				color="var(--primary-color)"
+				color="yellow"
 				tooltipProps={{ content: favorite ? 'remove favorite' : 'add favorite' }}
 			/>
 		</button>
@@ -328,7 +328,7 @@
 	}
 
 	.article-star.favorite :global(svg) {
-		fill: var(--primary-color);
+		fill: yellow;
 	}
 
 	/* Profile/domain attribution at the card's bottom-left corner (the star
@@ -352,9 +352,6 @@
 	/* Ring separates the avatar from both the article image and the card
 	   background; a shadow ring keeps the box (and the layout) untouched. */
 	.article-profile-thumb :global(.profile-thumb) {
-		box-shadow:
-			0 0 0 1px rgba(0, 0, 0, 0.4),
-			0 1px 2px rgba(0, 0, 0, 0.35);
 	}
 
 	/* Raw-text articles have no profile/domain picture: show the same icon

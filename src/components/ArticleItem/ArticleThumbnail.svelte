@@ -96,7 +96,7 @@
 		opacity: 1;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
-		border: 1px solid var(--article-border);
+		border: 2px solid var(--article-border);
 	}
 
 	.article-thumbnail-container.sized {

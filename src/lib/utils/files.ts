@@ -96,7 +96,7 @@ export async function downloadImageUrl(
 			url: url,
 			folderName: mediaDirectory,
 			reductionMagnitud,
-			maxDimension: 320
+			maxDimension: 180
 		});
 
 		return { mediaDirectory, fileName };
