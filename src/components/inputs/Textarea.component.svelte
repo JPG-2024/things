@@ -28,7 +28,6 @@
 	}: Props = $props();
 
 	function handleInput(event: Event) {
-		console.log(event);
 		const target = event.target as HTMLTextAreaElement;
 		const newValue = target.value;
 		value = newValue;
@@ -39,7 +38,6 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		console.log(event);
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			if (onEnter) {
