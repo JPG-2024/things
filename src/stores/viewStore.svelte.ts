@@ -52,9 +52,7 @@ export interface MasonryPreset {
 // decides whether images/text are shown.
 export const MASONRY_PRESETS: MasonryPreset[] = [
 	{ key: 'grid', columns: 4, contentMode: 'thumbnail', padding: '2rem 4rem' },
-	{ key: 'row', columns: 1, contentMode: 'both', padding: '1rem', rowHeight: 80 },
-	/* { key: 'grid', columns: 3, contentMode: 'thumbnail', padding: '1.5rem 2rem' }, */
-	{ key: 'grid-3', columns: 3, contentMode: 'both', padding: '2rem 3rem' }
+	{ key: 'row', columns: 1, contentMode: 'both', padding: '1rem', rowHeight: 80 }
 ];
 
 // Icon and label per preset for the vertical preset rail in ArticleList. Keyed

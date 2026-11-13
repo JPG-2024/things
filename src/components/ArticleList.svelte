@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import MasonryGrid from '@/components/MasonryGrid.svelte';
 	import ArticleItem from '@/components/ArticleItem/ArticleItem.svelte';
 	import LoadMoreSentinel from '@/components/LoadMoreSentinel.svelte';
 	import Tabs from '@/components/Tabs.svelte';
@@ -27,6 +26,7 @@
 		type ArticleGridCell,
 		type ProfileStackCell
 	} from '@/lib/utils/articleGridCells';
+	import { ARTICLE_GRID_THUMBNAIL, ARTICLE_THUMBNAIL_SIZES } from '@/constants';
 
 	interface Props {
 		items: ArticleRecord[];
@@ -42,7 +42,7 @@
 		onArticleClick?: (article: ArticleRecord) => void | Promise<void>;
 		headerLeft?: Snippet<[]>;
 		/**
-		 * Pins the grid to a preset layout (e.g. `row` for search results)
+		 * Pins the layout to a preset key (e.g. `row` for search results)
 		 * without touching the shared preset index. The rail hides its preset
 		 * tabs while pinned, since the layout cannot be switched.
 		 */
@@ -70,7 +70,7 @@
 
 	// Vertical rail owning the preset switcher. Tab ids carry the preset index
 	// so duplicate `key`s in MASONRY_PRESETS can never collide; the store stays
-	// the single source of truth (Alt+ArrowUp/Down in MasonryGrid stays in sync).
+	// the single source of truth (the Alt+ArrowUp/Down hotkeys below stay in sync).
 	const presetTabs = MASONRY_PRESETS.map((preset, index) => ({
 		id: `preset-${index}`,
 		label: MASONRY_PRESET_LABELS[preset.key] ?? preset.key,
@@ -92,6 +92,56 @@
 			viewState.masonryArticlesPresetIndex = index;
 		}
 	}
+
+	// Layout derivation, formerly owned by MasonryGrid. A caller may pin a
+	// layout (search results force `row`) without mutating the shared preset
+	// index; otherwise the store's preset decides. The list only has two
+	// container shapes: a plain column of rows, and a wrapping flex row of
+	// fixed-size thumbnail cards for every grid preset.
+	const activePreset = $derived(
+		presetOverride
+			? MASONRY_PRESETS.find((preset) => preset.key === presetOverride)
+			: viewState.masonryPreset
+	);
+	const isRowMode = $derived(activePreset?.key === 'row');
+	// Normalized for ArticleItem: every grid preset renders its thumbnail
+	// layout (`grid-3` no longer exists, but a stale index would still land here).
+	const layoutKey = $derived<LayoutKey>(isRowMode ? 'row' : 'grid');
+	const itemContentMode = $derived<ArticleContentMode>(isRowMode ? 'both' : 'thumbnail');
+	// Fixed grid card size. One source drives both the ArticleItem thumbnail
+	// box (`thumbnailSize`) and the wrapping column width in the styles below.
+	const gridItemWidth = $derived(ARTICLE_THUMBNAIL_SIZES[ARTICLE_GRID_THUMBNAIL].width);
+
+	// Alt+ArrowDown/Alt+ArrowUp step through MASONRY_PRESETS, clamped at both
+	// ends. Re-homed from MasonryGrid, which this list no longer mounts. The
+	// Alt modifier keeps plain arrow keys free for normal page scroll, and the
+	// hotkeys stay inert while an overlay is open or the layout is pinned.
+	function movePreset(delta: number) {
+		if (presetOverride) return;
+		const current = viewState.masonryArticlesPresetIndex;
+		const next = Math.max(0, Math.min(current + delta, MASONRY_PRESETS.length - 1));
+		if (next === current) return;
+		viewState.masonryArticlesPresetIndex = next;
+	}
+
+	createHotkey(
+		'Alt+ArrowDown',
+		() => movePreset(1),
+		() => ({
+			enabled: !viewState.overlayOpen && !presetOverride,
+			ignoreInputs: true,
+			stopPropagation: true
+		})
+	);
+	createHotkey(
+		'Alt+ArrowUp',
+		() => movePreset(-1),
+		() => ({
+			enabled: !viewState.overlayOpen && !presetOverride,
+			ignoreInputs: true,
+			stopPropagation: true
+		})
+	);
 
 	function handleArticleClick(article: ArticleRecord) {
 		if (onArticleClick) {
@@ -153,18 +203,29 @@
 				}))
 	);
 
+	// Post-mount mirror of `gridItems`. Svelte suppresses intro transitions for
+	// elements present during a component's initial render, so a list that is
+	// already populated at mount (cached data, tab switches) would never
+	// animate. Starting empty and filling the mirror in an effect makes the
+	// keyed {#each} see an add, so items fade/slide in on every mount — the
+	// window `tabAnimationStore` documents for tab switches.
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let renderedItems = $state<ArticleGridCell[]>([]);
+	$effect(() => {
+		renderedItems = gridItems;
+	});
+
 	// A grouping flip rewrites every cell key (url ↔ profile:<id>), so the keyed
-	// {#each} would replay the tab transition across the whole grid at once.
+	// {#each} would replay the tab transition across the whole list at once.
 	// Suppress both halves of that one swap; mounts from load-more/search still
 	// animate. The flag is a plain variable (not reactive): effect.pre sets it
 	// before the DOM update and the transitions read it while the cells are
-	// created/removed. It cannot be cleared from an effect: MasonryGrid's
-	// post-mount mirror assigns `renderedItems` in its own effect, so the keyed
-	// swap lands a flush *later* than this flip — a macrotask timeout clears the
-	// flag only after that swap has been applied (and clears it even when the
-	// flip happens with zero items mounted). `lastGrouped` is seeded on the
-	// effect's first run instead of at init, so no reactive value is read
-	// outside a reactive context.
+	// created/removed. It cannot be cleared from an effect: the post-mount
+	// mirror assigns `renderedItems` in its own effect, so the keyed swap lands
+	// a flush *later* than this flip — a macrotask timeout clears the flag only
+	// after that swap has been applied (and clears it even when the flip happens
+	// with zero items mounted). `lastGrouped` is seeded on the effect's first run
+	// instead of at init, so no reactive value is read outside a reactive context.
 	let suppressSwap = false;
 	let lastGrouped: boolean | undefined = undefined;
 
@@ -211,44 +272,45 @@
 			<InitialArticlesToggle />
 		</div>
 		<div class="article-list__content">
+			{#if headerLeft}
+				<div class="article-list__header">
+					{@render headerLeft()}
+				</div>
+			{/if}
 			{#if gridItems.length > 0}
-				<MasonryGrid
-					items={gridItems}
-					keyOf={(cell) => cell.key}
-					itemTransition={cellTransition}
-					{headerLeft}
-					{presetOverride}
+				<div
+					class="article-list__items"
+					class:row={isRowMode}
+					class:grid={!isRowMode}
+					style="--grid-item-width: {gridItemWidth}px"
 				>
-					{#snippet children(
-						cell: ArticleGridCell,
-						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-						_i: number,
-						/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-						_layoutIndex: number,
-						layoutKey: LayoutKey,
-						contentMode: ArticleContentMode
-					)}
-						{#if cell.kind === 'stack'}
-							<ArticlesStack {cell} {layoutKey} onClick={handleStackClick} />
-						{:else}
-							<ArticleItem
-								article={cell.article}
-								{layoutKey}
-								{contentMode}
-								unread={!cell.article.viewed}
-								selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
-								matchSnippet={matchOf?.(cell.article) ?? undefined}
-								showFavorite
-								showProfileThumb
-								favorite={cell.article.favorite === true}
-								onToggleFavorite={handleToggleFavorite}
-								onClick={handleArticleClick}
-								onHoverEnter={handleArticleHoverEnter}
-								onHoverLeave={handleArticleHoverLeave}
-							/>
-						{/if}
-					{/snippet}
-				</MasonryGrid>
+					{#each renderedItems as cell (cell.key)}
+						<div class="article-list__item" in:cellTransition out:cellTransition>
+							{#if cell.kind === 'stack'}
+								<ArticlesStack {cell} {layoutKey} onClick={handleStackClick} />
+							{:else}
+								<ArticleItem
+									article={cell.article}
+									{layoutKey}
+									contentMode={itemContentMode}
+									thumbnailOnly={!isRowMode}
+									thumbnailSize={!isRowMode ? ARTICLE_GRID_THUMBNAIL : undefined}
+									tooltip={isRowMode ? null : (cell.article.title ?? null)}
+									unread={!cell.article.viewed}
+									selected={selectedArticlesStore.selectedUrls.has(cell.article.url ?? '')}
+									matchSnippet={matchOf?.(cell.article) ?? undefined}
+									showFavorite
+									showProfileThumb
+									favorite={cell.article.favorite === true}
+									onToggleFavorite={handleToggleFavorite}
+									onClick={handleArticleClick}
+									onHoverEnter={handleArticleHoverEnter}
+									onHoverLeave={handleArticleHoverLeave}
+								/>
+							{/if}
+						</div>
+					{/each}
+				</div>
 				{#if hasMore}
 					<LoadMoreSentinel onLoadMore={() => onLoadMore?.()} disabled={loading} />
 				{/if}
@@ -280,7 +342,7 @@
 	}
 
 	/* Controls rail sized to its content, pinned near the top of the scrollport
-	 * so switching presets stays possible while the grid scrolls under it. */
+	 * so switching presets stays possible while the list scrolls under it. */
 	.article-list__rail {
 		position: sticky;
 		top: 1rem;
@@ -295,6 +357,41 @@
 	.article-list__content {
 		min-width: 0;
 		flex: 1;
+	}
+
+	.article-list__header {
+		display: flex;
+		justify-content: flex-end;
+		gap: 2rem;
+		padding: 0.2rem 2rem;
+		width: 100%;
+	}
+
+	/* The only two container shapes: `row` is a plain column of full-width
+	 * rows, `grid` a wrapping flex row of fixed-width thumbnail cards
+	 * (--grid-item-width is set from ARTICLE_THUMBNAIL_SIZES). */
+	.article-list__items {
+		display: flex;
+		gap: 1rem;
+		padding-top: 1.3rem;
+	}
+
+	.article-list__items.row {
+		flex-direction: column;
+	}
+
+	.article-list__items.grid {
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
+
+	.article-list__item {
+		min-width: 0;
+	}
+
+	.article-list__items.grid .article-list__item {
+		flex: 0 0 var(--grid-item-width);
+		width: var(--grid-item-width);
 	}
 
 	.article-list__loading {

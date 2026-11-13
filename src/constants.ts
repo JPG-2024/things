@@ -32,6 +32,14 @@ export const ENTITY_ARTICLE_THUMBNAIL = 'sm';
 export const ENTITY_CARD_GAP_PX = 12;
 
 /**
+ * Thumbnail preset for ArticleList's thumbnail (grid) mode: a fixed, uniform
+ * card size that the flex row wraps responsively. Sourced from the existing
+ * `ARTICLE_THUMBNAIL_SIZES` presets so there is no new magic number; change
+ * this one line to resize every grid thumbnail.
+ */
+export const ARTICLE_GRID_THUMBNAIL = 'lg';
+
+/**
  * Responsive card grid of the entity tabs (Profiles/Domains/Categories): the
  * column counts below are configurable (`viewState.gridColumnsNarrow` /
  * `gridColumnsWide`) and switch at the breakpoint documented in
