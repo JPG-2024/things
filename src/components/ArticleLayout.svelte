@@ -106,8 +106,6 @@
 		preventDefault: true
 	}));
 
-
-
 	function goToProfile() {
 		if (!article.profile) return;
 		viewState.currentProfileId = article.profile;
@@ -211,6 +209,8 @@
 <style>
 	.article-layout {
 		width: 100%;
+		height: 100vh;
+		background: black;
 		padding: 3rem;
 		padding-top: 6rem;
 		display: grid;
@@ -346,7 +346,6 @@
 	.full-content-button:hover {
 		background-color: var(--hover-bg);
 	}
-
 
 	@media (max-width: 760px) {
 		.article-layout {

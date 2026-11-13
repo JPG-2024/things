@@ -139,7 +139,7 @@
 	article {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
+		/* justify-content: center; */
 		align-items: flex-start;
 		gap: 0.2em;
 		padding-top: 33px;
