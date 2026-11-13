@@ -366,6 +366,14 @@
 		stopPropagation: true
 	}));
 
+	// Shift+Enter sends from the textarea; plain Enter keeps inserting a newline.
+	createHotkey('Shift+Enter', handleSendPrompt, () => ({
+		enabled: !settingsOpen && !streaming && !searching,
+		ignoreInputs: false,
+		preventDefault: true,
+		stopPropagation: true
+	}));
+
 	$effect(() => {
 		return () => {
 			if (abortController) {
@@ -502,7 +510,7 @@
 			{#if messages.length === 0 && !streaming}
 				<div class="chat-modal__empty">
 					<p>Start a conversation...</p>
-					<span class="chat-modal__hint">Press Enter to send · Esc to close</span>
+					<span class="chat-modal__hint">Shift+Enter to send · Esc to close</span>
 				</div>
 			{/if}
 
@@ -846,6 +854,14 @@
 
 	.chat-modal__input-wrap {
 		flex: 1;
+		display: flex;
+		align-items: flex-end;
+		gap: 0.5rem;
+	}
+
+	.chat-modal__input-wrap :global(.text-input) {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.chat-modal__searching {
