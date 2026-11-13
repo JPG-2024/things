@@ -2,7 +2,6 @@
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import Textarea from '@/components/inputs/Textarea.component.svelte';
-	import Input from '@/components/inputs/Input.component.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import MarkdownRenderer from '@/components/MarkdownRenderer.svelte';
 	import Icon from '@/components/Icon.svelte';
@@ -19,6 +18,8 @@
 	import { retrieveContextChunks } from '@/lib/utils/embeddingStore';
 	import type { SearchChunkResult } from '@/lib/utils/embeddingStore';
 	import { resolveChatScope, type ChatScope } from '@/lib/utils/chatScope';
+	import { answerWindows, type QuestionMessage } from '@/lib/utils/questionWindows';
+	import { readRawContent } from '@/lib/utils/rawContent';
 	import ReasoningPanel from '@/components/ReasoningPanel.component.svelte';
 	import ConversationSettingsModal from '@/components/modals/ConversationSettingsModal.svelte';
 	import type { ChatReasoningEffort } from '@/stores/viewStore.svelte';
@@ -56,6 +57,13 @@
 	let messagesContainer = $state<HTMLDivElement | null>(null);
 	let abortController = $state<AbortController | null>(null);
 	let modalEl = $state<HTMLDivElement | null>(null);
+
+	// Full-text ("this article") scope: the raw body is cached per url for the
+	// modal session and the divisor that last fit is remembered across turns,
+	// so a turn never re-sends a context known not to fit.
+	let fullTextCache: { url: string; content: string } | null = null;
+	let fullTextDivisor: { url: string; divisor: number } | null = null;
+	let windowStatus = $state<string | null>(null);
 
 	// Session toggle for embedding retrieval; seeded from the persisted
 	// settings choice and written back so the choice sticks across sessions.
@@ -137,6 +145,20 @@
 	}
 
 	/**
+	 * Raw body of the scoped article, cached for the modal session: follow-up
+	 * questions re-use it instead of re-reading the file. Returns `null` when
+	 * the article has no stored body.
+	 */
+	async function loadFullText(url: string): Promise<string | null> {
+		if (fullTextCache?.url === url) return fullTextCache.content;
+		const content = await readRawContent(url);
+		const body = content?.trim();
+		if (!body) return null;
+		fullTextCache = { url, content: body };
+		return body;
+	}
+
+	/**
 	 * Builds the numbered context block injected ahead of the question so the
 	 * model can cite its sources as `[1]`, `[2]`… Only chunks with stored text
 	 * are usable as context; the rest still show up in the sources strip.
@@ -161,10 +183,28 @@
 		// The scope is captured once so the hint matches the filter that ran,
 		// even if the route changes while the answer streams.
 		const epoch = requestEpoch;
-		// No retrieval, no scope hint: the miss only makes sense when a scoped
-		// search actually ran (service down or search off would be misleading).
-		const scopeFilter = searchEnabled && viewState.embeddingsServiceUp ? activeScope : null;
-		const sources = await retrieveSources(trimmed, scopeFilter);
+		// Full-text scope: when the search is narrowed to "this article" the
+		// raw body replaces chunk retrieval — reading it needs no embeddings
+		// service. Any other scope keeps the chunk path (which no-ops while
+		// the service is down). An article without a stored body degrades to
+		// chunks like any other scope.
+		const scopeFilter =
+			searchEnabled && (viewState.embeddingsServiceUp || activeScope?.kind === 'article')
+				? activeScope
+				: null;
+		const fullTextUrl = scopeFilter?.kind === 'article' ? scopeFilter.articleUrl : undefined;
+		const fullText = fullTextUrl ? { url: fullTextUrl } : null;
+		let sources: SearchChunkResult[] = [];
+		let rawBody: string | null = null;
+
+		if (fullText) {
+			rawBody = await loadFullText(fullText.url);
+			if (rawBody === null) {
+				sources = await retrieveSources(trimmed, scopeFilter);
+			}
+		} else {
+			sources = await retrieveSources(trimmed, scopeFilter);
+		}
 
 		if (epoch !== requestEpoch) return; // cleared or exited while retrieving
 
@@ -183,18 +223,32 @@
 			content: '',
 			done: false,
 			sources,
-			scopeMiss: scopeFilter && sources.length === 0 ? (scopeFilter.label ?? undefined) : undefined
+			scopeMiss:
+				scopeFilter && !rawBody && sources.length === 0
+					? (scopeFilter.label ?? undefined)
+					: undefined
 		};
 		messages.push(assistantMsg);
 
 		streamedText = '';
 		streamedReasoning = '';
+		windowStatus = null;
 		activeAssistantId = assistantId;
 		streaming = true;
 		error = null;
 		abortController = new AbortController();
 		void ensureAudioContext();
 		await scrollToBottom();
+
+		// Prior turns for the window path (`answerWindows` takes the current
+		// question separately): done messages only, before this turn's bubble.
+		const priorHistory: QuestionMessage[] = [];
+		for (const m of messages) {
+			if (m.id === assistantId || m.id === userMsg.id) continue;
+			if (m.role === 'user' || (m.role === 'assistant' && m.done)) {
+				priorHistory.push({ role: m.role, content: m.content });
+			}
+		}
 
 		const historyForApi: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
 			{
@@ -237,45 +291,92 @@
 		let sawReasoningContent = false;
 
 		try {
-			const response = await chatCompletions(request, {
-				signal: abortController.signal,
-				onToken: (token) => {
-					const parts = tagSplitter.feed(token);
-					if (parts.reasoning) streamedReasoning += parts.reasoning;
-					if (parts.content) streamedText += parts.content;
-					void scrollToBottom();
-				},
-				onReasoningToken: (token) => {
-					sawReasoningContent = true;
-					streamedReasoning += token;
-					void scrollToBottom();
-				}
-			});
+			if (fullText && rawBody) {
+				// Window QA path: the raw body answers the question directly, or
+				// climbs the divisor ladder when it does not fit the context.
+				const result = await answerWindows(rawBody, trimmed, {
+					startDivisor: fullTextDivisor?.url === fullText.url ? fullTextDivisor.divisor : undefined,
+					systemPrompt: resolveConversationSystemPrompt(viewState.conversationSystemPrompt),
+					history: priorHistory,
+					signal: abortController.signal,
+					onAttempt: (total) => (windowStatus = `reading part 1/${total}`),
+					onWindow: (index, total) => {
+						windowStatus =
+							index + 1 < total ? `reading part ${index + 2}/${total}` : 'merging partial answers…';
+					},
+					onToken: (token) => {
+						const parts = tagSplitter.feed(token);
+						if (parts.reasoning) streamedReasoning += parts.reasoning;
+						if (parts.content) streamedText += parts.content;
+						void scrollToBottom();
+					},
+					onReasoningToken: (token) => {
+						sawReasoningContent = true;
+						streamedReasoning += token;
+						void scrollToBottom();
+					}
+				});
+				// Remember the divisor that fit so the next turn starts there.
+				fullTextDivisor = { url: fullText.url, divisor: result.divisor };
 
-			const finalText = response.choices?.[0]?.message?.content;
-			let finalReasoning = '';
-			if (typeof finalText === 'string' && finalText) {
-				const parts = splitThoughtTags(finalText);
-				if (parts.content.trim()) {
-					streamedText = parts.content;
-				}
-				if (parts.reasoning && !sawReasoningContent) {
-					streamedReasoning += parts.reasoning;
-					finalReasoning = parts.reasoning;
-				}
-			}
+				// The streamed text is the merge call's answer; the returned one
+				// covers a server that answered without streaming.
+				if (!streamedText.trim()) streamedText = result.answer;
 
-			const idx = messages.findIndex((m) => m.id === assistantId);
-			if (idx !== -1) {
-				messages[idx] = {
-					...messages[idx],
-					content: streamedText,
-					reasoning: streamedReasoning || finalReasoning,
-					done: true
-				};
-				if (viewState.autoSpeechEnabled && streamedText.trim()) {
-					void ensureAudioContext();
-					void ttsState.generateFromClipboard(streamedText);
+				const idx = messages.findIndex((m) => m.id === assistantId);
+				if (idx !== -1) {
+					messages[idx] = {
+						...messages[idx],
+						content: streamedText,
+						reasoning: streamedReasoning,
+						done: true
+					};
+					if (viewState.autoSpeechEnabled && streamedText.trim()) {
+						void ensureAudioContext();
+						void ttsState.generateFromClipboard(streamedText);
+					}
+				}
+			} else {
+				const response = await chatCompletions(request, {
+					signal: abortController.signal,
+					onToken: (token) => {
+						const parts = tagSplitter.feed(token);
+						if (parts.reasoning) streamedReasoning += parts.reasoning;
+						if (parts.content) streamedText += parts.content;
+						void scrollToBottom();
+					},
+					onReasoningToken: (token) => {
+						sawReasoningContent = true;
+						streamedReasoning += token;
+						void scrollToBottom();
+					}
+				});
+
+				const finalText = response.choices?.[0]?.message?.content;
+				let finalReasoning = '';
+				if (typeof finalText === 'string' && finalText) {
+					const parts = splitThoughtTags(finalText);
+					if (parts.content.trim()) {
+						streamedText = parts.content;
+					}
+					if (parts.reasoning && !sawReasoningContent) {
+						streamedReasoning += parts.reasoning;
+						finalReasoning = parts.reasoning;
+					}
+				}
+
+				const idx = messages.findIndex((m) => m.id === assistantId);
+				if (idx !== -1) {
+					messages[idx] = {
+						...messages[idx],
+						content: streamedText,
+						reasoning: streamedReasoning || finalReasoning,
+						done: true
+					};
+					if (viewState.autoSpeechEnabled && streamedText.trim()) {
+						void ensureAudioContext();
+						void ttsState.generateFromClipboard(streamedText);
+					}
 				}
 			}
 		} catch (err) {
@@ -298,19 +399,17 @@
 			}
 		} finally {
 			streaming = false;
+			windowStatus = null;
 			activeAssistantId = null;
 			abortController = null;
 			await scrollToBottom();
 		}
 	}
 
-	const handleChangeUserPrompt = (newValue: string) => {
-		userPrompt = newValue;
-	};
-
 	function handleSendPrompt() {
 		const trimmed = userPrompt.trim();
-		if (!trimmed || streaming) return;
+		if (!trimmed || streaming || searching) return;
+		userPrompt = '';
 		void streamResponse(trimmed);
 	}
 
@@ -321,6 +420,9 @@
 		}
 		requestEpoch++;
 		messages = [];
+		fullTextCache = null;
+		fullTextDivisor = null;
+		windowStatus = null;
 		streamedText = '';
 		streamedReasoning = '';
 		streaming = false;
@@ -338,6 +440,9 @@
 		requestEpoch++;
 		// clear on exit per spec
 		messages = [];
+		fullTextCache = null;
+		fullTextDivisor = null;
+		windowStatus = null;
 		streamedText = '';
 		streamedReasoning = '';
 		streaming = false;
@@ -529,6 +634,8 @@
 							{/if}
 							{#if streamedText}
 								<MarkdownRenderer content={streamedText} />
+							{:else if windowStatus}
+								<span class="chat-modal__thinking">{windowStatus}</span>
 							{:else if !streamedReasoning}
 								<span class="chat-modal__thinking">Thinking...</span>
 							{/if}
@@ -574,10 +681,10 @@
 			{/if}
 			<div class="chat-modal__input-wrap">
 				<Textarea
+					bind:value={userPrompt}
 					autofocus
 					placeholder="Send a message..."
 					disabled={streaming || searching}
-					onChange={handleChangeUserPrompt}
 				/>
 				<Button onClick={handleSendPrompt}>send</Button>
 			</div>

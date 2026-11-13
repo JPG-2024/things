@@ -221,6 +221,10 @@
 		line-height: 2.1;
 	}
 
+	.markdown-container :global(li::marker) {
+		color: var(--bg-color);
+	}
+
 	.markdown-container :global(blockquote) {
 		margin: 1rem 0;
 		padding-left: 1rem;

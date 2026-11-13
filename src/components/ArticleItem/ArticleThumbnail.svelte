@@ -80,7 +80,7 @@
 		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 	}
 
 	/* Only the placeholder resolves `cqi` units. */
