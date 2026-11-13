@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import type { ArticleRecord } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import type { ArticleContentMode, LayoutKey, RawSearchMatch } from '@/stores/viewStore.svelte';
@@ -33,10 +35,10 @@
 		 */
 		showFavorite?: boolean;
 		/**
-		 * Renders the profile/domain thumb at the card's bottom-left corner
-		 * (the raw-text fallback shows the same icon the Topbar uses in
-		 * postview). Opt-in so non-list surfaces (EntityCard previews) keep
-		 * the plain card.
+		 * Renders the profile/domain thumb at the card's corner; with a profile
+		 * on the record the thumb opens the profile page (the raw-text fallback
+		 * shows the same icon the Topbar uses in postview). Opt-in so non-list
+		 * surfaces (EntityCard previews) keep the plain card.
 		 */
 		showProfileThumb?: boolean;
 		/** Current favorite state; a saved favorite keeps the star visible. */
@@ -90,6 +92,32 @@
 	// no image the text renders alone; in row the empty placeholder sits beside it.
 	const showThumbnail = $derived(mode !== 'title');
 	const showText = $derived(mode !== 'thumbnail' || matchSnippet !== undefined);
+
+	// The profile page's topbar already names and shows the profile, so the
+	// card's corner attribution (avatar or raw-text badge) is redundant on
+	// /profile/* — every other surface keeps it.
+	const onProfileRoute = $derived(page.route.id === '/profile/[profileId]');
+
+	// The corner block paints when there is something to show: the avatar, or
+	// the raw-text fallback badge for `raw-` articles.
+	const hasCornerThumb = $derived(!!article.profilePictureSrc || !!article.url?.startsWith('raw-'));
+	const showCornerThumb = $derived(showProfileThumb && !onProfileRoute && hasCornerThumb);
+	// Rows carry the id in both fields (`profileId` is mapped from `profile`),
+	// so either one identifies the profile the corner thumb opens.
+	const profileThumbId = $derived(article.profileId ?? article.profile ?? null);
+	// Raw articles (and rows missing the picture) keep the corner decorative:
+	// no invisible focusable button is ever created.
+	const openableCorner = $derived(
+		showCornerThumb && profileThumbId !== null && !!article.profilePictureSrc
+	);
+
+	/** The corner thumb opens the profile page. It hangs off the card as a
+	 *  sibling (the star's pattern), so the click never reaches the card's
+	 *  own `handleCardClick`. */
+	function handleProfileClick(): void {
+		if (!profileThumbId) return;
+		void goto(`/profile/${encodeURIComponent(profileThumbId)}`);
+	}
 
 	// Title rendered below the thumbnail. Only the ArticleList thumbnail-only
 	// mode opts in: EntityCard passes `thumbnailOnly` for its small preview
@@ -173,43 +201,58 @@
 				showTitle={showThumbnailTitle}
 			/>
 		{/if}
-		{#if showProfileThumb}
-			<!-- Attribution at the card's bottom-left corner. Non-interactive
-			     (pointer-events: none) so it can live inside the card button
-			     without nesting a <button>: clicking still opens the article. -->
-			<span class="article-profile-thumb" aria-hidden="true">
-				{#if article.profilePictureSrc}
-					<ProfileThumb src={article.profilePictureSrc} size={40} />
-				{:else if article.url?.startsWith('raw-')}
-					<span class="article-raw-badge">
-						<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
-					</span>
-				{/if}
-			</span>
-		{/if}
 	</button>
 {/snippet}
 
-<!-- The star cannot nest inside the card (a <button> in a <button> is invalid
-     HTML), so star-enabled surfaces wrap the card in a positioned container
-     and hang the toggle off it as a sibling. -->
-{#if showFavorite}
+<!-- The star and the profile thumb cannot nest inside the card (a <button> in
+     a <button> is invalid HTML), so these surfaces wrap the card in a
+     positioned container and hang the controls off it as siblings. -->
+{#if showFavorite || showCornerThumb}
 	<div class="article-item">
 		{@render cardButton()}
-		<button
-			type="button"
-			class="article-star"
-			class:favorite
-			onclick={() => onToggleFavorite?.(article)}
-			aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-		>
-			<Icon
-				name="Star"
-				size={16}
-				color="yellow"
-				tooltipProps={{ content: favorite ? 'remove favorite' : 'add favorite' }}
-			/>
-		</button>
+		{#if showFavorite}
+			<button
+				type="button"
+				class="article-star"
+				class:favorite
+				onclick={() => onToggleFavorite?.(article)}
+				aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+			>
+				<Icon
+					name="Star"
+					size={16}
+					color="yellow"
+					tooltipProps={{ content: favorite ? 'remove favorite' : 'add favorite' }}
+				/>
+			</button>
+		{/if}
+		{#if showCornerThumb}
+			{#if openableCorner}
+				<!-- Attribution that opens the profile. Sibling of the card, so a
+				     click here never opens the article; hover is forwarded so the
+				     card's hover state survives the pointer moving onto it. -->
+				<button
+					type="button"
+					class="article-profile-thumb"
+					onclick={handleProfileClick}
+					onmouseenter={() => onHoverEnter(article)}
+					onmouseleave={onHoverLeave}
+					aria-label="Open profile"
+				>
+					<ProfileThumb src={article.profilePictureSrc} size={40} />
+				</button>
+			{:else}
+				<!-- Decorative corner (raw-text badge): non-interactive so it can
+				     overlap the card button without stealing the article click. -->
+				<span class="article-profile-thumb" aria-hidden="true">
+					{#if article.url?.startsWith('raw-')}
+						<span class="article-raw-badge">
+							<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
+						</span>
+					{/if}
+				</span>
+			{/if}
+		{/if}
 	</div>
 {:else}
 	{@render cardButton()}
@@ -258,6 +301,13 @@
 		opacity: 1;
 	}
 
+	/* The corner thumb button overlaps the card as a sibling, so a pointer
+	   resting on it no longer hovers the card; the wrapper stays hovered in
+	   both cases, which keeps the thumbnail lit across the boundary. */
+	.article-item:hover .article-card :global(.article-thumbnail) {
+		opacity: 1;
+	}
+
 	/* Selection feedback: a primary-color tone over the thumbnail (image or
 	   placeholder) instead of tinting the whole card. */
 	.article-card.selected :global(.article-thumbnail-container)::after {
@@ -291,9 +341,9 @@
 		min-width: 0;
 	}
 
-	/* Star at the card's top-right corner, just left of the unread dot (which
-	   sits at the thumbnail's own top-right corner). Hidden until hover unless
-	   the article is already a favorite. */
+	/* Star at the card's top-right corner. Hidden until hover unless the
+	   article is already a favorite. In grid mode that corner belongs to the
+	   unread dot, so the override below steps the star beneath it. */
 	.article-star {
 		position: absolute;
 		top: 0.25rem;
@@ -311,6 +361,14 @@
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
+	}
+
+	/* Grid cards: the fixed thumbnail fills the card, so the unread dot
+	   (top-right of the thumb) and the star (top-right of the card shell)
+	   land on the same point. Step the star below the dot; row cards keep the
+	   corner because their text column already separates the two. */
+	.article-card.fixed-thumb-card + .article-star {
+		top: 1.5rem;
 	}
 
 	.article-item:hover .article-star,
@@ -331,12 +389,12 @@
 		fill: yellow;
 	}
 
-	/* Profile/domain attribution at the card's bottom-left corner (the star
-	   mirrors it at the top-right). Absolute inside the card (already
-	   position: relative), so it never changes the measured cell height;
-	   pointer-events keep the click (and the hover state) on the card.
+	/* Profile/domain attribution at the card's corner (the star mirrors it at
+	   the top-right). Absolute inside the `.article-item` wrapper, which is the
+	   same box as the card, so it never changes the measured cell height.
 	   z-index 6 paints over the selection tint (5) and below the unread dot
-	   (8) and the star (9). */
+	   (8) and the star (9). The base is the decorative variant (raw badge)
+	   overlapping the card button: it must not steal the article click. */
 	.article-profile-thumb {
 		position: absolute;
 		left: 0.25rem;
@@ -347,6 +405,20 @@
 		line-height: 0;
 		pointer-events: none;
 		z-index: 6;
+	}
+
+	/* Interactive variant: a real button opened as a sibling of the card, so
+	   it takes the pointer (and the click) where it sits. */
+	.article-profile-thumb:where(button) {
+		pointer-events: auto;
+		cursor: pointer;
+		padding: 0;
+		background: none;
+		border: none;
+	}
+
+	.article-profile-thumb:where(button):hover :global(.profile-thumb) {
+		transform: scale(1.1);
 	}
 
 	/* Ring separates the avatar from both the article image and the card
