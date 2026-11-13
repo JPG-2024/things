@@ -36,6 +36,7 @@
 		padding: 1rem;
 		overflow: hidden;
 		border: none;
+		border: 2px solid var(--article-border);
 	}
 
 	/* Maintain aspect ratio */
@@ -43,7 +44,6 @@
 		display: block;
 		padding-top: 56.25%; /* 16:9 */
 		content: '';
-		border-radius: var(--radius-md);
 	}
 
 	.yt-wrapper img {

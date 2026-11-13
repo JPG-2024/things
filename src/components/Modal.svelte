@@ -121,6 +121,8 @@
 
 	.modal-content {
 		color: white;
+		border-left: 2px solid var(--gray-800);
+		border-right: 2px solid var(--gray-800);
 	}
 
 	.close-btn {
