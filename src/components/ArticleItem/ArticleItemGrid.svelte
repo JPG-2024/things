@@ -76,6 +76,7 @@
 		justify-items: start;
 		width: 100%;
 		min-width: 0;
+		padding-top: 1rem;
 	}
 	/* Title below the thumbnail. It stays in normal flow inside `.content`, so
 	   MasonryGrid's height measurement includes this block and grows the item's

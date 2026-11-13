@@ -81,6 +81,7 @@
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
 		border-radius: var(--radius-md);
+		border: 2px solid var(--article-border);
 	}
 
 	/* Only the placeholder resolves `cqi` units. */
@@ -96,7 +97,6 @@
 		opacity: 1;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
-		border: 2px solid var(--article-border);
 	}
 
 	.article-thumbnail-container.sized {
@@ -124,7 +124,6 @@
 		width: 100%;
 		height: 100%;
 		padding: 0.4rem;
-		border: 2px solid var(--gray-700);
 		border-radius: inherit;
 		color: rgba(255, 255, 255, 0.75);
 		font-size: clamp(0.5rem, 10cqi, 0.7rem);

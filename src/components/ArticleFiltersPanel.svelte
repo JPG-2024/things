@@ -140,12 +140,12 @@
 							activeIds={articleFilters.ids(section.kind)}
 							separators={section.separators ?? false}
 							onSelect={(item) => {
-							if (section.kind === 'categories') {
-								articleFilters.toggle('categories', item.id, item.name);
-							} else {
-								goto(`/profile/${item.id}`);
-							}
-						}}
+								if (section.kind === 'categories') {
+									articleFilters.toggle('categories', item.id, item.name);
+								} else {
+									goto(`/profile/${item.id}`);
+								}
+							}}
 						/>
 					</div>
 				</div>

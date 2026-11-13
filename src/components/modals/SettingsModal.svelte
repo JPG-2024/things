@@ -412,21 +412,24 @@
 		tooltip="Language used for generated text and labels."
 		bind:value={viewState.language}
 	/>
-	<Tabs
-		tabs={AI_PROVIDER_TABS}
-		activeTab={viewState.aiProvider}
-		onTabChange={(id) => (viewState.aiProvider = id as AiProvider)}
-		iconOnly
-		iconSize={18}
-	/>
-	<Spacer title="AI Provider" icon="Cloud">
+
+	<Spacer title="AI Provider" icon="Cloud" opened>
 		<div class="inference-section">
-			<DropdownField
+			<!-- 			<DropdownField
 				label="AI Provider"
 				options={providerOptions}
 				tooltip="Where inference requests are sent."
 				bind:value={viewState.aiProvider}
+			/> -->
+
+			<Tabs
+				tabs={AI_PROVIDER_TABS}
+				activeTab={viewState.aiProvider}
+				onTabChange={(id) => (viewState.aiProvider = id as AiProvider)}
+				iconOnly
+				iconSize={18}
 			/>
+
 			{#if viewState.aiProvider === 'openrouter'}
 				<TextField
 					label="AI URL"

@@ -3,14 +3,14 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import Icon from './Icon.svelte';
 
-	let { 
-		profileId, 
-		size = 24, 
-		className = "" 
-	}: { 
-		profileId: string; 
-		size?: number; 
-		className?: string; 
+	let {
+		profileId,
+		size = 24,
+		className = ''
+	}: {
+		profileId: string;
+		size?: number;
+		className?: string;
 	} = $props();
 
 	let favorite = $state(false);
@@ -35,14 +35,14 @@
 	}
 </script>
 
-<button 
-	class="full-content-button favorite-button {className}" 
-	class:favorite={favorite} 
+<button
+	class="full-content-button favorite-button {className}"
+	class:favorite
 	onclick={toggleFavorite}
 >
 	<Icon
 		name="Star"
-		size={size}
+		{size}
 		color="yellow"
 		tooltipProps={{ content: favorite ? 'Remove from favorites' : 'Add to favorites' }}
 	/>

@@ -78,7 +78,7 @@
 		inset: 0;
 		display: flex;
 		justify-content: center;
-		align-items: flex-start;
+		align-items: center;
 		background: rgba(0, 0, 0, 0.9);
 		z-index: 9999;
 	}
@@ -88,13 +88,16 @@
 		background: black;
 		width: 100vw;
 		max-width: 1200px;
-		height: 100vh;
+		max-height: 90vh;
+		height: fit-content;
 		overflow-y: auto;
 		border-radius: var(--radius-md);
 		z-index: 10000;
 		/* Lets descendant grids switch to @container rules based on the
 		 * dialog's own width instead of the viewport. */
 		container-type: inline-size;
+		border: 2px solid var(--gray-800);
+		border-style: dashed;
 	}
 
 	/* Full-height dialog: the backdrop gains a 1.5rem frame and stretches the
@@ -126,8 +129,6 @@
 
 	.modal-content {
 		color: white;
-		border-left: 2px solid var(--gray-800);
-		border-right: 2px solid var(--gray-800);
 	}
 
 	.close-btn {

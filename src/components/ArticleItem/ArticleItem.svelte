@@ -265,9 +265,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		transition: transform 0.15s;
 		font-size: 1rem;
-		border-radius: var(--radius-md);
 		box-sizing: border-box;
 		width: 100%;
 		min-width: 0;

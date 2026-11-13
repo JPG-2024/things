@@ -164,7 +164,7 @@
 
 	.markdown-container :global(p) {
 		font-family: var(--font-secondary);
-		color: white;
+		color: var(--gray-200);
 		line-height: 2.2;
 	}
 
@@ -233,7 +233,7 @@
 	}
 
 	.markdown-container :global(strong) {
-		color: var(--bg-color);
+		color: white;
 		font-weight: bold;
 	}
 
