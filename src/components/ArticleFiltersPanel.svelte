@@ -139,7 +139,13 @@
 							items={section.items}
 							activeIds={articleFilters.ids(section.kind)}
 							separators={section.separators ?? false}
-							onSelect={(item) => goto(`/profile/${item.id}`)}
+							onSelect={(item) => {
+							if (section.kind === 'categories') {
+								articleFilters.toggle('categories', item.id, item.name);
+							} else {
+								goto(`/profile/${item.id}`);
+							}
+						}}
 						/>
 					</div>
 				</div>
