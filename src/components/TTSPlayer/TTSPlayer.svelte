@@ -224,7 +224,9 @@
 	onMount(() => {
 		void ttsState.initVoiceProfiles();
 		void ttsState.initPhonon();
-		void mainVoiceState.ensureProfiles();
+		// Silent: initVoiceProfiles already owns the boot fetch, and an
+		// unreachable TTS service at startup must not show the error toast.
+		void mainVoiceState.ensureProfiles({ silent: true });
 	});
 
 	$effect(() => {

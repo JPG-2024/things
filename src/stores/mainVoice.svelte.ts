@@ -14,12 +14,22 @@ import { settingsPersistence } from '@/stores/settingsStore.svelte';
  * (BOOT-2b consolidated voice state).
  */
 class MainVoiceState {
-	/** Non-silent boot loader: surfaces failures in the TTS error message. */
-	async ensureProfiles(): Promise<void> {
+	/**
+	 * Lazy loader for the voice profile list: fetches only when the list is
+	 * still empty. User-triggered callers default to non-silent so a dead TTS
+	 * service surfaces in the TTS error message; the boot call passes
+	 * `silent: true` — a service that isn't up yet at startup is already
+	 * reported by the toolbar health dot and must not mount the error toast.
+	 */
+	async ensureProfiles(opts: { silent?: boolean } = {}): Promise<void> {
 		if (ttsState.voiceProfiles.length > 0) return;
 		try {
-			ttsState.voiceProfiles = await fetchVoiceProfiles();
+			ttsState.voiceProfiles = await fetchVoiceProfiles({ silent: opts.silent });
 		} catch (err) {
+			if (opts.silent) {
+				console.warn('[TTS] Failed to load voices', err);
+				return;
+			}
 			ttsState.errorMessage = err instanceof Error ? err.message : 'Failed to load voices';
 		}
 	}
