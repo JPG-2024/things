@@ -17,6 +17,9 @@
 		 * margin on every side so a pinned footer lands near the viewport
 		 * bottom instead of floating mid-screen. */
 		fullHeight?: boolean;
+		/** Cap on the dialog width; narrower consumers (settings forms) ask for
+		 * less than the default so their grids keep their intended rhythm. */
+		maxWidth?: string;
 		children?: Snippet;
 	};
 
@@ -27,6 +30,7 @@
 		closeOnEscape = true,
 		ariaLabel,
 		fullHeight = false,
+		maxWidth = '1200px',
 		children
 	}: Props = $props();
 
@@ -54,6 +58,7 @@
 			class:modal--full={fullHeight}
 			role="dialog"
 			aria-label={ariaLabel}
+			style:max-width={maxWidth}
 			transition:scale={{ start: 0.8, duration: 100 }}
 			onclick={(e) => e.stopPropagation()}
 		>

@@ -356,9 +356,10 @@
 		z-index: 600; /* above content, below modals (9999/10000) */
 	}
 
-	/* The voice settings modal's backdrop sits at 100000; lift the player one
-	   step above it so the video/thumbnail stays visible while it is open.
-	   Conditional, so every other modal still covers the player as before. */
+	/* The voice settings modal now renders through the shared Modal layer
+	   (backdrop 9999 / dialog 10000); lift the player above that layer so
+	   the video/thumbnail stays visible while it is open. Conditional, so
+	   every other modal still covers the player as before. */
 	.floating-player.over-voice-modal {
 		z-index: 100001;
 	}

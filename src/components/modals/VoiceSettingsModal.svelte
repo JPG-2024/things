@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
-	import { fade, scale } from 'svelte/transition';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import {
 		deleteVoiceChunk,
@@ -16,6 +15,7 @@
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Modal from '@/components/Modal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
@@ -608,581 +608,552 @@
 	}));
 </script>
 
-{#if show}
-	<div
-		class="settings-backdrop"
-		role="presentation"
-		onclick={(e) => {
-			// Only a direct backdrop click closes; clicks inside the dialog
-			// target its children instead of the backdrop.
-			if (e.target === e.currentTarget) void handleClose();
-		}}
-		transition:fade={{ duration: 180 }}
-	>
-		<div
-			class="settings-modal"
-			role="dialog"
-			aria-label={title}
-			tabindex="-1"
-			transition:scale={{ start: 0.85, duration: 180 }}
-		>
-			<button class="close-btn" type="button" aria-label="Close settings" onclick={handleClose}>
-				×
-			</button>
+<Modal
+	{show}
+	onClose={() => void handleClose()}
+	ariaLabel={title}
+	maxWidth="900px"
+	closeOnEscape={false}
+>
+	<div class="voice-settings">
+		<h2>
+			<Icon name="AudioWaveform" size={30} color={viewState.primaryColor} />
+			{title}
+		</h2>
 
-			<h2>
-				<Icon name="AudioWaveform" size={30} color={viewState.primaryColor} />
-				{title}
-			</h2>
-
-			<div class="config-column">
-				<Spacer title="TTS" icon="SlidersHorizontal" defaultOpen={true}>
-					<div class="tts-sections">
-						<h3 class="tts-section-title">Engine</h3>
-						<Dropdown
-							label="Synthesis engine"
-							options={ttsState.phononAvailable === false ? [ENGINE_OPTIONS[0]] : ENGINE_OPTIONS}
-							value={ttsState.config.engine}
-							disabled={ttsState.phononAvailable === null}
-							onChange={(v) => ttsState.setEngine(v === 'phonon' ? 'phonon' : 'omnivoice')}
-						/>
-						{#if ttsState.phononAvailable === false}
-							<p class="hint">
-								Phonon is not compiled into this build. Rebuild with the <code>phonon</code> feature to
-								enable it.
-							</p>
-						{:else if ttsState.config.engine === 'phonon'}
-							<TextField
-								label="Model directory"
-								placeholder="/path/to/phonon-checkpoint"
-								bind:value={draftPhononDir}
-								tooltip="Hand-downloaded Phonon checkpoint (config.json, tokenizer.json and model weights)."
-								onBlur={() => void commitPhononDir()}
+		<div class="config-column">
+			<Spacer title="TTS" icon="SlidersHorizontal" defaultOpen={true}>
+				<div class="tts-sections">
+					<h3 class="tts-section-title">Engine</h3>
+					<Dropdown
+						label="Synthesis engine"
+						options={ttsState.phononAvailable === false ? [ENGINE_OPTIONS[0]] : ENGINE_OPTIONS}
+						value={ttsState.config.engine}
+						disabled={ttsState.phononAvailable === null}
+						onChange={(v) => ttsState.setEngine(v === 'phonon' ? 'phonon' : 'omnivoice')}
+					/>
+					{#if ttsState.phononAvailable === false}
+						<p class="hint">
+							Phonon is not compiled into this build. Rebuild with the <code>phonon</code> feature to
+							enable it.
+						</p>
+					{:else if ttsState.config.engine === 'phonon'}
+						<TextField
+							label="Model directory"
+							placeholder="/path/to/phonon-checkpoint"
+							bind:value={draftPhononDir}
+							tooltip="Hand-downloaded Phonon checkpoint (config.json, tokenizer.json and model weights)."
+							onBlur={() => void commitPhononDir()}
+						>
+							{#snippet suffix()}
+								<Button onClick={() => void pickPhononDir()} icon="FolderOpen">Browse</Button>
+							{/snippet}
+						</TextField>
+						{#if phononDirStatus}
+							<p
+								class="voice-status"
+								class:done={phononDirStatus.valid}
+								class:error={!phononDirStatus.valid}
 							>
-								{#snippet suffix()}
-									<Button onClick={() => void pickPhononDir()} icon="FolderOpen">Browse</Button>
-								{/snippet}
-							</TextField>
-							{#if phononDirStatus}
-								<p
-									class="voice-status"
-									class:done={phononDirStatus.valid}
-									class:error={!phononDirStatus.valid}
-								>
-									{phononDirStatus.valid
-										? '✓ Valid checkpoint directory'
-										: `✗ ${phononDirStatus.error}`}
-								</p>
-							{/if}
-							<p class="hint">
-								{viewState.phononModelsDir
-									? 'Synthesis runs on this local checkpoint.'
-									: 'Set a checkpoint directory to enable on-device synthesis. It must contain config.json, tokenizer.json and model weights.'}
+								{phononDirStatus.valid
+									? '✓ Valid checkpoint directory'
+									: `✗ ${phononDirStatus.error}`}
 							</p>
 						{/if}
+						<p class="hint">
+							{viewState.phononModelsDir
+								? 'Synthesis runs on this local checkpoint.'
+								: 'Set a checkpoint directory to enable on-device synthesis. It must contain config.json, tokenizer.json and model weights.'}
+						</p>
+					{/if}
 
-						{#if ttsState.config.engine === 'phonon'}
-							<h3 class="tts-section-title">Voice</h3>
-							{#if ttsState.phononVoicesLoading}
-								<p class="voice-hint">Loading checkpoint voices…</p>
-							{:else if ttsState.phononVoices.length === 0}
-								<p class="voice-hint">
-									No registered voices in this checkpoint; synthesis runs unconditioned.
-								</p>
-							{:else}
-								<Dropdown
-									label="Voice"
-									options={[
-										{ label: 'Default', value: '' },
-										...ttsState.phononVoices.map((v) => ({ label: v, value: v }))
-									]}
-									value={ttsState.config.phononVoice}
-									onChange={(v) => (ttsState.config.phononVoice = v)}
+					{#if ttsState.config.engine === 'phonon'}
+						<h3 class="tts-section-title">Voice</h3>
+						{#if ttsState.phononVoicesLoading}
+							<p class="voice-hint">Loading checkpoint voices…</p>
+						{:else if ttsState.phononVoices.length === 0}
+							<p class="voice-hint">
+								No registered voices in this checkpoint; synthesis runs unconditioned.
+							</p>
+						{:else}
+							<Dropdown
+								label="Voice"
+								options={[
+									{ label: 'Default', value: '' },
+									...ttsState.phononVoices.map((v) => ({ label: v, value: v }))
+								]}
+								value={ttsState.config.phononVoice}
+								onChange={(v) => (ttsState.config.phononVoice = v)}
+							/>
+						{/if}
+					{:else if management}
+						<h3 class="tts-section-title">Voice</h3>
+						{#if manageView === 'buttons'}
+							{#if profiles.length > 0}
+								<MiniProfilePicker
+									variant="inline"
+									bind:filter={profileFilter}
+									{profiles}
+									{selectedProfileId}
+									onPick={(profile) => void onSelectProfile?.(profile.id)}
 								/>
+							{:else}
+								<p class="voice-hint">No voices yet. Add or record one below.</p>
 							{/if}
-						{:else if management}
-							<h3 class="tts-section-title">Voice</h3>
-							{#if manageView === 'buttons'}
-								{#if profiles.length > 0}
-									<MiniProfilePicker
-										variant="inline"
-										bind:filter={profileFilter}
-										{profiles}
-										{selectedProfileId}
-										onPick={(profile) => void onSelectProfile?.(profile.id)}
-									/>
-								{:else}
-									<p class="voice-hint">No voices yet. Add or record one below.</p>
-								{/if}
-								<div class="voice-manage">
-									<Button icon="Mic" onClick={openRecordPanel}>Record</Button>
-									<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
-									<Button icon="UserRoundPen" disabled={!selectedProfileId} onClick={openEditPanel}
-										>Edit voice</Button
+							<div class="voice-manage">
+								<Button icon="Mic" onClick={openRecordPanel}>Record</Button>
+								<Button icon="UserRoundPlus" onClick={openAddPanel}>Add voice</Button>
+								<Button icon="UserRoundPen" disabled={!selectedProfileId} onClick={openEditPanel}
+									>Edit voice</Button
+								>
+							</div>
+						{:else if manageView === 'add'}
+							<div class="voice-form">
+								<div class="voice-form-header">
+									<h3>
+										<Icon name="UserRoundPlus" size={18} color={viewState.primaryColor} />
+										<span>Add voice</span>
+									</h3>
+									<button
+										class="voice-back"
+										type="button"
+										aria-label="Back"
+										onclick={backToManageButtons}
 									>
+										×
+									</button>
 								</div>
-							{:else if manageView === 'add'}
-								<div class="voice-form">
-									<div class="voice-form-header">
-										<h3>
-											<Icon name="UserRoundPlus" size={18} color={viewState.primaryColor} />
-											<span>Add voice</span>
-										</h3>
-										<button
-											class="voice-back"
-											type="button"
-											aria-label="Back"
-											onclick={backToManageButtons}
-										>
-											×
-										</button>
-									</div>
+								<Input
+									id="settingsVideoUrl"
+									label="Video URL"
+									bind:value={ttsState.videoUrl}
+									placeholder="https://..."
+								/>
+								<div class="voice-image-row">
+									{#if ttsState.imageSrc}
+										<img class="voice-image" src={ttsState.imageSrc} alt="voice preview" />
+									{:else}
+										<div class="voice-image voice-image--empty"></div>
+									{/if}
 									<Input
-										id="settingsVideoUrl"
-										label="Video URL"
-										bind:value={ttsState.videoUrl}
+										id="settingsImageSrc"
+										label="Image URL"
+										bind:value={ttsState.imageSrc}
 										placeholder="https://..."
 									/>
-									<div class="voice-image-row">
-										{#if ttsState.imageSrc}
-											<img class="voice-image" src={ttsState.imageSrc} alt="voice preview" />
-										{:else}
-											<div class="voice-image voice-image--empty"></div>
-										{/if}
-										<Input
-											id="settingsImageSrc"
-											label="Image URL"
-											bind:value={ttsState.imageSrc}
-											placeholder="https://..."
-										/>
-									</div>
-									<div class="voice-grid-2">
-										<Input id="settingsSegment" label="Segment" bind:value={ttsState.segment} />
-										<Input
-											id="settingsChunkCount"
-											label="Chunk Count"
-											type="number"
-											min="1"
-											value={String(ttsState.chunkCount)}
-											onChange={(v) => (ttsState.chunkCount = parseInt(v) || 1)}
-										/>
-									</div>
-									<Input
-										id="settingsNamePrefix"
-										label="Name Prefix"
-										bind:value={ttsState.namePrefix}
-									/>
-									<div class="voice-form-actions">
-										<Button disabled={ttsState.addVoiceLoading} onClick={handleAddVoice}>
-											{ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
-										</Button>
-									</div>
-									<LoadingLine loading={ttsState.addVoiceLoading} />
-									{#if ttsState.addVoiceStatus}
-										<p
-											class="voice-status"
-											class:error={ttsState.addVoiceStatus === 'error'}
-											class:done={ttsState.addVoiceStatus === 'done'}
-										>
-											{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{addVoiceStatusLabel()}
-										</p>
-									{/if}
 								</div>
-							{:else if manageView === 'edit'}
-								<div class="voice-form">
-									<div class="voice-form-header">
-										<h3>
-											<Icon name="UserRoundPen" size={18} color={viewState.primaryColor} />
-											<span>Edit voice</span>
-										</h3>
-										<button
-											class="voice-back"
-											type="button"
-											aria-label="Back"
-											onclick={backToManageButtons}
-										>
-											×
-										</button>
-									</div>
-									<Input id="settingsEditName" label="Name Prefix" bind:value={editName} />
-									<div class="voice-image-row">
-										{#if editImage}
-											<img class="voice-image" src={getImage(editImage)} alt="profile preview" />
-										{:else}
-											<div class="voice-image voice-image--empty"></div>
-										{/if}
-										<Input
-											id="settingsEditImage"
-											label="Image URL"
-											bind:value={editImage}
-											placeholder="https://..."
-										/>
-									</div>
-									<div class="voice-form-actions">
-										<Button disabled={editSaving || !editTargetId} onClick={handleSaveProfile}>
-											{editSaving ? 'Saving...' : 'Save Profile'}
-										</Button>
-										<button
-											type="button"
-											class="voice-delete"
-											onclick={handleDeleteProfile}
-											disabled={editSaving || !editTargetId}
-											aria-label="Delete voice profile"
-											title="Delete voice profile"
-										>
-											<Icon name="Trash" />
-										</button>
-									</div>
-								</div>
-							{:else if manageView === 'record'}
-								<div class="voice-form">
-									<div class="voice-form-header">
-										<h3>
-											<Icon name="Mic" size={18} color={viewState.primaryColor} />
-											<span>Record system audio</span>
-										</h3>
-										<button
-											class="voice-back"
-											type="button"
-											aria-label="Back"
-											onclick={() => void exitRecordPanel()}
-										>
-											×
-										</button>
-									</div>
-									<p class="voice-hint">
-										Captures everything playing on your default output device. Anything this app
-										plays while recording is captured too.
-									</p>
-									<div class="voice-record-row">
-										<button
-											type="button"
-											class="voice-record-btn"
-											class:active={isRecording}
-											disabled={recordingBusy}
-											onclick={toggleRecording}
-											aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-										>
-											<Icon
-												name={isRecording ? 'Square' : 'Circle'}
-												size={20}
-												color={isRecording ? '#ff5050' : undefined}
-											/>
-											<span
-												>{recordingBusy ? 'Please wait...' : isRecording ? 'Stop' : 'Record'}</span
-											>
-										</button>
-										{#if isRecording}
-											<span class="voice-record-indicator"></span>
-											<span class="voice-record-timer">{formatDuration(recordingSeconds)}</span>
-										{/if}
-									</div>
-									<p class="voice-hint">Press <kbd>Shift</kbd>+<kbd>R</kbd> to start / stop</p>
-									{#if recordedUrl}
-										<audio class="voice-record-preview" controls src={recordedUrl}></audio>
-										<div class="voice-record-save">
-											<Dropdown
-												label="Save to profile"
-												options={[
-													{ label: 'New profile', value: NEW_PROFILE_VALUE },
-													...profiles.map((p) => ({ label: p.name_prefix, value: p.id }))
-												]}
-												value={saveTargetProfileId}
-												onChange={(v) => (saveTargetProfileId = v)}
-											/>
-											{#if saveTargetProfileId === NEW_PROFILE_VALUE}
-												<Input
-													id="settingsRecordName"
-													label="Name Prefix"
-													bind:value={saveNamePrefix}
-												/>
-												<Input
-													id="settingsRecordImage"
-													label="Image URL (optional)"
-													bind:value={saveImageSrc}
-													placeholder="https://..."
-												/>
-											{/if}
-											<div class="voice-form-actions">
-												<Button
-													disabled={recordingSaving ||
-														(saveTargetProfileId === NEW_PROFILE_VALUE && !saveNamePrefix.trim())}
-													onClick={handleSaveRecording}
-												>
-													{recordingSaving ? 'Saving...' : 'Save as voice'}
-												</Button>
-											</div>
-											{#if recordingSaved}
-												<p class="voice-status done">✓ Saved to voice profile</p>
-											{/if}
-										</div>
-									{/if}
-								</div>
-							{/if}
-						{/if}
-
-						{#if showVoiceDesign && ttsState.config.engine === 'omnivoice'}
-							<h3 class="tts-section-title">Voice design</h3>
-							<Dropdown
-								label="Voice mode"
-								options={VOICE_MODE_OPTIONS}
-								value={draftInstructEnabled ? DESIGN_MODE_VALUE : CLONE_MODE_VALUE}
-								onChange={handleVoiceModeChange}
-							/>
-							{#if draftInstructEnabled}
 								<div class="voice-grid-2">
-									<Dropdown
-										label="Gender"
-										options={[
-											{ label: '—', value: DESIGN_NONE_VALUE },
-											...DESIGN_GENDERS.map((g) => ({ label: g, value: g }))
-										]}
-										value={draftGender}
-										onChange={(v) => (draftGender = v)}
-									/>
-									<Dropdown
-										label="Age"
-										options={[
-											{ label: '—', value: DESIGN_NONE_VALUE },
-											...DESIGN_AGES.map((a) => ({ label: a, value: a }))
-										]}
-										value={draftAge}
-										onChange={(v) => (draftAge = v)}
+									<Input id="settingsSegment" label="Segment" bind:value={ttsState.segment} />
+									<Input
+										id="settingsChunkCount"
+										label="Chunk Count"
+										type="number"
+										min="1"
+										value={String(ttsState.chunkCount)}
+										onChange={(v) => (ttsState.chunkCount = parseInt(v) || 1)}
 									/>
 								</div>
-								<Dropdown
-									label="Pitch"
-									options={[
-										{ label: '—', value: DESIGN_NONE_VALUE },
-										...DESIGN_PITCHES.map((p) => ({ label: p, value: p }))
-									]}
-									value={draftPitch}
-									onChange={(v) => (draftPitch = v)}
+								<Input
+									id="settingsNamePrefix"
+									label="Name Prefix"
+									bind:value={ttsState.namePrefix}
 								/>
-								<div class="row">
-									<ToggleIcon name="Ear" bind:checked={draftWhisper} label="Whisper" />
-								</div>
-								<p class="hint">
-									Instruct: {composeInstruct() || 'select at least one trait'}
-								</p>
 								<div class="voice-form-actions">
-									<Button disabled={testLoading || !composeInstruct()} onClick={testDesignVoice}>
-										{testLoading ? 'Generating…' : 'Test voice'}
+									<Button disabled={ttsState.addVoiceLoading} onClick={handleAddVoice}>
+										{ttsState.addVoiceLoading ? 'Processing...' : 'Add Voice'}
 									</Button>
 								</div>
-								{#if testError}
-									<p class="voice-status error">{testError}</p>
+								<LoadingLine loading={ttsState.addVoiceLoading} />
+								{#if ttsState.addVoiceStatus}
+									<p
+										class="voice-status"
+										class:error={ttsState.addVoiceStatus === 'error'}
+										class:done={ttsState.addVoiceStatus === 'done'}
+									>
+										{ttsState.addVoiceStatus === 'done' ? '✓ ' : ''}{addVoiceStatusLabel()}
+									</p>
 								{/if}
-								{#if testUrl}
-									<audio class="voice-record-preview" controls src={testUrl}></audio>
-								{/if}
-							{/if}
-						{/if}
-
-						{#if !draftInstructEnabled && ttsState.config.engine === 'omnivoice'}
-							<h3 class="tts-section-title">Chunk</h3>
-							<div class="row">
-								<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
 							</div>
-							{#if !draftRandomChunk && chunks.length > 0}
-								<div class="chunk-buttons">
-									{#each chunks as voice, i (voice.name)}
-										<button
-											type="button"
-											class="chunk-btn"
-											class:selected={voice.audio_file === draftAudioFile}
-											class:hovered={voice.name === hoveredChunkName}
-											onclick={() => pickChunk(i)}
-											onmouseenter={() => (hoveredChunkName = voice.name)}
-											onmouseleave={() => (hoveredChunkName = null)}
-											aria-label="Chunk {i + 1}"
-										>
-											{i + 1}
-										</button>
-									{/each}
+						{:else if manageView === 'edit'}
+							<div class="voice-form">
+								<div class="voice-form-header">
+									<h3>
+										<Icon name="UserRoundPen" size={18} color={viewState.primaryColor} />
+										<span>Edit voice</span>
+									</h3>
+									<button
+										class="voice-back"
+										type="button"
+										aria-label="Back"
+										onclick={backToManageButtons}
+									>
+										×
+									</button>
 								</div>
-								{#if hoveredChunkName}
-									<p class="hint">Press <kbd>D</kbd> to delete the hovered chunk</p>
+								<Input id="settingsEditName" label="Name Prefix" bind:value={editName} />
+								<div class="voice-image-row">
+									{#if editImage}
+										<img class="voice-image" src={getImage(editImage)} alt="profile preview" />
+									{:else}
+										<div class="voice-image voice-image--empty"></div>
+									{/if}
+									<Input
+										id="settingsEditImage"
+										label="Image URL"
+										bind:value={editImage}
+										placeholder="https://..."
+									/>
+								</div>
+								<div class="voice-form-actions">
+									<Button disabled={editSaving || !editTargetId} onClick={handleSaveProfile}>
+										{editSaving ? 'Saving...' : 'Save Profile'}
+									</Button>
+									<button
+										type="button"
+										class="voice-delete"
+										onclick={handleDeleteProfile}
+										disabled={editSaving || !editTargetId}
+										aria-label="Delete voice profile"
+										title="Delete voice profile"
+									>
+										<Icon name="Trash" />
+									</button>
+								</div>
+							</div>
+						{:else if manageView === 'record'}
+							<div class="voice-form">
+								<div class="voice-form-header">
+									<h3>
+										<Icon name="Mic" size={18} color={viewState.primaryColor} />
+										<span>Record system audio</span>
+									</h3>
+									<button
+										class="voice-back"
+										type="button"
+										aria-label="Back"
+										onclick={() => void exitRecordPanel()}
+									>
+										×
+									</button>
+								</div>
+								<p class="voice-hint">
+									Captures everything playing on your default output device. Anything this app plays
+									while recording is captured too.
+								</p>
+								<div class="voice-record-row">
+									<button
+										type="button"
+										class="voice-record-btn"
+										class:active={isRecording}
+										disabled={recordingBusy}
+										onclick={toggleRecording}
+										aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+									>
+										<Icon
+											name={isRecording ? 'Square' : 'Circle'}
+											size={20}
+											color={isRecording ? '#ff5050' : undefined}
+										/>
+										<span>{recordingBusy ? 'Please wait...' : isRecording ? 'Stop' : 'Record'}</span
+										>
+									</button>
+									{#if isRecording}
+										<span class="voice-record-indicator"></span>
+										<span class="voice-record-timer">{formatDuration(recordingSeconds)}</span>
+									{/if}
+								</div>
+								<p class="voice-hint">Press <kbd>Shift</kbd>+<kbd>R</kbd> to start / stop</p>
+								{#if recordedUrl}
+									<audio class="voice-record-preview" controls src={recordedUrl}></audio>
+									<div class="voice-record-save">
+										<Dropdown
+											label="Save to profile"
+											options={[
+												{ label: 'New profile', value: NEW_PROFILE_VALUE },
+												...profiles.map((p) => ({ label: p.name_prefix, value: p.id }))
+											]}
+											value={saveTargetProfileId}
+											onChange={(v) => (saveTargetProfileId = v)}
+										/>
+										{#if saveTargetProfileId === NEW_PROFILE_VALUE}
+											<Input
+												id="settingsRecordName"
+												label="Name Prefix"
+												bind:value={saveNamePrefix}
+											/>
+											<Input
+												id="settingsRecordImage"
+												label="Image URL (optional)"
+												bind:value={saveImageSrc}
+												placeholder="https://..."
+											/>
+										{/if}
+										<div class="voice-form-actions">
+											<Button
+												disabled={recordingSaving ||
+													(saveTargetProfileId === NEW_PROFILE_VALUE && !saveNamePrefix.trim())}
+												onClick={handleSaveRecording}
+											>
+												{recordingSaving ? 'Saving...' : 'Save as voice'}
+											</Button>
+										</div>
+										{#if recordingSaved}
+											<p class="voice-status done">✓ Saved to voice profile</p>
+										{/if}
+									</div>
 								{/if}
+							</div>
+						{/if}
+					{/if}
+
+					{#if showVoiceDesign && ttsState.config.engine === 'omnivoice'}
+						<h3 class="tts-section-title">Voice design</h3>
+						<Dropdown
+							label="Voice mode"
+							options={VOICE_MODE_OPTIONS}
+							value={draftInstructEnabled ? DESIGN_MODE_VALUE : CLONE_MODE_VALUE}
+							onChange={handleVoiceModeChange}
+						/>
+						{#if draftInstructEnabled}
+							<div class="voice-grid-2">
+								<Dropdown
+									label="Gender"
+									options={[
+										{ label: '—', value: DESIGN_NONE_VALUE },
+										...DESIGN_GENDERS.map((g) => ({ label: g, value: g }))
+									]}
+									value={draftGender}
+									onChange={(v) => (draftGender = v)}
+								/>
+								<Dropdown
+									label="Age"
+									options={[
+										{ label: '—', value: DESIGN_NONE_VALUE },
+										...DESIGN_AGES.map((a) => ({ label: a, value: a }))
+									]}
+									value={draftAge}
+									onChange={(v) => (draftAge = v)}
+								/>
+							</div>
+							<Dropdown
+								label="Pitch"
+								options={[
+									{ label: '—', value: DESIGN_NONE_VALUE },
+									...DESIGN_PITCHES.map((p) => ({ label: p, value: p }))
+								]}
+								value={draftPitch}
+								onChange={(v) => (draftPitch = v)}
+							/>
+							<div class="row">
+								<ToggleIcon name="Ear" bind:checked={draftWhisper} label="Whisper" />
+							</div>
+							<p class="hint">
+								Instruct: {composeInstruct() || 'select at least one trait'}
+							</p>
+							<div class="voice-form-actions">
+								<Button disabled={testLoading || !composeInstruct()} onClick={testDesignVoice}>
+									{testLoading ? 'Generating…' : 'Test voice'}
+								</Button>
+							</div>
+							{#if testError}
+								<p class="voice-status error">{testError}</p>
+							{/if}
+							{#if testUrl}
+								<audio class="voice-record-preview" controls src={testUrl}></audio>
 							{/if}
 						{/if}
+					{/if}
 
-						<h3 class="tts-section-title">Synthesis</h3>
-						<div class="tts-grid-2">
-							{#if ttsState.config.engine === 'phonon'}
-								<!-- Phonon's SpeechOptions: temperature only. Speed and the
+					{#if !draftInstructEnabled && ttsState.config.engine === 'omnivoice'}
+						<h3 class="tts-section-title">Chunk</h3>
+						<div class="row">
+							<ToggleIcon name="Shuffle" bind:checked={draftRandomChunk} label="Random chunk" />
+						</div>
+						{#if !draftRandomChunk && chunks.length > 0}
+							<div class="chunk-buttons">
+								{#each chunks as voice, i (voice.name)}
+									<button
+										type="button"
+										class="chunk-btn"
+										class:selected={voice.audio_file === draftAudioFile}
+										class:hovered={voice.name === hoveredChunkName}
+										onclick={() => pickChunk(i)}
+										onmouseenter={() => (hoveredChunkName = voice.name)}
+										onmouseleave={() => (hoveredChunkName = null)}
+										aria-label="Chunk {i + 1}"
+									>
+										{i + 1}
+									</button>
+								{/each}
+							</div>
+							{#if hoveredChunkName}
+								<p class="hint">Press <kbd>D</kbd> to delete the hovered chunk</p>
+							{/if}
+						{/if}
+					{/if}
+
+					<h3 class="tts-section-title">Synthesis</h3>
+					<div class="tts-grid-2">
+						{#if ttsState.config.engine === 'phonon'}
+							<!-- Phonon's SpeechOptions: temperature only. Speed and the
 									 diffusion knobs are omnivoice-only (hidden, not mutated). -->
+							<RangeSelector
+								id="settings-phononTemperature"
+								label="Temperature"
+								value={ttsState.config.phononTemperature}
+								min={0}
+								max={1}
+								step={0.05}
+								format={(v) => v.toFixed(2)}
+								onChange={(v) => (ttsState.config.phononTemperature = v)}
+							/>
+						{:else}
+							{#if !draftInstructEnabled}
 								<RangeSelector
-									id="settings-phononTemperature"
-									label="Temperature"
-									value={ttsState.config.phononTemperature}
-									min={0}
-									max={1}
-									step={0.05}
-									format={(v) => v.toFixed(2)}
-									onChange={(v) => (ttsState.config.phononTemperature = v)}
+									id="settings-numStep"
+									label="Num Steps"
+									value={draftSynthParams.numStep}
+									min={1}
+									max={64}
+									step={1}
+									format={(v) => v.toString()}
+									onChange={(v) => (draftSynthParams.numStep = v)}
 								/>
-							{:else}
-								{#if !draftInstructEnabled}
-									<RangeSelector
-										id="settings-numStep"
-										label="Num Steps"
-										value={draftSynthParams.numStep}
-										min={1}
-										max={64}
-										step={1}
-										format={(v) => v.toString()}
-										onChange={(v) => (draftSynthParams.numStep = v)}
-									/>
-									<RangeSelector
-										id="settings-guidanceScale"
-										label="Guidance Scale"
-										value={draftSynthParams.guidanceScale}
-										min={0}
-										max={5}
-										step={0.5}
-										format={(v) => v.toFixed(1)}
-										onChange={(v) => (draftSynthParams.guidanceScale = v)}
-									/>
-								{/if}
 								<RangeSelector
-									id="settings-speed"
-									label="Speed"
-									value={draftSynthParams.speed}
-									min={0.25}
-									max={2}
-									step={0.05}
-									format={(v) => v.toFixed(2)}
-									onChange={(v) => (draftSynthParams.speed = v)}
+									id="settings-guidanceScale"
+									label="Guidance Scale"
+									value={draftSynthParams.guidanceScale}
+									min={0}
+									max={5}
+									step={0.5}
+									format={(v) => v.toFixed(1)}
+									onChange={(v) => (draftSynthParams.guidanceScale = v)}
 								/>
 							{/if}
-							<Dropdown
-								label="Chunk split level"
-								options={SPLIT_OPTIONS}
-								value={String(draftSynthParams.splitLevel)}
-								onChange={(v) => (draftSynthParams.splitLevel = Number(v) as 0 | 1 | 2 | 3)}
+							<RangeSelector
+								id="settings-speed"
+								label="Speed"
+								value={draftSynthParams.speed}
+								min={0.25}
+								max={2}
+								step={0.05}
+								format={(v) => v.toFixed(2)}
+								onChange={(v) => (draftSynthParams.speed = v)}
+							/>
+						{/if}
+						<Dropdown
+							label="Chunk split level"
+							options={SPLIT_OPTIONS}
+							value={String(draftSynthParams.splitLevel)}
+							onChange={(v) => (draftSynthParams.splitLevel = Number(v) as 0 | 1 | 2 | 3)}
+						/>
+					</div>
+					{#if showPauses}
+						<h3 class="tts-section-title">Pauses</h3>
+						<div class="tts-grid-2">
+							<RangeSelector
+								id="settings-minGapMs"
+								label="Min gap between sentences (s)"
+								value={draftPauseSettings.minGapMs}
+								min={0}
+								max={1}
+								step={0.01}
+								format={(v) => v.toFixed(2)}
+								onChange={(v) => (draftPauseSettings.minGapMs = v)}
+							/>
+							<RangeSelector
+								id="settings-maxGapMs"
+								label="Max gap between sentences (s)"
+								value={draftPauseSettings.maxGapMs}
+								min={0}
+								max={1}
+								step={0.01}
+								format={(v) => v.toFixed(2)}
+								onChange={(v) => (draftPauseSettings.maxGapMs = v)}
+							/>
+							<RangeSelector
+								id="settings-betweenParagraphs"
+								label="Pause between paragraphs (s)"
+								value={draftPauseSettings.betweenParagraphs}
+								min={0}
+								max={2}
+								step={0.01}
+								format={(v) => v.toFixed(2)}
+								onChange={(v) => (draftPauseSettings.betweenParagraphs = v)}
 							/>
 						</div>
-						{#if showPauses}
-							<h3 class="tts-section-title">Pauses</h3>
-							<div class="tts-grid-2">
-								<RangeSelector
-									id="settings-minGapMs"
-									label="Min gap between sentences (s)"
-									value={draftPauseSettings.minGapMs}
-									min={0}
-									max={1}
-									step={0.01}
-									format={(v) => v.toFixed(2)}
-									onChange={(v) => (draftPauseSettings.minGapMs = v)}
-								/>
-								<RangeSelector
-									id="settings-maxGapMs"
-									label="Max gap between sentences (s)"
-									value={draftPauseSettings.maxGapMs}
-									min={0}
-									max={1}
-									step={0.01}
-									format={(v) => v.toFixed(2)}
-									onChange={(v) => (draftPauseSettings.maxGapMs = v)}
-								/>
-								<RangeSelector
-									id="settings-betweenParagraphs"
-									label="Pause between paragraphs (s)"
-									value={draftPauseSettings.betweenParagraphs}
-									min={0}
-									max={2}
-									step={0.01}
-									format={(v) => v.toFixed(2)}
-									onChange={(v) => (draftPauseSettings.betweenParagraphs = v)}
-								/>
-							</div>
-						{/if}
+					{/if}
+				</div>
+			</Spacer>
+
+			{#if management}
+				<Spacer title="Playback" icon="Volume2" defaultOpen={true}>
+					<div class="tts-grid-2">
+						<RangeSelector
+							id="settings-prefetchDelay"
+							label="Generation delay (s)"
+							bind:value={ttsState.prefetchDelaySeconds}
+							min={0}
+							max={15}
+							step={0.5}
+							format={(v) => v.toFixed(1)}
+						/>
+						<RangeSelector
+							id="settings-playerVolume"
+							label="YouTube volume (%)"
+							bind:value={playerStore.volume}
+							min={0}
+							max={100}
+							step={1}
+							format={(v) => v.toString()}
+						/>
+						<RangeSelector
+							id="settings-duckVolume"
+							label="YouTube volume while TTS (%)"
+							bind:value={ttsState.volumeWhileTTS}
+							min={0}
+							max={30}
+							step={1}
+							format={(v) => v.toString()}
+						/>
+						<RangeSelector
+							id="settings-volumeFade"
+							label="Volume fade (ms)"
+							bind:value={ttsState.volumeFadeMs}
+							min={0}
+							max={2000}
+							step={50}
+							format={(v) => v.toString()}
+						/>
+					</div>
+					<div class="row">
+						<ToggleIcon
+							name="Minimize2"
+							bind:checked={ttsState.autoMinimizeWhileTTS}
+							label="Auto-minimize while TTS"
+						/>
 					</div>
 				</Spacer>
-
-				{#if management}
-					<Spacer title="Playback" icon="Volume2" defaultOpen={true}>
-						<div class="tts-grid-2">
-							<RangeSelector
-								id="settings-prefetchDelay"
-								label="Generation delay (s)"
-								bind:value={ttsState.prefetchDelaySeconds}
-								min={0}
-								max={15}
-								step={0.5}
-								format={(v) => v.toFixed(1)}
-							/>
-							<RangeSelector
-								id="settings-playerVolume"
-								label="YouTube volume (%)"
-								bind:value={playerStore.volume}
-								min={0}
-								max={100}
-								step={1}
-								format={(v) => v.toString()}
-							/>
-							<RangeSelector
-								id="settings-duckVolume"
-								label="YouTube volume while TTS (%)"
-								bind:value={ttsState.volumeWhileTTS}
-								min={0}
-								max={30}
-								step={1}
-								format={(v) => v.toString()}
-							/>
-							<RangeSelector
-								id="settings-volumeFade"
-								label="Volume fade (ms)"
-								bind:value={ttsState.volumeFadeMs}
-								min={0}
-								max={2000}
-								step={50}
-								format={(v) => v.toString()}
-							/>
-						</div>
-						<div class="row">
-							<ToggleIcon
-								name="Minimize2"
-								bind:checked={ttsState.autoMinimizeWhileTTS}
-								label="Auto-minimize while TTS"
-							/>
-						</div>
-					</Spacer>
-				{/if}
-			</div>
+			{/if}
 		</div>
 	</div>
-{/if}
+</Modal>
 
 <style>
-	.settings-backdrop {
-		position: fixed;
-		inset: 0;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		background: rgba(0, 0, 0);
-		z-index: 100000;
-	}
-
-	.settings-modal {
-		position: relative;
-		width: 100vw;
-		max-width: 900px;
-		max-height: 92vh;
-		overflow: hidden;
-		background: #0e0e0e;
-
-		padding: 2rem 0 0;
+	/* Content wrapper inside Modal: caps the dialog height so only
+	 * .config-column scrolls and the header stays pinned. Modal provides the
+	 * backdrop, close button, transitions, and the inline-size container for
+	 * the @container grid rules below (it caps at 900px via maxWidth).
+	 * The height must fit inside Modal's own 90vh cap (border-box: minus its
+	 * 2x2px border), otherwise .modal starts scrolling too and drags the
+	 * pinned header and close button along. */
+	.voice-settings {
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		color: white;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-		/* Query container for the @container grid rules below: the dialog caps
-		 * at 900px, so grids must react to its width, not the viewport. */
-		container-type: inline-size;
+		max-height: calc(90vh - 4px);
+		overflow: hidden;
+		padding-top: 1.5rem;
 	}
 
 	h2 {
@@ -1245,28 +1216,6 @@
 		.tts-grid-2 {
 			grid-template-columns: 1fr;
 		}
-	}
-
-	.close-btn {
-		position: absolute;
-		top: 0.6rem;
-		right: 0.9rem;
-		background: none;
-		border: none;
-		font-size: 1.6rem;
-		cursor: pointer;
-		color: white;
-		width: 2rem;
-		height: 2rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: var(--radius-sm);
-		transition: background-color 0.2s;
-	}
-
-	.close-btn:hover {
-		background-color: rgba(255, 255, 255, 0.1);
 	}
 
 	.row {
