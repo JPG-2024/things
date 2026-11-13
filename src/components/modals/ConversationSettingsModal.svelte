@@ -167,7 +167,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
-		padding: 0 1rem;
+		padding: 2rem;
 		width: 100%;
 	}
 

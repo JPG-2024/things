@@ -18,7 +18,7 @@
 	let {
 		name,
 		size,
-		color = 'var(--bg-color)',
+		color = 'white',
 		onClick = undefined,
 		tooltipProps = undefined,
 		disabled = false,

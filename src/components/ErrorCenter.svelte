@@ -35,9 +35,9 @@
 		align-items: center;
 		gap: 0.4rem;
 		padding: 0.5rem 0.7rem;
-		border: 1px solid var(--article-border);
 		border-radius: 999px;
-		background: rgba(0, 0, 0, 0.92);
+		border: none;
+		background: rgba(0, 0, 0);
 		cursor: pointer;
 	}
 
