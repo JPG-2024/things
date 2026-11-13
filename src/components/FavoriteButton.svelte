@@ -27,14 +27,11 @@
 	}
 </script>
 
-<button 
-	class="full-content-button favorite-button" 
-	class:favorite={favorite} 
-	onclick={toggleFavorite}
->
+<button class="full-content-button favorite-button" class:favorite onclick={toggleFavorite}>
+	<!-- No `size`: inside the article toolbar the 20px come from the
+	     `toolbar-icon-size` context. -->
 	<Icon
 		name="Star"
-		size={24}
 		color="yellow"
 		tooltipProps={{ content: favorite ? 'Remove from favorites' : 'Add to favorites' }}
 	/>

@@ -4,17 +4,15 @@
 	import { goto } from '$app/navigation';
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { articleManager } from '@/runners/articleManager.svelte';
 	import Image from '@/components/Image.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import ArticleCategoryEditor from '@/components/ArticleCategoryEditor.svelte';
+	import ArticleToolbar from '@/components/ArticleToolbar.svelte';
 	import AnalysisPanel from '@/components/AnalysisPanel.svelte';
 	import AskComponent from '@/components/AskComponent.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { youTubeVideoId } from '@/runners/articleSources';
-	import Icon from './Icon.svelte';
 	import FullContentModal from './FullContentModal.svelte';
-	import FavoriteButton from './FavoriteButton.svelte';
 	import { readRawContent } from '@/lib/utils/rawContent';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
@@ -111,16 +109,6 @@
 		viewState.currentProfileId = article.profile;
 		goto(`/profile/${article.profile}`);
 	}
-
-	/**
-	 * Manual retry: a remembered extraction failure (or any failed run) is
-	 * only re-attempted from here — `refresh` forces the source step and
-	 * clears the stored marker on success.
-	 */
-	function handleRefresh() {
-		if (!article.url) return;
-		articleManager.refresh(article.url);
-	}
 </script>
 
 <div class="article-layout">
@@ -164,21 +152,7 @@
 			{#if article.url && article.status !== 'running'}
 				<ArticleCategoryEditor articleUrl={article.url} value={article.categories} />
 			{/if}
-			{#if article.url}
-				<FavoriteButton url={article.url} />
-				<button
-					class="full-content-button"
-					onclick={openFullContent}
-					aria-label="View full content"
-				>
-					<Icon
-						name="Code"
-						size={24}
-						color="var(--primary-color)"
-						tooltipProps={{ content: 'View full content (F)' }}
-					/>
-				</button>
-			{/if}
+			<ArticleToolbar onOpenFullContent={openFullContent} />
 		</div>
 	</div>
 
@@ -327,22 +301,6 @@
 	.article-content {
 		width: 100%;
 		padding-top: 1rem;
-	}
-
-	.full-content-button {
-		background: none;
-		border: none;
-		cursor: pointer;
-		border-radius: var(--radius-sm);
-		transition: background-color 0.2s;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-	}
-
-	.full-content-button:hover {
-		background-color: var(--hover-bg);
 	}
 
 	@media (max-width: 760px) {

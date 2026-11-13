@@ -1,25 +1,16 @@
 <script lang="ts">
-	import { viewState, drawersState } from '@/stores/viewStore.svelte';
-	import { articleState } from '@/stores/articleStore.svelte';
-	import Icon from './Icon.svelte';
-	import LinkIcon from './LinkIcon.svelte';
+	import { viewState } from '@/stores/viewStore.svelte';
+	import { markArticleAsViewed } from '@/stores/webStore';
 	import Topbar from './layout/Topbar.svelte';
-	import Toolbar from './Toolbar.svelte';
-	import { deleteArticleByUrl, markArticleAsViewed } from '@/stores/webStore';
-	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
-	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
-	import { articleManager } from '@/runners/articleManager.svelte';
-	import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
-	import { errorStore } from '@/stores/errorStore.svelte';
-	import ToolbarDivider from './ToolbarDivider.svelte';
+	import { createBackHotkey } from '@/stores/navigationHistory.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
-		headerContent?: any;
-		contentSnippet?: any;
+		headerContent?: Snippet | null;
+		contentSnippet?: Snippet;
 	}
 
-	const { headerContent, contentSnippet } = $props();
-	let isDeleting = $state(false);
+	const { headerContent, contentSnippet }: Props = $props();
 
 	// ArrowLeft returns to the route this post was opened from.
 	createBackHotkey();
@@ -31,109 +22,10 @@
 			}
 		};
 	});
-
-	/**
-	 * The refresh of the top bar redoes the whole article: the body, the
-	 * thumbnail and the analysis. The analysis panel has its own, narrower
-	 * rerun.
-	 */
-	function handleRefresh() {
-		if (!viewState.url) return;
-		articleManager.refresh(viewState.url);
-	}
-
-	async function handleGenerateEmbeddings() {
-		const article = articleState.currentArticle;
-		if (!article.url || !article.analysis?.windows.length) return;
-
-		await embedAnalysis({
-			url: article.url,
-			windows: article.analysis.windows,
-			categories: article.categories,
-			// Re-indexing must keep the owner bucket (channel or domain), or the
-			// chunks drop out of the chat retrieval scoped to a profile.
-			profileId: article.profile ?? article.domain ?? undefined
-		});
-
-		viewState.embeddingsProcessed = true;
-		setTimeout(() => {
-			viewState.embeddingsProcessed = false;
-		}, 1200);
-	}
-
-	async function handleDelete() {
-		if (!viewState.url || isDeleting) return;
-		const url = viewState.url;
-		try {
-			isDeleting = true;
-			// Cancel first: the article can be deleted while it is queued or
-			// being analysed, and the run must not write it back after the
-			// delete (it aborts before its next persistence point).
-			articleManager.forget(url);
-			const res = await deleteArticleByUrl(url);
-			if (res?.success) {
-				articleCacheStore.invalidate();
-				await navigateBack();
-				// The url is gone: nothing on screen may keep pointing at it, or
-				// the next open would enqueue the whole pipeline again.
-				articleState.reset();
-				viewState.url = null;
-			} else {
-				errorStore.report(new Error('deleteArticleByUrl returned success: false'), {
-					feature: 'db',
-					userMessage: 'Failed to delete the article',
-					context: { url }
-				});
-			}
-		} catch (err) {
-			errorStore.report(err, {
-				feature: 'db',
-				userMessage: 'Failed to delete the article',
-				context: { url }
-			});
-		} finally {
-			isDeleting = false;
-		}
-	}
 </script>
 
 <article>
-	<Topbar loading={viewState.embeddingsLoading}>
-		<Toolbar justify="end" iconSize={20}>
-			<Icon
-				name="RefreshCcw"
-				onClick={handleRefresh}
-				tooltipProps={{ content: 'refresh article' }}
-			/>
-
-			<Icon
-				name="FileDigit"
-				onClick={handleGenerateEmbeddings}
-				tooltipProps={{ content: 'generate embeddings' }}
-			/>
-
-			{#if viewState.url}
-				<button
-					class="delete-btn"
-					onclick={handleDelete}
-					disabled={isDeleting}
-					title="Delete article"
-				>
-					<Icon name="Trash" tooltipProps={{ content: 'delete article' }} />
-				</button>
-			{/if}
-
-			<ToolbarDivider />
-
-			<LinkIcon url={viewState.url!} />
-			<Icon
-				name="Settings"
-				title="Settings"
-				onClick={() => drawersState.open('settings')}
-				tooltipProps={{ content: 'settings' }}
-			/>
-		</Toolbar>
-	</Topbar>
+	<Topbar loading={viewState.embeddingsLoading} />
 
 	<div class="header">
 		{#if headerContent}
@@ -141,7 +33,9 @@
 		{/if}
 	</div>
 
-	{@render contentSnippet()}
+	{#if contentSnippet}
+		{@render contentSnippet()}
+	{/if}
 </article>
 
 <style>
@@ -163,20 +57,6 @@
 		flex-direction: column;
 		gap: 15px;
 		width: 100%;
-	}
-
-	.delete-btn {
-		all: unset;
-		cursor: pointer;
-		border-radius: var(--radius-md);
-		padding: 6px 10px;
-		color: white;
-		line-height: 1;
-	}
-
-	.delete-btn[disabled] {
-		opacity: 0.6;
-		cursor: not-allowed;
 	}
 
 	@media (prefers-color-scheme: dark) {
