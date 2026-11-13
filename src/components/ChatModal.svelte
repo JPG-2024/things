@@ -493,7 +493,7 @@
 		if (modalEl) {
 			const el = modalEl;
 			void tick().then(() => {
-				const input = el.querySelector<HTMLInputElement>('input.text-input');
+				const input = el.querySelector<HTMLTextAreaElement>('textarea.text-input');
 				input?.focus();
 			});
 		}
@@ -955,14 +955,13 @@
 		gap: 0.75rem;
 		flex-shrink: 0;
 		padding: 0.9rem 1.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(0, 0, 0, 0.2);
 	}
 
 	.chat-modal__input-wrap {
 		flex: 1;
 		display: flex;
-		align-items: flex-end;
+		align-items: center;
 		gap: 0.5rem;
 	}
 
