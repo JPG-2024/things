@@ -18,6 +18,7 @@
 		type ArticleRecord
 	} from '@/stores/webStore';
 	import CategoryEditor from '@/components/CategoryEditor.svelte';
+	import Toolbar from '@/components/Toolbar.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
@@ -140,8 +141,6 @@
 		}
 	}
 
-
-
 	async function handleNavigateToArticle(article: ArticleRecord) {
 		if (!article.url) return;
 		viewState.currentProfileId = profileId;
@@ -172,55 +171,7 @@
 		thumbSrc={profile?.profilePictureSrc}
 		fallbackIcon="User"
 		onBack={handleBack}
-	>
-		{#snippet actions()}
-			<Icon
-				name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
-				class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
-				onClick={handleFetchMissingVideos}
-				disabled={scrapStore.isFetchingMissingVideos || loading}
-				ariaLabel="Fetch missing videos"
-				tooltipProps={{
-					content: `Fetch missing videos – max ${scrapStore.maxVideos}`
-				}}
-			/>
-			<div bind:this={summaryWrapperEl} class="summary-wrapper">
-				<Icon
-					name="Sparkles"
-					onClick={toggleSummary}
-					ariaLabel="Profile summary"
-					tooltipProps={{ content: 'summary' }}
-				/>
-				{#if summaryOpen}
-					<div class="summary-panel">
-						{#if summaryLoading}
-							<div class="summary-loading">
-								<div class="loading-indicator small"></div>
-								<span>Generating summary...</span>
-							</div>
-						{:else if summaryError}
-							<div class="summary-error">{summaryError}</div>
-							<button type="button" class="summary-action" onclick={generateSummary}>Retry</button>
-						{:else if summaryText}
-							<p class="summary-text">{summaryText}</p>
-							<button type="button" class="summary-action" onclick={generateSummary}
-								>Regenerate</button
-							>
-						{:else}
-							<div class="summary-empty">No summary yet</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-			<Icon
-				name="Trash"
-				onClick={handleDeleteProfile}
-				disabled={isDeleting}
-				ariaLabel="Delete profile"
-				tooltipProps={{ content: 'delete profile' }}
-			/>
-		{/snippet}
-	</ProfileTopbar>
+	/>
 
 	{#if loading}
 		<div class="loading-container">
@@ -229,7 +180,58 @@
 	{:else if profile}
 		<div class="category-row">
 			<CategoryEditor value={profileCategoryIds} onChange={handleCategoriesChange} />
-			<ProfileFavoriteButton profileId={profileId} />
+			<ProfileFavoriteButton {profileId} />
+			<div class="profile-toolbar">
+				<Toolbar justify="end" iconSize={20}>
+					<Icon
+						name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
+						class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
+						onClick={handleFetchMissingVideos}
+						disabled={scrapStore.isFetchingMissingVideos || loading}
+						ariaLabel="Fetch missing videos"
+						tooltipProps={{
+							content: `Fetch missing videos – max ${scrapStore.maxVideos}`
+						}}
+					/>
+					<div bind:this={summaryWrapperEl} class="summary-wrapper">
+						<Icon
+							name="Sparkles"
+							onClick={toggleSummary}
+							ariaLabel="Profile summary"
+							tooltipProps={{ content: 'summary' }}
+						/>
+						{#if summaryOpen}
+							<div class="summary-panel">
+								{#if summaryLoading}
+									<div class="summary-loading">
+										<div class="loading-indicator small"></div>
+										<span>Generating summary...</span>
+									</div>
+								{:else if summaryError}
+									<div class="summary-error">{summaryError}</div>
+									<button type="button" class="summary-action" onclick={generateSummary}
+										>Retry</button
+									>
+								{:else if summaryText}
+									<p class="summary-text">{summaryText}</p>
+									<button type="button" class="summary-action" onclick={generateSummary}
+										>Regenerate</button
+									>
+								{:else}
+									<div class="summary-empty">No summary yet</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<Icon
+						name="Trash"
+						onClick={handleDeleteProfile}
+						disabled={isDeleting}
+						ariaLabel="Delete profile"
+						tooltipProps={{ content: 'delete profile' }}
+					/>
+				</Toolbar>
+			</div>
 		</div>
 		<div class="articles-container">
 			<ArticleList
@@ -268,8 +270,6 @@
 	.summary-wrapper {
 		position: relative;
 	}
-
-
 
 	.summary-panel {
 		position: absolute;
@@ -372,7 +372,20 @@
 		padding-top: 1.5rem;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		gap: 2rem;
+	}
+
+	.profile-toolbar {
+		flex: 0 0 auto;
+	}
+
+	.profile-toolbar :global(.toolbar) {
+		width: auto;
+		padding: 0;
+	}
+
+	.profile-toolbar :global(button.icon-button) {
+		padding: 6px 8px;
 	}
 
 	.empty-state {
