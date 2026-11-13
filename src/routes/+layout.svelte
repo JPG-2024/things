@@ -592,7 +592,7 @@
 	 * line length stays reasonable. */
 	@media (min-width: 2200px) {
 		:root {
-			--page-gutter-x: clamp(10rem, 25vw, 50rem);
+			--page-gutter-x: clamp(10rem, 20vw, 50rem);
 		}
 	}
 
