@@ -5,6 +5,7 @@
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { errorStore } from '@/stores/errorStore.svelte';
 
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
@@ -66,7 +67,12 @@
 				if (cancelled) return;
 				embedSrc = null;
 				embedSrcVideoId = null;
-				console.error('Failed to resolve YouTube embed URL', error);
+				// Reported: the player just never loads otherwise, with no
+				// visible hint of why.
+				errorStore.report(error, {
+					feature: 'ui',
+					userMessage: 'Failed to resolve the YouTube player — playback is unavailable'
+				});
 			});
 		return () => {
 			cancelled = true;

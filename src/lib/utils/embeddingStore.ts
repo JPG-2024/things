@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { createEmbeddings } from '@/lib/utils/inference/llama-completions';
 import { EMBEDDING_MODEL } from '@/lib/utils/inference/constants';
 import { mergeSearchResults } from '@/lib/utils/embeddingSearch';
+import { errorStore } from '@/stores/errorStore.svelte';
 
 export interface ChunkInput {
 	articleUrl: string;
@@ -261,7 +262,12 @@ export async function retrieveContextChunks(
 	try {
 		response = await createEmbeddings({ model, input: [trimmedQuery] });
 	} catch (error) {
-		console.error('[embeddings] failed to embed chat query for context retrieval', error);
+		// The chat still answers, just without embedding context: the user
+		// should know why retrieval went quiet.
+		errorStore.report(error, {
+			feature: 'inference',
+			userMessage: 'Chat context retrieval failed — answering without embeddings'
+		});
 		return [];
 	}
 

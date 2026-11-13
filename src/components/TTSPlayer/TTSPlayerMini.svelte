@@ -92,13 +92,6 @@
 	</div>
 </div>
 
-{#if ttsState.errorMessage}
-	<div class="tts-player-mini__error">
-		<span>{ttsState.errorMessage}</span>
-		<button type="button" onclick={() => (ttsState.errorMessage = '')}>×</button>
-	</div>
-{/if}
-
 <style>
 	.tts-player-mini__content {
 		display: flex;
@@ -172,33 +165,5 @@
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
 		padding: 0 0.2rem;
-	}
-
-	.tts-player-mini__error {
-		position: absolute;
-		bottom: calc(100% + 0.5rem);
-		right: 0;
-		left: auto;
-		transform: none;
-		white-space: nowrap;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.75rem;
-		color: #ff5a5a;
-		font-size: 0.75rem;
-		z-index: 5;
-	}
-
-	.tts-player-mini__error button {
-		all: unset;
-		cursor: pointer;
-		font-size: 1rem;
-		line-height: 1;
-		opacity: 0.7;
-	}
-
-	.tts-player-mini__error button:hover {
-		opacity: 1;
 	}
 </style>

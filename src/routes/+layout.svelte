@@ -25,11 +25,14 @@
 	import { installWheelHistoryNavigation } from '@/lib/utils/wheelHistoryNavigation';
 
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
+	import ErrorLogModal from '@/components/modals/ErrorLogModal.svelte';
+	import ErrorCenter from '@/components/ErrorCenter.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import ChatModal from '@/components/ChatModal.svelte';
 	import DevFps from '@/components/DevFps.svelte';
+	import { errorStore } from '@/stores/errorStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		GLOBAL_CLIPBOARD_TRIGGER_EVENT,
@@ -190,6 +193,7 @@
 		voiceSettingsState.ttsOpen ||
 			drawersState.isOpen('settings') ||
 			drawersState.isOpen('downloads') ||
+			errorStore.open ||
 			conversationMode ||
 			chatOpen
 	);
@@ -386,6 +390,33 @@
 	});
 
 	onMount(() => {
+		// Global safety net for errors that escape every local catch. They
+		// report to the error center with `log: false`: the browser already
+		// prints unhandled rejections and script errors on its own, and a
+		// second copy would be noise.
+		const handleRejection = (event: PromiseRejectionEvent): void => {
+			errorStore.report(event.reason, {
+				feature: 'ui',
+				userMessage: 'Unhandled async failure',
+				log: false
+			});
+		};
+		const handleError = (event: ErrorEvent): void => {
+			errorStore.report(event.error ?? event.message, {
+				feature: 'ui',
+				userMessage: 'Unhandled error',
+				log: false
+			});
+		};
+		window.addEventListener('unhandledrejection', handleRejection);
+		window.addEventListener('error', handleError);
+		return () => {
+			window.removeEventListener('unhandledrejection', handleRejection);
+			window.removeEventListener('error', handleError);
+		};
+	});
+
+	onMount(() => {
 		let unlisten: (() => void) | undefined;
 		let disposed = false;
 
@@ -416,10 +447,37 @@
 	class:flashy
 	class:embeddings-processed={viewState.embeddingsProcessed}
 >
-	{@render children()}
+	<!-- Root render boundary: a crashed view is replaced by the fallback (and
+	  reported), while everything around it — modals, players, the error
+	  center itself — keeps working. -->
+	<svelte:boundary
+		onerror={(error) => {
+			errorStore.report(error, {
+				feature: 'ui',
+				userMessage: 'A view failed to render',
+				log: false
+			});
+		}}
+	>
+		{@render children()}
+		{#snippet fallback()}
+			<div class="render-boundary-fallback">
+				<p>This view crashed while rendering.</p>
+				<Button onClick={() => window.location.reload()}>Reload</Button>
+			</div>
+		{/snippet}
+	</svelte:boundary>
 </main>
 
 <DevFps />
+
+<ErrorCenter />
+
+{#if errorStore.open}
+	<Modal show onClose={() => (errorStore.open = false)} ariaLabel="Error log">
+		<ErrorLogModal />
+	</Modal>
+{/if}
 
 {#if shortcutPromptVisible}
 	<aside class="shortcut-prompt" role="region" aria-label="Global clipboard shortcut">
@@ -839,5 +897,18 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.5rem;
+	}
+
+	/* Root render boundary fallback: the crashed view's replacement. Kept
+	 * minimal on purpose — it must be able to render when nothing else can. */
+	.render-boundary-fallback {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		height: 100vh;
+		color: var(--gray-200);
+		font-family: var(--font-secondary);
 	}
 </style>

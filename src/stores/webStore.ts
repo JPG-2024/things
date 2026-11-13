@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
 export interface ArticleRecord {
@@ -701,7 +702,13 @@ export async function saveArticleAnalysis(params: {
 			}
 		});
 	} catch (error) {
-		console.error(`Error saving article analysis (url='${params.url}'):`, error);
+		// Critical: the run keeps going believing the analysis was persisted,
+		// so a failure here must not stay console-only.
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to save the article analysis — the run continued without it',
+			context: { url: params.url }
+		});
 	}
 }
 
@@ -760,10 +767,11 @@ export async function saveArticle(
 
 		await invoke('upsert_web_store_article', { input });
 	} catch (error) {
-		console.error(
-			`Error upserting article (url='${url}', profile='${input?.profile ?? 'none'}'):`,
-			error
-		);
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to save the article metadata',
+			context: { url, profile: input?.profile ?? '' }
+		});
 	}
 }
 
@@ -782,7 +790,11 @@ export async function deleteArticleByUrl(url: string): Promise<{ success: boolea
 		await deleteArticlesByUrls([url]);
 		return { success: true };
 	} catch (error) {
-		console.error('Error deleting article from database:', error);
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to delete the article',
+			context: { url }
+		});
 		return { success: false };
 	}
 }

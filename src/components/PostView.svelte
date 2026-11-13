@@ -10,6 +10,7 @@
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
+	import { errorStore } from '@/stores/errorStore.svelte';
 	import ToolbarDivider from './ToolbarDivider.svelte';
 
 	interface Props {
@@ -78,10 +79,18 @@
 				articleState.reset();
 				viewState.url = null;
 			} else {
-				console.error('Failed to delete article');
+				errorStore.report(new Error('deleteArticleByUrl returned success: false'), {
+					feature: 'db',
+					userMessage: 'Failed to delete the article',
+					context: { url }
+				});
 			}
 		} catch (err) {
-			console.error('Error deleting article', err);
+			errorStore.report(err, {
+				feature: 'db',
+				userMessage: 'Failed to delete the article',
+				context: { url }
+			});
 		} finally {
 			isDeleting = false;
 		}

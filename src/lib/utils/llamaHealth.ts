@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type {
 	LlamaModelEntry,
 	LlamaServerRuntime,
@@ -235,7 +236,14 @@ export async function ensureLlamaServers(restart = false): Promise<LlamaServerSt
 
 		return statuses;
 	} catch (error) {
-		console.warn('[llama] failed to ensure servers', error);
+		// The health dots partially cover this, but a total autostart
+		// failure must also reach the error center (warn: the app works,
+		// the local models just are not running).
+		errorStore.report(error, {
+			feature: 'inference',
+			userMessage: 'Failed to ensure the llama servers are running',
+			level: 'warn'
+		});
 		return [];
 	}
 }

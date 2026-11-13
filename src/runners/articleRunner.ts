@@ -43,6 +43,7 @@ import {
 } from '@/runners/shared/taskFactories';
 import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** Options of a run. */
@@ -464,7 +465,13 @@ export async function runArticle(
 					profileId: profile ?? source.domain ?? existing?.domain ?? undefined
 				});
 			} catch (error) {
-				console.error(`[articleRunner] embeddings failed for "${url}"`, error);
+				// Non-fatal: the article keeps its analysis (and its `done`), it
+				// just has no vectors. Reported so the gap is not console-only.
+				errorStore.report(error, {
+					feature: 'inference',
+					userMessage: 'Embedding indexing failed — the article was saved without vectors',
+					context: { url }
+				});
 			}
 		}
 

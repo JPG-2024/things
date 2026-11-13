@@ -1,3 +1,5 @@
+import { errorStore } from '@/stores/errorStore.svelte';
+
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
 
 let micContext: AudioContext | null = null;
@@ -90,7 +92,10 @@ export async function sendAudio(pcm: Float32Array): Promise<string | null> {
 		});
 
 		if (!res.ok) {
-			console.error('[Mic] Speech API error:', res.status);
+			errorStore.report(new Error(`Speech API responded ${res.status}`), {
+				feature: 'tts',
+				userMessage: 'Audio transcription failed — part of the recording was lost'
+			});
 			return null;
 		}
 
@@ -98,7 +103,10 @@ export async function sendAudio(pcm: Float32Array): Promise<string | null> {
 		console.log('speech response', data);
 		return typeof data.text === 'string' ? data.text : null;
 	} catch (err) {
-		console.error('[Mic] Failed to send audio chunk:', err);
+		errorStore.report(err, {
+			feature: 'tts',
+			userMessage: 'Audio transcription failed — part of the recording was lost'
+		});
 		return null;
 	}
 }

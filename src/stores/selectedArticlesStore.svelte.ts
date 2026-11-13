@@ -2,6 +2,7 @@ import { SvelteSet } from 'svelte/reactivity';
 import { deleteArticlesByUrls } from '@/stores/webStore';
 import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 import { articleManager } from '@/runners/articleManager.svelte';
+import { errorStore } from '@/stores/errorStore.svelte';
 
 class SelectedArticlesStore {
 	selectedUrls = new SvelteSet<string>();
@@ -49,7 +50,14 @@ class SelectedArticlesStore {
 				// are all cleaned up server-side (IPC-6).
 				await deleteArticlesByUrls(urlsToDelete);
 			} catch (error) {
-				console.error('Failed to delete selected articles', error);
+				// The delete failed: the selection is KEPT (with a reported
+				// error), so the user can retry instead of believing the
+				// articles were deleted when they were not.
+				errorStore.report(error, {
+					feature: 'db',
+					userMessage: 'Failed to delete the selected articles — the selection was kept'
+				});
+				return;
 			}
 			articleCacheStore.removeArticlesByUrls(new Set(urlsToDelete));
 			articleCacheStore.invalidateProfiles();

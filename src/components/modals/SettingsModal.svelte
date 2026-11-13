@@ -16,6 +16,7 @@
 	import { viewState } from '../../stores/viewStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
+	import { errorStore } from '@/stores/errorStore.svelte';
 	import {
 		CARD_COLUMN_MAX,
 		CARD_COLUMN_MIN,
@@ -287,7 +288,10 @@
 		try {
 			await rebuildCategoryIndex();
 		} catch (error) {
-			console.error('Error rebuilding category index:', error);
+			errorStore.report(error, {
+				feature: 'inference',
+				userMessage: 'Failed to rebuild the category exemplar index'
+			});
 		} finally {
 			rebuildingCategories = false;
 		}

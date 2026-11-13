@@ -17,6 +17,7 @@ import {
 } from '@/lib/utils/phononService';
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type { WheelSelection } from '@/types/tts.types';
 
 export interface TTSRefConfig {
@@ -887,3 +888,16 @@ class TTSState {
 }
 
 export const ttsState = new TTSState();
+
+// Central TTS error reporting: every site that writes `errorMessage` (the
+// former mini-strip toast's only source) reaches the error center through
+// this watcher, so the ~20 write sites needed no edits. `log: false`: the
+// write sites already log the error on their own, and reporting must not
+// duplicate it.
+$effect.root(() => {
+	$effect(() => {
+		const message = ttsState.errorMessage;
+		if (!message) return;
+		errorStore.report(message, { feature: 'tts', userMessage: message, log: false });
+	});
+});

@@ -208,6 +208,36 @@ Use a static options object. Common for media-player-style controls.
 - Do not add noisy console logging unless it helps diagnose a real runtime path.
 - Preserve user-visible behavior when tightening error handling.
 
+## Error Center (`errorStore`)
+
+- `src/stores/errorStore.svelte.ts` is the single surface for user-visible
+  errors: `errorStore.report(error, { feature, userMessage?, context?, level?, log? })`
+  logs to the console AND records the error for the floating icon + its modal.
+- One call does both jobs. Do not keep a standalone `console.error` next to it:
+  replace the log with the `report` call. A site that only logs is how an error
+  ends up visible in the devtools and nowhere else.
+- `feature` is required: `'inference' | 'tts' | 'runner' | 'db' | 'capture' | 'ui'`.
+- `userMessage` is the curated, prod-safe modal text (and doubles as the console
+  line); per-feature fallbacks cover sites without one.
+- `details` (stack, cause chain, context) is dev-only: never collected in prod
+  (`import.meta.env.DEV`). Curated messages must stay free of sensitive data.
+- `level: 'warn'` marks benign degradations (rendered muted); `log: false` is
+  only for the global handlers (`unhandledrejection`, `window.onerror`,
+  `svelte:boundary`), where the browser already logs on its own.
+- The list is in-memory, deduped by `feature + userMessage` (×N counter),
+  capped at 100 entries. It is a session log: never persist it.
+- States, not events, belong to the health dots (`llamaHealth`,
+  `externalServicesHealth`): a down service polled every 15s must not keep the
+  badge permanently lit. Events (a run failed, a save silently dropped) go to
+  `report`.
+- Existing state-style error UI stays as-is (the article inline error panel,
+  health dots, per-track download errors). The TTS mini-strip toast was removed
+  in favor of the center: `ttsState.errorMessage` is watched centrally in
+  `ttsStore`, so new TTS error sites only need to write that field.
+- Wrapping errors: use `describeErrorChain(error)` (same module) to flatten an
+  `error.cause` chain into the wrapper message, so console lines are readable
+  without expanding the chain in the devtools.
+
 ## State and Data Flow
 
 - Prefer deriving state with `$derived` instead of duplicating computed values.

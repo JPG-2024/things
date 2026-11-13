@@ -3,6 +3,7 @@ import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { saveProfile } from '@/stores/webStore';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type { KnownProfile } from '@/runners/articleRunner';
 
 const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
@@ -56,6 +57,13 @@ class ScrapState {
 			return data;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
+			// `this.error` has no renderer; the error center is its surface.
+			errorStore.report(err, {
+				feature: 'capture',
+				userMessage: 'YouTube profile scrape failed',
+				level: 'warn',
+				log: false
+			});
 			return null;
 		} finally {
 			this.loading = false;
@@ -112,6 +120,13 @@ class ScrapState {
 			return data;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
+			// `this.error` has no renderer; the error center is its surface.
+			errorStore.report(err, {
+				feature: 'capture',
+				userMessage: 'YouTube video info scrape failed',
+				level: 'warn',
+				log: false
+			});
 			return null;
 		} finally {
 			this.loading = false;

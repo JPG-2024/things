@@ -9,6 +9,7 @@ import { parseTitleText } from '@/lib/utils/inference/finalResponse';
 import { TITLE_SYSTEM_MESSAGE, buildTitleUserMessage } from '@/lib/utils/inference/prompts';
 import { DEFAULT_TITLE_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { classifyByEmbedding } from '@/lib/utils/categoryEmbeddings';
+import { errorStore, describeErrorChain } from '@/stores/errorStore.svelte';
 import {
 	assignCategoriesToArticle,
 	getArticleCategories,
@@ -49,7 +50,13 @@ export async function buildArticleTitle(
 		const title = parseTitleText(assistantAnswerText(response));
 		return title.trim() || null;
 	} catch (error) {
-		console.warn('[taskFactories] title generation failed', error);
+		// Benign degradation: the card keeps the title it already had. Warn
+		// level, but reported so it is not console-only.
+		errorStore.report(error, {
+			feature: 'inference',
+			userMessage: 'Title generation failed — keeping the previous title',
+			level: 'warn'
+		});
 		return null;
 	}
 }
@@ -62,7 +69,9 @@ export async function buildArticleTitle(
  * exemplars were fed with.
  *
  * Throws when the embedding classifier fails, so the caller can decide whether
- * to keep going with the profile categories only.
+ * to keep going with the profile categories only. The wrapper message carries
+ * the cause's own message so the console line is readable without expanding
+ * the `cause` chain in the devtools.
  */
 export async function classifyArticleCategory(params: {
 	title: string | null;
@@ -78,7 +87,11 @@ export async function classifyArticleCategory(params: {
 			margin: viewState.categoryMargin
 		});
 	} catch (error) {
-		throw new Error('Category classification failed', { cause: error });
+		const reason = describeErrorChain(error);
+		throw new Error(
+			reason ? `Category classification failed: ${reason}` : 'Category classification failed',
+			{ cause: error }
+		);
 	}
 }
 
@@ -91,7 +104,13 @@ async function readProfileCategories(profileId?: string | null): Promise<string[
 	try {
 		return await getProfileCategories(profileId);
 	} catch (error) {
-		throw new Error(`Failed to read categories of profile "${profileId}"`, { cause: error });
+		const reason = describeErrorChain(error);
+		throw new Error(
+			reason
+				? `Failed to read categories of profile "${profileId}": ${reason}`
+				: `Failed to read categories of profile "${profileId}"`,
+			{ cause: error }
+		);
 	}
 }
 
@@ -110,9 +129,11 @@ export interface ArticleCategoryResolution {
  * (channel or domain) first, then the embedding classifier, deduplicated with
  * the profile ids first.
  *
- * The profile ids are always applied. If the classifier fails afterwards, the
- * profile ids are already persisted and the error is rethrown so the caller can
- * surface it.
+ * The profile ids are always applied. A classifier failure is **not fatal** —
+ * the profile ids are already persisted by then, so the article is tagged with
+ * them and the error is reported (never rethrown): the same treatment the
+ * embeddings step gets. Only a failure to persist anything throws, because
+ * that leaves the article untagged for real.
  */
 export async function resolveArticleCategories(params: {
 	url: string;
@@ -141,8 +162,13 @@ export async function resolveArticleCategories(params: {
 	}
 
 	if (classificationError) {
-		throw new Error(`Category classification failed for "${params.url}"`, {
-			cause: classificationError
+		// The profile ids are already persisted: the run continues (to `done`)
+		// without the classifier's contribution. Reported with the full cause
+		// chain so the reason is in the modal, not just in the devtools.
+		errorStore.report(classificationError, {
+			feature: 'inference',
+			userMessage: 'Category classification failed — the article kept its profile categories',
+			context: { url: params.url }
 		});
 	}
 
@@ -177,7 +203,12 @@ export async function inheritProfileCategoriesIfEmpty(
 	try {
 		inherited = await getProfileCategories(profileId);
 	} catch (error) {
-		console.error(`[taskFactories] failed to read profile categories for "${profileId}"`, error);
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to read profile categories — the article stays untagged',
+			context: { profileId },
+			level: 'warn'
+		});
 		return { categoryIds: [], applied: false };
 	}
 	if (inherited.length === 0) return { categoryIds: [], applied: false };
@@ -185,7 +216,12 @@ export async function inheritProfileCategoriesIfEmpty(
 	try {
 		await assignCategoriesToArticle({ articleUrl: url, categoryIds: inherited });
 	} catch (error) {
-		console.error(`[taskFactories] failed to inherit profile categories for "${url}"`, error);
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to inherit profile categories — the article stays untagged',
+			context: { url },
+			level: 'warn'
+		});
 		return { categoryIds: [], applied: false };
 	}
 	return { categoryIds: inherited, applied: true };

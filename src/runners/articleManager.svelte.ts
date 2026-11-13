@@ -29,6 +29,7 @@ import {
 	isRunCancelledError,
 	resumeRun
 } from '@/runners/shared/runCancellation';
+import { errorStore } from '@/stores/errorStore.svelte';
 import type { ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** One queued article. */
@@ -111,7 +112,11 @@ class ArticleManager {
 			try {
 				await callback();
 			} catch (error) {
-				console.error('[articleManager] afterDrain subscriber failed', error);
+				errorStore.report(error, {
+					feature: 'runner',
+					userMessage: 'A post-batch hook failed',
+					level: 'warn'
+				});
 			}
 		}
 	}
@@ -333,7 +338,14 @@ class ArticleManager {
 					if (isRunCancelledError(error)) {
 						continue;
 					}
-					console.error(`[articleManager] run failed for "${entry.url}"`, error);
+					// Reported (and logged) instead of console-only: a background
+					// run's failure must reach the error center even when no
+					// article is on screen to inherit the error status.
+					errorStore.report(error, {
+						feature: 'runner',
+						userMessage: 'Article processing failed',
+						context: { url: entry.url }
+					});
 					if (articleState.isCurrent(entry.url)) {
 						articleState.setStatus('error', error instanceof Error ? error.message : String(error));
 					}
@@ -361,7 +373,12 @@ class ArticleManager {
 				const { articleCacheStore } = await import('@/stores/articleCacheStore.svelte');
 				await articleCacheStore.refreshAfterRuns();
 			} catch (error) {
-				console.error('[articleManager] failed to repaint the lists after a run', error);
+				// The lists stay stale until the next refresh: warn level.
+				errorStore.report(error, {
+					feature: 'db',
+					userMessage: 'Failed to refresh the article lists after a run',
+					level: 'warn'
+				});
 			}
 		}
 	}
@@ -488,8 +505,12 @@ class ArticleManager {
 			}
 		} catch (error) {
 			// The profile ids may already be persisted: repaint them so the
-			// pills stay truthful.
-			console.error(`[articleManager] failed to categorise "${url}"`, error);
+			// pills stay truthful, and report (the open itself never fails).
+			errorStore.report(error, {
+				feature: 'inference',
+				userMessage: 'Category classification failed — the article kept its profile categories',
+				context: { url }
+			});
 			const persisted = await getArticleCategories(url).catch(() => [] as string[]);
 			if (persisted.length > 0 && articleState.isCurrent(url)) {
 				articleState.setCategories(persisted);

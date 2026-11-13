@@ -209,8 +209,6 @@
 <style>
 	.article-layout {
 		width: 100%;
-		height: 100vh;
-		background: black;
 		padding: 3rem;
 		padding-top: 6rem;
 		display: grid;
