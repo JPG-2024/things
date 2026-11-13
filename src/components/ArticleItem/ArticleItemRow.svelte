@@ -89,8 +89,6 @@
 		font-size: 0.8rem;
 		padding: 0 1rem;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.article-row-text :global(.keywords) {

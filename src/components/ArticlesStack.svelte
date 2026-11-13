@@ -35,7 +35,7 @@
 		const depth = index;
 		// Row mode: the pile lives inside the fixed 150x80 thumb box which clips
 		// the fan, so only the horizontal step matters — no downward rise.
-		const y = isRowMode ? 0 : depth * 10;
+		const y = isRowMode ? depth * 5 : depth * 10;
 		const x = depth * 20;
 		return `transform: translate(${x}px, ${y}px) ; z-index: ${total - index};`;
 	}
@@ -158,8 +158,8 @@
 	.articles-stack__row-thumb {
 		position: relative;
 		flex: 0 0 auto;
-		width: 200px;
-		height: 80px;
+		min-width: 200px;
+		height: 90px;
 		overflow: hidden;
 		border-radius: var(--radius-md);
 	}

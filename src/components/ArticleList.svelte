@@ -387,6 +387,7 @@
 
 	.article-list__item {
 		min-width: 0;
+		min-height: 90px;
 	}
 
 	.article-list__items.grid .article-list__item {
