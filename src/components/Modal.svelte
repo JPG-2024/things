@@ -104,9 +104,6 @@
 	 * dialog, so a consumer with a pinned footer (chat) ends near the viewport
 	 * bottom. `width: 100%` instead of `100vw` keeps the frame on narrow
 	 * viewports, and the flex chain gives the content a definite height. */
-	.backdrop--full {
-		align-items: stretch;
-	}
 
 	.modal--full {
 		display: flex;
@@ -125,6 +122,10 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
+		/* Break the default `min-height: auto` so long content makes the
+		 * consumer's scroll area shrink instead of overflowing the dialog. */
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.modal-content {

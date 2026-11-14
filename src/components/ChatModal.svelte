@@ -712,7 +712,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		height: 95vh;
+		flex: 1;
 		min-height: 0;
 		overflow: hidden;
 		font-family: var(--font-secondary);
@@ -872,9 +872,10 @@
 		flex-direction: column;
 		gap: 1rem;
 		flex: 1;
-		overflow-y: auto;
+		min-height: 0;
 		padding: 1.25rem 1.5rem;
 		scroll-behavior: smooth;
+		overflow-y: scroll;
 	}
 
 	.chat-modal__empty {
