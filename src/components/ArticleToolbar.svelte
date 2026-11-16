@@ -52,6 +52,19 @@
 		}, 1200);
 	}
 
+	/**
+	 * Opens the chat with a fixed first prompt. The chat reads the current
+	 * article: embeddings search is forced on and the scope to "this article"
+	 * (ChatModal enforces the same when it consumes the prompt, so it also
+	 * holds while the chat is already open).
+	 */
+	function openTakeawaysChat() {
+		viewState.chatSearchEnabled = true;
+		viewState.chatSearchScope = 'view';
+		viewState.pendingChatPrompt = 'give me 5 takeaways';
+		viewState.chatOpen = true;
+	}
+
 	async function handleDelete() {
 		const url = article.url;
 		if (!url || isDeleting) return;
@@ -94,6 +107,14 @@
 			<FavoriteButton url={article.url} />
 		{/if}
 
+		{#if article.url}
+			<LinkIcon url={article.url} />
+		{/if}
+
+		{#if article.url && onOpenFullContent}
+			<Icon name="Code" tooltipProps={{ content: 'View full content (F)' }} />
+		{/if}
+
 		<Icon name="RefreshCcw" onClick={handleRefresh} tooltipProps={{ content: 'refresh article' }} />
 
 		<Icon
@@ -101,6 +122,14 @@
 			onClick={handleGenerateEmbeddings}
 			tooltipProps={{ content: 'generate embeddings' }}
 		/>
+
+		{#if article.url}
+			<Icon
+				name="ListChecks"
+				onClick={openTakeawaysChat}
+				tooltipProps={{ content: 'ask the chat for 5 takeaways' }}
+			/>
+		{/if}
 
 		{#if article.url}
 			<button
@@ -114,14 +143,6 @@
 		{/if}
 
 		<ToolbarDivider />
-
-		{#if article.url}
-			<LinkIcon url={article.url} />
-		{/if}
-
-		{#if article.url && onOpenFullContent}
-			<Icon name="Code" tooltipProps={{ content: 'View full content (F)' }} />
-		{/if}
 
 		<Icon
 			name="Settings"
@@ -149,7 +170,7 @@
 	/* One pill chrome for every button in the bar: the style the favorite and
 	 * full-content buttons already had, now shared by all of them. */
 	.article-toolbar :global(button) {
-		padding: 6px 8px;
+		padding: 6px 2px;
 		border-radius: var(--radius-sm);
 		transition: background-color 0.2s;
 	}

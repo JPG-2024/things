@@ -498,6 +498,20 @@
 			});
 		}
 	});
+
+	// Launcher-initiated prompts (e.g. the takeaways icon): consumed and cleared
+	// here, watching the store rather than only mount so it also lands while the
+	// chat is already open. A launched prompt always reads the current article,
+	// so the session toggles are forced to search + "this article" scope.
+	$effect(() => {
+		const prompt = viewState.pendingChatPrompt;
+		if (!prompt) return;
+		viewState.pendingChatPrompt = null;
+		searchEnabled = true;
+		viewState.chatSearchScope = 'view';
+		if (streaming || searching) return;
+		void streamResponse(prompt);
+	});
 </script>
 
 <!-- Chat as a centered dialog: Modal owns the dimmed backdrop, the fade/scale

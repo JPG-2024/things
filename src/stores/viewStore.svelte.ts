@@ -311,6 +311,12 @@ class ViewState {
 	// Chat (ChatModal) reasoning effort sent with every request; the provider
 	// adapters translate `reasoning_effort` into their own native fields.
 	chatReasoningEffort = $state<ChatReasoningEffort>('none');
+	// Whether the chat modal is open. Lives here (not in the layout) so any
+	// component can open the chat, not just the Space hotkey.
+	chatOpen = $state(false);
+	// Prompt queued by an outside launcher (e.g. the takeaways icon): consumed
+	// and cleared by ChatModal, which sends it as the first user turn.
+	pendingChatPrompt = $state<string | null>(null);
 
 	conversationSystemPrompt = $state(CONVERSATION_SYSTEM_PROMPT_DEFAULT);
 	conversationExtraUserPrompt = $state('');

@@ -51,7 +51,6 @@
 	let flashy = $state(false);
 	let mainElement: HTMLElement | undefined = $state();
 	let conversationMode = $state(false);
-	let chatOpen = $state(false);
 
 	// First-run offer for the OS-global clipboard shortcut. It is only shown
 	// when the shortcut is not already bound, and registration waits for a user
@@ -195,7 +194,7 @@
 			drawersState.isOpen('downloads') ||
 			errorStore.open ||
 			conversationMode ||
-			chatOpen
+			viewState.chatOpen
 	);
 
 	/** `overlayActive` plus the TTS strip: drives the (currently inert) blur class. */
@@ -339,7 +338,7 @@
 		() => ({
 			enabled:
 				articleFilters.filtersPanelVisible ||
-				(selectedArticlesStore.selectedUrls.size > 0 && !chatOpen),
+				(selectedArticlesStore.selectedUrls.size > 0 && !viewState.chatOpen),
 			// Opening the panel focuses the page search input, so Escape must
 			// work from inside inputs while it is visible; once closed, keep
 			// inputs protected so typing there cannot clear article selections.
@@ -352,7 +351,7 @@
 	createHotkey(
 		'Space',
 		() => {
-			chatOpen = !chatOpen;
+			viewState.chatOpen = !viewState.chatOpen;
 		},
 		() => ({
 			enabled:
@@ -533,8 +532,8 @@
 	<DownloadModal />
 {/if}
 
-{#if chatOpen}
-	<ChatModal onExit={() => (chatOpen = false)} />
+{#if viewState.chatOpen}
+	<ChatModal onExit={() => (viewState.chatOpen = false)} />
 {/if}
 
 <style>
@@ -793,7 +792,7 @@
 		border-radius: var(--radius-sm);
 		/* No backdrop-filter: one element is fine, but a blur re-filters the
 		 * backdrop on every frame while the pointer moves. */
-		background: var(--gray-700);
+		background: var(--gray-900);
 		color: var(--gray-100);
 		padding: 0.4rem 0.7rem;
 		font-family: var(--font-secondary);
