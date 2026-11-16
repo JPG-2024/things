@@ -18,7 +18,7 @@
 	let {
 		name,
 		size,
-		color = 'white',
+		color = 'var(--gray-200)',
 		onClick = undefined,
 		tooltipProps = undefined,
 		disabled = false,
@@ -75,7 +75,6 @@
 	}
 	.icon-button:hover :global(svg) {
 		color: white !important;
-		transform: scale(1.05);
 	}
 
 	.icon-button:disabled {

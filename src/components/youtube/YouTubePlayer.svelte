@@ -37,6 +37,8 @@
 		overflow: hidden;
 		border: none;
 		border: 2px solid var(--article-border);
+		border-radius: var(--radius-md);
+		border-style: dashed;
 	}
 
 	/* Maintain aspect ratio */
@@ -54,7 +56,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		border-radius: var(--radius-sm);
 	}
 
 	.yt-thumbnail-btn {

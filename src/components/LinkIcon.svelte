@@ -35,7 +35,7 @@
 	class="link"
 	title="Open link in browser (Cmd/Ctrl-click to copy)"
 >
-	<Icon name="Link" {...rest} tooltipProps={{ content: 'open link in browser' }} />
+	<Icon name="Globe" {...rest} tooltipProps={{ content: 'open link in browser' }} />
 </button>
 
 <style>

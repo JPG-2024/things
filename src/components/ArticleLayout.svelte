@@ -166,10 +166,6 @@
 	<div class="article-analysis">
 		<AnalysisPanel />
 	</div>
-
-	<div class="article-content">
-		<AskComponent url={article.url} />
-	</div>
 </div>
 
 <FullContentModal
@@ -184,7 +180,7 @@
 	.article-layout {
 		width: 100%;
 		padding: 3rem;
-		padding-top: 6rem;
+		padding-top: 4rem;
 		display: grid;
 		grid-template-columns: 220px minmax(0, 1fr);
 		column-gap: 1.5rem;

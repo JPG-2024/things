@@ -95,8 +95,11 @@
 </script>
 
 <div class="category-editor">
-	<div class="category-pills">
+	<div class="category-editor__header">
 		<span class="category-editor__title">Tags</span>
+		{#if trailingActions}{@render trailingActions()}{/if}
+	</div>
+	<div class="category-pills">
 		{#each selectedIds as id (id)}
 			<span class="category-pill">
 				<CategoryItem value={categoryLabel(id)} />
@@ -111,8 +114,6 @@
 				</button>
 			</span>
 		{/each}
-
-		{#if trailingActions}{@render trailingActions()}{/if}
 
 		<div class="category-search">
 			<SearchDropdown
@@ -150,6 +151,11 @@
 		border-style: dashed;
 	}
 
+	.category-editor__header {
+		display: flex;
+		align-items: center;
+	}
+
 	.category-editor__title {
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
@@ -162,6 +168,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
+		justify-content: center;
 		gap: 1.5rem;
 	}
 

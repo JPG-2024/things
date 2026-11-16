@@ -1151,8 +1151,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		max-height: calc(90vh - 4px);
 		overflow: hidden;
+		gap: 2rem;
 		padding-top: 1.5rem;
 	}
 
@@ -1173,17 +1173,15 @@
 		gap: 1.5rem;
 		width: 100%;
 		min-height: 0;
-		overflow-y: auto;
-		padding: 0.75rem 1.5rem 2rem;
 	}
 
 	.tts-sections {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
 	}
 
 	.tts-section-title {
-		margin: 1.25rem 0 0.85rem;
 		padding-top: 1.25rem;
 		border-top: 1px solid rgba(255, 255, 255, 0.08);
 		font-family: var(--font-secondary);

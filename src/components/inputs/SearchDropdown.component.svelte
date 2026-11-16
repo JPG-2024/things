@@ -377,7 +377,8 @@
 
 	.option:hover,
 	.option.highlighted {
-		background: color-mix(in srgb, var(--bg-color) 50%, transparent);
+		background: white;
+		color: black;
 	}
 
 	.option.selected {

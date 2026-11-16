@@ -203,17 +203,17 @@
 						<!-- Questions are one extra LLM call per window. The toggle only
 			 affects the next analysis; the current windows keep what they
 			 already answered. -->
-						<ToggleIcon
+						<!-- 						<ToggleIcon
 							name="MessageCircleQuestion"
 							bind:checked={viewState.questionsEnabled}
 							tooltipProps={{
 								content:
 									'ask each window what questions it answers (one extra call per window); applies to the next analysis'
 							}}
-						/>
+						/> -->
 						<span class="prompts-trigger">
 							<Icon
-								name="ScrollText"
+								name="Text"
 								size={16}
 								disabled={isRunning}
 								ariaLabel="Edit prompts"
@@ -245,7 +245,7 @@
 								</ul>
 							{/if}
 							<div class="chunk-summary">
-								<MarkdownRenderer content={window.data.summary} />
+								<MarkdownRenderer content={window.data.summary} fontSize={0.7} />
 							</div>
 
 							<div class="chunk-action">

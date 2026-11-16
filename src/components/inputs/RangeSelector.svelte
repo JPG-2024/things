@@ -177,9 +177,9 @@
 	.range-thumb {
 		position: absolute;
 		top: 50%;
-		left: calc(var(--pct) * (100% - 20px) + 10px);
+		left: calc(var(--pct) * (100% - 20px) + 8px);
 		translate: -50% -50%;
-		width: 16px;
+		width: 24px;
 		aspect-ratio: 1;
 		border-radius: 50%;
 		background: hsl(0 0% 16%);

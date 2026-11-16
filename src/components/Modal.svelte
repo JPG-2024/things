@@ -98,6 +98,8 @@
 		container-type: inline-size;
 		border: 2px solid var(--gray-800);
 		border-style: dashed;
+		padding: 2rem;
+		padding-bottom: 4rem;
 	}
 
 	/* Full-height dialog: the backdrop gains a 1.5rem frame and stretches the
