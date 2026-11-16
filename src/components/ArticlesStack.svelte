@@ -4,6 +4,7 @@
 	import type { ArticleRecord } from '@/stores/webStore';
 	import type { LayoutKey } from '@/stores/viewStore.svelte';
 	import ArticleTitle from '@/components/ArticleItem/ArticleTitle.svelte';
+	import FavoriteButton from '@/components/FavoriteButton.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 
@@ -101,11 +102,13 @@
 		{/if}
 		{#if cell.hasFavorite}
 			<!-- Favorite marker at the card's top-right corner, the same spot
-			     ArticleItem hangs its star. The pile layers stay below (their
-			     z-index is capped by the preview count), so it reads over the
+			     ArticleItem hangs its star. FavoriteButton's marker mode renders a
+			     span (no nested button inside the stack button) and takes the known
+			     state so it doesn't refetch per card. The pile layers stay below
+			     (their z-index is capped by the preview count), so it reads over the
 			     whole stack. -->
 			<span class="articles-stack__favorite" aria-hidden="true">
-				<Icon name="Star" size={16} color="var(--primary-color)" />
+				<FavoriteButton url={frontArticle?.url ?? null} marker favorite={cell.hasFavorite} />
 			</span>
 		{/if}
 		<!-- Attribution at the stack card's bottom-left corner (mirrors
@@ -132,7 +135,7 @@
 		justify-content: flex-start;
 		width: 100%;
 		padding: 0.75rem;
-		padding-left: 28px;
+		padding-left: 10px;
 		background: transparent;
 		border: none;
 		cursor: pointer;
@@ -252,9 +255,10 @@
 		pointer-events: none;
 	}
 
-	/* Favorite marker: same top-right corner and fill treatment as
-	   ArticleItem's star, but non-interactive (the stack button navigates to
-	   the profile). It renders after the pile, so the layers never cover it. */
+	/* Favorite marker: same top-right corner as ArticleItem's star. The star
+	   itself is FavoriteButton in marker mode (span, non-interactive: the
+	   stack button navigates to the profile). It renders after the pile, so
+	   the layers never cover it. */
 	.articles-stack__favorite {
 		position: absolute;
 		top: 0.25rem;
@@ -265,10 +269,6 @@
 		line-height: 0;
 		z-index: 9;
 		pointer-events: none;
-	}
-
-	.articles-stack__favorite :global(svg) {
-		fill: var(--primary-color);
 	}
 
 	/* Profile attribution at the stack card's bottom-left corner (the star
