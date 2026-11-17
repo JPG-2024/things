@@ -12,7 +12,6 @@
 	import { ANALYSIS_TABS, viewState } from '@/stores/viewStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import { readRawWindow } from '@/lib/utils/rawContent';
-	import { readWindowQuestions } from '@/lib/utils/windowQuestions';
 	import { detectSource } from '@/runners/articleSources';
 	import {
 		clampWindowLevel,
@@ -243,7 +242,6 @@
 							<div class="chunk-pending">waiting for the first window…</div>
 						{/if}
 						{#each visibleWindows as window, index (window.index)}
-							{@const questions = readWindowQuestions(window.data)}
 							<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
 								<div class="chunk-heading">
 									<span class="chunk-index">{index + 1}/{windowTotal}</span>
@@ -251,13 +249,6 @@
 										<span class="chunk-title">{window.data.title}</span>
 									{/if}
 								</div>
-								{#if questions.length}
-									<ul class="chunk-questions">
-										{#each questions as question (question)}
-											<li>{question}</li>
-										{/each}
-									</ul>
-								{/if}
 								<div class="chunk-summary">
 									<MarkdownRenderer content={window.data.summary} fontSize={0.7} />
 								</div>
@@ -413,21 +404,6 @@
 		opacity: 0.45;
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
-	}
-
-	/* Quieter than the summary: smaller, italic, no markdown weight. */
-	.chunk-questions {
-		padding: 1rem;
-		font-size: 0.85rem;
-		font-weight: bold;
-		line-height: 2rem;
-		font-family: var(--font-secondary);
-		color: white;
-		list-style-type: square;
-	}
-
-	.chunk-questions li + li {
-		margin-top: 0.2rem;
 	}
 
 	.raw-text-modal-container {

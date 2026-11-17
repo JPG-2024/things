@@ -78,8 +78,8 @@ export async function embedAnalysis(
 	for (const field of usableFields) {
 		const values = collectFieldValues(article.windows, field);
 		if (values.length === 0) {
-			// The field no longer exists in the analysis (e.g. questions were
-			// turned off): drop its old vectors so chat cannot retrieve them.
+			// The field no longer exists in the analysis: drop its old vectors
+			// so chat cannot retrieve them.
 			try {
 				await deleteChunksByArticle(field, article.url);
 			} catch (error) {

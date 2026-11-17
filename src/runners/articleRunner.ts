@@ -404,7 +404,6 @@ export async function runArticle(
 					divisor: splitByHeaders ? null : requestedDivisor,
 					splitByHeaders,
 					model: viewState.aiModel,
-					questions: viewState.questionsEnabled,
 					...analysisStream(url, analysisType)
 				},
 				analysisType
@@ -599,7 +598,6 @@ export async function rerunArticleAnalysis(
 				divisor: splitByHeaders ? null : requestedDivisor,
 				splitByHeaders,
 				model: viewState.aiModel,
-				questions: viewState.questionsEnabled,
 				...analysisStream(url, analysisType)
 			},
 			analysisType

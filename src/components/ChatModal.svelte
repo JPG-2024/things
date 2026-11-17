@@ -80,6 +80,14 @@
 		viewState.chatSearchScope === 'view' && scope.kind !== 'library' ? scope : null
 	);
 
+	// Retrieval tables follow Settings → Chat context (`summary` by default).
+	const searchTables = $derived(
+		viewState.chatSearchTables
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean)
+	);
+
 	function toggleSearch() {
 		searchEnabled = !searchEnabled;
 		viewState.chatSearchEnabled = searchEnabled;
@@ -128,7 +136,7 @@
 		searching = true;
 		try {
 			return await retrieveContextChunks({
-				tables: ['questions'],
+				tables: searchTables,
 				query,
 				articleUrl: scopeFilter?.articleUrl,
 				profileId: scopeFilter?.profileId,

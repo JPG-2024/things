@@ -9,14 +9,8 @@
  */
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
-import { parseQuestionsResponse, parseTitleText } from '@/lib/utils/inference/finalResponse';
-import {
-	TITLE_SYSTEM_MESSAGE,
-	buildWindowTitleUserMessage,
-	buildWindowQuestionsUserMessage
-} from '@/lib/utils/inference/prompts';
-import { windowQuestionsSchema } from '@/lib/utils/schemas/structuredSchemas';
-import { questionsForChunk } from '@/lib/utils/windowQuestions';
+import { parseTitleText } from '@/lib/utils/inference/finalResponse';
+import { TITLE_SYSTEM_MESSAGE, buildWindowTitleUserMessage } from '@/lib/utils/inference/prompts';
 import { promptState } from '@/stores/promptStore.svelte';
 import {
 	ANALYSIS_COMPLETION_OPTIONS,
@@ -41,9 +35,6 @@ export const windowSummaryProcessor: WindowSummaryProcessorDef = {
 	type: 'windowSummary',
 	build: (config: WindowSummaryProcessorConfig) => {
 		const model = config.model ?? DEFAULT_DYNAMIC_MODEL;
-		// One extra call per window: the user can turn it off and keep only the
-		// summary and its label.
-		const includeQuestions = config.questions !== false;
 		const completionOptions = {
 			...ANALYSIS_COMPLETION_OPTIONS,
 			...config.completionOptions,
@@ -127,49 +118,12 @@ export const windowSummaryProcessor: WindowSummaryProcessorDef = {
 			}
 		};
 
-		/**
-		 * Questions the window answers, as structured output.
-		 *
-		 * The count scales with the window size (a bigger window answers
-		 * more), and the schema travels as `response_format`, which every
-		 * provider receives (llama turns it into a grammar; the
-		 * OpenAI-compatible adapters forward it untouched). A failure only
-		 * loses the questions: the window summary it enriches is already
-		 * done.
-		 */
-		const extractQuestions = async (text: string): Promise<string[]> => {
-			if (!text.trim()) return [];
-
-			const count = questionsForChunk(text);
-			try {
-				const response = await chatCompletions({
-					...completionOptions,
-					stream: false,
-					response_format: windowQuestionsSchema(count),
-					messages: [
-						{
-							role: 'user',
-							content: `${buildWindowQuestionsUserMessage(count)}\n\n${text}`
-						}
-					]
-				});
-				return parseQuestionsResponse(assistantAnswerText(response), count) ?? [];
-			} catch (error) {
-				console.warn('[windowSummary] window questions failed', error);
-				return [];
-			}
-		};
-
 		return {
 			processChunk: async (chunk: string): Promise<WindowSummaryChunkData> => {
 				const summary = await summarizeText(chunk);
-				// Sequential on purpose: the local llama-server is single
-				// threaded, so parallel calls would just queue.
-				const questions = includeQuestions ? await extractQuestions(chunk) : [];
 				const title = await summarizeTitle(summary);
 				return {
 					summary,
-					...(questions.length ? { questions } : {}),
 					...(title ? { title } : {})
 				};
 			},

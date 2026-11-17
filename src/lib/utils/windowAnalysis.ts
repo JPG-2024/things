@@ -56,8 +56,6 @@ export interface AnalysisRunOptions {
 	splitByHeaders?: boolean;
 	/** Model used for the inference calls. */
 	model?: string;
-	/** Ask each summary window for the questions it answers. Defaults to `true`. */
-	questions?: boolean;
 	/** Aborts the whole run, including the streamed final block. */
 	signal?: AbortSignal;
 	/** Called once per attempt, before its first window. */
@@ -326,7 +324,7 @@ async function runAnalysis<TChunk>(
 
 /**
  * Runs the summary processor. Its final block is the merged summary (or the
- * direct one at level 1); every window also carries questions and a title.
+ * direct one at level 1); every window also carries a title.
  */
 export async function analyzeWindows(
 	content: string,
@@ -336,15 +334,13 @@ export async function analyzeWindows(
 	// split and the ladder) stay importable without the inference stack.
 	const { windowSummaryProcessor } = await import('@/runners/shared/processors');
 	const processor = windowSummaryProcessor.build({
-		model: options.model,
-		questions: options.questions
+		model: options.model
 	});
 
 	return runAnalysis<WindowSummaryChunkData>(content, options, {
 		processChunk: (text, index) => processor.processChunk(text, index),
 		toWindowData: (data) => ({
 			summary: data.summary,
-			...(data.questions ? { questions: data.questions } : {}),
 			...(data.title ? { title: data.title } : {}),
 			analysisType: 'summary'
 		}),

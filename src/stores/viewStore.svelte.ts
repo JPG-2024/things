@@ -273,9 +273,8 @@ class ViewState {
 	embeddingsLoading = $state(false);
 	// Indexing defaults (Settings → Embeddings). Every field of the analysis
 	// payload is indexed in a table with the same name, so `summary` keeps the
-	// window summaries and `questions` the per-window questions the windows
-	// answer (chat can match a user's question against them directly).
-	embeddingFields = $state<string[]>(['summary', 'questions']);
+	// window summaries.
+	embeddingFields = $state<string[]>(['summary']);
 	embeddingStoreChunkText = $state(true);
 	embeddingsServiceUp = $state(false);
 	inferenceServiceUp = $state(false);
@@ -291,9 +290,6 @@ class ViewState {
 	windowLevel = $state(DEFAULT_WINDOW_LEVEL);
 	/** Analysis type shown in AnalysisPanel. Persisted by `settingsStore`. */
 	analysisTab = $state<AnalysisTabId>('summary');
-	// Per-window questions are one extra LLM call per window. On by default;
-	// turning it off skips the call and leaves the windows with summary + title.
-	questionsEnabled = $state(true);
 	// Both sides of the category comparison are `title + summary` embeddings
 	// (query and fed exemplars), so the threshold sits higher than the old
 	// name/description-vs-document value of 0.35.
@@ -309,9 +305,8 @@ class ViewState {
 	// a comma-separated list of task ids; a table that was never indexed is
 	// simply skipped by the search.
 	chatSearchEnabled = $state(true);
-	// `summary` matches the user's message against the window summaries,
-	// `questions` against the questions the windows answer.
-	chatSearchTables = $state('summary, questions');
+	// `summary` matches the user's message against the window summaries.
+	chatSearchTables = $state('summary');
 	// How many chunks (and therefore source articles) a retrieval may return.
 	chatSearchMaxResults = $state(5);
 	// L2 distance cutoff for retrieved chunks (same metric the similar-

@@ -623,11 +623,6 @@
 				value={String(viewState.windowLevel)}
 				onChange={(v) => (viewState.windowLevel = Number(v))}
 			/>
-			<ToggleField
-				label="Window questions"
-				tooltip="Ask each window what questions it answers (one extra LLM call per window). Applies to the next analysis."
-				bind:checked={viewState.questionsEnabled}
-			/>
 		</div>
 	</Spacer>
 	<Spacer title="Embeddings" icon="FileDigit">
