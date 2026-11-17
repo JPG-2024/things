@@ -291,36 +291,38 @@
 >
 	<div class="page-topbar">
 		<Toolbar layout="grid" iconSize={20}>
-			<div class="toolbar-left">
-				<LuminousText
-					mode="random"
-					size="1.4rem"
-					glowOpacity={0.5}
-					onclick={handleTitleClick}
-					aria-label="Paste clipboard URL"
-				>
-					Things
-				</LuminousText>
-			</div>
-			<div class="toolbar-center" bind:this={filtersAnchorEl}>
-				<Input
-					type="text"
-					bind:this={searchInput}
-					bind:value={viewState.unifiedFilterDraft}
-					search
-					keepValueOnEnter
-					onEnter={() => viewState.commitUnifiedFilter()}
-					onFocus={() => void articleFilters.openFiltersPanel()}
-				/>
-				<button
-					type="button"
-					class="filters-trigger"
-					class:active={articleFilters.hasActive || articleFilters.filtersPanelVisible}
-					onclick={() => void articleFilters.toggleFiltersPanel()}
-					aria-label="Toggle article filters"
-				>
-					<Icon name="Filter" />
-				</button>
+			<div class="toolbar-leading">
+				<div class="toolbar-left">
+					<LuminousText
+						mode="random"
+						size="1.4rem"
+						glowOpacity={0.5}
+						onclick={handleTitleClick}
+						aria-label="Paste clipboard URL"
+					>
+						Things
+					</LuminousText>
+				</div>
+				<div class="toolbar-center" bind:this={filtersAnchorEl}>
+					<Input
+						type="text"
+						bind:this={searchInput}
+						bind:value={viewState.unifiedFilterDraft}
+						search
+						keepValueOnEnter
+						onEnter={() => viewState.commitUnifiedFilter()}
+						onFocus={() => void articleFilters.openFiltersPanel()}
+					/>
+					<button
+						type="button"
+						class="filters-trigger"
+						class:active={articleFilters.hasActive || articleFilters.filtersPanelVisible}
+						onclick={() => void articleFilters.toggleFiltersPanel()}
+						aria-label="Toggle article filters"
+					>
+						<Icon name="Filter" />
+					</button>
+				</div>
 			</div>
 			<div class="toolbar-tabs">
 				<ProfileArticleTabs />
@@ -480,11 +482,24 @@
 
 <style>
 	.page-topbar {
-		/* Single header row: title | search | tabs | toolbar. The page owns the
-		   responsive track definition; Toolbar.svelte reads these vars so its
-		   scoped grid styles never have to fight specificity. */
-		--toolbar-grid-columns: auto minmax(120px, 200px) auto 1fr;
-		--toolbar-grid-areas: 'title search tabs actions';
+		/* Single header row: (title + search) | tabs | toolbar. The two 1fr side
+		   tracks are equal, so the center tabs track is viewport-centered.
+		   Toolbar.svelte reads these vars so its scoped grid styles never have
+		   to fight specificity. */
+		--search-width: clamp(120px, 14vw, 200px);
+		--toolbar-grid-columns: 1fr auto 1fr;
+		--toolbar-grid-areas: 'leading tabs actions';
+	}
+
+	/* Groups title + search on the left in the single-row layout. When the tabs
+	   wrap, `display: contents` dissolves this box so its children become grid
+	   items again and can occupy their own rows. */
+	.toolbar-leading {
+		grid-area: leading;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		min-width: 0;
 	}
 
 	.toolbar-actions {
@@ -511,6 +526,8 @@
 		align-items: center;
 		grid-area: tabs;
 		justify-self: center;
+		width: max-content;
+		max-width: 100%;
 		min-width: 0;
 	}
 
@@ -613,8 +630,9 @@
 		display: flex;
 		align-items: center;
 		grid-area: search;
-		width: 100%;
+		width: var(--search-width);
 		min-width: 0;
+		flex-shrink: 1;
 		gap: 0.3rem;
 	}
 
@@ -625,6 +643,14 @@
 		.page-topbar {
 			--toolbar-grid-columns: auto minmax(0, 1fr) auto;
 			--toolbar-grid-areas: 'title search actions' 'tabs tabs tabs';
+		}
+
+		.toolbar-leading {
+			display: contents;
+		}
+
+		.toolbar-center {
+			width: 100%;
 		}
 	}
 
