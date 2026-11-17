@@ -15,6 +15,7 @@ import { DEFAULT_WINDOW_LEVEL } from '@/lib/utils/windowAnalysis';
 import { getProfiles } from '@/stores/webStore';
 import type { ArticleRecord, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
+import type { AnalysisType } from '@/types/articleAnalysis.types';
 
 export interface RawSearchMatch {
 	before: string;
@@ -35,6 +36,9 @@ export type AiProvider = 'llama' | 'openrouter' | 'opencode';
 // Reasoning effort for ChatModal requests; 'none' disables thinking and each
 // non-none level is forwarded as-is to the selected provider.
 export type ChatReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+
+/** Analysis type shown in the article's AnalysisPanel. */
+export type AnalysisTabId = AnalysisType;
 
 export type LayoutKey = 'row' | 'grid-3' | 'grid';
 
@@ -129,6 +133,12 @@ export const PROFILE_ARTICLE_TABS = [
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
 	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
 	{ id: 'domains', label: 'Domains', icon: 'Globe' }
+];
+
+/** Analysis types offered inside the article's AnalysisPanel. */
+export const ANALYSIS_TABS = [
+	{ id: 'summary', label: 'Summary', icon: 'FileText' },
+	{ id: 'takeaways', label: 'Takeaways', icon: 'ListChecks' }
 ];
 
 export function rgbToHue(rgb: string): number {
@@ -279,6 +289,8 @@ class ViewState {
 	// applies to raw text and YouTube videos; web articles split by markdown
 	// headings and have no knob.
 	windowLevel = $state(DEFAULT_WINDOW_LEVEL);
+	/** Analysis type shown in AnalysisPanel. Persisted by `settingsStore`. */
+	analysisTab = $state<AnalysisTabId>('summary');
 	// Per-window questions are one extra LLM call per window. On by default;
 	// turning it off skips the call and leaves the windows with summary + title.
 	questionsEnabled = $state(true);

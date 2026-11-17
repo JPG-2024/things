@@ -98,23 +98,6 @@
 	<div class="category-editor__header">
 		<span class="category-editor__title">Tags</span>
 		{#if trailingActions}{@render trailingActions()}{/if}
-	</div>
-	<div class="category-pills">
-		{#each selectedIds as id (id)}
-			<span class="category-pill">
-				<CategoryItem value={categoryLabel(id)} />
-				{#if pillActions}{@render pillActions(id)}{/if}
-				<button
-					type="button"
-					class="remove-btn"
-					onclick={() => removeId(id)}
-					aria-label="Remove {categoryLabel(id)}"
-				>
-					<Icon name="Trash" size={15} />
-				</button>
-			</span>
-		{/each}
-
 		<div class="category-search">
 			<SearchDropdown
 				bind:value={searchValue}
@@ -136,6 +119,22 @@
 				{/snippet}
 			</SearchDropdown>
 		</div>
+	</div>
+	<div class="category-pills">
+		{#each selectedIds as id (id)}
+			<span class="category-pill">
+				<CategoryItem value={categoryLabel(id)} />
+				{#if pillActions}{@render pillActions(id)}{/if}
+				<button
+					type="button"
+					class="remove-btn"
+					onclick={() => removeId(id)}
+					aria-label="Remove {categoryLabel(id)}"
+				>
+					<Icon name="Trash" size={15} />
+				</button>
+			</span>
+		{/each}
 	</div>
 </div>
 
@@ -198,6 +197,7 @@
 	.category-search {
 		width: auto;
 		padding-top: 1px;
+		padding-left: 1rem;
 	}
 
 	.add-label {

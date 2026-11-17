@@ -120,6 +120,7 @@ function serializeView() {
 		conversationFrequencyPenalty: viewState.conversationFrequencyPenalty,
 		conversationPresencePenalty: viewState.conversationPresencePenalty,
 		windowLevel: viewState.windowLevel,
+		analysisTab: viewState.analysisTab,
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		markdownFontSize: viewState.markdownFontSize,
 		primaryColor: viewState.primaryColor,
@@ -272,6 +273,9 @@ function applyView(raw: unknown): void {
 	}
 	if (typeof raw.windowLevel === 'number') {
 		viewState.windowLevel = clampWindowLevel(raw.windowLevel);
+	}
+	if (raw.analysisTab === 'summary' || raw.analysisTab === 'takeaways') {
+		viewState.analysisTab = raw.analysisTab;
 	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);

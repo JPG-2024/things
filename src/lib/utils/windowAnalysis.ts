@@ -1,16 +1,20 @@
 /**
- * Window analysis — the only analytic of the MVP article runner.
+ * Window analysis — the shared engine of both article analytics.
  *
- * The article body is split into windows, every window is summarized with one
- * LLM call (plus a short title call for its label) and the window summaries
- * are merged with one more call. When the
- * context of the model overflows, the run climbs the window-divisor ladder
+ * Two processors (summary and takeaways) use the same split → process → merge
+ * loop. At window level 1 there is no merge: one final call reads the whole
+ * body. When the context overflows, the run climbs the window-divisor ladder
  * (`1 → 2 → 4 → 8 → 16`) and the level it *actually* executed is reported
  * back, so the caller can store it instead of deducing it.
  */
 import { splitByLevels, splitByMarkdownHeaders } from '@/lib/utils/splitText';
 import { isContextSizeError } from '@/runners/shared/contextSizeError';
-import type { ArticleWindow } from '@/types/articleAnalysis.types';
+import type { ArticleWindow, WindowPayload } from '@/types/articleAnalysis.types';
+import type {
+	TakeawaysChunkData,
+	TakeawaysProcessor,
+	WindowSummaryChunkData
+} from '@/runners/shared/processors';
 
 export { reconstructChunks } from '@/lib/utils/splitText';
 
@@ -40,42 +44,43 @@ export interface WindowSlice {
 	heading?: string;
 }
 
-/** Options of a single analysis run. */
-export interface AnalyzeWindowsOptions {
+/** Options of a single analysis run, whichever processor runs it. */
+export interface AnalysisRunOptions {
 	/**
 	 * Window divisor to start with. `null` splits by markdown headings
-	 * instead (the web behaviour): no knob, no clamp.
+	 * instead (the web behaviour): no knob, no clamp. `1` reads the whole body
+	 * in one final call, without an intermediate window pass.
 	 */
 	divisor: number | null;
 	/** Splits by markdown headings instead of by level. */
 	splitByHeaders?: boolean;
-	/** Model used for the summarization calls. */
+	/** Model used for the inference calls. */
 	model?: string;
-	/**
-	 * Ask each window for the questions it answers. Defaults to `true`; when
-	 * `false` the extra per-window call is skipped.
-	 */
+	/** Ask each summary window for the questions it answers. Defaults to `true`. */
 	questions?: boolean;
-	/**
-	 * Called once per attempt, before its first window.
-	 *
-	 * The split is already known at that point, so the total is available from
-	 * the very start of the run — and an attempt that climbs the divisor ladder
-	 * restarts with a fresh total. Listeners use it to reset their buffer: one
-	 * attempt owns the windows it streams, so two attempts can never coexist.
-	 */
+	/** Aborts the whole run, including the streamed final block. */
+	signal?: AbortSignal;
+	/** Called once per attempt, before its first window. */
 	onAttempt?: (total: number) => void;
-	/** Called after every window is summarized, to stream progress. */
+	/** Called after every window is processed, to stream progress. */
 	onWindow?: (window: ArticleWindow, index: number, total: number) => void;
+	/** Called when the final block (merge or direct call) starts. */
+	onFinalStart?: () => void;
+	/** Streams the final block (the merge call, or the direct level-1 call). */
+	onFinalToken?: (token: string) => void;
 }
 
-/** Result of an analysis run. */
-export interface AnalyzeWindowsResult {
+export type AnalyzeWindowsOptions = AnalysisRunOptions;
+
+/** Result of an analysis run. `summary` holds the final block of either analytic. */
+export interface AnalysisRunResult {
 	windows: ArticleWindow[];
 	summary: string;
 	/** The divisor that was actually executed; `null` in heading mode. */
 	divisor: number | null;
 }
+
+export type AnalyzeWindowsResult = AnalysisRunResult;
 
 /** Next rung of the ladder, or `undefined` when the ladder is exhausted. */
 export function nextWindowDivisor(divisor: number): number | undefined {
@@ -161,24 +166,36 @@ function splitByHeaders(content: string): WindowSlice[] {
 	return slices;
 }
 
+/** Options of the shared split → process → merge loop. */
+interface WindowPipelineOptions<TChunk, TResult> {
+	divisor: number | null;
+	splitByHeaders?: boolean;
+	signal?: AbortSignal;
+	/** Called once per attempt, before its first window. */
+	onAttempt?: (total: number) => void;
+	/** Called after each window is processed, before the merge. */
+	onChunk?: (chunk: TChunk, slice: WindowSlice, index: number, total: number) => void;
+	processChunk: (text: string, index: number, signal?: AbortSignal) => Promise<TChunk>;
+	combineChunks: (
+		chunks: TChunk[],
+		options: { signal?: AbortSignal; onToken?: (token: string) => void }
+	) => Promise<TResult>;
+	/** Streams the final (merge) call. */
+	onToken?: (token: string) => void;
+}
+
 /**
- * Summarizes every window of the body and merges the results.
+ * Runs one window pipeline, climbing the divisor ladder on a context overflow.
  *
- * On a context-overflow error the run restarts with the next rung of the
- * ladder. Heading mode has no ladder (the divisor is unknown there), so a
+ * `onAttempt` marks the start of each attempt, so a caller that accumulates
+ * per-window data can drop the previous generation instead of mixing two
+ * attempts. Heading mode has no ladder (the divisor is unknown there), so a
  * context error propagates.
  */
-export async function analyzeWindows(
+async function runWindowPipeline<TChunk, TResult>(
 	content: string,
-	options: AnalyzeWindowsOptions
-): Promise<AnalyzeWindowsResult> {
-	// The processor is imported lazily so the pure helpers of this module (the
-	// split and the ladder) stay importable without the inference stack.
-	const { windowSummaryProcessor } = await import('@/runners/shared/processors');
-	const processor = windowSummaryProcessor.build({
-		model: options.model,
-		questions: options.questions
-	});
+	options: WindowPipelineOptions<TChunk, TResult>
+): Promise<{ result: TResult; divisor: number | null }> {
 	let divisor = options.divisor;
 
 	while (true) {
@@ -188,27 +205,20 @@ export async function analyzeWindows(
 				splitByHeaders: options.splitByHeaders
 			});
 
-			const windows: ArticleWindow[] = [];
+			const chunks: TChunk[] = [];
 			options.onAttempt?.(slices.length);
 			for (const [index, slice] of slices.entries()) {
-				const result = await processor.processChunk(slice.text, index);
-				const window: ArticleWindow = {
-					index,
-					start: slice.startOffset,
-					end: slice.endOffset,
-					data: {
-						summary: result.summary,
-						...(result.questions ? { questions: result.questions } : {}),
-						...(result.title ? { title: result.title } : {})
-					}
-				};
-				windows.push(window);
-				options.onWindow?.(window, index, slices.length);
+				const chunk = await options.processChunk(slice.text, index, options.signal);
+				chunks.push(chunk);
+				options.onChunk?.(chunk, slice, index, slices.length);
 			}
 
-			const combined = await processor.combineChunks(windows.map((w) => w.data));
+			const result = await options.combineChunks(chunks, {
+				signal: options.signal,
+				onToken: options.onToken
+			});
 
-			return { windows, summary: combined.summary, divisor };
+			return { result, divisor };
 		} catch (error) {
 			if (!isContextSizeError(error) || divisor === null || divisor === undefined) {
 				throw error;
@@ -222,4 +232,154 @@ export async function analyzeWindows(
 			divisor = next;
 		}
 	}
+}
+
+/** Options of one final-block call (merge or direct). */
+interface FinalCallOptions {
+	signal?: AbortSignal;
+	onToken?: (token: string) => void;
+}
+
+/**
+ * The part of a processor the shared engine needs: how to process one window,
+ * how to build its stored payload, and how to produce the final block either
+ * from stitched windows or straight from the raw body.
+ */
+interface AnalysisAdapter<TChunk> {
+	processChunk: (text: string, index: number, signal?: AbortSignal) => Promise<TChunk>;
+	toWindowData: (chunk: TChunk) => WindowPayload;
+	finalWindowData: (final: string) => WindowPayload;
+	combine: (chunks: TChunk[], options: FinalCallOptions) => Promise<string>;
+	finalDirect: (text: string, options: FinalCallOptions) => Promise<string>;
+}
+
+/**
+ * Runs one analytic through the shared window engine.
+ *
+ * At level 1 the whole body goes straight to the final prompt and is stored
+ * as one synthetic window (`direct: true`) so persistence, embeddings and the
+ * cached-analysis checks keep working. A context overflow there climbs to the
+ * next rung and falls through to the normal window + merge path.
+ */
+async function runAnalysis<TChunk>(
+	content: string,
+	options: AnalysisRunOptions,
+	adapter: AnalysisAdapter<TChunk>
+): Promise<AnalysisRunResult> {
+	const windows: ArticleWindow[] = [];
+	let divisor = options.divisor;
+
+	if (divisor === 1 && !options.splitByHeaders) {
+		options.onAttempt?.(1);
+		try {
+			options.onFinalStart?.();
+			const final = await adapter.finalDirect(content, {
+				signal: options.signal,
+				onToken: options.onFinalToken
+			});
+			const window: ArticleWindow = {
+				index: 0,
+				start: 0,
+				end: content.length,
+				data: { ...adapter.finalWindowData(final), direct: true }
+			};
+			windows.push(window);
+			options.onWindow?.(window, 0, 1);
+			return { windows, summary: final, divisor: 1 };
+		} catch (error) {
+			if (!isContextSizeError(error)) throw error;
+			const next = nextWindowDivisor(1);
+			if (next === undefined) throw error;
+			divisor = next;
+		}
+	}
+
+	const { result, divisor: executed } = await runWindowPipeline<TChunk, string>(content, {
+		divisor,
+		splitByHeaders: options.splitByHeaders,
+		signal: options.signal,
+		onAttempt: (total) => {
+			// A ladder climb restarts with a fresh set of windows.
+			windows.length = 0;
+			options.onAttempt?.(total);
+		},
+		onChunk: (chunk, slice, index, total) => {
+			const window: ArticleWindow = {
+				index,
+				start: slice.startOffset,
+				end: slice.endOffset,
+				data: adapter.toWindowData(chunk)
+			};
+			windows.push(window);
+			options.onWindow?.(window, index, total);
+		},
+		processChunk: (text, index, signal) => adapter.processChunk(text, index, signal),
+		combineChunks: (chunks, streamOptions) => {
+			options.onFinalStart?.();
+			return adapter.combine(chunks, streamOptions);
+		},
+		onToken: options.onFinalToken
+	});
+
+	return { windows, summary: result, divisor: executed };
+}
+
+/**
+ * Runs the summary processor. Its final block is the merged summary (or the
+ * direct one at level 1); every window also carries questions and a title.
+ */
+export async function analyzeWindows(
+	content: string,
+	options: AnalyzeWindowsOptions
+): Promise<AnalyzeWindowsResult> {
+	// The processor is imported lazily so the pure helpers of this module (the
+	// split and the ladder) stay importable without the inference stack.
+	const { windowSummaryProcessor } = await import('@/runners/shared/processors');
+	const processor = windowSummaryProcessor.build({
+		model: options.model,
+		questions: options.questions
+	});
+
+	return runAnalysis<WindowSummaryChunkData>(content, options, {
+		processChunk: (text, index) => processor.processChunk(text, index),
+		toWindowData: (data) => ({
+			summary: data.summary,
+			...(data.questions ? { questions: data.questions } : {}),
+			...(data.title ? { title: data.title } : {}),
+			analysisType: 'summary'
+		}),
+		finalWindowData: (final) => ({ summary: final, analysisType: 'summary' }),
+		combine: async (chunks) => (await processor.combineChunks(chunks)).summary,
+		finalDirect: async (text, finalOptions) =>
+			(await processor.finalDirect(text, finalOptions)).summary
+	});
+}
+
+export interface AnalyzeTakeawaysOptions extends AnalysisRunOptions {
+	/** Processor override for tests; defaults to the app processor. */
+	processor?: TakeawaysProcessor;
+}
+
+export type AnalyzeTakeawaysResult = AnalysisRunResult;
+
+/** Runs the takeaways processor through the very same window engine. */
+export async function analyzeTakeaways(
+	content: string,
+	options: AnalyzeTakeawaysOptions
+): Promise<AnalyzeTakeawaysResult> {
+	const processor =
+		options.processor ??
+		(await import('@/runners/shared/processors')).windowTakeawaysProcessor.build({
+			model: options.model
+		});
+
+	return runAnalysis<TakeawaysChunkData>(content, options, {
+		processChunk: (text, index, signal) => processor.processChunk(text, index, { signal }),
+		toWindowData: (data) => ({ summary: data.takeaways, analysisType: 'takeaways' }),
+		finalWindowData: (final) => ({ summary: final, analysisType: 'takeaways' }),
+		combine: async (chunks, finalOptions) =>
+			(await processor.combineChunks(chunks, finalOptions)).takeaways,
+		finalDirect: async (text, finalOptions) =>
+			(await processor.finalDirect(text, finalOptions)).takeaways
+	});
 }

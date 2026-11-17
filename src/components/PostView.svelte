@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { markArticleAsViewed } from '@/stores/webStore';
 	import Topbar from './layout/Topbar.svelte';
@@ -14,6 +15,30 @@
 
 	// ArrowLeft returns to the route this post was opened from.
 	createBackHotkey();
+
+	/**
+	 * Scrolls the layout scroll container (`main#layout-main`, the one that
+	 * survives route changes) back to the top.
+	 */
+	function scrollToTop(): void {
+		document.getElementById('layout-main')?.scrollTo({ top: 0 });
+	}
+
+	// Opening an article starts from the top: the layout `main` is reused
+	// between routes, so the old position would leak into the next article.
+	$effect(() => {
+		void articleState.currentArticle.url;
+		scrollToTop();
+	});
+
+	// A finished run also lands on top: the analysis (and its title) just
+	// replaced what was on screen. `loaded` only rises when a full process
+	// ends — never on plain opens of cached articles — the same signal the
+	// topbar sweep uses.
+	$effect(() => {
+		if (!viewState.loaded) return;
+		scrollToTop();
+	});
 
 	$effect(() => {
 		return () => {
@@ -45,7 +70,6 @@
 		/* justify-content: center; */
 		align-items: flex-start;
 		gap: 0.2em;
-		padding-top: 33px;
 		box-sizing: border-box;
 		width: 100%;
 		margin: 0 auto;

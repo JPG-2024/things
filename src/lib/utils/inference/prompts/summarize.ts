@@ -13,4 +13,4 @@ export const RECURSIVE_SUMMARY_USER_MESSAGE =
 	'Summarize this section concisely, only summary. no titles, no markdown except bold (**) for keywords';
 
 export const RECURSIVE_SUMMARY_FINAL_USER_MESSAGE =
-	"Combine these section summaries into a markdown summary. no title. use bold (**) to emphasize most relevant keywords, don't abuse.";
+	"Produce a concise markdown summary of the article from the following full article text or partial section summaries. no title. use bold (**) to emphasize most relevant keywords, don't abuse.";

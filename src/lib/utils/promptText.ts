@@ -7,20 +7,32 @@
 import {
 	RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
 	RECURSIVE_SUMMARY_SYSTEM_MESSAGE,
-	RECURSIVE_SUMMARY_USER_MESSAGE
+	RECURSIVE_SUMMARY_USER_MESSAGE,
+	TAKEAWAYS_FINAL_USER_MESSAGE,
+	TAKEAWAYS_SYSTEM_MESSAGE,
+	TAKEAWAYS_WINDOW_USER_MESSAGE
 } from '@/lib/utils/inference/prompts';
 
 /**
  * Editable prompts of the runner. The union is the API of the store: adding a
  * key means adding a default here and a field to the modal.
  */
-export type PromptKey = 'windowSystem' | 'windowUser' | 'finalUser';
+export type PromptKey =
+	| 'windowSystem'
+	| 'windowUser'
+	| 'finalUser'
+	| 'takeawaysSystem'
+	| 'takeawaysWindowUser'
+	| 'takeawaysFinalUser';
 
 /** Snapshot of the built-in prompts: what an unset (or cleared) key runs with. */
 export const PROMPT_DEFAULTS: Record<PromptKey, string> = {
 	windowSystem: RECURSIVE_SUMMARY_SYSTEM_MESSAGE,
 	windowUser: RECURSIVE_SUMMARY_USER_MESSAGE,
-	finalUser: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE
+	finalUser: RECURSIVE_SUMMARY_FINAL_USER_MESSAGE,
+	takeawaysSystem: TAKEAWAYS_SYSTEM_MESSAGE,
+	takeawaysWindowUser: TAKEAWAYS_WINDOW_USER_MESSAGE,
+	takeawaysFinalUser: TAKEAWAYS_FINAL_USER_MESSAGE
 };
 
 export const PROMPT_KEYS = Object.keys(PROMPT_DEFAULTS) as PromptKey[];

@@ -43,6 +43,8 @@ export interface CurrentArticle {
 	profilePictureSrc: string | null;
 	categories: string[];
 	analysis: ArticleAnalysis | null;
+	/** Final block while it streams in; null outside a run. Session-only. */
+	finalStreaming: string | null;
 	error: string | null;
 }
 
@@ -60,6 +62,7 @@ function emptyArticle(url = ''): CurrentArticle {
 		profilePictureSrc: null,
 		categories: [],
 		analysis: null,
+		finalStreaming: null,
 		error: null
 	};
 }
@@ -123,6 +126,14 @@ class ArticleState {
 
 	setAnalysis(analysis: ArticleAnalysis | null): void {
 		this.currentArticle.analysis = analysis;
+	}
+
+	setFinalStreaming(text: string | null): void {
+		this.currentArticle.finalStreaming = text;
+	}
+
+	appendFinalToken(token: string): void {
+		this.currentArticle.finalStreaming = (this.currentArticle.finalStreaming ?? '') + token;
 	}
 
 	/**

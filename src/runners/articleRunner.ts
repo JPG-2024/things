@@ -20,10 +20,11 @@ import {
 	setArticleError
 } from '@/stores/webStore';
 import {
+	analyzeTakeaways,
 	analyzeWindows,
 	clampWindowLevel,
 	WINDOW_DIVISOR_LADDER,
-	type AnalyzeWindowsOptions
+	type AnalysisRunOptions
 } from '@/lib/utils/windowAnalysis';
 import { readRawContent, writeRawContent } from '@/lib/utils/rawContent';
 import {
@@ -44,7 +45,7 @@ import {
 import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
 import { errorStore } from '@/stores/errorStore.svelte';
-import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
+import type { AnalysisType, ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** Options of a run. */
 export interface ArticleRunOptions {
@@ -70,6 +71,8 @@ export interface ArticleRunOptions {
 	 * later `full` run.
 	 */
 	title?: string;
+	/** Analytic to run; defaults to the active analysis tab. */
+	analysisType?: AnalysisType;
 }
 
 /**
@@ -107,22 +110,52 @@ export interface ArticleRunResult {
  * Every write is guarded by `isCurrent(url)`: a background run must not
  * repaint the article on screen (D17).
  */
-function analysisStream(url: string): Pick<AnalyzeWindowsOptions, 'onAttempt' | 'onWindow'> {
+function analysisStream(
+	url: string,
+	analysisType: AnalysisType
+): Pick<AnalysisRunOptions, 'onAttempt' | 'onWindow' | 'onFinalStart' | 'onFinalToken'> {
 	return {
 		onAttempt: (total) => {
 			if (!articleState.isCurrent(url)) return;
-			articleState.setAnalysis({ windows: [], summary: '', divisor: null });
+			articleState.setAnalysis({ windows: [], summary: '', divisor: null, analysisType });
+			// The final block has not started: keep `finalStreaming` null so the
+			// panel stays in the window pass until `onFinalStart` flips it.
+			articleState.setFinalStreaming(null);
 			articleState.setProgress({ done: 0, total });
 		},
 		onWindow: (window, index, total) => {
 			if (!articleState.isCurrent(url)) return;
 			const current = articleState.currentArticle.analysis?.windows ?? [];
-			// The summary and the divisor only exist once the whole attempt is
-			// finished: the locals of this run are what gets persisted.
-			articleState.setAnalysis({ windows: [...current, window], summary: '', divisor: null });
+			// The final block and the divisor only exist once the whole attempt
+			// is finished: the locals of this run are what gets persisted.
+			articleState.setAnalysis({
+				windows: [...current, window],
+				summary: '',
+				divisor: null,
+				analysisType
+			});
 			articleState.setProgress({ done: index + 1, total });
+		},
+		onFinalStart: () => {
+			if (!articleState.isCurrent(url)) return;
+			articleState.setFinalStreaming('');
+		},
+		onFinalToken: (token) => {
+			if (!articleState.isCurrent(url)) return;
+			articleState.appendFinalToken(token);
 		}
 	};
+}
+
+/** Runs whichever analytic the active tab selected through the shared engine. */
+async function runAnalysisForArticle(
+	body: string,
+	options: AnalysisRunOptions,
+	analysisType: AnalysisType
+): Promise<Awaited<ReturnType<typeof analyzeWindows>>> {
+	return analysisType === 'takeaways'
+		? analyzeTakeaways(body, options)
+		: analyzeWindows(body, options);
 }
 
 /**
@@ -329,6 +362,7 @@ export async function runArticle(
 		let summary = existingAnalysis?.summary ?? '';
 		let divisor = existingAnalysis?.divisor ?? null;
 		let reusedAnalysis = false;
+		const analysisType: AnalysisType = options.analysisType ?? viewState.analysisTab;
 
 		const hasUsableAnalysis =
 			!force && existingAnalysis !== null && existingAnalysis.windows.length > 0;
@@ -364,13 +398,17 @@ export async function runArticle(
 			// Web articles split by markdown headings: no knob, no clamp.
 			const splitByHeaders = detectSource(url) === 'web';
 
-			const analysis = await analyzeWindows(body, {
-				divisor: splitByHeaders ? null : requestedDivisor,
-				splitByHeaders,
-				model: viewState.aiModel,
-				questions: viewState.questionsEnabled,
-				...analysisStream(url)
-			});
+			const analysis = await runAnalysisForArticle(
+				body,
+				{
+					divisor: splitByHeaders ? null : requestedDivisor,
+					splitByHeaders,
+					model: viewState.aiModel,
+					questions: viewState.questionsEnabled,
+					...analysisStream(url, analysisType)
+				},
+				analysisType
+			);
 
 			windows = analysis.windows;
 			summary = analysis.summary;
@@ -383,7 +421,8 @@ export async function runArticle(
 		}
 
 		if (articleState.isCurrent(url)) {
-			articleState.setAnalysis({ windows, summary, divisor });
+			articleState.setAnalysis({ windows, summary, divisor, analysisType });
+			articleState.setFinalStreaming(null);
 		}
 
 		// --- 5. TITLE ----------------------------------------------------
@@ -482,6 +521,7 @@ export async function runArticle(
 
 		return { url, mode, reusedAnalysis, divisor };
 	} catch (error) {
+		if (articleState.isCurrent(url)) articleState.setFinalStreaming(null);
 		// A run that dies before the category step (missing transcript, failed
 		// analysis) must not lose the profile fallback: the article still
 		// belongs to its channel or domain.
@@ -532,7 +572,7 @@ export async function runArticle(
  */
 export async function rerunArticleAnalysis(
 	url: string,
-	options: { windowLevel?: number } = {}
+	options: { windowLevel?: number; analysisType?: AnalysisType } = {}
 ): Promise<ArticleRunResult> {
 	throwIfRunCancelled(url);
 	const body = (await readRawContent(url)) ?? '';
@@ -550,13 +590,24 @@ export async function rerunArticleAnalysis(
 		articleState.setStatus('running');
 	}
 
-	const analysis = await analyzeWindows(body, {
-		divisor: splitByHeaders ? null : requestedDivisor,
-		splitByHeaders,
-		model: viewState.aiModel,
-		questions: viewState.questionsEnabled,
-		...analysisStream(url)
-	});
+	const analysisType: AnalysisType = options.analysisType ?? viewState.analysisTab;
+	let analysis: Awaited<ReturnType<typeof analyzeWindows>>;
+	try {
+		analysis = await runAnalysisForArticle(
+			body,
+			{
+				divisor: splitByHeaders ? null : requestedDivisor,
+				splitByHeaders,
+				model: viewState.aiModel,
+				questions: viewState.questionsEnabled,
+				...analysisStream(url, analysisType)
+			},
+			analysisType
+		);
+	} catch (error) {
+		if (articleState.isCurrent(url)) articleState.setFinalStreaming(null);
+		throw error;
+	}
 
 	throwIfRunCancelled(url);
 	await saveArticleAnalysis({
@@ -570,8 +621,10 @@ export async function rerunArticleAnalysis(
 		articleState.setAnalysis({
 			windows: analysis.windows,
 			summary: analysis.summary,
-			divisor: analysis.divisor
+			divisor: analysis.divisor,
+			analysisType
 		});
+		articleState.setFinalStreaming(null);
 	}
 
 	// The title is regenerated from the new summary; the category is left

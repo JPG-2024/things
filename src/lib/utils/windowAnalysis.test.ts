@@ -107,6 +107,9 @@ describe('splitArticleIntoWindows', () => {
 
 describe('analyzeWindows', () => {
 	let lastBuildConfig: { model?: string; questions?: boolean } | undefined;
+	let windowCalls = 0;
+	let mergeCalls = 0;
+	let directCalls = 0;
 
 	// Registered before `analyzeWindows` runs: its processor import is
 	// dynamic, so the mock must be in place first. A field added to the
@@ -117,34 +120,74 @@ describe('analyzeWindows', () => {
 			build: (config: { model?: string; questions?: boolean }) => {
 				lastBuildConfig = config;
 				return {
-					processChunk: async () => ({
-						summary: 'window summary',
-						questions: ['First question?', 'Second question?'],
-						title: 'Window title'
-					}),
-					combineChunks: async () => ({ summary: 'final summary' })
+					processChunk: async () => {
+						windowCalls++;
+						return {
+							summary: 'window summary',
+							questions: ['First question?', 'Second question?'],
+							title: 'Window title'
+						};
+					},
+					combineChunks: async () => {
+						mergeCalls++;
+						return { summary: 'final summary' };
+					},
+					finalDirect: async (_text: string, options?: { onToken?: (t: string) => void }) => {
+						directCalls++;
+						options?.onToken?.('final ');
+						options?.onToken?.('summary');
+						return { summary: 'final summary' };
+					}
 				};
 			}
 		}
 	}));
 
 	test('keeps every processor field on the window data', async () => {
+		windowCalls = 0;
+		mergeCalls = 0;
 		const { analyzeWindows } = await import('./windowAnalysis');
-		const result = await analyzeWindows('body', { divisor: 1 });
+		const result = await analyzeWindows('a'.repeat(200), { divisor: 2 });
 
-		expect(result.divisor).toBe(1);
+		expect(windowCalls).toBeGreaterThan(0);
+		expect(mergeCalls).toBe(1);
 		expect(result.summary).toBe('final summary');
-		expect(result.windows).toHaveLength(1);
+		expect(result.windows.length).toBeGreaterThan(0);
 		expect(result.windows[0].data).toEqual({
 			summary: 'window summary',
 			questions: ['First question?', 'Second question?'],
-			title: 'Window title'
+			title: 'Window title',
+			analysisType: 'summary'
+		});
+	});
+
+	test('level 1 runs the final block directly, with no window pass', async () => {
+		windowCalls = 0;
+		mergeCalls = 0;
+		directCalls = 0;
+		const tokens: string[] = [];
+		const { analyzeWindows } = await import('./windowAnalysis');
+		const result = await analyzeWindows('a'.repeat(200), {
+			divisor: 1,
+			onFinalToken: (token) => tokens.push(token)
+		});
+
+		expect(directCalls).toBe(1);
+		expect(windowCalls).toBe(0);
+		expect(mergeCalls).toBe(0);
+		expect(tokens).toEqual(['final ', 'summary']);
+		expect(result.summary).toBe('final summary');
+		expect(result.windows).toHaveLength(1);
+		expect(result.windows[0].data).toMatchObject({
+			summary: 'final summary',
+			analysisType: 'summary',
+			direct: true
 		});
 	});
 
 	test('forwards the questions toggle to the processor', async () => {
 		const { analyzeWindows } = await import('./windowAnalysis');
-		await analyzeWindows('body', { divisor: 1, questions: false });
+		await analyzeWindows('body', { divisor: 2, questions: false });
 
 		expect(lastBuildConfig?.questions).toBe(false);
 	});

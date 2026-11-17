@@ -5,11 +5,11 @@
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import Image from '@/components/Image.svelte';
+	import RevealText from '@/components/RevealText.svelte';
 	import YouTubePlayer from '@/components/youtube/YouTubePlayer.svelte';
 	import ArticleCategoryEditor from '@/components/ArticleCategoryEditor.svelte';
 	import ArticleToolbar from '@/components/ArticleToolbar.svelte';
 	import AnalysisPanel from '@/components/AnalysisPanel.svelte';
-	import AskComponent from '@/components/AskComponent.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { youTubeVideoId } from '@/runners/articleSources';
 	import FullContentModal from './FullContentModal.svelte';
@@ -17,6 +17,14 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 
 	const article = $derived(articleState.currentArticle);
+
+	/**
+	 * The article title, gated on `status === 'done'` — the uniform "the
+	 * loader finished" signal for both a fresh run (set where `loaded` rises)
+	 * and a plain open of a cached article (`loaded` stays false there). It
+	 * reveals in sync with the topbar sweep.
+	 */
+	const readyTitle = $derived(article.status === 'done' ? article.title : null);
 
 	const isYouTube = $derived(Boolean(article.url && youTubeVideoId(article.url)));
 	const videoId = $derived(article.url ? youTubeVideoId(article.url) : null);
@@ -112,6 +120,12 @@
 </script>
 
 <div class="article-layout">
+	{#if readyTitle}
+		<div class="article-header">
+			<RevealText text={readyTitle} reveal={viewState.loaded} fontSize="0.95rem" dot />
+		</div>
+	{/if}
+
 	{#if hasMedia}
 		<div class="media-col" transition:fade={{ duration: 200 }}>
 			{#if isYouTube && videoId}
@@ -180,7 +194,7 @@
 	.article-layout {
 		width: 100%;
 		padding: 3rem;
-		padding-top: 4rem;
+		padding-top: 2rem;
 		display: grid;
 		grid-template-columns: 220px minmax(0, 1fr);
 		column-gap: 1.5rem;
@@ -210,6 +224,15 @@
 	.article-analysis,
 	.article-content {
 		grid-column: 1 / -1;
+	}
+
+	/* Full-width title header spanning both columns, above media + meta. */
+	.article-header {
+		grid-column: 1 / -1;
+		grid-row: 1;
+		width: 100%;
+		padding-left: 2.2rem;
+		padding-bottom: 2.5rem;
 	}
 
 	/* Why the article is empty after a failed run: the stored error message

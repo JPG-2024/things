@@ -30,7 +30,7 @@ import {
 	resumeRun
 } from '@/runners/shared/runCancellation';
 import { errorStore } from '@/stores/errorStore.svelte';
-import type { ArticleWindow } from '@/types/articleAnalysis.types';
+import type { AnalysisType, ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** One queued article. */
 interface QueueEntry {
@@ -43,6 +43,8 @@ interface QueueEntry {
 	options: ArticleRunOptions;
 	/** Window level of an `analysis` entry. */
 	windowLevel?: number;
+	/** Analytic to run on an `analysis` entry. */
+	analysisType?: AnalysisType;
 	/** `refresh` jumps the queue. */
 	priority: boolean;
 }
@@ -143,9 +145,16 @@ class ArticleManager {
 		}
 
 		const analysis = await getArticleAnalysis(url);
-		if (analysis && analysis.windows.length > 0) {
+		if (analysis && (analysis.windows.length > 0 || Boolean(analysis.summary?.trim()))) {
+			// The stored analytic decides which tab is active: opening an article
+			// must not spend an LLM call just to satisfy a stale preference.
+			const storedType: AnalysisType =
+				analysis.windows.find((w) => w.data?.analysisType)?.data?.analysisType === 'takeaways'
+					? 'takeaways'
+					: 'summary';
+			viewState.analysisTab = storedType;
 			// The article is already analysed: nothing to do (D15).
-			this.paintAnalysis(analysis.windows, analysis.summary ?? '', analysis.divisor);
+			this.paintAnalysis(analysis.windows, analysis.summary ?? '', analysis.divisor, storedType);
 			articleState.setStatus('done');
 			// The pipeline only runs on a full process, and this open skips it:
 			// an article with no categories is categorised here instead (profile
@@ -223,7 +232,10 @@ class ArticleManager {
 	 * It goes through the queue: the local inference server runs one analysis
 	 * at a time.
 	 */
-	rerunAnalysis(url: string, options: { windowLevel?: number } = {}): void {
+	rerunAnalysis(
+		url: string,
+		options: { windowLevel?: number; analysisType?: AnalysisType } = {}
+	): void {
 		url = this.canonical(url);
 		resumeRun(url);
 		this.queue = this.queue.filter((entry) => !(entry.url === url && entry.kind === 'analysis'));
@@ -232,6 +244,7 @@ class ArticleManager {
 			kind: 'analysis',
 			options: { mode: 'full' },
 			windowLevel: options.windowLevel,
+			analysisType: options.analysisType,
 			priority: false
 		});
 
@@ -386,7 +399,10 @@ class ArticleManager {
 	private async runEntry(entry: QueueEntry): Promise<void> {
 		if (entry.kind === 'analysis') {
 			const { rerunArticleAnalysis } = await import('@/runners/articleRunner');
-			await rerunArticleAnalysis(entry.url, { windowLevel: entry.windowLevel });
+			await rerunArticleAnalysis(entry.url, {
+				windowLevel: entry.windowLevel,
+				analysisType: entry.analysisType
+			});
 			return;
 		}
 
@@ -518,8 +534,13 @@ class ArticleManager {
 		}
 	}
 
-	private paintAnalysis(windows: ArticleWindow[], summary: string, divisor: number | null): void {
-		articleState.setAnalysis({ windows, summary, divisor });
+	private paintAnalysis(
+		windows: ArticleWindow[],
+		summary: string,
+		divisor: number | null,
+		analysisType: AnalysisType
+	): void {
+		articleState.setAnalysis({ windows, summary, divisor, analysisType });
 	}
 }
 

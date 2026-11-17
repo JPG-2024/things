@@ -30,6 +30,9 @@ class PromptState {
 	windowSystem = $state(PROMPT_DEFAULTS.windowSystem);
 	windowUser = $state(PROMPT_DEFAULTS.windowUser);
 	finalUser = $state(PROMPT_DEFAULTS.finalUser);
+	takeawaysSystem = $state(PROMPT_DEFAULTS.takeawaysSystem);
+	takeawaysWindowUser = $state(PROMPT_DEFAULTS.takeawaysWindowUser);
+	takeawaysFinalUser = $state(PROMPT_DEFAULTS.takeawaysFinalUser);
 
 	/** Reads the current value of a key. */
 	get(key: PromptKey): string {
@@ -58,7 +61,10 @@ class PromptState {
 		return serializePrompts({
 			windowSystem: this.windowSystem,
 			windowUser: this.windowUser,
-			finalUser: this.finalUser
+			finalUser: this.finalUser,
+			takeawaysSystem: this.takeawaysSystem,
+			takeawaysWindowUser: this.takeawaysWindowUser,
+			takeawaysFinalUser: this.takeawaysFinalUser
 		});
 	}
 }
@@ -88,6 +94,9 @@ export async function loadPrompts(): Promise<void> {
 		promptState.windowSystem = merged.windowSystem;
 		promptState.windowUser = merged.windowUser;
 		promptState.finalUser = merged.finalUser;
+		promptState.takeawaysSystem = merged.takeawaysSystem;
+		promptState.takeawaysWindowUser = merged.takeawaysWindowUser;
+		promptState.takeawaysFinalUser = merged.takeawaysFinalUser;
 	} catch (err) {
 		console.warn('[prompts] failed to load prompts', err);
 	}

@@ -4,12 +4,12 @@
 	import Spacer from '@/components/Spacer.component.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import Icon from '@/components/Icon.svelte';
+	import Tabs from '@/components/Tabs.svelte';
 	import PromptSettingsModal from '@/components/modals/PromptSettingsModal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
-	import ToggleIcon from '@/components/ToggleIcon.svelte';
 	import { articleState } from '@/stores/articleStore.svelte';
-	import { viewState } from '@/stores/viewStore.svelte';
+	import { ANALYSIS_TABS, viewState } from '@/stores/viewStore.svelte';
 	import { articleManager } from '@/runners/articleManager.svelte';
 	import { readRawWindow } from '@/lib/utils/rawContent';
 	import { readWindowQuestions } from '@/lib/utils/windowQuestions';
@@ -19,7 +19,7 @@
 		WINDOW_DIVISOR_LADDER,
 		windowLevelForDivisor
 	} from '@/lib/utils/windowAnalysis';
-	import type { ArticleWindow } from '@/types/articleAnalysis.types';
+	import type { AnalysisType, ArticleWindow } from '@/types/articleAnalysis.types';
 
 	type Props = {
 		/** Windows to render. Defaults to the ones of the open article. */
@@ -29,8 +29,15 @@
 	let { windows = undefined }: Props = $props();
 
 	const article = $derived(articleState.currentArticle);
-	const visibleWindows = $derived(windows ?? article.analysis?.windows ?? []);
+	// The synthetic window of a level-1 direct final block is storage detail:
+	// the panel shows the final block once, never a duplicate card.
+	const visibleWindows = $derived(
+		(windows ?? article.analysis?.windows ?? []).filter((window) => !window.data?.direct)
+	);
 	const summary = $derived(article.analysis?.summary ?? '');
+	const isRunning = $derived(article.status === 'running' && article.step === 'analysis');
+	const isStreamingFinal = $derived(isRunning && article.finalStreaming !== null);
+	const finalBlock = $derived(isRunning ? (article.finalStreaming ?? '') : summary);
 
 	/**
 	 * Web articles split by markdown headings and have no knob: the slider is
@@ -53,7 +60,6 @@
 
 	const previewDivisor = $derived(WINDOW_DIVISOR_LADDER[sliderIndex] ?? executedLevel);
 
-	const isRunning = $derived(article.status === 'running' && article.step === 'analysis');
 	const progress = $derived(article.progress);
 
 	/**
@@ -147,6 +153,19 @@
 	}
 
 	/**
+	 * The tab selects which processor runs. Switching it re-runs the analysis
+	 * with the other analytic, which regenerates the final block — and with it
+	 * the title — from that processor's result.
+	 */
+	function handleTabChange(tabId: string) {
+		const url = article.url;
+		const analysisType = tabId as AnalysisType;
+		if (!url || isRunning || analysisType === article.analysis?.analysisType) return;
+		viewState.analysisTab = analysisType;
+		articleManager.rerunAnalysis(url, { analysisType });
+	}
+
+	/**
 	 * Re-runs only the analysis (windows) and the title of the article. The
 	 * category is never overwritten by a rerun.
 	 */
@@ -161,109 +180,110 @@
 		if (index === executedLevel) return;
 
 		viewState.windowLevel = index;
-		articleManager.rerunAnalysis(article.url, { windowLevel: index });
+		articleManager.rerunAnalysis(article.url, {
+			windowLevel: index,
+			analysisType: viewState.analysisTab
+		});
 	}
 </script>
 
 <div class="analysis-shell">
-	<!-- Always rendered — even before the first run and on web articles, which
-		 have no window knob — so the prompts are configurable at any time. -->
+	<!-- Always rendered, so both the analysis type and the prompts are
+		 configurable even before the first run. -->
+	<div class="analysis-tabs">
+		<Tabs
+			tabs={ANALYSIS_TABS}
+			bind:activeTab={viewState.analysisTab}
+			disabled={isRunning}
+			onTabChange={handleTabChange}
+		/>
+		{#if showLevelControl}
+			<span class="level-label">window</span>
+			<div class="level-slider">
+				<RangeSelector
+					id="window-level"
+					min={0}
+					max={WINDOW_DIVISOR_LADDER.length - 1}
+					step={1}
+					bind:value={sliderIndex}
+					disabled={isRunning}
+					onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
+				/>
+			</div>
+			<span class="level-label">÷{previewDivisor}</span>
+		{/if}
+		<span class="prompts-trigger">
+			<Icon
+				name="Text"
+				size={16}
+				ariaLabel="Edit prompts"
+				tooltipProps={{ content: 'edit prompts' }}
+				onClick={() => (promptsOpen = true)}
+			/>
+		</span>
+	</div>
 
-	{#if isRunning && progress && progress.total > 0}
-		<div class="progress-row">
-			<span class="progress-label">analysing windows</span>
-			<span class="progress-count">{progress.done}/{progress.total}</span>
-		</div>
-	{/if}
+	{#if viewState.analysisTab === 'summary'}
+		{#if isRunning && progress && progress.total > 0}
+			<div class="progress-row">
+				<span class="progress-label">analysing windows</span>
+				<span class="progress-count">{progress.done}/{progress.total}</span>
+			</div>
+		{/if}
 
-	{#if visibleWindows.length > 0 || isRunning}
-		<!-- Owns the `@container` context of the grid: it reacts to the width
+		{#if visibleWindows.length > 0 || (isRunning && !isStreamingFinal)}
+			<!-- Owns the `@container` context of the grid: it reacts to the width
 			 of this column, not of the window (the filters panel makes those
 			 differ). Kept off `.analysis-shell` so the fixed backdrop of the
 			 raw-text modal is not trapped by the containment. -->
-		<div class="windows-container">
-			<Spacer title="Windows" bind:opened={windowsOpen}>
-				{#snippet titleSlot()}
-					<div class="level-row">
-						{#if showLevelControl}
-							<span class="level-label">window</span>
-							<div class="level-slider">
-								<RangeSelector
-									id="window-level"
-									min={0}
-									max={WINDOW_DIVISOR_LADDER.length - 1}
-									step={1}
-									bind:value={sliderIndex}
-									disabled={isRunning}
-									onCommit={(i) => void applyLevel(String(WINDOW_DIVISOR_LADDER[i]))}
-								/>
-							</div>
-							<span class="level-label">÷{previewDivisor}</span>
+			<div class="windows-container">
+				<Spacer title="Windows" bind:opened={windowsOpen}>
+					<div class="chunks-grid" bind:this={gridEl}>
+						{#if isRunning && visibleWindows.length === 0}
+							<div class="chunk-pending">waiting for the first window…</div>
 						{/if}
-						<!-- Questions are one extra LLM call per window. The toggle only
-			 affects the next analysis; the current windows keep what they
-			 already answered. -->
-						<!-- 						<ToggleIcon
-							name="MessageCircleQuestion"
-							bind:checked={viewState.questionsEnabled}
-							tooltipProps={{
-								content:
-									'ask each window what questions it answers (one extra call per window); applies to the next analysis'
-							}}
-						/> -->
-						<span class="prompts-trigger">
-							<Icon
-								name="Text"
-								size={16}
-								disabled={isRunning}
-								ariaLabel="Edit prompts"
-								tooltipProps={{ content: 'edit prompts' }}
-								onClick={() => (promptsOpen = true)}
-							/>
-						</span>
-					</div>
-				{/snippet}
-
-				<div class="chunks-grid" bind:this={gridEl}>
-					{#if isRunning && visibleWindows.length === 0}
-						<div class="chunk-pending">waiting for the first window…</div>
-					{/if}
-					{#each visibleWindows as window, index (window.index)}
-						{@const questions = readWindowQuestions(window.data)}
-						<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
-							<div class="chunk-heading">
-								<span class="chunk-index">{index + 1}/{windowTotal}</span>
-								{#if window.data.title}
-									<span class="chunk-title">{window.data.title}</span>
+						{#each visibleWindows as window, index (window.index)}
+							{@const questions = readWindowQuestions(window.data)}
+							<div class="chunk-item" transition:fly={{ duration: 300, y: 100 }}>
+								<div class="chunk-heading">
+									<span class="chunk-index">{index + 1}/{windowTotal}</span>
+									{#if window.data.title}
+										<span class="chunk-title">{window.data.title}</span>
+									{/if}
+								</div>
+								{#if questions.length}
+									<ul class="chunk-questions">
+										{#each questions as question (question)}
+											<li>{question}</li>
+										{/each}
+									</ul>
 								{/if}
-							</div>
-							{#if questions.length}
-								<ul class="chunk-questions">
-									{#each questions as question (question)}
-										<li>{question}</li>
-									{/each}
-								</ul>
-							{/if}
-							<div class="chunk-summary">
-								<MarkdownRenderer content={window.data.summary} fontSize={0.7} />
-							</div>
+								<div class="chunk-summary">
+									<MarkdownRenderer content={window.data.summary} fontSize={0.7} />
+								</div>
 
-							<div class="chunk-action">
-								<Button icon="FileText" onClick={() => void openRawText(index)}>
-									View raw text
-								</Button>
+								<div class="chunk-action">
+									<Button icon="FileText" onClick={() => void openRawText(index)}>
+										View raw text
+									</Button>
+								</div>
 							</div>
-						</div>
-					{/each}
-				</div>
-			</Spacer>
-		</div>
+						{/each}
+					</div>
+				</Spacer>
+			</div>
+		{/if}
 	{/if}
 
-	{#if !isRunning && summary}
+	{#if finalBlock}
 		<div class="final-section">
-			<MarkdownRenderer content={summary} />
+			<MarkdownRenderer content={finalBlock} />
+			{#if isStreamingFinal}
+				<span class="typing-cursor" aria-hidden="true">▍</span>
+			{/if}
 		</div>
+	{:else if isStreamingFinal}
+		<div class="chunk-pending">generating final block…</div>
 	{/if}
 
 	<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
@@ -284,12 +304,10 @@
 		gap: 2rem;
 	}
 
-	.level-row {
+	.analysis-tabs {
 		display: flex;
 		align-items: center;
-		width: 500px;
-		font-family: var(--font-secondary);
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.level-slider {
@@ -302,10 +320,11 @@
 		opacity: 0.7;
 	}
 
-	/* Panel-level action: pinned to the right edge, away from the slider. */
+	/* Panel-level action: pinned to the right edge of the tabs row. */
 	.prompts-trigger {
 		display: inline-flex;
 		align-items: center;
+		margin-left: auto;
 	}
 
 	.progress-row {
@@ -424,6 +443,15 @@
 		color: gray;
 	}
 
-	.final-section {
+	.typing-cursor {
+		color: var(--primary-color);
+		animation: blink 1s steps(2, start) infinite;
 	}
+
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
+	}
+
 </style>

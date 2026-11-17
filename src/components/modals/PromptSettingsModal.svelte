@@ -11,25 +11,40 @@
 	let { show = false, onClose }: Props = $props();
 
 	/**
-	 * The three editable messages of the summariser, in the order the pipeline
-	 * runs them: one system for every window, the instruction of a single
+	 * The editable messages of both window analytics, in the order each run
+	 * uses them: one system for every window, the instruction of a single
 	 * window, and the instruction that merges them.
 	 */
 	const fields: { key: PromptKey; label: string; hint: string }[] = [
 		{
 			key: 'windowSystem',
-			label: 'System prompt (all windows)',
+			label: 'Summary · System prompt (all windows)',
 			hint: 'Role given to every window call, including the final merge.'
 		},
 		{
 			key: 'windowUser',
-			label: 'Window instruction',
+			label: 'Summary · Window instruction',
 			hint: 'Asked for each window; the window text is appended below it.'
 		},
 		{
 			key: 'finalUser',
-			label: 'Final result instruction',
+			label: 'Summary · Final result instruction',
 			hint: 'Asked once over the joined window summaries.'
+		},
+		{
+			key: 'takeawaysSystem',
+			label: 'Takeaways · System prompt (all windows)',
+			hint: 'Role given to every takeaway call, including the streamed merge.'
+		},
+		{
+			key: 'takeawaysWindowUser',
+			label: 'Takeaways · Window instruction',
+			hint: 'Asked for each window; the window text is appended below it.'
+		},
+		{
+			key: 'takeawaysFinalUser',
+			label: 'Takeaways · Final result instruction',
+			hint: 'Asked once over the joined window takeaways; its answer streams into the panel.'
 		}
 	];
 </script>

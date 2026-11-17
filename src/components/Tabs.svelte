@@ -11,6 +11,8 @@
 		tabs: Tab[];
 		activeTab: string;
 		iconOnly?: boolean;
+		/** When true, the tabs ignore clicks, wheel and keyboard switches. */
+		disabled?: boolean;
 		// Stacks the tabs in a column. The rail in ArticleList is content-sized
 		// and sticky, so the container height is whatever the tabs need.
 		vertical?: boolean;
@@ -22,12 +24,14 @@
 		tabs,
 		activeTab = $bindable(),
 		iconOnly = false,
+		disabled = false,
 		vertical = false,
 		onTabChange = undefined,
 		iconSize = 16
 	}: Props = $props();
 
 	function selectTab(tabId: string) {
+		if (disabled) return;
 		if (activeTab !== tabId) onTabChange?.(tabId);
 		activeTab = tabId;
 	}
@@ -42,6 +46,7 @@
 	// horizontal page/container scrolling. Clamped at the edges, no wrap-around.
 	// Returns whether a switch occurred.
 	function switchTabByOffset(offset: 1 | -1): boolean {
+		if (disabled) return false;
 		const index = tabs.findIndex((t) => t.id === activeTab);
 		const nextIndex = Math.min(tabs.length - 1, Math.max(0, index + offset));
 		if (nextIndex === index) return false;
@@ -54,7 +59,7 @@
 	// container behind the bar never scrolls — including at the first/last tab
 	// where the switch is clamped.
 	function handleWheel(e: WheelEvent) {
-		if (e.deltaY === 0) return;
+		if (disabled || e.deltaY === 0) return;
 		switchTabByOffset(e.deltaY > 0 ? 1 : -1);
 		e.preventDefault();
 	}
@@ -64,6 +69,7 @@
 	class="tabs"
 	class:tabs--icon-only={iconOnly}
 	class:tabs--vertical={vertical}
+	class:tabs--disabled={disabled}
 	onwheel={handleWheel}
 >
 	{#each tabs as tab (tab.id)}
@@ -71,6 +77,7 @@
 			type="button"
 			class="pill"
 			class:pill--active={activeTab === tab.id}
+			aria-disabled={disabled}
 			onclick={() => selectTab(tab.id)}
 		>
 			{#if tab.icon}
@@ -103,6 +110,14 @@
 		justify-content: center;
 		align-items: center;
 		height: 100%;
+	}
+
+	.tabs--disabled {
+		opacity: 0.5;
+	}
+
+	.tabs--disabled .pill {
+		cursor: not-allowed;
 	}
 
 	.pill {

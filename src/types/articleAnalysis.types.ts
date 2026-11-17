@@ -1,11 +1,14 @@
 /**
  * Domain types of the MVP article runner.
  *
- * The pipeline produces exactly one analytic (the window summaries) and
- * persists it in two places: `web_articles.summary` +
- * `web_articles.analysis_divisor`, and one `article_windows` row per window.
- * There is no task model: an article is either analysed or it is not.
+ * The pipeline produces exactly one analytic per article — a window summary or
+ * window takeaways — and persists its final block in `web_articles.summary` +
+ * one `article_windows` row per window. There is no task model: an article is
+ * either analysed or it is not.
  */
+
+/** Which window analytic produced the final block of an analysis. */
+export type AnalysisType = 'summary' | 'takeaways';
 
 /** Where an article came from. */
 export type ArticleSource = 'web' | 'youtube' | 'raw';
@@ -26,7 +29,12 @@ export type ArticleMode = 'full' | 'metadata';
  * an `ALTER TABLE`. `summary` is the key the pipeline always produces.
  */
 export interface WindowPayload {
+	/** Text of this window in the active analytic (summary or takeaways). */
 	summary: string;
+	/** Analytic that produced it; absent on rows written before the switch. */
+	analysisType?: AnalysisType;
+	/** True for the synthetic window that holds a direct final block (level 1). */
+	direct?: boolean;
 	[key: string]: unknown;
 }
 
@@ -45,8 +53,10 @@ export interface ArticleWindow {
 export interface ArticleAnalysis {
 	/** Every analysed window, in article order. */
 	windows: ArticleWindow[];
-	/** Combined summary of all the windows. */
+	/** Final block of the active analytic, whatever processor produced it. */
 	summary: string;
+	/** Which processor produced the final block. */
+	analysisType: AnalysisType;
 	/**
 	 * Window divisor that was actually executed.
 	 *
