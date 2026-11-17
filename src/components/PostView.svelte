@@ -2,8 +2,8 @@
 	import { articleState } from '@/stores/articleStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { markArticleAsViewed } from '@/stores/webStore';
-	import Topbar from './layout/Topbar.svelte';
-	import { createBackHotkey } from '@/stores/navigationHistory.svelte';
+	import { createBackHotkey, navigateBack } from '@/stores/navigationHistory.svelte';
+	import Icon from './Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -15,6 +15,10 @@
 
 	// ArrowLeft returns to the route this post was opened from.
 	createBackHotkey();
+
+	function handleBack(): void {
+		void navigateBack();
+	}
 
 	/**
 	 * Scrolls the layout scroll container (`main#layout-main`, the one that
@@ -34,7 +38,7 @@
 	// A finished run also lands on top: the analysis (and its title) just
 	// replaced what was on screen. `loaded` only rises when a full process
 	// ends — never on plain opens of cached articles — the same signal the
-	// topbar sweep uses.
+	// title reveal uses.
 	$effect(() => {
 		if (!viewState.loaded) return;
 		scrollToTop();
@@ -50,7 +54,9 @@
 </script>
 
 <article>
-	<Topbar loading={viewState.embeddingsLoading} />
+	<button type="button" class="back-button" onclick={handleBack} aria-label="Go back">
+		<Icon name="ArrowLeft" color="var(--primary-color)" size={28} />
+	</button>
 
 	<div class="header">
 		{#if headerContent}
@@ -64,6 +70,21 @@
 </article>
 
 <style>
+	.back-button {
+		all: unset;
+		position: fixed;
+		top: 1rem;
+		left: 1rem;
+		z-index: 10;
+		cursor: pointer;
+		padding: 5px;
+		line-height: 1;
+	}
+
+	.back-button:hover {
+		background-color: var(--hover-bg);
+	}
+
 	article {
 		display: flex;
 		flex-direction: column;

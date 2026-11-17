@@ -14,15 +14,39 @@
 	import { youTubeVideoId } from '@/runners/articleSources';
 	import FullContentModal from './FullContentModal.svelte';
 	import { readRawContent } from '@/lib/utils/rawContent';
+	import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
+	import Icon from '@/components/Icon.svelte';
 
 	const article = $derived(articleState.currentArticle);
+
+	/**
+	 * Domain thumb for the top title row. Moved out of the removed Topbar: the
+	 * Google favicon URL paints immediately, then the locally downloaded one
+	 * replaces it. Raw articles have no domain, so they show a placeholder.
+	 */
+	let faviconSrc = $state<string | null>(null);
+
+	$effect(() => {
+		const domain = viewState.domainUrl;
+		if (!domain || viewState.isRawMode) {
+			faviconSrc = null;
+			return;
+		}
+
+		faviconSrc = `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+		void downloadFavicon(domain).then((result) => {
+			// A slower download for a previously open domain must not repaint
+			// the thumb after the article (and its domain) changed.
+			if (viewState.domainUrl === domain && result) faviconSrc = result.src;
+		});
+	});
 
 	/**
 	 * The article title, gated on `status === 'done'` — the uniform "the
 	 * loader finished" signal for both a fresh run (set where `loaded` rises)
 	 * and a plain open of a cached article (`loaded` stays false there). It
-	 * reveals in sync with the topbar sweep.
+	 * reveals in sync with its own shine animation.
 	 */
 	const readyTitle = $derived(article.status === 'done' ? article.title : null);
 
@@ -120,11 +144,19 @@
 </script>
 
 <div class="article-layout">
-	{#if readyTitle}
-		<div class="article-header">
-			<RevealText text={readyTitle} reveal={viewState.loaded} fontSize="0.95rem" dot />
-		</div>
-	{/if}
+	<!-- Always mounted: until the title is ready the thumb box and RevealText
+	 * render empty, but the row keeps its reserved height so grid row 1 (and
+	 * everything in rows below it) never shifts when the title lands. -->
+	<div class="article-header">
+		<span class="title-thumb">
+			{#if faviconSrc}
+				<img class="domain-thumb" src={faviconSrc} alt="" />
+			{:else}
+				<Icon name="ClipboardType" size={30} />
+			{/if}
+		</span>
+		<RevealText text={readyTitle} reveal={viewState.loaded} fontSize="0.95rem" dot />
+	</div>
 
 	{#if hasMedia}
 		<div class="media-col" transition:fade={{ duration: 200 }}>
@@ -226,13 +258,33 @@
 		grid-column: 1 / -1;
 	}
 
-	/* Full-width title header spanning both columns, above media + meta. */
+	/* Full-width title header spanning both columns, above media + meta:
+	 * domain thumb on the left, article title revealed beside it.
+	 * min-height reserves the row before `readyTitle` exists, so processing
+	 * finishing cannot push the rest of the body down. */
 	.article-header {
 		grid-column: 1 / -1;
 		grid-row: 1;
 		width: 100%;
-		padding-left: 2.2rem;
-		padding-bottom: 2.5rem;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-height: 6rem;
+	}
+
+	.title-thumb {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 30px;
+		height: 30px;
+	}
+
+	.domain-thumb {
+		width: 30px;
+		height: 30px;
+		border-radius: var(--radius-sm);
 	}
 
 	/* Why the article is empty after a failed run: the stored error message
@@ -307,10 +359,6 @@
 
 	.profile-link:hover .profile-name {
 		color: var(--primary-color);
-	}
-
-	.profile-link:hover :global(img.profile-thumb) {
-		transform: scale(1.1);
 	}
 
 	.article-analysis {
