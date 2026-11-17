@@ -298,7 +298,7 @@
 	.analysis-tabs {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 1rem;
 	}
 
 	.level-slider {
@@ -309,6 +309,7 @@
 	.level-label {
 		font-size: 0.82rem;
 		opacity: 0.7;
+		font-family: var(--font-secondary);
 	}
 
 	/* Panel-level action: pinned to the right edge of the tabs row. */
@@ -429,5 +430,4 @@
 			opacity: 0;
 		}
 	}
-
 </style>

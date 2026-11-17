@@ -102,6 +102,7 @@
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		justify-content: flex-start;
+		font-family: var(--font-secondary);
 	}
 
 	.tabs--vertical {
