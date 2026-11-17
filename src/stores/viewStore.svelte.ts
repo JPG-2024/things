@@ -366,6 +366,9 @@ class ViewState {
 	unifiedFilterDraft = $state('');
 	rawSearchResults: RawSearchResult[] | null = $state(null);
 	rawSearchLoading = $state(false);
+	/** True when the active dashboard tab reports an empty result set. Drives
+	 * the filters-strip auto-close in `+page.svelte`. Session-only UI state. */
+	dashboardNoResults = $state(false);
 	rawSearchContextChars = $state(200);
 	/** Pattern the raw search last ran for (single-flight guard, REN-5). */
 	rawSearchLastPattern = $state('');

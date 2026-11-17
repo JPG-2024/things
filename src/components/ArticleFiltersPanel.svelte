@@ -161,7 +161,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-evenly;
-		gap: 1rem;
+		gap: 0.4rem;
 		min-height: 60px;
 		padding: 0.25rem 0;
 	}
@@ -171,6 +171,6 @@
 	}
 
 	.entity-bar-container {
-		padding: 0.25rem 0;
+		padding-inline: 2rem;
 	}
 </style>

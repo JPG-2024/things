@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
@@ -45,6 +46,27 @@
 
 	const filtersActive = $derived(articleFilters.hasActive);
 
+	// Mirror of ArticlesTab's empty states, scoped to the favorites list.
+	const noSearchResults = $derived(
+		viewState.rawSearchResults !== null &&
+			!viewState.rawSearchLoading &&
+			filteredSearchResults.length === 0
+	);
+	const noFilterResults = $derived(
+		filtersActive &&
+			articleCacheStore.favoriteArticles.length === 0 &&
+			!articleCacheStore.loadingFavorites
+	);
+	const noResults = $derived(noSearchResults || noFilterResults);
+
+	$effect(() => {
+		viewState.dashboardNoResults = noResults;
+	});
+
+	onDestroy(() => {
+		viewState.dashboardNoResults = false;
+	});
+
 	$effect(() => {
 		const onlyRaw = viewState.showOnlyRawArticles;
 		const showOnlyImported = viewState.showOnlyImportedArticles;
@@ -76,7 +98,7 @@
 			matchOf={(article) => searchMatches.get(article) ?? null}
 			emptyMessage="No matches found"
 		/>
-	{:else if filtersActive && articleCacheStore.favoriteArticles.length === 0 && !articleCacheStore.loadingFavorites}
+	{:else if noFilterResults}
 		<div class="empty-profiles-container">
 			<button type="button" class="empty-profiles-pill" onclick={() => articleFilters.clear()}>
 				0 results for active filters — clear

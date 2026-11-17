@@ -70,8 +70,7 @@
 		justify-content: center;
 		gap: 0.7rem;
 		width: 100%;
-		min-height: 80px;
-		padding-bottom: 2rem;
+		min-height: 60px;
 	}
 
 	.entity-divider {

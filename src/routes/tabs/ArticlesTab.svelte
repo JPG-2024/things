@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
@@ -42,6 +43,30 @@
 
 	const filtersActive = $derived(articleFilters.hasActive);
 
+	// Two independent empty states: a committed raw search with no matches,
+	// and active facets that returned no articles. The first keeps its own
+	// "No matches found" markup; the second shows the clear-filters pill.
+	const noSearchResults = $derived(
+		viewState.rawSearchResults !== null &&
+			!viewState.rawSearchLoading &&
+			filteredSearchResults.length === 0
+	);
+	const noFilterResults = $derived(
+		filtersActive &&
+			articleCacheStore.articlesWithoutProfile.length === 0 &&
+			!articleCacheStore.loadingArticles
+	);
+	const noResults = $derived(noSearchResults || noFilterResults);
+
+	// Publish the empty state so the header can auto-close the filters strip.
+	$effect(() => {
+		viewState.dashboardNoResults = noResults;
+	});
+
+	onDestroy(() => {
+		viewState.dashboardNoResults = false;
+	});
+
 	$effect(() => {
 		const onlyRaw = viewState.showOnlyRawArticles;
 		const showOnlyImported = viewState.showOnlyImportedArticles;
@@ -73,7 +98,7 @@
 			matchOf={(article) => searchMatches.get(article) ?? null}
 			emptyMessage="No matches found"
 		/>
-	{:else if filtersActive && articleCacheStore.articlesWithoutProfile.length === 0 && !articleCacheStore.loadingArticles}
+	{:else if noFilterResults}
 		<div class="empty-profiles-container">
 			<button type="button" class="empty-profiles-pill" onclick={() => articleFilters.clear()}>
 				0 results for active filters — clear

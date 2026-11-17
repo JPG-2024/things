@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
-	import { fly, fade } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
 	import LuminousText from '@/components/LuminousText.svelte';
 	import { readClipboardAndHandle } from '@/lib/utils/clipboard';
@@ -74,10 +73,6 @@
 	let searchInput = $state<{ focus: () => void } | null>(null);
 	let filtersStripEl = $state<HTMLDivElement>();
 	let filtersAnchorEl = $state<HTMLDivElement>();
-	/** Measured height of the open filters panel content. Fed into the
-	 * `--filters-panel-height` custom property so the strip's grid row grows
-	 * with the wrapped entity rows (and re-animates when they reflow). */
-	let filtersContentHeight = $state(0);
 
 	// Focus the page search whenever the filters panel opens (F, icon, typing).
 	$effect(() => {
@@ -105,6 +100,20 @@
 
 		window.addEventListener('pointerdown', handlePointerDown, true);
 		return () => window.removeEventListener('pointerdown', handlePointerDown, true);
+	});
+
+	// Auto-close the strip once it stops being useful: no active facets, or a
+	// zero-result view. The transition guard is what keeps manual opens working
+	// while the condition already holds (e.g. F with no filters selected yet).
+	// `filtersPanelVisible` is deliberately not read here, so closing cannot
+	// re-trigger this effect.
+	let filtersUnproductive = false;
+	$effect(() => {
+		const unproductive = !articleFilters.hasActive || viewState.dashboardNoResults;
+		if (unproductive && !filtersUnproductive) {
+			articleFilters.filtersPanelVisible = false;
+		}
+		filtersUnproductive = unproductive;
 	});
 
 	async function handleRawSearch(pattern: string, force = false) {
@@ -320,7 +329,7 @@
 						onclick={() => void articleFilters.toggleFiltersPanel()}
 						aria-label="Toggle article filters"
 					>
-						<Icon name="Filter" />
+						<Icon name="FunnelX" />
 					</button>
 				</div>
 			</div>
@@ -439,32 +448,26 @@
 			</div>
 		</Toolbar>
 	</div>
-</div>
 
-<div
-	class="dashboard-container"
-	class:filters-open={articleFilters.filtersPanelVisible}
-	style:--filters-panel-height="{filtersContentHeight}px"
->
-	<!-- Always-rendered top track: the grid rows animate 0 ↔ strip height so
-	     the article grid is pushed down smoothly; content mounts with a fly
-	     transition. The strip height is measured off the panel content
-	     (bind:clientHeight), so it always matches the wrapped rows and
-	     re-animates when they reflow. -->
-	<div class="filters-strip" bind:this={filtersStripEl}>
+	<!-- Filters strip lives inside the header. Its grid row animates 0fr ↔ 1fr,
+	     so opening the panel grows the toolbar and pushes the dashboard down
+	     smoothly; the panel content mounts on open and fades in. -->
+	<div
+		class="filters-strip"
+		class:filters-open={articleFilters.filtersPanelVisible}
+		bind:this={filtersStripEl}
+	>
 		<div class="filters-strip-scroll">
 			{#if articleFilters.filtersPanelVisible}
-				<div
-					class="filters-sidebar-slot"
-					bind:clientHeight={filtersContentHeight}
-					/* 					in:fly={{ y: -8, duration: 100 }}
-					out:fly={{ y: -8, duration: 100 }} */
-				>
+				<div class="filters-sidebar-slot">
 					<ArticleFiltersSidebar />
 				</div>
 			{/if}
 		</div>
 	</div>
+</div>
+
+<div class="dashboard-container">
 	<div id="dashboard-content" class="dashboard-content" class:snap-on={viewState.gridSnapEnabled}>
 		{#if viewState.activeProfileArticleTab === 'profiles'}
 			<ProfilesTab />
@@ -542,33 +545,30 @@
 	}
 
 	.dashboard-container {
-		display: grid;
-		grid-template-rows: 0px minmax(0, 1fr);
-		grid-template-columns: minmax(0, 1fr);
-
 		/* Full-bleed: span the viewport (main insets its children by the page
-		   gutter) so the strip lines up with the toolbar, while
-		   `.dashboard-content` re-applies the gutter to the article grid. */
+		   gutter) while `.dashboard-content` re-applies the gutter to the
+		   article grid. */
 		width: calc(100% + 2 * var(--page-gutter-x));
 		margin-inline: calc(var(--page-gutter-x) * -1);
-		/* In-flow row under the toolbar: main is a 100vh flex column, so this
-		   fills whatever height the (possibly wrapping) header leaves. No
-		   fixed-toolbar clearance padding needed. */
+		/* In flow under the header: main is a 100vh flex column, so this fills
+		   whatever height the (possibly taller, filters-open) toolbar leaves.
+		   No fixed-toolbar clearance padding needed. */
 		flex: 1 1 0%;
 		min-height: 0;
 		overflow: hidden;
 	}
 
-	/* Filters top strip: 0 collapsed, the measured content height when open. */
-	.dashboard-container.filters-open {
-		grid-template-rows: var(--filters-panel-height);
-	}
-
+	/* Filters strip inside the header: the row animates 0fr ↔ 1fr so the
+	   toolbar grows and pushes the dashboard down. Negative side margins
+	   cancel the toolbar padding to keep the strip full-bleed. */
 	.filters-strip {
-		grid-row: 1;
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows 180ms ease;
+		margin-inline: calc(var(--toolbar-padding) * -1);
 
 		overflow: hidden;
-		background-image: linear-gradient(
+		/* 		background-image: linear-gradient(
 			45deg,
 			rgba(0, 0, 0) 0%,
 			transparent 10%,
@@ -578,16 +578,21 @@
 			transparent 65%,
 			transparent 100%
 		);
-		box-shadow: inset 0 0 10px color-mix(in srgb, var(--primary-color) 20%, transparent);
+		box-shadow: inset 0 0 10px color-mix(in srgb, var(--primary-color) 20%, transparent); */
+	}
+
+	.filters-strip.filters-open {
+		grid-template-rows: 1fr;
 	}
 
 	.filters-strip-scroll {
 		box-sizing: border-box;
-		padding: 1rem var(--page-gutter-x);
+		overflow: hidden;
+		padding-inline: (--page-gutter-x);
+		padding-top: 1rem;
 	}
 
 	.dashboard-content {
-		grid-row: 2;
 		overflow-y: auto;
 		padding-inline: var(--page-gutter-x);
 	}
@@ -605,13 +610,14 @@
 		   dashboard below flexes to fill the remaining height, so the header
 		   needs no clearance padding and stays aligned with the content.
 		   The header is a single Toolbar, so no flex-column stack is needed. */
+		--toolbar-padding: 18px;
 		position: relative;
 		z-index: 10;
 		width: 100%;
 		flex-shrink: 0;
 		/* Horizontal inset comes from main's --page-gutter-x (was 2rem, which
 		   misaligned the toolbar against the article grid). */
-		padding: 18px;
+		padding: var(--toolbar-padding);
 		opacity: 1;
 		background-image: linear-gradient(
 			45deg,
