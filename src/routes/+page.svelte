@@ -289,7 +289,7 @@
 	   import and add:
 	   use:autoHide={{ scrollContainerId: 'dashboard-content' }} */
 >
-	<div class="toolbar-row page-topbar">
+	<div class="page-topbar">
 		<Toolbar layout="grid" iconSize={20}>
 			<div class="toolbar-left">
 				<LuminousText
@@ -321,6 +321,9 @@
 				>
 					<Icon name="Filter" />
 				</button>
+			</div>
+			<div class="toolbar-tabs">
+				<ProfileArticleTabs />
 			</div>
 			<div class="toolbar-actions">
 				<!-- 	<button
@@ -434,9 +437,6 @@
 			</div>
 		</Toolbar>
 	</div>
-	<div class="toolbar-row tabs-row">
-		<ProfileArticleTabs />
-	</div>
 </div>
 
 <div
@@ -480,12 +480,17 @@
 
 <style>
 	.page-topbar {
-		padding-top: 1rem;
+		/* Single header row: title | search | tabs | toolbar. The page owns the
+		   responsive track definition; Toolbar.svelte reads these vars so its
+		   scoped grid styles never have to fight specificity. */
+		--toolbar-grid-columns: auto minmax(120px, 200px) auto 1fr;
+		--toolbar-grid-areas: 'title search tabs actions';
 	}
 
 	.toolbar-actions {
 		display: flex;
 		align-items: center;
+		grid-area: actions;
 		justify-self: end;
 		/* Wrap instead of overflowing when the window is narrow. */
 		flex-wrap: wrap;
@@ -497,7 +502,16 @@
 		display: flex;
 		align-items: center;
 		gap: 2rem;
+		grid-area: title;
 		justify-self: start;
+	}
+
+	.toolbar-tabs {
+		display: flex;
+		align-items: center;
+		grid-area: tabs;
+		justify-self: center;
+		min-width: 0;
 	}
 
 	.settings-trigger {
@@ -572,17 +586,15 @@
 	.dashboard-toolbar-container {
 		/* In normal flow (was fixed): main is a 100vh flex column and the
 		   dashboard below flexes to fill the remaining height, so the header
-		   needs no clearance padding and stays aligned with the content. */
+		   needs no clearance padding and stays aligned with the content.
+		   The header is a single Toolbar, so no flex-column stack is needed. */
 		position: relative;
 		z-index: 10;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
 		width: 100%;
 		flex-shrink: 0;
 		/* Horizontal inset comes from main's --page-gutter-x (was 2rem, which
 		   misaligned the toolbar against the article grid). */
-		padding-bottom: 10px;
+		padding: 18px;
 		opacity: 1;
 		background-image: linear-gradient(
 			45deg,
@@ -597,53 +609,35 @@
 		box-shadow: inset 0 0 10px color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
-	.toolbar-row {
-		display: flex;
-		align-items: center;
-		width: 100%;
-	}
-
-	.tabs-row {
-		justify-content: center;
-		/* The two tab groups (profile + AI provider) stack when narrow. */
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
 	.toolbar-center {
 		display: flex;
 		align-items: center;
-		justify-self: center;
-		width: 340px;
-		padding: 0 1rem;
+		grid-area: search;
+		width: 100%;
+		min-width: 0;
 		gap: 0.3rem;
 	}
 
-	/* Narrow windows: the search drops to a second row so the title and the
-	   action buttons stop overflowing. Row 1 becomes `title | actions`, row 2
-	   spans the full width with the search capped and centered (full-bleed
-	   under 700px). */
+	/* Below ~1200px title + search + tabs + toolbar stop fitting in one row.
+	   Only the tabs wrap: row 1 keeps `title | search | actions`, row 2 gives
+	   the tabs a full-width centered strip. */
+	@media (max-width: 1200px) {
+		.page-topbar {
+			--toolbar-grid-columns: auto minmax(0, 1fr) auto;
+			--toolbar-grid-areas: 'title search actions' 'tabs tabs tabs';
+		}
+	}
+
+	/* Even narrower: the search drops to its own row as it did before, while
+	   the tabs stay on the last row. */
 	@media (max-width: 1000px) {
-		.page-topbar :global(.toolbar--grid) {
-			grid-template-columns: auto minmax(0, 1fr);
-		}
-
-		.toolbar-left {
-			grid-row: 1;
-			grid-column: 1;
-		}
-
-		.toolbar-actions {
-			grid-row: 1;
-			grid-column: 2;
+		.page-topbar {
+			--toolbar-grid-areas: 'title title actions' 'search search search' 'tabs tabs tabs';
 		}
 
 		.toolbar-center {
-			grid-row: 2;
-			grid-column: 1 / -1;
-			width: 100%;
 			max-width: 40rem;
-			padding: 0;
+			margin-inline: auto;
 		}
 	}
 
@@ -656,7 +650,6 @@
 	/* Search input stretches to fill the center slot next to the filter icon. */
 	.toolbar-center :global(.search-wrapper) {
 		flex: 1;
-		min-width: 0;
 	}
 
 	.filters-trigger {

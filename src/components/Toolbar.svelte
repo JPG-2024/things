@@ -38,7 +38,11 @@
 
 	.toolbar--grid {
 		display: grid;
-		grid-template-columns: 1fr auto 1fr;
+		/* Consumers can redefine the tracks and areas (e.g. the dashboard
+		   header wraps its tabs on narrow windows) without fighting Svelte's
+		   scoped styles. Defaults preserve the original three-column grid. */
+		grid-template-columns: var(--toolbar-grid-columns, 1fr auto 1fr);
+		grid-template-areas: var(--toolbar-grid-areas, none);
 		align-items: center;
 	}
 </style>
