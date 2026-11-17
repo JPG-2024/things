@@ -91,9 +91,8 @@
 			const target = event.target as Node | null;
 			if (!target) return;
 			if (filtersStripEl?.contains(target)) return;
-			// Search input + filter trigger open the panel and must not dismiss
-			// it: closing here would make the icon's own click re-toggle it open
-			// and the input's focus handler reopen it mid-typing.
+			// The search input opens the panel and must not dismiss it: closing
+			// here would make its own focus handler reopen it mid-typing.
 			if (filtersAnchorEl?.contains(target)) return;
 			articleFilters.filtersPanelVisible = false;
 		}
@@ -322,15 +321,17 @@
 						onEnter={() => viewState.commitUnifiedFilter()}
 						onFocus={() => void articleFilters.openFiltersPanel()}
 					/>
-					<button
-						type="button"
-						class="filters-trigger"
-						class:active={articleFilters.hasActive || articleFilters.filtersPanelVisible}
-						onclick={() => void articleFilters.toggleFiltersPanel()}
-						aria-label="Toggle article filters"
-					>
-						<Icon name="FunnelX" />
-					</button>
+					{#if articleFilters.hasActive}
+						<button
+							type="button"
+							class="filters-trigger"
+							onclick={() => articleFilters.clearAll()}
+							aria-label="Clear article filters"
+							use:tooltip={{ content: 'Clear filters {shift+f}' }}
+						>
+							<Icon name="FunnelX" />
+						</button>
+					{/if}
 				</div>
 			</div>
 			<div class="toolbar-tabs">
@@ -545,6 +546,13 @@
 	}
 
 	.dashboard-container {
+		/* One minmax(0, 1fr) row gives `.dashboard-content` a definite height,
+		   so its `overflow-y: auto` actually scrolls the article list (and
+		   anchors ArticleList's sticky rail) instead of being clipped by this
+		   box's `overflow: hidden`. The filters strip no longer occupies a row
+		   here — it lives in the toolbar above. */
+		display: grid;
+		grid-template-rows: minmax(0, 1fr);
 		/* Full-bleed: span the viewport (main insets its children by the page
 		   gutter) while `.dashboard-content` re-applies the gutter to the
 		   article grid. */
@@ -692,20 +700,13 @@
 		cursor: pointer;
 		padding: 0.35rem;
 		flex-shrink: 0;
-		opacity: 0.6;
-		transition:
-			opacity 0.15s,
-			filter 0.15s;
-	}
-
-	.filters-trigger:hover,
-	.filters-trigger.active {
-		opacity: 1;
-	}
-
-	/* Lit while facet filters are active so the state is visible modal-closed. */
-	.filters-trigger.active {
+		/* Only mounted while a facet is active, so it is always "lit". */
 		filter: drop-shadow(0 0 6px var(--primary-color));
+		transition: filter 0.15s;
+	}
+
+	.filters-trigger:hover {
+		filter: drop-shadow(0 0 10px var(--primary-color));
 	}
 
 	.dashboard-toolbar-container:global(.hidden) {

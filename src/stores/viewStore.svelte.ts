@@ -518,6 +518,13 @@ class ArticleFiltersState {
 		this.domains = [];
 		this.categories = [];
 	}
+
+	/** Clears every facet plus the applied search term/draft and raw results. */
+	clearAll(): void {
+		this.clear();
+		viewState.clearUnifiedFilter();
+		viewState.rawSearchResults = null;
+	}
 }
 
 export const articleFilters = new ArticleFiltersState();
