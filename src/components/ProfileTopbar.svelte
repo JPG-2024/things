@@ -41,6 +41,7 @@
 				checked
 				tooltipProps={{ content: 'back' }}
 				ariaLabel="Go back"
+				size={28}
 			/>
 			{#if name}
 				<div class="identity">
