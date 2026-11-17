@@ -336,7 +336,7 @@
 	.article-list__body {
 		display: flex;
 		align-items: flex-start;
-		gap: 3rem;
+		gap: 1rem;
 		width: 100%;
 		padding-bottom: 15rem;
 	}

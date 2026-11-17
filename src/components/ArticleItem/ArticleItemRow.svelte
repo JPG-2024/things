@@ -64,12 +64,14 @@
 
 	.article-content :global(.article-thumbnail-container) {
 		opacity: 0.8;
+		width: 190px !important;
 	}
 
 	.article-content :global(.article-thumbnail) {
 		object-fit: cover;
 		border-radius: var(--radius-md);
 		opacity: 0.9;
+		width: 160px !important;
 	}
 
 	.article-row-text {

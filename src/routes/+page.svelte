@@ -403,7 +403,7 @@
 
 				<button type="button" class="settings-trigger" aria-label="Toggle glow effects">
 					<ToggleIcon
-						name="Sparkles"
+						name="Plug"
 						bind:checked={viewState.glowEnabled}
 						tooltipProps={{ content: 'glow effects' }}
 					/>
@@ -480,7 +480,7 @@
 
 <style>
 	.page-topbar {
-		padding: 1rem 0;
+		padding-top: 1rem;
 	}
 
 	.toolbar-actions {
@@ -559,7 +559,6 @@
 		grid-row: 2;
 		overflow-y: auto;
 		padding-inline: var(--page-gutter-x);
-		margin-top: 1rem;
 	}
 
 	/* Opt-in row snapping of the entity grid (Settings → Cards → Grid). The
@@ -583,8 +582,19 @@
 		flex-shrink: 0;
 		/* Horizontal inset comes from main's --page-gutter-x (was 2rem, which
 		   misaligned the toolbar against the article grid). */
-		padding: 0.2rem 0 1.25rem;
+		padding-bottom: 10px;
 		opacity: 1;
+		background-image: linear-gradient(
+			45deg,
+			rgba(0, 0, 0) 0%,
+			transparent 10%,
+			color-mix(in srgb, var(--bg-color) 12%, rgb(12, 12, 12)) 20%,
+			rgba(0, 0, 0) 50%,
+			color-mix(in srgb, var(--primary-color) 12%, rgb(13, 13, 13)) 60%,
+			transparent 65%,
+			transparent 100%
+		);
+		box-shadow: inset 0 0 10px color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
 	.toolbar-row {

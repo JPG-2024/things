@@ -9,7 +9,7 @@ export const ARTICLE_THUMBNAIL_SIZES = {
 	xs: { width: 80, height: 64 },
 	sm: { width: 90, height: 50 },
 	md: { width: 170, height: 96 },
-	lg: { width: 200, height: 90 }
+	lg: { width: 200, height: 116 }
 } as const;
 export type ArticleFixedThumbnailSize = keyof typeof ARTICLE_THUMBNAIL_SIZES;
 export type ArticleThumbnailSize = ArticleFixedThumbnailSize | 'fill';

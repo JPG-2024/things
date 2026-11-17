@@ -179,24 +179,23 @@
 		top: 50%;
 		left: calc(var(--pct) * (100% - 20px) + 8px);
 		translate: -50% -50%;
-		width: 24px;
+		width: 20px;
 		aspect-ratio: 1;
 		border-radius: 50%;
-		background: hsl(0 0% 16%);
 
 		display: grid;
 		place-items: center;
 	}
 
 	/* The "eye" in the middle of the knob: brighter and bigger glow with value. */
-	.range-thumb::after {
-		background: var(--primary-color);
+	/* 	.range-thumb::after {
+		background: var(--bg-color);
 		content: '';
 		position: absolute;
 		width: 26%;
 		aspect-ratio: 1;
 		border-radius: 50%;
-	}
+	} */
 
 	.range-wrapper.disabled .range-fill {
 		background: rgba(255, 255, 255, 0.08);

@@ -370,6 +370,7 @@
 	.category-row {
 		width: 100%;
 		padding-top: 1.5rem;
+		padding-left: 6.3rem;
 		display: flex;
 		align-items: center;
 		gap: 2rem;

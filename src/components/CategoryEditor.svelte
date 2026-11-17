@@ -144,7 +144,7 @@
 		flex-direction: column;
 		gap: 0.4rem;
 		width: fit-content;
-		padding: 0.7rem 2rem;
+		padding: 0.4rem 1.5rem;
 		border: 2px solid var(--gray-700);
 		border-radius: var(--radius-lg);
 		border-style: dashed;

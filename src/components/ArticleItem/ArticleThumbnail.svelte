@@ -40,9 +40,6 @@
 		loading="lazy"
 		decoding="async"
 		use:tooltipAction={{ content: tooltip }}
-		style={VIEW_TRANSITIONS_ENABLED
-			? `view-transition-name: ${toThumbnailVTName(url ?? '')}`
-			: undefined}
 	/>
 {/snippet}
 
@@ -80,8 +77,7 @@
 		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		border-radius: var(--radius-md);
-		border: 2px solid var(--article-border);
+		justify-content: end;
 	}
 
 	/* Only the placeholder resolves `cqi` units. */
@@ -97,6 +93,8 @@
 		opacity: 1;
 		transition: opacity 0.2s ease;
 		border-radius: inherit;
+		border-radius: var(--radius-md);
+		border: 2px solid var(--article-border);
 	}
 
 	.article-thumbnail-container.sized {

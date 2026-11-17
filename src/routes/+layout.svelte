@@ -661,7 +661,7 @@
 		gap: 0.5rem;
 		box-sizing: border-box;
 		margin: 0;
-		padding-inline: var(--page-gutter-x);
+		/* padding-inline: var(--page-gutter-x); */
 		overflow-y: auto;
 		/* scrollbar-gutter: stable; */
 		height: 100vh;

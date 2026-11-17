@@ -371,11 +371,12 @@
 		width: clamp(280px, 24vw, 400px);
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		/* border-radius: var(--radius-md); */
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition: opacity 200ms ease;
-		/* border: 2px solid var(--bg-color); */
+		border: 3px solid var(--bg-color);
+		border-style: dashed;
+		border-radius: var(--radius-sm);
 	}
 
 	.player-frame.frame-hidden {
@@ -388,9 +389,7 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
-		border: 3px solid var(--gray-700);
-		border-style: dashed;
-		border-radius: var(--radius-sm);
+		border: none;
 	}
 
 	.player-actions {
