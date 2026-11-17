@@ -17,7 +17,7 @@
 	import Icon from '@/components/Icon.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import Button from '@/components/inputs/Button.component.svelte';
-	import Dropdown from '@/components/inputs/Dropdown.component.svelte';
+	import SearchDropdown from '@/components/inputs/SearchDropdown.component.svelte';
 	import Input from '@/components/inputs/Input.component.svelte';
 	import TextField from '@/components/inputs/fields/TextField.component.svelte';
 	import LoadingLine from '@/components/LoadingLine.svelte';
@@ -625,7 +625,8 @@
 			<Spacer title="TTS" icon="SlidersHorizontal" defaultOpen={true}>
 				<div class="tts-sections">
 					<h3 class="tts-section-title">Engine</h3>
-					<Dropdown
+					<SearchDropdown
+						capitalize={false}
 						label="Synthesis engine"
 						options={ttsState.phononAvailable === false ? [ENGINE_OPTIONS[0]] : ENGINE_OPTIONS}
 						value={ttsState.config.engine}
@@ -676,7 +677,8 @@
 								No registered voices in this checkpoint; synthesis runs unconditioned.
 							</p>
 						{:else}
-							<Dropdown
+							<SearchDropdown
+								capitalize={false}
 								label="Voice"
 								options={[
 									{ label: 'Default', value: '' },
@@ -866,7 +868,8 @@
 								{#if recordedUrl}
 									<audio class="voice-record-preview" controls src={recordedUrl}></audio>
 									<div class="voice-record-save">
-										<Dropdown
+										<SearchDropdown
+											capitalize={false}
 											label="Save to profile"
 											options={[
 												{ label: 'New profile', value: NEW_PROFILE_VALUE },
@@ -908,7 +911,8 @@
 
 					{#if showVoiceDesign && ttsState.config.engine === 'omnivoice'}
 						<h3 class="tts-section-title">Voice design</h3>
-						<Dropdown
+						<SearchDropdown
+							capitalize={false}
 							label="Voice mode"
 							options={VOICE_MODE_OPTIONS}
 							value={draftInstructEnabled ? DESIGN_MODE_VALUE : CLONE_MODE_VALUE}
@@ -916,7 +920,8 @@
 						/>
 						{#if draftInstructEnabled}
 							<div class="voice-grid-2">
-								<Dropdown
+								<SearchDropdown
+									capitalize={false}
 									label="Gender"
 									options={[
 										{ label: '—', value: DESIGN_NONE_VALUE },
@@ -925,7 +930,8 @@
 									value={draftGender}
 									onChange={(v) => (draftGender = v)}
 								/>
-								<Dropdown
+								<SearchDropdown
+									capitalize={false}
 									label="Age"
 									options={[
 										{ label: '—', value: DESIGN_NONE_VALUE },
@@ -935,7 +941,8 @@
 									onChange={(v) => (draftAge = v)}
 								/>
 							</div>
-							<Dropdown
+							<SearchDropdown
+								capitalize={false}
 								label="Pitch"
 								options={[
 									{ label: '—', value: DESIGN_NONE_VALUE },
@@ -1041,7 +1048,8 @@
 								onChange={(v) => (draftSynthParams.speed = v)}
 							/>
 						{/if}
-						<Dropdown
+						<SearchDropdown
+							capitalize={false}
 							label="Chunk split level"
 							options={SPLIT_OPTIONS}
 							value={String(draftSynthParams.splitLevel)}

@@ -96,7 +96,7 @@
 		/* Lets descendant grids switch to @container rules based on the
 		 * dialog's own width instead of the viewport. */
 		container-type: inline-size;
-		border: 2px solid var(--gray-800);
+		border: 4px solid var(--gray-800);
 		border-style: dashed;
 		padding: 2rem;
 		padding-bottom: 4rem;

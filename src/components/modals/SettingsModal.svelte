@@ -7,7 +7,7 @@
 	import Tabs from '@/components/Tabs.svelte';
 	import type { AiProvider } from '@/stores/viewStore.svelte';
 	import CheckboxField from '@/components/inputs/fields/CheckboxField.component.svelte';
-	import DropdownField from '@/components/inputs/fields/DropdownField.component.svelte';
+	import SearchDropdownField from '@/components/inputs/fields/SearchDropdownField.component.svelte';
 	import FieldsRow from '@/components/inputs/fields/FieldsRow.component.svelte';
 	import NumberField from '@/components/inputs/fields/NumberField.component.svelte';
 	import RangeSelector from '@/components/inputs/RangeSelector.svelte';
@@ -406,7 +406,8 @@
 		<Icon name="SlidersHorizontal" size={30} color={viewState.primaryColor} />
 		Settings
 	</h2>
-	<DropdownField
+	<SearchDropdownField
+		capitalize={false}
 		label="Language"
 		options={languageOptions}
 		tooltip="Language used for generated text and labels."
@@ -415,7 +416,7 @@
 
 	<Spacer title="AI Provider" icon="Cloud" opened>
 		<div class="inference-section">
-			<!-- 			<DropdownField
+			<!-- 			<SearchDropdownField
 				label="AI Provider"
 				options={providerOptions}
 				tooltip="Where inference requests are sent."
@@ -466,7 +467,8 @@
 				<div class="server-actions">
 					<Button onClick={handleSaveOpencodeKey} icon="Save">Save</Button>
 				</div>
-				<DropdownField
+				<SearchDropdownField
+					capitalize={false}
 					label="Model"
 					bind:value={viewState.opencodeModel}
 					options={opencodeModelOptions}
@@ -532,13 +534,15 @@
 				{/snippet}
 			</TextField>
 			<FieldsRow columns={2}>
-				<DropdownField
+				<SearchDropdownField
+					capitalize={false}
 					label="Inference model"
 					bind:value={viewState.llamaInferenceModel}
 					options={inferenceOptions}
 					placeholder={loadingModels ? 'Loading…' : 'Select a model'}
 				/>
-				<DropdownField
+				<SearchDropdownField
+					capitalize={false}
 					label="Embeddings model"
 					bind:value={viewState.llamaEmbeddingsModel}
 					options={embeddingsOptions}
@@ -611,7 +615,8 @@
 	</Spacer>
 	<Spacer title="Analysis" icon="ScanSearch">
 		<div class="inference-section">
-			<DropdownField
+			<SearchDropdownField
+				capitalize={false}
 				label="Window level"
 				options={windowLevelOptions}
 				tooltip="How many windows the article is split into (÷1, ÷2, ÷4, ÷8, ÷16). One LLM call per window. Applies to raw text and YouTube videos; web articles split by markdown headings."

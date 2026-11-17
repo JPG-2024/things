@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Dropdown from '../Dropdown.component.svelte';
+	import SearchDropdown from '../SearchDropdown.component.svelte';
 	import FieldBase from './FieldBase.component.svelte';
 
 	interface Option {
 		label: string;
 		value: string;
+		emoji?: string;
+		description?: string;
 	}
 
 	interface Props {
@@ -13,7 +15,9 @@
 		options: Option[];
 		value?: string;
 		placeholder?: string;
+		searchPlaceholder?: string;
 		disabled?: boolean;
+		capitalize?: boolean;
 		tooltip?: string;
 		helper?: string;
 		error?: string;
@@ -28,7 +32,9 @@
 		options = [],
 		value = $bindable(''),
 		placeholder = 'Select option...',
+		searchPlaceholder = 'Search...',
 		disabled = false,
+		capitalize = true,
 		tooltip,
 		helper,
 		error,
@@ -43,5 +49,14 @@
 </script>
 
 <FieldBase {label} {labelPosition} {tooltip} {helper} {error} id={fieldId} {suffix}>
-	<Dropdown bind:value {options} {placeholder} {disabled} {onChange} />
+	<SearchDropdown
+		id={fieldId}
+		bind:value
+		{options}
+		{placeholder}
+		{searchPlaceholder}
+		{disabled}
+		{capitalize}
+		{onChange}
+	/>
 </FieldBase>

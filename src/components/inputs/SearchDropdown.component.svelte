@@ -11,6 +11,7 @@
 	}
 
 	interface Props {
+		id?: string;
 		options?: Option[];
 		value?: string;
 		placeholder?: string;
@@ -20,6 +21,8 @@
 		searchPlaceholder?: string;
 		allowCreate?: boolean;
 		createLabel?: (query: string) => string;
+		/** Capitalize option labels. Kept on by default for the category editor. */
+		capitalize?: boolean;
 		trigger?: Snippet<[{ open: boolean }]>;
 		triggerTooltip?: string;
 		onChange?: (value: string) => void;
@@ -28,6 +31,7 @@
 	}
 
 	let {
+		id,
 		options = [],
 		value = $bindable(''),
 		placeholder = 'Select option...',
@@ -37,6 +41,7 @@
 		searchPlaceholder = 'Search...',
 		allowCreate = false,
 		createLabel = (query: string) => `Create "${query}"`,
+		capitalize = true,
 		trigger,
 		triggerTooltip,
 		onChange,
@@ -45,6 +50,7 @@
 	}: Props = $props();
 
 	let open = $state(false);
+	let openUp = $state(false);
 	let query = $state('');
 	let highlightIndex = $state(0);
 	let triggerEl: HTMLButtonElement;
@@ -73,6 +79,31 @@
 
 	const rowCount = $derived(filteredOptions.length + (canCreate ? 1 : 0));
 
+	/** Edges of the nearest scrollable ancestor (e.g. a modal's scroll area). */
+	function getScrollBounds(): { top: number; bottom: number } {
+		let el = triggerEl?.parentElement ?? null;
+		while (el) {
+			const overflowY = getComputedStyle(el).overflowY;
+			if (overflowY === 'auto' || overflowY === 'scroll') {
+				const rect = el.getBoundingClientRect();
+				return { top: rect.top, bottom: rect.bottom };
+			}
+			el = el.parentElement;
+		}
+		return { top: 0, bottom: window.innerHeight };
+	}
+
+	/** Open upward when the panel would be clipped by the scrollport below. */
+	function placePanel() {
+		if (!triggerEl || !panelEl) return;
+		const triggerRect = triggerEl.getBoundingClientRect();
+		const { top, bottom } = getScrollBounds();
+		const margin = 8;
+		const spaceBelow = bottom - triggerRect.bottom - margin;
+		const spaceAbove = triggerRect.top - top - margin;
+		openUp = spaceBelow < panelEl.offsetHeight && spaceAbove > spaceBelow;
+	}
+
 	async function toggle() {
 		if (disabled) return;
 		if (open) {
@@ -83,6 +114,7 @@
 		highlightIndex = 0;
 		open = true;
 		await tick();
+		placePanel();
 		searchEl?.focus();
 	}
 
@@ -157,6 +189,7 @@
 	<div class="search-dropdown" class:icon-trigger={trigger !== undefined}>
 		<button
 			bind:this={triggerEl}
+			{id}
 			type="button"
 			class="trigger"
 			class:disabled
@@ -180,7 +213,7 @@
 		</button>
 
 		{#if open}
-			<div bind:this={panelEl} class="panel">
+			<div bind:this={panelEl} class="panel" class:open-up={openUp}>
 				<input
 					bind:this={searchEl}
 					class="search-input"
@@ -191,7 +224,7 @@
 					oninput={handleInput}
 					onkeydown={handleSearchKeydown}
 				/>
-				<div class="options" role="listbox">
+				<div class="options" class:capitalize role="listbox">
 					{#each filteredOptions as option, i (option.value)}
 						<button
 							type="button"
@@ -237,7 +270,7 @@
 {/snippet}
 
 {#if label}
-	<Label text={label} position={labelPosition}>
+	<Label text={label} htmlFor={id} position={labelPosition}>
 		{@render dropdown()}
 	</Label>
 {:else}
@@ -248,7 +281,7 @@
 	.search-dropdown {
 		position: relative;
 		width: 100%;
-		font-family: var(--secondary-font);
+		font-family: var(--font-secondary);
 	}
 
 	.search-dropdown.icon-trigger {
@@ -264,6 +297,7 @@
 	}
 
 	.search-dropdown.icon-trigger .trigger:focus {
+		border: none;
 		box-shadow: none;
 	}
 
@@ -283,14 +317,12 @@
 
 	.trigger {
 		position: relative;
-		color: var(--primary-color);
-
 		box-sizing: border-box;
 		outline: none;
-		/* border: 1px solid rgba(255, 255, 255, 0.1); */
-		/* box-shadow: inset 0 12px 14px rgba(var(--primary-color), 0.5); */
+		border: 1px solid rgb(19, 19, 19);
 		border-radius: var(--radius-sm);
-		padding: 0.2rem 0.75rem;
+		background: rgba(128, 128, 128, 0.15);
+		padding: 0.16rem 1rem;
 		width: 100%;
 		color: inherit;
 		font-size: 1rem;
@@ -302,8 +334,9 @@
 	}
 
 	.trigger:focus {
-		box-shadow: inset 0 0 5px 1px var(--primary-color);
 		transition: all 0.3s ease;
+		border-left: 1px solid var(--primary-color);
+		border-right: 1px solid var(--primary-color);
 	}
 
 	.trigger.disabled {
@@ -340,6 +373,11 @@
 		overflow: hidden;
 	}
 
+	.panel.open-up {
+		top: auto;
+		bottom: 102%;
+	}
+
 	.search-input {
 		box-sizing: border-box;
 		width: 100%;
@@ -356,6 +394,9 @@
 		background: black;
 		max-height: 260px;
 		overflow-y: auto;
+	}
+
+	.options.capitalize {
 		text-transform: capitalize;
 	}
 
