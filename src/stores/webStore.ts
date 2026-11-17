@@ -66,6 +66,8 @@ export interface ArticleProfile {
 	profilePicture?: string | null;
 	profilePictureSrc?: string | null;
 	url?: string | null;
+	/** Generated description of what the profile covers (`null`/absent = none yet). */
+	summary?: string | null;
 	/** When the card was starred (`null`/absent = not a favorite). */
 	favoritedAt?: number | null;
 	/** Derived from `favoritedAt`; the boolean the UI toggles. */
@@ -80,6 +82,8 @@ export interface WebStoreDomainRecord {
 	count: number;
 	profilePicture: string | null;
 	url: string | null;
+	/** Generated description of what the profile covers (`null` = none yet). */
+	summary: string | null;
 	/** When the card was starred (`null` = not a favorite). */
 	favoritedAt: number | null;
 	mostRecentCreatedAt: number | null;
@@ -93,6 +97,8 @@ export interface WebStoreProfileRecord {
 	count: number;
 	profilePicture: string | null;
 	url: string | null;
+	/** Generated description of what the profile covers (`null` = none yet). */
+	summary: string | null;
 	/** When the card was starred (`null` = not a favorite). */
 	favoritedAt: number | null;
 	mostRecentCreatedAt: number | null;
@@ -414,6 +420,7 @@ function domainRecordToArticleProfile(record: WebStoreDomainRecord): ArticleProf
 		domainId: record.id,
 		profilePicture: record.profilePicture,
 		url: record.url,
+		summary: record.summary,
 		favoritedAt: record.favoritedAt,
 		favorite: record.favoritedAt != null,
 		mostRecentCreatedAt: record.mostRecentCreatedAt,
@@ -429,6 +436,7 @@ function profileRecordToArticleProfile(record: WebStoreProfileRecord): ArticlePr
 		domainId: record.domainId,
 		profilePicture: record.profilePicture,
 		url: record.url,
+		summary: record.summary,
 		favoritedAt: record.favoritedAt,
 		favorite: record.favoritedAt != null,
 		mostRecentCreatedAt: record.mostRecentCreatedAt,
@@ -835,6 +843,29 @@ export async function setProfileFavorite(profileId: string, favorite: boolean): 
 		return await invoke<boolean>('update_web_store_profile_favorite', { id: profileId, favorite });
 	} catch (error) {
 		console.error(`Error setting profile favorite (id='${profileId}'):`, error);
+		return false;
+	}
+}
+
+/**
+ * Persists (or clears, with `null`) the generated description of a profile
+ * card (channel or domain; the Rust side resolves which table holds the id,
+ * domain-first like `getProfile`). Returns whether the row was updated.
+ */
+export async function setProfileSummary(
+	profileId: string,
+	summary: string | null
+): Promise<boolean> {
+	try {
+		return await invoke<boolean>('update_profile_summary', { id: profileId, summary });
+	} catch (error) {
+		// The text stays visible in the profile row: only the persistence
+		// failed, so the error center (not a local error state) is its surface.
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to save the profile summary',
+			context: { profileId }
+		});
 		return false;
 	}
 }

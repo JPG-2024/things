@@ -94,6 +94,8 @@ pub struct WebStoreDomainRecord {
     pub count: i64,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
+    /// Generated description of what the profile covers (`NULL` = none yet).
+    pub summary: Option<String>,
     /// When the card was starred (`NULL` = not a favorite).
     pub favorited_at: Option<i64>,
     pub most_recent_created_at: Option<i64>,
@@ -109,6 +111,8 @@ pub struct WebStoreProfileRecord {
     pub count: i64,
     pub profile_picture: Option<String>,
     pub url: Option<String>,
+    /// Generated description of what the profile covers (`NULL` = none yet).
+    pub summary: Option<String>,
     /// When the card was starred (`NULL` = not a favorite).
     pub favorited_at: Option<i64>,
     pub most_recent_created_at: Option<i64>,
@@ -339,6 +343,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             url TEXT,
+            summary TEXT,
             favorited_at INTEGER,
             updated_at INTEGER NOT NULL
         );
@@ -350,6 +355,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             count INTEGER NOT NULL DEFAULT 0,
             profile_picture TEXT,
             url TEXT,
+            summary TEXT,
             favorited_at INTEGER,
             updated_at INTEGER NOT NULL,
             FOREIGN KEY (domain_id) REFERENCES web_domains(id)
@@ -502,6 +508,20 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "web_profiles",
         "favorited_at",
         "ALTER TABLE web_profiles ADD COLUMN favorited_at INTEGER",
+    )?;
+    // NULL = no generated profile description yet; the row-level summary of
+    // what the profile covers, written after a fetch-more-videos run.
+    ensure_column(
+        conn,
+        "web_domains",
+        "summary",
+        "ALTER TABLE web_domains ADD COLUMN summary TEXT",
+    )?;
+    ensure_column(
+        conn,
+        "web_profiles",
+        "summary",
+        "ALTER TABLE web_profiles ADD COLUMN summary TEXT",
     )?;
     // NULL = no remembered failure; the message of the last failed run otherwise.
     ensure_column(
@@ -1089,6 +1109,7 @@ fn aggregate_domains(records: Vec<WebStoreArticleRecord>) -> Vec<WebStoreDomainR
                 count: 1,
                 profile_picture: None,
                 url: None,
+                summary: None,
                 favorited_at: None,
                 most_recent_created_at: None,
                 articles: None,
@@ -1264,7 +1285,7 @@ fn query_domain_by_id(
         .prepare(
             "SELECT id, name, count, profile_picture, url,
                     (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at,
-                    favorited_at
+                    favorited_at, summary
              FROM web_domains WHERE id = ?1 COLLATE NOCASE",
         )
         .map_err(|error| error.to_string())?;
@@ -1279,6 +1300,7 @@ fn query_domain_by_id(
                 url: row.get(4)?,
                 most_recent_created_at: row.get(5)?,
                 favorited_at: row.get(6)?,
+                summary: row.get(7)?,
                 articles: None,
             })
         })
@@ -1295,7 +1317,7 @@ fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String>
         .prepare(
             "SELECT id, name, count, profile_picture, url,
                     (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(web_domains.id)) AS max_created_at,
-                    favorited_at
+                    favorited_at, summary
              FROM web_domains ORDER BY count DESC, name ASC",
         )
         .map_err(|error| error.to_string())?;
@@ -1310,6 +1332,7 @@ fn query_domains(conn: &Connection) -> Result<Vec<WebStoreDomainRecord>, String>
                 url: row.get(4)?,
                 most_recent_created_at: row.get(5)?,
                 favorited_at: row.get(6)?,
+                summary: row.get(7)?,
                 articles: None,
             })
         })
@@ -1331,7 +1354,7 @@ fn query_profile_by_id(
         .prepare(
             "SELECT id, name, domain_id, count, profile_picture, url,
                     (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(web_profiles.id)) AS max_created_at,
-                    favorited_at
+                    favorited_at, summary
              FROM web_profiles WHERE id = ?1 COLLATE NOCASE",
         )
         .map_err(|error| error.to_string())?;
@@ -1347,6 +1370,7 @@ fn query_profile_by_id(
                 url: row.get(5)?,
                 most_recent_created_at: row.get(6)?,
                 favorited_at: row.get(7)?,
+                summary: row.get(8)?,
                 articles: None,
             })
         })
@@ -1478,6 +1502,7 @@ fn rebuild_domains_from_articles(
                 count: 0,
                 profile_picture: Some(picture),
                 url: None,
+                summary: None,
                 favorited_at: None,
                 most_recent_created_at: None,
                 articles: None,
@@ -1543,7 +1568,7 @@ fn query_domains_filtered(
     let mut sql = String::from(
         "SELECT p.id, p.name, p.count, p.profile_picture, p.url,
                 (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.domain) = LOWER(p.id)) AS max_created_at,
-                p.favorited_at
+                p.favorited_at, p.summary
          FROM web_domains p",
     );
 
@@ -1608,6 +1633,7 @@ fn query_domains_filtered(
                     url: row.get(4)?,
                     most_recent_created_at: row.get(5)?,
                     favorited_at: row.get(6)?,
+                    summary: row.get(7)?,
                     articles: None,
                 })
             },
@@ -1694,7 +1720,7 @@ fn query_profiles_filtered(
     let mut sql = String::from(
         "SELECT p.id, p.name, p.domain_id, p.count, p.profile_picture, p.url,
                 (SELECT MAX(a2.created_at) FROM web_articles a2 WHERE LOWER(a2.profile) = LOWER(p.id)) AS max_created_at,
-                p.favorited_at
+                p.favorited_at, p.summary
          FROM web_profiles p",
     );
 
@@ -1760,6 +1786,7 @@ fn query_profiles_filtered(
                     url: row.get(5)?,
                     most_recent_created_at: row.get(6)?,
                     favorited_at: row.get(7)?,
+                    summary: row.get(8)?,
                     articles: None,
                 })
             },
@@ -2261,6 +2288,49 @@ pub async fn update_web_store_profile_favorite(
     update_profile_favorite_row(&conn, &id, favorite)
 }
 
+/// Writes the generated description of a profile card (channel or domain).
+/// The id lives in `web_domains` or `web_profiles`; the domain-first branch
+/// mirrors `update_profile_favorite_row`/`get_web_store_profile`. A blank
+/// message clears the summary to NULL. Returns whether a row was updated.
+fn update_profile_summary_row(
+    conn: &Connection,
+    id: &str,
+    summary: Option<String>,
+) -> Result<bool, String> {
+    let summary = normalize_optional_string(summary);
+
+    let changes = conn
+        .execute(
+            "UPDATE web_domains SET summary = ?1 WHERE id = ?2 COLLATE NOCASE",
+            params![summary, id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    if changes > 0 {
+        return Ok(true);
+    }
+
+    let changes = conn
+        .execute(
+            "UPDATE web_profiles SET summary = ?1 WHERE id = ?2 COLLATE NOCASE",
+            params![summary, id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(changes > 0)
+}
+
+/// Persists (or clears, with `null`) the generated profile summary.
+#[tauri::command]
+pub async fn update_profile_summary(
+    app: AppHandle,
+    id: String,
+    summary: Option<String>,
+) -> Result<bool, String> {
+    let conn = get_db(&app)?;
+    update_profile_summary_row(&conn, &id, summary)
+}
+
 /// Remembers (or clears) a pipeline failure on the article row.
 ///
 /// A non-NULL `error_message` makes `articleManager.open()` skip the run: a
@@ -2327,6 +2397,7 @@ pub async fn upsert_web_store_domain(
         count: 0,
         profile_picture: input.profile_picture,
         url: input.url,
+        summary: None,
         favorited_at: None,
         most_recent_created_at: None,
         articles: None,
@@ -2350,6 +2421,7 @@ pub async fn upsert_web_store_profile(
         count: 0,
         profile_picture: input.profile_picture,
         url: input.url,
+        summary: None,
         favorited_at: None,
         most_recent_created_at: None,
         articles: None,
@@ -5895,6 +5967,86 @@ mod tests {
         assert!(
             profile.favorited_at.is_none(),
             "profile row must stay untouched"
+        );
+    }
+
+    #[test]
+    fn update_profile_summary_round_trips_on_domains_and_profiles() {
+        let conn = build_in_memory_db();
+        insert_domain_row(&conn, "example.com");
+        insert_profile_row(&conn, "@channel", "youtube.com");
+
+        // Write and read back the summary of a channel card.
+        assert!(
+            update_profile_summary_row(&conn, "@channel", Some("Covers science.".into()))
+                .expect("write profile summary")
+        );
+        let profile = query_profile_by_id(&conn, "@channel")
+            .expect("query profile")
+            .expect("profile row");
+        assert_eq!(
+            profile.summary.as_deref(),
+            Some("Covers science."),
+            "profile must carry the summary"
+        );
+
+        // Blank text clears it back to NULL (like the article error marker).
+        assert!(
+            update_profile_summary_row(&conn, "@channel", Some("   ".into()))
+                .expect("clear profile summary")
+        );
+        let profile = query_profile_by_id(&conn, "@channel")
+            .expect("query profile")
+            .expect("profile row");
+        assert!(profile.summary.is_none(), "blank must clear the summary");
+
+        // The domain branch writes `web_domains` and the list query reads it.
+        assert!(update_profile_summary_row(
+            &conn,
+            "example.com",
+            Some("A site about cats.".into())
+        )
+        .expect("write domain summary"));
+        let domain = query_domain_by_id(&conn, "example.com")
+            .expect("query domain")
+            .expect("domain row");
+        assert_eq!(
+            domain.summary.as_deref(),
+            Some("A site about cats."),
+            "domain must carry the summary"
+        );
+        let domains =
+            query_domains_filtered(&conn, None, None, false, None, None).expect("list domains");
+        assert_eq!(
+            domains[0].summary.as_deref(),
+            Some("A site about cats."),
+            "list query must expose the summary"
+        );
+
+        // An unknown id reports "not updated" so callers skip cache mutation.
+        assert!(!update_profile_summary_row(&conn, "missing.example", None).expect("unknown id"));
+
+        // The capture-path upsert never knows the summary, so it must leave an
+        // existing one untouched (its SET list does not mention the column).
+        let rebuild = WebStoreDomainRecord {
+            id: "example.com".into(),
+            name: "example.com".into(),
+            count: 3,
+            profile_picture: None,
+            url: None,
+            summary: None,
+            favorited_at: None,
+            most_recent_created_at: None,
+            articles: None,
+        };
+        upsert_domain(&conn, &rebuild).expect("upsert domain");
+        let domain = query_domain_by_id(&conn, "example.com")
+            .expect("query domain")
+            .expect("domain row");
+        assert_eq!(
+            domain.summary.as_deref(),
+            Some("A site about cats."),
+            "upsert must preserve the stored summary"
         );
     }
 
