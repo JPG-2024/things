@@ -95,10 +95,10 @@
 </script>
 
 <div class="category-editor">
-	<div class="category-editor__header">
+	{#if selectedIds.length === 0}
 		<span class="category-editor__title">Tags</span>
-		{#if trailingActions}{@render trailingActions()}{/if}
-	</div>
+	{/if}
+	{#if trailingActions}{@render trailingActions()}{/if}
 	<div class="category-pills">
 		{#each selectedIds as id (id)}
 			<span class="category-pill">
@@ -141,7 +141,8 @@
 <style>
 	.category-editor {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		align-items: center;
 		gap: 0.4rem;
 		width: fit-content;
 		padding: 0.4rem 1.5rem;
@@ -150,16 +151,10 @@
 		border-style: dashed;
 	}
 
-	.category-editor__header {
-		display: flex;
-		align-items: center;
-	}
-
 	.category-editor__title {
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
 		color: var(--gray-500);
-		padding-top: 3px;
 		padding-right: 5px;
 	}
 
