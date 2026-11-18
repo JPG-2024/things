@@ -96,12 +96,10 @@
 		opacity: 0.6;
 	}
 	.label {
-		color: var(--primary-color);
+		color: white;
 		font-size: 0.875rem;
 		opacity: 0.5;
-		transition:
-			opacity 0.2s ease,
-			text-shadow 0.2s ease;
+		font-family: var(--font-secondary);
 	}
 	.label.glow {
 		opacity: 1;
