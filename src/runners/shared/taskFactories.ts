@@ -6,7 +6,11 @@
 import { chatCompletions } from '@/lib/utils/inference/chat-completions-provider';
 import { assistantAnswerText } from '@/lib/utils/inference/assistant-text';
 import { parseTitleText } from '@/lib/utils/inference/finalResponse';
-import { TITLE_SYSTEM_MESSAGE, buildTitleUserMessage } from '@/lib/utils/inference/prompts';
+import {
+	ARTICLE_TITLE_MAX_WORDS,
+	TITLE_SYSTEM_MESSAGE,
+	buildTitleUserMessage
+} from '@/lib/utils/inference/prompts';
 import { DEFAULT_TITLE_COMPLETION_OPTIONS } from '@/lib/utils/inference/constants';
 import { classifyByEmbedding } from '@/lib/utils/categoryEmbeddings';
 import { errorStore, describeErrorChain } from '@/stores/errorStore.svelte';
@@ -47,7 +51,7 @@ export async function buildArticleTitle(
 
 		// Reasoner models answer with their thinking trace before the title;
 		// keep only the final response so the header never shows the trace.
-		const title = parseTitleText(assistantAnswerText(response));
+		const title = parseTitleText(assistantAnswerText(response), ARTICLE_TITLE_MAX_WORDS);
 		return title.trim() || null;
 	} catch (error) {
 		// Benign degradation: the card keeps the title it already had. Warn
