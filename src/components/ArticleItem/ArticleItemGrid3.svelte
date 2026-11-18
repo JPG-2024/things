@@ -42,7 +42,7 @@
 		display: grid;
 		grid-template-columns: minmax(0, 50%) minmax(0, 1fr);
 		column-gap: 0.75rem;
-		row-gap: 1rem;
+		row-gap: 2rem;
 		align-items: start;
 		width: 100%;
 		min-width: 0;

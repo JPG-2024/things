@@ -291,7 +291,6 @@
 	}
 
 	.article-card.row {
-		padding: 0 1rem;
 		border: none;
 	}
 
@@ -395,7 +394,7 @@
 	   overlapping the card button: it must not steal the article click. */
 	.article-profile-thumb {
 		position: absolute;
-		left: 0.25rem;
+		left: 1rem;
 		top: 0.25rem;
 		display: flex;
 		align-items: center;

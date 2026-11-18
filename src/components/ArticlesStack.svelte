@@ -275,7 +275,7 @@
 	   the click on the stack button. */
 	.articles-stack__profile {
 		position: absolute;
-		left: 0.25rem;
+		left: -0.9rem;
 		top: 0.25rem;
 		display: flex;
 		align-items: center;
