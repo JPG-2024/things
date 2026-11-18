@@ -1,10 +1,6 @@
 <script lang="ts">
-	import {
-		drawWaveform,
-		drawGeneratingWave,
-		drawIdleLine,
-		type WaveformDrawConfig
-	} from '@/lib/canvasWaveform';
+	import type { WaveformDrawConfig } from '@/lib/canvasWaveform';
+	import { drawWaveform, drawGeneratingWave, drawIdleLine } from './ringWaveform';
 	import type { WaveStyleConfig } from '@/lib/ttsPlayerConfig';
 
 	interface Props {
