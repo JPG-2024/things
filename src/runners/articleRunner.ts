@@ -248,6 +248,15 @@ export async function runArticle(
 		articleState.setStatus('running');
 	}
 
+	// A freshly downloaded YouTube thumbnail is painted by `onThumbnail` as
+	// soon as the file exists, but the source itself carries no thumbnail: it
+	// arrives with the decoration (alongside the slow channel scrape). Keep
+	// the painted value here so composing the card below cannot overwrite it
+	// with null, which would blank the <img> until the decoration resolves.
+	const paintedThumbnail: { current: { thumbnail: string; thumbnailSrc: string } | null } = {
+		current: null
+	};
+
 	const { source, decoration } = await collectSource(url, {
 		mode,
 		force,
@@ -258,6 +267,7 @@ export async function runArticle(
 		// the media column from waiting for the rest of the card (channel
 		// scrape), which is the slowest part.
 		onThumbnail: (thumbnail, thumbnailSrc) => {
+			paintedThumbnail.current = { thumbnail, thumbnailSrc };
 			if (!articleState.isCurrent(url)) return;
 			articleState.setThumbnail(thumbnail, thumbnailSrc);
 		}
@@ -303,8 +313,14 @@ export async function runArticle(
 		});
 
 	const text = source.text;
-	const thumbnail = source.thumbnail ?? existing?.thumbnail ?? null;
-	const thumbnailSrc = source.thumbnailSrc ?? existing?.thumbnailSrc ?? null;
+	// The early paint wins over an absent source thumbnail: without this
+	// fallback a first-time capture would clear the thumbnail that
+	// `onThumbnail` just painted, blinking the player until `decorationTask`
+	// lands (which can be well into the analysis).
+	const thumbnail =
+		source.thumbnail ?? paintedThumbnail.current?.thumbnail ?? existing?.thumbnail ?? null;
+	const thumbnailSrc =
+		source.thumbnailSrc ?? paintedThumbnail.current?.thumbnailSrc ?? existing?.thumbnailSrc ?? null;
 	const mediaDirectory = source.mediaDirectory ?? existing?.mediaDirectory ?? null;
 	const profile = source.profile ?? existing?.profile ?? null;
 	const profilePictureSrc = source.profilePictureSrc ?? existing?.profilePictureSrc ?? null;

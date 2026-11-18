@@ -33,10 +33,9 @@
 		position: relative;
 		width: 110%;
 		border-radius: var(--radius-md);
-		padding: 1rem;
 		overflow: hidden;
 		border: none;
-		border: 2px solid var(--article-border);
+		border: 3px solid var(--article-border);
 		border-radius: var(--radius-md);
 		border-style: dashed;
 	}
