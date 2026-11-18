@@ -30,11 +30,7 @@
 		aria-expanded={open}
 		aria-label="Toggle reasoning"
 	>
-		<Icon
-			name={open ? 'ChevronDown' : 'ChevronRight'}
-			size={13}
-			color="rgba(255, 255, 255, 0.45)"
-		/>
+		<Icon name="Lightbulb" size={18} color="var(--primary-color)" />
 		<span class="reasoning__label">{streaming ? 'Thinking…' : 'Reasoning'}</span>
 	</button>
 	{#if open}
@@ -44,7 +40,7 @@
 
 <style>
 	.reasoning {
-		margin-bottom: 0.5rem;
+		margin-bottom: 2rem;
 		border-left: 2px solid rgba(255, 255, 255, 0.12);
 	}
 
@@ -54,7 +50,7 @@
 		align-items: center;
 		gap: 0.3rem;
 		cursor: pointer;
-		padding: 0.15rem 0;
+		padding: 0.5rem;
 	}
 
 	.reasoning__toggle:hover .reasoning__label {
@@ -64,12 +60,11 @@
 	.reasoning__label {
 		font-size: 0.72rem;
 		color: var(--bg-color);
-		font-style: italic;
-		transition: color 0.15s;
+		padding-top: 2px;
 	}
 
 	.reasoning__body {
-		margin: 0.35rem 0 0.25rem;
+		margin: 1rem;
 		max-height: 12rem;
 		overflow-y: auto;
 		padding-right: 0.4rem;

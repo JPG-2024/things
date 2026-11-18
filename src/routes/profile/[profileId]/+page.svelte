@@ -198,7 +198,7 @@
 					<div class="summary-error">{summaryError}</div>
 					<button type="button" class="summary-action" onclick={regenerateSummary}>Retry</button>
 				{:else}
-					<MarkdownRenderer content={summaryText} fontSize={0.7} />
+					<MarkdownRenderer content={summaryText} fontSize={0.8} />
 				{/if}
 			</div>
 		{/if}
@@ -341,6 +341,7 @@
 		display: flex;
 		align-items: center;
 		gap: 2rem;
+		padding-left: 2rem;
 	}
 
 	.profile-toolbar {

@@ -156,10 +156,18 @@
 	.markdown-container :global(h2) {
 		font-family: var(--font-secondary);
 		/* em so it tracks the container (was 0.9rem on a 0.8rem base). */
-		font-size: 1.125em;
+		font-size: 1.1em;
 		padding-top: 2rem;
 		padding-bottom: 1.2rem;
 		text-decoration: underline;
+	}
+
+	.markdown-container :global(h3) {
+		font-family: var(--font-secondary);
+		/* em so it tracks the container (was 0.9rem on a 0.8rem base). */
+		font-size: 1em;
+		padding-top: 2rem;
+		padding-bottom: 1.2rem;
 	}
 
 	.markdown-container :global(p) {
@@ -178,11 +186,18 @@
 	.markdown-container :global(pre) {
 		margin-bottom: 2.5rem;
 		margin-top: 1rem;
-		border-radius: var(--radius-xs);
-		border: 6px solid var(--gray-700);
+		border-radius: var(--radius-sm);
+		border: 2px solid var(--gray-700);
 		padding: 0.6rem 1rem;
 		overflow-x: auto;
-		border-style: double;
+		border-style: dashed;
+	}
+
+	.markdown-container :global(hr) {
+		color: red;
+		border: 3px solid var(--gray-700);
+		border-style: dashed;
+		margin: 2rem;
 	}
 
 	.markdown-container :global(pre code) {

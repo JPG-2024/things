@@ -88,18 +88,14 @@
 		background: black;
 		width: 100vw;
 		max-width: 1200px;
-		max-height: 90vh;
+		max-height: 100vh;
 		height: fit-content;
 		overflow-y: auto;
-		border-radius: var(--radius-md);
 		z-index: 10000;
 		/* Lets descendant grids switch to @container rules based on the
 		 * dialog's own width instead of the viewport. */
 		container-type: inline-size;
-		border: 4px solid var(--gray-800);
-		border-style: dashed;
 		padding: 2rem;
-		padding-bottom: 4rem;
 	}
 
 	/* Full-height dialog: the backdrop gains a 1.5rem frame and stretches the

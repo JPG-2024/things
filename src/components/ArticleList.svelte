@@ -349,7 +349,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2rem;
+		gap: 1rem;
+		padding-top: 1rem;
 		width: max-content;
 		flex-shrink: 0;
 	}
