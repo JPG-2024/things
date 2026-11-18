@@ -6,7 +6,13 @@ import {
 	type ItemTransition
 } from '@/lib/utils/itemTransitions';
 
-export type ProfileArticleTabId = 'articles' | 'favorites' | 'categories' | 'domains' | 'profiles';
+export type ProfileArticleTabId =
+	| 'articles'
+	| 'favorites'
+	| 'music'
+	| 'categories'
+	| 'domains'
+	| 'profiles';
 
 // After a tab switch, items that mount within this window inherit the switch
 // direction. Later mounts (load-more, search swaps) fall back to the default.
@@ -19,6 +25,7 @@ class TabAnimationState {
 	presets = $state<Record<ProfileArticleTabId, AnimationPreset>>({
 		articles: 'slide',
 		favorites: 'slide',
+		music: 'slide',
 		categories: 'slide',
 		domains: 'slide',
 		profiles: 'slide'

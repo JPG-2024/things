@@ -154,6 +154,18 @@ class ArticleCacheStore {
 		fetchArticlesPage
 	);
 
+	/**
+	 * Music tab: the same facet machinery pinned to the "music" category, in
+	 * its own resource so browsing it never evicts the articles/favorites
+	 * pages (and vice versa). The category id rides on every fetch, so the
+	 * shared list query answers the article↔category link.
+	 */
+	private readonly music = new PaginationResource<ArticleRecord, ArticlesParams>(
+		ARTICLES_PAGE_SIZE,
+		buildArticlesSignature,
+		fetchArticlesPage
+	);
+
 	private readonly categoryArticlesResource = new PaginationResource<
 		ArticleRecord,
 		CategoryArticlesParams
@@ -289,6 +301,18 @@ class ArticleCacheStore {
 		return this.favorites.hasMore;
 	}
 
+	get musicArticles(): ArticleRecord[] {
+		return this.music.visibleItems;
+	}
+
+	get loadingMusic(): boolean {
+		return this.music.loading;
+	}
+
+	get hasMoreMusic(): boolean {
+		return this.music.hasMore;
+	}
+
 	get categoriesWithArticles(): CategoryWithArticles[] {
 		const pages: CategoryWithArticles[] = [];
 		for (const [categoryId, entry] of this.categoryPages) {
@@ -393,6 +417,39 @@ class ArticleCacheStore {
 
 	async loadMoreFavorites(): Promise<void> {
 		await this.favorites.loadMore();
+	}
+
+	/**
+	 * Fetches the music list — the same facet machinery as the articles list,
+	 * pinned to `categoryIds: [categoryId]` (the "music" category), into a
+	 * dedicated resource. The category facet is not an option here: it would
+	 * fight the pin.
+	 */
+	async fetchMusic(options?: {
+		force?: boolean;
+		loadMore?: boolean;
+		categoryId: string;
+		onlyWithoutProfile?: boolean;
+		profileIds?: string[];
+		domainIds?: string[];
+		dateFrom?: string;
+		mode?: ArticleMode;
+	}) {
+		await this.music.fetch(
+			{
+				categoryIds: options?.categoryId ? [options.categoryId] : undefined,
+				onlyWithoutProfile: options?.onlyWithoutProfile,
+				profileIds: options?.profileIds,
+				domainIds: options?.domainIds,
+				dateFrom: options?.dateFrom,
+				mode: options?.mode
+			},
+			{ force: options?.force, loadMore: options?.loadMore }
+		);
+	}
+
+	async loadMoreMusic(): Promise<void> {
+		await this.music.loadMore();
 	}
 
 	/** Fetches the paginated article list of one profile into its own cache. */
@@ -588,6 +645,7 @@ class ArticleCacheStore {
 		this.domains.invalidate();
 		this.articles.invalidate();
 		this.favorites.invalidate();
+		this.music.invalidate();
 		for (const resource of this.profileArticlesResources.values()) {
 			resource.invalidate();
 		}
@@ -610,6 +668,7 @@ class ArticleCacheStore {
 			this.domains.refreshLoaded(),
 			this.articles.refreshLoaded(),
 			this.favorites.refreshLoaded(),
+			this.music.refreshLoaded(),
 			this.categoryArticlesResource.refreshLoaded(),
 			...[...this.profileArticlesResources.values()].map((resource) => resource.refreshLoaded()),
 			this.refreshLoadedCategoryPages()
@@ -722,6 +781,7 @@ class ArticleCacheStore {
 		}
 
 		this.articles.replace((items) => items.map(patch));
+		this.music.replace((items) => items.map(patch));
 
 		for (const resource of this.profileArticlesResources.values()) {
 			resource.replace((items) => items.map(patch));
@@ -818,6 +878,11 @@ class ArticleCacheStore {
 		this.favorites.total = Math.max(0, this.favorites.total - removedFavorites);
 		this.favorites.offset = this.favorites.items.length;
 		this.favorites.hasMore = this.favorites.offset < this.favorites.total;
+
+		const removedMusic = this.music.remove(hasUrl);
+		this.music.total = Math.max(0, this.music.total - removedMusic);
+		this.music.offset = this.music.items.length;
+		this.music.hasMore = this.music.offset < this.music.total;
 
 		// Prune every cached per-profile list too, keeping each resource's
 		// pagination counters consistent so its next loadMore stays aligned.

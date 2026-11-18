@@ -42,6 +42,7 @@
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
 	import FavoritesTab from './tabs/FavoritesTab.svelte';
+	import MusicTab from './tabs/MusicTab.svelte';
 	import DomainsTab from './tabs/DomainsTab.svelte';
 
 	function rgbToHex(rgb: string): string {
@@ -234,6 +235,7 @@
 	const TAB_ORDER: ProfileArticleTabId[] = [
 		'articles',
 		'favorites',
+		'music',
 		'profiles',
 		'domains',
 		'categories'
@@ -476,6 +478,8 @@
 			<DomainsTab />
 		{:else if viewState.activeProfileArticleTab === 'favorites'}
 			<FavoritesTab />
+		{:else if viewState.activeProfileArticleTab === 'music'}
+			<MusicTab />
 		{:else if viewState.activeProfileArticleTab === 'categories'}
 			<CategoriesTab />
 		{:else}
