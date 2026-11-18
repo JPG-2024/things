@@ -356,7 +356,11 @@
 		inset: 0;
 		overflow: hidden;
 		background: rgba(14, 14, 14, 0.9);
-		z-index: 1000;
+		/* Above every modal layer: the shared Modal backdrop/dialog (9999 /
+		   10000) and the YouTube player when it lifts to 100001 for the voice
+		   settings modal. Keeps the spectrum visible (and undimmed) over the
+		   chat and any other modal, and over the minimized video thumbnail. */
+		z-index: 100002;
 		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	}
 
