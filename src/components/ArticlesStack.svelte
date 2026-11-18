@@ -72,7 +72,7 @@
 		class="articles-stack"
 		class:row={isRowMode}
 		onclick={() => onClick(cell)}
-		use:tooltip={{ content: stackTooltip }}
+		use:tooltip={{ content: stackTooltip, variant: 'title' }}
 	>
 		{#if isRowMode}
 			<!-- Row mode: compact pile inside ArticleItemRow's fixed thumb box

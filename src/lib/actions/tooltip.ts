@@ -10,12 +10,15 @@ export interface TooltipOptions {
 	position?: PopupPositionInput;
 	/** Show even while an ancestor PopupMenu is open (popup content wanting its own tooltips). */
 	ignoreMenuCtx?: boolean;
+	/** Visual variant applied to the shared tooltip element (e.g. larger article titles). */
+	variant?: 'title';
 }
 
 interface ResolvedOptions {
 	content: string;
 	position: PopupPositionInput;
 	ignoreMenuCtx: boolean;
+	variant?: 'title';
 }
 
 const GAP = 8;
@@ -37,7 +40,8 @@ function resolve(options: TooltipOptions): ResolvedOptions {
 	return {
 		content: options.content ?? '',
 		position: options.position ?? 'bottom',
-		ignoreMenuCtx: options.ignoreMenuCtx ?? false
+		ignoreMenuCtx: options.ignoreMenuCtx ?? false,
+		variant: options.variant
 	};
 }
 
@@ -55,6 +59,10 @@ function setSide(side: PopupPosition): void {
 	for (const candidate of SIDES) {
 		tooltipEl?.classList.toggle(`tooltip-${candidate}`, candidate === side);
 	}
+}
+
+function setVariant(variant: ResolvedOptions['variant']): void {
+	tooltipEl?.classList.toggle('tooltip-title', variant === 'title');
 }
 
 function position(): void {
@@ -94,6 +102,10 @@ function show(host: HTMLElement, options: ResolvedOptions): void {
 	anchorEl = host;
 	active = options;
 	el.textContent = options.content;
+	// Apply the variant before measuring: a larger font changes the box size
+	// that `position()` reads. `show()` is the single source of truth, so a
+	// stale variant from the previous host can never leak into this one.
+	setVariant(options.variant);
 	// Measure after the content is in place: the element is `visibility:hidden`
 	// (not `display:none`), so its box is already laid out.
 	position();

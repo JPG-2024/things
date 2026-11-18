@@ -39,7 +39,7 @@
 		class="article-thumbnail"
 		loading="lazy"
 		decoding="async"
-		use:tooltipAction={{ content: tooltip }}
+		use:tooltipAction={{ content: tooltip, variant: 'title' }}
 	/>
 {/snippet}
 

@@ -834,6 +834,11 @@
 		visibility: visible;
 	}
 
+	/* Article titles get a larger font; other tooltips keep the base size. */
+	:global(.tooltip.tooltip-title) {
+		font-size: 0.9rem;
+	}
+
 	:global(.tooltip-bottom) {
 		transform: translate(-50%, 0);
 		margin-top: 8px;
