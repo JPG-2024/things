@@ -374,7 +374,7 @@
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition: opacity 200ms ease;
-		border: 3px solid var(--bg-color);
+		border: 3px solid var(--gray-500);
 		border-style: dashed;
 		border-radius: var(--radius-sm);
 	}

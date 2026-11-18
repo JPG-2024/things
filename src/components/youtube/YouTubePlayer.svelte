@@ -31,7 +31,7 @@
 	/* Wrapper with 16:9 aspect ratio for responsive player */
 	.yt-wrapper {
 		position: relative;
-		width: 100%;
+		width: 110%;
 		border-radius: var(--radius-md);
 		padding: 1rem;
 		overflow: hidden;
@@ -53,7 +53,7 @@
 		top: 0%;
 		left: 0;
 		right: auto;
-		width: 100%;
+		width: 120%;
 		height: 100%;
 		object-fit: cover;
 	}
@@ -61,7 +61,7 @@
 	.yt-thumbnail-btn {
 		position: absolute;
 		inset: 0;
-		width: 200px;
+		width: 220px;
 		height: 120px;
 		padding: 0;
 		border: none;
@@ -87,7 +87,6 @@
 		height: 80px;
 		color: white;
 		font-size: 60px;
-
 		padding-left: 5px;
 		opacity: 0.9;
 	}
