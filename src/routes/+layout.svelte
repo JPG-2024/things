@@ -113,7 +113,7 @@
 	});
 
 	// Glow switch: `html.glow-off` neutralizes text-shadow (blanket override
-	// below) and the `--glow-filter` icon drop-shadows.
+	// below) and the `--glow-filter` icon drop-shadows (primary-color tinted).
 	$effect(() => {
 		document.documentElement.classList.toggle('glow-off', !viewState.glowEnabled);
 	});
@@ -609,13 +609,14 @@
 		--float-mini-width: 260px;
 		--float-mini-height: 146px; /* 260 * 9/16 — keep in sync with the width */
 
-		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, white 80%, transparent));
-		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, white 40%, transparent));
-		--glow-lg: drop-shadow(0 0 15px color-mix(in srgb, white 40%, transparent));
+		--glow-sm: drop-shadow(0 0 5px color-mix(in srgb, var(--primary-color) 80%, transparent));
+		--glow-md: drop-shadow(0 0 10px color-mix(in srgb, var(--primary-color) 40%, transparent));
+		--glow-lg: drop-shadow(0 0 15px color-mix(in srgb, var(--primary-color) 40%, transparent));
 
 		/* The whole icon-glow filter as one value so the toolbar toggle can
 		 * collapse it to `none` (a blanket `filter: none !important` would also
-		 * kill unrelated filters such as the emoji tint). */
+		 * kill unrelated filters such as the emoji tint). Tinted with the active
+		 * primary color. */
 		--glow-filter: var(--glow-sm) var(--glow-md) var(--glow-lg);
 
 		--glow-text:

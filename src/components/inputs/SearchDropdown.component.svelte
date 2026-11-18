@@ -306,7 +306,7 @@
 	}
 
 	.search-dropdown.icon-trigger .trigger:hover :global(svg) {
-		stroke: white !important;
+		stroke: var(--primary-color) !important;
 		transform: scale(1.05);
 	}
 

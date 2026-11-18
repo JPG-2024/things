@@ -106,10 +106,7 @@
 			0 0 10px
 				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
 			0 0 20px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 40px
-				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent),
-			0 0 80px color-mix(in srgb, white calc(100% * var(--glow-opacity, 1)), transparent);
+				color-mix(in srgb, var(--primary-color) calc(100% * var(--glow-opacity, 1)), transparent);
 	}
 
 	/* 	button:hover {

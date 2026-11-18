@@ -37,17 +37,11 @@
 		font-family: var(--font-secondary);
 		gap: 0.5rem;
 		padding: 0.25rem 0.5rem;
-		transition:
-			text-shadow 0.2s ease,
-			filter 0.2s ease;
+		transition: text-shadow 0.2s ease;
 	}
 
 	button:hover {
 		text-shadow: var(--glow-text);
-	}
-
-	button:hover :global(svg) {
-		filter: var(--glow-filter);
 	}
 
 	button:disabled {

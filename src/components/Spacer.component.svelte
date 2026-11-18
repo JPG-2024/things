@@ -93,7 +93,7 @@
 			{#if icon}
 				<Icon name={icon} size={16} />
 			{/if}
-			<LuminousText mode={effectiveOpen ? 'on' : 'off'}>
+			<LuminousText mode="off">
 				{title}
 			</LuminousText>
 			<span class="collapse-icon">

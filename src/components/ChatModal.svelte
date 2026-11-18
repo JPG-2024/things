@@ -832,10 +832,8 @@
 		opacity: 1;
 	}
 
-	.chat-modal__reasoning-btn--active,
-	.chat-modal__reasoning-btn--active:hover {
+	.chat-modal__reasoning-btn--active {
 		opacity: 1;
-		filter: var(--glow-filter);
 	}
 
 	.chat-modal__menu-backdrop {

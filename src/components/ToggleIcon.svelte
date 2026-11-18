@@ -64,29 +64,13 @@
 	.toggle-wrapper:focus {
 		outline: none;
 	}
-	.toggle-wrapper:hover :global(svg) {
-		color: white !important;
-	}
 	.icon-glow {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		background: transparent;
 		overflow: visible;
-		isolation: isolate;
-		will-change: filter;
-		transform: translateZ(0);
-		transition: filter 0.2s ease;
-		filter: none;
 		flex-shrink: 0;
-	}
-
-	.icon-glow:hover {
-		filter: var(--glow-filter);
-	}
-
-	.icon-glow.glow {
-		filter: var(--glow-filter);
 	}
 	.icon-glow :global(svg) {
 		opacity: 1;
@@ -103,6 +87,5 @@
 	}
 	.label.glow {
 		opacity: 1;
-		text-shadow: var(--glow-text);
 	}
 </style>
