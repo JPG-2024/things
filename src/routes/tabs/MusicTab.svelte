@@ -5,7 +5,7 @@
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { tabAnimationStore } from '@/stores/tabAnimationStore.svelte';
 
-	// Clone of FavoritesTab pinned to the "music" category: every facet,
+	// Clone of ArticlesTab pinned to the "music" category: every facet,
 	// grouping toggle and the search branch behave the same, the list itself
 	// just queries `categoryIds: [musicCategoryId]` (all articles of the
 	// category, profile or not). The category facet is deliberately not
@@ -21,13 +21,17 @@
 	const articleItemTransition = tabAnimationStore.transitionFor('music');
 
 	// Raw search results are post-filtered client-side by the profile/domain
-	// facets (category membership is not present on search rows).
+	// facets (category membership is not present on search rows) and by the
+	// only-favorites toggle, so the "N results" header matches the list.
 	const filteredSearchResults = $derived.by(() => {
 		const results = searchResults ?? [];
-		if (!articleFilters.hasActive) return results;
+		const onlyFavorites = viewState.onlyFavorites;
+		if (!articleFilters.hasActive && !onlyFavorites) return results;
 		const profileIds = articleFilters.ids('profiles');
 		const domainIds = articleFilters.ids('domains');
 		return results.filter(({ article }) => {
+			if (onlyFavorites && article.favorite !== true) return false;
+			if (!articleFilters.hasActive) return true;
 			const profile = (article.profile ?? '').toLowerCase();
 			const domain = (article.domain ?? '').toLowerCase();
 			const profileOk = profileIds.length === 0 || profileIds.includes(profile);
@@ -53,7 +57,7 @@
 
 	const filtersActive = $derived(articleFilters.hasActive);
 
-	// Mirror of FavoritesTab's empty states, scoped to the music list.
+	// Mirror of ArticlesTab's empty states, scoped to the music list.
 	const noSearchResults = $derived(
 		viewState.rawSearchResults !== null &&
 			!viewState.rawSearchLoading &&
@@ -83,7 +87,9 @@
 			onlyWithoutProfile: onlyRaw,
 			profileIds: articleFilters.ids('profiles'),
 			domainIds: articleFilters.ids('domains'),
-			mode: showOnlyImported ? 'metadata' : undefined
+			mode: showOnlyImported ? 'metadata' : undefined,
+			// Read here (not inside the store) so the effect re-runs on toggle.
+			favorite: viewState.onlyFavorites
 		});
 	});
 </script>

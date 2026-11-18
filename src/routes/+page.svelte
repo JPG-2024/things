@@ -41,7 +41,6 @@
 	import ProfilesTab from './tabs/ProfilesTab.svelte';
 	import CategoriesTab from './tabs/CategoriesTab.svelte';
 	import ArticlesTab from './tabs/ArticlesTab.svelte';
-	import FavoritesTab from './tabs/FavoritesTab.svelte';
 	import MusicTab from './tabs/MusicTab.svelte';
 	import DomainsTab from './tabs/DomainsTab.svelte';
 
@@ -234,7 +233,6 @@
 	// otherwise, so the switch stays disabled then.
 	const TAB_ORDER: ProfileArticleTabId[] = [
 		'articles',
-		'favorites',
 		'music',
 		'profiles',
 		'domains',
@@ -329,7 +327,7 @@
 							class="filters-trigger"
 							onclick={() => articleFilters.clearAll()}
 							aria-label="Clear article filters"
-							use:tooltip={{ content: 'Clear filters {shift+f}' }}
+							use:tooltip={{ content: 'Clear filters {shift+x}' }}
 						>
 							<Icon name="FunnelX" />
 						</button>
@@ -476,8 +474,6 @@
 			<ProfilesTab />
 		{:else if viewState.activeProfileArticleTab === 'domains'}
 			<DomainsTab />
-		{:else if viewState.activeProfileArticleTab === 'favorites'}
-			<FavoritesTab />
 		{:else if viewState.activeProfileArticleTab === 'music'}
 			<MusicTab />
 		{:else if viewState.activeProfileArticleTab === 'categories'}

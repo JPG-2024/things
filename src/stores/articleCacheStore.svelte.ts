@@ -44,12 +44,14 @@ type ArticlesParams = {
 	dateFrom?: string;
 	/** `metadata` restricts the list to captured-but-not-analysed articles. */
 	mode?: ArticleMode;
-	/** `true` = only favorites (favorites tab), `false`/absent = every article. */
+	/** `true` = only favorites (Shift+F toggle), `false`/absent = every article. */
 	favorite?: boolean;
 };
 
 type CategoryArticlesParams = {
 	categoryId: string;
+	/** Pins the category list to starred articles (Shift+F toggle). */
+	favorite?: boolean;
 };
 
 type CategoryPageEntry = {
@@ -143,22 +145,10 @@ class ArticleCacheStore {
 	);
 
 	/**
-	 * Favorites paginate through their own resource so browsing them never
-	 * evicts the articles pages (and vice versa): each list keeps its own
-	 * items, offset and total. The `favorite: true` filter rides on every
-	 * fetch, so the shared list query answers `favorited_at IS NOT NULL`.
-	 */
-	private readonly favorites = new PaginationResource<ArticleRecord, ArticlesParams>(
-		ARTICLES_PAGE_SIZE,
-		buildArticlesSignature,
-		fetchArticlesPage
-	);
-
-	/**
 	 * Music tab: the same facet machinery pinned to the "music" category, in
-	 * its own resource so browsing it never evicts the articles/favorites
-	 * pages (and vice versa). The category id rides on every fetch, so the
-	 * shared list query answers the article↔category link.
+	 * its own resource so browsing it never evicts the articles pages (and
+	 * vice versa). The category id rides on every fetch, so the shared list
+	 * query answers the article↔category link.
 	 */
 	private readonly music = new PaginationResource<ArticleRecord, ArticlesParams>(
 		ARTICLES_PAGE_SIZE,
@@ -171,13 +161,15 @@ class ArticleCacheStore {
 		CategoryArticlesParams
 	>(
 		ARTICLES_PAGE_SIZE,
-		(params) => JSON.stringify({ categoryId: params.categoryId }),
+		(params) =>
+			JSON.stringify({ categoryId: params.categoryId, favorite: params.favorite ?? null }),
 		async (params, offset, limit) => {
 			const result = await getArticlesWithoutProfile({
 				categoryIds: [params.categoryId],
 				offset,
 				limit,
-				onlyWithoutProfile: false
+				onlyWithoutProfile: false,
+				favorite: params.favorite
 			});
 
 			return { items: result.articles, total: result.total };
@@ -289,18 +281,6 @@ class ArticleCacheStore {
 		return this.articles.offset;
 	}
 
-	get favoriteArticles(): ArticleRecord[] {
-		return this.favorites.visibleItems;
-	}
-
-	get loadingFavorites(): boolean {
-		return this.favorites.loading;
-	}
-
-	get hasMoreFavorites(): boolean {
-		return this.favorites.hasMore;
-	}
-
 	get musicArticles(): ArticleRecord[] {
 		return this.music.visibleItems;
 	}
@@ -371,6 +351,7 @@ class ArticleCacheStore {
 		domainIds?: string[];
 		dateFrom?: string;
 		mode?: ArticleMode;
+		favorite?: boolean;
 	}) {
 		await this.articles.fetch(
 			{
@@ -380,43 +361,11 @@ class ArticleCacheStore {
 				profileIds: options?.profileIds,
 				domainIds: options?.domainIds,
 				dateFrom: options?.dateFrom,
-				mode: options?.mode
-			},
-			{ force: options?.force, loadMore: options?.loadMore }
-		);
-	}
-
-	/**
-	 * Fetches the favorites list — the same facet machinery as the articles
-	 * list, pinned to `favorite: true` (every favorited article, regardless of
-	 * profile), into the dedicated favorites resource.
-	 */
-	async fetchFavorites(options?: {
-		force?: boolean;
-		loadMore?: boolean;
-		categoryIds?: string[];
-		onlyWithoutProfile?: boolean;
-		profileIds?: string[];
-		domainIds?: string[];
-		dateFrom?: string;
-		mode?: ArticleMode;
-	}) {
-		await this.favorites.fetch(
-			{
-				categoryIds: options?.categoryIds,
-				onlyWithoutProfile: options?.onlyWithoutProfile,
-				profileIds: options?.profileIds,
-				domainIds: options?.domainIds,
-				dateFrom: options?.dateFrom,
 				mode: options?.mode,
-				favorite: true
+				favorite: options?.favorite
 			},
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
-	}
-
-	async loadMoreFavorites(): Promise<void> {
-		await this.favorites.loadMore();
 	}
 
 	/**
@@ -434,6 +383,7 @@ class ArticleCacheStore {
 		domainIds?: string[];
 		dateFrom?: string;
 		mode?: ArticleMode;
+		favorite?: boolean;
 	}) {
 		await this.music.fetch(
 			{
@@ -442,7 +392,8 @@ class ArticleCacheStore {
 				profileIds: options?.profileIds,
 				domainIds: options?.domainIds,
 				dateFrom: options?.dateFrom,
-				mode: options?.mode
+				mode: options?.mode,
+				favorite: options?.favorite
 			},
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
@@ -453,11 +404,15 @@ class ArticleCacheStore {
 	}
 
 	/** Fetches the paginated article list of one profile into its own cache. */
-	async fetchProfileArticles(profileId: string, options?: { force?: boolean; mode?: ArticleMode }) {
+	async fetchProfileArticles(
+		profileId: string,
+		options?: { force?: boolean; mode?: ArticleMode; favorite?: boolean }
+	) {
 		await this.getOrCreateProfileResource(profileId).fetch(
 			{
 				profileId,
-				mode: options?.mode
+				mode: options?.mode,
+				favorite: options?.favorite
 			},
 			{ force: options?.force }
 		);
@@ -506,10 +461,10 @@ class ArticleCacheStore {
 
 	async fetchArticlesByCategory(
 		categoryId: string,
-		options?: { force?: boolean; loadMore?: boolean }
+		options?: { force?: boolean; loadMore?: boolean; favorite?: boolean }
 	) {
 		await this.categoryArticlesResource.fetch(
-			{ categoryId },
+			{ categoryId, favorite: options?.favorite },
 			{ force: options?.force, loadMore: options?.loadMore }
 		);
 	}
@@ -644,7 +599,6 @@ class ArticleCacheStore {
 		this.profiles.invalidate();
 		this.domains.invalidate();
 		this.articles.invalidate();
-		this.favorites.invalidate();
 		this.music.invalidate();
 		for (const resource of this.profileArticlesResources.values()) {
 			resource.invalidate();
@@ -667,7 +621,6 @@ class ArticleCacheStore {
 			this.profiles.refreshLoaded(),
 			this.domains.refreshLoaded(),
 			this.articles.refreshLoaded(),
-			this.favorites.refreshLoaded(),
 			this.music.refreshLoaded(),
 			this.categoryArticlesResource.refreshLoaded(),
 			...[...this.profileArticlesResources.values()].map((resource) => resource.refreshLoaded()),
@@ -749,14 +702,33 @@ class ArticleCacheStore {
 	}
 
 	/**
+	 * Drops one row from a list resource and keeps its pagination counters
+	 * aligned, so the next `loadMore` fetches from the right `OFFSET` — the
+	 * only-favorites view queries `favorite: true`, so an unstarred row has to
+	 * leave the window entirely instead of hiding behind the display filter.
+	 */
+	private pruneFavoriteRow<TParams>(
+		resource: PaginationResource<ArticleRecord, TParams>,
+		url: string
+	): void {
+		const removed = resource.remove((article) => article.url === url);
+		if (removed === 0) return;
+		resource.total = Math.max(0, resource.total - removed);
+		resource.offset = resource.items.length;
+		resource.hasMore = resource.offset < resource.total;
+	}
+
+	/**
 	 * Persists a favorite toggle and repaints every loaded list in place, so
 	 * the star flips everywhere without a refetch:
 	 *
-	 * - The favorites list reflects membership: unfavorite prunes the row and
-	 *   its counters; a new star marks the list stale (it can only be added
-	 *   from a surface the favorites view is not showing, e.g. the reading
-	 *   view), so the next visit refetches it.
-	 * - Everything else — including raw search results — is patched in place.
+	 * - Everything — including raw search results — is patched in place.
+	 * - While the only-favorites view is on (Shift+F), the article lists also
+	 *   follow membership: an unfavorite prunes the row and its counters (the
+	 *   row would stay hidden while `total` still counted it, skewing the next
+	 *   `OFFSET`), and a new star marks them stale (it can only be added from a
+	 *   surface the view is not showing, e.g. the reading view), so the next
+	 *   visit refetches it.
 	 *
 	 * Returns whether the change was persisted; failed toggles leave the
 	 * caches untouched so the UI can roll back (or simply not repaint).
@@ -769,17 +741,6 @@ class ArticleCacheStore {
 		const patch = (article: ArticleRecord): ArticleRecord =>
 			article.url === url ? { ...article, favorite, favoritedAt: favorite ? now : null } : article;
 
-		if (favorite) {
-			this.favorites.invalidate();
-		} else {
-			const removed = this.favorites.remove((article) => article.url === url);
-			if (removed > 0) {
-				this.favorites.total = Math.max(0, this.favorites.total - removed);
-				this.favorites.offset = this.favorites.items.length;
-				this.favorites.hasMore = this.favorites.offset < this.favorites.total;
-			}
-		}
-
 		this.articles.replace((items) => items.map(patch));
 		this.music.replace((items) => items.map(patch));
 
@@ -787,6 +748,26 @@ class ArticleCacheStore {
 			resource.replace((items) => items.map(patch));
 		}
 		this.categoryArticlesResource.replace((items) => items.map(patch));
+
+		// The only-favorites lists query `favorite: true`, so beyond the flag
+		// patch they must follow membership itself.
+		if (viewState.onlyFavorites) {
+			if (favorite) {
+				this.articles.invalidate();
+				this.music.invalidate();
+				this.categoryArticlesResource.invalidate();
+				for (const resource of this.profileArticlesResources.values()) {
+					resource.invalidate();
+				}
+			} else {
+				this.pruneFavoriteRow(this.articles, url);
+				this.pruneFavoriteRow(this.music, url);
+				this.pruneFavoriteRow(this.categoryArticlesResource, url);
+				for (const resource of this.profileArticlesResources.values()) {
+					this.pruneFavoriteRow(resource, url);
+				}
+			}
+		}
 
 		const mapEmbedded = (profile: ArticleProfile): ArticleProfile =>
 			profile.articles ? { ...profile, articles: profile.articles.map(patch) } : profile;
@@ -873,11 +854,6 @@ class ArticleCacheStore {
 		this.articles.total = Math.max(0, this.articles.total - removedArticles);
 		this.articles.offset = this.articles.items.length;
 		this.articles.hasMore = this.articles.offset < this.articles.total;
-
-		const removedFavorites = this.favorites.remove(hasUrl);
-		this.favorites.total = Math.max(0, this.favorites.total - removedFavorites);
-		this.favorites.offset = this.favorites.items.length;
-		this.favorites.hasMore = this.favorites.offset < this.favorites.total;
 
 		const removedMusic = this.music.remove(hasUrl);
 		this.music.total = Math.max(0, this.music.total - removedMusic);

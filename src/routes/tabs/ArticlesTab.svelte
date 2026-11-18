@@ -11,13 +11,17 @@
 	const articleItemTransition = tabAnimationStore.transitionFor('articles');
 
 	// Raw search results are post-filtered client-side by the profile/domain
-	// facets (category membership is not present on search rows).
+	// facets (category membership is not present on search rows) and by the
+	// only-favorites toggle, so the "N results" header matches the list.
 	const filteredSearchResults = $derived.by(() => {
 		const results = searchResults ?? [];
-		if (!articleFilters.hasActive) return results;
+		const onlyFavorites = viewState.onlyFavorites;
+		if (!articleFilters.hasActive && !onlyFavorites) return results;
 		const profileIds = articleFilters.ids('profiles');
 		const domainIds = articleFilters.ids('domains');
 		return results.filter(({ article }) => {
+			if (onlyFavorites && article.favorite !== true) return false;
+			if (!articleFilters.hasActive) return true;
 			const profile = (article.profile ?? '').toLowerCase();
 			const domain = (article.domain ?? '').toLowerCase();
 			const profileOk = profileIds.length === 0 || profileIds.includes(profile);
@@ -75,7 +79,9 @@
 			profileIds: articleFilters.ids('profiles'),
 			domainIds: articleFilters.ids('domains'),
 			categoryIds: articleFilters.ids('categories'),
-			mode: showOnlyImported ? 'metadata' : undefined
+			mode: showOnlyImported ? 'metadata' : undefined,
+			// Read here (not inside the store) so the effect re-runs on toggle.
+			favorite: viewState.onlyFavorites
 		});
 	});
 </script>

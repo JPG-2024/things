@@ -129,7 +129,6 @@ export function resolveConversationSystemPrompt(value: string): string {
 
 export const PROFILE_ARTICLE_TABS = [
 	{ id: 'articles', label: 'Articles', icon: 'LayoutGrid' },
-	{ id: 'favorites', label: 'Favorites', icon: 'Star' },
 	{ id: 'music', label: 'Music', icon: 'Music' },
 	{ id: 'categories', label: 'Categories', icon: 'Tags' },
 	{ id: 'profiles', label: 'Profiles', icon: 'Users' },
@@ -344,14 +343,20 @@ class ViewState {
 				: null
 	);
 
-	activeProfileArticleTab = $state<
-		'profiles' | 'articles' | 'favorites' | 'music' | 'categories' | 'domains'
-	>('articles');
+	activeProfileArticleTab = $state<'profiles' | 'articles' | 'music' | 'categories' | 'domains'>(
+		'articles'
+	);
 	showOnlyRawArticles = $state(false);
 	/** Shows only the articles that were captured but not analysed yet. */
 	showOnlyImportedArticles = $state(false);
 	/** Groups the articles grid into per-profile stack cells (Alt+G). */
 	groupArticlesByProfile = $state(true);
+	/**
+	 * Only-favorites view of every `ArticleList` surface (Shift+F / the star
+	 * rail toggle): the list queries pin `favorite: true` and the list itself
+	 * post-filters, so search results filter too. Session-only UI state.
+	 */
+	onlyFavorites = $state(false);
 	onlyArticlesAfter = $state(isoDateDaysAgo(30));
 	categories = $state<WebStoreCategoryRecord[]>([]);
 	unifiedFilter = $state('');

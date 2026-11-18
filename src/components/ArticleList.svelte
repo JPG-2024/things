@@ -112,6 +112,11 @@
 	// box (`thumbnailSize`) and the wrapping column width in the styles below.
 	const gridItemWidth = $derived(ARTICLE_THUMBNAIL_SIZES[ARTICLE_GRID_THUMBNAIL].width);
 
+	// The only-favorites view gets its own empty copy: the caller's message
+	// ("No articles", "No music articles") would be a lie when the toggle is
+	// what emptied the list.
+	const effectiveEmptyMessage = $derived(viewState.onlyFavorites ? 'No favorites' : emptyMessage);
+
 	// Alt+ArrowDown/Alt+ArrowUp step through MASONRY_PRESETS, clamped at both
 	// ends. Re-homed from MasonryGrid, which this list no longer mounts. The
 	// Alt modifier keeps plain arrow keys free for normal page scroll, and the
@@ -162,12 +167,28 @@
 		viewState.hoveredArticleUrl = null;
 	}
 
+	// Shift+F flips the only-favorites view. Registered here instead of the
+	// global layout so the chord only fires while a list is on screen (and it
+	// owns the chord: clear-filters moved to Shift+X).
+	createHotkey(
+		'Shift+F',
+		() => {
+			viewState.onlyFavorites = !viewState.onlyFavorites;
+		},
+		() => ({
+			enabled: !viewState.overlayOpen,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
+	);
+
 	function handleStackClick(cell: ProfileStackCell) {
 		goto(`/profile/${encodeURIComponent(cell.profileId)}`);
 	}
 
 	// Stars are persisted through the cache store, which repaints every loaded
-	// list (and prunes the favorites view when the toggle turns one off).
+	// list (and prunes the only-favorites lists when the toggle turns one off).
 	function handleToggleFavorite(article: ArticleRecord) {
 		if (!article.url) return;
 		void articleCacheStore.setArticleFavorite(article.url, !article.favorite);
@@ -188,6 +209,14 @@
 		})
 	);
 
+	// Only-favorites view (Shift+F / the star rail toggle). Resource-backed
+	// callers already query `favorite: true`, so their post-filter is a no-op;
+	// this is what narrows the raw-search branch, whose query has no
+	// server-side favorite parameter.
+	const displayItems = $derived(
+		viewState.onlyFavorites ? items.filter((article) => article.favorite === true) : items
+	);
+
 	// Grouping is a pure view derivation over the loaded (paginated) articles:
 	// later pages merge into existing stacks, and toggling the flag swaps the
 	// grid back to the flat article list without refetching. When grouping is
@@ -195,8 +224,8 @@
 	// exact previous rendering path.
 	const gridItems = $derived(
 		groupable && viewState.groupArticlesByProfile
-			? buildArticleGridCells(items)
-			: items.map((article) => ({
+			? buildArticleGridCells(displayItems)
+			: displayItems.map((article) => ({
 					kind: 'article' as const,
 					key: keyOf(article),
 					article
@@ -262,6 +291,14 @@
 					vertical
 				/>
 			{/if}
+			<!-- Always rendered (unlike Layers below): every ArticleList surface
+			     honors the only-favorites view, and it sits above the grouping
+			     toggle as the coarser of the two. -->
+			<ToggleIcon
+				name="Star"
+				bind:checked={viewState.onlyFavorites}
+				tooltipProps={{ content: 'only favorites {shift+f}' }}
+			/>
 			{#if groupable}
 				<ToggleIcon
 					name="Layers"
@@ -320,7 +357,7 @@
 				</div>
 			{:else}
 				<div class="article-list__empty">
-					<div class="article-list__empty-pill">{emptyMessage}</div>
+					<div class="article-list__empty-pill">{effectiveEmptyMessage}</div>
 				</div>
 			{/if}
 		</div>
@@ -330,13 +367,12 @@
 <style>
 	.article-list {
 		width: 100%;
-		padding-right: 1.4rem;
 	}
 
 	.article-list__body {
 		display: flex;
 		align-items: flex-start;
-		gap: 1rem;
+		gap: 3rem;
 		width: 100%;
 		padding-bottom: 15rem;
 	}

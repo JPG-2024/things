@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import Modal from '@/components/Modal.svelte';
@@ -56,8 +55,14 @@
 		return compact.length > 500 ? `${compact.slice(0, 500)}…` : compact;
 	}
 
-	onMount(async () => {
-		await articleCacheStore.fetchArticlesByCategory(categoryId, { force: true });
+	// Not onMount: the query also depends on the only-favorites toggle, so the
+	// fetch lives in an effect keyed on the route param + that flag. `force`
+	// keeps the old fresh-on-open behavior.
+	$effect(() => {
+		void articleCacheStore.fetchArticlesByCategory(categoryId, {
+			force: true,
+			favorite: viewState.onlyFavorites
+		});
 	});
 
 	$effect(() => {

@@ -245,10 +245,11 @@
 		}
 	);
 
-	// Shift+F is the keyboard equivalent of the clear-filters trigger: drop
+	// Shift+X is the keyboard equivalent of the clear-filters trigger: drop
 	// every facet, the search term/draft and raw results in one press.
+	// (Shift+F moved to the only-favorites toggle in ArticleList.)
 	createHotkey(
-		'Shift+F',
+		'Shift+X',
 		() => articleFilters.clearAll(),
 		() => ({
 			enabled: articleFilters.hasActive,

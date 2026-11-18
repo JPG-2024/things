@@ -54,7 +54,8 @@
 			// the pre-batch rows: force a re-query with the mode the page uses.
 			await articleCacheStore.fetchProfileArticles(profileId, {
 				force: true,
-				mode: viewState.showOnlyImportedArticles ? 'metadata' : undefined
+				mode: viewState.showOnlyImportedArticles ? 'metadata' : undefined,
+				favorite: viewState.onlyFavorites
 			});
 			const text = await generateProfileSummary(articleCacheStore.profileArticles(profileId));
 			summaryText = text;
@@ -113,7 +114,9 @@
 		// shared list is untouched and its return navigation stays instant.
 		if (!profileId) return;
 		void articleCacheStore.fetchProfileArticles(profileId, {
-			mode: viewState.showOnlyImportedArticles ? 'metadata' : undefined
+			mode: viewState.showOnlyImportedArticles ? 'metadata' : undefined,
+			// Read here (not inside the store) so the effect re-runs on toggle.
+			favorite: viewState.onlyFavorites
 		});
 	});
 
