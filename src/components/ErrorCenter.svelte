@@ -48,7 +48,7 @@
 	.error-center__badge {
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
-		color: #ff8a8a;
+		color: white;
 		animation: badge-pop 0.3s ease-out;
 	}
 
