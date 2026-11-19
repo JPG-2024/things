@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getMediaSrc, isResolvedMediaSrc } from '@/lib/utils/files';
+import { pickRandomVideoCandidate } from '@/lib/utils/youtube/helpers';
 import { errorStore } from '@/stores/errorStore.svelte';
 import type { ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
 
@@ -615,6 +616,56 @@ export async function getArticleCategories(url: string): Promise<string[]> {
 		console.error(`Error querying categories of article "${url}"`, error);
 		return [];
 	}
+}
+
+type ArticlePoolResponse = {
+	articles: WebStoreArticleRecord[];
+	total: number;
+};
+
+/**
+ * Picks a random YouTube article that shares at least one category with
+ * `currentUrl`.
+ *
+ * The pool is fetched raw (no card mapping): only the winner is hydrated below,
+ * so the cost stays constant instead of resolving a thumbnail/avatar IPC for
+ * every row in the category. `limit: 0` reads the total of the same filter so
+ * the second call can request the whole pool — no pagination bias in the pick.
+ */
+export async function getRandomYouTubeArticleInSameCategories(
+	currentUrl: string
+): Promise<ArticleRecord | null> {
+	const categoryIds = await getArticleCategories(currentUrl);
+	if (categoryIds.length === 0) return null;
+
+	const query = {
+		categoryIds,
+		offset: 0,
+		onlyWithoutProfile: false,
+		profileId: null,
+		profileIds: null,
+		domainIds: null,
+		dateFrom: null,
+		mode: null,
+		favorite: null
+	};
+
+	// Failures propagate: the caller distinguishes "nothing to pick" (null)
+	// from a broken query and reports it with context.
+	const { total } = await invoke<ArticlePoolResponse>('list_articles_without_profile', {
+		...query,
+		limit: 0
+	});
+	if (total === 0) return null;
+
+	const pool = await invoke<ArticlePoolResponse>('list_articles_without_profile', {
+		...query,
+		limit: total
+	});
+	const candidate = pickRandomVideoCandidate(pool.articles, currentUrl);
+	if (!candidate?.url) return null;
+
+	return await getArticleByUrl(candidate.url);
 }
 
 /** The analysis of an article as it is stored. */

@@ -51,6 +51,46 @@ export function normalizeYouTubeUrl(url: string): string {
 	}
 }
 /**
+ * Extracts the YouTube video id out of any of its URL shapes.
+ */
+export function youTubeVideoId(url: string): string | null {
+	try {
+		const parsed = new URL(url);
+		const fromQuery = parsed.searchParams.get('v');
+		if (fromQuery) return fromQuery;
+
+		const segments = parsed.pathname.split('/').filter(Boolean);
+		if (parsed.hostname.endsWith('youtu.be') && segments[0]) return segments[0];
+		if (segments[0] === 'shorts' && segments[1]) return segments[1];
+		if (segments[0] === 'live' && segments[1]) return segments[1];
+		if (segments[0] === 'embed' && segments[1]) return segments[1];
+	} catch {
+		return null;
+	}
+	return null;
+}
+
+/**
+ * Picks a random YouTube article from `articles`, excluding the video already
+ * playing (`currentUrl`). Non-YouTube rows are skipped because the floating
+ * player cannot play them. Uniform over the candidates, not a capped page.
+ */
+export function pickRandomVideoCandidate<T extends { url: string | null }>(
+	articles: T[],
+	currentUrl: string
+): T | null {
+	const currentVideoId = youTubeVideoId(currentUrl);
+	const candidates = articles.filter((article) => {
+		if (!article.url) return false;
+		const videoId = youTubeVideoId(article.url);
+		return videoId !== null && videoId !== currentVideoId;
+	});
+
+	if (candidates.length === 0) return null;
+	return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+/**
  * Builds a canonical YouTube profile/channel URL from a handle, path, or full URL.
  * YoutubeVideoInfo.profile is now a handle like `@syntaxfm` (from `https://www.youtube.com/@syntaxfm`),
  * but the scraper API (`/api/scrape`) expects a full URL. This helper bridges the two

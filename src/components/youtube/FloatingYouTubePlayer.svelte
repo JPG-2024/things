@@ -2,10 +2,14 @@
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { invoke } from '@tauri-apps/api/core';
 	import { fade } from 'svelte/transition';
+	import Icon from '@/components/Icon.svelte';
+	import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
+	import { youTubeVideoId } from '@/lib/utils/youtube/helpers';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { errorStore } from '@/stores/errorStore.svelte';
+	import { getRandomYouTubeArticleInSameCategories } from '@/stores/webStore';
 
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
@@ -78,6 +82,60 @@
 			cancelled = true;
 		};
 	});
+
+	/** True while the random-video query is in flight: blocks a second press. */
+	let shuffling = $state(false);
+
+	/** Swaps the current video for a random YouTube article that shares at
+	 * least one category with it (`R`, or the shuffle icon in the frame). The
+	 * new context goes through `playerStore.open()`, so the existing
+	 * `{#key active.videoId}` block remounts the iframe and re-applies the
+	 * volume. */
+	async function shuffleSameCategory(): Promise<void> {
+		const current = playerStore.active;
+		if (!current || shuffling) return;
+
+		shuffling = true;
+		try {
+			const article = await getRandomYouTubeArticleInSameCategories(current.url);
+			// The player may have been closed or pointed elsewhere while the
+			// query ran: never hijack a video the user picked in the meantime.
+			if (playerStore.active?.url !== current.url) return;
+			if (!article?.url) {
+				// A legitimately empty pool is not an error, but it must not be
+				// silent either: the button would look broken.
+				errorStore.report(new Error('No random candidate in the shared categories'), {
+					feature: 'ui',
+					level: 'warn',
+					userMessage: 'No other YouTube videos share this category'
+				});
+				return;
+			}
+
+			const url = article.url;
+			const videoId = youTubeVideoId(url);
+			if (!videoId) return;
+
+			// `open()` always restores the frame; a shuffle fired from the mini
+			// player (`R`) should leave the player exactly as it was.
+			const wasMinimized = playerStore.minimized;
+			playerStore.open({
+				mediaDirectory: article.mediaDirectory ?? '',
+				thumbnailImage: article.thumbnail ?? '',
+				thumbnailImageSrc: article.thumbnailSrc ?? getYouTubeThumbnailUrl(videoId, 'high'),
+				videoId,
+				url
+			});
+			if (wasMinimized) playerStore.minimize();
+		} catch (error) {
+			errorStore.report(error, {
+				feature: 'ui',
+				userMessage: 'Failed to pick a random video from the same category'
+			});
+		} finally {
+			shuffling = false;
+		}
+	}
 
 	let frameEl: HTMLIFrameElement | null = $state(null);
 
@@ -278,6 +336,19 @@
 			preventDefault: true
 		})
 	);
+
+	createHotkey(
+		'R',
+		() => {
+			void shuffleSameCategory();
+		},
+		() => ({
+			enabled: active !== null && !viewState.overlayOpen && !shuffling,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
+	);
 </script>
 
 {#if active}
@@ -328,6 +399,15 @@
 					></iframe>
 				{/if}
 			{/key}
+			<button
+				class="player-action player-shuffle"
+				onclick={() => void shuffleSameCategory()}
+				disabled={shuffling}
+				aria-label="Play a random video from the same category"
+				title="Random video from same category (R)"
+			>
+				<Icon name="Shuffle" size={14} color="white" />
+			</button>
 		</div>
 
 		{#if minimized}
@@ -424,6 +504,24 @@
 	.player-action:hover {
 		background: var(--bg-color);
 		opacity: 1;
+	}
+
+	/* Bottom-right shuffle control. It keeps its own dark hover so the white
+	   icon never lands on a light `--bg-color` (the frame sits over video). */
+	.player-shuffle {
+		position: absolute;
+		right: 0.4rem;
+		bottom: 0.4rem;
+		z-index: 2;
+	}
+
+	.player-shuffle:hover {
+		background: rgb(70, 70, 70);
+	}
+
+	.player-shuffle:disabled {
+		opacity: 0.5;
+		cursor: default;
 	}
 
 	.player-mini {

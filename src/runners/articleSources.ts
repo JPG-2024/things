@@ -12,7 +12,7 @@ import { extractArticle } from '@/lib/utils/articleExtractor';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { downloadFavicon } from '@/lib/urlRouter/faviconDownloader';
 import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
-import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
+import { buildYouTubeProfileUrl, youTubeVideoId } from '@/lib/utils/youtube/helpers';
 import { getProfile, saveProfile } from '@/stores/webStore';
 import { viewState } from '@/stores/viewStore.svelte';
 import type { ArticleSource } from '@/types/articleAnalysis.types';
@@ -89,23 +89,9 @@ function domainFromUrl(url: string): string {
 	}
 }
 
-/** Extracts the YouTube video id out of any of its URL shapes. */
-export function youTubeVideoId(url: string): string | null {
-	try {
-		const parsed = new URL(url);
-		const fromQuery = parsed.searchParams.get('v');
-		if (fromQuery) return fromQuery;
-
-		const segments = parsed.pathname.split('/').filter(Boolean);
-		if (parsed.hostname.endsWith('youtu.be') && segments[0]) return segments[0];
-		if (segments[0] === 'shorts' && segments[1]) return segments[1];
-		if (segments[0] === 'live' && segments[1]) return segments[1];
-		if (segments[0] === 'embed' && segments[1]) return segments[1];
-	} catch {
-		return null;
-	}
-	return null;
-}
+// Re-exported so existing callers (`ArticleItem`, `ArticleLayout`) keep their
+// import path while the parser lives in the pure youtube utils module.
+export { youTubeVideoId };
 
 /**
  * Web source.
