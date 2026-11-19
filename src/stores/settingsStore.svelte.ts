@@ -8,9 +8,12 @@ import {
 	CARD_LAYOUT_DEFAULTS,
 	ENTITY_GRID_COLUMNS_MAX,
 	ENTITY_GRID_COLUMNS_MIN,
+	YOUTUBE_SCRAPE_LIMIT_MAX,
+	YOUTUBE_SCRAPE_LIMIT_MIN,
 	type CardTab
 } from '@/constants';
 import { clampCardLayout } from '@/lib/utils/cardLayout';
+import { normalizeCategoryIds } from '@/lib/utils/categoryIds';
 import { clampWindowLevel } from '@/lib/utils/windowAnalysis';
 
 const STORE_FILE = 'settings.json';
@@ -121,6 +124,7 @@ function serializeView() {
 		conversationPresencePenalty: viewState.conversationPresencePenalty,
 		windowLevel: viewState.windowLevel,
 		analysisTab: viewState.analysisTab,
+		autoAnalysisExcludedCategoryIds: $state.snapshot(viewState.autoAnalysisExcludedCategoryIds),
 		thumbnailReductionMagnitud: viewState.thumbnailReductionMagnitud,
 		markdownFontSize: viewState.markdownFontSize,
 		primaryColor: viewState.primaryColor,
@@ -146,7 +150,8 @@ function serializeView() {
 
 function serializeScrap() {
 	return {
-		maxVideos: scrapStore.maxVideos
+		maxVideos: scrapStore.maxVideos,
+		scrollLimit: scrapStore.scrollLimit
 	};
 }
 
@@ -276,6 +281,11 @@ function applyView(raw: unknown): void {
 	if (raw.analysisTab === 'summary' || raw.analysisTab === 'takeaways') {
 		viewState.analysisTab = raw.analysisTab;
 	}
+	if (Array.isArray(raw.autoAnalysisExcludedCategoryIds)) {
+		viewState.autoAnalysisExcludedCategoryIds = normalizeCategoryIds(
+			raw.autoAnalysisExcludedCategoryIds.filter((id): id is string => typeof id === 'string')
+		);
+	}
 	if (typeof raw.thumbnailReductionMagnitud === 'number') {
 		viewState.thumbnailReductionMagnitud = clamp(Math.trunc(raw.thumbnailReductionMagnitud), 1, 8);
 	}
@@ -349,6 +359,13 @@ function applyScrap(raw: unknown): void {
 
 	if (typeof raw.maxVideos === 'number') {
 		scrapStore.maxVideos = clamp(Math.trunc(raw.maxVideos), 1, 50);
+	}
+	if (typeof raw.scrollLimit === 'number') {
+		scrapStore.scrollLimit = clamp(
+			Math.trunc(raw.scrollLimit),
+			YOUTUBE_SCRAPE_LIMIT_MIN,
+			YOUTUBE_SCRAPE_LIMIT_MAX
+		);
 	}
 }
 

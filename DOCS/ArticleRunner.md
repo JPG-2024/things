@@ -246,3 +246,13 @@ await articleManager.open(url);
 background capture: the url is enqueued with `mode: 'metadata'` and the user
 stays on the dashboard. The article appears in the list when the capture
 finishes, and it is analysed when it is opened.
+
+Settings → Analysis → **Exclude auto analysis** holds a comma-separated list of
+category ids (the id is shown next to the name on each category page). When the
+article's profile — channel or domain — carries one of those categories, the
+runner stops after step 3 and stores the row as `mode: 'metadata'`: no windows,
+title, classifier or embeddings are generated. The raw body is still written,
+so the analysis panel's rerun (and the tab / window-level controls) remains the
+explicit opt-in. The list starts empty; a built-in `music` category can seed it
+later. A failed category read falls back to analysing, so the exclusion never
+silently loses an analysis.

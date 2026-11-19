@@ -43,6 +43,7 @@ import {
 	type ArticleCategoryResolution
 } from '@/runners/shared/taskFactories';
 import { isRunCancelled, throwIfRunCancelled } from '@/runners/shared/runCancellation';
+import { isAutoAnalysisExcluded } from '@/runners/shared/analysisExclusion';
 import { embedAnalysis } from '@/lib/utils/embeddingAnalysis';
 import { errorStore } from '@/stores/errorStore.svelte';
 import type { AnalysisType, ArticleMode, ArticleWindow } from '@/types/articleAnalysis.types';
@@ -355,17 +356,47 @@ export async function runArticle(
 		if (articleState.isCurrent(url)) {
 			articleState.setStep('article');
 		}
+		// Profiles tagged with a configured excluded category are captured but
+		// never analysed automatically (Settings → Analysis → Exclude auto
+		// analysis). The body is already stored above, so an explicit analysis
+		// rerun still has text to work with.
+		// An explicit `force` (the card's refresh icon) wins over the exclusion:
+		// it is a per-article user action asking for the analysis to be redone.
+		const skipAutoAnalysis =
+			mode === 'full' && !force && (await isAutoAnalysisExcluded(profile));
+		const effectiveMode: ArticleMode = skipAutoAnalysis ? 'metadata' : mode;
+
 		await saveArticle(url, {
 			title,
 			thumbnail,
 			directory: mediaDirectory,
 			profile,
 			date,
-			mode: mode === 'metadata' ? 'metadata' : undefined
+			mode: effectiveMode === 'metadata' ? 'metadata' : undefined
 		});
 
 		// A `metadata` run stops here: the article is captured and pending.
-		if (mode === 'metadata') {
+		if (effectiveMode === 'metadata') {
+			// The profile already carries the excluded category (e.g. music):
+			// inherit it without an LLM call so the card stays tagged.
+			//
+			// The channel of a fresh YouTube capture only arrives through the
+			// decoration (the source carries only the body), so `profile` is
+			// still null here. Fall back to the decoration like the full and
+			// failure paths do: otherwise the inherit is a no-op, the row is
+			// saved with a profile but no categories, and category-pinned
+			// lists (Music tab, category page) cannot show it until the
+			// article is analysed in PostView. The run's `finally` awaits the
+			// same task before it can end, so this costs no extra time.
+			// A delete can land while the decoration resolves: a cancelled run
+			// never writes links (mirrors the failure path below).
+			if (!isRunCancelled(url)) {
+				const categoryProfile = profile ?? (await decorationTask).profile ?? null;
+				const { categoryIds } = await inheritProfileCategoriesIfEmpty(url, categoryProfile);
+				if (categoryIds.length > 0 && articleState.isCurrent(url)) {
+					articleState.setCategories(categoryIds);
+				}
+			}
 			if (articleState.isCurrent(url)) {
 				articleState.setStatus('done');
 				articleState.setStep(null);

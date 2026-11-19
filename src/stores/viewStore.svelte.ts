@@ -290,6 +290,12 @@ class ViewState {
 	windowLevel = $state(DEFAULT_WINDOW_LEVEL);
 	/** Analysis type shown in AnalysisPanel. Persisted by `settingsStore`. */
 	analysisTab = $state<AnalysisTabId>('summary');
+	/**
+	 * Category ids whose profiles skip automatic analysis. Empty by default;
+	 * the built-in `music` category will seed it later. The analysis rerun is
+	 * always available as the explicit opt-in.
+	 */
+	autoAnalysisExcludedCategoryIds = $state<string[]>([]);
 	// Both sides of the category comparison are `title + summary` embeddings
 	// (query and fed exemplars), so the threshold sits higher than the old
 	// name/description-vs-document value of 0.35.

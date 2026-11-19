@@ -27,9 +27,12 @@
 		MARKDOWN_FONT_SIZE_MAX,
 		MARKDOWN_FONT_SIZE_MIN,
 		MARKDOWN_FONT_SIZE_STEP,
+		YOUTUBE_SCRAPE_LIMIT_MAX,
+		YOUTUBE_SCRAPE_LIMIT_MIN,
 		type CardTab
 	} from '@/constants';
 	import { rebuildCategoryIndex } from '@/lib/utils/categoryEmbeddings';
+	import { parseCategoryIds } from '@/lib/utils/categoryIds';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import {
@@ -384,6 +387,15 @@
 			.filter(Boolean);
 	}
 
+	// Same raw-text pattern as the embedding fields: keep what the user typed
+	// (a trailing comma included) while the store holds the parsed id list.
+	let autoAnalysisExcludedText = $state(viewState.autoAnalysisExcludedCategoryIds.join(', '));
+
+	function handleAutoAnalysisExcluded(value: string): void {
+		autoAnalysisExcludedText = value;
+		viewState.autoAnalysisExcludedCategoryIds = parseCategoryIds(value);
+	}
+
 	const languageOptions = [
 		{ label: 'Spanish', value: 'es' },
 		{ label: 'English', value: 'en' },
@@ -623,6 +635,13 @@
 				value={String(viewState.windowLevel)}
 				onChange={(v) => (viewState.windowLevel = Number(v))}
 			/>
+			<TextField
+				label="Exclude auto analysis"
+				placeholder="e.g. 1, 2, 34"
+				tooltip="Comma-separated category ids. An article whose profile carries any of them is captured without running the LLM pipeline (body and card are still saved). The analysis rerun always works."
+				value={autoAnalysisExcludedText}
+				onChange={handleAutoAnalysisExcluded}
+			/>
 		</div>
 	</Spacer>
 	<Spacer title="Embeddings" icon="FileDigit">
@@ -822,6 +841,13 @@
 				max={50}
 				tooltip="Most missing videos captured per profile refresh."
 				bind:value={scrapStore.maxVideos}
+			/>
+			<NumberField
+				label="Scroll Limit"
+				min={YOUTUBE_SCRAPE_LIMIT_MIN}
+				max={YOUTUBE_SCRAPE_LIMIT_MAX}
+				tooltip="Unique videos scanned per channel refresh when scrolling (1–1500). Only the refresh buttons scroll."
+				bind:value={scrapStore.scrollLimit}
 			/>
 		</div>
 	</Spacer>
