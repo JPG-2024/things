@@ -409,7 +409,7 @@
 	 * (--grid-item-width is set from ARTICLE_THUMBNAIL_SIZES). */
 	.article-list__items {
 		display: flex;
-		gap: 1rem;
+		gap: 1.4rem;
 		padding-top: 1.3rem;
 	}
 

@@ -239,7 +239,7 @@
 					onmouseleave={onHoverLeave}
 					aria-label="Open profile"
 				>
-					<ProfileThumb src={article.profilePictureSrc} size={40} />
+					<ProfileThumb src={article.profilePictureSrc} size={30} />
 				</button>
 			{:else}
 				<!-- Decorative corner (raw-text badge): non-interactive so it can
@@ -394,7 +394,7 @@
 	   overlapping the card button: it must not steal the article click. */
 	.article-profile-thumb {
 		position: absolute;
-		left: 1rem;
+		left: -1rem;
 		top: 0.25rem;
 		display: flex;
 		align-items: center;
@@ -415,7 +415,7 @@
 	}
 
 	.article-profile-thumb:where(button):hover :global(.profile-thumb) {
-		transform: scale(1.1);
+		/* transform: scale(1.1); */
 	}
 
 	/* Ring separates the avatar from both the article image and the card

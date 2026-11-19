@@ -70,14 +70,13 @@
 
 <style>
 	.article-thumbnail-container {
-		flex: none;
 		position: relative;
 		display: inline-flex;
 		width: 100%;
 		min-width: 0;
 		aspect-ratio: 16 / 9;
 		overflow: hidden;
-		justify-content: end;
+		justify-content: center;
 	}
 
 	/* Only the placeholder resolves `cqi` units. */
@@ -122,6 +121,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 0.4rem;
+		padding-top: 1rem;
 		border-radius: inherit;
 		color: rgba(255, 255, 255, 0.75);
 		font-size: clamp(0.5rem, 10cqi, 0.7rem);
