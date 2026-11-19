@@ -911,7 +911,8 @@
 
 	.chat-modal__hint {
 		font-size: 0.78rem;
-		opacity: 0.5;
+		opacity: 0.6;
+		color: var(--bg-color);
 	}
 
 	.chat-modal__message {

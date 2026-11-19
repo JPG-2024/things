@@ -67,7 +67,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		gap: 0.7rem;
 		width: 100%;
 		min-height: 60px;

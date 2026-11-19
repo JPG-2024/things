@@ -282,7 +282,7 @@ Complete Svelte component for streaming chat:
 
 	textarea {
 		width: 100%;
-		min-height: 80px;
+		min-height: 200px;
 		padding: 0.75rem;
 		border: 1px solid #ddd;
 		border-radius: 4px;

@@ -79,7 +79,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background: rgba(0, 0, 0, 0.9);
+		background: rgba(0, 0, 0, 0.8);
 		z-index: 9999;
 	}
 

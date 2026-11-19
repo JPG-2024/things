@@ -673,7 +673,7 @@
 		position: relative;
 		flex-direction: column;
 		align-items: center;
-		gap: 0.5rem;
+
 		box-sizing: border-box;
 		margin: 0;
 		/* padding-inline: var(--page-gutter-x); */

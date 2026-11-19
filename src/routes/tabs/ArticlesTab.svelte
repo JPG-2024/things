@@ -124,8 +124,6 @@
 
 <style>
 	.article-tab__container {
-		padding-left: 1.5rem;
-		padding-right: 2rem;
 	}
 	.empty-profiles-container {
 		display: flex;

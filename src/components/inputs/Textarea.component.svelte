@@ -90,7 +90,7 @@
 		font-family: inherit;
 		resize: vertical;
 		field-sizing: content;
-		min-height: 2rem; /* Keeps a baseline size when empty */
+		min-height: 5rem; /* Keeps a baseline size when empty */
 		max-height: 300px;
 	}
 

@@ -564,7 +564,6 @@
 		flex: 1 1 0%;
 		min-height: 0;
 		overflow: hidden;
-		padding-top: 1rem;
 	}
 
 	/* Filters strip inside the header: the row animates 0fr ↔ 1fr so the
