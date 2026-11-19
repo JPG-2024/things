@@ -20,6 +20,8 @@
 		"test:watch": "bun test --watch",
 		"test:tts-targets": "bun test src/lib/utils/ttsTargets.test.ts",
 		"test:prompts": "bun test src/lib/utils/promptText.test.ts",
+		"test:category-ids": "bun test src/lib/utils/categoryIds.test.ts",
+		"test:youtube-helpers": "bun test src/lib/utils/youtube/helpers.test.ts",
 		"format": "prettier --write . && eslint --fix ."
 	},
 	"license": "MIT",
