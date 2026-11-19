@@ -9,6 +9,8 @@
 	interface Props {
 		/** Plain label rendered next to the optional thumb. */
 		name?: string;
+		/** Small muted detail next to the name (e.g. a category id). */
+		nameDetail?: string;
 		/** Optional round thumbnail (e.g. profile picture). Omit for name-only bars. */
 		thumbSrc?: string | null;
 		/** Icon shown in place of the thumb when `thumbSrc` is missing (e.g. 'User'). */
@@ -21,7 +23,7 @@
 		actions?: Snippet;
 	}
 
-	let { name, thumbSrc, fallbackIcon, iconName, onBack, actions }: Props = $props();
+	let { name, nameDetail, thumbSrc, fallbackIcon, iconName, onBack, actions }: Props = $props();
 
 	function handleBack() {
 		if (onBack) {
@@ -56,6 +58,9 @@
 						</span>
 					{/if}
 					<span class="name">{name}</span>
+					{#if nameDetail}
+						<span class="name-detail">{nameDetail}</span>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -98,6 +103,15 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.name-detail {
+		font-size: 0.78rem;
+		font-family: var(--font-secondary);
+		color: var(--primary-color);
+		opacity: 0.55;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 
 	.topbar-actions {

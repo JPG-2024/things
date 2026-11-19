@@ -78,7 +78,12 @@
 </script>
 
 <div class="category-page">
-	<ProfileTopbar iconName="Tags" name={categoryName} onBack={handleBack}>
+	<ProfileTopbar
+		iconName="Tags"
+		name={categoryName}
+		nameDetail={`id: ${categoryId}`}
+		onBack={handleBack}
+	>
 		{#snippet actions()}
 			<Icon
 				name="FileDigit"
