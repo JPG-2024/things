@@ -2,8 +2,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { buildYouTubeProfileUrl } from '@/lib/utils/youtube/helpers';
 import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
-import { saveProfile } from '@/stores/webStore';
+import { assignCategoriesToArticle, getProfileCategories, saveProfile } from '@/stores/webStore';
 import { errorStore } from '@/stores/errorStore.svelte';
+import {
+	YOUTUBE_SCRAPE_LIMIT_DEFAULT,
+	YOUTUBE_SCRAPE_LIMIT_MAX,
+	YOUTUBE_SCRAPE_LIMIT_MIN
+} from '@/constants';
 import type { KnownProfile } from '@/runners/articleRunner';
 
 const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
@@ -42,16 +47,22 @@ class ScrapState {
 	videoInfo = $state<YoutubeVideoInfo | null>(null);
 	isFetchingMissingVideos = $state(false);
 	maxVideos = $state(5);
+	/**
+	 * Unique videos the scraper collects while scrolling a channel page
+	 * (`?scroll=true&limit=N`); `maxVideos` only caps how many of them are
+	 * enqueued afterwards.
+	 */
+	scrollLimit = $state(YOUTUBE_SCRAPE_LIMIT_DEFAULT);
 
 	async getYoutubeProfile(
 		handleOrUrl: string,
-		options?: { scroll?: boolean }
+		options?: { scroll?: boolean; limit?: number }
 	): Promise<YoutubeProfile | null> {
 		this.loading = true;
 		this.error = null;
 		try {
 			const data = options?.scroll
-				? await this.fetchYoutubeProfileWithScroll(handleOrUrl)
+				? await this.fetchYoutubeProfileWithScroll(handleOrUrl, options.limit)
 				: await this.fetchYoutubeProfileViaScrape(handleOrUrl);
 			this.profile = data;
 			return data;
@@ -85,7 +96,10 @@ class ScrapState {
 		return (await res.json()) as YoutubeProfile;
 	}
 
-	private async fetchYoutubeProfileWithScroll(handleOrUrl: string): Promise<YoutubeProfile> {
+	private async fetchYoutubeProfileWithScroll(
+		handleOrUrl: string,
+		limit?: number
+	): Promise<YoutubeProfile> {
 		const profileUrl = buildYouTubeProfileUrl(handleOrUrl);
 		let profilePath: string;
 		try {
@@ -94,7 +108,17 @@ class ScrapState {
 			profilePath = handleOrUrl.trim().replace(/^\/+/, '');
 		}
 
-		const res = await fetch(`${SCRAPER_API_URL}/api/profile/youtube/${profilePath}?scroll=true`);
+		// Clamp to the API contract (1..1500) so a hand-edited stored value
+		// never reaches the scraper out of range.
+		const safeLimit = Math.min(
+			YOUTUBE_SCRAPE_LIMIT_MAX,
+			Math.max(YOUTUBE_SCRAPE_LIMIT_MIN, Math.trunc(limit ?? YOUTUBE_SCRAPE_LIMIT_DEFAULT))
+		);
+		const params = new URLSearchParams({ scroll: 'true', limit: String(safeLimit) });
+
+		const res = await fetch(
+			`${SCRAPER_API_URL}/api/profile/youtube/${profilePath}?${params.toString()}`
+		);
 
 		if (!res.ok) {
 			throw new Error(`Profile scrape request failed: ${res.status} ${res.statusText}`);
@@ -177,6 +201,13 @@ class ScrapState {
 		profileId: string,
 		options?: {
 			maxVideos?: number;
+			/**
+			 * Scroll the channel page up to `scrollLimit` unique videos instead
+			 * of reading only the first DOM batch. Off by default: casual
+			 * callers (paste routing, hotkeys) keep the cheap first-batch read;
+			 * the explicit refresh buttons turn it on.
+			 */
+			scroll?: boolean;
 		}
 	): Promise<FetchMissingProfileVideosResult> {
 		const maxVideos = Math.min(
@@ -193,7 +224,10 @@ class ScrapState {
 		this.error = null;
 
 		try {
-			const youtubeProfile = await this.getYoutubeProfile(handle, { scroll: false });
+			const youtubeProfile = await this.getYoutubeProfile(handle, {
+				scroll: options?.scroll ?? false,
+				limit: this.scrollLimit
+			});
 			if (!youtubeProfile) {
 				throw new Error(this.error ?? 'Failed to fetch profile videos');
 			}
@@ -309,6 +343,28 @@ class ScrapState {
 						});
 					} catch (error) {
 						console.error('[scrapStore] failed to rank profile articles after the batch', error);
+					}
+					// The batch's categories come from the profile row: copy them
+					// onto every video captured in this batch, in the same hook as
+					// the rank rewrite (rows are persisted by now, and the drain
+					// repaints the lists right after the subscribers run — so
+					// category-pinned lists, e.g. the Music tab, show the new
+					// videos without waiting for an analysis in PostView). Only
+					// `toFetch` urls are written: they are brand-new rows, so the
+					// replace-all cannot clobber earlier links. Separate try from
+					// the rank rewrite so one failure never skips the other.
+					try {
+						const categoryIds = await getProfileCategories(normalizedProfileId);
+						if (categoryIds.length > 0) {
+							for (const video of toFetch) {
+								await assignCategoriesToArticle({
+									articleUrl: video.url,
+									categoryIds
+								});
+							}
+						}
+					} catch (error) {
+						console.error('[scrapStore] failed to copy profile categories after the batch', error);
 					}
 				});
 			}

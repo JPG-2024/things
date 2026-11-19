@@ -154,7 +154,7 @@
 	async function handleFetchMissingVideos() {
 		if (scrapStore.isFetchingMissingVideos || !profileId) return;
 		try {
-			await scrapStore.fetchMissingProfileVideos(profileId);
+			await scrapStore.fetchMissingProfileVideos(profileId, { scroll: true });
 
 			// Videos that were captured are still draining: their titles only
 			// reach the list cache when the batch ends, so the summary must
@@ -178,58 +178,60 @@
 </script>
 
 <div class="profile-page">
-	<ProfileTopbar
-		name={profile?.name}
-		thumbSrc={profile?.profilePictureSrc}
-		fallbackIcon="User"
-		onBack={handleBack}
-	/>
-
 	{#if loading}
 		<div class="loading-container">
 			<div class="loading-indicator"></div>
 		</div>
 	{:else if profile}
-		{#if summaryText || summaryLoading || summaryError}
-			<div class="summary-row">
-				{#if summaryLoading}
-					<div class="summary-loading">
-						<div class="loading-indicator small"></div>
-						<span>Generating summary...</span>
-					</div>
-				{:else if summaryError}
-					<div class="summary-error">{summaryError}</div>
-					<button type="button" class="summary-action" onclick={regenerateSummary}>Retry</button>
-				{:else}
-					<MarkdownRenderer content={summaryText} fontSize={0.8} />
-				{/if}
-			</div>
-		{/if}
-		<div class="category-row">
-			<CategoryEditor value={profileCategoryIds} onChange={handleCategoriesChange} />
-			<ProfileFavoriteButton {profileId} />
-			<div class="profile-toolbar">
-				<Toolbar justify="end" iconSize={20}>
-					<Icon
-						name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
-						class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
-						onClick={handleFetchMissingVideos}
-						disabled={scrapStore.isFetchingMissingVideos || loading}
-						ariaLabel="Fetch missing videos"
-						tooltipProps={{
-							content: `Fetch missing videos – max ${scrapStore.maxVideos}`
-						}}
-					/>
-					<Icon
-						name="Trash"
-						onClick={handleDeleteProfile}
-						disabled={isDeleting}
-						ariaLabel="Delete profile"
-						tooltipProps={{ content: 'delete profile' }}
-					/>
-				</Toolbar>
+		<div class="profile-page__header">
+			<ProfileTopbar
+				name={profile?.name}
+				thumbSrc={profile?.profilePictureSrc}
+				fallbackIcon="User"
+				onBack={handleBack}
+			/>
+			{#if summaryText || summaryLoading || summaryError}
+				<div class="summary-row">
+					{#if summaryLoading}
+						<div class="summary-loading">
+							<div class="loading-indicator small"></div>
+							<span>Generating summary...</span>
+						</div>
+					{:else if summaryError}
+						<div class="summary-error">{summaryError}</div>
+						<button type="button" class="summary-action" onclick={regenerateSummary}>Retry</button>
+					{:else}
+						<MarkdownRenderer content={summaryText} fontSize={0.8} />
+					{/if}
+				</div>
+			{/if}
+			<div class="category-row">
+				<CategoryEditor value={profileCategoryIds} onChange={handleCategoriesChange} />
+				<ProfileFavoriteButton {profileId} />
+				<div class="profile-toolbar">
+					<Toolbar justify="end" iconSize={20}>
+						<Icon
+							name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
+							class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
+							onClick={handleFetchMissingVideos}
+							disabled={scrapStore.isFetchingMissingVideos || loading}
+							ariaLabel="Fetch missing videos"
+							tooltipProps={{
+								content: `Fetch missing videos – scroll ${scrapStore.scrollLimit}, capture max ${scrapStore.maxVideos}`
+							}}
+						/>
+						<Icon
+							name="Trash"
+							onClick={handleDeleteProfile}
+							disabled={isDeleting}
+							ariaLabel="Delete profile"
+							tooltipProps={{ content: 'delete profile' }}
+						/>
+					</Toolbar>
+				</div>
 			</div>
 		</div>
+
 		<div class="articles-container">
 			<ArticleList
 				items={articleCacheStore.profileArticles(profileId)}
@@ -260,6 +262,10 @@
 		padding-bottom: 7rem;
 	}
 
+	.profile-page__header {
+		padding-inline: 1rem;
+	}
+
 	:global(.spin) {
 		animation: spin 0.8s linear infinite;
 	}
@@ -269,8 +275,6 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding-inline: 2rem;
-
 		margin-bottom: 2rem;
 	}
 
@@ -278,7 +282,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		color: var(--primary-color);
+		color: var(--bg-color);
+		font-family: var(--font-secondary);
 		font-style: italic;
 	}
 
@@ -344,7 +349,6 @@
 		display: flex;
 		align-items: center;
 		gap: 2rem;
-		padding-left: 2rem;
 	}
 
 	.profile-toolbar {

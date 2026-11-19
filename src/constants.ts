@@ -57,6 +57,15 @@ export const CARD_COLUMN_MAX = 8;
 export const CARD_ROW_MIN = 1;
 export const CARD_ROW_MAX = 6;
 
+/**
+ * Unique videos the scraper collects while scrolling a YouTube channel
+ * (`/api/profile/youtube/<path>?scroll=true&limit=N`). The API ignores the
+ * param without `scroll=true` and clamps it to 1500.
+ */
+export const YOUTUBE_SCRAPE_LIMIT_DEFAULT = 450;
+export const YOUTUBE_SCRAPE_LIMIT_MIN = 1;
+export const YOUTUBE_SCRAPE_LIMIT_MAX = 1500;
+
 /** Tamaño base del markdown (rem). Expuesto en Settings → Reading. */
 export const MARKDOWN_FONT_SIZE_DEFAULT = 0.8;
 export const MARKDOWN_FONT_SIZE_MIN = 0.6;

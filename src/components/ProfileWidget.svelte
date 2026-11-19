@@ -31,13 +31,14 @@
 	}
 
 	/**
-	 * Refreshes the channel: the scraper lists its videos and the missing
-	 * ones are captured in `metadata` mode (analysed when they are opened).
+	 * Refreshes the channel: the scraper scrolls its video list up to
+	 * `scrollLimit` unique videos and the missing ones are captured in
+	 * `metadata` mode (analysed when they are opened).
 	 */
 	async function handleRefresh() {
 		if (isProfileRunning) return;
 		try {
-			await scrapStore.fetchMissingProfileVideos(profileWithArticles.id);
+			await scrapStore.fetchMissingProfileVideos(profileWithArticles.id, { scroll: true });
 		} catch (error) {
 			console.error('Failed to refresh profile', error);
 		}
