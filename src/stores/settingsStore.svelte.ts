@@ -159,7 +159,8 @@ function serializeScrap() {
 function serializePlayer() {
 	return {
 		volume: playerStore.volume,
-		autoShuffleOnEnd: playerStore.autoShuffleOnEnd
+		autoShuffleOnEnd: playerStore.autoShuffleOnEnd,
+		hoverCollapseDelayMs: playerStore.hoverCollapseDelayMs
 	};
 }
 
@@ -382,6 +383,10 @@ function applyPlayer(raw: unknown): void {
 	}
 	if (typeof raw.autoShuffleOnEnd === 'boolean') {
 		playerStore.autoShuffleOnEnd = raw.autoShuffleOnEnd;
+	}
+	// Range mirrors the slider in VoiceSettingsModal → Playback.
+	if (typeof raw.hoverCollapseDelayMs === 'number') {
+		playerStore.hoverCollapseDelayMs = clamp(Math.trunc(raw.hoverCollapseDelayMs), 0, 3000);
 	}
 }
 

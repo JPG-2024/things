@@ -20,6 +20,9 @@
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
 	const maximized = $derived(playerStore.maximized);
+	/** True while the maximize button has locked enlarged mode: the icon then
+	 *  reflects the pin (what a click undoes), not the current size. */
+	const pinned = $derived(playerStore.pinned);
 
 	/** True while the voice settings modal is open: the player then lifts
 	 * above its backdrop (see `.over-voice-modal`) so the video/thumbnail
@@ -434,8 +437,9 @@
 		() => {
 			// Leave enlarged mode before shrinking to the mini thumbnail, so a
 			// single Escape never jumps from 50vw straight to the thumbnail.
-			if (playerStore.maximized && !playerStore.minimized) {
-				playerStore.toggleMaximized();
+			// Works for both hover-expanded and button-pinned max mode.
+			if (!playerStore.minimized && (playerStore.maximized || playerStore.pinned)) {
+				playerStore.exitMaximized();
 				return;
 			}
 			playerStore.toggleMinimized();
@@ -490,7 +494,14 @@
 	>
 		<!-- The iframe stays mounted while minimized so audio keeps playing;
 			it is only hidden via the `.frame-hidden` class. -->
-		<div class="player-frame" class:frame-hidden={minimized} class:maximized>
+		<div
+			class="player-frame"
+			class:frame-hidden={minimized}
+			class:maximized
+			role="group"
+			onmouseenter={() => playerStore.hoverEnter()}
+			onmouseleave={() => playerStore.hoverLeave()}
+		>
 			{#if currentProfile}
 				<div class="player-profile">
 					{#if currentProfile.pictureSrc}
@@ -527,11 +538,11 @@
 				</button>
 				<button
 					class="player-action"
-					onclick={() => playerStore.toggleMaximized()}
-					aria-label={maximized ? 'Restore video player size' : 'Maximize video player'}
-					title={maximized ? 'Restore video player size' : 'Maximize video player'}
+					onclick={() => playerStore.togglePin()}
+					aria-label={pinned ? 'Restore video player size' : 'Maximize video player'}
+					title={pinned ? 'Restore video player size' : 'Maximize video player'}
 				>
-					<Icon name={maximized ? 'Minimize' : 'Maximize'} size={14} color="white" />
+					<Icon name={pinned ? 'Minimize' : 'Maximize'} size={14} color="white" />
 				</button>
 				<button
 					class="player-action"

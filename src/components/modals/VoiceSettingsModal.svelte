@@ -1133,6 +1133,15 @@
 							step={50}
 							format={(v) => v.toString()}
 						/>
+						<RangeSelector
+							id="settings-hoverCollapseDelay"
+							label="Collapse delay (ms)"
+							bind:value={playerStore.hoverCollapseDelayMs}
+							min={0}
+							max={3000}
+							step={50}
+							format={(v) => v.toString()}
+						/>
 					</div>
 					<div class="row">
 						<ToggleIcon
