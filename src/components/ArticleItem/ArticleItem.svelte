@@ -11,8 +11,6 @@
 	import ArticleItemGrid from './ArticleItemGrid.svelte';
 	import { ARTICLE_THUMBNAIL_SIZES, type ArticleThumbnailSize } from '@/constants';
 	import { playerStore } from '@/stores/playerStore.svelte';
-	import { youTubeVideoId } from '@/runners/articleSources';
-	import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 
 	interface Props {
 		article: ArticleRecord;
@@ -141,16 +139,8 @@
 	 * untouched and goes through the caller's `onClick`. */
 	function handleCardClick(event: MouseEvent): void {
 		if (event.shiftKey) {
-			const url = article.url;
-			const videoId = url ? youTubeVideoId(url) : null;
-			if (!url || !videoId) return;
-			playerStore.open({
-				mediaDirectory: '',
-				thumbnailImage: '',
-				thumbnailImageSrc: article.thumbnailSrc ?? getYouTubeThumbnailUrl(videoId, 'high'),
-				videoId,
-				url
-			});
+			// Non-video URLs are a no-op, matching the old early return.
+			playerStore.openFromUrl(article.url, article.thumbnailSrc);
 			return;
 		}
 		onClick(article);

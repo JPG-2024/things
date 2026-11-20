@@ -640,7 +640,7 @@
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition:
 			opacity 100ms ease,
-			width 1000ms ease;
+			width 320ms ease;
 		border: 3px solid var(--gray-500);
 		border-style: dashed;
 		border-radius: var(--radius-sm);
@@ -648,9 +648,15 @@
 
 	/* Enlarged mode: half the viewport width, height follows the aspect
 	 * ratio. The iframe stretches with the frame, so the embed re-lays out
-	 * without a reload (playback position and volume survive). */
+	 * without a reload (playback position and volume survive).
+	 * The transition here governs the EXPAND direction only: transitions are
+	 * read from the after-change style, so adding `.maximized` picks up these
+	 * 200ms while removing it falls back to the base rule's 1000ms. */
 	.player-frame.maximized {
 		width: 50vw;
+		transition:
+			opacity 100ms ease,
+			width 200ms ease;
 	}
 
 	/* Small screens: a half-width player gets too cramped, so maximize takes

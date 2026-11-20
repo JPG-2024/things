@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { toThumbnailVTName } from '@/lib/utils/url';
-	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 	import { tooltip as tooltipAction } from '@/lib/actions/tooltip';
+	import { youTubeVideoId } from '@/lib/utils/youtube/helpers';
+	import { playerStore } from '@/stores/playerStore.svelte';
+	import Icon from '@/components/Icon.svelte';
 	import ArticleTitle from './ArticleTitle.svelte';
 
 	interface Props {
@@ -30,6 +31,24 @@
 
 	// A fixed box (explicit width + height) opts out of the fluid 16:9 ratio.
 	const sized = $derived(width !== undefined && height !== undefined);
+
+	// Only YouTube videos can be played in the floating player.
+	const videoId = $derived(url ? youTubeVideoId(url) : null);
+
+	/** Play this video in the floating player. The thumbnail lives inside the
+	 *  card button, so stop the click from also opening the reading view. */
+	function handlePlay(event: MouseEvent): void {
+		event.stopPropagation();
+		playerStore.openFromUrl(url, src);
+	}
+
+	/** Keyboard equivalent (Enter/Space) for the play affordance. */
+	function handlePlayKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		event.stopPropagation();
+		playerStore.openFromUrl(url, src);
+	}
 </script>
 
 {#snippet thumbnailImage()}
@@ -65,6 +84,19 @@
 				<ArticleTitle title={fallbackText} />
 			{/if}
 		</div>
+	{/if}
+	{#if videoId}
+		<span
+			class="mini-play"
+			role="button"
+			tabindex="0"
+			aria-label="Play video in floating player"
+			title="Play in floating player"
+			onclick={handlePlay}
+			onkeydown={handlePlayKeydown}
+		>
+			<Icon name="Play" size={16} color="white" fill="white" />
+		</span>
 	{/if}
 </div>
 
@@ -112,6 +144,45 @@
 		background: var(--primary-color);
 		z-index: 8;
 		pointer-events: none;
+	}
+
+	/* Bottom-center play affordance for YouTube thumbnails. Hidden and
+	   click-through until the thumbnail is hovered or the control is focused.
+	   A role-bearing span is used instead of a real <button>: this container
+	   lives inside the card's <button>, and a nested button breaks the outer
+	   one's DOM. Keeping it inside the container also makes the position exact
+	   in every layout (grid, grid-3 and the row's fixed box). */
+	.mini-play {
+		position: absolute;
+		bottom: 0.4rem;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 7;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 50%;
+		background: rgba(0, 0, 0, 0.7);
+		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+		line-height: 0;
+		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity 0.15s ease,
+			background 0.15s ease;
+	}
+
+	.article-thumbnail-container:hover .mini-play,
+	.mini-play:focus-visible {
+		opacity: 0.5;
+		pointer-events: auto;
+	}
+
+	.mini-play:hover {
+		background: rgba(0, 0, 0, 0.85);
 	}
 
 	.article-thumbnail-placeholder {

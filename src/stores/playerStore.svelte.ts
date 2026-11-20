@@ -1,4 +1,6 @@
 import type { YouTubePlayerContext } from '@/types/youtube.types';
+import { youTubeVideoId } from '@/lib/utils/youtube/helpers';
+import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
 
 /**
  * Global floating video player state. The player component itself is mounted
@@ -32,6 +34,25 @@ class PlayerState {
 		this.minimized = false;
 		this.maximized = false;
 		this.pinned = false;
+	}
+
+	/**
+	 * Opens a YouTube URL in the floating player. Non-video URLs are ignored,
+	 * so callers can share one path (thumbnail play button, Shift+click) without
+	 * duplicating the player-context shape.
+	 */
+	openFromUrl(url: string | null | undefined, thumbnailSrc?: string | null): boolean {
+		if (!url) return false;
+		const videoId = youTubeVideoId(url);
+		if (!videoId) return false;
+		this.open({
+			mediaDirectory: '',
+			thumbnailImage: '',
+			thumbnailImageSrc: thumbnailSrc ?? getYouTubeThumbnailUrl(videoId, 'high'),
+			videoId,
+			url
+		});
+		return true;
 	}
 
 	close(): void {
