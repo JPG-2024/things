@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { pickRandomVideoCandidate, youTubeVideoId } from './helpers';
+import { isYouTubeEndedEvent, pickRandomVideoCandidate, youTubeVideoId } from './helpers';
 
 describe('youTubeVideoId', () => {
 	test('reads the id of every supported URL shape', () => {
@@ -14,6 +14,28 @@ describe('youTubeVideoId', () => {
 		expect(youTubeVideoId('https://example.com/post')).toBeNull();
 		expect(youTubeVideoId('raw-article')).toBeNull();
 		expect(youTubeVideoId('not a url')).toBeNull();
+	});
+});
+
+describe('isYouTubeEndedEvent', () => {
+	test('detects ENDED from a raw or parsed payload', () => {
+		const ended = '{"event":"onStateChange","info":0,"id":1,"channel":"widget"}';
+
+		expect(isYouTubeEndedEvent(ended)).toBe(true);
+		expect(isYouTubeEndedEvent(JSON.parse(ended))).toBe(true);
+	});
+
+	test('ignores the other playback states', () => {
+		expect(isYouTubeEndedEvent({ event: 'onStateChange', info: 1 })).toBe(false);
+		expect(isYouTubeEndedEvent({ event: 'onStateChange', info: 2 })).toBe(false);
+		expect(isYouTubeEndedEvent({ event: 'onStateChange', info: 3 })).toBe(false);
+	});
+
+	test('rejects unrelated or malformed payloads', () => {
+		expect(isYouTubeEndedEvent('{"event":"onReady"}')).toBe(false);
+		expect(isYouTubeEndedEvent('not json')).toBe(false);
+		expect(isYouTubeEndedEvent(null)).toBe(false);
+		expect(isYouTubeEndedEvent(undefined)).toBe(false);
 	});
 });
 

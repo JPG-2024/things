@@ -91,6 +91,28 @@ export function pickRandomVideoCandidate<T extends { url: string | null }>(
 }
 
 /**
+ * True when a relayed player event reports `ENDED` (`onStateChange` + info 0).
+ * Accepts the raw `postMessage` payload or an already-parsed object.
+ */
+export function isYouTubeEndedEvent(data: unknown): boolean {
+	let payload = data;
+	if (typeof payload === 'string') {
+		try {
+			payload = JSON.parse(payload);
+		} catch {
+			return false;
+		}
+	}
+
+	return (
+		typeof payload === 'object' &&
+		payload !== null &&
+		(payload as { event?: unknown }).event === 'onStateChange' &&
+		(payload as { info?: unknown }).info === 0
+	);
+}
+
+/**
  * Builds a canonical YouTube profile/channel URL from a handle, path, or full URL.
  * YoutubeVideoInfo.profile is now a handle like `@syntaxfm` (from `https://www.youtube.com/@syntaxfm`),
  * but the scraper API (`/api/scrape`) expects a full URL. This helper bridges the two

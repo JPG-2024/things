@@ -668,6 +668,51 @@ export async function getRandomYouTubeArticleInSameCategories(
 	return await getArticleByUrl(candidate.url);
 }
 
+/**
+ * Picks a random YouTube article from the same profile (or domain) as
+ * `currentUrl`. Mirrors the category shuffle, but uses the legacy
+ * "this entity, either kind" `profile_id` filter the Rust list command
+ * exposes, so channel profiles and domains behave the same way.
+ *
+ * As in the category version, the pool is fetched raw and only the winner is
+ * hydrated: the cost stays constant no matter how many videos the profile has.
+ */
+export async function getRandomYouTubeArticleInSameProfile(
+	currentUrl: string
+): Promise<ArticleRecord | null> {
+	const current = await getArticleByUrl(currentUrl);
+	const profileId = current?.profileId ?? current?.profile ?? current?.domain ?? null;
+	if (!profileId) return null;
+
+	const query = {
+		profileId,
+		offset: 0,
+		onlyWithoutProfile: false,
+		categoryIds: null,
+		profileIds: null,
+		domainIds: null,
+		dateFrom: null,
+		mode: null,
+		favorite: null
+	};
+
+	// Failures propagate: `null` means "no candidate", not "broken query".
+	const { total } = await invoke<ArticlePoolResponse>('list_articles_without_profile', {
+		...query,
+		limit: 0
+	});
+	if (total === 0) return null;
+
+	const pool = await invoke<ArticlePoolResponse>('list_articles_without_profile', {
+		...query,
+		limit: total
+	});
+	const candidate = pickRandomVideoCandidate(pool.articles, currentUrl);
+	if (!candidate?.url) return null;
+
+	return await getArticleByUrl(candidate.url);
+}
+
 /** The analysis of an article as it is stored. */
 export interface StoredArticleAnalysis {
 	url: string;

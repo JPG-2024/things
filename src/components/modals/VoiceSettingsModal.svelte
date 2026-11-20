@@ -1141,6 +1141,13 @@
 							label="Auto-minimize while TTS"
 						/>
 					</div>
+					<div class="row">
+						<ToggleIcon
+							name="Shuffle"
+							bind:checked={playerStore.autoShuffleOnEnd}
+							label="Auto-shuffle when video ends"
+						/>
+					</div>
 				</Spacer>
 			{/if}
 		</div>

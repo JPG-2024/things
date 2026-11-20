@@ -157,7 +157,8 @@ function serializeScrap() {
 
 function serializePlayer() {
 	return {
-		volume: playerStore.volume
+		volume: playerStore.volume,
+		autoShuffleOnEnd: playerStore.autoShuffleOnEnd
 	};
 }
 
@@ -374,6 +375,9 @@ function applyPlayer(raw: unknown): void {
 
 	if (typeof raw.volume === 'number') {
 		playerStore.volume = clamp(Math.trunc(raw.volume), 0, 100);
+	}
+	if (typeof raw.autoShuffleOnEnd === 'boolean') {
+		playerStore.autoShuffleOnEnd = raw.autoShuffleOnEnd;
 	}
 }
 

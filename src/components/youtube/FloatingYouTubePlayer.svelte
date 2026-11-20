@@ -1,18 +1,25 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import { invoke } from '@tauri-apps/api/core';
 	import { fade } from 'svelte/transition';
 	import Icon from '@/components/Icon.svelte';
+	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { getYouTubeThumbnailUrl } from '@/lib/utils/youtube';
-	import { youTubeVideoId } from '@/lib/utils/youtube/helpers';
+	import { isYouTubeEndedEvent, youTubeVideoId } from '@/lib/utils/youtube/helpers';
 	import { playerStore } from '@/stores/playerStore.svelte';
 	import { viewState, voiceSettingsState } from '@/stores/viewStore.svelte';
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { errorStore } from '@/stores/errorStore.svelte';
-	import { getRandomYouTubeArticleInSameCategories } from '@/stores/webStore';
+	import {
+		getArticleByUrl,
+		getRandomYouTubeArticleInSameCategories,
+		getRandomYouTubeArticleInSameProfile
+	} from '@/stores/webStore';
 
 	const active = $derived(playerStore.active);
 	const minimized = $derived(playerStore.minimized);
+	const maximized = $derived(playerStore.maximized);
 
 	/** True while the voice settings modal is open: the player then lifts
 	 * above its backdrop (see `.over-voice-modal`) so the video/thumbnail
@@ -83,32 +90,100 @@
 		};
 	});
 
-	/** True while the random-video query is in flight: blocks a second press. */
+	/** Profile of the loaded video, resolved from its article row. The player
+	 * context only carries the url, so this feeds the corner thumb and its
+	 * navigation target; the profile shuffle resolves the id on its own. */
+	type CurrentProfile = {
+		profileId: string;
+		name: string | null;
+		pictureSrc: string | null;
+	};
+
+	let currentProfile = $state<CurrentProfile | null>(null);
+
+	$effect(() => {
+		const url = active?.url;
+		if (!url) {
+			currentProfile = null;
+			return;
+		}
+		let cancelled = false;
+		void getArticleByUrl(url).then((article) => {
+			if (cancelled) return;
+			const profileId = article?.profileId ?? article?.profile ?? article?.domain ?? null;
+			currentProfile = profileId
+				? {
+						profileId,
+						name: article?.profile ?? article?.domain ?? null,
+						pictureSrc: article?.profilePictureSrc ?? null
+					}
+				: null;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	function goToProfile(): void {
+		if (!currentProfile) return;
+		viewState.currentProfileId = currentProfile.profileId;
+		void goto(`/profile/${encodeURIComponent(currentProfile.profileId)}`).catch(
+			(error: unknown) => {
+				errorStore.report(error, {
+					feature: 'ui',
+					userMessage: 'Failed to open the profile page'
+				});
+			}
+		);
+	}
+
+	const SHUFFLE_MESSAGES = {
+		category: {
+			empty: 'No other YouTube videos share this category',
+			failed: 'Failed to pick a random video from the same category'
+		},
+		profile: {
+			empty: 'No other YouTube videos share this profile',
+			failed: 'Failed to pick a random video from the same profile'
+		}
+	} as const;
+
+	type ShuffleMode = keyof typeof SHUFFLE_MESSAGES;
+
+	/** True while either random-video query is in flight: blocks a second press. */
 	let shuffling = $state(false);
 
-	/** Swaps the current video for a random YouTube article that shares at
-	 * least one category with it (`R`, or the shuffle icon in the frame). The
-	 * new context goes through `playerStore.open()`, so the existing
-	 * `{#key active.videoId}` block remounts the iframe and re-applies the
-	 * volume. */
-	async function shuffleSameCategory(): Promise<void> {
+	/** Swaps the current video for a random YouTube article from the same
+	 * category (`R`, the shuffle icon, or the end of the video) or profile
+	 * (`Shift+R`). The new context goes through `playerStore.open()`, so the
+	 * existing `{#key active.videoId}` block remounts the iframe and
+	 * re-applies the volume. */
+	async function shuffle(mode: ShuffleMode, options: { silent?: boolean } = {}): Promise<void> {
 		const current = playerStore.active;
 		if (!current || shuffling) return;
 
 		shuffling = true;
+		const messages = SHUFFLE_MESSAGES[mode];
 		try {
-			const article = await getRandomYouTubeArticleInSameCategories(current.url);
+			const article =
+				mode === 'profile'
+					? await getRandomYouTubeArticleInSameProfile(current.url)
+					: await getRandomYouTubeArticleInSameCategories(current.url);
 			// The player may have been closed or pointed elsewhere while the
 			// query ran: never hijack a video the user picked in the meantime.
 			if (playerStore.active?.url !== current.url) return;
 			if (!article?.url) {
-				// A legitimately empty pool is not an error, but it must not be
-				// silent either: the button would look broken.
-				errorStore.report(new Error('No random candidate in the shared categories'), {
-					feature: 'ui',
-					level: 'warn',
-					userMessage: 'No other YouTube videos share this category'
-				});
+				// A legitimately empty pool is not an error, but a manual press
+				// must not be silent either: the button would look broken. The
+				// automatic end-of-video trigger stays quiet instead of warning
+				// on every short clip.
+				if (!options.silent) {
+					errorStore.report(new Error(`No random candidate in the same ${mode}`), {
+						feature: 'ui',
+						level: 'warn',
+						userMessage: messages.empty
+					});
+				}
 				return;
 			}
 
@@ -117,7 +192,7 @@
 			if (!videoId) return;
 
 			// `open()` always restores the frame; a shuffle fired from the mini
-			// player (`R`) should leave the player exactly as it was.
+			// player (`R` / `Shift+R`) should leave it exactly as it was.
 			const wasMinimized = playerStore.minimized;
 			playerStore.open({
 				mediaDirectory: article.mediaDirectory ?? '',
@@ -130,7 +205,7 @@
 		} catch (error) {
 			errorStore.report(error, {
 				feature: 'ui',
-				userMessage: 'Failed to pick a random video from the same category'
+				userMessage: messages.failed
 			});
 		} finally {
 			shuffling = false;
@@ -194,10 +269,33 @@
 		setPlayerVolume(target);
 	}
 
+	/** Set once the player answers: repeating the handshake after that can make
+	 * it emit `onReady` again, which would reschedule this same loop. Reset on
+	 * every iframe load (video change). */
+	let playerEventsConfirmed = false;
+
+	/** Tell the player we are listening. Without this handshake YouTube only
+	 * accepts commands and never posts `onStateChange` back, which would leave
+	 * the end-of-video shuffle silent. It is re-sent with the volume
+	 * re-asserts because the wrapper loads before the inner player is ready. */
+	function announceListening(): void {
+		if (playerEventsConfirmed) return;
+		frameEl?.contentWindow?.postMessage(
+			JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }),
+			'*'
+		);
+	}
+
 	function scheduleReasserts(): void {
 		clearReasserts();
+		announceListening();
 		for (const delayMs of REASSERT_DELAYS_MS) {
-			reassertTimers.push(setTimeout(reassertNow, delayMs));
+			reassertTimers.push(
+				setTimeout(() => {
+					announceListening();
+					reassertNow();
+				}, delayMs)
+			);
 		}
 	}
 
@@ -273,6 +371,10 @@
 		if (!active) return;
 
 		const onMessage = (event: MessageEvent) => {
+			// Only the frame this component owns: other embeds on the page (the
+			// article view) must not drive the floating player, and a late ENDED
+			// from a previous iframe must not chain a second shuffle.
+			if (event.source !== frameEl?.contentWindow) return;
 			if (typeof event.data !== 'string') return;
 			let data: unknown;
 			try {
@@ -280,11 +382,17 @@
 			} catch {
 				return;
 			}
+			if (isYouTubeEndedEvent(data)) {
+				playerEventsConfirmed = true;
+				if (playerStore.autoShuffleOnEnd) void shuffle('category', { silent: true });
+				return;
+			}
 			if (
 				typeof data === 'object' &&
 				data !== null &&
 				(data as { event?: unknown }).event === 'onReady'
 			) {
+				playerEventsConfirmed = true;
 				resetVolumeTracking();
 				applyCurrentVolume();
 				scheduleReasserts();
@@ -324,6 +432,12 @@
 	createHotkey(
 		'Escape',
 		() => {
+			// Leave enlarged mode before shrinking to the mini thumbnail, so a
+			// single Escape never jumps from 50vw straight to the thumbnail.
+			if (playerStore.maximized && !playerStore.minimized) {
+				playerStore.toggleMaximized();
+				return;
+			}
 			playerStore.toggleMinimized();
 		},
 		() => ({
@@ -340,7 +454,23 @@
 	createHotkey(
 		'R',
 		() => {
-			void shuffleSameCategory();
+			void shuffle('category');
+		},
+		() => ({
+			enabled: active !== null && !viewState.overlayOpen && !shuffling,
+			ignoreInputs: true,
+			stopPropagation: true,
+			preventDefault: true
+		})
+	);
+
+	// Shift+R is also "record voice" while the voice settings modal sits in
+	// record view, but that hotkey is gated on `show`, and `overlayOpen` is
+	// true for that modal, so the player stays out of its way here.
+	createHotkey(
+		'Shift+R',
+		() => {
+			void shuffle('profile');
 		},
 		() => ({
 			enabled: active !== null && !viewState.overlayOpen && !shuffling,
@@ -360,7 +490,32 @@
 	>
 		<!-- The iframe stays mounted while minimized so audio keeps playing;
 			it is only hidden via the `.frame-hidden` class. -->
-		<div class="player-frame" class:frame-hidden={minimized}>
+		<div class="player-frame" class:frame-hidden={minimized} class:maximized>
+			{#if currentProfile}
+				<div class="player-profile">
+					{#if currentProfile.pictureSrc}
+						<ProfileThumb
+							src={currentProfile.pictureSrc}
+							alt={currentProfile.name ?? ''}
+							tooltip={currentProfile.name ?? 'View profile'}
+							tooltipProps={{ position: 'bottom' }}
+							ariaLabel={currentProfile.name ?? 'View profile'}
+							size={28}
+							onClick={goToProfile}
+						/>
+					{:else}
+						<button
+							type="button"
+							class="player-action player-profile-fallback"
+							onclick={goToProfile}
+							aria-label={currentProfile.name ?? 'View profile'}
+							title={currentProfile.name ?? 'View profile'}
+						>
+							<Icon name="User" size={14} color="white" />
+						</button>
+					{/if}
+				</div>
+			{/if}
 			<div class="player-actions">
 				<button
 					class="player-action"
@@ -369,6 +524,14 @@
 					title="Minimize video player"
 				>
 					−
+				</button>
+				<button
+					class="player-action"
+					onclick={() => playerStore.toggleMaximized()}
+					aria-label={maximized ? 'Restore video player size' : 'Maximize video player'}
+					title={maximized ? 'Restore video player size' : 'Maximize video player'}
+				>
+					<Icon name={maximized ? 'Minimize' : 'Maximize'} size={14} color="white" />
 				</button>
 				<button
 					class="player-action"
@@ -389,6 +552,8 @@
 						allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
 						allowfullscreen
 						onload={() => {
+							// Fresh player: the previous handshake no longer applies.
+							playerEventsConfirmed = false;
 							resetVolumeTracking();
 							applyCurrentVolume();
 							// The player is not ready yet at this point, so every
@@ -401,12 +566,21 @@
 			{/key}
 			<button
 				class="player-action player-shuffle"
-				onclick={() => void shuffleSameCategory()}
+				onclick={() => void shuffle('category')}
 				disabled={shuffling}
 				aria-label="Play a random video from the same category"
 				title="Random video from same category (R)"
 			>
 				<Icon name="Shuffle" size={14} color="white" />
+			</button>
+			<button
+				class="player-action player-profile-shuffle"
+				onclick={() => void shuffle('profile')}
+				disabled={shuffling}
+				aria-label="Play a random video from the same profile"
+				title="Random video from same profile (Shift+R)"
+			>
+				<Icon name="Users" size={14} color="white" />
 			</button>
 		</div>
 
@@ -453,10 +627,27 @@
 		overflow: hidden;
 		background: #000;
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
-		transition: opacity 200ms ease;
+		transition:
+			opacity 100ms ease,
+			width 100ms ease;
 		border: 3px solid var(--gray-500);
 		border-style: dashed;
 		border-radius: var(--radius-sm);
+	}
+
+	/* Enlarged mode: half the viewport width, height follows the aspect
+	 * ratio. The iframe stretches with the frame, so the embed re-lays out
+	 * without a reload (playback position and volume survive). */
+	.player-frame.maximized {
+		width: 50vw;
+	}
+
+	/* Small screens: a half-width player gets too cramped, so maximize takes
+	 * the whole width minus the floating anchor padding on both sides. */
+	@media (max-width: 1000px) {
+		.player-frame.maximized {
+			width: calc(100vw - 2 * var(--float-anchor-right));
+		}
 	}
 
 	.player-frame.frame-hidden {
@@ -470,6 +661,27 @@
 		width: 100%;
 		height: 100%;
 		border: none;
+	}
+
+	/* Top-left corner: the profile avatar opens its page. The ring keeps it
+	 * legible over both bright and dark video frames. */
+	.player-profile {
+		position: absolute;
+		top: 0.4rem;
+		left: 0.4rem;
+		z-index: 2;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 1.8rem;
+		height: 1.8rem;
+		border-radius: 50%;
+		background: rgb(50, 50, 50);
+		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+	}
+
+	.player-profile-fallback {
+		background: transparent;
 	}
 
 	.player-actions {
@@ -506,6 +718,12 @@
 		opacity: 1;
 	}
 
+	/* The avatar fallback sits on a dark ring; keep its hover dark too so the
+	 * white icon never lands on a light `--bg-color`. */
+	.player-profile-fallback:hover {
+		background: rgb(70, 70, 70);
+	}
+
 	/* Bottom-right shuffle control. It keeps its own dark hover so the white
 	   icon never lands on a light `--bg-color` (the frame sits over video). */
 	.player-shuffle {
@@ -520,6 +738,24 @@
 	}
 
 	.player-shuffle:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	/* Bottom-left mirror of the category shuffle, so both random actions stay
+	 * visible together regardless of the video's brightness. */
+	.player-profile-shuffle {
+		position: absolute;
+		left: 0.4rem;
+		bottom: 0.4rem;
+		z-index: 2;
+	}
+
+	.player-profile-shuffle:hover {
+		background: rgb(70, 70, 70);
+	}
+
+	.player-profile-shuffle:disabled {
 		opacity: 0.5;
 		cursor: default;
 	}
