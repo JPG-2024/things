@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import LinkIcon from '@/components/LinkIcon.svelte';
 	import ProfileFavoriteButton from '@/components/ProfileFavoriteButton.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
@@ -210,6 +211,9 @@
 				<ProfileFavoriteButton {profileId} />
 				<div class="profile-toolbar">
 					<Toolbar justify="end" iconSize={20}>
+						{#if profile.url}
+							<LinkIcon url={profile.url} />
+						{/if}
 						<Icon
 							name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
 							class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
@@ -362,6 +366,16 @@
 
 	.profile-toolbar :global(button.icon-button) {
 		padding: 6px 8px;
+	}
+
+	/* LinkIcon's own button has no padding and underlines on hover; keep it
+	 * visually aligned with the other icons in this toolbar. */
+	.profile-toolbar :global(.link) {
+		padding: 6px 8px;
+	}
+
+	.profile-toolbar :global(.link:hover) {
+		text-decoration: none;
 	}
 
 	.empty-state {
