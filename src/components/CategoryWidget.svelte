@@ -117,14 +117,16 @@
 		{#if articles.length}
 			<div class="img-flex">
 				{#if profile?.profilePictureSrc}
-					<button
-						type="button"
-						class="avatar-button"
-						onclick={handleNavigateToProfile}
-						aria-label={`View all articles from ${name}`}
-					>
-						<ProfileThumb src={profile.profilePictureSrc} alt={name} tooltip={name} size={50} />
-					</button>
+					<div class="avatar-button">
+						<ProfileThumb
+							src={profile.profilePictureSrc}
+							alt={name}
+							tooltip={name}
+							ariaLabel={`View all articles from ${name}`}
+							size={50}
+							onClick={handleNavigateToProfile}
+						/>
+					</div>
 				{/if}
 				{#each articles as article (article.url)}
 					<button
@@ -246,8 +248,6 @@
 	}
 
 	.avatar-button {
-		all: unset;
-		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

@@ -116,7 +116,7 @@
 		     navigating to the profile page. -->
 		<span class="articles-stack__profile" aria-hidden="true">
 			{#if frontArticle?.profilePictureSrc}
-				<ProfileThumb src={frontArticle.profilePictureSrc} size={40} />
+				<ProfileThumb src={frontArticle.profilePictureSrc} size={40} decorative />
 			{:else if frontArticle?.url?.startsWith('raw-')}
 				<span class="articles-stack__raw-badge">
 					<Icon name="ClipboardType" size={20} color="var(--bg-color)" />

@@ -100,28 +100,25 @@
 		{/if}
 		<div class="identity-row">
 			{#if profileWithArticles.profilePictureSrc}
-				<button
-					class="img-button"
-					type="button"
-					onclick={goToprofile}
-					aria-label="View profile"
-					onmouseenter={() => {
-						if (!isDomain) {
-							viewState.hoveredProfileName = profileWithArticles.name;
-						}
-						viewState.hoveredProfileId = profileWithArticles.id;
-					}}
-					onmouseleave={() => {
-						viewState.hoveredProfileName = null;
-						viewState.hoveredProfileId = null;
-					}}
-				>
+				<div class="img-button">
 					<ProfileThumb
 						src={profileWithArticles.profilePictureSrc}
 						alt={profileWithArticles.name}
+						ariaLabel="View profile"
 						size={32}
+						onClick={goToprofile}
+						onMouseEnter={() => {
+							if (!isDomain) {
+								viewState.hoveredProfileName = profileWithArticles.name;
+							}
+							viewState.hoveredProfileId = profileWithArticles.id;
+						}}
+						onMouseLeave={() => {
+							viewState.hoveredProfileName = null;
+							viewState.hoveredProfileId = null;
+						}}
 					/>
-				</button>
+				</div>
 			{/if}
 			<button
 				class="profile-name"

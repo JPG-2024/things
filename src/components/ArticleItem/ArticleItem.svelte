@@ -227,31 +227,26 @@
 			</button>
 		{/if}
 		{#if showCornerThumb}
-			{#if openableCorner}
-				<!-- Attribution that opens the profile. Sibling of the card, so a
-				     click here never opens the article; hover is forwarded so the
-				     card's hover state survives the pointer moving onto it. -->
-				<button
-					type="button"
-					class="article-profile-thumb"
-					onclick={handleProfileClick}
-					onmouseenter={() => onHoverEnter(article)}
-					onmouseleave={onHoverLeave}
-					aria-label="Open profile"
-				>
-					<ProfileThumb src={article.profilePictureSrc} size={30} />
-				</button>
-			{:else}
-				<!-- Decorative corner (raw-text badge): non-interactive so it can
-				     overlap the card button without stealing the article click. -->
-				<span class="article-profile-thumb" aria-hidden="true">
-					{#if article.url?.startsWith('raw-')}
-						<span class="article-raw-badge">
-							<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
-						</span>
-					{/if}
-				</span>
-			{/if}
+			<!-- Attribution at the card corner, a sibling of the card button so a
+			     profile click never opens the article. The interactive variant
+			     uses ProfileThumb's own button (hover is forwarded); the raw
+			     badge stays decorative and cannot steal the article click. -->
+			<span class="article-profile-thumb">
+				{#if openableCorner}
+					<ProfileThumb
+						src={article.profilePictureSrc}
+						size={30}
+						ariaLabel="Open profile"
+						onClick={handleProfileClick}
+						onMouseEnter={() => onHoverEnter(article)}
+						onMouseLeave={onHoverLeave}
+					/>
+				{:else if article.url?.startsWith('raw-')}
+					<span class="article-raw-badge" aria-hidden="true">
+						<Icon name="ClipboardType" size={20} color="var(--bg-color)" />
+					</span>
+				{/if}
+			</span>
 		{/if}
 	</div>
 {:else}
@@ -390,8 +385,8 @@
 	   the top-right). Absolute inside the `.article-item` wrapper, which is the
 	   same box as the card, so it never changes the measured cell height.
 	   z-index 6 paints over the selection tint (5) and below the unread dot
-	   (8) and the star (9). The base is the decorative variant (raw badge)
-	   overlapping the card button: it must not steal the article click. */
+	   (8) and the star (9). The wrapper only positions; the button comes from
+	   ProfileThumb. */
 	.article-profile-thumb {
 		position: absolute;
 		left: -1rem;
@@ -400,31 +395,12 @@
 		align-items: center;
 		justify-content: center;
 		line-height: 0;
-		pointer-events: none;
 		z-index: 6;
 	}
 
-	/* Interactive variant: a real button opened as a sibling of the card, so
-	   it takes the pointer (and the click) where it sits. */
-	.article-profile-thumb:where(button) {
-		pointer-events: auto;
-		cursor: pointer;
-		padding: 0;
-		background: none;
-		border: none;
-	}
-
-	.article-profile-thumb:where(button):hover :global(.profile-thumb) {
-		/* transform: scale(1.1); */
-	}
-
-	/* Ring separates the avatar from both the article image and the card
-	   background; a shadow ring keeps the box (and the layout) untouched. */
-	.article-profile-thumb :global(.profile-thumb) {
-	}
-
 	/* Raw-text articles have no profile/domain picture: show the same icon
-	   the Topbar falls back to in postview, shaped like the avatar. */
+	   the Topbar falls back to in postview, shaped like the avatar. It overlaps
+	   the card button, so it must never steal the article click. */
 	.article-raw-badge {
 		display: flex;
 		align-items: center;
@@ -432,5 +408,6 @@
 		width: 24px;
 		height: 24px;
 		border-radius: 50%;
+		pointer-events: none;
 	}
 </style>

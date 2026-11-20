@@ -54,7 +54,7 @@
 				popup, where a menu is always open; without this flag the suppression
 				rule would keep these tooltips permanently hidden. -->
 			{#if item.profilePictureSrc}
-				<ProfileThumb src={item.profilePictureSrc} size={50} shape="rounded" />
+				<ProfileThumb src={item.profilePictureSrc} size={50} shape="rounded" decorative />
 			{:else}
 				<EmojiString value={item.name} active={isActive(item)} />
 			{/if}

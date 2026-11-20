@@ -48,7 +48,7 @@
 			{#if name}
 				<div class="identity">
 					{#if thumbSrc}
-						<ProfileThumb src={thumbSrc} tooltip={name} size={40} />
+						<ProfileThumb src={thumbSrc} tooltip={name} size={40} decorative />
 					{:else if fallbackIcon}
 						<Icon name={fallbackIcon} ariaLabel={name} />
 					{/if}

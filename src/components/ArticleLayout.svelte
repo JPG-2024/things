@@ -186,7 +186,12 @@
 					aria-label={article.profile ? `View ${article.profile}` : 'View profile'}
 				>
 					{#if article.profilePictureSrc}
-						<ProfileThumb src={article.profilePictureSrc} alt={article.profile ?? ''} size={50} />
+						<ProfileThumb
+							src={article.profilePictureSrc}
+							alt={article.profile ?? ''}
+							size={50}
+							decorative
+						/>
 					{/if}
 					{#if article.profile}
 						<span class="profile-name">{article.profile}</span>
