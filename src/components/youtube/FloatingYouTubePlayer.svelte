@@ -490,7 +490,7 @@
 		class="floating-player"
 		class:over-voice-modal={voiceModalOpen}
 		in:fade={{ duration: 200 }}
-		out:fade={{ duration: 200 }}
+		out:fade={{ duration: 400 }}
 	>
 		<!-- The iframe stays mounted while minimized so audio keeps playing;
 			it is only hidden via the `.frame-hidden` class. -->
@@ -596,7 +596,7 @@
 		</div>
 
 		{#if minimized}
-			<div class="player-mini" class:is-tts-active={ttsActive} transition:fade={{ duration: 150 }}>
+			<div class="player-mini" class:is-tts-active={ttsActive}>
 				<button
 					class="player-mini-restore"
 					onclick={() => playerStore.restore()}
@@ -640,7 +640,7 @@
 		/* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); */
 		transition:
 			opacity 100ms ease,
-			width 100ms ease;
+			width 1000ms ease;
 		border: 3px solid var(--gray-500);
 		border-style: dashed;
 		border-radius: var(--radius-sm);
