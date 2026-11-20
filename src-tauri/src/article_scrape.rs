@@ -7,7 +7,11 @@
 //!
 //! Every arbitrary URL goes through [`require_public_url`] and
 //! [`assert_public_host`]: the app fetches client-supplied URLs, so private,
-//! loopback and link-local hosts are refused on every redirect hop.
+//! loopback and link-local hosts are refused on every redirect hop of the
+//! static fetch, and on the page the browser fallback actually landed on.
+//! Residual: the browser itself does issue the request to a redirect target —
+//! the post-navigation check keeps its content from being extracted and
+//! returned, but the request is not prevented.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
 use std::time::Duration;
@@ -286,6 +290,17 @@ fn fetch_html(client: &reqwest::blocking::Client, url: &Url) -> Result<FetchedHt
     )))
 }
 
+/// Vets the page the browser actually landed on. Chromium follows HTTP and JS
+/// redirects on its own, so the check on the original URL says nothing about
+/// where the page ended up. Fail closed: an URL the final host cannot be read
+/// from (`about:blank`) is refused too.
+fn assert_public_landing(url: &Url) -> Result<(), ScrapeError> {
+    assert_public_host(
+        url.host_str().unwrap_or_default(),
+        url.port_or_known_default().unwrap_or(443),
+    )
+}
+
 /// Renders the page in the shared Chromium and dumps its HTML. The article
 /// extractor runs afterwards in Rust, so nothing is extracted in-page.
 fn fetch_rendered_html(
@@ -319,6 +334,15 @@ fn fetch_rendered_html(
 
         std::thread::sleep(PAGE_SETTLE);
 
+        // The landing page is only now known: redirects happen inside
+        // Chromium. The request itself has already been issued, but vetting
+        // here keeps a private page's content from being extracted and
+        // returned to the caller.
+        let final_url = Url::parse(&page.url()).map_err(|_| {
+            ScrapeError::browser_error(format!("Could not read the final URL of {url}"))
+        })?;
+        assert_public_landing(&final_url)?;
+
         let html = page
             .evaluate(
                 "(() => document.documentElement.outerHTML)()",
@@ -333,8 +357,6 @@ fn fetch_rendered_html(
             .ok_or_else(|| {
                 ScrapeError::browser_error("Could not read the rendered page: empty document")
             })?;
-
-        let final_url = Url::parse(&page.url()).unwrap_or_else(|_| url.clone());
 
         Ok(FetchedHtml { html, final_url })
     })();
@@ -513,6 +535,33 @@ mod tests {
         assert!(ScrapeError::fetch_status("boom").allows_browser_fallback());
         assert!(ScrapeError::fetch_timeout(&Url::parse("https://example.com").unwrap())
             .allows_browser_fallback());
+    }
+
+    #[test]
+    fn browser_landing_on_a_private_host_is_refused() {
+        for raw in [
+            "http://127.0.0.1:8080/admin",
+            "http://192.168.1.5/router",
+            "http://169.254.169.254/latest/meta-data/",
+            "http://[::1]:9222/",
+        ] {
+            let url = Url::parse(raw).expect("url");
+            assert!(
+                matches!(assert_public_landing(&url), Err(error) if error.code == "PRIVATE_URL"),
+                "{raw} should be refused as private"
+            );
+        }
+
+        // Public host as an IP literal: a hostname would need a live DNS
+        // lookup (`assert_public_host` resolves), and the suite stays offline.
+        let url = Url::parse("https://1.1.1.1/post").expect("url");
+        assert!(assert_public_landing(&url).is_ok());
+    }
+
+    #[test]
+    fn browser_landing_without_a_host_fails_closed() {
+        let url = Url::parse("about:blank").expect("url");
+        assert!(assert_public_landing(&url).is_err());
     }
 
     #[test]
