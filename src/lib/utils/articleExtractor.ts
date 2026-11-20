@@ -13,6 +13,9 @@ export interface ExtractedArticle {
 	title: string | null;
 	/** Article body as markdown. */
 	content: string;
+	/** Metadata image of the page (og:image, twitter:image, JSON-LD) as an
+	 * absolute URL, or `null` when the page declares none. */
+	image: string | null;
 }
 
 export async function extractArticle(url: string): Promise<ExtractedArticle> {
@@ -24,6 +27,7 @@ export async function extractArticle(url: string): Promise<ExtractedArticle> {
 	}
 
 	const title = typeof result.title === 'string' ? result.title.trim() : '';
+	const image = typeof result.image === 'string' ? result.image.trim() : '';
 
-	return { title: title || null, content };
+	return { title: title || null, content, image: image || null };
 }

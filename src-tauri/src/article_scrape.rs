@@ -45,6 +45,9 @@ pub struct ExtractedArticle {
     pub title: Option<String>,
     /// Article body as markdown.
     pub content: String,
+    /// Metadata image of the page (og:image, twitter:image, JSON-LD), or
+    /// `null` when the page declares none. Always an absolute http(s) URL.
+    pub image: Option<String>,
 }
 
 impl ExtractedArticle {
@@ -365,6 +368,23 @@ fn fetch_rendered_html(
     result
 }
 
+/// Resolves the metadata image of a parsed article to an absolute http(s)
+/// URL. `readabilityrs` hands the value over verbatim, so relative paths
+/// (`/img/cover.jpg`) are joined against the final URL of the page.
+fn absolute_image_url(raw: Option<String>, base_url: &Url) -> Option<String> {
+    let trimmed = raw?.trim().to_string();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let resolved = base_url
+        .join(&trimmed)
+        .ok()
+        .filter(|url| matches!(url.scheme(), "http" | "https"))?;
+
+    Some(resolved.to_string())
+}
+
 /// Runs Readability on the HTML and returns markdown. Returns `None` when the
 /// engine produced nothing usable (SPA skeletons, empty pages).
 ///
@@ -388,6 +408,7 @@ fn extract_html(html: &str, url: &Url) -> Option<ExtractedArticle> {
     Some(ExtractedArticle {
         title: if title.is_empty() { None } else { Some(title) },
         content,
+        image: absolute_image_url(article.image, url),
     })
 }
 
@@ -566,7 +587,10 @@ mod tests {
 
     #[test]
     fn extracts_title_and_markdown_from_html() {
-        let html = r#"<html><head><title>Example Post</title></head><body>
+        let html = r#"<html><head>
+            <title>Example Post</title>
+            <meta property="og:image" content="/img/cover.jpg">
+        </head><body>
             <nav>Menu</nav>
             <article>
                 <h1>Example Post</h1>
@@ -582,6 +606,49 @@ mod tests {
         assert_eq!(article.title.as_deref(), Some("Example Post"));
         assert!(article.content.contains("First paragraph"));
         assert!(!article.content.contains("<p>"), "expected markdown, got HTML");
+        assert_eq!(
+            article.image.as_deref(),
+            Some("https://example.com/img/cover.jpg")
+        );
+    }
+
+    #[test]
+    fn metadata_image_without_og_is_none() {
+        let html = r#"<html><head><title>Example Post</title></head><body>
+            <article>
+                <p>First paragraph of the article body, long enough to be kept by the extractor.</p>
+                <p>Second paragraph continues the article with more content.</p>
+            </article>
+        </body></html>"#;
+        let url = Url::parse("https://example.com/post").unwrap();
+
+        let article = extract_html(html, &url).expect("extraction");
+
+        assert_eq!(article.image, None);
+    }
+
+    #[test]
+    fn absolute_image_urls_are_resolved_against_the_final_url() {
+        let base = Url::parse("https://example.com/blog/post").unwrap();
+
+        // A relative path joins against the page.
+        assert_eq!(
+            absolute_image_url(Some("/img/cover.jpg".to_string()), &base).as_deref(),
+            Some("https://example.com/img/cover.jpg")
+        );
+        // An absolute URL is kept as-is.
+        assert_eq!(
+            absolute_image_url(Some("https://cdn.example.com/x.png".to_string()), &base).as_deref(),
+            Some("https://cdn.example.com/x.png")
+        );
+        // Whitespace, empty and missing values resolve to nothing.
+        assert_eq!(absolute_image_url(Some("   ".to_string()), &base), None);
+        assert_eq!(absolute_image_url(None, &base), None);
+        // Non-http(s) schemes (data:, javascript:) are refused.
+        assert_eq!(
+            absolute_image_url(Some("data:image/png;base64,AAAA".to_string()), &base),
+            None
+        );
     }
 
     // Live checks. Ignored because they need network; run by hand with

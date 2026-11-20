@@ -27,11 +27,30 @@ describe('extractArticle', () => {
 
 		const article = await extractArticle('https://example.com/post');
 
-		expect(article).toEqual({ title: 'Write Like You Talk', content: '# Intro\n\nBody.' });
+		expect(article).toEqual({
+			title: 'Write Like You Talk',
+			content: '# Intro\n\nBody.',
+			image: null
+		});
 		expect(lastCall).toEqual({
 			command: 'extract_web_article',
 			args: { url: 'https://example.com/post' }
 		});
+	});
+
+	test('returns the trimmed metadata image, or null when the page has none', async () => {
+		handler = () => ({ title: 'T', content: 'Body.', image: '  /img/cover.jpg  ' });
+		expect(await extractArticle('https://example.com/post')).toEqual({
+			title: 'T',
+			content: 'Body.',
+			image: '/img/cover.jpg'
+		});
+
+		handler = () => ({ title: 'T', content: 'Body.', image: '   ' });
+		expect((await extractArticle('https://example.com/post')).image).toBeNull();
+
+		handler = () => ({ title: 'T', content: 'Body.' });
+		expect((await extractArticle('https://example.com/post')).image).toBeNull();
 	});
 
 	test('returns a null title when the page has none', async () => {

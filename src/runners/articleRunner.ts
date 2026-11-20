@@ -178,7 +178,8 @@ async function collectSource(
 		existingThumbnail?: string | null;
 		profile?: KnownProfile;
 		title?: string;
-		/** Forwarded to the YouTube source: paints the thumbnail on download. */
+		/** Forwarded to the web and YouTube sources: paints the thumbnail on
+		 * download. */
 		onThumbnail?: (thumbnail: string, thumbnailSrc: string) => void;
 	}
 ): Promise<SourceFetch> {
@@ -213,7 +214,10 @@ async function collectSource(
 		};
 	}
 
-	return fetchWebSource(url);
+	return fetchWebSource(url, {
+		existingThumbnail: options.existingThumbnail,
+		onThumbnail: options.onThumbnail
+	});
 }
 
 /**

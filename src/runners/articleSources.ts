@@ -97,10 +97,22 @@ export { youTubeVideoId };
  * Web source.
  *
  * The extractor service returns the markdown and the title together, so the
- * body is always available. The favicon is decoration: it starts here but
- * resolves in the returned `decoration`, never in front of the body.
+ * body is always available. The favicon and the metadata image (og:image)
+ * are decoration: they start here but resolve in the returned `decoration`,
+ * never in front of the body.
  */
-export async function fetchWebSource(url: string): Promise<SourceFetch> {
+export async function fetchWebSource(
+	url: string,
+	options: {
+		/** Stored thumbnail of the article: skips the download on re-runs. */
+		existingThumbnail?: string | null;
+		/**
+		 * Called as soon as the thumbnail file exists, which can be while the
+		 * body is still being analysed. Lets the view paint it early.
+		 */
+		onThumbnail?: (thumbnail: string, thumbnailSrc: string) => void;
+	} = {}
+): Promise<SourceFetch> {
 	const source = emptySourceResult();
 	const domain = domainFromUrl(url);
 
@@ -114,9 +126,32 @@ export async function fetchWebSource(url: string): Promise<SourceFetch> {
 	source.domain = domain || null;
 	source.profile = domain || null;
 
+	// The metadata image downloads like the YouTube thumbnail: one helper
+	// call, one media file, resolved src for the card.
+	const thumbnailTask = (async (): Promise<Partial<SourceResult>> => {
+		if (options.existingThumbnail) return { thumbnail: options.existingThumbnail };
+		if (!article.image) return {};
+
+		try {
+			const { mediaDirectory, fileName } = await downloadImageUrl(
+				article.image,
+				viewState.thumbnailReductionMagnitud
+			);
+			const thumbnailSrc = await getMediaSrc(fileName);
+			options.onThumbnail?.(fileName, thumbnailSrc);
+			return { mediaDirectory, thumbnail: fileName, thumbnailSrc };
+		} catch (error) {
+			console.warn('[articleSources] web thumbnail download failed', error);
+			return {};
+		}
+	})();
+
 	const decoration = (async (): Promise<Partial<SourceResult>> => {
-		const favicon = await faviconTask;
-		return { profilePictureSrc: favicon?.src ?? null };
+		const [favicon, thumbnail] = await Promise.all([faviconTask, thumbnailTask]);
+		return {
+			profilePictureSrc: favicon?.src ?? null,
+			...thumbnail
+		};
 	})();
 
 	return { source, decoration };
