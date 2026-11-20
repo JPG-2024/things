@@ -11,8 +11,6 @@ import {
 } from '@/constants';
 import type { KnownProfile } from '@/runners/articleRunner';
 
-const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
-
 export interface FetchMissingProfileVideosResult {
 	total: number;
 	missing: number;
@@ -31,7 +29,8 @@ export interface YoutubeProfile {
 	id: string;
 	profilePath: string;
 	videos: YouTubeVideo[];
-	profileImage: string;
+	/** `null` when the channel has no avatar the scraper could read. */
+	profileImage: string | null;
 }
 
 export interface YoutubeVideoInfo {
@@ -53,6 +52,11 @@ class ScrapState {
 	 * enqueued afterwards.
 	 */
 	scrollLimit = $state(YOUTUBE_SCRAPE_LIMIT_DEFAULT);
+	/**
+	 * Chromium binary the embedded YouTube scraper should launch. Empty means
+	 * "auto-detect the system install" (see `youtube_scrape.rs`).
+	 */
+	chromiumPath = $state('');
 
 	async getYoutubeProfile(
 		handleOrUrl: string,
@@ -61,9 +65,7 @@ class ScrapState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const data = options?.scroll
-				? await this.fetchYoutubeProfileWithScroll(handleOrUrl, options.limit)
-				: await this.fetchYoutubeProfileViaScrape(handleOrUrl);
+			const data = await this.fetchYoutubeProfile(handleOrUrl, options);
 			this.profile = data;
 			return data;
 		} catch (err) {
@@ -81,24 +83,15 @@ class ScrapState {
 		}
 	}
 
-	private async fetchYoutubeProfileViaScrape(handleOrUrl: string): Promise<YoutubeProfile> {
-		const url = buildYouTubeProfileUrl(handleOrUrl);
-		const res = await fetch(`${SCRAPER_API_URL}/api/scrape`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ url })
-		});
-
-		if (!res.ok) {
-			throw new Error(`Scrape request failed: ${res.status} ${res.statusText}`);
-		}
-
-		return (await res.json()) as YoutubeProfile;
-	}
-
-	private async fetchYoutubeProfileWithScroll(
+	/**
+	 * Scrapes the channel page through the embedded Chromium
+	 * (`youtube_scrape.rs`). The cheap first-batch read and the scrolling
+	 * refresh are the same command; `scroll` only decides whether endless
+	 * continuations are consumed.
+	 */
+	private async fetchYoutubeProfile(
 		handleOrUrl: string,
-		limit?: number
+		options?: { scroll?: boolean; limit?: number }
 	): Promise<YoutubeProfile> {
 		const profileUrl = buildYouTubeProfileUrl(handleOrUrl);
 		let profilePath: string;
@@ -108,38 +101,25 @@ class ScrapState {
 			profilePath = handleOrUrl.trim().replace(/^\/+/, '');
 		}
 
-		// Clamp to the API contract (1..1500) so a hand-edited stored value
-		// never reaches the scraper out of range.
+		// Clamp to the contract (1..1500) so a hand-edited stored value never
+		// reaches the scraper out of range.
 		const safeLimit = Math.min(
 			YOUTUBE_SCRAPE_LIMIT_MAX,
-			Math.max(YOUTUBE_SCRAPE_LIMIT_MIN, Math.trunc(limit ?? YOUTUBE_SCRAPE_LIMIT_DEFAULT))
-		);
-		const params = new URLSearchParams({ scroll: 'true', limit: String(safeLimit) });
-
-		const res = await fetch(
-			`${SCRAPER_API_URL}/api/profile/youtube/${profilePath}?${params.toString()}`
+			Math.max(YOUTUBE_SCRAPE_LIMIT_MIN, Math.trunc(options?.limit ?? YOUTUBE_SCRAPE_LIMIT_DEFAULT))
 		);
 
-		if (!res.ok) {
-			throw new Error(`Profile scrape request failed: ${res.status} ${res.statusText}`);
-		}
-
-		return (await res.json()) as YoutubeProfile;
+		return invoke<YoutubeProfile>('scrape_youtube_profile', {
+			profilePath,
+			scroll: options?.scroll ?? false,
+			limit: safeLimit
+		});
 	}
 
 	async getYoutubeVideoInfo(videoId: string): Promise<YoutubeVideoInfo | null> {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await fetch(
-				`${SCRAPER_API_URL}/api/video/youtube/${encodeURIComponent(videoId)}`
-			);
-
-			if (!res.ok) {
-				throw new Error(`Video info request failed: ${res.status} ${res.statusText}`);
-			}
-
-			const data = (await res.json()) as YoutubeVideoInfo;
+			const data = await invoke<YoutubeVideoInfo>('get_youtube_video_owner', { videoId });
 			this.videoInfo = data;
 			return data;
 		} catch (err) {
@@ -169,8 +149,8 @@ class ScrapState {
 	/**
 	 * Turns the channel the scrape just returned into the `KnownProfile` the
 	 * runs are queued with: one picture download (Rust skips a file it already
-	 * has) and one row upsert for the whole batch, instead of one
-	 * `/api/video` + `/api/scrape` round trip per video.
+	 * has) and one row upsert for the whole batch, instead of one video-owner +
+	 * channel scrape round trip per video.
 	 */
 	private async resolveKnownProfile(profile: YoutubeProfile): Promise<KnownProfile> {
 		// Same normalization `resolveYouTubeProfile` applies to a scraped id.

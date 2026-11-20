@@ -1,6 +1,18 @@
 mod youtube;
 pub use crate::youtube::{get_youtube_transcript_timed, get_youtube_transcript_timed_text};
 
+mod browser;
+pub use crate::browser::BrowserState;
+
+mod youtube_scrape;
+pub use crate::youtube_scrape::{
+    get_youtube_video_owner, scrape_youtube_profile, set_youtube_browser_path,
+    youtube_browser_status,
+};
+
+mod article_scrape;
+pub use crate::article_scrape::extract_web_article;
+
 mod embed_server;
 pub use crate::embed_server::youtube_embed_url;
 
@@ -156,6 +168,7 @@ pub fn run() {
         .manage(AudioRecorderState::default())
         .manage(PhononState::default())
         .manage(global_shortcut::GlobalShortcutState::default())
+        .manage(BrowserState::default())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -218,6 +231,11 @@ pub fn run() {
             update_category_exemplars_model,
             get_youtube_transcript_timed,
             get_youtube_transcript_timed_text,
+            scrape_youtube_profile,
+            get_youtube_video_owner,
+            youtube_browser_status,
+            set_youtube_browser_path,
+            extract_web_article,
             youtube_embed_url,
             download_and_save_image,
             url_to_folder_name,
@@ -267,6 +285,11 @@ pub fn run() {
         if let RunEvent::Exit = event {
             let state = app_handle.state::<LlamaServersState>();
             kill_spawned_servers(&state);
+
+            // The scrape browser is a child of this process: release it
+            // explicitly so quitting never leaves an orphaned Chromium.
+            let scrape_state = app_handle.state::<BrowserState>();
+            scrape_state.close_browser();
         }
     });
 }

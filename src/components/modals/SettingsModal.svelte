@@ -128,15 +128,15 @@
 	] as const;
 
 	const EXTERNAL_SERVICES = [
-		{ key: 'scrap', label: 'Scrap service' },
+		{ key: 'chromium', label: 'Chromium (scrapers)' },
 		{ key: 'tts', label: 'TTS service' },
 		{ key: 'whisper', label: 'Whisper service' }
 	] as const;
 
 	function externalServiceUp(name: ExternalServiceName): boolean {
 		switch (name) {
-			case 'scrap':
-				return viewState.scrapServiceUp;
+			case 'chromium':
+				return viewState.scrapBrowserUp;
 			case 'tts':
 				return viewState.ttsServiceUp;
 			case 'whisper':
@@ -848,6 +848,12 @@
 				max={YOUTUBE_SCRAPE_LIMIT_MAX}
 				tooltip="Unique videos scanned per channel refresh when scrolling (1–1500). Only the refresh buttons scroll."
 				bind:value={scrapStore.scrollLimit}
+			/>
+			<TextField
+				label="Chromium path"
+				placeholder="Auto-detect"
+				tooltip="Binary used by the embedded YouTube scraper. Leave empty to auto-detect Chromium/Chrome from the system."
+				bind:value={scrapStore.chromiumPath}
 			/>
 		</div>
 	</Spacer>

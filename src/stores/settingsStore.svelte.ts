@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { LazyStore } from '@tauri-apps/plugin-store';
 import { viewState } from '@/stores/viewStore.svelte';
 import { playerStore } from '@/stores/playerStore.svelte';
@@ -151,7 +151,8 @@ function serializeView() {
 function serializeScrap() {
 	return {
 		maxVideos: scrapStore.maxVideos,
-		scrollLimit: scrapStore.scrollLimit
+		scrollLimit: scrapStore.scrollLimit,
+		chromiumPath: scrapStore.chromiumPath
 	};
 }
 
@@ -368,6 +369,9 @@ function applyScrap(raw: unknown): void {
 			YOUTUBE_SCRAPE_LIMIT_MAX
 		);
 	}
+	if (typeof raw.chromiumPath === 'string') {
+		scrapStore.chromiumPath = raw.chromiumPath;
+	}
 }
 
 function applyPlayer(raw: unknown): void {
@@ -472,6 +476,14 @@ export function startSettingsPersistence(): void {
 		});
 		$effect(() => {
 			void activeStore.set('scrap', serializeScrap()).catch(warnWriteFailure);
+		});
+		// The scraper lives in Rust: hand it the Chromium path whenever it
+		// changes so the next browser launch uses the configured binary.
+		$effect(() => {
+			const path = scrapStore.chromiumPath;
+			void invoke('set_youtube_browser_path', { path: path.trim() || null }).catch(
+				warnWriteFailure
+			);
 		});
 		$effect(() => {
 			void activeStore.set('tts', serializeTts()).catch(warnWriteFailure);

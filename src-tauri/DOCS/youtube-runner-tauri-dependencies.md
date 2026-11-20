@@ -29,6 +29,6 @@ including those reached transitively through its imported helpers.
 
 - **Task-level flow:** the runner's own tasks (`init-youtube`, `thumbnail`, `content`) are pure JS. Only `timed-captions` calls an invoke directly; `thumbnail` reaches the backend through `downloadImageUrl`.
 - **Template/default tasks don't add invokes:** template tasks are `ia`/`extractor`/`script recursive` and use `chatCompletions` over HTTP to llama-server, not Tauri `invoke`.
-- **Not invokes (but backend-adjacent):** `createEmbeddings` (HTTP to `VITE_EMBEDDINGS_URL`), `scrapStore.getProfileInfoFromVideo` (HTTP to `VITE_SCRAPER_API_URL`), and `getMediaSrc`/`convertFileSrc` (Tauri asset protocol, not a command).
+- **Not invokes (but backend-adjacent):** `createEmbeddings` (HTTP to `VITE_EMBEDDINGS_URL`), `scrapStore.getProfileInfoFromVideo` (now the `get_youtube_video_owner` invoke), and `getMediaSrc`/`convertFileSrc` (Tauri asset protocol, not a command).
 - **Conditional paths:** `read_raw_content` (#17) only fires when a cached content task uses the raw-content ref shape; `assign_categories_to_article` (#11) only when a category task emitted names; `index_chunks` (#16) only when embeddings are enabled; #14 vs #15 depends on the profile/domain id.
 - **Not reachable here:** `filter_existing_article_urls`, `list_web_store_tasks`, `list_web_store_articles`, and the delete commands live in other store methods this runner doesn't call.

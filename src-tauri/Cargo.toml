@@ -49,7 +49,10 @@ tauri-plugin-opener = "2"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10.9"
 hex = "0.4"
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.11", features = ["json", "stream", "blocking"] }
+# Chromium CDP engine for the scrapers (YouTube DOM and the article browser
+# fallback). Pinned: the crate is alpha (0.3.x) and the API is still moving.
+rustwright = "=0.3.0"
 quick-xml = "0.31"
 base64 = "0.21"
 rusqlite = { version = "0.33", features = ["bundled"] }
@@ -76,6 +79,7 @@ zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 # for local checkpoints); `hub` is deliberately absent so the library can never
 # download models — checkpoints are hand-downloaded folders (see phonon_tts.rs).
 ptts = { version = "0.7", features = ["hf"], optional = true }
+readabilityrs = "0.1.4"
 
 [features]
 default = ["phonon"]

@@ -44,8 +44,8 @@ is either analysed or it is not, and the analysis is persisted in two places
 Fetches what the source gives for free. The step returns in two parts:
 
 - **body** — everything the analysis needs, awaited before the step returns:
-  - **web**: `extractArticle` (`POST /api/article` on the scraper service,
-    `format: md`, `render: auto`, `engine: defuddle`) → markdown →
+  - **web**: `extractArticle` (`extract_web_article` Tauri command: static
+    fetch, headless-browser fallback, Readability in Rust) → markdown →
     `compactMarkdown`. The body always comes with the extraction.
   - **youtube**: in `full` mode, the transcript
     (`get_youtube_transcript_timed`). It is a separate and expensive request,
@@ -57,8 +57,9 @@ Fetches what the source gives for free. The step returns in two parts:
   the row by a second upsert at the end of the run (see step 3).
 
 The **profile** of a YouTube video is resolved as decoration: the
-`web_profiles` row is read first (zero network) and the external scraper is
-only asked when the row is missing.
+`web_profiles` row is read first (zero network) and the embedded Chromium
+scraper (`scrape_youtube_profile` / `get_youtube_video_owner` in
+`src-tauri/src/youtube_scrape.rs`) is only asked when the row is missing.
 
 Every step asks _"do I already have this?"_ before spending it:
 

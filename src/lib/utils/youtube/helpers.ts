@@ -115,8 +115,9 @@ export function isYouTubeEndedEvent(data: unknown): boolean {
 /**
  * Builds a canonical YouTube profile/channel URL from a handle, path, or full URL.
  * YoutubeVideoInfo.profile is now a handle like `@syntaxfm` (from `https://www.youtube.com/@syntaxfm`),
- * but the scraper API (`/api/scrape`) expects a full URL. This helper bridges the two
- * and remains backwards-compatible with cached full URLs.
+ * so the scrape path the Rust scraper expects (`scrape_youtube_profile`) is the
+ * URL's pathname. This helper bridges the two and remains backwards-compatible
+ * with cached full URLs.
  */
 export function buildYouTubeProfileUrl(handleOrUrl: string): string {
 	const v = handleOrUrl.trim();

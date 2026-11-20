@@ -1,12 +1,12 @@
+import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
 import { createAdaptivePoller } from '@/lib/utils/adaptivePoller';
 import { getTTSApiKey } from '@/lib/utils/ttsAuth';
 
-const SCRAPER_API_URL = import.meta.env.VITE_SCRAPER_API_URL ?? 'http://localhost:3003';
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
 
-export type ExternalServiceName = 'scrap' | 'tts' | 'whisper';
+export type ExternalServiceName = 'chromium' | 'tts' | 'whisper';
 
 const POLL_INTERVAL_MS = 15000;
 const POLL_MAX_INTERVAL_MS = 60000;
@@ -54,16 +54,28 @@ async function probeService(baseUrl: string, fallbackPath: string): Promise<bool
 }
 
 /**
- * Check the scraper, TTS, and whisper services and sync the results into
- * `viewState` for the toolbar health dots.
+ * Whether the embedded YouTube scraper has a Chromium binary to drive. Local
+ * and cheap: no process is launched, the Rust side only resolves the path.
+ */
+async function probeChromium(): Promise<boolean> {
+	try {
+		return await invoke<boolean>('youtube_browser_status');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Check the scraper's Chromium, TTS, and whisper services and sync the results
+ * into `viewState` for the toolbar health dots.
  */
 export async function refreshExternalServicesHealth(): Promise<void> {
-	const [scrapUp, ttsUp, whisperUp] = await Promise.all([
-		probeService(SCRAPER_API_URL, '/api/scrape'),
+	const [chromiumUp, ttsUp, whisperUp] = await Promise.all([
+		probeChromium(),
 		probeService(TTS_API_URL, '/voices'),
 		probeService(WHISPER_API_URL, '/speech')
 	]);
-	viewState.scrapServiceUp = scrapUp;
+	viewState.scrapBrowserUp = chromiumUp;
 	viewState.ttsServiceUp = ttsUp;
 	viewState.whisperServiceUp = whisperUp;
 
@@ -75,16 +87,17 @@ export async function refreshExternalServicesHealth(): Promise<void> {
 }
 
 /**
- * Poll the three external services and mirror their health into `viewState`.
- * Adaptive: skips cycles while the window is hidden and backs off (15 → 30 →
- * 60 s) while any service is down. Returns a stop function for cleanup.
+ * Poll the external services (and the scraper's Chromium) and mirror their
+ * health into `viewState`. Adaptive: skips cycles while the window is hidden
+ * and backs off (15 → 30 → 60 s) while any service is down. Returns a stop
+ * function for cleanup.
  */
 export function startExternalServicesHealthPolling(): () => void {
 	return createAdaptivePoller({
 		intervalMs: POLL_INTERVAL_MS,
 		maxIntervalMs: POLL_MAX_INTERVAL_MS,
 		refresh: refreshExternalServicesHealth,
-		isAllUp: () => viewState.scrapServiceUp && viewState.ttsServiceUp && viewState.whisperServiceUp,
+		isAllUp: () => viewState.scrapBrowserUp && viewState.ttsServiceUp && viewState.whisperServiceUp,
 		label: 'external-services'
 	});
 }

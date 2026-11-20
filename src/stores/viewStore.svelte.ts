@@ -278,7 +278,8 @@ class ViewState {
 	embeddingStoreChunkText = $state(true);
 	embeddingsServiceUp = $state(false);
 	inferenceServiceUp = $state(false);
-	scrapServiceUp = $state(false);
+	/** Chromium availability for the embedded scrapers (articles + YouTube). */
+	scrapBrowserUp = $state(false);
 	ttsServiceUp = $state(false);
 	ttsAuthRequired = $state(false);
 	whisperServiceUp = $state(false);

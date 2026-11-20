@@ -296,6 +296,29 @@ Use a reactive options function (getter) when the hotkey should only fire under 
   because the port is picked at runtime (`portpicker`). Do not change the
   bind away from loopback.
 
+### Scrapers (`src-tauri/src/browser.rs`, `youtube_scrape.rs`, `article_scrape.rs`)
+
+- Both scrapers run in-process through the `rustwright` crate (same CDP engine
+  the old Node scraper used). There is no sidecar and no HTTP scraping service:
+  YouTube calls `scrape_youtube_profile` / `get_youtube_video_owner` and web
+  articles call `extract_web_article`, all with `invoke`.
+- `rustwright` is pinned (`=0.3.0`) because the crate is alpha.
+- `browser.rs` owns the single Chromium: one per process, launched lazily and
+  shared by both scrapers. Every command runs the synchronous crate API inside
+  `spawn_blocking`. A channel scroll can take ~75 s, so never call it inline on
+  the async runtime. The browser is closed on `RunEvent::Exit`.
+- Chromium is a runtime dependency (discovered from the system, override with
+  Settings → Scraping → Chromium path, exposed as `set_youtube_browser_path`).
+  `youtube_browser_status` feeds the "Chromium (scrapers)" health dot.
+- `article_scrape.rs` ports the article path: static fetch with a manual
+  redirect loop and the SSRF guard re-run on every hop, then `readabilityrs`
+  (Readability) produces the markdown, with a rendered-page fallback when the
+  extraction is shorter than `MIN_CONTENT_CHARS` or the fetch fails.
+- Network checks are `#[ignore]`d so the suite stays offline:
+  `cargo test --manifest-path src-tauri/Cargo.toml --lib live_ -- --ignored`.
+  The article A/B harness against the old Node scraper reads
+  `/tmp/opencode/ab-urls.txt` and writes markdown to `/tmp/opencode/ab-rust`.
+
 ### Linux app icon (GNOME / Wayland)
 
 - On Wayland, GNOME ignores the window icon; the dock/Activities/Alt-Tab icon comes from an installed `.desktop` file matched by app id (`things`, verified via `WAYLAND_DEBUG=1 ... | grep set_app_id`), then `Icon=` from the icon theme.

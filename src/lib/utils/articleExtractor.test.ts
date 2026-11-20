@@ -1,69 +1,65 @@
-import { afterEach, describe, expect, test } from 'bun:test';
-import { extractArticle } from './articleExtractor';
+import { afterAll, afterEach, describe, expect, mock, test } from 'bun:test';
 
-const originalFetch = globalThis.fetch;
+let lastCall: { command: string; args?: Record<string, unknown> } | null = null;
+let handler: () => unknown = () => ({});
 
-let lastRequest: { url: string; body: unknown } | null = null;
-
-function mockFetch(handler: () => Response | Promise<Response>) {
-	globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-		const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
-		lastRequest = { url: String(input), body };
+mock.module('@tauri-apps/api/core', () => ({
+	invoke: async (command: string, args?: Record<string, unknown>) => {
+		lastCall = { command, args };
 		return handler();
-	}) as typeof fetch;
-}
+	}
+}));
+
+const { extractArticle } = await import('./articleExtractor');
 
 afterEach(() => {
-	globalThis.fetch = originalFetch;
-	lastRequest = null;
+	lastCall = null;
+	handler = () => ({});
+});
+
+afterAll(() => {
+	mock.restore();
 });
 
 describe('extractArticle', () => {
-	test('returns the trimmed title and the markdown body', async () => {
-		mockFetch(() =>
-			Response.json({
-				url: 'https://example.com/post',
-				title: '  Write Like You Talk  ',
-				content: '# Intro\n\nBody.'
-			})
-		);
+	test('calls the extract command and returns the trimmed title and markdown body', async () => {
+		handler = () => ({ title: '  Write Like You Talk  ', content: '# Intro\n\nBody.' });
 
 		const article = await extractArticle('https://example.com/post');
 
 		expect(article).toEqual({ title: 'Write Like You Talk', content: '# Intro\n\nBody.' });
-		expect(lastRequest?.url).toEndWith('/api/article');
-		expect(lastRequest?.body).toEqual({
-			url: 'https://example.com/post',
-			format: 'md',
-			render: 'auto',
-			engine: 'defuddle'
+		expect(lastCall).toEqual({
+			command: 'extract_web_article',
+			args: { url: 'https://example.com/post' }
 		});
 	});
 
 	test('returns a null title when the page has none', async () => {
-		mockFetch(() => Response.json({ title: '', content: 'Body.' }));
+		handler = () => ({ title: null, content: 'Body.' });
 
 		expect((await extractArticle('https://example.com/post')).title).toBeNull();
 	});
 
-	test('surfaces the service error verbatim', async () => {
-		mockFetch(() => Response.json({ error: 'Host "x" could not be resolved' }, { status: 502 }));
+	test('surfaces the backend error verbatim', async () => {
+		handler = () => {
+			throw 'Host "x" could not be resolved';
+		};
 
-		await expect(extractArticle('https://example.com/post')).rejects.toThrow(
+		await expect(extractArticle('https://example.com/post')).rejects.toBe(
 			'Host "x" could not be resolved'
 		);
 	});
 
-	test('falls back to the HTTP status when the error body is not JSON', async () => {
-		mockFetch(() => new Response('<html>Bad gateway</html>', { status: 500 }));
+	test('rejects a successful result without content', async () => {
+		handler = () => ({ title: 'Empty' });
 
 		await expect(extractArticle('https://example.com/post')).rejects.toThrow(
-			'Web extractor failed (HTTP 500)'
+			'Web extractor returned no content'
 		);
 	});
 
-	test('rejects a successful response without content', async () => {
-		mockFetch(() => Response.json({ title: 'Empty' }));
+	test('rejects a whitespace-only body', async () => {
+		handler = () => ({ title: 'Empty', content: '   \n ' });
 
 		await expect(extractArticle('https://example.com/post')).rejects.toThrow(
 			'Web extractor returned no content'
