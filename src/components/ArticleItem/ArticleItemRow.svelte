@@ -64,7 +64,7 @@
 
 	.article-content :global(.article-thumbnail-container) {
 		opacity: 0.8;
-		width: 190px !important;
+		width: 209px !important;
 	}
 
 	.article-content :global(.article-thumbnail) {
