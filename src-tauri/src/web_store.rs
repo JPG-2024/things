@@ -5741,7 +5741,8 @@ mod tests {
             .expect("profiles by category");
         let profile_ids: Vec<&str> = profiles.iter().map(|p| p.id.as_str()).collect();
         assert_eq!(
-            profile_ids, vec!["tagged-channel"],
+            profile_ids,
+            vec!["tagged-channel"],
             "only stored links match"
         );
     }
@@ -6107,9 +6108,7 @@ mod tests {
         assert!(read_error_message(&conn, "a1").is_none());
 
         // A blank message is stored as NULL, never as an empty marker.
-        assert!(
-            update_article_error_row(&conn, "a1", Some("   ".into())).expect("blank error")
-        );
+        assert!(update_article_error_row(&conn, "a1", Some("   ".into())).expect("blank error"));
         assert!(read_error_message(&conn, "a1").is_none());
 
         // An unknown url updates nothing.

@@ -174,8 +174,7 @@ fn collect_videos(page: &Page) -> Result<Vec<ScrapedVideo>, String> {
         .evaluate(COLLECT_VIDEOS_JS, None, ActionOptions::default())
         .map_err(|error| format!("Video collection failed: {error}"))?;
 
-    serde_json::from_value(value)
-        .map_err(|error| format!("Unexpected video list shape: {error}"))
+    serde_json::from_value(value).map_err(|error| format!("Unexpected video list shape: {error}"))
 }
 
 fn page_header_text(page: &Page) -> Result<Vec<String>, String> {
@@ -328,8 +327,12 @@ fn scrape_profile_sync(
 
     let result = (|| -> Result<ScrapedProfile, String> {
         let url = format!("https://{DOMAIN}/{}{}/videos", parsed.prefix, parsed.id);
-        navigate(&page, &url, GotoOptions::default().wait_until("domcontentloaded"))
-            .map_err(|error| error.message)?;
+        navigate(
+            &page,
+            &url,
+            GotoOptions::default().wait_until("domcontentloaded"),
+        )
+        .map_err(|error| error.message)?;
         wait_for_selector(&page, "#content", SELECTOR_TIMEOUT)?;
 
         // Channels without a header exist: the wait is best effort, and the
@@ -370,8 +373,12 @@ fn video_owner_sync(state: &BrowserState, id: &str) -> Result<VideoOwner, String
 
     let result = (|| -> Result<VideoOwner, String> {
         let url = format!("https://{DOMAIN}/watch?v={id}");
-        navigate(&page, &url, GotoOptions::default().wait_until("domcontentloaded"))
-            .map_err(|error| error.message)?;
+        navigate(
+            &page,
+            &url,
+            GotoOptions::default().wait_until("domcontentloaded"),
+        )
+        .map_err(|error| error.message)?;
 
         // `#content` is a skeleton shell; the owner's @handle anchor renders
         // later, so waiting for it (not for the shell) is what matters.
@@ -535,7 +542,10 @@ mod tests {
 
         assert_eq!(
             dedupe(videos),
-            vec![video("https://youtu.be/a", "A"), video("https://youtu.be/b", "B")]
+            vec![
+                video("https://youtu.be/a", "A"),
+                video("https://youtu.be/b", "B")
+            ]
         );
     }
 

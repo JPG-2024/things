@@ -54,8 +54,8 @@ pub use crate::audio_capture::{
 
 mod phonon_tts;
 pub use crate::phonon_tts::{
-    tts_list_voices, tts_phonon_available, tts_phonon_unload, tts_synthesize, tts_validate_checkpoint,
-    PhononState,
+    tts_list_voices, tts_phonon_available, tts_phonon_unload, tts_synthesize,
+    tts_validate_checkpoint, PhononState,
 };
 
 mod embedding_store;
