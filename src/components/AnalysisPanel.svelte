@@ -280,7 +280,7 @@
 	<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
 		{#if rawModalIndex !== null}
 			<div class="raw-text-modal-container">
-				<div class="chunk-raw-text">{rawModalText}</div>
+				<MarkdownRenderer content={rawModalText} />
 			</div>
 		{/if}
 	</Modal>
