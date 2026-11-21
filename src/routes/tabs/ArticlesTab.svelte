@@ -38,13 +38,6 @@
 		new Map(filteredSearchResults.map((result) => [result.article, result.match]))
 	);
 
-	function handleClearSearch() {
-		// Clears results, the committed filter and the typed draft, so coming
-		// back from another route cannot re-trigger the auto raw search.
-		viewState.clearUnifiedFilter();
-		viewState.rawSearchResults = null;
-	}
-
 	const filtersActive = $derived(articleFilters.hasActive);
 
 	// Two independent empty states: a committed raw search with no matches,
@@ -87,16 +80,7 @@
 </script>
 
 <div class="article-tab__container">
-	{#if viewState.rawSearchLoading}
-		<div class="empty-profiles-container">
-			<div class="empty-profiles-pill">Searching raw content...</div>
-		</div>
-	{:else if searchResults !== null}
-		<div class="search-results-header">
-			<button type="button" class="search-results-clear" onclick={handleClearSearch}>
-				{filteredSearchResults.length} result{filteredSearchResults.length !== 1 ? 's' : ''} — clear
-			</button>
-		</div>
+	{#if searchResults !== null}
 		<ArticleList
 			items={searchArticles}
 			presetOverride="row"
@@ -146,30 +130,6 @@
 	}
 
 	.empty-profiles-pill:hover {
-		opacity: 1;
-	}
-
-	.search-results-header {
-		display: flex;
-		justify-content: center;
-		padding: 1rem 0;
-	}
-
-	.search-results-clear {
-		all: unset;
-		cursor: pointer;
-		opacity: 0.6;
-		transition: opacity 0.15s;
-		border: 1px solid var(--primary-color);
-		border-radius: var(--radius-sm);
-		padding: 7px 20px;
-		color: var(--primary-color);
-		font-weight: bold;
-		font-size: 0.88rem;
-		line-height: 1.2;
-	}
-
-	.search-results-clear:hover {
 		opacity: 1;
 	}
 </style>

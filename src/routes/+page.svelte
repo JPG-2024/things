@@ -15,6 +15,7 @@
 	import { ttsState } from '@/stores/ttsStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
+	import { loadingStore } from '@/stores/loadingStore.svelte';
 	import { createHotkey } from '@tanstack/svelte-hotkeys';
 	import {
 		deleteProfileById,
@@ -132,6 +133,15 @@
 		}
 		viewState.rawSearchLastPattern = trimmed;
 		viewState.rawSearchLoading = true;
+		// Per-run id: a stale in-flight run and a fresh one can overlap after a
+		// clear, and a fixed id would let the old finish delete the new entry.
+		const loadingId = `search:raw-content:${Date.now()}`;
+		loadingStore.start(loadingId, {
+			source: 'frontend',
+			module: 'db',
+			label: `raw content: ${trimmed}`,
+			message: 'Searching raw content…'
+		});
 		try {
 			const results = await invoke<
 				Array<{
@@ -145,6 +155,9 @@
 				pattern: trimmed,
 				contextChars: viewState.rawSearchContextChars
 			});
+
+			// A late reply for an emptied input must not resurrect the filter.
+			if (trimmed !== viewState.unifiedFilter.trim()) return;
 
 			const articles = await mapArticlesFromRecords(results.map((r) => r.article));
 			const articleByUrl = new Map(articles.map((article) => [article.url ?? '', article]));
@@ -161,8 +174,10 @@
 			viewState.rawSearchResults = mapped;
 		} catch (error) {
 			console.warn('[raw-search] error', error);
-			viewState.rawSearchResults = [];
+			loadingStore.fail(loadingId, error instanceof Error ? error.message : String(error));
+			if (trimmed === viewState.unifiedFilter.trim()) viewState.rawSearchResults = [];
 		} finally {
+			loadingStore.finish(loadingId);
 			viewState.rawSearchLoading = false;
 		}
 	}
@@ -178,6 +193,25 @@
 		if (!filter) return;
 		const timeout = setTimeout(() => void handleRawSearch(filter), 1000);
 		return () => clearTimeout(timeout);
+	});
+
+	// Emptying the search input rolls back everything it drove: facets, the
+	// committed term and the raw results. Typing reopens the panel. The guard
+	// keeps mount and manual opens (F) with an empty input untouched.
+	let filterInputHadText = false;
+	$effect(() => {
+		const hasText = viewState.unifiedFilterDraft.trim().length > 0;
+		if (hasText === filterInputHadText) return;
+		filterInputHadText = hasText;
+		if (hasText) {
+			// A clear landing while the panel warms up must not resurrect it.
+			void articleFilters.openFiltersPanel().then(() => {
+				if (!viewState.unifiedFilterDraft.trim()) articleFilters.filtersPanelVisible = false;
+			});
+			return;
+		}
+		articleFilters.clearAll();
+		articleFilters.filtersPanelVisible = false;
 	});
 
 	async function handleDeleteProfile(profileId: string) {
@@ -321,7 +355,7 @@
 						onEnter={() => viewState.commitUnifiedFilter()}
 						onFocus={() => void articleFilters.openFiltersPanel()}
 					/>
-					{#if articleFilters.hasActive}
+					{#if articleFilters.hasClearable}
 						<button
 							type="button"
 							class="filters-trigger"

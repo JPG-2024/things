@@ -503,6 +503,11 @@ class ArticleFiltersState {
 		return this.profiles.length > 0 || this.domains.length > 0 || this.categories.length > 0;
 	}
 
+	/** Facets or search text left to clear: drives the FunnelX icon and Shift+X. */
+	get hasClearable(): boolean {
+		return this.hasActive || viewState.unifiedFilterDraft.trim().length > 0;
+	}
+
 	/** Click semantics: selecting an active facet entry deselects it. */
 
 	entries(kind: ArticleFilterKind): ArticleFilterEntry[] {

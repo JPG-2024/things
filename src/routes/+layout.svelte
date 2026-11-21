@@ -254,7 +254,7 @@
 		'Shift+X',
 		() => articleFilters.clearAll(),
 		() => ({
-			enabled: articleFilters.hasActive,
+			enabled: articleFilters.hasClearable,
 			ignoreInputs: true,
 			stopPropagation: true,
 			preventDefault: true
