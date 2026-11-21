@@ -14,6 +14,7 @@
 		getProfile,
 		getProfileCategories,
 		invalidateProfilesCache,
+		isDomainProfile,
 		setProfileSummary,
 		type ArticleProfile,
 		type ArticleRecord
@@ -31,6 +32,15 @@
 
 	let profileId = $derived(page.params.profileId);
 	let profile = $state<ArticleProfile | null>(null);
+
+	// YouTube rows keep their channel URL; domain rows store `url: null`, so the
+	// site is built from the domain id.
+	const profileLinkUrl = $derived.by(() => {
+		if (!profile) return null;
+		if (profile.url) return profile.url;
+		return isDomainProfile(profile) ? `https://${profile.id}` : null;
+	});
+
 	let loading = $state(true);
 	let isDeleting = $state(false);
 	let profileCategoryIds = $state<string[]>([]);
@@ -211,8 +221,8 @@
 				<ProfileFavoriteButton {profileId} />
 				<div class="profile-toolbar">
 					<Toolbar justify="end" iconSize={20}>
-						{#if profile.url}
-							<LinkIcon url={profile.url} />
+						{#if profileLinkUrl}
+							<LinkIcon url={profileLinkUrl} />
 						{/if}
 						<Icon
 							name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}

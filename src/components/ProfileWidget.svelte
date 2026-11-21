@@ -5,7 +5,7 @@
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { goto } from '$app/navigation';
-	import { type ArticleProfile, type ArticleRecord } from '@/stores/webStore';
+	import { isDomainProfile, type ArticleProfile, type ArticleRecord } from '@/stores/webStore';
 	import { viewState } from '@/stores/viewStore.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { scrapStore } from '@/stores/scrapStore.svelte';
@@ -21,7 +21,7 @@
 
 	const isProfileRunning = $derived(scrapStore.isFetchingMissingVideos);
 	const articles = $derived(profileWithArticles.articles ?? []);
-	const isDomain = $derived(profileWithArticles.domainId === profileWithArticles.id);
+	const isDomain = $derived(isDomainProfile(profileWithArticles));
 	const layout = $derived(viewState.cardLayout[isDomain ? 'domains' : 'profiles']);
 	const gridRows = $derived(collapsed ? 1 : layout.rows);
 

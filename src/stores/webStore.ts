@@ -409,6 +409,11 @@ export function isDomainId(id: string): boolean {
 	return !id.includes('@') && /^[\w-]+(\.[\w-]+)+$/.test(id);
 }
 
+/** True when the row is the web domain itself; YouTube channels keep a distinct id. */
+export function isDomainProfile(profile: Pick<ArticleProfile, 'id' | 'domainId'>): boolean {
+	return profile.domainId === profile.id;
+}
+
 export function normalizeDomainId(value: string): string {
 	return value.toLowerCase().replace(/\s+/g, '-');
 }
@@ -988,7 +993,7 @@ export async function deleteProfileById(profileId: string): Promise<WebStoreProf
 		// thumbnails and the bucket picture are all cleaned up server-side now
 		// (see IPC-5 in docs/perf-plan-bottlenecks.md).
 		const profile = await getProfile(profileId);
-		const isDomain = profile ? profile.domainId === profile.id : isDomainId(profileId);
+		const isDomain = profile ? isDomainProfile(profile) : isDomainId(profileId);
 		const result = isDomain
 			? await invoke<WebStoreProfileDeletion>('delete_web_store_domain', { domainId: profileId })
 			: await invoke<WebStoreProfileDeletion>('delete_web_store_profile', { profileId });
