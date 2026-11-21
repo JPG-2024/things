@@ -5,6 +5,10 @@
 Instead of run svelte-check for entire repo run in modified files.
 ie: `bunx svelte-check --tsconfig ./tsconfig.json src/routes/+page.svelte 2>&1 | head -100`
 
+## commentaries
+
+Do not add comments that explain obvious code. Use comments only to capture non-obvious decisions, business rules, external limitations, or edge cases. Prefer self-explanatory code names and structure.
+
 ## Repo Overview
 
 - Frontend: SvelteKit + Svelte 5 runes.
@@ -250,7 +254,7 @@ Use a static options object. Common for media-player-style controls.
   downloads, voice cloning) and `frontend` (webview pipelines: runner, TTS).
   API: `start/update/finish/fail/remove`. Terminal transitions **delete** the
   entry — the float shows live work only; history lives in the log. `fail`
-  only logs: error *reporting* stays with the call sites (`errorStore`).
+  only logs: error _reporting_ stays with the call sites (`errorStore`).
 - `src/components/LoadingStatus.svelte` (mounted in `+layout.svelte`) renders
   the two maps as separate sections, bottom-center, visible only while busy.
   `progress {done,total}` is stored for a future loading bar.
