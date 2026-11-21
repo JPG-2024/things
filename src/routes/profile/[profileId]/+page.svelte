@@ -268,6 +268,7 @@
 
 	.profile-page__header {
 		padding-inline: 1rem;
+		width: 100%;
 	}
 
 	:global(.spin) {
