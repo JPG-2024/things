@@ -154,9 +154,9 @@
 	   in every layout (grid, grid-3 and the row's fixed box). */
 	.mini-play {
 		position: absolute;
-		top: 0.4rem;
+		top: 50%;
 		left: 50%;
-		transform: translateX(-50%);
+		transform: translate(-50%, -50%);
 		z-index: 7;
 		display: flex;
 		align-items: center;
