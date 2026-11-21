@@ -9,6 +9,8 @@ import {
 	switchDatabase
 } from '@/lib/utils/dbManager';
 import type { DatabaseInfo } from '@/types/database.types';
+import { loadingStore } from '@/stores/loadingStore.svelte';
+import { appLog } from '@/lib/utils/appLog';
 
 function toMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -36,6 +38,7 @@ class DbState {
 			const [databases, activeName] = await Promise.all([listDatabases(), getActiveDatabase()]);
 			this.databases = databases;
 			this.activeName = activeName;
+			appLog.debug('db', `workspaces refreshed (${databases.length}, active: ${activeName})`);
 		} catch (error) {
 			this.error = toMessage(error);
 		} finally {
@@ -44,7 +47,7 @@ class DbState {
 	}
 
 	async create(name: string): Promise<boolean> {
-		return this.run(async () => {
+		return this.run('create', `Create workspace ${name}`, async () => {
 			await createDatabase(name);
 			await this.refresh();
 		});
@@ -52,7 +55,7 @@ class DbState {
 
 	async switchTo(name: string): Promise<boolean> {
 		if (name === this.activeName) return false;
-		return this.run(async () => {
+		return this.run('switch', `Switch to workspace ${name}`, async () => {
 			await switchDatabase(name);
 			this.activeName = name;
 			window.location.reload();
@@ -61,7 +64,7 @@ class DbState {
 
 	async rename(oldName: string, newName: string): Promise<boolean> {
 		if (oldName === newName) return false;
-		return this.run(async () => {
+		return this.run('rename', `Rename workspace ${oldName} → ${newName}`, async () => {
 			const wasActive = oldName === this.activeName;
 			await renameDatabase(oldName, newName);
 			if (wasActive) {
@@ -76,33 +79,38 @@ class DbState {
 	}
 
 	async remove(name: string): Promise<boolean> {
-		return this.run(async () => {
+		return this.run('remove', `Delete workspace ${name}`, async () => {
 			await deleteDatabase(name);
 			await this.refresh();
 		});
 	}
 
 	async exportToZip(name: string): Promise<boolean> {
-		return this.run(async () => {
+		return this.run('export', `Export workspace ${name}`, async () => {
 			await exportDatabase(name);
 		});
 	}
 
 	async importFromZip(name: string): Promise<boolean> {
-		return this.run(async () => {
+		return this.run('import', `Import workspace ${name}`, async () => {
 			await importDatabase(name);
 			await this.refresh();
 		});
 	}
 
-	private async run(action: () => Promise<void>): Promise<boolean> {
+	private async run(id: string, label: string, action: () => Promise<void>): Promise<boolean> {
 		this.loading = true;
 		this.error = null;
+		loadingStore.start(`db:${id}`, { source: 'backend', module: 'db', label });
 		try {
 			await action();
+			// A switch/rename of the active workspace reloads the webview: the
+			// entry dies with it, but the log line above already landed.
+			loadingStore.finish(`db:${id}`);
 			return true;
 		} catch (error) {
 			this.error = toMessage(error);
+			loadingStore.fail(`db:${id}`, this.error);
 			return false;
 		} finally {
 			this.loading = false;

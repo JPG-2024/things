@@ -51,20 +51,21 @@ pub async fn download_and_save_image(
     // Skip download if file already exists
     let filepath = media_dir.join(&filename);
     if filepath.exists() {
-        println!(
+        log::debug!(
+            target: "capture",
             "[Image] File already exists, skipping download: {}",
             filename
         );
         return Ok(filename);
     }
 
-    println!("[Image] Saving image to folder: {}", media_dir.display());
+    log::debug!(target: "capture", "[Image] Saving image to folder: {}", media_dir.display());
 
     // Create the thumbs directory if it doesn't exist
     std::fs::create_dir_all(&media_dir)
         .map_err(|e| format!("Failed to create media directory: {}", e))?;
 
-    println!("[Image] Downloading image from: {}", url);
+    log::debug!(target: "capture", "[Image] Downloading image from: {}", url);
 
     // Download the image using reqwest
     let response = reqwest::get(&url)
@@ -114,7 +115,7 @@ pub async fn download_and_save_image(
     std::fs::write(&filepath, &*webp_data)
         .map_err(|e| format!("Failed to save WebP image: {}", e))?;
 
-    println!("[Image] Successfully saved image to: media/{}", filename);
+    log::info!(target: "capture", "[Image] Successfully saved image to: media/{}", filename);
 
     Ok(filename)
 }

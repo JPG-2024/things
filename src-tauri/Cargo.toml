@@ -73,6 +73,8 @@ unicode-normalization = "0.1"
 libc = "0.2"
 
 tauri-plugin-store = "2"
+tauri-plugin-log = "2"
+log = "0.4"
 zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 
 # Phonon on-device TTS. `hf` compiles the tokenizer.json reader (required even

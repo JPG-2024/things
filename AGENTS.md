@@ -118,6 +118,9 @@ The app runs **one linear pipeline per article**:
   - `upsert_article_row_updates_by_id_when_the_url_form_differs`
   - `upsert_article_row_inserts_when_no_row_matches_url_or_id`
   - `embedding_store::tests::category_list_column_round_trips_and_filters` (LanceDB `List<Utf8>` category column + `array_contains` filter)
+  - `db_manager::tests::logs_dir_lives_outside_workspaces_and_is_created` (app-wide log dir helper)
+  - `logging::tests::module_filter_defaults_open_and_toggles_known_modules_only` (runtime per-module log filter)
+  - `logging::tests::unknown_targets_are_capped_at_warn_known_modules_keep_range` (dependency-noise whitelist)
 - If you add JS/TS tests, also add explicit package scripts so future agents have a stable entry point.
 
 ## Database Workspaces
@@ -239,6 +242,43 @@ Use a static options object. Common for media-player-style controls.
 - Wrapping errors: use `describeErrorChain(error)` (same module) to flatten an
   `error.cause` chain into the wrapper message, so console lines are readable
   without expanding the chain in the devtools.
+
+## Loading Registry & Durable Log
+
+- `src/stores/loadingStore.svelte.ts` is the live-status registry: two `SvelteMap`s
+  maps, `backend` (Rust-owned services/jobs: llama servers, db ops, scrapes,
+  downloads, voice cloning) and `frontend` (webview pipelines: runner, TTS).
+  API: `start/update/finish/fail/remove`. Terminal transitions **delete** the
+  entry — the float shows live work only; history lives in the log. `fail`
+  only logs: error *reporting* stays with the call sites (`errorStore`).
+- `src/components/LoadingStatus.svelte` (mounted in `+layout.svelte`) renders
+  the two maps as separate sections, bottom-center, visible only while busy.
+  `progress {done,total}` is stored for a future loading bar.
+- `src/lib/utils/appLog.ts` is the **only** frontend door to
+  `@tauri-apps/plugin-log` (the layout's `attachConsole` is the one exception).
+  The plugin's webview command bypasses `log::max_level()`, so the wrapper
+  gates every record on `viewState.logLevel` AND `viewState.logModules[module]`
+  before paying the IPC. Modules reuse `ErrorFeature` (`capture` = scraping).
+- Rust side: `src-tauri/src/logging.rs` registers the plugin via `split()` in
+  the app setup (targets: Stdout + Webview always; `Folder` at
+  `app_data_dir()/logs/things.log` **only in dev**, via `db_manager::logs_dir`).
+  `set_log_level` gates the Rust macros (`log::set_max_level`); `set_module_log`
+  gates a fern filter over `target:` values. Rust log sites use explicit
+  targets matching the module names (`log::error!(target: "ui", …)`).
+  Dependency noise is capped by whitelist: `KNOWN_ROOTS` in `logging.rs`
+  gives our modules (plus `webview` and our own crate) the full runtime
+  range; every other target is capped at Warn by the fern filter. A
+  whitelist, not a per-crate blocklist: the `tracing`→`log` bridge forwards
+  xn/candle tensor-op records straight to `logger().log(...)` (bypassing
+  `max_level`), and only this filter sees them — no future dependency can
+  reintroduce the flood.
+- Settings → "Logging" (dev-only Spacer) edits level + module toggles;
+  `settingsStore` persists them and mirrors them into Rust via `syncLogFilters`.
+- Producers wired: llamaHealth (burst entries + up/down transitions),
+  externalServicesHealth (transitions only), dbState, musicStore downloads,
+  scrapStore, ttsStore (add-voice stages + first-blob generation),
+  articleManager (`runner:<url>` entry + step/progress mirror). Grid fetches
+  (paginationResource) are debug-log-only, never float entries.
 
 ## State and Data Flow
 

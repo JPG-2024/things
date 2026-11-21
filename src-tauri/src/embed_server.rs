@@ -129,7 +129,7 @@ pub fn start_embed_server() -> Result<String, String> {
     tauri::async_runtime::spawn(async move {
         let app = Router::new().route("/embed", get(embed_handler));
         if let Err(error) = axum::serve(listener, app).await {
-            eprintln!("embed server terminated: {error}");
+            log::error!(target: "ui", "embed server terminated: {error}");
         }
     });
 

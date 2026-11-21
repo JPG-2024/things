@@ -16,6 +16,7 @@ import { getProfiles } from '@/stores/webStore';
 import type { ArticleRecord, WebStoreCategoryRecord } from '@/stores/webStore';
 import type { LlamaServerStatus } from '@/lib/utils/llamaModels';
 import type { AnalysisType } from '@/types/articleAnalysis.types';
+import type { LogLevelName, LogModule } from '@/lib/utils/appLog';
 
 export interface RawSearchMatch {
 	before: string;
@@ -163,6 +164,20 @@ class ViewState {
 	language = $state<language>('es');
 	loading = $state(false);
 	loaded = $state(false);
+	/**
+	 * Durable-log filters (Settings → Logging, dev only). The level gates the
+	 * `appLog` wrapper and the Rust macros; the module map silences whole
+	 * features. Live status (the loading float) is never affected by these.
+	 */
+	logLevel = $state<LogLevelName>(import.meta.env.DEV ? 'debug' : 'info');
+	logModules = $state<Record<LogModule, boolean>>({
+		inference: true,
+		tts: true,
+		runner: true,
+		db: true,
+		capture: true,
+		ui: true
+	});
 	processingUrl = $state(false);
 	subStatus = $state<string | null>(null);
 	collapseProfiles = $state(false);

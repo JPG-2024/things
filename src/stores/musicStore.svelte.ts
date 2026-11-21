@@ -1,6 +1,7 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
 import { downloadDir as tauriDownloadDir } from '@tauri-apps/api/path';
 import { playCoinSound } from '@/lib/utils/coinSound';
+import { loadingStore } from '@/stores/loadingStore.svelte';
 
 export type TrackStatus = 'pending' | 'downloading' | 'done' | 'error';
 
@@ -129,6 +130,14 @@ class MusicState {
 		item.error = null;
 		this.isDownloading = true;
 
+		const loadingId = `download:${item.url}`;
+		loadingStore.start(loadingId, {
+			source: 'backend',
+			module: 'capture',
+			label: item.url,
+			message: 'downloading…'
+		});
+
 		try {
 			const onEvent = new Channel<TrackDownloadEvent>();
 			onEvent.onmessage = (msg) => {
@@ -140,11 +149,13 @@ class MusicState {
 					if (msg.data.url === item.url) {
 						item.status = 'done';
 						item.filename = msg.data.filename ?? null;
+						loadingStore.finish(loadingId);
 					}
 				} else if (msg.event === 'TrackError') {
 					if (msg.data.url === item.url) {
 						item.status = 'error';
 						item.error = msg.data.message ?? 'Download error';
+						loadingStore.fail(loadingId, item.error);
 					}
 				}
 			};
@@ -157,17 +168,22 @@ class MusicState {
 				folderName: this.downloadFolder,
 				onEvent
 			});
+			// Belt and braces: if the command resolved without a TrackDone
+			// event, the entry must not linger (finish is a no-op once gone).
+			loadingStore.finish(loadingId);
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
 				if (item.status === 'downloading') {
 					item.status = 'pending';
 					item.error = null;
 				}
+				loadingStore.remove(loadingId);
 				return;
 			}
 			// Keep the more specific message delivered through the error channel.
 			if (!item.error) item.error = normalizeDownloadError(err);
 			item.status = 'error';
+			loadingStore.fail(loadingId, item.error);
 		} finally {
 			if (this.abortController === controller) {
 				this.abortController = null;

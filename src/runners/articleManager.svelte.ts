@@ -30,6 +30,7 @@ import {
 	resumeRun
 } from '@/runners/shared/runCancellation';
 import { errorStore } from '@/stores/errorStore.svelte';
+import { loadingStore } from '@/stores/loadingStore.svelte';
 import type { AnalysisType, ArticleWindow } from '@/types/articleAnalysis.types';
 
 /** One queued article. */
@@ -302,6 +303,13 @@ class ArticleManager {
 		active.step = article.step;
 		active.done = progress?.done ?? active.done;
 		active.total = progress?.total ?? active.total;
+
+		// Mirror the same step/progress into the loading registry so the
+		// floating status (and the future loading bar) follows the run.
+		loadingStore.update(`runner:${active.url}`, {
+			message: article.step,
+			progress: progress ? { done: progress.done, total: progress.total } : null
+		});
 	}
 
 	/** Runs the queue, one article at a time. */
@@ -317,6 +325,12 @@ class ArticleManager {
 				processed = true;
 
 				this.active = { url: entry.url, step: null, done: 0, total: 0 };
+				loadingStore.start(`runner:${entry.url}`, {
+					source: 'frontend',
+					module: 'runner',
+					label: entry.url,
+					message: entry.kind === 'analysis' ? 'analysis' : 'pipeline'
+				});
 
 				// Start of a full process for the article on screen: the view
 				// goes back to loading so the topbar sweep re-fires at the end.
@@ -327,6 +341,7 @@ class ArticleManager {
 
 				try {
 					await this.runEntry(entry);
+					loadingStore.finish(`runner:${entry.url}`);
 					// End of a full process: `loading` is cleared even when the
 					// user navigated away mid-run, so a finished queue can never
 					// leave the view stuck behind the paste guard. The topbar
@@ -349,8 +364,13 @@ class ArticleManager {
 					// A deleted article is not a failed run: it was aborted before
 					// writing, so there is nothing to log and no row to flag.
 					if (isRunCancelledError(error)) {
+						loadingStore.remove(`runner:${entry.url}`);
 						continue;
 					}
+					loadingStore.fail(
+						`runner:${entry.url}`,
+						error instanceof Error ? error.message : String(error)
+					);
 					// Reported (and logged) instead of console-only: a background
 					// run's failure must reach the error center even when no
 					// article is on screen to inherit the error status.

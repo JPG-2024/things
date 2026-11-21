@@ -16,6 +16,9 @@ pub use crate::article_scrape::extract_web_article;
 mod embed_server;
 pub use crate::embed_server::youtube_embed_url;
 
+mod logging;
+pub use crate::logging::{set_log_level, set_module_log};
+
 mod download_media;
 pub use crate::download_media::download_and_save_image;
 
@@ -175,13 +178,19 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Attach the logger first so the rest of startup is captured.
+            // Never fatal: without it the app still runs, just without the
+            // durable log channel.
+            if let Err(error) = logging::init(app.handle()) {
+                eprintln!("logging init failed: {error}");
+            }
             db_manager::migrate_legacy_layout(app.handle())?;
             // Serves the YouTube player wrapper for the floating player; the
             // webview origin is a custom protocol in prod, which YouTube's
             // embed refuses (see embed_server.rs). Must not fail startup:
             // the only consumer degrades to "no iframe rendered".
             if let Err(error) = embed_server::start_embed_server() {
-                eprintln!("youtube embed server failed to start: {error}");
+                log::error!(target: "ui", "youtube embed server failed to start: {error}");
             }
             Ok(())
         })
@@ -275,6 +284,8 @@ pub fn run() {
             db_delete,
             db_export,
             db_import,
+            set_log_level,
+            set_module_log,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

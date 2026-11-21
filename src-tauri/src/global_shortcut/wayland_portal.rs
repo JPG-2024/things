@@ -49,7 +49,7 @@ async fn register_host_app_once(app_id: String) {
         Ok(app_id) => app_id,
         Err(error) => {
             HOST_APP_REGISTERED.store(false, Ordering::SeqCst);
-            eprintln!("[global-shortcut] invalid portal app id: {error}");
+            log::warn!(target: "ui", "[global-shortcut] invalid portal app id: {error}");
             return;
         }
     };
@@ -64,7 +64,7 @@ async fn register_host_app_once(app_id: String) {
                 // Missing (or deprecated) registry: keep going. The bind reports
                 // any app-id requirement it needs on its own.
                 HOST_APP_REGISTERED.store(false, Ordering::SeqCst);
-                eprintln!("[global-shortcut] could not register host app id: {message}");
+                log::warn!(target: "ui", "[global-shortcut] could not register host app id: {message}");
             }
         }
     }
@@ -117,7 +117,7 @@ impl GlobalShortcutBackend for WaylandPortalBackend {
             {
                 Ok(()) => {}
                 Err(error) => {
-                    eprintln!("[global-shortcut] portal backend error: {error}");
+                    log::error!(target: "ui", "[global-shortcut] portal backend error: {error}");
                     if let Some(sender) = sender.take() {
                         let _ = sender.send(Err(GlobalShortcutError::Backend(error.to_string())));
                     }
@@ -171,7 +171,8 @@ async fn run(
         bind_shortcut(&portal, &session, &id, &trigger, &description).await?
     };
 
-    eprintln!(
+    log::info!(
+        target: "ui",
         "[global-shortcut] {mode:?} -> {}",
         bound.as_deref().unwrap_or("unbound")
     );

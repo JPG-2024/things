@@ -18,6 +18,7 @@ import {
 import { splitTextIntoChunksMeta } from '@/lib/utils/splitText';
 import { translateText } from '@/lib/utils/inference/translation';
 import { errorStore } from '@/stores/errorStore.svelte';
+import { loadingStore } from '@/stores/loadingStore.svelte';
 import type { WheelSelection } from '@/types/tts.types';
 
 export interface TTSRefConfig {
@@ -667,6 +668,14 @@ class TTSState {
 		const abort = new AbortController();
 		this._generationAbort = abort;
 
+		const loadingId = `tts:${id}`;
+		loadingStore.start(loadingId, {
+			source: 'frontend',
+			module: 'tts',
+			label: 'Generating speech',
+			progress: { done: 0, total: allChunks.length }
+		});
+
 		try {
 			const genStart = performance.now();
 			const res = await generateSpeech(
@@ -681,6 +690,7 @@ class TTSState {
 			const genElapsed = (performance.now() - genStart) / 1000;
 
 			if (this._generationSession !== session) {
+				loadingStore.remove(loadingId);
 				return;
 			}
 
@@ -695,15 +705,21 @@ class TTSState {
 			this.generatedId = id;
 			this.generatedConfigSig = this.configSig;
 			this.isPlaying = true;
+			// The first blob is the gate: playback starts here and the rest of
+			// the chunks generate ambiently while it plays.
+			loadingStore.finish(loadingId);
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
+				loadingStore.remove(loadingId);
 				return;
 			}
 			if (this._generationSession !== session) {
+				loadingStore.remove(loadingId);
 				return;
 			}
 			this.errorMessage = err instanceof Error ? err.message : 'Failed to generate TTS audio';
 			this.isGenerating = false;
+			loadingStore.fail(loadingId, this.errorMessage);
 			console.error('[TTS] Generation error:', err);
 		} finally {
 			if (this._generationAbort === abort) {
@@ -841,6 +857,13 @@ class TTSState {
 		const controller = new AbortController();
 		this.abortController = controller;
 
+		loadingStore.start('voice:add', {
+			source: 'backend',
+			module: 'tts',
+			label: this.videoUrl || 'new voice',
+			message: 'starting…'
+		});
+
 		try {
 			const response = await addVoice(
 				{
@@ -864,20 +887,31 @@ class TTSState {
 				if (event === 'done') {
 					this.addVoiceStatus = 'done';
 					this.addVoiceMessage = 'Voice added';
+					loadingStore.finish('voice:add');
 				} else if (event === 'downloading' || event === 'transcribing' || event === 'chunking') {
 					this.addVoiceStatus = event;
 					this.addVoiceMessage = this.addVoiceStageMessage(event, data);
+					let progress: { done: number; total: number } | null = null;
+					if (event === 'chunking' && typeof data === 'object' && data !== null) {
+						const { current, total } = data as { current?: unknown; total?: unknown };
+						if (typeof current === 'number' && typeof total === 'number') {
+							progress = { done: current, total };
+						}
+					}
+					loadingStore.update('voice:add', { message: this.addVoiceMessage, progress });
 				}
 				viewState.subStatus = event;
 			}
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') {
+				loadingStore.remove('voice:add');
 				return;
 			}
 			const message = err instanceof Error ? err.message : 'Failed to add voice';
 			this.errorMessage = message;
 			this.addVoiceStatus = 'error';
 			this.addVoiceMessage = message;
+			loadingStore.fail('voice:add', message);
 			console.error('[SSE] Error:', err);
 		} finally {
 			this.addVoiceLoading = false;

@@ -15,6 +15,12 @@ import {
 import { clampCardLayout } from '@/lib/utils/cardLayout';
 import { normalizeCategoryIds } from '@/lib/utils/categoryIds';
 import { clampWindowLevel } from '@/lib/utils/windowAnalysis';
+import {
+	LOG_LEVEL_NAMES,
+	LOG_MODULES,
+	syncLogFilters,
+	type LogLevelName
+} from '@/lib/utils/appLog';
 
 const STORE_FILE = 'settings.json';
 const SETTINGS_VERSION = 2;
@@ -144,7 +150,9 @@ function serializeView() {
 		cardLayout: $state.snapshot(viewState.cardLayout),
 		gridColumnsNarrow: viewState.gridColumnsNarrow,
 		gridColumnsWide: viewState.gridColumnsWide,
-		gridSnapEnabled: viewState.gridSnapEnabled
+		gridSnapEnabled: viewState.gridSnapEnabled,
+		logLevel: viewState.logLevel,
+		logModules: { ...viewState.logModules }
 	};
 }
 
@@ -355,6 +363,18 @@ function applyView(raw: unknown): void {
 		);
 	}
 	if (typeof raw.gridSnapEnabled === 'boolean') viewState.gridSnapEnabled = raw.gridSnapEnabled;
+
+	// Durable-log filters (dev-only UI, but persisted like any other setting).
+	if (LOG_LEVEL_NAMES.includes(raw.logLevel as LogLevelName)) {
+		viewState.logLevel = raw.logLevel as LogLevelName;
+	}
+	if (isPlainObject(raw.logModules)) {
+		for (const module of LOG_MODULES) {
+			if (typeof raw.logModules[module] === 'boolean') {
+				viewState.logModules[module] = raw.logModules[module];
+			}
+		}
+	}
 }
 
 function applyScrap(raw: unknown): void {
@@ -495,6 +515,13 @@ export function startSettingsPersistence(): void {
 		});
 		$effect(() => {
 			void activeStore.set('player', serializePlayer()).catch(warnWriteFailure);
+		});
+		// Mirror the durable-log filters into Rust on startup (right after
+		// hydration) and on every change: the level gates the Rust macros and
+		// the module map gates the fern filter. The webview side is gated by
+		// the appLog wrapper, which reads the live settings directly.
+		$effect(() => {
+			void syncLogFilters();
 		});
 	});
 }

@@ -27,6 +27,7 @@
 	import SettingsModal from '@/components/modals/SettingsModal.svelte';
 	import ErrorLogModal from '@/components/modals/ErrorLogModal.svelte';
 	import ErrorCenter from '@/components/ErrorCenter.svelte';
+	import LoadingStatus from '@/components/LoadingStatus.svelte';
 	import DownloadModal from '@/components/DownloadModal.svelte';
 	import Drawer from '@/components/Drawer.svelte';
 	import Modal from '@/components/Modal.svelte';
@@ -45,6 +46,7 @@
 	import { recordNavigation } from '@/stores/navigationHistory.svelte';
 	import { VIEW_TRANSITIONS_ENABLED } from '@/lib/utils/vtNames';
 	import { page } from '$app/state';
+	import { attachConsole } from '@tauri-apps/plugin-log';
 
 	let { children } = $props();
 
@@ -403,6 +405,29 @@
 	});
 
 	onMount(() => {
+		// Dev only: mirror the Rust-side log records into the webview console
+		// (the plugin's Webview target emits them as `log://log` events).
+		if (!import.meta.env.DEV) return;
+		let detach: (() => void) | undefined;
+		let disposed = false;
+		void attachConsole()
+			.then((cleanup) => {
+				if (disposed) {
+					cleanup();
+				} else {
+					detach = cleanup;
+				}
+			})
+			.catch(() => {
+				// Plain browser dev server (no Tauri): nothing to attach.
+			});
+		return () => {
+			disposed = true;
+			detach?.();
+		};
+	});
+
+	onMount(() => {
 		// Global safety net for errors that escape every local catch. They
 		// report to the error center with `log: false`: the browser already
 		// prints unhandled rejections and script errors on its own, and a
@@ -485,6 +510,8 @@
 <DevFps />
 
 <ErrorCenter />
+
+<LoadingStatus />
 
 {#if errorStore.open}
 	<Modal show onClose={() => (errorStore.open = false)} ariaLabel="Error log">

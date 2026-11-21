@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
 import { createAdaptivePoller } from '@/lib/utils/adaptivePoller';
 import { getTTSApiKey } from '@/lib/utils/ttsAuth';
+import { appLog, type LogModule } from '@/lib/utils/appLog';
 
 const TTS_API_URL = import.meta.env.VITE_TTS_API_URL;
 const WHISPER_API_URL = import.meta.env.VITE_WHISPER_API_URL;
@@ -70,6 +71,11 @@ async function probeChromium(): Promise<boolean> {
  * into `viewState` for the toolbar health dots.
  */
 export async function refreshExternalServicesHealth(): Promise<void> {
+	const wasUp: Record<ExternalServiceName, boolean> = {
+		chromium: viewState.scrapBrowserUp,
+		tts: viewState.ttsServiceUp,
+		whisper: viewState.whisperServiceUp
+	};
 	const [chromiumUp, ttsUp, whisperUp] = await Promise.all([
 		probeChromium(),
 		probeService(TTS_API_URL, '/voices'),
@@ -78,6 +84,23 @@ export async function refreshExternalServicesHealth(): Promise<void> {
 	viewState.scrapBrowserUp = chromiumUp;
 	viewState.ttsServiceUp = ttsUp;
 	viewState.whisperServiceUp = whisperUp;
+
+	// Only transitions are logged: steady-state polls stay out of the log.
+	const nowUp: Record<ExternalServiceName, boolean> = {
+		chromium: chromiumUp,
+		tts: ttsUp,
+		whisper: whisperUp
+	};
+	const moduleOf: Record<ExternalServiceName, LogModule> = {
+		chromium: 'capture',
+		tts: 'tts',
+		whisper: 'tts'
+	};
+	for (const name of Object.keys(nowUp) as ExternalServiceName[]) {
+		if (nowUp[name] !== wasUp[name]) {
+			appLog.info(moduleOf[name], `svc:${name} ${nowUp[name] ? 'up' : 'down'}`);
+		}
+	}
 
 	// Verificar si se requiere autenticación para TTS
 	if (ttsUp) {

@@ -4,6 +4,7 @@ import { normalizeYouTubeUrl } from '@/lib/utils/youtube/helpers';
 import { downloadImageUrl, getMediaSrc } from '@/lib/utils/files';
 import { assignCategoriesToArticle, getProfileCategories, saveProfile } from '@/stores/webStore';
 import { errorStore } from '@/stores/errorStore.svelte';
+import { loadingStore } from '@/stores/loadingStore.svelte';
 import {
 	YOUTUBE_SCRAPE_LIMIT_DEFAULT,
 	YOUTUBE_SCRAPE_LIMIT_MAX,
@@ -64,12 +65,20 @@ class ScrapState {
 	): Promise<YoutubeProfile | null> {
 		this.loading = true;
 		this.error = null;
+		loadingStore.start('scrape:youtube-profile', {
+			source: 'backend',
+			module: 'capture',
+			label: handleOrUrl,
+			message: options?.scroll ? 'scrolling channel…' : 'reading channel…'
+		});
 		try {
 			const data = await this.fetchYoutubeProfile(handleOrUrl, options);
 			this.profile = data;
+			loadingStore.finish('scrape:youtube-profile');
 			return data;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
+			loadingStore.fail('scrape:youtube-profile', this.error);
 			// `this.error` has no renderer; the error center is its surface.
 			errorStore.report(err, {
 				feature: 'capture',
@@ -118,12 +127,20 @@ class ScrapState {
 	async getYoutubeVideoInfo(videoId: string): Promise<YoutubeVideoInfo | null> {
 		this.loading = true;
 		this.error = null;
+		loadingStore.start('scrape:video-owner', {
+			source: 'backend',
+			module: 'capture',
+			label: videoId,
+			message: 'resolving channel…'
+		});
 		try {
 			const data = await invoke<YoutubeVideoInfo>('get_youtube_video_owner', { videoId });
 			this.videoInfo = data;
+			loadingStore.finish('scrape:video-owner');
 			return data;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
+			loadingStore.fail('scrape:video-owner', this.error);
 			// `this.error` has no renderer; the error center is its surface.
 			errorStore.report(err, {
 				feature: 'capture',
@@ -202,6 +219,12 @@ class ScrapState {
 
 		this.isFetchingMissingVideos = true;
 		this.error = null;
+		loadingStore.start('scrape:missing-videos', {
+			source: 'backend',
+			module: 'capture',
+			label: profileId,
+			message: 'fetching missing videos…'
+		});
 
 		try {
 			const youtubeProfile = await this.getYoutubeProfile(handle, {
@@ -360,9 +383,12 @@ class ScrapState {
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			this.error = message;
+			loadingStore.fail('scrape:missing-videos', message);
 			throw err;
 		} finally {
 			this.isFetchingMissingVideos = false;
+			// No-op when the catch already failed the entry.
+			loadingStore.finish('scrape:missing-videos');
 		}
 	}
 }

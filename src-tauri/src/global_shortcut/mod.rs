@@ -131,7 +131,7 @@ pub async fn request(
 
     let on_activated: ActivatedHandler = Box::new(move || {
         if let Err(error) = app.emit(GLOBAL_CLIPBOARD_TRIGGER_EVENT, ()) {
-            eprintln!("[global-shortcut] failed to emit activation event: {error}");
+            log::error!(target: "ui", "[global-shortcut] failed to emit activation event: {error}");
         }
     });
 

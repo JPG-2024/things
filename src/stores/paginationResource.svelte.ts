@@ -1,3 +1,5 @@
+import { appLog } from '@/lib/utils/appLog';
+
 export type PageResult<TItem> = {
 	items: TItem[];
 	total?: number;
@@ -61,6 +63,8 @@ export class PaginationResource<TItem, TParams> {
 		// Announce the pending signature before awaiting so readers gate their
 		// rendering on it for the whole in-flight window.
 		this.pendingSignature = signature;
+		// Log-only (debug): grid fetches are too frequent for the loading float.
+		appLog.debug('db', `list fetch: ${signature}`);
 		try {
 			const result = await this.fetchPage(params, 0, this.pageSize);
 			if (fetchId !== this.fetchId) {
@@ -72,6 +76,7 @@ export class PaginationResource<TItem, TParams> {
 			this.applyPage(result.items.length, result);
 			this.signature = signature;
 			this.stale = false;
+			appLog.debug('db', `list fetch done: ${result.items.length} items (${signature})`);
 		} catch (error) {
 			// Fall back to the last-known-good list instead of leaving readers
 			// gated on a signature that will never resolve; rethrow so callers
@@ -155,6 +160,7 @@ export class PaginationResource<TItem, TParams> {
 		this.loading = true;
 		try {
 			const offset = this.offset;
+			appLog.debug('db', `list page: offset ${offset}`);
 			const result = await this.fetchPage(this.params, offset, this.pageSize);
 			if (fetchId !== this.fetchId) {
 				return;
@@ -163,6 +169,7 @@ export class PaginationResource<TItem, TParams> {
 			this.items = [...this.items, ...result.items];
 			this.applyPage(offset + result.items.length, result);
 			this.stale = false;
+			appLog.debug('db', `list page done: +${result.items.length} items`);
 		} finally {
 			if (fetchId === this.fetchId) {
 				this.loading = false;

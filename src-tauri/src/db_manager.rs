@@ -19,6 +19,7 @@ pub const DB_FILE: &str = "things.db";
 pub const RAW_CONTENT_DIR: &str = "raw_content";
 pub const EMBEDDINGS_DIR: &str = "embeddings";
 pub const MEDIA_DIR: &str = "media";
+pub const LOGS_DIR: &str = "logs";
 
 const MAX_NAME_LEN: usize = 64;
 const ACTIVE_CHANGED_EVENT: &str = "db-switched";
@@ -150,6 +151,19 @@ pub fn embeddings_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 pub fn media_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = active_workspace_dir(app)?.join(MEDIA_DIR);
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+/// App-wide log directory (`app_data_dir()/logs`, dev builds only). Lives
+/// outside `workspaces/` on purpose: logs span workspace switches and must
+/// stay out of the workspace ZIP exports.
+pub fn logs_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    logs_dir_under(&data_dir(app)?)
+}
+
+fn logs_dir_under(data_dir: &Path) -> Result<PathBuf, String> {
+    let dir = data_dir.join(LOGS_DIR);
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
 }
@@ -579,6 +593,17 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(nested);
         let _ = fs::remove_dir_all(empty);
+    }
+
+    #[test]
+    fn logs_dir_lives_outside_workspaces_and_is_created() {
+        let root = temp_dir("logs-dir");
+        let dir = logs_dir_under(&root).expect("logs dir");
+        assert_eq!(dir, root.join(LOGS_DIR));
+        assert!(dir.is_dir());
+        assert!(!dir.starts_with(root.join(WORKSPACES_DIR)));
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

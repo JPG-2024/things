@@ -58,6 +58,7 @@
 		validateOpencodeApiKey,
 		listOpencodeModels
 	} from '@/lib/utils/opencodeAuth';
+	import { LOG_LEVEL_NAMES, LOG_MODULES, type LogLevelName } from '@/lib/utils/appLog';
 
 	let rebuildingCategories = $state(false);
 	let models = $state<LlamaModelEntry[]>([]);
@@ -857,6 +858,32 @@
 			/>
 		</div>
 	</Spacer>
+	{#if import.meta.env.DEV}
+		<Spacer title="Logging" icon="ScrollText" defaultOpen={false}>
+			<div class="inference-section">
+				<SearchDropdownField
+					label="Log level"
+					options={LOG_LEVEL_NAMES.map((level) => ({ label: level, value: level }))}
+					value={viewState.logLevel}
+					onChange={(value) => (viewState.logLevel = value as LogLevelName)}
+					tooltip="Verbosity of the durable log (stdout + app_data_dir()/logs in dev). The loading float is live state and is never affected."
+				/>
+				<FieldsRow columns={3}>
+					{#each LOG_MODULES as module (module)}
+						<ToggleField
+							label={module}
+							tooltip="Silence this module in the durable log. Errors still reach the error center."
+							bind:checked={viewState.logModules[module]}
+						/>
+					{/each}
+				</FieldsRow>
+				<p class="helper-text">
+					Dev only. Level and module toggles apply to both the webview (appLog wrapper) and the Rust
+					backend (log macros + fern filter). The log file lives in app_data_dir()/logs.
+				</p>
+			</div>
+		</Spacer>
+	{/if}
 	<Spacer title="TTS Authentication" icon="Key" defaultOpen={false}>
 		<div class="inference-section">
 			<TextField

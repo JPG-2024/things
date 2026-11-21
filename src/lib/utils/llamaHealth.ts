@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { viewState } from '@/stores/viewStore.svelte';
 import { errorStore } from '@/stores/errorStore.svelte';
+import { loadingStore } from '@/stores/loadingStore.svelte';
+import { appLog } from '@/lib/utils/appLog';
 import type {
 	LlamaModelEntry,
 	LlamaServerRuntime,
@@ -43,12 +45,22 @@ async function checkService(baseUrl: string): Promise<boolean> {
  * plain service flags plus the full status list the Settings modal renders.
  */
 export async function refreshLlamaHealth(): Promise<void> {
+	const wasInferenceUp = viewState.inferenceServiceUp;
+	const wasEmbeddingsUp = viewState.embeddingsServiceUp;
 	const [inferenceUp, embeddingsUp] = await Promise.all([
 		checkService(viewState.llamaBaseUrl),
 		checkService(viewState.embeddingsBaseUrl)
 	]);
 	viewState.inferenceServiceUp = inferenceUp;
 	viewState.embeddingsServiceUp = embeddingsUp;
+	// Only transitions are logged: a steady state polled every 15 s must not
+	// flood the durable log.
+	if (inferenceUp !== wasInferenceUp) {
+		appLog.info('inference', `llama:inference ${inferenceUp ? 'up' : 'down'}`);
+	}
+	if (embeddingsUp !== wasEmbeddingsUp) {
+		appLog.info('inference', `llama:embeddings ${embeddingsUp ? 'up' : 'down'}`);
+	}
 	await syncLlamaServerStatus(inferenceUp, embeddingsUp);
 }
 
@@ -106,11 +118,37 @@ function sleep(ms: number): Promise<void> {
 async function pollUntilHealthy(attempts = BURST_ATTEMPTS): Promise<void> {
 	if (burstPolling) return;
 	burstPolling = true;
+	// One live entry per server that still has to come up; the float shows
+	// "starting…" until the health probe answers (or the burst gives up).
+	if (!viewState.inferenceServiceUp) {
+		loadingStore.start('llama:inference', {
+			source: 'backend',
+			module: 'inference',
+			label: 'Inference server',
+			message: 'starting…'
+		});
+	}
+	if (!viewState.embeddingsServiceUp) {
+		loadingStore.start('llama:embeddings', {
+			source: 'backend',
+			module: 'inference',
+			label: 'Embeddings server',
+			message: 'starting…'
+		});
+	}
 	try {
 		for (let attempt = 0; attempt < attempts; attempt++) {
 			await sleep(BURST_INTERVAL_MS);
 			await refreshLlamaHealth();
+			if (viewState.inferenceServiceUp) loadingStore.finish('llama:inference');
+			if (viewState.embeddingsServiceUp) loadingStore.finish('llama:embeddings');
 			if (viewState.inferenceServiceUp && viewState.embeddingsServiceUp) return;
+		}
+		if (!viewState.inferenceServiceUp) {
+			loadingStore.fail('llama:inference', 'server did not become healthy');
+		}
+		if (!viewState.embeddingsServiceUp) {
+			loadingStore.fail('llama:embeddings', 'server did not become healthy');
 		}
 	} finally {
 		burstPolling = false;
@@ -206,6 +244,11 @@ export async function reconcileLlamaModels(): Promise<void> {
  */
 export async function ensureLlamaServers(restart = false): Promise<LlamaServerStatus[]> {
 	await reconcileLlamaModels();
+	loadingStore.start('llama:ensure', {
+		source: 'backend',
+		module: 'inference',
+		label: restart ? 'Restarting llama servers' : 'Starting llama servers'
+	});
 	try {
 		const statuses = await invoke<LlamaServerStatus[]>('ensure_llama_servers', {
 			config: {
@@ -232,10 +275,12 @@ export async function ensureLlamaServers(restart = false): Promise<LlamaServerSt
 		const embeddings = statuses.find((status) => status.name === 'embeddings');
 		if (embeddings) viewState.embeddingsServiceUp = embeddings.error ? false : embeddings.healthy;
 
+		loadingStore.finish('llama:ensure');
 		void pollUntilHealthy();
 
 		return statuses;
 	} catch (error) {
+		loadingStore.fail('llama:ensure', error instanceof Error ? error.message : String(error));
 		// The health dots partially cover this, but a total autostart
 		// failure must also reach the error center (warn: the app works,
 		// the local models just are not running).
@@ -289,4 +334,7 @@ export async function stopLlamaServers(): Promise<void> {
 	}));
 	viewState.inferenceServiceUp = false;
 	viewState.embeddingsServiceUp = false;
+	loadingStore.remove('llama:inference');
+	loadingStore.remove('llama:embeddings');
+	appLog.info('inference', 'llama servers stopped');
 }
