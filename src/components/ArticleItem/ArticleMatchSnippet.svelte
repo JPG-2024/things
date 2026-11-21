@@ -16,22 +16,18 @@
 
 <style>
 	.article-match-snippet {
-		font-size: 0.93rem;
-		opacity: 0.95;
+		font-family: var(--font-secondary);
+		font-size: 0.8rem;
 		padding: 0.25rem 0;
-		font-style: italic;
-		line-height: 1.4;
+		line-height: 1.5rem;
 		padding: 0 1rem;
+		color: var(--gray-500);
 	}
 
 	.article-match-snippet mark {
-		background: color-mix(in srgb, var(--primary-color) 40%, transparent);
-		color: inherit;
+		background: white;
+		color: black;
 		border-radius: 2px;
-		padding: 5px 0;
-	}
-
-	.snippet-context {
-		opacity: 0.6;
+		padding: 0 10px;
 	}
 </style>
