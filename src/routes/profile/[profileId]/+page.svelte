@@ -162,10 +162,14 @@
 		}
 	}
 
-	async function handleFetchMissingVideos() {
+	/** 'missing' = scroll profundo; 'recent' = solo el primer batch (sin scroll). */
+	let activeFetch = $state<'recent' | 'missing' | null>(null);
+
+	async function fetchVideos(kind: 'recent' | 'missing') {
 		if (scrapStore.isFetchingMissingVideos || !profileId) return;
+		activeFetch = kind;
 		try {
-			await scrapStore.fetchMissingProfileVideos(profileId, { scroll: true });
+			await scrapStore.fetchMissingProfileVideos(profileId, { scroll: kind === 'missing' });
 
 			// Videos that were captured are still draining: their titles only
 			// reach the list cache when the batch ends, so the summary must
@@ -184,7 +188,17 @@
 			await regenerateSummary();
 		} catch (error) {
 			console.error('Failed to fetch missing profile videos', error);
+		} finally {
+			activeFetch = null;
 		}
+	}
+
+	async function handleFetchMissingVideos() {
+		await fetchVideos('missing');
+	}
+
+	async function handleFetchRecentVideos() {
+		await fetchVideos('recent');
 	}
 </script>
 
@@ -225,8 +239,16 @@
 							<LinkIcon url={profileLinkUrl} />
 						{/if}
 						<Icon
-							name={scrapStore.isFetchingMissingVideos ? 'Loader2' : 'RefreshCw'}
-							class={scrapStore.isFetchingMissingVideos ? 'spin' : ''}
+							name={activeFetch === 'recent' ? 'Loader2' : 'Zap'}
+							class={activeFetch === 'recent' ? 'spin' : ''}
+							onClick={handleFetchRecentVideos}
+							disabled={scrapStore.isFetchingMissingVideos || loading}
+							ariaLabel="Fetch recent videos"
+							tooltipProps={{ content: 'Fetch recent videos (no scroll)' }}
+						/>
+						<Icon
+							name={activeFetch === 'missing' ? 'Loader2' : 'RefreshCw'}
+							class={activeFetch === 'missing' ? 'spin' : ''}
 							onClick={handleFetchMissingVideos}
 							disabled={scrapStore.isFetchingMissingVideos || loading}
 							ariaLabel="Fetch missing videos"
