@@ -29,8 +29,12 @@ const MAX_LIMIT: u32 = 1500;
 const ITEMS_PER_BATCH: u32 = 30;
 /// Scroll rounds on top of the derived budget, to absorb short batches.
 const EXTRA_ROUNDS: u32 = 2;
-/// Wait per scroll round before recounting unique videos.
+/// Wait budget per scroll round before recounting unique videos: the deadline
+/// of the growth poll, not a blind sleep.
 const SCROLL_DELAY: Duration = Duration::from_millis(1500);
+/// Wait budget for a round that already looks exhausted, so the
+/// `STABLE_ROUNDS` confirmation does not cost two full `SCROLL_DELAY`s.
+const QUIET_DELAY: Duration = Duration::from_millis(600);
 /// Consecutive quiet rounds before concluding the channel ended.
 const STABLE_ROUNDS: u32 = 2;
 /// Selector budget for the main content shell and the owner anchor.
@@ -132,6 +136,11 @@ const COLLECT_VIDEOS_JS: &str = r##"(() => Array.from(document.querySelectorAll(
 const SCROLL_TO_BOTTOM_JS: &str =
     "(() => { window.scrollTo(0, document.documentElement.scrollHeight); return true; })()";
 
+/// Cheap progress signal: number of video anchors currently in the DOM.
+/// Keep the selector in sync with [`COLLECT_VIDEOS_JS`].
+const COUNT_VIDEOS_JS: &str =
+    "(() => document.querySelectorAll(\"#content a[href*='/watch?v=']\").length)()";
+
 /// The avatar, not the banner: the banner is optional and shifts image order.
 const PROFILE_IMAGE_JS: &str = r##"(() => {
     const header = document.querySelector('#page-header');
@@ -218,6 +227,42 @@ fn scroll_reason(unique: u32, limit: u32, stable: u32) -> &'static str {
     }
 }
 
+/// First try is generous (absorbs slow networks); once a round came back
+/// quiet, the confirmation rounds shorten so `STABLE_ROUNDS` doesn't cost two
+/// full `SCROLL_DELAY`s.
+fn wait_budget(quiet_rounds: u32) -> Duration {
+    if quiet_rounds == 0 {
+        SCROLL_DELAY
+    } else {
+        QUIET_DELAY
+    }
+}
+
+fn video_anchor_count(page: &Page) -> Result<u32, String> {
+    let value = page
+        .evaluate(COUNT_VIDEOS_JS, None, ActionOptions::default())
+        .map_err(|error| format!("Video count probe failed: {error}"))?;
+    Ok(value.as_u64().unwrap_or(0) as u32)
+}
+
+/// Polls the video-anchor count until it grows past `previous` (a new batch
+/// landed) or `timeout` expires. rustwright has no `waitForFunction`, so a
+/// Rust loop keeps the timeout semantics — same trick as `wait_for_selector`.
+fn wait_for_video_growth(
+    page: &Page,
+    previous: u32,
+    timeout: Duration,
+) -> Result<u32, String> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let count = video_anchor_count(page)?;
+        if count > previous || Instant::now() >= deadline {
+            return Ok(count);
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
+}
+
 fn scroll_profile(
     page: &Page,
     videos: &mut Vec<ScrapedVideo>,
@@ -229,9 +274,10 @@ fn scroll_profile(
     let mut unique = unique_count(videos);
 
     while rounds < round_budget && unique < limit {
+        let before = video_anchor_count(page)?;
         page.evaluate(SCROLL_TO_BOTTOM_JS, None, ActionOptions::default())
             .map_err(|error| format!("Scroll failed: {error}"))?;
-        std::thread::sleep(SCROLL_DELAY);
+        let _ = wait_for_video_growth(page, before, wait_budget(stable))?;
 
         videos.extend(collect_videos(page)?);
         rounds += 1;
@@ -255,18 +301,23 @@ fn scroll_profile(
 /// First occurrence wins; a later duplicate contributes its title only when the
 /// first copy had none (YouTube sometimes ships the anchor before the label).
 fn dedupe(videos: Vec<ScrapedVideo>) -> Vec<ScrapedVideo> {
+    use std::collections::HashMap;
+
     let mut out: Vec<ScrapedVideo> = Vec::with_capacity(videos.len());
+    let mut index_by_url: HashMap<String, usize> = HashMap::new();
 
     for video in videos {
-        // `position` instead of an `iter_mut().find()` match: the mutable borrow
-        // would otherwise outlive the arm that pushes a new entry.
-        match out.iter().position(|existing| existing.url == video.url) {
+        let key = video.url.clone();
+        match index_by_url.get(&key).copied() {
             Some(index) => {
                 if out[index].title.is_empty() && !video.title.is_empty() {
                     out[index].title = video.title;
                 }
             }
-            None => out.push(video),
+            None => {
+                index_by_url.insert(key, out.len());
+                out.push(video);
+            }
         }
     }
 
@@ -533,6 +584,13 @@ mod tests {
     }
 
     #[test]
+    fn wait_budget_is_full_on_first_round_and_short_on_quiet_rounds() {
+        assert_eq!(wait_budget(0), SCROLL_DELAY);
+        assert_eq!(wait_budget(1), QUIET_DELAY);
+        assert_eq!(wait_budget(STABLE_ROUNDS), QUIET_DELAY);
+    }
+
+    #[test]
     fn dedupe_keeps_the_first_copy_and_fills_a_missing_title() {
         let videos = vec![
             video("https://youtu.be/a", ""),
@@ -589,6 +647,23 @@ mod tests {
             .videos
             .iter()
             .all(|video| video.url.contains("watch?v=")));
+    }
+
+    /// Exercises the growth-poll scroll path: a small limit keeps it to a
+    /// handful of rounds.
+    #[test]
+    #[ignore = "needs Chromium and network access"]
+    fn live_syntaxfm_channel_scroll_reaches_limit() {
+        let state = BrowserState::default();
+        let limit = 60;
+        let profile =
+            scrape_profile_sync(&state, "@syntaxfm", true, limit).expect("channel scrape failed");
+        state.close_browser();
+
+        let unique = unique_count(&profile.videos);
+        assert!(unique >= limit, "scroll stopped early: {unique}/{limit}");
+        assert_eq!(profile.scroll.reason, "limit");
+        assert!(profile.scroll.rounds > 0);
     }
 
     #[test]

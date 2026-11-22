@@ -51,6 +51,12 @@ class ScrapState {
 	 * Unique videos the scraper collects while scrolling a channel page
 	 * (`?scroll=true&limit=N`); `maxVideos` only caps how many of them are
 	 * enqueued afterwards.
+	 *
+	 * This limit serves two purposes at once: finding videos that are not
+	 * saved yet AND mirroring the channel-page order onto up to `scrollLimit`
+	 * saved articles (`set_profile_article_order` runs over every scraped
+	 * url). Shrinking it to "just the missing ones" would silently drop the
+	 * rank refresh.
 	 */
 	scrollLimit = $state(YOUTUBE_SCRAPE_LIMIT_DEFAULT);
 	/**
