@@ -55,7 +55,8 @@
 
 <style>
 	.article-content {
-		display: flex;
+		display: grid;
+		grid-template-columns: 180px 1fr;
 		align-items: center;
 		gap: 0.5rem;
 		width: 100%;
