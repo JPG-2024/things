@@ -55,6 +55,7 @@
 		padding: 0.5rem 0.9rem;
 		border: 1px solid var(--article-border);
 		border-radius: var(--radius-md);
+		border-style: dashed;
 		background: rgba(0, 0, 0, 0.9);
 		font-family: var(--font-secondary);
 		font-size: 0.7rem;
