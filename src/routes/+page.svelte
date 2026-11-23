@@ -116,6 +116,11 @@
 		filtersUnproductive = unproductive;
 	});
 
+	// Run tokens, not render state: they only feed guard comparisons and the
+	// cancel invoke, never the template.
+	let rawSearchRunSeq = 0;
+	let activeRawSearchRunId = 0;
+
 	async function handleRawSearch(pattern: string, force = false) {
 		const trimmed = pattern.trim();
 		if (trimmed.length < 4) return;
@@ -133,9 +138,11 @@
 		}
 		viewState.rawSearchLastPattern = trimmed;
 		viewState.rawSearchLoading = true;
+		const runId = ++rawSearchRunSeq;
+		activeRawSearchRunId = runId;
 		// Per-run id: a stale in-flight run and a fresh one can overlap after a
 		// clear, and a fixed id would let the old finish delete the new entry.
-		const loadingId = `search:raw-content:${Date.now()}`;
+		const loadingId = `search:raw-content:${runId}`;
 		loadingStore.start(loadingId, {
 			source: 'frontend',
 			module: 'db',
@@ -153,10 +160,14 @@
 				}>
 			>('search_raw_content', {
 				pattern: trimmed,
-				contextChars: viewState.rawSearchContextChars
+				contextChars: viewState.rawSearchContextChars,
+				runId
 			});
 
-			// A late reply for an emptied input must not resurrect the filter.
+			// One guard covers "superseded" and "cleared": any newer run (or a
+			// filter clear) bumps rawSearchRunSeq. The equality check below is
+			// defense in depth.
+			if (runId !== rawSearchRunSeq) return;
 			if (trimmed !== viewState.unifiedFilter.trim()) return;
 
 			const articles = await mapArticlesFromRecords(results.map((r) => r.article));
@@ -175,16 +186,27 @@
 		} catch (error) {
 			console.warn('[raw-search] error', error);
 			loadingStore.fail(loadingId, error instanceof Error ? error.message : String(error));
+			if (runId !== rawSearchRunSeq) return;
 			if (trimmed === viewState.unifiedFilter.trim()) viewState.rawSearchResults = [];
 		} finally {
 			loadingStore.finish(loadingId);
-			viewState.rawSearchLoading = false;
+			// Only the run that is still current may flip the flag: a late
+			// `finally` from a superseded run must not clear the loading state
+			// of the run that replaced it.
+			if (runId === rawSearchRunSeq) viewState.rawSearchLoading = false;
 		}
 	}
 
 	$effect(() => {
 		if (viewState.unifiedFilter.trim().length < 4) {
 			viewState.rawSearchResults = null;
+			// Auto-cancel the in-flight scan. `rawSearchLoading` is untouched on
+			// purpose: the cancelled run returns in milliseconds and its own
+			// `finally` clears it (its runId is still current — no new run
+			// started).
+			if (viewState.rawSearchLoading && activeRawSearchRunId) {
+				void invoke('cancel_raw_search', { runId: activeRawSearchRunId });
+			}
 		}
 	});
 

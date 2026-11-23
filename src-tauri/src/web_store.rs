@@ -1,9 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
+use grep_matcher::Matcher;
+use grep_regex::{RegexMatcher, RegexMatcherBuilder};
+use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -2929,34 +2934,161 @@ pub struct RawContentMatchResult {
     pub article: WebStoreArticleRecord,
 }
 
-/// Literal, case-insensitive first-match search inside a raw content document.
-/// The user query is escaped so regex metacharacters are treated as text.
-fn find_first_match_snippet(
-    content: &str,
+/// Run id de la búsqueda de raw content en vuelo (`0` = ninguna). El frontend
+/// lo pasa a `search_raw_content` y a `cancel_raw_search`; un cancel con un id
+/// distinto al activo es un no-op.
+static ACTIVE_RAW_SEARCH: AtomicU64 = AtomicU64::new(0);
+
+#[tauri::command]
+pub fn cancel_raw_search(run_id: u64) {
+    // Sync (no async): corre fuera del runtime async, nunca queda encolado
+    // detrás de un escaneo bloqueante. compare_exchange hace que un cancel
+    // tardío (una búsqueda más nueva ya reclamó el slot) sea un no-op.
+    let _ = ACTIVE_RAW_SEARCH.compare_exchange(run_id, 0, Ordering::SeqCst, Ordering::SeqCst);
+}
+
+fn build_raw_search_matcher(pattern: &str) -> Result<RegexMatcher, String> {
+    // Misma semántica que el RegexBuilder anterior: literal escapado,
+    // case-insensitive, unicode por defecto.
+    RegexMatcherBuilder::new()
+        .case_insensitive(true)
+        .build(&regex::escape(pattern))
+        .map_err(|e| e.to_string())
+}
+
+/// Snippet dentro de una línea, con `context` bytes antes/después del match.
+/// Los cortes se ajustan a char boundary: el `saturating_sub` a ciegas del
+/// código anterior podía hacer panic con `line[a..b]` a mitad de un char
+/// multi-byte.
+fn snippet_from_match(
+    line: &str,
+    start: usize,
+    end: usize,
+    context: usize,
+) -> (String, String, String) {
+    let mut before_start = start.saturating_sub(context);
+    while before_start > 0 && !line.is_char_boundary(before_start) {
+        before_start -= 1;
+    }
+    let mut after_end = (end + context).min(line.len());
+    while after_end < line.len() && !line.is_char_boundary(after_end) {
+        after_end += 1;
+    }
+    (
+        line[before_start..start].to_string(),
+        line[start..end].to_string(),
+        line[end..after_end].to_string(),
+    )
+}
+
+/// Stops after the first match in a file. `SinkMatch` does not expose the
+/// match offsets inside the line, so `matched` re-runs `find_at` on it —
+/// cheap: the searcher already proved there is a match on this one line.
+struct FirstMatchSink<'a> {
+    matcher: &'a RegexMatcher,
+    context: usize,
+    is_cancelled: &'a dyn Fn() -> bool,
+    found: Option<(String, String, String)>,
+}
+
+impl Sink for FirstMatchSink<'_> {
+    type Error = io::Error;
+
+    fn matched(&mut self, _searcher: &Searcher, mat: &SinkMatch<'_>) -> Result<bool, io::Error> {
+        if (self.is_cancelled)() {
+            return Ok(false);
+        }
+        // The line comes with its terminator (`\n`, or `\r\n`): same as the
+        // old `content.lines()`, trimmed before slicing the snippet.
+        let bytes = strip_line_terminator(mat.bytes());
+        let Ok(text) = std::str::from_utf8(bytes) else {
+            return Ok(true);
+        };
+        let m = self
+            .matcher
+            .find_at(bytes, 0)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        let Some(m) = m else {
+            return Ok(true);
+        };
+        self.found = Some(snippet_from_match(text, m.start(), m.end(), self.context));
+        Ok(false)
+    }
+}
+
+fn strip_line_terminator(mut bytes: &[u8]) -> &[u8] {
+    if bytes.last() == Some(&b'\n') {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    if bytes.last() == Some(&b'\r') {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    bytes
+}
+
+/// Escanea `raw_content/` y devuelve `(url, before, match_text, after)` por
+/// archivo con match. Contrato del escaneo anterior: solo archivos cuyo
+/// `file_stem` está en el índice, dedup por url, archivos ilegibles se saltan.
+/// Corta en cuanto `is_cancelled()` da true.
+fn scan_raw_content_dir(
+    dir: &Path,
+    url_index: &HashMap<String, String>,
     pattern: &str,
     context: usize,
-) -> Option<(String, String, String)> {
-    let re = regex::RegexBuilder::new(&regex::escape(pattern))
-        .case_insensitive(true)
-        .build()
-        .ok()?;
+    is_cancelled: &dyn Fn() -> bool,
+) -> Result<Vec<(String, String, String, String)>, String> {
+    let matcher = build_raw_search_matcher(pattern)?;
+    let mut searcher = SearcherBuilder::new()
+        .binary_detection(BinaryDetection::quit(0))
+        .build();
 
-    for line in content.lines() {
-        if let Some(m) = re.find(line) {
-            let match_start = m.start();
-            let match_end = m.end();
-            let snippet_start = match_start.saturating_sub(context);
-            let snippet_end = std::cmp::min(line.len(), match_end + context);
+    let mut matched: Vec<(String, String, String, String)> = Vec::new();
+    let mut seen_urls: HashSet<String> = HashSet::new();
 
-            return Some((
-                line[snippet_start..match_start].to_string(),
-                line[match_start..match_end].to_string(),
-                line[match_end..snippet_end].to_string(),
-            ));
+    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+    for entry in entries {
+        if is_cancelled() {
+            break;
         }
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        let Some(url) = url_index.get(&file_name).cloned() else {
+            continue;
+        };
+        if seen_urls.contains(&url) {
+            continue;
+        }
+
+        let mut sink = FirstMatchSink {
+            matcher: &matcher,
+            context,
+            is_cancelled,
+            found: None,
+        };
+        if searcher.search_path(&matcher, &path, &mut sink).is_err() {
+            continue;
+        }
+        if is_cancelled() {
+            break;
+        }
+        let Some((before, match_text, after)) = sink.found else {
+            continue;
+        };
+
+        seen_urls.insert(url.clone());
+        matched.push((url, before, match_text, after));
     }
 
-    None
+    Ok(matched)
 }
 
 fn load_raw_content_url_index(conn: &Connection) -> Result<HashMap<String, String>, String> {
@@ -3006,12 +3138,15 @@ pub async fn search_raw_content(
     app: AppHandle,
     pattern: String,
     context_chars: Option<usize>,
+    run_id: u64,
 ) -> Result<Vec<RawContentMatchResult>, String> {
     let context = context_chars.unwrap_or(20);
     let pattern = pattern.trim();
     if pattern.is_empty() {
         return Ok(Vec::new());
     }
+
+    ACTIVE_RAW_SEARCH.store(run_id, Ordering::SeqCst);
 
     let dir = raw_content_dir(&app)?;
     if !dir.exists() {
@@ -3023,43 +3158,26 @@ pub async fn search_raw_content(
     if url_index.is_empty() {
         return Ok(Vec::new());
     }
+    drop(conn);
 
-    let mut matched: Vec<(String, String, String, String)> = Vec::new();
-    let mut seen_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // The scan is blocking fs work: keep it off the async runtime. The
+    // connection is resolved twice (cheap) instead of moving a rusqlite
+    // `Connection` into and out of the blocking closure.
+    let pattern = pattern.to_string();
+    let matched = tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
+        let is_cancelled = || ACTIVE_RAW_SEARCH.load(Ordering::SeqCst) != run_id;
+        scan_raw_content_dir(&dir, &url_index, &pattern, context, &is_cancelled)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
-    let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-
-        let file_name = match path.file_stem().and_then(|s| s.to_str()) {
-            Some(name) => name.to_string(),
-            None => continue,
-        };
-
-        let Some(url) = url_index.get(&file_name).cloned() else {
-            continue;
-        };
-        if seen_urls.contains(&url) {
-            continue;
-        }
-
-        let Ok(content) = fs::read_to_string(&path) else {
-            continue;
-        };
-
-        let Some((before, match_text, after)) =
-            find_first_match_snippet(&content, pattern, context)
-        else {
-            continue;
-        };
-
-        seen_urls.insert(url.clone());
-        matched.push((url, before, match_text, after));
+    // Cancelled (or superseded): return empty, never Err — the frontend catch
+    // would flag "no results" through loadingStore.fail for a normal cancel.
+    if ACTIVE_RAW_SEARCH.load(Ordering::SeqCst) != run_id {
+        return Ok(Vec::new());
     }
+
+    let conn = get_db(&app)?;
 
     if matched.is_empty() {
         return Ok(Vec::new());
@@ -4126,6 +4244,7 @@ fn query_categories_with_articles(
 mod tests {
     use super::*;
     use rusqlite::Connection;
+    use std::cell::Cell;
 
     fn build_in_memory_db() -> Connection {
         let conn = Connection::open_in_memory().expect("open in-memory db");
@@ -4787,39 +4906,147 @@ mod tests {
     }
 
     #[test]
-    fn find_first_match_snippet_is_case_insensitive_literal() {
-        let content = "Intro line\nsay Hello World from the article\noutro";
+    fn build_raw_search_matcher_is_case_insensitive_literal() {
+        let matcher = build_raw_search_matcher("hello world").expect("matcher");
+        let line = b"say Hello World from the article";
 
-        let (before, match_text, after) =
-            find_first_match_snippet(content, "hello world", 5).expect("match");
+        let m = matcher.find_at(line, 0).expect("find").expect("match");
 
-        assert_eq!(match_text, "Hello World");
-        assert_eq!(before, "say ");
-        assert_eq!(after, " from");
+        assert_eq!(&line[m.start()..m.end()], b"Hello World");
     }
 
     #[test]
-    fn find_first_match_snippet_escapes_regex_metacharacters() {
-        let content = "price is 100.50 today";
+    fn build_raw_search_matcher_escapes_regex_metacharacters() {
+        let matcher = build_raw_search_matcher("100.50").expect("matcher");
 
-        let (_, match_text, _) =
-            find_first_match_snippet(content, "100.50", 10).expect("literal dot match");
+        let hit = matcher.find_at(b"price is 100.50 today", 0).expect("find");
+        assert!(hit.is_some(), "literal dot must match");
 
-        assert_eq!(match_text, "100.50");
-
+        let miss = matcher.find_at(b"price is 100X50 today", 0).expect("find");
         assert!(
-            find_first_match_snippet(content, "100X50", 10).is_none(),
+            miss.is_none(),
             "escaped dot must not match arbitrary characters"
         );
     }
 
     #[test]
-    fn find_first_match_snippet_returns_first_line_only() {
-        let content = "nothing here\nsecond line has TARGET\nthird TARGET";
+    fn snippet_from_match_clamps_context_to_line_bounds() {
+        let (before, match_text, after) = snippet_from_match("say TARGET now", 4, 10, 100);
 
-        let (_, match_text, _) = find_first_match_snippet(content, "target", 4).expect("match");
-
+        assert_eq!(before, "say ");
         assert_eq!(match_text, "TARGET");
+        assert_eq!(after, " now");
+
+        let (before, match_text, after) = snippet_from_match("TARGET", 0, 6, 3);
+        assert_eq!(before, "");
+        assert_eq!(match_text, "TARGET");
+        assert_eq!(after, "");
+    }
+
+    #[test]
+    fn snippet_from_match_is_utf8_boundary_safe() {
+        // Regression: the old saturating_sub could slice mid-char and panic on
+        // `line[a..b]`. `á`, `é`, `í` are 2 bytes each, so the match spans
+        // bytes 6..12 and a context of 1 lands mid-char on both sides.
+        let (before, match_text, after) = snippet_from_match("áéíTARGETáé", 6, 12, 1);
+
+        assert_eq!(before, "í");
+        assert_eq!(match_text, "TARGET");
+        assert_eq!(after, "á");
+    }
+
+    fn temp_scan_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "notian-web-store-{label}-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    #[test]
+    fn scan_raw_content_dir_returns_first_match_per_file_and_skips_unknown_stems() {
+        let dir = temp_scan_dir("scan-first-match");
+        fs::write(dir.join("aaaa.txt"), "intro\nfirst TARGET here\nmore TARGET too\n")
+            .expect("write a");
+        fs::write(dir.join("aaaa-dup.txt"), "duplicate TARGET\n").expect("write a dup");
+        fs::write(dir.join("bbbb.txt"), "other TARGET line\n").expect("write b");
+        fs::write(dir.join("unknown.txt"), "orphan TARGET\n").expect("write orphan");
+
+        let mut url_index = HashMap::new();
+        url_index.insert("aaaa".to_string(), "https://example.com/a".to_string());
+        url_index.insert("aaaa-dup".to_string(), "https://example.com/a".to_string());
+        url_index.insert("bbbb".to_string(), "https://example.com/b".to_string());
+
+        let matched =
+            scan_raw_content_dir(&dir, &url_index, "target", 5, &|| false).expect("scan");
+
+        let mut urls: Vec<&str> = matched.iter().map(|(url, _, _, _)| url.as_str()).collect();
+        urls.sort();
+        assert_eq!(
+            urls,
+            ["https://example.com/a", "https://example.com/b"],
+            "one entry per url: unknown stems skipped, duplicate urls deduped"
+        );
+
+        let entry = matched
+            .iter()
+            .find(|(url, _, _, _)| url == "https://example.com/b")
+            .expect("b entry");
+        assert_eq!(entry.1, "ther ");
+        assert_eq!(entry.2, "TARGET");
+        assert_eq!(entry.3, " line");
+    }
+
+    #[test]
+    fn scan_raw_content_dir_stops_when_cancelled() {
+        let dir = temp_scan_dir("scan-cancelled");
+        fs::write(dir.join("aaaa.txt"), "first TARGET\n").expect("write a");
+        fs::write(dir.join("bbbb.txt"), "second TARGET\n").expect("write b");
+        fs::write(dir.join("cccc.txt"), "third TARGET\n").expect("write c");
+
+        let mut url_index = HashMap::new();
+        url_index.insert("aaaa".to_string(), "https://example.com/a".to_string());
+        url_index.insert("bbbb".to_string(), "https://example.com/b".to_string());
+        url_index.insert("cccc".to_string(), "https://example.com/c".to_string());
+
+        // `false` for the calls needed to finish file a, `true` afterwards:
+        // the loop must cut before touching file b.
+        let calls = Cell::new(0u32);
+        let is_cancelled = || {
+            calls.set(calls.get() + 1);
+            calls.get() > 3
+        };
+
+        let matched =
+            scan_raw_content_dir(&dir, &url_index, "target", 4, &is_cancelled).expect("scan");
+
+        // `read_dir` order is unspecified: the cut lands after whichever file
+        // was visited first, but exactly one file must have been scanned.
+        assert_eq!(matched.len(), 1, "the scan cut after the first file");
+        assert!(
+            [
+                "https://example.com/a",
+                "https://example.com/b",
+                "https://example.com/c"
+            ]
+            .contains(&matched[0].0.as_str())
+        );
+    }
+
+    #[test]
+    fn cancel_raw_search_ignores_stale_run_id() {
+        ACTIVE_RAW_SEARCH.store(7, Ordering::SeqCst);
+
+        cancel_raw_search(6);
+        assert_eq!(
+            ACTIVE_RAW_SEARCH.load(Ordering::SeqCst),
+            7,
+            "stale run id is a no-op"
+        );
+
+        cancel_raw_search(7);
+        assert_eq!(ACTIVE_RAW_SEARCH.load(Ordering::SeqCst), 0);
     }
 
     #[test]
