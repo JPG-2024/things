@@ -45,6 +45,7 @@ export async function generateProfileSummary(articles: ArticleRecord[]): Promise
 		model: viewState.aiModel || undefined,
 		temperature: 0.4,
 		stream: false,
+		reasoning_effort: 'none',
 		messages: [
 			{
 				role: 'system',
