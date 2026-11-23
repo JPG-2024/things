@@ -419,8 +419,9 @@ export async function chatCompletions(
 		typeof options?.onToken === 'function' ||
 		typeof options?.onReasoningToken === 'function'; // <- update
 	const body: LlamaChatCompletionsRequest = {
-		...request,
-		stream: streamEnabled
+		reasoning_effort: 'none',
+		stream: streamEnabled,
+		...request
 	};
 
 	let res: Response;

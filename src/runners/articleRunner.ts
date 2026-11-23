@@ -479,10 +479,12 @@ export async function runArticle(
 		if (articleState.isCurrent(url)) {
 			articleState.setStep('title');
 		}
-		// A reused analysis already has its title stored: regenerating it would
-		// spend an LLM call for nothing.
+		// A title that already exists (the caller's, the source scrape's or
+		// the stored row's) is kept: regenerating it would spend an LLM call
+		// for nothing. Only a titleless article gets one, or a forced run
+		// (the refresh icon), which redoes everything on purpose.
 		throwIfRunCancelled(url);
-		if (!reusedAnalysis || !title) {
+		if (!title || force) {
 			const generatedTitle = await buildArticleTitle(summary);
 			if (generatedTitle) {
 				title = generatedTitle;
