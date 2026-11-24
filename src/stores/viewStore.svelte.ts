@@ -533,6 +533,14 @@ class ArticleFiltersState {
 		}
 	}
 
+	/** Single-select toggle: a new entry replaces the previous one; clicking
+	 * the active entry clears the selection. */
+	toggleSingle(kind: ArticleFilterKind, id: string, name: string): void {
+		const list = this[kind];
+		const isSame = list.length === 1 && list[0].id === id;
+		list.splice(0, list.length, ...(isSame ? [] : [{ id, name }]));
+	}
+
 	/** Drops an id from every kind — used when the entity is deleted. */
 	removeById(id: string): void {
 		for (const kind of ['profiles', 'domains', 'categories'] as const) {
