@@ -423,7 +423,7 @@
 	}
 
 	.option.selected {
-		border-left: 2px solid var(--primary-color);
+		border-left: 6px solid var(--primary-color);
 	}
 
 	.option-main {
