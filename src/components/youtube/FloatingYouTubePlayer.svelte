@@ -684,14 +684,14 @@
 	 * legible over both bright and dark video frames. */
 	.player-profile {
 		position: absolute;
-		top: 0.4rem;
-		left: 0.4rem;
+		top: 10%;
+		left: 5.8%;
 		z-index: 2;
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		width: 1.8rem;
-		height: 1.8rem;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
 		background: rgb(50, 50, 50);
 		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
