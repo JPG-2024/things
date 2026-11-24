@@ -53,7 +53,7 @@
 		gap: 1.2rem;
 		max-width: min(720px, calc(100vw - 3rem));
 		padding: 0.5rem 0.9rem;
-		border: 1px solid var(--article-border);
+		border: 2px solid var(--article-border);
 		border-radius: var(--radius-md);
 		border-style: dashed;
 		background: rgba(0, 0, 0, 0.9);
