@@ -168,7 +168,8 @@ function serializePlayer() {
 	return {
 		volume: playerStore.volume,
 		autoShuffleOnEnd: playerStore.autoShuffleOnEnd,
-		hoverCollapseDelayMs: playerStore.hoverCollapseDelayMs
+		hoverCollapseDelayMs: playerStore.hoverCollapseDelayMs,
+		hoverExpandDelayMs: playerStore.hoverExpandDelayMs
 	};
 }
 
@@ -404,9 +405,12 @@ function applyPlayer(raw: unknown): void {
 	if (typeof raw.autoShuffleOnEnd === 'boolean') {
 		playerStore.autoShuffleOnEnd = raw.autoShuffleOnEnd;
 	}
-	// Range mirrors the slider in VoiceSettingsModal → Playback.
+	// Ranges mirror the sliders in VoiceSettingsModal → Playback.
 	if (typeof raw.hoverCollapseDelayMs === 'number') {
-		playerStore.hoverCollapseDelayMs = clamp(Math.trunc(raw.hoverCollapseDelayMs), 0, 3000);
+		playerStore.hoverCollapseDelayMs = clamp(Math.trunc(raw.hoverCollapseDelayMs), 0, 10000);
+	}
+	if (typeof raw.hoverExpandDelayMs === 'number') {
+		playerStore.hoverExpandDelayMs = clamp(Math.trunc(raw.hoverExpandDelayMs), 0, 10000);
 	}
 }
 

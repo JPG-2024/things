@@ -1138,7 +1138,16 @@
 							label="Collapse delay (ms)"
 							bind:value={playerStore.hoverCollapseDelayMs}
 							min={0}
-							max={3000}
+							max={10000}
+							step={50}
+							format={(v) => v.toString()}
+						/>
+						<RangeSelector
+							id="settings-hoverExpandDelay"
+							label="Expand delay (ms)"
+							bind:value={playerStore.hoverExpandDelayMs}
+							min={0}
+							max={10000}
 							step={50}
 							format={(v) => v.toString()}
 						/>

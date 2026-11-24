@@ -23,13 +23,16 @@ class PlayerState {
 	/** Pending collapse scheduled by `hoverLeave`. Deliberately not `$state`:
 	 *  a timer handle must never trigger renders. */
 	collapseTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Ms the pointer must stay inside before the player expands (0 = now). */
+	hoverExpandDelayMs = $state(300);
+	expandTimer: ReturnType<typeof setTimeout> | null = null;
 	/** Normal volume (%) of the floating YouTube player when TTS is not ducking. */
 	volume = $state(100);
 	/** When the video ends, swap it for a random one from the same categories. */
 	autoShuffleOnEnd = $state(true);
 
 	open(context: YouTubePlayerContext): void {
-		this.clearCollapseTimer();
+		this.clearHoverTimers();
 		this.active = context;
 		this.minimized = false;
 		this.maximized = false;
@@ -56,7 +59,7 @@ class PlayerState {
 	}
 
 	close(): void {
-		this.clearCollapseTimer();
+		this.clearHoverTimers();
 		this.active = null;
 		this.minimized = false;
 		this.maximized = false;
@@ -65,6 +68,10 @@ class PlayerState {
 
 	minimize(): void {
 		if (this.active === null) return;
+		// Drop a pending expansion: firing it while hidden would bring the
+		// player back enlarged with no pointer over it to ever collapse it.
+		// The pending collapse is kept for the mirror reason (see hoverLeave).
+		this.clearExpandTimer();
 		this.minimized = true;
 	}
 
@@ -78,9 +85,6 @@ class PlayerState {
 		this.minimized = !this.minimized;
 	}
 
-	/** Drops a scheduled collapse, if any. Called on every path that decides
-	 *  the size by itself (enter, Escape, unpin, open, close) so a stale
-	 *  timer can never collapse a player those paths already settled. */
 	clearCollapseTimer(): void {
 		if (this.collapseTimer !== null) {
 			clearTimeout(this.collapseTimer);
@@ -88,27 +92,50 @@ class PlayerState {
 		}
 	}
 
-	/** Hover in: expand unless the user pinned the size. Immediate — any
-	 *  collapse still pending from a quick out-and-back is cancelled here,
-	 *  which is what makes a brief graze leave the player open. */
+	clearExpandTimer(): void {
+		if (this.expandTimer !== null) {
+			clearTimeout(this.expandTimer);
+			this.expandTimer = null;
+		}
+	}
+
+	/** Explicit size decisions (open, close, Escape, pin) drop both pending
+	 *  hover timers so neither fires on a player they already settled. */
+	clearHoverTimers(): void {
+		this.clearExpandTimer();
+		this.clearCollapseTimer();
+	}
+
 	hoverEnter(): void {
 		if (this.active === null || this.pinned) return;
 		this.clearCollapseTimer();
-		this.maximized = true;
+		this.clearExpandTimer();
+		// Already enlarged: re-entering only cancels the pending collapse.
+		if (this.maximized) return;
+		if (this.hoverExpandDelayMs <= 0) {
+			this.maximized = true;
+			return;
+		}
+		this.expandTimer = setTimeout(() => {
+			this.expandTimer = null;
+			if (this.active === null || this.pinned) return;
+			this.maximized = true;
+		}, this.hoverExpandDelayMs);
 	}
 
-	/** Hover out: collapse unless pinned, after the configured dwell so a
-	 *  momentary exit doesn't snap the player shut. Delay 0 collapses now.
-	 *  Not cleared by `minimize()`: the pointer had already left, so letting
-	 *  the timer fire keeps a restore from coming back up maximized with
-	 *  nothing under it that could ever collapse it again. */
 	hoverLeave(): void {
 		if (this.active === null || this.pinned) return;
+		// A graze must not expand after the pointer already left.
+		this.clearExpandTimer();
 		this.clearCollapseTimer();
+		if (!this.maximized) return;
 		if (this.hoverCollapseDelayMs <= 0) {
 			this.maximized = false;
 			return;
 		}
+		// Not cleared by minimize(): the pointer had left, so letting this fire
+		// keeps a later restore from coming back enlarged with no pointer over
+		// it that could ever collapse it again.
 		this.collapseTimer = setTimeout(() => {
 			this.collapseTimer = null;
 			if (this.active === null || this.pinned) return;
@@ -120,6 +147,7 @@ class PlayerState {
 	 *  immediately so the click always shows a visible change. */
 	togglePin(): void {
 		if (this.active === null) return;
+		this.clearHoverTimers();
 		if (this.pinned) {
 			this.exitMaximized();
 			return;
@@ -131,7 +159,7 @@ class PlayerState {
 	/** Leave enlarged mode entirely (Escape and unpin both land here). */
 	exitMaximized(): void {
 		if (this.active === null) return;
-		this.clearCollapseTimer();
+		this.clearHoverTimers();
 		this.pinned = false;
 		this.maximized = false;
 	}
