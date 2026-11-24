@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Icon from '@/components/Icon.svelte';
+	import DeleteButton from '@/components/DeleteButton.svelte';
 	import LinkIcon from '@/components/LinkIcon.svelte';
 	import ProfileFavoriteButton from '@/components/ProfileFavoriteButton.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
@@ -256,12 +257,10 @@
 								content: `Fetch missing videos – scroll ${scrapStore.scrollLimit}, capture max ${scrapStore.maxVideos}`
 							}}
 						/>
-						<Icon
-							name="Trash"
-							onClick={handleDeleteProfile}
+						<DeleteButton
+							label="delete profile"
 							disabled={isDeleting}
-							ariaLabel="Delete profile"
-							tooltipProps={{ content: 'delete profile' }}
+							onConfirm={handleDeleteProfile}
 						/>
 					</Toolbar>
 				</div>

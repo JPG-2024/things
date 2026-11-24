@@ -1,13 +1,23 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Icon from '@/components/Icon.svelte';
+	import DeleteButton from '@/components/DeleteButton.svelte';
 	import ProfileTopbar from '@/components/ProfileTopbar.svelte';
 	import Modal from '@/components/Modal.svelte';
 	import ArticleList from '@/components/ArticleList.svelte';
 	import { articleCacheStore } from '@/stores/articleCacheStore.svelte';
 	import { viewState } from '@/stores/viewStore.svelte';
-	import { getCategoryExemplars, type WebStoreCategoryExemplarRecord } from '@/stores/webStore';
-	import { removeCategoryExemplar } from '@/lib/utils/categoryEmbeddings';
+	import { errorStore } from '@/stores/errorStore.svelte';
+	import {
+		deleteCategory,
+		getCategories,
+		getCategoryExemplars,
+		type WebStoreCategoryExemplarRecord
+	} from '@/stores/webStore';
+	import {
+		removeCategoryExemplar,
+		removeCategoryExemplarEmbeddings
+	} from '@/lib/utils/categoryEmbeddings';
 	import { navigateBack, createBackHotkey } from '@/stores/navigationHistory.svelte';
 
 	let categoryId = $derived(page.params.categoryId);
@@ -21,6 +31,30 @@
 	let deletingId = $state<string | null>(null);
 	let exemplarError = $state<string | null>(null);
 	let showExemplars = $state(false);
+	let deletingCategory = $state(false);
+	let deleteError = $state<string | null>(null);
+
+	async function handleDeleteCategory() {
+		if (deletingCategory) return;
+		deletingCategory = true;
+		deleteError = null;
+		try {
+			await removeCategoryExemplarEmbeddings(categoryId);
+			const deleted = await deleteCategory(categoryId);
+			if (!deleted) throw new Error('Category was not deleted');
+			viewState.categories = await getCategories();
+			await navigateBack();
+		} catch (error) {
+			errorStore.report(error, {
+				feature: 'db',
+				userMessage: 'Failed to delete the category',
+				context: { categoryId }
+			});
+			deleteError = error instanceof Error ? error.message : 'Failed to delete category';
+		} finally {
+			deletingCategory = false;
+		}
+	}
 
 	async function loadExemplars() {
 		loadingExemplars = true;
@@ -85,6 +119,11 @@
 		onBack={handleBack}
 	>
 		{#snippet actions()}
+			<DeleteButton
+				label="delete category"
+				disabled={deletingCategory}
+				onConfirm={handleDeleteCategory}
+			/>
 			<Icon
 				name="FileDigit"
 				onClick={() => (showExemplars = true)}
@@ -93,6 +132,10 @@
 			/>
 		{/snippet}
 	</ProfileTopbar>
+
+	{#if deleteError}
+		<p class="delete-error">{deleteError}</p>
+	{/if}
 
 	{#if categoryDescription}
 		<p class="category-description">{categoryDescription}</p>
@@ -164,6 +207,12 @@
 		padding-right: 2rem;
 		padding-bottom: 7rem;
 		width: 100%;
+	}
+
+	.delete-error {
+		font-size: 0.82rem;
+		color: rgb(255, 140, 109);
+		margin: 1rem 0 0;
 	}
 
 	.category-description {

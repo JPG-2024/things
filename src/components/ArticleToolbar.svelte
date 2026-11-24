@@ -2,6 +2,7 @@
 	import { viewState, drawersState } from '@/stores/viewStore.svelte';
 	import { articleState } from '@/stores/articleStore.svelte';
 	import Icon from './Icon.svelte';
+	import DeleteButton from './DeleteButton.svelte';
 	import LinkIcon from './LinkIcon.svelte';
 	import Toolbar from './Toolbar.svelte';
 	import ToolbarDivider from './ToolbarDivider.svelte';
@@ -132,14 +133,7 @@
 		{/if}
 
 		{#if article.url}
-			<button
-				class="delete-btn"
-				onclick={handleDelete}
-				disabled={isDeleting}
-				title="Delete article"
-			>
-				<Icon name="Trash" tooltipProps={{ content: 'delete article' }} />
-			</button>
+			<DeleteButton label="delete article" disabled={isDeleting} onConfirm={handleDelete} />
 		{/if}
 
 		<ToolbarDivider />
@@ -182,17 +176,5 @@
 	/* The underline hover of LinkIcon does not belong to the pill language. */
 	.article-toolbar :global(.link:hover) {
 		text-decoration: none;
-	}
-
-	.delete-btn {
-		all: unset;
-		cursor: pointer;
-		color: white;
-		line-height: 1;
-	}
-
-	.delete-btn[disabled] {
-		opacity: 0.6;
-		cursor: not-allowed;
 	}
 </style>
