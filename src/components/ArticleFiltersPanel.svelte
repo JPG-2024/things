@@ -101,7 +101,8 @@
 					profiles.map((profile) => ({
 						id: profile.id,
 						name: profile.name,
-						profilePictureSrc: profile.profilePictureSrc ?? null
+						profilePictureSrc: profile.profilePictureSrc ?? null,
+						summary: profile.summary
 					})),
 					'profiles',
 					query,
@@ -114,7 +115,8 @@
 					domains.map((domain) => ({
 						id: domain.id,
 						name: domain.name,
-						profilePictureSrc: domain.profilePictureSrc ?? null
+						profilePictureSrc: domain.profilePictureSrc ?? null,
+						summary: domain.summary
 					})),
 					'domains',
 					query,

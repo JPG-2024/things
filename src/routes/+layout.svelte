@@ -868,6 +868,20 @@
 		font-size: 0.9rem;
 	}
 
+	/* Profile summaries: name on a bold line, body at normal weight in a narrower box. */
+	:global(.tooltip.tooltip-summary) {
+		max-width: 360px;
+		font-size: 0.78rem;
+		font-weight: normal;
+		line-height: 1.35;
+	}
+
+	:global(.tooltip-heading) {
+		display: block;
+		margin-bottom: 0.25rem;
+		font-weight: bold;
+	}
+
 	:global(.tooltip-bottom) {
 		transform: translate(-50%, 0);
 		margin-top: 8px;

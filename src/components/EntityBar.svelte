@@ -1,12 +1,13 @@
 <script lang="ts">
 	import EmojiString from '@/components/EmojiString.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
-	import { tooltip } from '@/lib/actions/tooltip';
+	import { tooltip, type TooltipOptions } from '@/lib/actions/tooltip';
 
 	export interface EntityBarItem {
 		id: string;
 		name: string;
 		profilePictureSrc?: string | null;
+		summary?: string | null;
 	}
 
 	interface Props {
@@ -32,6 +33,12 @@
 	function isActive(item: EntityBarItem): boolean {
 		return activeIds.includes(item.id);
 	}
+
+	function entityTooltip(item: EntityBarItem): TooltipOptions {
+		return item.summary
+			? { title: item.name, content: item.summary, variant: 'summary', ignoreMenuCtx: true }
+			: { content: item.name, ignoreMenuCtx: true };
+	}
 </script>
 
 <div class="entity-bar">
@@ -48,7 +55,7 @@
 			onmouseenter={() => onHoverEnter?.(item)}
 			onmouseleave={() => onHoverLeave?.()}
 			aria-label={item.name}
-			use:tooltip={{ content: item.name, ignoreMenuCtx: true }}
+			use:tooltip={entityTooltip(item)}
 		>
 			<!-- ignoreMenuCtx: the only EntityBar consumer lives inside the filters
 				popup, where a menu is always open; without this flag the suppression

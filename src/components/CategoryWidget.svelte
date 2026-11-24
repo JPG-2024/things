@@ -2,6 +2,7 @@
 	import Card from '@/components/Card.svelte';
 	import Icon from '@/components/Icon.svelte';
 	import ProfileThumb from '@/components/ProfileThumb.svelte';
+	import type { TooltipOptions } from '@/lib/actions/tooltip';
 	import { viewState, articleFilters } from '@/stores/viewStore.svelte';
 	import { urlRouter } from '@/lib/urlRouter/urlRouter';
 	import { navigate, toVTName } from '@/lib/utils/url';
@@ -30,6 +31,12 @@
 	let profile = $state<ArticleProfile | null>(null);
 	let isLoading = $state(false);
 	let isDeleting = $state(false);
+
+	const thumbTooltip = $derived<TooltipOptions>(
+		profile?.summary
+			? { title: name, content: profile.summary, variant: 'summary' }
+			: { content: name }
+	);
 
 	async function loadData() {
 		isLoading = true;
@@ -121,7 +128,7 @@
 						<ProfileThumb
 							src={profile.profilePictureSrc}
 							alt={name}
-							tooltip={name}
+							tooltipProps={thumbTooltip}
 							ariaLabel={`View all articles from ${name}`}
 							size={50}
 							onClick={handleNavigateToProfile}

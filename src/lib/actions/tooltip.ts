@@ -5,20 +5,23 @@ import {
 } from '@/lib/position';
 
 export interface TooltipOptions {
-	/** Text rendered in the tooltip. Empty/undefined disables it. */
+	/** Text rendered in the tooltip. Empty/undefined (with no `title`) disables it. */
 	content?: string | null;
+	/** Optional bold line rendered above `content` (e.g. a profile name). */
+	title?: string | null;
 	position?: PopupPositionInput;
 	/** Show even while an ancestor PopupMenu is open (popup content wanting its own tooltips). */
 	ignoreMenuCtx?: boolean;
 	/** Visual variant applied to the shared tooltip element (e.g. larger article titles). */
-	variant?: 'title';
+	variant?: 'title' | 'summary';
 }
 
 interface ResolvedOptions {
 	content: string;
+	title: string;
 	position: PopupPositionInput;
 	ignoreMenuCtx: boolean;
-	variant?: 'title';
+	variant?: 'title' | 'summary';
 }
 
 const GAP = 8;
@@ -39,10 +42,15 @@ let trackingMove = false;
 function resolve(options: TooltipOptions): ResolvedOptions {
 	return {
 		content: options.content ?? '',
+		title: options.title ?? '',
 		position: options.position ?? 'bottom',
 		ignoreMenuCtx: options.ignoreMenuCtx ?? false,
 		variant: options.variant
 	};
+}
+
+function hasContent(options: ResolvedOptions): boolean {
+	return Boolean(options.content || options.title);
 }
 
 function ensureElement(): HTMLElement {
@@ -63,6 +71,7 @@ function setSide(side: PopupPosition): void {
 
 function setVariant(variant: ResolvedOptions['variant']): void {
 	tooltipEl?.classList.toggle('tooltip-title', variant === 'title');
+	tooltipEl?.classList.toggle('tooltip-summary', variant === 'summary');
 }
 
 function position(): void {
@@ -101,7 +110,14 @@ function show(host: HTMLElement, options: ResolvedOptions): void {
 	const el = ensureElement();
 	anchorEl = host;
 	active = options;
-	el.textContent = options.content;
+	el.replaceChildren();
+	if (options.title) {
+		const heading = document.createElement('strong');
+		heading.className = 'tooltip-heading';
+		heading.textContent = options.title;
+		el.appendChild(heading);
+	}
+	if (options.content) el.appendChild(document.createTextNode(options.content));
 	// Apply the variant before measuring: a larger font changes the box size
 	// that `position()` reads. `show()` is the single source of truth, so a
 	// stale variant from the previous host can never leak into this one.
@@ -134,7 +150,7 @@ export function tooltip(node: HTMLElement, options: TooltipOptions = {}) {
 	let listening = false;
 
 	function handleEnter(): void {
-		if (!resolved.content) return;
+		if (!hasContent(resolved)) return;
 		if (!resolved.ignoreMenuCtx && node.closest(POPUP_OPEN_SELECTOR)) return;
 		hovered = true;
 		show(node, resolved);
@@ -162,12 +178,12 @@ export function tooltip(node: HTMLElement, options: TooltipOptions = {}) {
 		node.removeEventListener('mouseleave', handleLeave);
 	}
 
-	if (resolved.content) attach();
+	if (hasContent(resolved)) attach();
 
 	return {
 		update(next: TooltipOptions = {}) {
 			resolved = resolve(next);
-			if (!resolved.content) {
+			if (!hasContent(resolved)) {
 				if (hovered) {
 					hovered = false;
 					hide(node);
