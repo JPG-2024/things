@@ -958,7 +958,11 @@ export async function setProfileSummary(
 	summary: string | null
 ): Promise<boolean> {
 	try {
-		return await invoke<boolean>('update_profile_summary', { id: profileId, summary });
+		const updated = await invoke<boolean>('update_profile_summary', { id: profileId, summary });
+		// Card caches hold the pre-generation row; without this the summary only
+		// appears after some unrelated profile change invalidates them.
+		if (updated) invalidateProfilesCache();
+		return updated;
 	} catch (error) {
 		// The text stays visible in the profile row: only the persistence
 		// failed, so the error center (not a local error state) is its surface.
