@@ -123,7 +123,7 @@
 
 	async function handleRawSearch(pattern: string, force = false) {
 		const trimmed = pattern.trim();
-		if (trimmed.length < 4) return;
+		if (trimmed.length < 3) return;
 		// Single-flight: the committed filter change re-runs this via the
 		// debounced effect ~1 s after the direct call. Skip the re-run when the
 		// same pattern already has results on screen; the button passes
