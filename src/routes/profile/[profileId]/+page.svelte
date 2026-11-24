@@ -226,7 +226,7 @@
 						<div class="summary-error">{summaryError}</div>
 						<button type="button" class="summary-action" onclick={regenerateSummary}>Retry</button>
 					{:else}
-						<MarkdownRenderer content={summaryText} fontSize={0.8} />
+						<MarkdownRenderer content={summaryText} fontSize={0.8} translatable />
 					{/if}
 				</div>
 			{/if}

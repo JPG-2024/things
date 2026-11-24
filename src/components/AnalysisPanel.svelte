@@ -268,7 +268,7 @@
 
 	{#if finalBlock}
 		<div class="final-section">
-			<MarkdownRenderer content={finalBlock} />
+			<MarkdownRenderer content={finalBlock} translatable={!isStreamingFinal} />
 			{#if isStreamingFinal}
 				<span class="typing-cursor" aria-hidden="true">▍</span>
 			{/if}
@@ -280,7 +280,7 @@
 	<Modal show={rawModalIndex !== null} onClose={() => (rawModalIndex = null)}>
 		{#if rawModalIndex !== null}
 			<div class="raw-text-modal-container">
-				<MarkdownRenderer content={rawModalText} />
+				<MarkdownRenderer content={rawModalText} translatable />
 			</div>
 		{/if}
 	</Modal>

@@ -38,7 +38,7 @@
 				{#if showRaw}
 					<pre class="full-content-raw">{content}</pre>
 				{:else}
-					<MarkdownRenderer {content} />
+					<MarkdownRenderer {content} translatable />
 				{/if}
 			</div>
 		{:else if loading}

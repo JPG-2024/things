@@ -104,6 +104,7 @@ export interface LlamaChatCompletionsRequest {
 	messages: LlamaChatMessage[]; // Conversation history sent to the model.
 
 	context?: string; // Local-only: prepended to the last user message and stripped before sending upstream.
+	skipLanguageSuffix?: boolean; // Local-only: omits the "Respond in <app language>" suffix; stripped before sending upstream.
 
 	tools?: LlamaTool[]; // Tool definitions the model may call.
 	tool_choice?: LlamaToolChoice; // Strategy for whether the model should call tools.

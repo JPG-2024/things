@@ -177,15 +177,18 @@ export async function chatCompletions(
 				msg.content = `context: ${context} ${msg.content}`;
 			}
 
+			// Translation requests target a language of their own: the app-language
+			// suffix would contradict the instruction, so they opt out.
 			const langName = LANGUAGE_MAP[viewState.language];
-			if (langName) {
+			if (langName && request.skipLanguageSuffix !== true) {
 				msg.content += `\n\nRespond in ${langName}.`;
 			}
 		}
 	}
 
-	// `context` is a local-only field; never send it upstream.
+	// `context` and `skipLanguageSuffix` are local-only fields; never send them upstream.
 	delete request.context;
+	delete request.skipLanguageSuffix;
 
 	if (viewState.aiProvider === 'opencode') {
 		return opencodeChatCompletions(applyOpenAICompatibleThinking(request), options);
