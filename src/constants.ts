@@ -105,10 +105,10 @@ export interface TabPageConfig {
  * (card article counts come from the per-tab CardLayout).
  */
 export const TAB_PAGE_CONFIG = {
-	profiles: { pageSize: 10 },
-	domains: { pageSize: 10 },
-	categories: { pageSize: 10 },
-	articles: { pageSize: 120 }
+	profiles: { pageSize: 100 },
+	domains: { pageSize: 30 },
+	categories: { pageSize: 30 },
+	articles: { pageSize: 1000 }
 } satisfies Record<string, TabPageConfig>;
 
 /** Default card layout per entity tab, seeded into viewState on first run. */
