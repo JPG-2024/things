@@ -3923,11 +3923,15 @@ pub async fn list_articles_without_profile(
 }
 
 /// Applies the channel-page order captured by the scraper to a profile's
-/// articles: `urls` must be in scrape order (newest first). Rows no longer
-/// present in the scrape window lose their rank so they fall back to
-/// `created_at` instead of keeping a stale position.
-/// A missing profile id or an empty scrape is a no-op: clearing ranks with
-/// nothing to replace them would silently destroy the stored ordering.
+/// articles: `urls` must be in scrape order (newest first). The window's rows
+/// get their page position (0..n-1); rows outside the window keep the relative
+/// page order an earlier, deeper scrape taught, shifted behind the window —
+/// clearing them would demote learned positions into capture order and break
+/// the profile listing past the window's depth. Rows that never held a rank
+/// (captured outside the scraper) append by capture recency.
+/// A missing profile id or an empty scrape is a no-op: re-ranking with
+/// nothing to replace the old ranks with would silently destroy the stored
+/// ordering.
 fn apply_profile_article_order(
     conn: &mut Connection,
     profile_id: &str,
@@ -3945,18 +3949,6 @@ fn apply_profile_article_order(
         )
     })?;
 
-    tx.execute(
-        "UPDATE web_articles SET profile_rank = NULL
-         WHERE LOWER(profile) = ?1 OR LOWER(domain) = ?1",
-        [&normalized],
-    )
-    .map_err(|error| {
-        format!(
-            "Failed to clear profile ranks for id='{}': {}",
-            normalized, error
-        )
-    })?;
-
     for (rank, url) in urls.iter().enumerate() {
         tx.execute(
             "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
@@ -3970,23 +3962,20 @@ fn apply_profile_article_order(
         })?;
     }
 
-    // The scrape list covers only what the channel page returned: any other
-    // article of the profile (captured beyond the first page, or through a
-    // different entry point) would stay in the `profile_rank IS NULL` tail
-    // and sort below every ranked row regardless of recency. Holding the
-    // ranks that follow the scraped ones keeps their listing order, which is
-    // the same `created_at DESC` the tail ordered them by.
-    let unranked_urls: Vec<String> = {
+    // Everything of the profile the window did not just rank, in the order it
+    // should keep: old page rank first (learned by a deeper scrape), capture
+    // recency only for rows that never held a rank.
+    let in_window: HashSet<&str> = urls.iter().map(|url| url.as_str()).collect();
+    let out_of_window_urls: Vec<String> = {
         let mut stmt = tx
             .prepare(
                 "SELECT url FROM web_articles
-                 WHERE profile_rank IS NULL
-                   AND (LOWER(profile) = ?1 OR LOWER(domain) = ?1)
-                 ORDER BY created_at DESC, date DESC NULLS LAST",
+                 WHERE (LOWER(profile) = ?1 OR LOWER(domain) = ?1)
+                 ORDER BY profile_rank IS NULL, profile_rank ASC, created_at DESC, date DESC NULLS LAST",
             )
             .map_err(|error| {
                 format!(
-                    "Failed to list unranked articles for id='{}': {}",
+                    "Failed to list profile articles for id='{}': {}",
                     normalized, error
                 )
             })?;
@@ -3994,22 +3983,25 @@ fn apply_profile_article_order(
             .query_map([&normalized], |row| row.get(0))
             .map_err(|error| {
                 format!(
-                    "Failed to query unranked articles for id='{}': {}",
+                    "Failed to query profile articles for id='{}': {}",
                     normalized, error
                 )
             })?
             .collect::<Result<Vec<String>, _>>()
             .map_err(|error| {
                 format!(
-                    "Failed to read unranked articles for id='{}': {}",
+                    "Failed to read profile articles for id='{}': {}",
                     normalized, error
                 )
             })?;
         drop(stmt);
         collected
+            .into_iter()
+            .filter(|url| !in_window.contains(url.as_str()))
+            .collect()
     };
 
-    for (offset, url) in unranked_urls.iter().enumerate() {
+    for (offset, url) in out_of_window_urls.iter().enumerate() {
         let rank = (urls.len() + offset) as i64;
         tx.execute(
             "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
@@ -4696,14 +4688,14 @@ mod tests {
     }
 
     #[test]
-    fn apply_profile_article_order_ranks_scrape_order_and_clears_stale_ranks() {
+    fn apply_profile_article_order_ranks_scrape_order_and_shifts_out_of_window_rows() {
         let mut conn = build_in_memory_db();
         let profile = "channel-a";
 
         insert_article(&conn, "a-first", profile, 1_000_000_000_000, None);
         insert_article(&conn, "b-second", profile, 2_000_000_000_000, None);
-        // Out of the scrape window now: rank is cleared, then re-append by
-        // created_at after the scraped ones.
+        // Out of the scrape window now: shifted behind the scraped rows,
+        // keeping its learned page position.
         insert_article(&conn, "c-stale", profile, 3_000_000_000_000, None);
         conn.execute(
             "UPDATE web_articles SET profile_rank = 7 WHERE url = 'c-stale'",
@@ -4732,15 +4724,14 @@ mod tests {
         assert_eq!(
             rank_of("c-stale"),
             Some(2),
-            "stale rank is cleared and re-appended after the scraped ones"
+            "out-of-window rank is shifted behind the scraped ones"
         );
     }
 
     #[test]
-    fn apply_profile_article_order_appends_unlisted_articles_by_created_at_desc() {
-        // Articles outside the scraped list keep their listing order
-        // (created_at DESC) behind the scraped ones: the first scrape page
-        // never turns older captures into NULL-ranked stragglers.
+    fn apply_profile_article_order_appends_never_ranked_articles_by_created_at_desc() {
+        // Articles outside the scraped list that never held a rank keep the
+        // only order available (created_at DESC) behind the scraped ones.
         let mut conn = build_in_memory_db();
         let profile = "channel-a";
 
@@ -4770,6 +4761,53 @@ mod tests {
         assert_eq!(rank_of("old-third"), Some(2));
         assert_eq!(rank_of("old-second"), Some(3));
         assert_eq!(rank_of("old-first"), Some(4));
+    }
+
+    #[test]
+    fn apply_profile_article_order_keeps_out_of_window_page_order() {
+        // A partial rescrape (the first page only) must not demote rows
+        // outside its window into capture order: a deeper scrape taught them
+        // their page positions, and those must keep their relative order.
+        let mut conn = build_in_memory_db();
+        let profile = "channel-a";
+
+        // Capture order runs the opposite way to the page order below.
+        insert_article(&conn, "a", profile, 9_100_000_000_000, None);
+        insert_article(&conn, "b", profile, 9_200_000_000_000, None);
+        insert_article(&conn, "c", profile, 9_300_000_000_000, None);
+        insert_article(&conn, "d", profile, 9_400_000_000_000, None);
+        insert_article(&conn, "e", profile, 9_500_000_000_000, None);
+        insert_article(&conn, "f-new", profile, 9_900_000_000_000, None);
+        for (rank, url) in ["e", "d", "c", "b", "a"].iter().enumerate() {
+            conn.execute(
+                "UPDATE web_articles SET profile_rank = ?1 WHERE url = ?2",
+                params![rank as i64, url],
+            )
+            .expect("seed rank");
+        }
+
+        // The fresh scrape covers only one new upload plus the top two.
+        apply_profile_article_order(
+            &mut conn,
+            profile,
+            &["f-new".to_string(), "e".to_string(), "d".to_string()],
+        )
+        .expect("apply");
+
+        let rank_of = |url: &str| -> Option<i64> {
+            conn.query_row(
+                "SELECT profile_rank FROM web_articles WHERE url = ?1",
+                [url],
+                |row| row.get(0),
+            )
+            .expect("read rank")
+        };
+        assert_eq!(rank_of("f-new"), Some(0));
+        assert_eq!(rank_of("e"), Some(1));
+        assert_eq!(rank_of("d"), Some(2));
+        assert_eq!(rank_of("c"), Some(3));
+        assert_eq!(rank_of("b"), Some(4));
+        assert_eq!(rank_of("a"), Some(5));
     }
 
     #[test]
