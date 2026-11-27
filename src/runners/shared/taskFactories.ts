@@ -129,13 +129,13 @@ export interface ArticleCategoryResolution {
 }
 
 /**
- * Resolves the categories of an article: the categories linked to its profile
- * (channel or domain) first, then the embedding classifier, deduplicated with
- * the profile ids first.
+ * Resolves the categories of an article: the categories selected in the
+ * filters panel first, then the categories linked to its profile (channel or
+ * domain), then the embedding classifier, deduplicated in that order.
  *
  * The profile ids are always applied. A classifier failure is **not fatal** —
- * the profile ids are already persisted by then, so the article is tagged with
- * them and the error is reported (never rethrown): the same treatment the
+ * the ids before it are already persisted by then, so the article is tagged
+ * with them and the error is reported (never rethrown): the same treatment the
  * embeddings step gets. Only a failure to persist anything throws, because
  * that leaves the article untagged for real.
  */
@@ -145,6 +145,8 @@ export async function resolveArticleCategories(params: {
 	summary: string;
 	windows: ArticleWindow[];
 	profileId?: string | null;
+	/** Ids picked in the filters panel, applied before the profile fallback. */
+	forcedCategoryIds?: string[];
 }): Promise<ArticleCategoryResolution> {
 	const profileIds = await readProfileCategories(params.profileId);
 
@@ -156,7 +158,11 @@ export async function resolveArticleCategories(params: {
 		classificationError = error;
 	}
 
-	const categoryIds = dedupeIds([...profileIds, ...classifiedIds]);
+	const categoryIds = dedupeIds([
+		...(params.forcedCategoryIds ?? []),
+		...profileIds,
+		...classifiedIds
+	]);
 	if (categoryIds.length > 0) {
 		try {
 			await assignCategoriesToArticle({ articleUrl: params.url, categoryIds });

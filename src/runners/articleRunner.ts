@@ -10,8 +10,9 @@
  * re-downloaded, an existing analysis is not re-computed.
  */
 import { articleState } from '@/stores/articleStore.svelte';
-import { viewState } from '@/stores/viewStore.svelte';
+import { articleFilters, viewState } from '@/stores/viewStore.svelte';
 import {
+	assignCategoriesToArticle,
 	getArticleAnalysis,
 	getArticleByUrl,
 	getArticleCategories,
@@ -366,8 +367,7 @@ export async function runArticle(
 		// rerun still has text to work with.
 		// An explicit `force` (the card's refresh icon) wins over the exclusion:
 		// it is a per-article user action asking for the analysis to be redone.
-		const skipAutoAnalysis =
-			mode === 'full' && !force && (await isAutoAnalysisExcluded(profile));
+		const skipAutoAnalysis = mode === 'full' && !force && (await isAutoAnalysisExcluded(profile));
 		const effectiveMode: ArticleMode = skipAutoAnalysis ? 'metadata' : mode;
 
 		await saveArticle(url, {
@@ -519,7 +519,10 @@ export async function runArticle(
 					title,
 					summary,
 					windows,
-					profileId: categoryProfile
+					profileId: categoryProfile,
+					// The category picked in the filters panel rides along with
+					// the profile and classifier results.
+					forcedCategoryIds: articleFilters.ids('categories')
 				});
 			} catch (error) {
 				// The profile ids may already be persisted even when the
@@ -583,6 +586,9 @@ export async function runArticle(
 			if (applied && articleState.isCurrent(url)) {
 				articleState.setCategories(categoryIds);
 			}
+			// The profile fallback covers the channel/domain ids; the category
+			// picked in the filters panel is applied on top of it.
+			await assignForcedFilterCategory(url);
 		}
 		throw error;
 	} finally {
@@ -612,6 +618,35 @@ export async function runArticle(
 				});
 			}
 		}
+	}
+}
+
+/**
+ * Tags the article with the category selected in the filters panel (if any)
+ * when it ended the run with none.
+ *
+ * Failure path only: the success path carries the same ids through
+ * `resolveArticleCategories`. Best effort — a failure is reported at warn
+ * level so it never masks the run error that is about to be rethrown.
+ */
+async function assignForcedFilterCategory(url: string): Promise<void> {
+	const forcedIds = articleFilters.ids('categories');
+	if (forcedIds.length === 0) return;
+
+	try {
+		const current = await getArticleCategories(url);
+		if (current.length > 0) return;
+		await assignCategoriesToArticle({ articleUrl: url, categoryIds: forcedIds });
+		if (articleState.isCurrent(url)) {
+			articleState.setCategories(forcedIds);
+		}
+	} catch (error) {
+		errorStore.report(error, {
+			feature: 'db',
+			userMessage: 'Failed to assign the selected filter category — the article stays untagged',
+			context: { url },
+			level: 'warn'
+		});
 	}
 }
 

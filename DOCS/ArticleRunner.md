@@ -127,20 +127,26 @@ One LLM call seeded with the summary. The result is stored in
 
 The step resolves the categories of the article in this order:
 
-1. The categories linked to its profile (channel or domain), awaited first.
-2. The embedding classifier (`title + summary` vs the category exemplars).
+1. The category currently selected in the filters panel (`articleFilters`), if
+   any.
+2. The categories linked to its profile (channel or domain), awaited first.
+3. The embedding classifier (`title + summary` vs the category exemplars).
 
-Both lists are merged, deduplicated with the profile ids first, and persisted in
+All three lists are merged, deduplicated in the order above, and persisted in
 one `assign_categories_to_article` call. The profile ids are always applied; if
 the classifier fails afterwards they are already stored and the run rethrows the
-error.
+error. The filter selection is a tagging target while it is active: deselecting
+it never untags articles already assigned, and it applies to background runs
+too (there is no per-view run signal).
 
 The profile categories are a copy made at classification time: changing the
 categories of the profile later does not update the articles already classified.
 
 A run that fails before this step (for example a video without captions) still
 gets the profile categories: the runner applies them before rethrowing, and the
-open path applies them again for rows that already carry an error marker.
+open path applies them again for rows that already carry an error marker. The
+selected filter category is applied on the failure path as well, on top of the
+profile fallback (never on the open path).
 
 The step only runs when the article **has no** categories. The refresh icon in
 the `CategoryEditor` forces a recalculation with the same order.
