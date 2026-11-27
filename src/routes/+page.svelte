@@ -620,6 +620,11 @@
 		flex: 1 1 0%;
 		min-height: 0;
 		overflow: hidden;
+		background-image: linear-gradient(
+			130deg,
+			rgba(0, 0, 0) 50%,
+			color-mix(in srgb, var(--bg-color) 25%, black)
+		);
 	}
 
 	/* Filters strip inside the header: the row animates 0fr ↔ 1fr so the

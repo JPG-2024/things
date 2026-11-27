@@ -103,11 +103,4 @@
 		gap: 15px;
 		width: 100%;
 	}
-
-	@media (prefers-color-scheme: dark) {
-		:root {
-			background-color: #2f2f2f;
-			color: #f6f6f6;
-		}
-	}
 </style>

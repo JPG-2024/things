@@ -727,12 +727,7 @@
 		inset: 0;
 		z-index: -1;
 		pointer-events: none;
-		background-image: linear-gradient(
-			130deg,
-			color-mix(in srgb, var(--primary-color) 14%, black),
-			rgba(0, 0, 0) 50%,
-			color-mix(in srgb, var(--bg-color) 25%, black)
-		);
+
 		background-size: 100% 150%;
 		content: '';
 	}
