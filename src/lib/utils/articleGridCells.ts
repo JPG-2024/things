@@ -8,8 +8,10 @@ export type ProfileStackCell = {
 	/** Stable across page loads so merges update the cell in place. */
 	key: string;
 	profileId: string;
-	/** Articles in display order: channel-page rank first, capture recency
-	 * fallback when the row holds no rank. Up to previewCount. */
+	/** Articles in display order: index 0 is the most recently captured
+	 * article (it anchors the pile, owns the unread dot and drives the
+	 * cell's position in the grid); the layers behind follow the channel-page
+	 * rank, capture recency when the row holds no rank. Up to previewCount. */
 	preview: ArticleRecord[];
 	/** True when any article in the profile group is a favorite, including
 	 * articles that fall outside the visible preview layers. Drives the
@@ -55,6 +57,8 @@ function articleDisplayOrder(a: ArticleRecord, b: ArticleRecord): number {
 	return (articleCreatedAt(b) ?? 0) - (articleCreatedAt(a) ?? 0);
 }
 
+// The stack cell's position key: the anchor's capture time (`preview[0]` is
+// built as the group's newest capture). Plain cells key on their own article.
 function cellRecency(cell: ArticleGridCell): number | null {
 	if (cell.kind === 'article') return articleCreatedAt(cell.article);
 	return cell.preview.length > 0 ? articleCreatedAt(cell.preview[0]) : null;
@@ -64,8 +68,8 @@ function cellRecency(cell: ArticleGridCell): number | null {
  * Groups a flat article list into masonry cells: profiles with 2+ articles
  * become one stack cell each, everything else (single-article profiles and
  * profile-less articles) stays a plain article cell. Cells are ordered by
- * recency — a stack ranks by its newest article — so fresh articles never
- * hide inside older stacks.
+ * recency — a stack ranks by its anchor, the group's newest capture — so
+ * fresh articles never hide inside older stacks.
  *
  * Pure derivation over whatever is currently loaded: pages loaded later merge
  * into the existing stack (stable `profile:<id>` key), and a group that drops
@@ -95,10 +99,8 @@ export function buildArticleGridCells(
 	}
 
 	for (const [profileId, groupArticles] of groups) {
-		// Capture time (`created_at`) rises with a fetch batch's enqueue order,
-		// so sorting it DESC anchors the pile on the batch's oldest video and
-		// reads reversed against the channel page. The channel rank is the
-		// profile's display order, exactly what the profile list renders.
+		// The layers behind the anchor follow the profile's display order:
+		// channel-page rank, capture recency when the row holds no rank.
 		const sorted = [...groupArticles].sort(articleDisplayOrder);
 		if (sorted.length < 2) {
 			// A lone article cannot stack: render it flat like ungrouped items.
@@ -106,11 +108,25 @@ export function buildArticleGridCells(
 			continue;
 		}
 
+		// The pile anchors on the freshest capture: its `created_at` is what
+		// `cellRecency` reads to place the cell in the grid, and the unread
+		// dot rides the front layer. The channel rank only orders the layers
+		// behind it — the profile's rank-0 video can be a capture from weeks
+		// ago while the profile just gained brand-new cards deeper in the
+		// channel page (or captured outside the scrape, rankless).
+		const anchorIndex = sorted.reduce(
+			(best, article, index) =>
+				(articleCreatedAt(article) ?? 0) > (articleCreatedAt(sorted[best]) ?? 0) ? index : best,
+			0
+		);
+		const anchor = sorted[anchorIndex];
+		const rest = sorted.filter((_, index) => index !== anchorIndex);
+
 		cells.push({
 			kind: 'stack',
 			key: `profile:${profileId}`,
 			profileId,
-			preview: sorted.slice(0, previewCount),
+			preview: [anchor, ...rest.slice(0, previewCount - 1)],
 			hasFavorite: sorted.some((article) => article.favorite === true)
 		});
 	}
